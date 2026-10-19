@@ -20,6 +20,11 @@ sealed interface ShellLanding {
         override val destination: ShellDestination = ShellDestination.Discover
     }
 
+    /** Library's Books, filtered to In progress for this session: Home's "In Library" link. */
+    data object LibraryInProgress : ShellLanding {
+        override val destination: ShellDestination = ShellDestination.Library
+    }
+
     /** Library's Books, sorted Added newest first for this session: Discover's "In Library" link. */
     data object LibraryNewestFirst : ShellLanding {
         override val destination: ShellDestination = ShellDestination.Library

@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.features.genredestination.GenreDestinationSc
 import com.calypsan.listenup.client.navigation.popFrom
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
+import com.calypsan.listenup.client.navigation.BookDetailFocus
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.HardcoverMatch
@@ -53,6 +54,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         HeroEntry {
             com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
                 bookId = args.bookId,
+                landOnReaders = args.focus == BookDetailFocus.Readers,
                 onBackClick = {
                     backStack.popFrom(args)
                 },

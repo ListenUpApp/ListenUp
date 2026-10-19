@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import io.kotest.assertions.withClue
@@ -48,9 +49,11 @@ class RankByContainerTest {
                 DiscoverLeaderboardSection(
                     state = LeaderboardUiState.Loading,
                     selection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
+                    community = CommunitySize.Others,
                     onSelectPeriod = {},
                     onSelectCategory = {},
                     onUserClick = {},
+                    onRetry = {},
                 )
             }
         }

@@ -87,7 +87,12 @@ struct MainTabView: View {
             libraryTabs
 
             SwiftUI.Tab(ShellTab.discover.title, systemImage: "sparkles", value: ShellTab.discover) {
-                tabStack(.discover) { DiscoverView(leaderboardLandingRequest: shell.leaderboardLandingRequest) }
+                tabStack(.discover) {
+                    DiscoverView(
+                        leaderboardLandingRequest: shell.leaderboardLandingRequest,
+                        onSelectTab: { shell.select($0) }
+                    )
+                }
             }
             .customizationID("listenup.discover")
 
@@ -183,6 +188,8 @@ struct MainTabView: View {
         }
         // Discover's "Recently Added" link: Books newest first, for this session only (plan Q6).
         .onChange(of: shell.libraryNewestRequest) { _, _ in libraryObserver?.showNewestFirst() }
+        // Home's "Also in Progress" link: Books filtered to In Progress.
+        .onChange(of: shell.libraryInProgressRequest) { _, _ in libraryObserver?.setStatusFilter(.inProgress) }
         .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
         .onChange(of: shell.paths) { _, _ in saveNavigation() }
         // Every window's shell observes the one router; the claim hands a link to the front window
@@ -301,6 +308,7 @@ struct MainTabView: View {
         .environment(\.navigateToContributor, { shell.open(ContributorDestination(id: $0)) })
         .environment(\.openLibraryNewestFirst, { shell.openLibraryNewestFirst() })
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
+        .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -388,135 +396,10 @@ extension EnvironmentValues {
     /// Open Discover at its leaderboard, on Week (spec §6.4). Provided by `MainTabView`; the stats
     /// card's leaderboard link (Home) uses it.
     @Entry var openDiscoverLeaderboard: () -> Void = {}
-}
 
-// MARK: - Navigation Destinations
-
-private extension View {
-    /// All value-typed navigation destinations for the app shell, split into a content group and an
-    /// admin group so neither builder trips the function-length lint.
-    func navigationDestinations() -> some View {
-        bookDestinations()
-            .contentDestinations()
-            .adminDestinations()
-    }
-
-    /// A book, and everyone reading it.
-    func bookDestinations() -> some View {
-        self
-            .navigationDestination(for: BookDestination.self) { destination in
-                BookDetailView(bookId: destination.id)
-                    .heroDestination(bookCoverHeroID(destination.id))
-            }
-            .navigationDestination(for: BookReadersDestination.self) { destination in
-                BookReadersListView(bookId: destination.bookId)
-            }
-    }
-
-    /// Library/content-facing destinations: series, contributors, facets, shelves, profiles, settings, and
-    /// storage.
-    func contentDestinations() -> some View {
-        self
-            .navigationDestination(for: SeriesDestination.self) { destination in
-                SeriesDetailView(seriesId: destination.id)
-                    .heroDestination(seriesHeroID(destination.id))
-            }
-            .navigationDestination(for: ContributorDestination.self) { destination in
-                ContributorDetailView(contributorId: destination.id)
-                    .heroDestination(contributorHeroID(destination.id))
-            }
-            .navigationDestination(for: ContributorBooksDestination.self) { destination in
-                ContributorBooksView(
-                    contributorId: destination.contributorId,
-                    role: destination.role,
-                    contributorName: destination.contributorName,
-                    roleDisplayName: destination.roleDisplayName
-                )
-            }
-            .navigationDestination(for: FacetDestination.self) { destination in
-                FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
-            }
-            .navigationDestination(for: GenreDestination.self) { destination in
-                GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
-            }
-            .navigationDestination(for: ShelfDestination.self) { destination in
-                ShelfDetailView(shelfId: destination.id)
-            }
-            .navigationDestination(for: UserProfileDestination.self) { _ in
-                UserProfileView()
-            }
-            .navigationDestination(for: ProfileDestination.self) { destination in
-                ProfileDestinationView(userId: destination.userId)
-            }
-            .navigationDestination(for: SettingsDestination.self) { _ in
-                SettingsView()
-            }
-            .navigationDestination(for: StorageDestination.self) { _ in
-                StorageView()
-            }
-            .navigationDestination(for: DevicesDestination.self) { _ in
-                DevicesView()
-            }
-            .navigationDestination(for: NotificationPrefsDestination.self) { _ in
-                NotificationPrefsView()
-            }
-            .navigationDestination(for: HardcoverDestination.self) { _ in
-                HardcoverSettingsView()
-            }
-            .navigationDestination(for: HardcoverKeptOffDestination.self) { _ in
-                HardcoverKeptOffView()
-            }
-            .navigationDestination(for: LicensesDestination.self) { _ in
-                LicensesView()
-            }
-            .navigationDestination(for: LicenseDetailDestination.self) { destination in
-                LicenseDetailView(packageName: destination.packageName)
-            }
-    }
-
-    /// Administration destinations (admin / root only surfaces).
-    func adminDestinations() -> some View {
-        self
-            .navigationDestination(for: AdminDestination.self) { destination in
-                AdminView(focus: destination.focus)
-            }
-            .navigationDestination(for: AdminInboxDestination.self) { _ in
-                AdminInboxView()
-            }
-            .navigationDestination(for: ABSImportDestination.self) { _ in
-                ABSImportHubView()
-            }
-            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
-                AdminCollectionsView()
-            }
-            .navigationDestination(for: AdminCategoriesDestination.self) { _ in
-                AdminCategoriesView()
-            }
-            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
-                AdminCollectionDetailView(collectionId: destination.collectionId)
-            }
-            .navigationDestination(for: UserDetailDestination.self) { destination in
-                UserDetailView(userId: destination.userId)
-            }
-            .navigationDestination(for: UserPermissionsDestination.self) { destination in
-                UserPermissionsView(userId: destination.userId)
-            }
-            .navigationDestination(for: LibrarySettingsDestination.self) { _ in
-                LibrarySettingsView()
-            }
-            .navigationDestination(for: OrganizeSettingsDestination.self) { _ in
-                OrganizeSettingsView()
-            }
-            .navigationDestination(for: UploadBooksDestination.self) { _ in
-                UploadBooksView()
-            }
-            .navigationDestination(for: AdminBackupsDestination.self) { _ in
-                AdminBackupsView()
-            }
-            .navigationDestination(for: RestoreBackupDestination.self) { destination in
-                RestoreBackupView(backupId: destination.backupId)
-            }
-    }
+    /// Open the Library's Books filtered to In Progress (spec §6.4). Provided by `MainTabView`; Home's Also in
+    /// Progress heading uses it.
+    @Entry var openLibraryInProgress: () -> Void = {}
 }
 
 // MARK: - Preview

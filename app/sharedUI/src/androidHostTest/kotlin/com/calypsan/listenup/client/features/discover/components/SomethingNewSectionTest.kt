@@ -48,6 +48,8 @@ class SomethingNewSectionTest {
                 SomethingNewSection(
                     state = DiscoverBooksUiState.Ready(books),
                     onShuffle = onShuffle,
+                    onRetry = {},
+                    onBrowseLibrary = null,
                     onBookClick = {},
                     isInSelectionMode = false,
                     selectedBookIds = emptySet(),

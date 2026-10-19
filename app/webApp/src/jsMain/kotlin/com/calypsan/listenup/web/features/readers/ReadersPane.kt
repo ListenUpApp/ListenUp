@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.readers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.readers.ReaderLine
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
@@ -17,6 +20,9 @@ import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.focusAsLanding
+import kotlinx.browser.document
+import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -39,10 +45,23 @@ fun ReadersPanel(
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
     onSeeAll: () -> Unit,
+    land: Boolean = false,
+    onLanded: () -> Unit = {},
 ) {
     val data = state as? BookReadersUiState.Data ?: return
     val lines = flattenToLines(data.readers.readers)
     if (lines.isEmpty()) return
+
+    // Home's finishers line (spec §6.4): once there are readers to show, bring the panel into view and its heading into
+    // focus, as Discover's leaderboard landing does. Nothing to land on while the readers load.
+    val currentOnLanded by rememberUpdatedState(onLanded)
+    LaunchedEffect(land) {
+        if (!land) return@LaunchedEffect
+        val panel = document.getElementById(READERS_PANEL_ID) as? HTMLElement ?: return@LaunchedEffect
+        panel.scrollIntoView()
+        (panel.querySelector("h2") as? HTMLElement)?.let(::focusAsLanding)
+        currentOnLanded()
+    }
 
     val shown = lines.take(COLLAPSED_READERS)
     Panel(title = READERS, elementId = READERS_PANEL_ID) {

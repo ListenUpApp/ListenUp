@@ -23,6 +23,7 @@ import org.jetbrains.compose.web.dom.Ol
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
@@ -53,7 +54,8 @@ import org.jetbrains.compose.web.dom.Text
  * query; the period genuinely re-queries, which is why it reads as the outer control.
  *
  * The controls render in every state, from [selection], as on Android and iOS: a period nobody
- * listened in is Empty, and the way out of it is another period.
+ * listened in is Empty, and the way out of it is another period. When you are alone the category
+ * goes and the board closes with "Just you so far" (spec §3.8).
  */
 @Composable
 internal fun LeaderboardSection(
@@ -63,6 +65,7 @@ internal fun LeaderboardSection(
     onSelectCategory: (LeaderboardCategory) -> Unit,
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
+    community: CommunitySize,
     land: Boolean = false,
     onLanded: () -> Unit = {},
 ) {
@@ -76,26 +79,36 @@ internal fun LeaderboardSection(
     }
     Section(DiscoverWords.LEADERBOARD, id = LEADERBOARD_SECTION_ID, styleClass = "disc-lb-card") {
         ChipRadioGroup(DiscoverWords.PERIOD_GROUP, PERIOD_OPTIONS, selection.period, onSelectPeriod)
-        ChipRadioGroup(
-            DiscoverWords.CATEGORY_GROUP,
-            CATEGORY_OPTIONS,
-            selection.category,
-            onSelectCategory,
-            styleClass = "seg-radio",
-        )
+        // Only you: all three categories would rank you first, so the choice goes (spec §3.8).
+        if (community != CommunitySize.JustYou) {
+            ChipRadioGroup(
+                DiscoverWords.CATEGORY_GROUP,
+                CATEGORY_OPTIONS,
+                selection.category,
+                onSelectCategory,
+                styleClass = "seg-radio",
+            )
+        }
 
         when (state) {
             is LeaderboardUiState.Loading -> {
-                SectionSkeleton()
+                RowsSkeleton()
             }
 
             is LeaderboardUiState.Empty -> {
-                EmptyState(title = "No listening recorded yet", body = "The board fills in as people listen.")
+                when (community) {
+                    // Never say "nobody" or "just you" before the roster has synced (plan C4).
+                    CommunitySize.Unknown -> RowsSkeleton()
+
+                    CommunitySize.JustYou -> QuietLine(DiscoverWords.LEADERBOARD_JUST_YOU)
+
+                    CommunitySize.Others -> QuietLine(DiscoverWords.LEADERBOARD_EMPTY_PERIOD)
+                }
             }
 
             is LeaderboardUiState.Error -> {
                 // Every section's failure offers the same way back: Try again, which always works.
-                SectionError("The leaderboard could not be loaded.", onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_LEADERBOARD, onRetry = onRefresh)
             }
 
             is LeaderboardUiState.Data -> {
@@ -104,6 +117,7 @@ internal fun LeaderboardSection(
                     EmptyState(title = "Nothing in this category yet", body = "Try another period.")
                 } else {
                     LeaderboardRows(entries, selection.category, onOpenProfile)
+                    if (community == CommunitySize.JustYou) QuietLine(DiscoverWords.LEADERBOARD_JUST_YOU)
                 }
             }
         }
@@ -212,19 +226,16 @@ internal fun ActivityFeedSection(
     Section(DiscoverWords.ACTIVITY) {
         when (state) {
             is ActivityFeedUiState.Loading -> {
-                SectionSkeleton()
+                RowsSkeleton()
             }
 
             is ActivityFeedUiState.Error -> {
-                SectionError(state.error.message, onRetry = onRefresh)
+                SectionError(DiscoverWords.ERROR_ACTIVITY, onRetry = onRefresh)
             }
 
             is ActivityFeedUiState.Ready -> {
                 if (state.isEmpty) {
-                    EmptyState(
-                        title = "Nothing has happened yet",
-                        body = "Activity from everyone on this server shows up here.",
-                    )
+                    QuietLine(DiscoverWords.NO_ACTIVITY)
                 } else {
                     ActivityRows(state.activities, nowMs, onOpenBook, onOpenShelf, onOpenProfile)
                 }

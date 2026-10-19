@@ -6,9 +6,17 @@ import Shared
 // matching stays clean. Every one is `Codable` too: a tab's `NavigationPath` is saved in
 // `@SceneStorage` only when all of its destinations can be encoded (`MainShellModel.sceneState`).
 
-/// Book detail screen.
+/// Book detail screen. `focus` lands it somewhere other than its top — Home's finishers line opens it on Readers
+/// (spec §6.4). Optional, so a path saved before it existed still decodes.
 struct BookDestination: Hashable, Codable {
     let id: String
+    var focus: BookDetailFocus?
+}
+
+/// A section Book Detail can open on.
+enum BookDetailFocus: String, Hashable, Codable {
+    /// The Readers section: who is reading the book and who finished it.
+    case readers
 }
 
 /// Everyone reading a book, uncapped: where Book Detail's "See All N Readers" leads.
@@ -74,6 +82,9 @@ struct GenreDestination: Hashable, Codable {
 struct ShelfDestination: Hashable, Codable {
     let id: String
 }
+
+/// The My Shelves list — every shelf the reader owns, reached from Home's See All (spec §3.2 H24).
+struct MyShelvesDestination: Hashable, Codable {}
 
 /// The full single-type "See all" search page, reached from a capped result group whose
 /// hit count exceeds its display cap. Carries the settled query and the one type to expand.

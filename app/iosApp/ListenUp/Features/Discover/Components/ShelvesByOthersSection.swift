@@ -5,11 +5,20 @@ import SwiftUI
 /// and count. A rail of shelves per owner at compact width; at regular width owners sit side by side,
 /// each with an adaptive grid of their shelves.
 ///
-/// Loading shows a spinner; error and empty show one secondary line (PR 6 owns their copy).
+/// The heading stays in every state (spec §3.8): a skeleton while loading, "need a connection" (offline)
+/// or "Couldn't load" with Try Again on failure, and one line when nobody has made a shelf public.
 struct ShelvesByOthersSection: View {
     let phase: DiscoverShelvesPhase
     let horizontalInset: CGFloat
     let isRegular: Bool
+    var onRetry: () -> Void = {}
+
+    /// Pure: blame the connection only when the failure is connectivity (plan Q3).
+    static func retryLine(needsConnection: Bool) -> String {
+        needsConnection
+            ? String(localized: "discover.shelves_need_connection")
+            : String(localized: "discover.error_shelves")
+    }
 
     /// A shelf card's width in the compact rail.
     private let railCardWidth: CGFloat = 150
@@ -27,12 +36,10 @@ struct ShelvesByOthersSection: View {
     private var content: some View {
         switch phase {
         case .loading:
-            ProgressView()
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.xl)
+            RailSkeleton(cardWidth: railCardWidth, horizontalInset: horizontalInset)
         case .ready(let owners):
             if owners.isEmpty {
-                message(String(localized: "discover.no_shelves_to_discover_yet"))
+                message(String(localized: "discover.shelves_only_you"))
             } else if isRegular {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 360), spacing: 22, alignment: .top)],
@@ -69,8 +76,9 @@ struct ShelvesByOthersSection: View {
                     }
                 }
             }
-        case .error:
-            message(String(localized: "discover.no_shelves_to_discover_yet"))
+        case .error(let needsConnection):
+            InlineRetryLine(line: Self.retryLine(needsConnection: needsConnection), action: onRetry)
+                .padding(.horizontal, horizontalInset)
         }
     }
 

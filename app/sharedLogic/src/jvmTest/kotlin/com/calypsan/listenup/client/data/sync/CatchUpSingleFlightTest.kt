@@ -186,7 +186,7 @@ private fun buildSingleFlightEngine(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
         )
     return SyncEngine(
         registry = registry,

@@ -171,6 +171,21 @@ class BookDetailSectionOrderTest {
     }
 
     @Test
+    fun `arriving from Home's finishers line lands on Readers on a phone`() {
+        setScreen(ready(ReadingStage.InProgress, inProgressOrder), readers = listOf(other("Maya", 40)), landOnReaders = true)
+        composeRule.waitForIdle()
+        composeRule.onNode(isHeading() and hasText("Readers")).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `arriving from Home's finishers line lands on Readers on a tablet`() {
+        setScreen(ready(ReadingStage.InProgress, inProgressOrder), readers = listOf(other("Maya", 40)), landOnReaders = true)
+        composeRule.waitForIdle()
+        composeRule.onNode(isHeading() and hasText("Readers")).assertIsDisplayed()
+    }
+
+    @Test
     fun `nobody else reading draws no social line`() {
         setScreen(ready(ReadingStage.InProgress, inProgressOrder))
         composeRule.onNodeWithContentDescription("is listening", substring = true).assertDoesNotExist()
@@ -231,6 +246,7 @@ class BookDetailSectionOrderTest {
     private fun setScreen(
         state: BookDetailUiState.Ready,
         readers: List<Reader> = emptyList(),
+        landOnReaders: Boolean = false,
         frame: @Composable (@Composable () -> Unit) -> Unit = { it() },
     ) {
         val readersRepo =
@@ -283,6 +299,7 @@ class BookDetailSectionOrderTest {
                                 bookId = "b1",
                                 state = state,
                                 actions = noActions().copy(onPlayFromChapter = { started = it }),
+                                landOnReaders = landOnReaders,
                             )
                         }
                     }

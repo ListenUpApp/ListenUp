@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -310,7 +311,7 @@ internal fun buildOrphanTestEngine(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
         )
     val reconciler =
         SyncReconciler(

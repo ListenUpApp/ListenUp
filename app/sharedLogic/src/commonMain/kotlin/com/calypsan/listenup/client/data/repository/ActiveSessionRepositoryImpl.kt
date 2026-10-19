@@ -4,7 +4,10 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.TypedAppErrorException
+import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
@@ -20,9 +23,12 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -56,11 +62,50 @@ internal class ActiveSessionRepositoryImpl(
     private val cachedSessionDao: CachedActiveSessionDao,
     private val clock: Clock = Clock.System,
 ) : ActiveSessionRepository {
+    /**
+     * The roster, from the Room mirror. A non-empty mirror (the last-known roster) flows at once, whatever the
+     * fetches do: last-known rows beat an error. An empty mirror means "not fetched yet", not "nobody", so it is
+     * held back while the first fetch is in flight; if that fetch fails, the flow fails with its typed
+     * [AppError] (as a [TypedAppErrorException]) so the screen can say why and offer Try again, which re-runs it.
+     * Once a fetch has landed, a later failure keeps what it found.
+     */
     override fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSession>> =
-        merge(
-            refreshOnPing(),
-            cachedSessions(),
-        )
+        channelFlow {
+            val outcome = MutableStateFlow<FetchOutcome>(FetchOutcome.InFlight)
+            launch {
+                presence.refreshTriggers().collect {
+                    val result = refresh()
+                    outcome.update { current ->
+                        when {
+                            result is AppResult.Success -> FetchOutcome.Landed
+                            current == FetchOutcome.Landed -> current
+                            else -> FetchOutcome.Failed((result as AppResult.Failure).error)
+                        }
+                    }
+                }
+            }
+            combine(cachedSessions(), outcome) { rows, fetch -> rows to fetch }.collect { (rows, fetch) ->
+                when {
+                    rows.isNotEmpty() || fetch == FetchOutcome.Landed -> send(rows)
+                    fetch is FetchOutcome.Failed -> throw TypedAppErrorException(fetch.error)
+                    else -> Unit // first fetch in flight: claim nothing yet
+                }
+            }
+        }
+
+    /** Where the first fetch of a subscription stands. */
+    private sealed interface FetchOutcome {
+        /** The fetch has not answered yet, so an empty mirror means "not fetched", not "nobody". */
+        data object InFlight : FetchOutcome
+
+        /** The fetch replaced the mirror, so an empty mirror now really means nobody is listening. */
+        data object Landed : FetchOutcome
+
+        /** The fetch failed with [error]; with an empty mirror the section shows the failure, not "nobody". */
+        data class Failed(
+            val error: AppError,
+        ) : FetchOutcome
+    }
 
     override fun observeActiveCount(currentUserId: String): Flow<Int> =
         observeActiveSessions(currentUserId).map { it.size }
@@ -68,22 +113,19 @@ internal class ActiveSessionRepositoryImpl(
     private fun cachedSessions(): Flow<List<ActiveSession>> =
         cachedSessionDao.observeWithBooks().map { rows -> rows.map { it.toDomain() } }
 
-    private fun refreshOnPing(): Flow<List<ActiveSession>> =
-        presence
-            .refreshTriggers()
-            .transform { refresh() } // never emits — the Room read carries the data
-
     /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
-    private suspend fun refresh() {
+    private suspend fun refresh(): AppResult<Unit> =
         try {
             when (val result = channel.call(idempotent = true) { it.currentlyListening() }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     cachedSessionDao.replaceAll(result.data.map { it.toEntity(observedAt) })
+                    AppResult.Success(Unit)
                 }
 
                 is AppResult.Failure -> {
                     logger.warn { "currently-listening refresh failed (${result.error.code}); keeping cache" }
+                    result
                 }
             }
         } catch (e: CancellationException) {
@@ -91,8 +133,8 @@ internal class ActiveSessionRepositoryImpl(
         } catch (e: Throwable) {
             // Never-Stranded: a storage fault during the cache write must not clear the cache or kill the flow.
             logger.warn(e) { "currently-listening refresh failed; keeping cache" }
+            AppResult.Failure(ErrorMapper.map(e))
         }
-    }
 
     private fun CachedActiveSessionWithBook.toDomain(): ActiveSession {
         val bookId = session.bookId

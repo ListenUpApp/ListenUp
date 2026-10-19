@@ -34,6 +34,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.ActivityDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.PublicProfileDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.SyncCursorDao] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
@@ -77,7 +78,7 @@ internal val socialModule: Module =
         // UserProfileRepository resolves EVERY user's avatar profile (self + others) from the
         // synced public_profiles roster, so avatars render everywhere instead of only for self.
         single<UserProfileRepository> {
-            UserProfileRepositoryImpl(publicProfileDao = get())
+            UserProfileRepositoryImpl(publicProfileDao = get(), syncCursorDao = get())
         }
 
         // LeaderboardRepository — Room-observed, offline-first; reads the synced

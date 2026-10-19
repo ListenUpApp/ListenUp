@@ -15,6 +15,7 @@ import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
 import com.calypsan.listenup.web.motion.PageArrival
 import com.calypsan.listenup.web.nav.HOME_KEY
+import com.calypsan.listenup.web.nav.HOME_DEEP_LINKS
 import com.calypsan.listenup.web.nav.LIBRARY_DEEP_LINKS
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.Route
@@ -82,7 +83,12 @@ fun WebAppRoot(
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book, the person behind it, or the series it belongs to all live in the library, so
     // every one of those deep links keeps Library lit in the sidebar.
-    val active = if (page in LIBRARY_DEEP_LINKS) LIBRARY_KEY else page
+    val active =
+        when (page) {
+            in LIBRARY_DEEP_LINKS -> LIBRARY_KEY
+            in HOME_DEEP_LINKS -> HOME_KEY
+            else -> page
+        }
 
     CompositionLocalProvider(
         LocalRestrictedBookIds provides restrictedBookIds,

@@ -80,6 +80,7 @@ class ActivityFeedSectionTest {
                     onBookClick = onBookClick,
                     onShelfClick = onShelfClick,
                     onUserClick = onUserClick,
+                    onRetry = {},
                 )
             }
         }

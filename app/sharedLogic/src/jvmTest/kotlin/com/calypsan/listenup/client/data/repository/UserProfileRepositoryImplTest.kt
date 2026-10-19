@@ -6,6 +6,8 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.IdRevision
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
+import com.calypsan.listenup.client.data.local.db.SyncCursorDao
+import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -69,13 +71,38 @@ private class StubReadPublicProfileDao(
     override suspend fun deleteAll() = error("unused")
 }
 
+/** Only [SyncCursorDao.observeCursor] is backed: the roster gate is all the repository reads. */
+private class StubCursorDao(
+    private val cursor: MutableStateFlow<Long?>,
+) : SyncCursorDao {
+    override fun observeCursor(domainName: String): Flow<Long?> = cursor.map { it.takeIf { domainName == "public_profiles" } }
+
+    override suspend fun getCursor(domainName: String): Long? = error("unused")
+
+    override suspend fun setCursor(entity: SyncCursorEntity) = error("unused")
+
+    override suspend fun setCursorMonotonic(
+        domainName: String,
+        revision: Long,
+    ) = error("unused")
+
+    override suspend fun advanceExistingCursor(
+        domainName: String,
+        revision: Long,
+    ) = error("unused")
+
+    override suspend fun all(): List<SyncCursorEntity> = error("unused")
+
+    override suspend fun deleteAll() = error("unused")
+}
+
 class UserProfileRepositoryImplTest :
     FunSpec({
         fun repoWith(
             vararg entities: PublicProfileEntity,
         ): Pair<UserProfileRepositoryImpl, MutableStateFlow<Map<String, PublicProfileEntity>>> {
             val rows = MutableStateFlow(entities.associateBy { it.id })
-            return UserProfileRepositoryImpl(StubReadPublicProfileDao(rows)) to rows
+            return UserProfileRepositoryImpl(StubReadPublicProfileDao(rows), StubCursorDao(MutableStateFlow(41L))) to rows
         }
 
         test("observeProfile emits another user's displayName and avatarType from public_profiles") {
@@ -132,8 +159,20 @@ class UserProfileRepositoryImplTest :
         test("observeRosterUserIds lists every live profile, and drops a tombstoned one") {
             val (repo, rows) = repoWith(publicProfile(id = "me"), publicProfile(id = "ada"))
             repo.observeRosterUserIds().test {
-                awaitItem().toSet() shouldBe setOf("me", "ada")
+                awaitItem()?.toSet() shouldBe setOf("me", "ada")
                 rows.value = rows.value + ("ada" to publicProfile(id = "ada", deletedAt = 1L))
+                awaitItem() shouldBe listOf("me")
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        test("the roster is null until public_profiles has a cursor, then lists every live profile") {
+            val cursor = MutableStateFlow<Long?>(null)
+            val rows = MutableStateFlow(mapOf("me" to publicProfile(id = "me")))
+            val repo = UserProfileRepositoryImpl(StubReadPublicProfileDao(rows), StubCursorDao(cursor))
+            repo.observeRosterUserIds().test {
+                awaitItem() shouldBe null
+                cursor.value = 41L
                 awaitItem() shouldBe listOf("me")
                 cancelAndIgnoreRemainingEvents()
             }
@@ -161,7 +200,7 @@ class UserProfileRepositoryImplTest :
                                 ),
                         ),
                     )
-                val repo = UserProfileRepositoryImpl(StubReadPublicProfileDao(rows))
+                val repo = UserProfileRepositoryImpl(StubReadPublicProfileDao(rows), StubCursorDao(MutableStateFlow(41L)))
 
                 repo.getById("fresh")!!.avatarFrame shouldBe frame
                 repo.getById("stale")!!.avatarFrame.shouldBeNull()

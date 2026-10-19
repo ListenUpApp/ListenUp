@@ -98,6 +98,7 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * The Files pane and the states with no book.
@@ -180,6 +181,7 @@ class BookDetailPanesTest :
                                     ),
                                 openShelfDetail = fixedShelfDetail(),
                                 openShelfEdit = fixedShelfEdit(),
+                                openMyShelves = fixedMyShelves(),
                                 openLibrary = fakeLibrary(),
                                 openSearch = fixedSearch(SearchUiState.Idle()),
                                 openMultiSelect = fixedMultiSelect(),

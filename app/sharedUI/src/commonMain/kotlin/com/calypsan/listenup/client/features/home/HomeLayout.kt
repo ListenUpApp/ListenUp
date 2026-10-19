@@ -106,6 +106,8 @@ internal data class HomeActions(
     val onOpenLeaderboard: () -> Unit,
     val onOpenShelf: (String) -> Unit,
     val onCreateShelf: () -> Unit,
+    /** Opens Library filtered to In progress (Also in progress's "In Library", spec §6.4). */
+    val onOpenInProgress: () -> Unit = {},
     /** Opens Discover (the quiet slots' second button). */
     val onOpenDiscover: () -> Unit = {},
     /** Dismisses the finished card for a book on every device. */
@@ -116,6 +118,8 @@ internal data class HomeActions(
     val onOpenReaders: (String) -> Unit = {},
     /** Tries Home again: the page error and the Continue Listening line. */
     val onRetry: () -> Unit = {},
+    /** Opens the My shelves list; null where the host has no list, so See all is not offered. */
+    val onSeeAllShelves: (() -> Unit)? = null,
 ) {
     companion object {
         /** For previews and tests that press nothing. */

@@ -158,6 +158,10 @@ fun BookDetailPage(
     onOpenCollection: (String) -> Unit = {},
     /** The last-match row ("Details matched … · See what changed · Undo last match"), above the sections. */
     lastMatchRow: @Composable () -> Unit = {},
+    /** Arrive with the Readers panel in view and its heading focused: Home's finishers line (spec §6.4). */
+    landOnReaders: Boolean = false,
+    /** Called once that landing has happened, so the route can drop it from the URL. */
+    onLandedOnReaders: () -> Unit = {},
 ) {
     val root = remember { PageRoot() }
     // Kotlin decides the layout, not CSS: the two columns split the stage order, one column keeps it whole. A first
@@ -165,6 +169,8 @@ fun BookDetailPage(
     var pageElement by remember { mutableStateOf<HTMLElement?>(null) }
     var wide by remember { mutableStateOf(window.matchMedia(BOOK_DETAIL_WIDE_QUERY).matches) }
     TwoPaneWatch(pageElement, useTwoPane = { wide = it }, twoPaneQuery = BOOK_DETAIL_WIDE_QUERY)
+    // Once per arrival, the Discover leaderboard landing's shape: cleared when the panel has landed.
+    var landingOnReaders by remember(landOnReaders) { mutableStateOf(landOnReaders) }
     Div(attrs = {
         classes("bd")
         ref { element ->
@@ -251,6 +257,11 @@ fun BookDetailPage(
                             nowMs = nowMs,
                             onOpenProfile = onOpenProfile,
                             onSeeAllReaders = onSeeAllReaders,
+                            landOnReaders = landingOnReaders,
+                            onLandedOnReaders = {
+                                landingOnReaders = false
+                                onLandedOnReaders()
+                            },
                             hardcover = hardcover,
                             onFindHardcoverMatch = onFindHardcoverMatch,
                             onRemoveHardcoverMatch = onRemoveHardcoverMatch,
@@ -499,6 +510,9 @@ internal class SectionPanes(
     val nowMs: Long,
     val onOpenProfile: (String) -> Unit,
     val onSeeAllReaders: () -> Unit,
+    /** Arrive on the Readers panel (Home's finishers line, spec §6.4), once; [onLandedOnReaders] says it happened. */
+    val landOnReaders: Boolean,
+    val onLandedOnReaders: () -> Unit,
     val hardcover: BookHardcoverUiState,
     val onFindHardcoverMatch: () -> Unit,
     val onRemoveHardcoverMatch: () -> Unit,
@@ -614,6 +628,8 @@ private fun BookSection(
                 nowMs = panes.nowMs,
                 onOpenProfile = panes.onOpenProfile,
                 onSeeAll = panes.onSeeAllReaders,
+                land = panes.landOnReaders,
+                onLanded = panes.onLandedOnReaders,
             )
         }
 

@@ -45,6 +45,18 @@ class ShellLandingsTest {
     }
 
     @Test
+    fun inLibraryOpensLibraryAndIsConsumedByItsLandingOnly() {
+        var selected: ShellDestination? = null
+        val landings = ShellLandings { selected = it }
+
+        landings.request(ShellLanding.LibraryInProgress)
+
+        assertEquals(ShellDestination.Library, selected)
+        assertFalse(landings.consume(ShellLanding.LibraryNewestFirst))
+        assertTrue(landings.consume(ShellLanding.LibraryInProgress))
+    }
+
+    @Test
     fun theEffectRunsOnceWhenItsLandingArrives() {
         val landings = ShellLandings {}
         var landed = 0

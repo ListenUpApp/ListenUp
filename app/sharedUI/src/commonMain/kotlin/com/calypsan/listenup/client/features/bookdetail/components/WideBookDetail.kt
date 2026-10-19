@@ -14,6 +14,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,12 +59,25 @@ fun WideBookDetail(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row, at the top of the main column. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    /** Scroll the Readers card into view once, on arrival (spec §6.4). */
+    landOnReaders: Boolean = false,
 ) {
+    // The Readers card's anchor: the social line, and Home's finishers line on arrival (spec §6.4), bring it into view.
+    val readersRequester = remember { BringIntoViewRequester() }
+    // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
+    var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    LaunchedEffect(landOnReaders) {
+        if (landOnReaders && !landedOnReaders && !state.isHeld) {
+            landedOnReaders = true
+            // After the first layout, so the card has a place in the scroll to be brought to.
+            withFrameNanos { }
+            readersRequester.bringIntoView()
+        }
+    }
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
     var castRole by remember { mutableStateOf<CastRole?>(null) }
-    // The Readers card's anchor: the social line brings it into view.
-    val readersRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
 
     val book = state.book
@@ -128,6 +143,11 @@ fun WideBookDetail(
                     DescriptionExpansion(isDescriptionExpanded) { isDescriptionExpanded = !isDescriptionExpanded },
                 lastMatchRow = lastMatchRow,
                 readersModifier = Modifier.bringIntoViewRequester(readersRequester),
+                readersLanding =
+                    ReadersLanding(
+                        focusHeading = landOnReaders && !focusedReaders,
+                        onHeadingFocused = { focusedReaders = true },
+                    ),
                 modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
             )
         }
@@ -161,7 +181,7 @@ private fun WideHero(
     val book = state.book
     val showListen = !state.isHeld && state.isPlaybackAvailable
     // A held book is triage-only: no social line, so its readers are never asked for.
-    val summary = if (state.isHeld) null else rememberReadersSummary(bookId)
+    val summary = if (state.isHeld) null else rememberPageReaders(bookId).summary
     WideHeroBand(
         coverPath = book.coverPath,
         coverHash = book.coverHash,
@@ -236,6 +256,7 @@ private fun WideBodyColumns(
     description: DescriptionExpansion,
     lastMatchRow: @Composable (Modifier) -> Unit,
     readersModifier: Modifier,
+    readersLanding: ReadersLanding,
     modifier: Modifier = Modifier,
 ) {
     val columns = bookDetailColumns(state.shownSections())
@@ -296,6 +317,7 @@ private fun WideBodyColumns(
                     isWide = true,
                     description = description,
                     modifier = if (section == BookDetailSection.Readers) readersModifier else Modifier,
+                    readersLanding = readersLanding,
                 )
             }
         }

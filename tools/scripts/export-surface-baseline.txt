@@ -296,6 +296,7 @@ DiscoverShelvesUiState_SealedType
 DiscoverUiBook
 DiscoverUserShelves
 DiscoverViewModel
+DiscoverViewer
 DiscoveredServer
 DiscoveryBook
 DiscoveryPick
@@ -600,6 +601,9 @@ MoodError
 MoodError_SealedType
 MoodId
 MoodRepository
+MyShelvesUiState
+MyShelvesUiState_SealedType
+MyShelvesViewModel
 NanoId
 NarratorCredit
 NativePlayerEngine

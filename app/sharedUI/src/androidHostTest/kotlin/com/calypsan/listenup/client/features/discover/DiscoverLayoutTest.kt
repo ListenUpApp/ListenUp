@@ -8,7 +8,13 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
+import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
+import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -71,5 +77,21 @@ class DiscoverLayoutTest {
         composeRule.onNodeWithText("Leaderboard").assertExists()
         composeRule.onAllNodesWithText("Orbital", useUnmergedTree = true).onFirst().assertExists()
         composeRule.onAllNodesWithText("Mistborn", useUnmergedTree = true).onFirst().assertExists()
+    }
+
+    @Test
+    fun everySectionKeepsItsHeadingWhileEverythingIsLoading() {
+        render(
+            discoverState(
+                listening = CurrentlyListeningUiState.Loading,
+                picks = DiscoverBooksUiState.Loading,
+                leaderboard = LeaderboardUiState.Loading,
+                activity = ActivityFeedUiState.Loading,
+                shelves = DiscoverShelvesUiState.Loading,
+                recentlyAdded = RecentlyAddedUiState.Loading,
+                community = CommunitySize.Unknown,
+            ),
+        )
+        DISCOVER_HEADINGS_IN_ORDER.forEach { composeRule.onNode(hasText(it) and isHeading()).assertExists() }
     }
 }

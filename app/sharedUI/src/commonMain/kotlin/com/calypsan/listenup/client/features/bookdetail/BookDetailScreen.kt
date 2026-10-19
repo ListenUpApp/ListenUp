@@ -70,8 +70,10 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookVisibilit
 import com.calypsan.listenup.client.features.bookdetail.components.HeldForReviewSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailSectionContent
 import com.calypsan.listenup.client.features.bookdetail.components.DescriptionExpansion
+import com.calypsan.listenup.client.features.bookdetail.components.ReadersLanding
 import com.calypsan.listenup.client.features.bookdetail.components.HeroSocialLine
-import com.calypsan.listenup.client.features.bookdetail.components.rememberReadersSummary
+import com.calypsan.listenup.client.features.bookdetail.components.PageReaders
+import com.calypsan.listenup.client.features.bookdetail.components.rememberPageReaders
 import com.calypsan.listenup.client.features.bookdetail.components.shownSections
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.features.contributors.CastRole
@@ -144,6 +146,8 @@ fun BookDetailScreen(
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
+    landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
         Modifier,
@@ -249,6 +253,7 @@ fun BookDetailScreen(
                         onSeeAllReaders = onSeeAllReaders,
                         onFindHardcoverMatch = onFindHardcoverMatch,
                         onCollectionClick = onCollectionClick,
+                        landOnReaders = landOnReaders,
                     )
                     // The receipt after Match details applied, above the mini player.
                     matchReceipt(
@@ -360,6 +365,7 @@ private fun BookDetailReadyContent(
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     onCollectionClick: ((collectionId: String) -> Unit)?,
+    landOnReaders: Boolean,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -477,6 +483,7 @@ private fun BookDetailReadyContent(
         documents = documents,
         isPreparing = isPreparing,
         lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
+        landOnReaders = landOnReaders,
     )
 
     when (dialog) {
@@ -626,6 +633,8 @@ fun BookDetailContent(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    /** Scroll the Readers section into view once, on arrival (spec §6.4). */
+    landOnReaders: Boolean = false,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
@@ -645,6 +654,7 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
         )
     } else {
         ImmersiveBookDetail(
@@ -654,6 +664,44 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
+        )
+    }
+}
+
+/** The phone column's Resume unit over its action group (spec §2.9). */
+@Composable
+private fun PhoneListenUnit(
+    state: BookDetailUiState.Ready,
+    actions: BookDetailActions,
+    isPreparing: Boolean,
+    screenPadding: Modifier,
+) {
+    Column(
+        modifier = screenPadding.padding(top = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ResumeUnit(
+            readingStage = state.readingStage,
+            currentChapter = state.currentChapter,
+            timeRemainingMs = state.timeRemainingMs,
+            progress = state.progress,
+            finishedSpan = state.finishedSpan,
+        )
+        ListenActionGroup(
+            primaryAction = state.primaryAction,
+            isPreparing = isPreparing,
+            downloadStatus = state.downloadStatus,
+            isWaitingForWifi = state.isWaitingForWifi,
+            downloadSizeBytes = state.downloadSizeBytes,
+            supportsDownloads = LocalDeviceContext.current.supportsDownloads,
+            canDownload = state.canDownload,
+            labelled = false,
+            onPrimaryClick = actions.onPlayClick,
+            onDownload = actions.onDownloadClick,
+            onCancelDownload = actions.onCancelClick,
+            onRemoveDownload = actions.onDeleteClick,
+            onAddToShelf = actions.onAddToShelfClick,
         )
     }
 }
@@ -775,6 +823,7 @@ private fun ImmersiveBookDetail(
     documents: List<BookDocument> = emptyList(),
     isPreparing: Boolean = false,
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    landOnReaders: Boolean = false,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     // Full-cast overlay target — set by a folded hero author/narrator line, cleared on dismiss.
@@ -782,12 +831,25 @@ private fun ImmersiveBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
-    // A held book is triage-only: no social line, so its readers are never asked for.
-    val summary = if (state.isHeld) null else rememberReadersSummary(bookId)
+    // A held book is triage-only: no social line and no Readers, so its readers are never asked for.
+    val readers = if (state.isHeld) PageReaders(hasArrived = false, summary = null) else rememberPageReaders(bookId)
+    val summary = readers.summary
     val items = phoneDetailItems(state, hasSocialLine = summary != null)
     val readersIndex = readersItemIndex(items)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // Home's finishers line lands here (spec §6.4), once per entry: a return to this screen (or a rotation) keeps
+    // wherever the reader scrolled to. The index is read off the same list the column draws.
+    var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    // Once the readers have arrived: until then the section has no height, and the social line above it is not yet
+    // in the list, so the index would move after the scroll.
+    LaunchedEffect(landOnReaders, readersIndex, readers.hasArrived) {
+        if (landOnReaders && !landedOnReaders && readersIndex != null && readers.hasArrived) {
+            landedOnReaders = true
+            listState.animateScrollToItem(readersIndex)
+        }
+    }
     val description = DescriptionExpansion(isDescriptionExpanded) { isDescriptionExpanded = !isDescriptionExpanded }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -871,33 +933,7 @@ private fun ImmersiveBookDetail(
 
                         // The Resume unit directly over the action group (spec §2.9): where you are, then what next.
                         PhoneDetailItem.Listen -> {
-                            Column(
-                                modifier = screenPadding.padding(top = 20.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                ResumeUnit(
-                                    readingStage = state.readingStage,
-                                    currentChapter = state.currentChapter,
-                                    timeRemainingMs = state.timeRemainingMs,
-                                    progress = state.progress,
-                                    finishedSpan = state.finishedSpan,
-                                )
-                                ListenActionGroup(
-                                    primaryAction = state.primaryAction,
-                                    isPreparing = isPreparing,
-                                    downloadStatus = state.downloadStatus,
-                                    isWaitingForWifi = state.isWaitingForWifi,
-                                    downloadSizeBytes = state.downloadSizeBytes,
-                                    supportsDownloads = LocalDeviceContext.current.supportsDownloads,
-                                    canDownload = state.canDownload,
-                                    labelled = false,
-                                    onPrimaryClick = actions.onPlayClick,
-                                    onDownload = actions.onDownloadClick,
-                                    onCancelDownload = actions.onCancelClick,
-                                    onRemoveDownload = actions.onDeleteClick,
-                                    onAddToShelf = actions.onAddToShelfClick,
-                                )
-                            }
+                            PhoneListenUnit(state, actions, isPreparing, screenPadding)
                         }
 
                         // Who else is reading (spec §2.10): a tap brings the Readers section into view.
@@ -945,6 +981,11 @@ private fun ImmersiveBookDetail(
                                 isWide = false,
                                 description = description,
                                 modifier = screenPadding.padding(top = 16.dp),
+                                readersLanding =
+                                    ReadersLanding(
+                                        focusHeading = landOnReaders && !focusedReaders,
+                                        onHeadingFocused = { focusedReaders = true },
+                                    ),
                             )
                         }
                     }

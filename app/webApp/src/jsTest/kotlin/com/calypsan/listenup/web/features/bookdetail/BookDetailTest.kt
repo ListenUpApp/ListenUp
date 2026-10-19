@@ -97,6 +97,7 @@ import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * Book Detail through the URL contract: `/book/{id}` names the book and is one page; the chapter map and the files are
@@ -176,6 +177,7 @@ class BookDetailTest :
                                     ),
                                 openShelfDetail = fixedShelfDetail(),
                                 openShelfEdit = fixedShelfEdit(),
+                                openMyShelves = fixedMyShelves(),
                                 openLibrary = fakeLibrary(),
                                 openSearch = fixedSearch(SearchUiState.Idle()),
                                 openMultiSelect = fixedMultiSelect(),

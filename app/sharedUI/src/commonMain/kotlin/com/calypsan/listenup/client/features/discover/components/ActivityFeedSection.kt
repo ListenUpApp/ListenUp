@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +38,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.InlineRetry
+import com.calypsan.listenup.client.design.components.RowsSkeleton
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -49,10 +49,10 @@ import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.activityParts
-import com.calypsan.listenup.client.presentation.error.localized
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_activity
 import listenup.composeapp.generated.resources.discover_activity_profile_a11y
+import listenup.composeapp.generated.resources.discover_error_activity
 import listenup.composeapp.generated.resources.discover_activity_show_less
 import listenup.composeapp.generated.resources.discover_activity_you
 import listenup.composeapp.generated.resources.discover_activity_your_profile_a11y
@@ -72,7 +72,7 @@ private const val ACTIVITY_CAP = 6
  * Six rows show, then "See all activity". Until PR 6's See all screen exists the link expands the
  * section in place to the full feed and then reads "Show less"; PR 6 swaps this for navigation (plan Q1).
  *
- * Loading, Error and an empty feed keep today's rendering (PR 6).
+ * Loading is a skeleton of rows and a failure a line with its own Try again (spec §3.8).
  */
 @Composable
 internal fun ActivityFeedSection(
@@ -80,6 +80,7 @@ internal fun ActivityFeedSection(
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -87,20 +88,11 @@ internal fun ActivityFeedSection(
 
         when (val s = state) {
             is ActivityFeedUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(100.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ListenUpLoadingIndicatorSmall()
-                }
+                RowsSkeleton(rows = ACTIVITY_CAP, modifier = Modifier.testTag("activity-skeleton"))
             }
 
             is ActivityFeedUiState.Error -> {
-                Text(
-                    text = s.error.localized(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                InlineRetry(line = stringResource(Res.string.discover_error_activity), onRetry = onRetry)
             }
 
             is ActivityFeedUiState.Ready -> {

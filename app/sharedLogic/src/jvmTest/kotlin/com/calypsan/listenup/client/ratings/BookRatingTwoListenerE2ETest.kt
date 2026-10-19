@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.ratings
 
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.SyncStreamService
@@ -313,7 +314,7 @@ private suspend fun ApplicationTestBuilder.listenerClient(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
             onCursorStale = { checkNotNull(engineRef).handleCursorStale() },
         )
     val engine =

@@ -42,6 +42,14 @@ enum DiscoverCopy {
         )
     }
 
+    /// "As of 2 hours ago": how old a roster is while the server cannot be reached; never in the future.
+    static func asOf(_ date: Date, relativeTo now: Date) -> String {
+        String(
+            format: String(localized: "discover.listening_as_of"),
+            relative.localizedString(for: min(date, now), relativeTo: now)
+        )
+    }
+
     private static var abbreviated: RelativeDateTimeFormatter {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated

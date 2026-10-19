@@ -14,9 +14,13 @@ import Shared
 /// drawn (the mini player has it); with nothing loaded, Resume leads. A wide window sets the week's stats first, beside
 /// the shelves (or beside Resume).
 struct HomeView: View {
-    /// Selects a shell tab: Browse the Library, the Also in Progress header and the Leaderboard link leave Home here.
+    /// Selects a shell tab: Browse the Library and the quiet slots' Discover leave Home here.
     var onSelectTab: (ShellTab) -> Void = { _ in }
 
+    /// The Also in Progress header: Library's Books filtered to In Progress (spec §6.4).
+    @Environment(\.openLibraryInProgress) private var openLibraryInProgress
+    /// The stats card's Leaderboard link: Discover's board on Week (spec §6.4).
+    @Environment(\.openDiscoverLeaderboard) private var openDiscoverLeaderboard
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dependencies) private var deps
@@ -219,22 +223,21 @@ struct HomeView: View {
     }
 
     private func statsCard(_ stats: HomeStatsObserver) -> some View {
-        // PR 5 adds the Week focus; until then the link opens Discover at the top (spec §11).
         HomeStatsCard(
             statsPhase: stats.statsPhase,
-            onOpenLeaderboard: { onSelectTab(.discover) },
+            onOpenLeaderboard: openDiscoverLeaderboard,
             onRetry: { stats.refresh() }
         )
     }
 
     // MARK: - Also in Progress
 
-    /// "Also in Progress ›" opens the Library (X6: PR 4 adds the In Progress filter); the rail scrolls on iPhone and is
-    /// one row of width-driven columns on iPad.
+    /// "Also in Progress ›" opens the Library's Books filtered to In Progress (spec §6.4); the rail scrolls on iPhone and
+    /// is one row of width-driven columns on iPad.
     private func alsoInProgress(_ items: [ContinueItem], layout: HomeLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
-                onSelectTab(.library)
+                openLibraryInProgress()
             } label: {
                 HStack(spacing: 4) {
                     Text(String(localized: "home.also_in_progress_ios"))

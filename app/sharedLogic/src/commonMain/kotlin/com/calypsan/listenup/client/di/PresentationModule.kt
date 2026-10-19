@@ -604,6 +604,7 @@ internal val discoverPresentationModule =
                 shelfRepository = get(),
                 serverReachability = get(),
                 userProfileRepository = get(),
+                userRepository = get(),
                 errorBus = get(),
             )
         }
@@ -624,6 +625,13 @@ internal val discoverPresentationModule =
  */
 internal val shelfPresentationModule =
     module {
+        factory {
+            com.calypsan.listenup.client.presentation.shelf.MyShelvesViewModel(
+                userRepository = get(),
+                shelfRepository = get(),
+                syncRepository = get(),
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel(
                 loadShelfDetailUseCase = get(),

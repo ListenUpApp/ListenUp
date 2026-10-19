@@ -88,6 +88,23 @@ class HomeBodyTest {
     }
 
     @Test
+    fun `In Library opens In progress, Browse the Library opens the Library, and the finishers open the readers`() {
+        val asked = mutableListOf<String>()
+        render(
+            homeReady(slot = finishedSlot(), alsoInProgress = listOf(readyItem("babel"))),
+            actions =
+                HomeActions.None.copy(
+                    onOpenLibrary = { asked += "library" },
+                    onOpenInProgress = { asked += "in-progress" },
+                    onOpenReaders = { asked += "readers:$it" },
+                ),
+        )
+        composeRule.onNodeWithText("In Library").performScrollTo().performClick()
+        composeRule.onNodeWithText("Maya and Tom finished it too").performScrollTo().performClick()
+        asked shouldBe listOf("in-progress", "readers:wok")
+    }
+
+    @Test
     fun `a new listener is welcomed in the greeting and the slot`() {
         render(homeReady(slot = welcomeSlot(), alsoInProgress = emptyList()))
         composeRule.onNodeWithText("Welcome,").assertIsDisplayed()

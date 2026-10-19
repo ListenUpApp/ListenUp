@@ -6,15 +6,22 @@ import SwiftUI
 struct LeaderRow: View {
     let row: LeaderboardRow
 
+    /// The avatar's size; the loading skeleton uses the same.
+    static let avatarSize: CGFloat = 38
+    /// The rank disc's diameter at the default text size; the loading skeleton uses the same.
+    static let rankSize: CGFloat = 26
+    /// A row's height at the default text size: the avatar plus its vertical padding (and at least 44pt).
+    static let rowHeight: CGFloat = max(44, avatarSize + 2 * Spacing.xs)
+
     /// The rank disc's diameter: the board's 26pt, growing with the numeral's text size.
-    @ScaledMetric(relativeTo: .footnote) private var rankDiameter: CGFloat = 26
+    @ScaledMetric(relativeTo: .footnote) private var rankDiameter: CGFloat = Self.rankSize
 
     var body: some View {
         NavigationLink(value: ProfileDestination(userId: row.id)) {
             HStack(spacing: Spacing.s) {
                 rankDisc
 
-                UserAvatarView(userId: row.id, fallbackName: row.displayName, size: 38)
+                UserAvatarView(userId: row.id, fallbackName: row.displayName, size: Self.avatarSize)
 
                 Text(name)
                     .font(.callout.weight(row.isCurrentUser ? .semibold : .regular))

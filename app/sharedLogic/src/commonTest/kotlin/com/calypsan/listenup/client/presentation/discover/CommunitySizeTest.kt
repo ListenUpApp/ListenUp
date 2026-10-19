@@ -5,8 +5,12 @@ import io.kotest.matchers.shouldBe
 
 class CommunitySizeTest :
     FunSpec({
-        test("an empty roster has not synced yet, so the size is unknown") {
-            communitySizeOf(emptyList(), currentUserId = "me") shouldBe CommunitySize.Unknown
+        test("a roster that has not been pulled is unknown, even if your own row is already here") {
+            communitySizeOf(rosterUserIds = null, currentUserId = "me") shouldBe CommunitySize.Unknown
+        }
+
+        test("a pulled but empty roster is still unknown: a signed-in reader always has their own row") {
+            communitySizeOf(rosterUserIds = emptyList(), currentUserId = "me") shouldBe CommunitySize.Unknown
         }
 
         test("a roster of only you is just you") {

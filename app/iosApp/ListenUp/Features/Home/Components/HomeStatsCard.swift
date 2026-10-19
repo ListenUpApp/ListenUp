@@ -6,7 +6,7 @@ import SwiftUI
 /// a new listener gets a one-line dashed invitation (never a zero chart), and an error offers Try Again (gap 17).
 struct HomeStatsCard: View {
     let statsPhase: StatsPhase
-    /// The footer's Leaderboard link. PR 5 adds Discover's Week focus; until then it opens Discover.
+    /// The footer's Leaderboard link: Discover's board, on Week (spec §6.4).
     var onOpenLeaderboard: () -> Void = {}
     /// Try Again after an error: `HomeStatsViewModel.refresh()`.
     var onRetry: () -> Void = {}

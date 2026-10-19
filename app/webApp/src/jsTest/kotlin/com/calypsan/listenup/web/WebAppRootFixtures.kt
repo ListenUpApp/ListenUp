@@ -172,6 +172,8 @@ import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
+import com.calypsan.listenup.web.features.shelf.OpenMyShelves
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * Shared root-wiring test rig — mounts the real [WebAppRoot] behind a real [Router], for any spec
@@ -242,6 +244,7 @@ internal fun mountAt(
     openDevices: OpenDevices = fixedDevices(),
     openShelfDetail: OpenShelfDetail = fixedShelfDetail(),
     openShelfEdit: OpenShelfEdit = fixedShelfEdit(),
+    openMyShelves: OpenMyShelves = fixedMyShelves(),
     onToast: (String) -> Unit = {},
     onActionToast: ShowActionToast = { _, _, _ -> },
     openPlayback: OpenPlayback = fixedPlayback(),
@@ -307,6 +310,7 @@ internal fun mountAt(
                                 ),
                             openShelfDetail = openShelfDetail,
                             openShelfEdit = openShelfEdit,
+                            openMyShelves = openMyShelves,
                             openLibrary = openLibrary,
                             openSearch = openSearch,
                             openMultiSelect = openMultiSelect,

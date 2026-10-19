@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
@@ -113,6 +114,29 @@ class DiscoverPresentationModuleVerifyTest :
                     )
                 }
             app.koin.get<ActivityFeedViewModel>() shouldNotBe null
+            app.close()
+        }
+
+        test("DiscoverViewModel resolves with the user it shows in the invitation") {
+            val app =
+                koinApplication {
+                    modules(
+                        discoverPresentationModule,
+                        module {
+                            single<BookRepository> { mock(MockMode.autoUnit) }
+                            single<ActiveSessionRepository> { mock(MockMode.autoUnit) }
+                            single<AuthSession> { FakeAuthSession() }
+                            single<ShelfRepository> { mock(MockMode.autoUnit) }
+                            single<ServerReachability> { mock(MockMode.autoUnit) }
+                            single<UserProfileRepository> { mock(MockMode.autoUnit) }
+                            single<UserRepository> {
+                                mock { every { observeCurrentUser() } returns flowOf(null) }
+                            }
+                            single { ErrorBus() }
+                        },
+                    )
+                }
+            app.koin.get<DiscoverViewModel>() shouldNotBe null
             app.close()
         }
     })

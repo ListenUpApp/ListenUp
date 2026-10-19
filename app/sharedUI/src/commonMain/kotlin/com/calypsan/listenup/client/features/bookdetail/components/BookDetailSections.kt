@@ -39,6 +39,17 @@ internal data class DescriptionExpansion(
 )
 
 /**
+ * Home's finishers line landing on Readers (spec §6.4): once the section is there, its heading takes focus.
+ *
+ * @property focusHeading Move focus (and TalkBack's) to the Readers heading once it is drawn.
+ * @property onHeadingFocused Called once the heading has taken that focus.
+ */
+internal data class ReadersLanding(
+    val focusHeading: Boolean = false,
+    val onHeadingFocused: () -> Unit = {},
+)
+
+/**
  * Renders one Book Detail section, the same on the phone list and in the wide columns. A section with nothing to show
  * renders nothing (spec §2.4: skipped, not left as a gap): Readers, Ratings and Hardcover gate themselves; Series and
  * Chapters are already dropped from the order by the ViewModel when absent.
@@ -56,6 +67,7 @@ internal fun BookDetailSectionContent(
     isWide: Boolean,
     description: DescriptionExpansion,
     modifier: Modifier = Modifier,
+    readersLanding: ReadersLanding = ReadersLanding(),
 ) {
     when (section) {
         BookDetailSection.Chapters -> {
@@ -110,6 +122,8 @@ internal fun BookDetailSectionContent(
                 onUserClick = actions.onUserProfileClick,
                 isCard = true,
                 onSeeAllClick = actions.onSeeAllReaders,
+                focusHeadingOnArrival = readersLanding.focusHeading,
+                onHeadingFocused = readersLanding.onHeadingFocused,
                 modifier = modifier.fillMaxWidth(),
             )
         }

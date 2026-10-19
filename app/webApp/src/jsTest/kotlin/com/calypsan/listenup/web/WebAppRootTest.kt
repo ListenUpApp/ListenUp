@@ -1871,6 +1871,17 @@ class WebAppRootTest :
             }
         }
 
+        // My shelves is reached from Home's See all; it belongs to Home, so Home stays lit (the phone bar too).
+        test("the My shelves list keeps Home lit") {
+            val (host, router) = mountAt("/shelves")
+
+            try {
+                navItem(host, "Home").classList.contains("on") shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
         // A breadcrumb step pushes the ancestor's page, so Back still returns to the child.
         test("a series path step opens that ancestor's page") {
             val (host, router) =
