@@ -7,16 +7,15 @@ import Shared
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
 /// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
-/// - Alphabet scrubber when sorted by name
+/// - Section index from the shared letter runs when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
     let seriesList: [SeriesRow]
     let seriesProgress: [String: SeriesProgressState]
-    let sortState: SortState?
-    /// The scrubber's letters (name sort only, article-aware so "The Expanse" files under E), built
-    /// once per content change by `LibraryObserver` rather than on every render of this body
-    /// (2026-09-29 iOS audit, performance).
-    let letterIndex: [(letter: String, firstId: String)]
+    /// The shared letter runs over `seriesList` (name sort only, article-aware so "The Expanse" files
+    /// under E), bridged once per content revision by `LibraryObserver` rather than on every render
+    /// of this body (2026-09-29 iOS audit, performance). Empty on any other sort: no index.
+    let letters: [LetterRun]
     /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
     var picker: LibrarySectionPicker?
 
@@ -39,7 +38,7 @@ struct SeriesContent: View {
     // MARK: - Series List
 
     private var seriesListView: some View {
-        let letters = letterIndex
+        let indexLetters = LetterRun.railLetters(letters)
 
         return ScrollViewReader { proxy in
             ScrollView {
@@ -70,12 +69,13 @@ struct SeriesContent: View {
             }
             // Alphabet scrubber (name sort only), at every width — see `BooksLayout.showsScrubber`.
             .overlay(alignment: .trailing) {
-                if shouldShowAlphabetIndex, !letters.isEmpty {
+                if !indexLetters.isEmpty {
                     SectionIndexBar(
-                        letters: letters.map { $0.letter },
+                        letters: indexLetters,
                         onLetterSelected: { letter in
-                            if let entry = letters.first(where: { $0.letter == letter }) {
-                                scrollTarget = entry.firstId
+                            if let index = LetterRun.firstIndex(forLetter: letter, in: letters),
+                               seriesList.indices.contains(index) {
+                                scrollTarget = "series-\(seriesList[index].id)"
                             }
                         },
                         isVisible: isScrolling
@@ -118,10 +118,6 @@ struct SeriesContent: View {
 
     private func progressFor(_ row: SeriesRow) -> SeriesProgressState {
         seriesProgress[row.id] ?? SeriesProgressState(finishedCount: 0, totalCount: row.bookCount)
-    }
-
-    private var shouldShowAlphabetIndex: Bool {
-        sortState?.category == .name
     }
 
     // MARK: - Empty State

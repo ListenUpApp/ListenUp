@@ -69,28 +69,3 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.sequence = sequence
     }
 }
-
-/// Group books into alphabetically ordered sections for the Library grid + scrubber.
-///
-/// Titles starting with a non-letter collapse into a single `#` bucket that sorts to
-/// the top. Order *within* a section is the incoming order (the shared ViewModel has
-/// already sorted by title), which `Dictionary(grouping:)` preserves.
-///
-/// `ignoreArticles` must match the `ignoreTitleArticles` the shared ViewModel sorted with, so the
-/// header letter agrees with the sort order (e.g. "The Hobbit" → "H", not "T"). See `TitleSorting`.
-///
-/// Pure and operating on `BookRow`, so grouping reads Swift strings — not re-bridged
-/// Kotlin ones — and is unit-tested rather than buried in a `View`.
-func bookSections(from books: [BookRow], ignoreArticles: Bool) -> [(letter: Character, books: [BookRow])] {
-    let grouped = Dictionary(grouping: books) { book in
-        TitleSorting.sortLetter(book.title, ignoreArticles: ignoreArticles)
-    }
-
-    return grouped.keys
-        .sorted { lhs, rhs in
-            if !lhs.isLetter && rhs.isLetter { return true }
-            if lhs.isLetter && !rhs.isLetter { return false }
-            return lhs < rhs
-        }
-        .map { (letter: $0, books: grouped[$0] ?? []) }
-}

@@ -102,19 +102,20 @@ struct LibrarySortMenu: View {
             Section(String(localized: "library.sort_by")) {
                 Picker(String(localized: "library.sort_by"), selection: categoryBinding) {
                     ForEach(LibrarySortOptions.categories(for: section), id: \.self) { category in
-                        Text(category.label).tag(category)
+                        Text(SortLabels.category(category)).tag(category)
                     }
                 }
                 .pickerStyle(.inline)
             }
+            // Each direction named for the category ("A–Z", "Shortest"), not a bare Ascending.
             Picker(String(localized: "library.sort_order"), selection: directionBinding) {
-                Label(String(localized: "library.sort_ascending"), systemImage: "arrow.up")
+                Label(SortLabels.direction(sortState.category, .ascending), systemImage: "arrow.up")
                     .tag(SortDirection.ascending)
-                Label(String(localized: "library.sort_descending"), systemImage: "arrow.down")
+                Label(SortLabels.direction(sortState.category, .descending), systemImage: "arrow.down")
                     .tag(SortDirection.descending)
             }
             if LibrarySortOptions.offersArticleToggle(section: section, category: sortState.category) {
-                Toggle(String(localized: "library.ignore_articles"), isOn: articlesBinding)
+                Toggle(String(localized: "library.ignore_articles_quoted"), isOn: articlesBinding)
             }
         } label: {
             if statusFilter != nil {
@@ -130,8 +131,8 @@ struct LibrarySortMenu: View {
 
     /// "In Progress, Title" for Books; the sort alone elsewhere.
     private var accessibilityValue: String {
-        guard let statusFilter else { return sortState.category.label }
-        return "\(LibraryStatusOptions.label(statusFilter)), \(sortState.category.label)"
+        guard let statusFilter else { return SortLabels.category(sortState.category) }
+        return "\(LibraryStatusOptions.label(statusFilter)), \(SortLabels.category(sortState.category))"
     }
 
     private func statusBinding(_ current: BookStatusFilter) -> Binding<BookStatusFilter> {

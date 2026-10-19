@@ -66,6 +66,23 @@ struct LibraryChromeTests {
         #expect(LibrarySubtitle.books(count: 1, filter: .finished, sortLabel: "Title") == "1 book · Finished · Title")
     }
 
+    // MARK: - Sort labels
+
+    @Test func sortLabelsComeFromTheCatalogInTitleCase() {
+        #expect(SortLabels.category(.added) == String(localized: "library.sort_added_ios"))
+        #expect(SortLabels.category(.title) == String(localized: "library.sort_title"))
+        #expect(SortLabels.category(.duration) == String(localized: "library.sort_duration"))
+        #expect(SortLabels.direction(.title, .descending) == String(localized: "library.dir_z_to_a"))
+        #expect(SortLabels.direction(.duration, .descending) == String(localized: "library.dir_longest"))
+    }
+
+    @Test func everyCategoryHasItsOwnLabel() {
+        let labels = LibrarySortOptions.categories(for: .books).map(SortLabels.category)
+            + LibrarySortOptions.categories(for: .series).map(SortLabels.category)
+        #expect(Set(labels).count == 10)
+        #expect(!labels.contains(where: \.isEmpty))
+    }
+
     @Test func filteredEmptyCopyFollowsTheFilter() {
         #expect(LibrarySubtitle.filteredEmpty(.finished) == String(localized: "library.filtered_empty_finished"))
     }

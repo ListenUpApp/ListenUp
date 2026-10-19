@@ -85,7 +85,7 @@ struct LibraryView: View {
             LibrarySubtitle.books(
                 count: observer.statusCounts.all,
                 filter: observer.statusFilter,
-                sortLabel: observer.booksSortState?.category.label ?? ""
+                sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? ""
             )
         case .series: String(format: String(localized: "library.series_count"), observer.series.count)
         case .authors: String(format: String(localized: "library.author_count"), observer.authors.count)
@@ -192,14 +192,13 @@ struct LibraryView: View {
             BooksContent(
                 books: observer.books,
                 bookStatus: observer.bookStatus,
-                sortState: observer.booksSortState,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,
                 isFilteredEmpty: observer.isFilteredEmpty,
                 statusFilter: observer.statusFilter,
                 onShowAll: { observer.setStatusFilter(.all) },
                 errorMessage: observer.errorMessage,
-                ignoreTitleArticles: observer.ignoreTitleArticles,
+                bookLetters: observer.bookLetters,
                 onRefresh: { observer.refresh() },
                 selection: selection,
                 picker: sectionPicker,
@@ -210,21 +209,20 @@ struct LibraryView: View {
             SeriesContent(
                 seriesList: observer.series,
                 seriesProgress: observer.seriesProgress,
-                sortState: observer.seriesSortState,
-                letterIndex: observer.seriesLetterIndex,
+                letters: observer.seriesLetters,
                 picker: sectionPicker
             )
         case .authors:
             ContributorListContent(
                 sections: observer.authorSections,
-                sortState: observer.authorsSortState,
+                indexLetters: LetterRun.railLetters(observer.authorLetters),
                 roleKind: .author,
                 picker: sectionPicker
             )
         case .narrators:
             ContributorListContent(
                 sections: observer.narratorSections,
-                sortState: observer.narratorsSortState,
+                indexLetters: LetterRun.railLetters(observer.narratorLetters),
                 roleKind: .narrator,
                 picker: sectionPicker
             )

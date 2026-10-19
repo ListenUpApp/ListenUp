@@ -1,8 +1,8 @@
 import SwiftUI
 import Shared
 
-/// A single-role contributor Library tab (Authors or Narrators): the observer's cached letter
-/// sections, with a width-driven layout and an alphabet scrubber on name sort. The role is supplied
+/// A single-role contributor Library tab (Authors or Narrators): the observer's sections, sliced by
+/// the shared letter runs, with a width-driven layout and a section index on a name sort. The role is supplied
 /// by the caller so the same view backs both tabs.
 ///
 /// - Narrower than two columns: a system inset-grouped `List`, a section per letter. Each person is
@@ -14,8 +14,11 @@ import Shared
 /// Both are lazy per row: the old hand-drawn grouped cards built every person in a letter (or, on a
 /// non-name sort, every person) at once (2026-09-29 iOS audit, performance).
 struct ContributorListContent: View {
-    let sections: [ContributorLetterGrouping.Group]
-    let sortState: SortState?
+    /// The people, sliced by the shared letter runs: one lettered section per run on a name sort,
+    /// one unlettered section on any other.
+    let sections: [LetterRun.Section<ContributorRow>]
+    /// The index's letters: each run's letter once, in list order; empty without a name sort.
+    let indexLetters: [String]
     let roleKind: RoleChip.Kind
     /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
     var picker: LibrarySectionPicker?
@@ -26,10 +29,9 @@ struct ContributorListContent: View {
     /// `onGeometryChange` rather than a greedy `GeometryReader`.
     @State private var listWidth: CGFloat = 0
 
-    private var isNameSort: Bool { sortState?.category == .name }
+    /// Lettered sections exist only on a name sort; the shared state leaves the runs empty otherwise.
+    private var isLettered: Bool { sections.first.map { !$0.letter.isEmpty } ?? false }
     private var isAuthors: Bool { roleKind == .author }
-    /// Scrubber letters are the rendered sections' own letters, so the two can never drift.
-    private var scrubberLetters: [String] { isNameSort ? sections.map(\.letter) : [] }
 
     var body: some View {
         if sections.isEmpty {
@@ -64,9 +66,9 @@ struct ContributorListContent: View {
                 scrollTarget = nil
             }
             .overlay(alignment: .trailing) {
-                if !scrubberLetters.isEmpty {
+                if !indexLetters.isEmpty {
                     SectionIndexBar(
-                        letters: scrubberLetters,
+                        letters: indexLetters,
                         onLetterSelected: { scrollTarget = Self.scrollTarget(forLetter: $0, in: sections) },
                         isVisible: isScrolling
                     )
@@ -80,7 +82,10 @@ struct ContributorListContent: View {
 
     /// Where a scrubber letter jumps: the first person under it. Rows, not section headers, are what
     /// a `List`'s `scrollTo` reliably resolves.
-    nonisolated static func scrollTarget(forLetter letter: String, in sections: [ContributorLetterGrouping.Group]) -> String? {
+    nonisolated static func scrollTarget(
+        forLetter letter: String,
+        in sections: [LetterRun.Section<ContributorRow>]
+    ) -> String? {
         sections.first { $0.letter == letter }?.items.first?.id
     }
 
@@ -94,13 +99,13 @@ struct ContributorListContent: View {
                         .listRowBackground(Color.clear)
                 }
             }
-            ForEach(sections, id: \.letter) { group in
+            ForEach(sections) { group in
                 Section {
                     ForEach(group.items) { person in
                         PersonRow(contributor: person, kind: roleKind)
                     }
                 } header: {
-                    if isNameSort { Text(group.letter) }
+                    if isLettered { Text(group.letter) }
                 }
             }
         }
@@ -114,16 +119,16 @@ struct ContributorListContent: View {
                 columns: Array(repeating: GridItem(.flexible(), spacing: 16, alignment: .top), count: columns),
                 alignment: .leading,
                 spacing: 12,
-                pinnedViews: isNameSort ? [.sectionHeaders] : []
+                pinnedViews: isLettered ? [.sectionHeaders] : []
             ) {
-                ForEach(sections, id: \.letter) { group in
+                ForEach(sections) { group in
                     Section {
                         ForEach(group.items) { person in
                             PersonRow(contributor: person, kind: roleKind, style: .card)
                                 .id(person.id)
                         }
                     } header: {
-                        if isNameSort {
+                        if isLettered {
                             LetterHeader(letter: group.letter)
                                 .background(Color.luSurface)
                         }
