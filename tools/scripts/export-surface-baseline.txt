@@ -99,6 +99,7 @@ BookCardStatus_SealedType
 BookContributor
 BookContributorInput
 BookDetail
+BookDetailColumns
 BookDetailNavAction
 BookDetailNavAction_SealedType
 BookDetailSection
