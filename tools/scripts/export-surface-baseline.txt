@@ -138,6 +138,7 @@ BookMetadata
 BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
 BookMultiSelectViewModel
+BookPlayhead
 BookRatingRepository
 BookRatingsEvent
 BookRatingsEvent_SealedType
