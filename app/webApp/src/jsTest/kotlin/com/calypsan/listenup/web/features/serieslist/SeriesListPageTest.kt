@@ -146,7 +146,8 @@ class SeriesListPageTest :
                         seriesLetters = listOf(LetterSection("D", 0, 1), LetterSection("W", 1, 1)),
                     ),
                 )
-            byName.querySelectorAll(".lib-section").asList().map { it.textContent } shouldBe listOf("D", "W")
+            // Each letter is captioned with its size, as the Books grid's are ("96 books").
+            byName.querySelectorAll(".lib-section").asList().map { it.textContent } shouldBe listOf("D1 series", "W1 series")
 
             val byCount =
                 seriesPage(
@@ -156,6 +157,35 @@ class SeriesListPageTest :
                     ),
                 )
             byCount.querySelectorAll(".lib-section").length shouldBe 0
+        }
+
+        // Spec L25/L26: a name-sorted Series page gets the same A–Z jump rail as Books.
+        test("series by name get the jump rail, which jumps to a letter's first series") {
+            val series = (1..3).map { seriesWith("d$it", "Dune $it", 1) } + (1..3).map { seriesWith("w$it", "Wool $it", 1) }
+            val root =
+                seriesPage(
+                    contractLibrary(
+                        series = series,
+                        seriesLetters = listOf(LetterSection("D", 0, 3), LetterSection("W", 3, 3)),
+                    ),
+                )
+            val jumpW = root.querySelector(".lib-rail button[aria-label=\"Jump to W\"]") as HTMLElement
+            jumpW.hasAttribute("disabled") shouldBe false
+            jumpW.click()
+            awaitFrame()
+
+            (kotlinx.browser.document.activeElement as HTMLElement).textContent!!.contains("Wool 1") shouldBe true
+        }
+
+        test("no rail under a sort with no letters") {
+            val root =
+                seriesPage(
+                    contractLibrary(
+                        series = listOf(seriesWith("s1", "Dune", 2), seriesWith("s2", "Wool", 3)),
+                        seriesSortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING),
+                    ),
+                )
+            root.querySelector(".lib-rail") shouldBe null
         }
 
         // The same fallback as iOS's `progressFor`: no aggregate for a series means nothing finished.

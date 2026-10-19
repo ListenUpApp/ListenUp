@@ -392,6 +392,25 @@ class ContributorsPageTest :
             root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("A", "Z")
         }
 
+        // Spec L25/L26: Authors and Narrators by name get the same A–Z jump rail as Books.
+        test("a name-sorted list gets the jump rail, which jumps to the letter's first person") {
+            val people =
+                listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Ann Leckie", 4), contributor("c3", "Zoe Quinn", 47))
+            val root = contributorsPage(people)
+
+            val jumpZ = root.querySelector(".lib-rail button[aria-label=\"Jump to Z\"]") as HTMLElement
+            jumpZ.click()
+            awaitFrame()
+
+            (kotlinx.browser.document.activeElement as HTMLElement).textContent!! shouldContain "Zoe Quinn"
+        }
+
+        test("no rail under a book-count sort") {
+            val people = listOf(contributor("c1", "Andy Weir", 3), contributor("c2", "Zoe Quinn", 47))
+            contributorsPage(people, sortState = SortState(SortCategory.BOOK_COUNT, SortDirection.DESCENDING))
+                .querySelector(".lib-rail") shouldBe null
+        }
+
         // Offering to reorder nothing is an affordance whose only outcome is nothing — the same
         // rule the Library's own header follows.
         test("sorting is offered only once the list has actually answered") {

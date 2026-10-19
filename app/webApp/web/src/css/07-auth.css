@@ -166,17 +166,20 @@
 .lib-books.has-rail { grid-template-columns: minmax(0, 1fr) 24px; column-gap: 6px; }
 .lib-rail {
   position: sticky; top: var(--sp-16); align-self: start;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-  height: min(calc(100dvh - 160px), 640px);
+  display: flex; flex-direction: column; align-items: center;
 }
+/* A compact A–Z (board Library-WebDesktop): every letter drawn, a letter with no section disabled,
+   the section on show in coral. 44px across, the touch minimum; 20px down, so the full alphabet
+   stands at 540px and fits a phone's height. */
 .lib-rail button {
   appearance: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; cursor: pointer;
-  position: relative; min-width: 24px; min-height: 16px; flex: 0 1 24px;
+  position: relative; min-width: 24px; height: 20px; flex: none;
   font-size: var(--fs-caption); font-weight: 700; line-height: 1; color: var(--ink-2);
 }
-/* 44px across, the touch minimum; vertically the letters share the rail's height. */
 .lib-rail button::after { content: ""; position: absolute; inset: 0 -10px; }
-@media (hover: hover) { .lib-rail button:hover { color: var(--coral-text); } }
+.lib-rail button[disabled] { cursor: default; color: var(--ink-3); opacity: .5; }
+.lib-rail button.is-current { color: var(--coral-text); }
+@media (hover: hover) { .lib-rail button:not([disabled]):hover { color: var(--coral-text); } }
 .lib-rail button:focus-visible { color: var(--coral-text); outline: 2px solid var(--coral); outline-offset: 1px; border-radius: 4px; }
 
 /* Motion here is decoration, and a 1200-card cascade is exactly the kind of thing that makes a

@@ -22,19 +22,41 @@ class JumpRailTest :
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
-        test("each letter is a button named Jump to it, once each, in list order") {
+        // Board `Library-WebDesktop`: a compact A–Z where a letter with no section is still shown,
+        // but can't be pressed, so the rail's shape never changes with the library.
+        test("the rail is the whole alphabet: letters with a section are buttons, the rest are disabled") {
             val root =
                 mounts.mount {
-                    JumpRail(letters = railLetters(listOf(LetterSection("#", 0, 1), LetterSection("B", 1, 1), LetterSection("#", 2, 1)))) {}
+                    JumpRail(
+                        letters = railLetters(listOf(LetterSection("B", 0, 1), LetterSection("M", 1, 1), LetterSection("#", 2, 1))),
+                        current = null,
+                    ) {}
                 }
             val buttons = root.querySelectorAll(".lib-rail button").asList().map { it as HTMLElement }
-            buttons.map { it.textContent } shouldBe listOf("#", "B")
-            buttons.map { it.getAttribute("aria-label") } shouldBe listOf("Jump to #", "Jump to B")
+            buttons.map { it.textContent } shouldBe ('A'..'Z').map { it.toString() } + "#"
+            buttons.filter { !it.hasAttribute("disabled") }.map { it.textContent } shouldBe listOf("B", "M", "#")
+            buttons.first().getAttribute("aria-label") shouldBe "Jump to A"
             root.querySelector(".lib-rail")!!.getAttribute("aria-label") shouldBe "Jump to letter"
         }
 
+        test("a recurring letter is one button, and a descending sort runs the rail Z to A") {
+            val rail = railLetters(listOf(LetterSection("Z", 0, 1), LetterSection("#", 1, 1), LetterSection("B", 2, 1), LetterSection("#", 3, 1)))
+            rail.map { it.letter } shouldBe ('A'..'Z').reversed().map { it.toString() } + "#"
+            rail.filter { it.hasSection }.map { it.letter } shouldBe listOf("Z", "B", "#")
+        }
+
         test("a single letter offers no rail") {
-            mounts.mount { JumpRail(letters = listOf("A")) {} }.querySelector(".lib-rail") shouldBe null
+            railLetters(listOf(LetterSection("A", 0, 3))) shouldBe emptyList()
+            mounts.mount { JumpRail(letters = emptyList(), current = null) {} }.querySelector(".lib-rail") shouldBe null
+        }
+
+        test("the current letter is marked, for the eye and for assistive tech") {
+            val root =
+                mounts.mount {
+                    JumpRail(letters = railLetters(listOf(LetterSection("B", 0, 1), LetterSection("M", 1, 1))), current = "M") {}
+                }
+            val current = root.querySelectorAll(".lib-rail button[aria-current=true]").asList().map { it.textContent }
+            current shouldBe listOf("M")
         }
 
         test("pressing a letter scrolls its section into view and focuses its first book") {
@@ -96,6 +118,8 @@ class JumpRailTest :
 
             (host.scrollTop > 0.0) shouldBe true
             (document.activeElement as HTMLElement).textContent!!.contains("Zulu 1") shouldBe true
+            // The rail follows the scroll: the section now at the top is the current letter.
+            root.querySelector(".lib-rail button[aria-current=true]")!!.textContent shouldBe "Z"
         }
 
         test("letter headers carry their caption") {

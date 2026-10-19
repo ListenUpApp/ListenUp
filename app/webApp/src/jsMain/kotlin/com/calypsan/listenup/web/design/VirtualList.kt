@@ -43,6 +43,13 @@ val LocalScrollport = staticCompositionLocalOf<Scrollport?> { null }
 class VirtualJump {
     internal var handler: ((Char) -> Unit)? = null
 
+    /**
+     * The section at the top of the list's scrollport, for a rail to mark; null until the list has
+     * been measured inside the shell (a list that does not virtualise reports none).
+     */
+    var current: Char? by mutableStateOf(null)
+        internal set
+
     /** Brings section [letter] into view and focuses its first item. Nothing happens before the list is composed. */
     fun toSection(letter: Char) {
         handler?.invoke(letter)
@@ -104,7 +111,10 @@ internal fun <T> VirtualList(
     val tracker = remember { WindowTracker() }
     val rows = remember(items, metrics.columns, sectionOf) { layOut(items, metrics.columns, sectionOf) }
     val offsets = remember(rows, metrics) { offsetsOf(rows, metrics) }
-    SideEffect { tracker.offsets = offsets }
+    SideEffect {
+        tracker.offsets = offsets
+        tracker.sections = rows.map { (it as? ListRow.Header)?.section }
+    }
     val selectors = rememberUpdatedState(itemSelector to headerSelector)
     SideEffect {
         jump?.handler = { letter ->
@@ -154,6 +164,9 @@ internal fun <T> VirtualList(
                                 // every frame, recomposing the whole list sixty times a second to
                                 // produce the same DOM.
                                 if (next != rowWindow) rowWindow = next
+                                // The rail's current letter, written only when it changes.
+                                val top = sectionAt(tracker.sections, tracker.offsets, view)
+                                if (jump != null && top != jump.current) jump.current = top
                             },
                         )
                     }
@@ -390,6 +403,25 @@ private class WindowTracker {
 
     /** The list's element whether or not it virtualises, for a [VirtualJump]. */
     var listElement: Element? = null
+
+    /** Each row's section letter when the row is a header, else null; parallel to [offsets]. */
+    var sections: List<Char?> = emptyList()
+}
+
+/**
+ * The section whose header was last passed at the top of [view]: the last header row starting at or
+ * above it, or the first header when none has been passed yet. Null in a list without headers.
+ */
+private fun sectionAt(
+    sections: List<Char?>,
+    offsets: List<Double>,
+    view: ListView,
+): Char? {
+    val passed =
+        sections.indices.lastOrNull { row ->
+            sections[row] != null && (offsets.getOrNull(row) ?: Double.MAX_VALUE) <= view.top + SECTION_TOP_SLACK_PX
+        }
+    return passed?.let { sections[it] } ?: sections.firstNotNullOfOrNull { it }
 }
 
 /** Rows within [OVERSCAN_PX] of the viewport, clamped to what exists. */
@@ -564,3 +596,6 @@ private const val FIRST_PAINT_ITEMS = 24
 
 /** How many frames a jump waits for a virtualised section to render before giving up on focus. */
 private const val JUMP_FOCUS_FRAMES = 4
+
+/** How far below the scrollport's top a header may sit and still count as the one on show. */
+private const val SECTION_TOP_SLACK_PX = 64.0

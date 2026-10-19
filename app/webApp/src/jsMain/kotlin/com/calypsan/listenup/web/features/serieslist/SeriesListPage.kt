@@ -16,6 +16,8 @@ import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.WithJumpRail
+import com.calypsan.listenup.web.features.library.groupedCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesAndBookCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesBookCount
 import org.jetbrains.compose.web.dom.Button
@@ -124,24 +126,40 @@ private fun LoadedSeries(
                 }
             }
         }
-    VirtualList(
-        items = state.series,
-        key = { it.series.id.value },
-        containerClass = "srs-grid",
-        itemSelector = ".srs-card",
-        label = "Series",
-        sectionOf = { letterById[it.series.id.value] },
-        headerSelector = ".lib-section",
-        header = { letter -> Div(attrs = { classes("lib-section") }) { Text(letter.toString()) } },
-    ) { entry ->
-        SeriesCard(
-            entry = entry,
-            // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
-            progress =
-                state.seriesProgress[entry.series.id]
-                    ?: SeriesProgress(finishedCount = 0, totalCount = entry.books.size),
-            onOpen = { onOpenSeries(entry.series.id.value) },
-        )
+    // A letter that recurs is captioned with its first run's size, as the Books grid's are.
+    val captionByLetter =
+        remember(state.seriesLetters) {
+            state.seriesLetters.groupBy { it.letter.first() }.mapValues { (_, runs) -> runs.first().count }
+        }
+    // The same A–Z jump rail as Books (spec L25/L26), over the same shared letters.
+    WithJumpRail(state.seriesLetters) { jump ->
+        VirtualList(
+            items = state.series,
+            key = { it.series.id.value },
+            containerClass = "srs-grid",
+            itemSelector = ".srs-card",
+            label = "Series",
+            sectionOf = { letterById[it.series.id.value] },
+            headerSelector = ".lib-section",
+            header = { letter ->
+                Div(attrs = { classes("lib-section") }) {
+                    Span { Text(letter.toString()) }
+                    Span(attrs = { classes("lib-section-c") }) {
+                        Text(captionByLetter[letter]?.let { "${groupedCount(it)} series" }.orEmpty())
+                    }
+                }
+            },
+            jump = jump,
+        ) { entry ->
+            SeriesCard(
+                entry = entry,
+                // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
+                progress =
+                    state.seriesProgress[entry.series.id]
+                        ?: SeriesProgress(finishedCount = 0, totalCount = entry.books.size),
+                onOpen = { onOpenSeries(entry.series.id.value) },
+            )
+        }
     }
 }
 

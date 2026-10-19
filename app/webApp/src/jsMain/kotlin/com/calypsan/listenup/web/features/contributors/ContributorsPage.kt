@@ -19,6 +19,7 @@ import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.avatarTintFor
+import com.calypsan.listenup.web.features.library.WithJumpRail
 import com.calypsan.listenup.web.design.ContributorPhoto
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -106,21 +107,25 @@ fun ContributorsPage(
         }
     // Windowed: a real library has thousands of narrators. Rows are one line each (the name is
     // clamped), so every row and every letter heading is one height and the list can be counted.
-    VirtualList(
-        items = state,
-        key = { it.contributor.idString },
-        containerClass = "contrib-list",
-        itemSelector = ".contrib-row",
-        label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
-        sectionOf = { letterById[it.contributor.idString] },
-        headerSelector = ".contrib-letter-row",
-        header = { letter -> LetterHeading(letter) },
-    ) { entry ->
-        ContributorRow(
-            entry = entry,
-            role = role,
-            onOpen = { onOpenContributor(entry.contributor.idString) },
-        )
+    // The same A–Z jump rail as Books (spec L25/L26), over the same shared letters.
+    WithJumpRail(letters) { jump ->
+        VirtualList(
+            items = state,
+            key = { it.contributor.idString },
+            containerClass = "contrib-list",
+            itemSelector = ".contrib-row",
+            label = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors",
+            sectionOf = { letterById[it.contributor.idString] },
+            headerSelector = ".contrib-letter-row",
+            header = { letter -> LetterHeading(letter) },
+            jump = jump,
+        ) { entry ->
+            ContributorRow(
+                entry = entry,
+                role = role,
+                onOpen = { onOpenContributor(entry.contributor.idString) },
+            )
+        }
     }
 }
 

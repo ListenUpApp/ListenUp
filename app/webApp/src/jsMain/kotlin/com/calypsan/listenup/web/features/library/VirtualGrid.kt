@@ -97,12 +97,7 @@ internal fun BooksWithRail(
     selecting: Boolean = false,
     isSelected: (String) -> Boolean = { false },
 ) {
-    val jump = remember { VirtualJump() }
-    val rail = remember(letters) { railLetters(letters) }
-    Div(attrs = {
-        classes("lib-books")
-        if (rail.size > 1) classes("has-rail")
-    }) {
+    WithJumpRail(letters) { jump ->
         VirtualBookGrid(
             books = books,
             letters = letters,
@@ -113,7 +108,6 @@ internal fun BooksWithRail(
             isSelected = isSelected,
             jump = jump,
         )
-        JumpRail(rail) { jump.toSection(it.first()) }
     }
 }
 
