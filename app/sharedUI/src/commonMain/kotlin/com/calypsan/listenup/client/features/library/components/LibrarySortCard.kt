@@ -163,8 +163,11 @@ private fun SortTrigger(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            // The name goes on the Surface and the words inside are cleared, not the Surface's own
+            // semantics: clearing those would also clear its click action, and TalkBack activates a
+            // control through that action — a double-tap would announce a button and do nothing.
             modifier =
-                Modifier.clearAndSetSemantics {
+                Modifier.semantics {
                     contentDescription = triggerDescription
                     role = Role.Button
                 },
@@ -174,6 +177,7 @@ private fun SortTrigger(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier =
                     Modifier
+                        .clearAndSetSemantics {}
                         .height(42.dp)
                         .padding(start = 10.dp, end = 14.dp),
             ) {

@@ -3,7 +3,12 @@ package com.calypsan.listenup.client.features.library.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -49,6 +54,33 @@ class LibrarySortCardTest {
         listOf("Title", "Author", "Length", "A–Z", "Z–A", "Ignore “A”, “An”, “The”").forEach {
             composeRule.onNodeWithText(it).assertIsDisplayed()
         }
+    }
+
+    // TalkBack activates a control through its click ACTION, not a touch: a trigger that names
+    // itself but carries no action is announced as a button and then does nothing on a double-tap.
+    @Test
+    fun `the trigger is a button with a click action, so TalkBack can open it`() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibrarySortCard(
+                    state = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
+                    categories = listOf(SortCategory.TITLE, SortCategory.AUTHOR),
+                    count = null,
+                    unit = "",
+                    ignoreArticles = true,
+                    showArticleToggle = true,
+                    onCategorySelected = {},
+                    onDirectionToggle = {},
+                    onToggleArticles = {},
+                    visible = true,
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithContentDescription("Sort: Title, A–Z")
+            .assert(hasClickAction())
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 
     @Test
