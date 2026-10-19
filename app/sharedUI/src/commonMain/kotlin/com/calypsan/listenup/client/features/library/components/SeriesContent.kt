@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
@@ -100,7 +102,8 @@ fun SeriesContent(
                     // The shared letter sections: name sort only, article-aware so "The Wandering Inn"
                     // files under W.
                     val alphabetIndex =
-                        remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
+                        remember(letters) { libraryAlphabetIndex(letters, withHeaders = true, leadingItems = 0) }
+                    val rows = remember(series, letters) { letteredRows(series, letters) { it.series.id.value } }
 
                     val isScrolling by remember {
                         derivedStateOf { gridState.isScrollInProgress }
@@ -120,18 +123,7 @@ fun SeriesContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(
-                            items = series,
-                            key = { it.series.id.value },
-                        ) { seriesWithBooks ->
-                            SeriesCard(
-                                seriesWithBooks = seriesWithBooks,
-                                progress =
-                                    seriesProgress[seriesWithBooks.series.id]
-                                        ?: SeriesProgress(finishedCount = 0, totalCount = seriesWithBooks.books.size),
-                                onClick = { onSeriesClick(seriesWithBooks.series.id.value) },
-                            )
-                        }
+                        seriesRows(rows, seriesProgress, onSeriesClick)
                     }
 
                     // Alphabet scrollbar (only for name sort)
@@ -150,6 +142,41 @@ fun SeriesContent(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The Series grid's rows: a full-width header before each letter on a name sort (spec L25), from the
+ * shared `seriesLetters`, and a card per series.
+ */
+private fun LazyGridScope.seriesRows(
+    rows: List<LetteredRow<SeriesWithBooks>>,
+    seriesProgress: Map<SeriesId, SeriesProgress>,
+    onSeriesClick: (String) -> Unit,
+) {
+    items(
+        items = rows,
+        key = { it.key },
+        span = { if (it is LetteredRow.Header) GridItemSpan(maxLineSpan) else GridItemSpan(1) },
+        contentType = { if (it is LetteredRow.Header) "header" else "series" },
+    ) { row ->
+        when (row) {
+            is LetteredRow.Header -> {
+                SectionHeader(letter = row.letter)
+            }
+
+            is LetteredRow.Entry -> {
+                val seriesWithBooks = row.value
+                SeriesCard(
+                    seriesWithBooks = seriesWithBooks,
+                    // iOS's `progressFor` fallback: no aggregate for a series means nothing finished yet.
+                    progress =
+                        seriesProgress[seriesWithBooks.series.id]
+                            ?: SeriesProgress(finishedCount = 0, totalCount = seriesWithBooks.books.size),
+                    onClick = { onSeriesClick(seriesWithBooks.series.id.value) },
+                )
             }
         }
     }
