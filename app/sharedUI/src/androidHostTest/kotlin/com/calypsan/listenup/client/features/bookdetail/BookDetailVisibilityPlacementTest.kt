@@ -21,7 +21,9 @@ import com.calypsan.listenup.client.domain.model.HiddenFrom
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.testing.Windows
@@ -51,7 +53,10 @@ import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** The Visibility card sits after About on Book Detail, routes its taps, and never joins triage. */
+/**
+ * The Visibility card sits directly under the actions on a phone and at the top of the side column on a wide layout
+ * (spec §3.2.4 rule 4), routes its taps, and never joins triage.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = Windows.PHONE)
 class BookDetailVisibilityPlacementTest {
@@ -137,23 +142,23 @@ class BookDetailVisibilityPlacementTest {
 
     @Test
     @Config(qualifiers = TALL_PHONE)
-    fun `on a phone the card sits after About and before Rating`() {
+    fun `on a phone the card sits under the actions, before the first section`() {
         show(ready(restrictedToKids))
-        val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
+        val play = composeRule.onNodeWithText("Play").getUnclippedBoundsInRoot()
         val visibility = composeRule.onNodeWithText("Visibility").getUnclippedBoundsInRoot()
-        val rating = composeRule.onNodeWithText("Ratings").getUnclippedBoundsInRoot()
-        about.bottom shouldBeLessThanOrEqualTo visibility.top
-        visibility.bottom shouldBeLessThan rating.top
+        val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
+        play.bottom shouldBeLessThanOrEqualTo visibility.top
+        visibility.bottom shouldBeLessThan about.top
     }
 
     @Test
     @Config(qualifiers = Windows.TABLET)
-    fun `in the wide layout the card sits after About and before Details`() {
+    fun `in the wide layout the card tops the side column, beside About`() {
         show(ready(restrictedToKids, publisher = "Ace"))
         val about = composeRule.onNodeWithText("About this book").getUnclippedBoundsInRoot()
         val visibility = composeRule.onNodeWithText("Visibility").getUnclippedBoundsInRoot()
         val details = composeRule.onNodeWithText("Details").getUnclippedBoundsInRoot()
-        about.bottom shouldBeLessThanOrEqualTo visibility.top
+        about.right shouldBeLessThan visibility.left
         visibility.bottom shouldBeLessThan details.top
     }
 
@@ -203,6 +208,15 @@ class BookDetailVisibilityPlacementTest {
         canEditMetadata = true,
         downloadStatus = BookDownloadStatus.NotDownloaded("b1"),
         visibility = visibility,
+        readingStage = ReadingStage.NotStarted,
+        sectionOrder =
+            listOf(
+                BookDetailSection.About,
+                BookDetailSection.Ratings,
+                BookDetailSection.Hardcover,
+                BookDetailSection.Readers,
+                BookDetailSection.Details,
+            ),
     )
 
     private fun show(state: BookDetailUiState.Ready) {

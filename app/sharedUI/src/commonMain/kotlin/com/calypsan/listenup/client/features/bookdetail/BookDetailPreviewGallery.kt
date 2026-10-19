@@ -38,8 +38,7 @@ import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersContent
 import com.calypsan.listenup.client.features.bookdetail.components.BookVisibilitySection
-import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
-import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
+import com.calypsan.listenup.client.features.bookdetail.components.BookChaptersSection
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
 import com.calypsan.listenup.client.design.components.CountBadge
@@ -321,6 +320,7 @@ private fun AboutSectionGallery() {
         moods = mockMoods,
         isLoadingTags = false,
         isCard = false,
+        collapsedLines = 2,
         isDescriptionExpanded = false,
         onToggleDescriptionExpanded = {},
         onGenreClick = {},
@@ -337,6 +337,7 @@ private fun AboutSectionGallery() {
         moods = mockMoods,
         isLoadingTags = false,
         isCard = true,
+        collapsedLines = null,
         isDescriptionExpanded = false,
         onToggleDescriptionExpanded = {},
         onGenreClick = {},
@@ -508,17 +509,15 @@ private fun BadgesSection() {
 @Composable
 private fun ChaptersSection() {
     GalleryLabel("Chapters")
-    Column(modifier = horizontalGutter()) {
-        ChaptersHeader(chapterCount = mockChapters.size)
-        mockChapters.forEachIndexed { index, chapter ->
-            ChapterListItem(
-                chapter = chapter,
-                chapterNumber = index + 1,
-                isCurrent = index == 2,
-                showDivider = index < mockChapters.lastIndex,
-            )
-        }
-    }
+    val chapters = mockChapters.mapIndexed { index, chapter -> chapter.copy(isCurrent = index == 2) }
+    BookChaptersSection(
+        chapters = chapters,
+        preview = chapters.take(5),
+        currentChapter = null,
+        canPlay = true,
+        onPlayFromChapter = {},
+        modifier = horizontalGutter(),
+    )
 }
 
 @Composable

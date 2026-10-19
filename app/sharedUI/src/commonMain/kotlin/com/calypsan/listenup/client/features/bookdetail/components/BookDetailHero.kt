@@ -105,8 +105,9 @@ internal fun BookDetailHeroBand(
 
 /**
  * Book Detail's hero on a wide layout (spec §3.2.4: Android tablet ≥ 840 dp): the cover on the left, and beside it
- * the same identity as the phone, then the [resumeUnit] and the [actions] inside the hero so the Resume unit and the
- * action group stay with the book they act on. On `surface`, like the phone hero.
+ * the same identity as the phone, then the [resumeUnit], the [actions] and the [social] line inside the hero so the
+ * Resume unit, the action group and who else is reading stay with the book they act on. On `surface`, like the phone
+ * hero.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -128,6 +129,7 @@ internal fun WideHeroBand(
     resumeUnit: @Composable () -> Unit,
     actions: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    social: @Composable () -> Unit = {},
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
@@ -163,6 +165,7 @@ internal fun WideHeroBand(
             ) {
                 resumeUnit()
                 actions()
+                social()
             }
         }
     }

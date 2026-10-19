@@ -1,17 +1,25 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -30,7 +38,6 @@ import com.calypsan.listenup.client.design.components.BookFacet
 import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.design.components.MarkdownText
 import com.calypsan.listenup.client.design.theme.ContentShapes
-import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
@@ -46,9 +53,6 @@ import listenup.composeapp.generated.resources.common_read_more
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-
-private const val DESCRIPTION_PREVIEW_MAX_LINES = 4
-private const val DESCRIPTION_EXPAND_THRESHOLD = 200
 
 /**
  * Grouped "About" section combining description, optional credits, genres, and tags.
@@ -72,6 +76,8 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
  * @param isLoadingTags True while tags are being fetched; the Tags block stays visible meanwhile.
  * @param isCard        When true, wraps content in a [surfaceContainerLow] card; otherwise
  *                      renders frameless.
+ * @param collapsedLines How many lines the description shows before "Read more" (spec §3.2.1 D29: four while
+ *                      deciding, two otherwise, on phones); null shows the whole text with no toggle (wide layouts).
  * @param isDescriptionExpanded   Whether the description is currently fully expanded.
  * @param onToggleDescriptionExpanded   Called when the user taps "Read more" / "Read less".
  * @param onGenreClick  Optional callback when a genre chip is tapped.
@@ -89,6 +95,7 @@ fun AboutSection(
     moods: List<Mood>,
     isLoadingTags: Boolean,
     isCard: Boolean,
+    collapsedLines: Int?,
     isDescriptionExpanded: Boolean,
     onToggleDescriptionExpanded: () -> Unit,
     onGenreClick: ((Genre) -> Unit)?,
@@ -106,19 +113,17 @@ fun AboutSection(
                     .fillMaxWidth()
                     .padding(innerPadding),
         ) {
+            // Medium: the hero title is the screen's one display moment (rev 7 type rule).
             Text(
                 text = stringResource(Res.string.book_detail_about_this_book),
-                style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = DisplayFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                    ),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { heading() }.padding(bottom = 8.dp),
             )
 
             AboutDescriptionBlock(
                 description = description,
+                collapsedLines = collapsedLines,
                 isExpanded = isDescriptionExpanded,
                 onToggleExpanded = onToggleDescriptionExpanded,
             )
@@ -150,56 +155,56 @@ fun AboutSection(
     }
 }
 
-/** Expandable description body with the inline Read-more / Read-less toggle. */
+/**
+ * The description, clamped to [collapsedLines] until expanded. Whether it overflows is measured, not guessed from its
+ * length: "Read more" appears only when the clamp actually hides something, and it is a real button.
+ */
 @Composable
 private fun AboutDescriptionBlock(
     description: String,
+    collapsedLines: Int?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    val isLong = description.length > DESCRIPTION_EXPAND_THRESHOLD
+    // Remembers the last measurement, so "Read less" stays offered once the clamp is off.
+    var overflows by remember(description, collapsedLines) { mutableStateOf(false) }
+    val style = MaterialTheme.typography.bodyMedium
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
 
-    if (isExpanded || !isLong) {
-        MarkdownText(
-            markdown = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    if (collapsedLines == null || isExpanded) {
+        MarkdownText(markdown = description, style = style, color = color)
     } else {
-        // Collapsed preview: real styled markdown, height-clamped to DESCRIPTION_PREVIEW_MAX_LINES
-        // with the bottom edge alpha-faded (the Markdown renderer can't clamp by line count itself).
         ClampedMarkdownPreview(
             markdown = description,
-            maxLines = DESCRIPTION_PREVIEW_MAX_LINES,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = collapsedLines,
+            style = style,
+            color = color,
+            onOverflowChange = { overflows = it },
         )
     }
 
-    if (isLong) {
-        Text(
-            text =
-                stringResource(
-                    if (isExpanded) Res.string.common_read_less else Res.string.common_read_more,
-                ),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary,
-            modifier =
-                Modifier
-                    .padding(top = 4.dp)
-                    .clickable {
-                        haptics.press()
-                        onToggleExpanded()
-                    },
-        )
+    if (collapsedLines != null && overflows) {
+        TextButton(
+            onClick = {
+                haptics.press()
+                onToggleExpanded()
+            },
+            contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
+        ) {
+            Text(
+                text = stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            )
+        }
     }
 }
 
 /**
- * Renders [markdown] clamped to roughly [maxLines] of [style] height, the bottom edge alpha-fading
- * to transparent — the styled-markdown analogue of a `maxLines` text clamp. The fade is alpha-based
- * (DstIn), so it is independent of whatever background the section sits on.
+ * Renders [markdown] clamped to [maxLines] of [style] height, the bottom edge alpha-fading to transparent when it is
+ * cut — the styled-markdown analogue of a `maxLines` text clamp. The content is measured at its full height and
+ * [onOverflowChange] says whether the clamp hid any of it. The fade is alpha-based (DstIn), so it is independent of
+ * whatever background the section sits on.
  */
 @Composable
 private fun ClampedMarkdownPreview(
@@ -207,33 +212,44 @@ private fun ClampedMarkdownPreview(
     maxLines: Int,
     style: TextStyle,
     color: Color,
+    onOverflowChange: (Boolean) -> Unit,
 ) {
-    val maxHeight = with(LocalDensity.current) { (style.lineHeight * maxLines.toFloat()).toDp() }
-    Box(
+    val density = LocalDensity.current
+    val maxHeight = with(density) { (style.lineHeight * maxLines.toFloat()).toDp() }
+    val lineHeightPx = with(density) { style.lineHeight.roundToPx() }
+    var isCut by remember(markdown, maxLines) { mutableStateOf(false) }
+    val currentOnOverflowChange by rememberUpdatedState(onOverflowChange)
+    LaunchedEffect(isCut) { currentOnOverflowChange(isCut) }
+    Layout(
+        content = { MarkdownText(markdown = markdown, style = style, color = color) },
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(max = maxHeight)
                 .clipToBounds()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
-                    drawRect(
-                        brush =
-                            Brush.verticalGradient(
-                                0f to Color.Black,
-                                0.8f to Color.Black,
-                                1f to Color.Transparent,
-                            ),
-                        blendMode = BlendMode.DstIn,
-                    )
+                    if (isCut) {
+                        drawRect(
+                            brush =
+                                Brush.verticalGradient(
+                                    0f to Color.Black,
+                                    0.8f to Color.Black,
+                                    1f to Color.Transparent,
+                                ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
                 },
-    ) {
-        MarkdownText(
-            markdown = markdown,
-            style = style,
-            color = color,
-        )
+    ) { measurables, constraints ->
+        // Measured unbounded, so the full height is known; laid out no taller than the clamp when it cuts. A hidden
+        // line costs a whole line height, so half a line of slack keeps the renderer's paragraph padding from
+        // reading as overflow.
+        val placeable = measurables.single().measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+        val limit = maxHeight.roundToPx()
+        val cut = placeable.height > limit + lineHeightPx / 2
+        isCut = cut
+        layout(placeable.width, if (cut) limit else placeable.height) { placeable.place(0, 0) }
     }
 }
 

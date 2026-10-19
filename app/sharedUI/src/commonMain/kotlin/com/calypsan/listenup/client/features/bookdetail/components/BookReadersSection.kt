@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,12 +22,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -43,18 +44,20 @@ import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
-import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
 import com.calypsan.listenup.client.util.relativeOrMonthYear
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
-import listenup.composeapp.generated.resources.book_detail_progresspercent
+import listenup.composeapp.generated.resources.book_detail_reader_listening_now
+import listenup.composeapp.generated.resources.book_detail_readers_a11y_reading
+import listenup.composeapp.generated.resources.book_detail_see_all_readers
 import listenup.composeapp.generated.resources.book_detail_readers_listening_now
 import listenup.composeapp.generated.resources.book_detail_readers_note
 import listenup.composeapp.generated.resources.book_detail_readers_hardcover
@@ -62,7 +65,6 @@ import listenup.composeapp.generated.resources.book_detail_readers_also_on_hardc
 import listenup.composeapp.generated.resources.book_detail_readers_finished_also_on_hardcover
 import listenup.composeapp.generated.resources.book_detail_readers_rated
 import listenup.composeapp.generated.resources.book_detail_readers_read
-import listenup.composeapp.generated.resources.common_see_all
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -76,7 +78,8 @@ import listenup.composeapp.generated.resources.book_detail_readers_count
 import listenup.composeapp.generated.resources.book_detail_readers_count_one
 import listenup.composeapp.generated.resources.book_detail_reader_view_profile
 
-private const val MAX_COLLAPSED_READERS = 5
+/** Rows the section shows before "See all N readers" (spec §2.10: three, on every platform and width). */
+private const val MAX_COLLAPSED_READERS = 3
 
 /**
  * Presentation-only model for a single reader row in [BookReadersContent].
@@ -261,6 +264,7 @@ fun BookReadersSection(
  *   the number of rendered rows.
  * @param modifier Optional modifier.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BookReadersContent(
     readers: List<ReaderRowUi>,
@@ -290,35 +294,14 @@ fun BookReadersContent(
                 ) {
                     Text(
                         text = stringResource(Res.string.book_detail_readers),
-                        style =
-                            MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = DisplayFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
+                        // Medium: the hero title is the screen's one display moment (rev 7 type rule).
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     CountBadge(count = totalCount, contentDescription = readerCount(totalCount))
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                if (totalCount > readers.size) {
-                    TextButton(
-                        onClick = {
-                            haptics.press()
-                            onSeeAllClick()
-                        },
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.common_see_all),
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
                 }
             }
 
@@ -338,6 +321,20 @@ fun BookReadersContent(
                     onUserClick = onUserClick,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            // Below the rows, full width, as the board draws it: the way to everyone past the first three.
+            if (totalCount > readers.size) {
+                FilledTonalButton(
+                    onClick = {
+                        haptics.press()
+                        onSeeAllClick()
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 56.dp),
+                ) {
+                    Text(stringResource(Res.string.book_detail_see_all_readers, totalCount))
+                }
             }
         }
     }
@@ -473,23 +470,24 @@ internal fun ReaderRow(
 @Composable
 private fun ReaderStateLine(reader: ReaderRowUi) {
     if (reader.isReading) {
+        Text(
+            text = stringResource(Res.string.book_detail_reader_listening_now),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 1.dp),
+        )
         if (reader.progressPct != null) {
-            Row(
-                modifier = Modifier.padding(top = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ProgressBar(
-                    progressPct = reader.progressPct,
-                    modifier = Modifier.widthIn(max = 150.dp).weight(1f, fill = false),
-                )
-                Text(
-                    text = stringResource(Res.string.book_detail_progresspercent, reader.progressPct),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            // The bar replaces the number (spec §5.2); the number is spoken, merged into the row.
+            val spoken = stringResource(Res.string.book_detail_readers_a11y_reading, reader.name, reader.progressPct)
+            LinearProgressIndicator(
+                progress = { reader.progressPct.coerceIn(0, 100) / 100f },
+                modifier =
+                    Modifier
+                        .padding(top = 6.dp)
+                        .widthIn(max = 150.dp)
+                        .fillMaxWidth()
+                        .semantics { contentDescription = spoken },
+            )
         }
     } else if (reader.finishedWhen != null && reader.isOnHardcover) {
         // Flows rather than a Row: at a large font scale the label wraps beneath the date instead of
@@ -543,37 +541,6 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
     }
 }
 
-/**
- * Thin progress bar: a 6dp-tall [MaterialTheme.colorScheme.surfaceContainerHighest] track with a
- * [MaterialTheme.colorScheme.primary] fill to [progressPct]%.
- *
- * @param progressPct Fill amount in `0..100`.
- * @param modifier Optional modifier; callers cap the width.
- */
-@Composable
-private fun ProgressBar(
-    progressPct: Int,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth(progressPct.coerceIn(0, 100) / 100f)
-                    .height(6.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-        )
-    }
-}
-
 /** "1 reader" or "N readers": what the Readers count badge counts. */
 @Composable
 private fun readerCount(count: Int): String =
@@ -582,3 +549,18 @@ private fun readerCount(count: Int): String =
     } else {
         stringResource(Res.string.book_detail_readers_count, count)
     }
+
+/**
+ * The readers summary for the hero's social line; null while loading, on error, or when nobody else reads it. It
+ * resolves the same [BookReadersViewModel] as [BookReadersSection]: Koin keys a ViewModel by its class within the
+ * entry's ViewModelStoreOwner, so the two share one repository flow.
+ */
+@Composable
+internal fun rememberReadersSummary(
+    bookId: String,
+    viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
+): ReadersSummary? {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val data = state as? BookReadersUiState.Data ?: return null
+    return data.summary.takeIf { it.avatars.isNotEmpty() }
+}
