@@ -352,7 +352,7 @@ enum BulkEditFormatting {
         }
     }
 
-    /// The hero's eyebrow: where the selection came from and how big it is.
+    /// The hero's eyebrow: how big the selection is (no source word: it may come from Home or Discover).
     static func heroEyebrow(selectedCount: Int) -> String {
         String(format: String(localized: "bulk_edit.hero_eyebrow"), selectedCount)
     }

@@ -275,7 +275,8 @@ class BulkEditScreenTest {
     fun `the hero counts the selection while the title counts what loaded`() {
         render(state = editing(bookCount = 37, requestedCount = 40, selectionSample = sample(2)))
 
-        composeRule.onNodeWithText("LIBRARY · 40 SELECTED").assertIsDisplayed()
+        // No source word: a selection from Home or Discover is not "Library".
+        composeRule.onNodeWithText("40 SELECTED").assertIsDisplayed()
         composeRule.onNodeWithText("Edit 37 books").assertIsDisplayed()
     }
 

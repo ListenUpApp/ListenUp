@@ -7346,7 +7346,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Library · %1$d selected"
+            "value": "%1$d selected"
           }
         }
       }

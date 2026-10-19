@@ -735,7 +735,7 @@ One beautiful library.</string>
     <string name="bulk_edit_failed_after_one">Stopped after 1 book. The rest were not changed.</string>
     <string name="bulk_edit_failed_after_plural">Stopped after %1$d books. The rest were not changed.</string>
     <string name="bulk_edit_genres">Add genres</string>
-    <string name="bulk_edit_hero_eyebrow">Library · %1$d selected</string>
+    <string name="bulk_edit_hero_eyebrow">%1$d selected</string>
     <string name="bulk_edit_hero_more">+%1$d</string>
     <string name="bulk_edit_language">Language</string>
     <string name="bulk_edit_moods">Add moods</string>
