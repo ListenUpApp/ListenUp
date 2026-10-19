@@ -4331,16 +4331,6 @@
         }
       }
     },
-    "book.detail_all_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All %1$d"
-          }
-        }
-      }
-    },
     "book.detail_all_credits": {
       "localizations": {
         "en": {
@@ -5231,16 +5221,6 @@
         }
       }
     },
-    "book.detail_progresspercent": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@%%"
-          }
-        }
-      }
-    },
     "book.detail_published": {
       "localizations": {
         "en": {
@@ -6027,16 +6007,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book %1$@ of %2$d · start here"
-          }
-        }
-      }
-    },
-    "book.detail_show_less": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show less"
           }
         }
       }
@@ -6937,16 +6907,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Other role"
-          }
-        }
-      }
-    },
-    "book.show_all_chapters": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show all %1$d chapters"
           }
         }
       }

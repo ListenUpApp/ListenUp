@@ -434,7 +434,6 @@ One beautiful library.</string>
     <string name="book_detail_added">Added</string>
     <string name="book_detail_all_chapters">All %1$d chapters</string>
     <string name="book_detail_all_chapters_ios">All %1$d Chapters</string>
-    <string name="book_detail_all_count">All %1$d</string>
     <string name="book_detail_all_credits">All credits</string>
     <string name="book_detail_authors">Authors</string>
     <string name="book_detail_back_to_library">Back to Library</string>
@@ -524,7 +523,6 @@ One beautiful library.</string>
     <string name="book_detail_play_ios">Play</string>
     <string name="book_detail_preparing">Preparing…</string>
     <string name="book_detail_progress_a11y">%1$d percent listened</string>
-    <string name="book_detail_progresspercent">%1$s%</string>
     <string name="book_detail_published">Published</string>
     <string name="book_detail_publisher">Publisher</string>
     <string name="book_detail_queued">Queued...</string>
@@ -604,7 +602,6 @@ One beautiful library.</string>
     <string name="book_detail_series_pill_a11y">Series, %1$s</string>
     <string name="book_detail_series_position">Book %1$s of %2$d</string>
     <string name="book_detail_series_start_here">Book %1$s of %2$d · start here</string>
-    <string name="book_detail_show_less">Show less</string>
     <string name="book_detail_social_finished_many">%1$s, %2$s and %3$d others finished it</string>
     <string name="book_detail_social_finished_many_one">%1$s, %2$s and 1 other finished it</string>
     <string name="book_detail_social_finished_one">%1$s finished it</string>
@@ -695,7 +692,6 @@ One beautiful library.</string>
     <string name="book_role_producer">Producer</string>
     <string name="book_role_translator">Translator</string>
     <string name="book_role_unknown">Other role</string>
-    <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="book_time_left">%1$s left</string>
     <string name="book_visibility_add_to_collection">Add to a collection</string>
     <string name="book_visibility_add_to_collection_ios">Add to a Collection</string>

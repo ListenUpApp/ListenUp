@@ -224,8 +224,8 @@ fun BookDetailPage(
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
                 FocusHeadingWhenBlocksLeave(state, root)
 
-                // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
-                // view whichever pane is open; Release asks first (§7).
+                // A held book is triage-only (spec §8). The panel stands above the sections; Release asks
+                // first (§7).
                 if (state.isHeld) {
                     HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
