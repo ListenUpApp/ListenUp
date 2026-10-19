@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -244,12 +245,14 @@ private fun ActivityRowBody(
             activityLine(actor = actor, parts = parts, bodyColor = bodyColor, highlightColor = highlightColor)
         }
     Row(
+        // Inset from the rounded clip, so the corners round the ripple and never a letter of the text.
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp)
                 .clip(MaterialTheme.shapes.small)
-                .then(modifier),
+                .then(modifier)
+                .padding(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {

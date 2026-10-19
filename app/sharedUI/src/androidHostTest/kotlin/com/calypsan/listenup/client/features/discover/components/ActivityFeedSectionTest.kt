@@ -24,6 +24,8 @@ import com.calypsan.listenup.client.features.discover.WithAvatarDependencies
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import org.junit.After
+import io.kotest.matchers.shouldBe
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -215,5 +217,20 @@ class ActivityFeedSectionTest {
                 .fetchSemanticsNode()
                 .config
         assertEquals(false, SemanticsActions.CustomActions in config)
+    }
+
+    @Test
+    fun aBookRowsSentenceSitsInsideTheBodysRoundedCornersSoNoLetterIsClipped() {
+        // The body is clipped to a rounded shape for its ripple; text flush against its corner lost
+        // its first letter ("ines Duarte", "?d ago") on rows tall enough to fill it.
+        show(listOf(row("a1", "finished_book")))
+        val body = composeRule.onNode(hasClickAction() and hasText("Piranesi", substring = true)).fetchSemanticsNode()
+        val sentence =
+            composeRule
+                .onNode(hasText("Maya Chen finished", substring = true), useUnmergedTree = true)
+                .fetchSemanticsNode()
+        val inset = with(composeRule.density) { 4.dp.toPx() }
+        (sentence.boundsInRoot.left - body.boundsInRoot.left >= inset) shouldBe true
+        (sentence.boundsInRoot.top - body.boundsInRoot.top >= inset) shouldBe true
     }
 }
