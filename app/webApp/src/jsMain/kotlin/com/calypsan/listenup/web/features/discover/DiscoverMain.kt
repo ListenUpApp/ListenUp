@@ -137,10 +137,8 @@ internal fun ListenerCard(
     selection: BookSelection?,
 ) {
     val whenText = relativeLastActive(session.lastActiveAt, nowMs)
-    Div(attrs = {
-        classes("disc-listener")
-        if (selection?.isSelected(session.bookId) == true) classes("is-sel")
-    }) {
+    // A pick is marked on the tile (its check); an outline on this card was clipped by the rail.
+    Div(attrs = { classes("disc-listener") }) {
         SelectableTile(
             bookId = session.bookId,
             selection = selection,

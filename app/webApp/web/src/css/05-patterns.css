@@ -423,12 +423,16 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { .bulk-b:hover { background:rgba(255,255,255,.18); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
 .bulk-n { font-weight:700; }
+.bulk-bl { white-space:nowrap; }
 .bulk-gap { flex:1; }
 /* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
    sideways rather than spilling past the screen's edge when its labels outgrow a phone. */
 @media (max-width: 759px) {
   :root { --bulk-top:calc(env(safe-area-inset-top) + 8px); }
-  .bulk { position:fixed; top:var(--bulk-top); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; }
+  .bulk { position:fixed; top:var(--bulk-top); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; gap:6px; padding:0 8px 0 6px; }
+  /* Every action fits 320px: an action with an icon shows the icon alone (its label is its name). */
+  .bulk-b:has(svg) { width:44px; height:44px; padding:0; justify-content:center; flex:none; }
+  .bulk-b:has(svg) .bulk-bl { display:none; }
   /* While the bar is up, the page reserves its height at the top, so nothing at scroll top (a
      header's Select, a page title) sits under it, and focus scrolls clear of it. Repeated with
      the docked-player selector, whose padding rule has that specificity. */

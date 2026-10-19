@@ -24,7 +24,8 @@ class BulkAction(
  * the count, then the actions that apply to the whole selection (spec §3.5). It is a labelled
  * `role=toolbar` — [label] says what is selected ("2 books selected") — so a screen reader hears one
  * named group rather than loose buttons, one tab stop whose arrows move between them. On a phone it docks at the top of the viewport as a header;
- * wider, it floats at the foot of the content.
+ * wider, it floats at the foot of the content. On a phone an action with an icon shows the icon alone,
+ * so every action fits 320px; its label stays its accessible name and tooltip.
  *
  * Actions are supplied by the surface — the bar never invents any, so a pane with no real bulk
  * operations yet shows only Cancel and the count.
@@ -75,12 +76,15 @@ fun BulkBar(
             Button(attrs = {
                 classes("bulk-b")
                 attr("type", "button")
+                // Named by its label in every layout: a phone shows the icon alone (05-patterns.css).
+                attr("aria-label", action.label)
+                attr("title", action.label)
                 tabIndex(if (current == position) 0 else -1)
                 onFocus { current = position }
                 onClick { action.onClick() }
             }) {
                 action.icon?.let { Icon(it, size = BULK_ACTION_ICON_SIZE) }
-                Text(action.label)
+                Span(attrs = { classes("bulk-bl") }) { Text(action.label) }
             }
         }
     }

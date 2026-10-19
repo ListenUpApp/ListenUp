@@ -80,4 +80,17 @@ class DiscoverSelectTest :
             host.querySelectorAll("[role=checkbox]").length shouldBe 0
             (host.querySelector(".disc-a-new .disc-card") as HTMLElement).tagName.lowercase() shouldBe "a"
         }
+
+        test("a picked listener is marked by its tile's check, not by an outline on the whole card") {
+            // The card sits in a scrolling rail that clipped an outline to two of its four edges.
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        currentlyListening = readyListening(listOf(listenerOf("u9", live = true))),
+                        selection = selection(isSelecting = true, selected = setOf("b-u9")),
+                    )
+                }
+            (host.querySelector(".disc-listener") as HTMLElement).classList.contains("is-sel") shouldBe false
+            (host.querySelector(".disc-listener [role=checkbox]") as HTMLElement).getAttribute("aria-checked") shouldBe "true"
+        }
     })

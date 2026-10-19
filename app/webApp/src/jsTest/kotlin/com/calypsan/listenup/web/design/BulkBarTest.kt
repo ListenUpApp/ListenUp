@@ -114,4 +114,20 @@ class BulkBarTest :
             document.activeElement shouldBe buttons[2]
             rovingTarget("ArrowLeft", from = 0, count = 3) shouldBe 2
         }
+
+        test("every action is named by its label, so it still has a name when a phone shows only its icon") {
+            val host =
+                mount {
+                    BulkBar(
+                        count = 1,
+                        label = "1 book selected",
+                        actions = listOf(BulkAction("Add to collection", WebIcon.Layers) {}),
+                        onClear = {},
+                    )
+                }
+            val action = host.querySelector(".bulk-b") as HTMLElement
+            action.getAttribute("aria-label") shouldBe "Add to collection"
+            action.getAttribute("title") shouldBe "Add to collection"
+            (action.querySelector(".bulk-bl") as HTMLElement).textContent shouldBe "Add to collection"
+        }
     })
