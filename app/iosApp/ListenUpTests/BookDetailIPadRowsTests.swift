@@ -5,7 +5,9 @@ import Testing
 /// progress on a wide main column (spec §3.2.4); a held book keeps About, Chapters and Details (§3.2.3).
 @Suite("Book Detail iPad rows")
 struct BookDetailIPadRowsTests {
-    private let inProgress: [BookDetailSectionKind] = [.chapters, .about, .series, .readers, .ratings, .hardcover, .details]
+    private let inProgress: [BookDetailSectionKind] = [
+        .chapters, .about, .series, .readers, .ratings, .hardcover, .details
+    ]
 
     @Test func inProgressOnAWideMainColumnPairsChaptersWithRatings() {
         let rows = BookDetailIPadRows.rows(order: inProgress, stage: .inProgress, mainWidth: 760)

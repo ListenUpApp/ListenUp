@@ -396,13 +396,13 @@ private extension View {
     /// All value-typed navigation destinations for the app shell, split into a content group and an
     /// admin group so neither builder trips the function-length lint.
     func navigationDestinations() -> some View {
-        contentDestinations()
+        bookDestinations()
+            .contentDestinations()
             .adminDestinations()
     }
 
-    /// Library/content-facing destinations: books, series, contributors, facets, shelves, profiles,
-    /// settings, and storage.
-    func contentDestinations() -> some View {
+    /// A book, and everyone reading it.
+    func bookDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
                 BookDetailView(bookId: destination.id)
@@ -411,6 +411,12 @@ private extension View {
             .navigationDestination(for: BookReadersDestination.self) { destination in
                 BookReadersListView(bookId: destination.bookId)
             }
+    }
+
+    /// Library/content-facing destinations: series, contributors, facets, shelves, profiles, settings, and
+    /// storage.
+    func contentDestinations() -> some View {
+        self
             .navigationDestination(for: SeriesDestination.self) { destination in
                 SeriesDetailView(seriesId: destination.id)
                     .heroDestination(seriesHeroID(destination.id))

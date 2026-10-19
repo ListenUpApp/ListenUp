@@ -53,10 +53,13 @@ struct BookChapterRowsSection: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.listenUpOrange)
-                    .padding(.horizontal, 18)
+                    .padding(.horizontal, Spacing.m)
                 }
             }
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .background(
+                Color(.secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -84,13 +87,15 @@ struct BookChapterRowsSection: View {
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 50)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, Spacing.m)
             .contentShape(Rectangle())
         }
         .buttonStyle(.pressScaleRow)
         .disabled(!canPlay)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(String(format: String(localized: "book.detail_play_from_chapter_a11y"), number, chapter.title))
+        .accessibilityLabel(
+            String(format: String(localized: "book.detail_play_from_chapter_a11y"), number, chapter.title)
+        )
         // The current chapter is marked by colour and weight; VoiceOver gets it as state (HIG, Accessibility).
         .accessibilityAddTraits(chapter.isCurrent ? [.isButton, .isSelected] : .isButton)
     }

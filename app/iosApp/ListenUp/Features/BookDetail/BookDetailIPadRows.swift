@@ -5,7 +5,11 @@ import CoreGraphics
 enum BookDetailIPadRows {
     static let pairingMinWidth: CGFloat = 720
 
-    static func rows(order: [BookDetailSectionKind], stage: BookReadingStage, mainWidth: CGFloat) -> [[BookDetailSectionKind]] {
+    static func rows(
+        order: [BookDetailSectionKind],
+        stage: BookReadingStage,
+        mainWidth: CGFloat
+    ) -> [[BookDetailSectionKind]] {
         guard stage == .inProgress, mainWidth >= pairingMinWidth,
               order.contains(.chapters), order.contains(.ratings) else { return order.map { [$0] } }
         var rest = order.filter { $0 != .chapters && $0 != .ratings }.map { [$0] }

@@ -15,7 +15,10 @@ extension BookDetailView {
     }
 
     /// The pure rule behind `shownSections(_:)`.
-    nonisolated static func shown(_ order: [BookDetailSectionKind], layout: BookDetailLayout) -> [BookDetailSectionKind] {
+    nonisolated static func shown(
+        _ order: [BookDetailSectionKind],
+        layout: BookDetailLayout
+    ) -> [BookDetailSectionKind] {
         guard !layout.showsSocial else { return order }
         return order.filter { $0 == .about || $0 == .chapters || $0 == .details }
     }

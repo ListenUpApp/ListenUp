@@ -246,7 +246,11 @@ struct BookDetailView: View {
 
     /// Wide: a rail sized from the width beside a flexible main column of the sections.
     @ViewBuilder
-    private func regularContent(_ observer: BookDetailObserver, railWidth: CGFloat, proxy: ScrollViewProxy) -> some View {
+    private func regularContent(
+        _ observer: BookDetailObserver,
+        railWidth: CGFloat,
+        proxy: ScrollViewProxy
+    ) -> some View {
         HStack(alignment: .top, spacing: DetailColumns.gutter) {
             VStack(spacing: 20) {
                 hero(observer)

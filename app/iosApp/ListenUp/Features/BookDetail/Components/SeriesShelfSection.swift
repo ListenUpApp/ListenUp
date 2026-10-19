@@ -37,15 +37,18 @@ struct SeriesShelfSection: View {
                             .accessibilityAddTraits(book.isThis ? .isSelected : [])
                         }
                     }
-                    .padding(4)
+                    .padding(Spacing.xxs)
                 }
                 Text(Self.caption(shelf, stage: stage))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
             }
-            .padding(18)
+            .padding(Spacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .background(
+                Color(.secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -53,10 +56,10 @@ struct SeriesShelfSection: View {
     private func cover(_ book: BookSeriesShelfItem) -> some View {
         BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
             .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.m, style: .continuous))
             .overlay {
                 if book.isThis {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
                         .stroke(Color.listenUpOrange, lineWidth: 2)
                         .padding(-3)
                 }
