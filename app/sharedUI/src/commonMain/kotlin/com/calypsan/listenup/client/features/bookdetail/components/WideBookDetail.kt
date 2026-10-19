@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
@@ -89,6 +91,9 @@ fun WideBookDetail(
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
 
+    // The mini player floats over the page; the end of the scroll clears it, as the phone column's does.
+    val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
             isComplete = state.isComplete,
@@ -113,7 +118,7 @@ fun WideBookDetail(
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 32.dp + playerInset),
         ) {
             // Offline advisory — streaming unavailable, downloads still play.
             if (state.showServerWarning) {

@@ -10,7 +10,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.foundation.layout.WindowInsets
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -224,6 +229,22 @@ class BookDetailSectionOrderTest {
         val root = composeRule.onRoot().getUnclippedBoundsInRoot()
         (heading.top >= root.top && heading.bottom <= root.bottom) shouldBe true
         composeRule.onNodeWithText("Listening now").assertIsDisplayed()
+    }
+
+    // The mini player floats over the page: at the end of the scroll the last section must clear it, not sit under it.
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `on a tablet the end of the page clears the mini player`() {
+        val player = 200.dp
+        setScreen(ready(ReadingStage.InProgress, inProgressOrder)) { content ->
+            CompositionLocalProvider(LocalNowPlayingInsets provides WindowInsets(bottom = player)) { content() }
+        }
+        composeRule.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 100_000f) }
+        composeRule.waitForIdle()
+        val root = composeRule.onRoot().getUnclippedBoundsInRoot()
+        // The last words of each column: the synopsis ends the main one, the publisher the side one.
+        val ends = listOf("A storm is coming.", "Tor").map { composeRule.onNodeWithText(it).getUnclippedBoundsInRoot().bottom }
+        (ends.max() <= root.bottom - player) shouldBe true
     }
 
     @Test
