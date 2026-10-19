@@ -71,10 +71,19 @@ struct HomeView: View {
         }
     }
 
-    /// "Good evening, Simon" once Home has loaded; nothing while it loads.
+    /// "Good evening, Simon" once Home has loaded ("Welcome, Simon" for a new listener); the greeting alone when Home
+    /// failed (spec §3.3); nothing while it loads.
     private var greetingSubtitle: String {
-        guard case .ready(let ready) = home?.phase else { return "" }
-        return HomeTitle.subtitle(timeOfDay: ready.timeOfDay, firstName: ready.firstName)
+        switch home?.phase {
+        case .ready(let ready):
+            var isWelcome = false
+            if case .newListener = ready.slot { isWelcome = true }
+            return HomeTitle.subtitle(timeOfDay: ready.timeOfDay, firstName: ready.firstName, isWelcome: isWelcome)
+        case .error(_, let timeOfDay):
+            return HomeTitle.subtitle(timeOfDay: timeOfDay, firstName: nil)
+        case .loading, nil:
+            return ""
+        }
     }
 
     // MARK: - Content
@@ -107,41 +116,52 @@ struct HomeView: View {
             loadingContent
         case .ready(let ready):
             readyContent(ready, home: home, stats: stats)
-        case .error(let message):
-            errorContent(message, home: home)
+        case .error:
+            HomeErrorCard(onRetry: { home.refresh() })
+                .padding(.horizontal, layout.margin)
         }
     }
 
+    /// Page loading (spec §3.3, H14): the slot and rail skeletons, no strip, no spinner.
     private var loadingContent: some View {
-        LoadingStateView()
-            .frame(minHeight: 320)
+        VStack(alignment: .leading, spacing: 28) {
+            HomeSkeletonView(withResume: false)
+                .padding(.horizontal, layout.margin)
+            HomeSkeletonRail(margin: layout.margin)
+        }
     }
 
     @ViewBuilder
     private func readyContent(_ ready: HomeReady, home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
         let layout = layout
-        // Inline, where the content that failed would be, following the `ErrorBanner` precedent.
-        if let message = home.inlineError {
-            ErrorBanner(message: message)
-                .padding(.horizontal, layout.margin)
-        }
         ForEach(
-            layout.blocks(slot: ready.slot.shape, hasAlsoInProgress: !ready.alsoInProgress.isEmpty),
+            layout.blocks(
+                slot: ready.slot.shape,
+                isOffline: ready.isOffline,
+                continueListeningFailed: ready.continueListeningError != nil,
+                showsStrip: ready.showsArrivalStrip,
+                hasAlsoInProgress: !ready.alsoInProgress.isEmpty
+            ),
             id: \.self
         ) { block in
             switch block {
-            case .resume:
-                resumeHero(ready)
+            case .offline:
+                OfflinePill()
                     .padding(.horizontal, layout.margin)
-            case .resumeBesideStats:
+            case .firstSyncStrip:
+                FirstSyncStrip(count: ready.arrivalCount)
+                    .padding(.horizontal, layout.margin)
+            case .resume, .finished, .nothingInProgress, .welcome, .firstSync:
+                slotContent(ready, home: home)
+                    .padding(.horizontal, layout.margin)
+            case .slotBesideStats:
                 HStack(alignment: .top, spacing: 24) {
-                    resumeHero(ready).frame(maxWidth: .infinity)
+                    slotContent(ready, home: home).frame(maxWidth: .infinity)
                     statsCard(stats).frame(width: HomeLayout.statsWidth)
                 }
                 .padding(.horizontal, layout.margin)
-            case .nothingToResume:
-                EmptyContinueListening(onBrowseLibrary: { onSelectTab(.library) })
-                    .frame(maxWidth: .infinity)
+            case .continueListeningFailed:
+                ContinueListeningFailedLine(onRetry: { home.refresh() })
                     .padding(.horizontal, layout.margin)
             case .alsoInProgress:
                 alsoInProgress(ready.alsoInProgress, layout: layout)
@@ -149,11 +169,16 @@ struct HomeView: View {
                 statsCard(stats)
                     .padding(.horizontal, layout.margin)
             case .shelves:
-                MyShelvesSection(shelves: ready.shelves, layout: layout)
+                MyShelvesSection(shelves: ready.shelves, layout: layout, isLoading: ready.showsShelvesLoading)
             case .statsBesideShelves:
                 HStack(alignment: .top, spacing: 24) {
                     statsCard(stats).frame(width: HomeLayout.statsWidth)
-                    MyShelvesSection(shelves: ready.shelves, layout: layout, inset: false)
+                    MyShelvesSection(
+                        shelves: ready.shelves,
+                        layout: layout,
+                        inset: false,
+                        isLoading: ready.showsShelvesLoading
+                    )
                         .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, layout.margin)
@@ -161,34 +186,45 @@ struct HomeView: View {
         }
     }
 
+    /// Whichever slot applies, drawn: every kind takes the same position (spec §2.1). Every play goes through the play
+    /// entry Book Detail uses, from the saved position (P-R5, C16, C18).
     @ViewBuilder
-    private func resumeHero(_ ready: HomeReady) -> some View {
-        if case .resume(let resume) = ready.slot {
+    private func slotContent(_ ready: HomeReady, home: HomeViewModelWrapper) -> some View {
+        switch ready.slot {
+        case .resume(let resume):
             ResumeHeroView(resume: resume, isOnlyBook: ready.alsoInProgress.isEmpty) {
-                // P-R5 / C18: the play entry Book Detail uses, from the saved position.
                 deps.playerObserver.play(bookId: resume.book.id)
             }
+        case .justFinished(let finished):
+            JustFinishedCard(
+                slot: finished,
+                onPlay: { deps.playerObserver.play(bookId: $0) },
+                onDismiss: { home.dismissFinished(bookId: finished.bookId) },
+                onRate: { home.rateFinished(bookId: finished.bookId, halfStars: $0) }
+            )
+        case .nothingInProgress(let candidate):
+            NothingInProgressView(
+                candidate: candidate,
+                onPlay: { deps.playerObserver.play(bookId: $0) },
+                onBrowse: { onSelectTab(.library) },
+                onDiscover: { onSelectTab(.discover) }
+            )
+        case .newListener(let covers):
+            WelcomeView(covers: covers, onBrowse: { onSelectTab(.library) }, onDiscover: { onSelectTab(.discover) })
+        case .firstSync:
+            HomeSkeletonView(withResume: true)
+        case .absent:
+            EmptyView()
         }
     }
 
     private func statsCard(_ stats: HomeStatsObserver) -> some View {
         // PR 5 adds the Week focus; until then the link opens Discover at the top (spec §11).
-        HomeStatsCard(statsPhase: stats.statsPhase, onOpenLeaderboard: { onSelectTab(.discover) })
-    }
-
-    private func errorContent(_ message: String, home: HomeViewModelWrapper) -> some View {
-        ContentUnavailableView {
-            Label(String(localized: "home.couldnt_load"), systemImage: "wifi.exclamationmark")
-        } description: {
-            Text(message)
-        } actions: {
-            Button(action: { home.refresh() }) {
-                ActionLabel(title: String(localized: "common.try_again"), systemImage: "arrow.clockwise")
-            }
-            .prominentAction()
-            .frame(maxWidth: 240)
-        }
-        .frame(maxWidth: .infinity, minHeight: 320)
+        HomeStatsCard(
+            statsPhase: stats.statsPhase,
+            onOpenLeaderboard: { onSelectTab(.discover) },
+            onRetry: { stats.refresh() }
+        )
     }
 
     // MARK: - Also in Progress

@@ -18,11 +18,16 @@ import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfCover
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.home.AlsoFinished
+import com.calypsan.listenup.client.presentation.home.FinishedBook
+import com.calypsan.listenup.client.presentation.home.FinishedCard
 import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.core.ShelfId
 
@@ -33,17 +38,22 @@ internal fun homeReady(
     slot: HomeSlot,
     alsoInProgress: List<ContinueListeningItem>,
     shelves: List<Shelf> = emptyList(),
+    connectivity: HomeConnectivity = HomeConnectivity.Online,
+    isLibraryArriving: Boolean = false,
+    continueListeningError: AppError? = null,
+    scanProgress: ScanProgressState? = null,
 ) = HomeUiState.Ready(
     myShelves = shelves,
     isSyncing = false,
     isBuildingInitialLibrary = false,
-    scanProgress = null,
+    isLibraryArriving = isLibraryArriving,
+    scanProgress = scanProgress,
     timeOfDay = TimeOfDay.Evening,
     firstName = "Simon",
     slot = slot,
     alsoInProgress = alsoInProgress,
-    connectivity = HomeConnectivity.Online,
-    continueListeningError = null,
+    connectivity = connectivity,
+    continueListeningError = continueListeningError,
 )
 
 private fun book(
@@ -137,3 +147,63 @@ internal val testAppHeader: AppHeaderSlot = { leading ->
         Spacer(Modifier.size(width = 144.dp, height = 48.dp))
     }
 }
+
+/** One hour and one day, in milliseconds. */
+internal const val HOUR = 3_600_000L
+internal const val DAY = 24 * HOUR
+
+/** The board's "now": 2025-10-10 12:00 UTC. */
+internal const val BOARD_NOW = 1_760_097_600_000L
+
+/** The next book in a series: "Words of Radiance", Stormlight Archive Book 2, 48h 15m. */
+internal fun nextBook(
+    id: String = "wor",
+    title: String = "Words of Radiance",
+    sequenceLabel: String? = "2",
+) = NextInSeries(
+    bookId = id,
+    title = title,
+    coverPath = "/tmp/cover-$id.webp",
+    coverHash = null,
+    narratorNames = "Michael Kramer & Kate Reading",
+    seriesName = "Stormlight Archive",
+    sequenceLabel = sequenceLabel,
+    durationMs = 173_700_000L,
+)
+
+/** The just-finished kind: "The Way of Kings", 45h 30m, finished an hour before [BOARD_NOW]. */
+internal fun finishedSlot(
+    id: String = "wok",
+    next: NextInSeries? = nextBook(),
+    names: List<String> = listOf("Maya", "Tom"),
+    more: Int = 0,
+    halfStars: Int? = null,
+    startedAtMs: Long? = BOARD_NOW - 34 * DAY,
+    finishedAtMs: Long = BOARD_NOW - HOUR,
+) = HomeSlot.JustFinished(
+    FinishedCard(
+        book =
+            FinishedBook(
+                bookId = id,
+                title = "The Way of Kings",
+                authorNames = "Brandon Sanderson",
+                coverPath = "/tmp/cover-$id.webp",
+                coverHash = null,
+                durationMs = 163_800_000L,
+            ),
+        startedAtMs = startedAtMs,
+        finishedAtMs = finishedAtMs,
+        yourHalfStars = halfStars,
+        next = next,
+        alsoFinished = AlsoFinished(names = names, othersCount = more),
+    ),
+)
+
+/** Nothing in progress, with or without a series candidate. */
+internal fun nothingSlot(candidate: NextInSeries? = nextBook()) = HomeSlot.NothingInProgress(candidate)
+
+/** A new listener, with [covers] of the newest books. */
+internal fun welcomeSlot(covers: Int = 4) =
+    HomeSlot.NewListener(
+        covers = (1..covers).map { n -> ShelfCover("new$n", coverPath = "/tmp/cover-new$n.webp", coverHash = null) },
+    )

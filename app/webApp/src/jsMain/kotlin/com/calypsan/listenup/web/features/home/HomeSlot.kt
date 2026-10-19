@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import com.calypsan.listenup.web.design.Button
@@ -81,25 +82,7 @@ internal fun ResumeHero(
                 Text("${book.progressPercent}% of ${DurationFormatter.hoursMinutes(book.totalDurationMs.milliseconds)}")
             }
         }
-        resume.next?.let { next ->
-            DomButton(attrs = {
-                classes("home-hero-next")
-                attr("type", "button")
-                onClick { onOpenBook(next.bookId) }
-            }) {
-                Cover(
-                    title = next.title,
-                    imageUrl = coverUrl(next.bookId, next.coverHash, width = NEXT_COVER * 2),
-                    size = NEXT_COVER,
-                    decorative = true,
-                    overlay = { RestrictedMarker(next.bookId, compact = true) },
-                )
-                Span(attrs = { classes("home-hero-next-text") }) {
-                    Span(attrs = { classes("home-hero-next-k") }) { Text("Next in the series") }
-                    Span(attrs = { classes("home-hero-next-t") }) { Text(next.title) }
-                }
-            }
-        }
+        resume.next?.let { next -> NextInSeriesButton(next, onOpenBook) }
         Button(
             kind = ButtonKind.Primary,
             size = ButtonSize.Lg,
@@ -115,6 +98,31 @@ internal fun ResumeHero(
             P(attrs = { classes("home-hero-why") }) {
                 Text("Can't reach your server, so this book can't stream right now.")
             }
+        }
+    }
+}
+
+/** "Next in the series" (§2.3, shared by the Resume and finish cards): a quiet row that opens that book. */
+@Composable
+internal fun NextInSeriesButton(
+    next: NextInSeries,
+    onOpenBook: (String) -> Unit,
+) {
+    DomButton(attrs = {
+        classes("home-hero-next")
+        attr("type", "button")
+        onClick { onOpenBook(next.bookId) }
+    }) {
+        Cover(
+            title = next.title,
+            imageUrl = coverUrl(next.bookId, next.coverHash, width = NEXT_COVER * 2),
+            size = NEXT_COVER,
+            decorative = true,
+            overlay = { RestrictedMarker(next.bookId, compact = true) },
+        )
+        Span(attrs = { classes("home-hero-next-text") }) {
+            Span(attrs = { classes("home-hero-next-k") }) { Text("Next in the series") }
+            Span(attrs = { classes("home-hero-next-t") }) { Text(next.title) }
         }
     }
 }

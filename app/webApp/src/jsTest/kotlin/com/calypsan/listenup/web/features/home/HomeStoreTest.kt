@@ -3,7 +3,7 @@ package com.calypsan.listenup.web.features.home
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
-/** The Home session hands the finish-card actions through (memory "web actions are unwired"); PR 4 draws them. */
+/** The Home session hands its actions through (memory "web actions are unwired"). */
 class HomeStoreTest :
     FunSpec({
         test("a fixed Home hands dismiss and rate straight through") {
@@ -21,5 +21,14 @@ class HomeStoreTest :
 
             dismissed shouldBe "b1"
             rated shouldBe ("b1" to 8)
+        }
+
+        test("a fixed Home hands retryConnection straight through") {
+            var retried = 0
+            val session = fixedHome(state = readyHome(), onRetryConnection = { retried++ })()
+
+            session.onRetryConnection()
+
+            retried shouldBe 1
         }
     })

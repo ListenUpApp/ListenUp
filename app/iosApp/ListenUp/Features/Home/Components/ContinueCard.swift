@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A Home card (spec §2.5): square art with a white progress line on it (the ring retired), the title, the author,
 /// "Read by …" on wide layouts, and the time left in the action colour. One accessibility element with one label
-/// (§8.2). A loading item is a same-size shimmer. While selecting, a tap toggles selection.
+/// (§8.2). A loading item is a same-size shimmer. While selecting, a tap toggles selection. Out of reach and not
+/// downloaded, the art and title dim to half and the last line reads "Needs a connection"; it stays a link (§2.5).
 struct ContinueCard: View {
     let item: ContinueItem
     /// A rail card's fixed width, or nil to fill a row column.
@@ -25,7 +26,8 @@ struct ContinueCard: View {
                             author: item.author,
                             narrators: showsNarrator ? item.narrators : nil,
                             percent: item.progressPercent,
-                            remainingMs: item.remainingMs
+                            remainingMs: item.remainingMs,
+                            needsConnection: item.needsConnection
                         ),
                         isRestricted: restrictedBooks?.isRestricted(item.id) == true
                     )
@@ -46,25 +48,32 @@ struct ContinueCard: View {
                 .coverHoverEffect(cornerRadius: Radius.s)
                 .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
                 .bookSelectionCircle(bookId: item.id, selection: selection)
+                .opacity(contentOpacity)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.title).font(.subheadline).lineLimit(1)
-                if !item.author.isEmpty {
-                    Text(item.author).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                Group {
+                    Text(item.title).font(.subheadline).lineLimit(1)
+                    if !item.author.isEmpty {
+                        Text(item.author).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    if showsNarrator, let narrators = item.narrators, !narrators.isEmpty {
+                        Text(String(format: String(localized: "library.card_read_by"), narrators))
+                            .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
-                if showsNarrator, let narrators = item.narrators, !narrators.isEmpty {
-                    Text(String(format: String(localized: "library.card_read_by"), narrators))
-                        .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-                }
-                Text(HomeCardText.timeLeft(remainingMs: item.remainingMs))
+                .opacity(contentOpacity)
+                Text(HomeCardText.caption(remainingMs: item.remainingMs, needsConnection: item.needsConnection))
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.luTintInk)
+                    .foregroundStyle(item.needsConnection ? Color.secondary : Color.luTintInk)
                     .lineLimit(1)
             }
         }
         .frame(width: width, alignment: .leading)
         .contentShape(Rectangle())
     }
+
+    /// Half for a card that needs a connection it does not have.
+    private var contentOpacity: Double { item.needsConnection ? 0.5 : 1 }
 
     private var skeleton: some View {
         VStack(alignment: .leading, spacing: 8) {

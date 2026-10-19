@@ -80,6 +80,7 @@ class HomeViewModelTest :
                 MutableStateFlow<com.calypsan.listenup.client.domain.model.ScanProgressState?>(null)
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
             val buildingInitialLibraryFlow = MutableStateFlow(false)
+            val firstCatchUpFlow = MutableStateFlow(false)
             var currentHour: Int = 10 // Default to morning
             val rig = HomeSlotRig(failWrites = failWrites)
             val reachability = FakeServerReachability()
@@ -90,6 +91,7 @@ class HomeViewModelTest :
                 every { syncRepository.scanProgress } returns scanProgressFlow
                 every { syncRepository.syncState } returns syncStateFlow
                 every { syncRepository.buildingInitialLibrary } returns buildingInitialLibraryFlow
+                every { syncRepository.firstCatchUpRunning } returns firstCatchUpFlow
                 return HomeViewModel(
                     homeRepository = homeRepository,
                     userRepository = userRepository,
@@ -822,6 +824,35 @@ class HomeViewModelTest :
             }
         }
 
+        test("a failed Continue Listening never reads as a new listener or nothing in progress: the slot is the failure") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.homeRepository.observeContinueListening(any()) } returns
+                    flow { throw SimulatedFailure("boom") }
+                fixture.rig.finish("old", hoursAgo = 24 * 30)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot shouldBe HomeSlot.Absent
+                ready.alsoInProgress shouldBe emptyList()
+            }
+        }
+
+        test("with no history at all, a failed Continue Listening is still not the welcome") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.homeRepository.observeContinueListening(any()) } returns
+                    flow { throw SimulatedFailure("boom") }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot shouldBe HomeSlot.Absent
+            }
+        }
+
         test("continue listening cancellation is not swallowed into a fallback emission") {
             runTest {
                 // Regression: the continueListening .catch used to omit the cancellation
@@ -842,36 +873,150 @@ class HomeViewModelTest :
 
         test("pipeline failure surfaces Error state") {
             runTest {
-                // Make the combine transform itself throw by failing the greeting
-                // computation. This isolates the failure to the outer pipeline (the
-                // `init` block does not call currentHour), so the terminal `.catch` is
-                // the only handler that sees it.
+                // The user read sits inside the pipeline's combine, so its failure reaches the terminal fallback.
                 val fixture = createFixture()
-                // syncRepository stubs are installed by `build()`; install them here
-                // since we bypass build() to inject the failing currentHour.
-                every { fixture.syncRepository.scanProgress } returns fixture.scanProgressFlow
-                every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
-                every { fixture.syncRepository.buildingInitialLibrary } returns fixture.buildingInitialLibraryFlow
-                val viewModel =
-                    HomeViewModel(
-                        homeRepository = fixture.homeRepository,
-                        userRepository = fixture.userRepository,
-                        shelfRepository = fixture.shelfRepository,
-                        syncRepository = fixture.syncRepository,
-                        slotPresenter = fixture.rig.presenter(),
-                        serverReachability = fixture.reachability,
-                        networkMonitor = fixture.network,
-                        errorBus = fixture.errorBus,
-                        currentHour = { throw SimulatedFailure("upstream boom") },
-                    )
-                // Emit a non-null user so the combine pipeline's transform actually runs.
-                fixture.userFlow.value = createUser()
-                keepStateHot(viewModel)
+                every { fixture.userRepository.observeCurrentUser() } returns
+                    flow { throw SimulatedFailure("upstream boom") }
+                val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
 
-                val state = viewModel.state.value
-                val error = state.shouldBeInstanceOf<HomeUiState.Error>()
+                val error = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Error>()
                 error.error shouldBe ErrorMapper.map(SimulatedFailure("upstream boom"))
+            }
+        }
+
+        // ========== Arriving, the error greeting, retry, an offline rating, a remote dismissal ==========
+
+        test("a fresh device's first catch-up shows first sync while positions arrive before their books") {
+            runTest {
+                val fixture = createFixture()
+                fixture.firstCatchUpFlow.value = true
+                fixture.continueListeningFlow.value = listOf(ContinueListeningItem.Loading(bookId = "wok"))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot shouldBe HomeSlot.FirstSync
+                ready.isLibraryArriving shouldBe true
+                ready.isBuildingInitialLibrary shouldBe false
+                ready.isSyncing shouldBe false // the socket is Connected for the whole seed
+            }
+        }
+
+        test("while the library is arriving, no shelves yet reads as loading, never as the empty invitation") {
+            runTest {
+                val fixture = createFixture()
+                fixture.firstCatchUpFlow.value = true
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .showsShelvesLoading shouldBe true
+
+                fixture.firstCatchUpFlow.value = false
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .showsShelvesLoading shouldBe false
+            }
+        }
+
+        test("first sync resolves in place into Resume when the book lands and the catch-up ends") {
+            runTest {
+                val fixture = createFixture()
+                fixture.firstCatchUpFlow.value = true
+                fixture.continueListeningFlow.value = listOf(ContinueListeningItem.Loading(bookId = "wok"))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot shouldBe HomeSlot.FirstSync
+
+                fixture.rig.play("wok", hoursAgo = 1)
+                fixture.continueListeningFlow.value = listOf(readyItem("wok"))
+                fixture.firstCatchUpFlow.value = false
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot
+                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .book.bookId shouldBe "wok"
+                ready.isLibraryArriving shouldBe false
+            }
+        }
+
+        test("a page error keeps the part of the day, so the greeting stays") {
+            runTest {
+                val fixture = createFixture()
+                fixture.currentHour = 19
+                every { fixture.userRepository.observeCurrentUser() } returns flow { throw SimulatedFailure("boom") }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Error>()
+                    .timeOfDay shouldBe TimeOfDay.Evening
+            }
+        }
+
+        test("retryConnection asks the server reachability to retry") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.retryConnection()
+                advanceUntilIdle()
+
+                fixture.reachability.retryCalls shouldBe 1
+            }
+        }
+
+        test("a rating made with the network down is accepted and reaches the rating repository (it queues)") {
+            runTest {
+                val fixture = createFixture()
+                fixture.network.onlineFlow.value = false
+                fixture.rig.finish("wok", hoursAgo = 1)
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                val errors = mutableListOf<AppError>()
+                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.errorBus.errors.collect { errors += it } }
+                advanceUntilIdle()
+
+                viewModel.rateFinished("wok", halfStars = 7)
+                advanceUntilIdle()
+
+                verifySuspend { fixture.rig.ratings.rate("wok", 7, null) }
+                errors shouldBe emptyList()
+            }
+        }
+
+        test("a dismissal that arrives from another device ends the card at the next decision point") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
+                fixture.rig.finish("wok", hoursAgo = 1)
+                fixture.rig.books.setBooks(listOf(TestData.bookListItem(id = "wok")))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.JustFinished>()
+
+                // The other device's dismissal lands through sync, as a position row carrying it.
+                val finished =
+                    fixture.rig.positions
+                        .observe(BookId("wok"))
+                        .first()
+                        .shouldNotBeNull()
+                fixture.rig.positions.setPosition(finished.copy(finishedCardDismissedAtMs = RIG_NOW))
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<HomeUiState.Ready>()
+                    .slot
+                    .shouldBeInstanceOf<HomeSlot.NothingInProgress>()
             }
         }
     })

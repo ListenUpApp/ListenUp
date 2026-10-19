@@ -30,7 +30,11 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
+import com.calypsan.listenup.client.presentation.home.needsConnection
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_needs_connection
+import listenup.composeapp.generated.resources.home_needs_connection_a11y
 import listenup.composeapp.generated.resources.book_time_left
 import listenup.composeapp.generated.resources.home_also_in_progress
 import listenup.composeapp.generated.resources.home_card_by_author
@@ -62,6 +66,7 @@ internal fun AlsoInProgressSection(
     onOpenBook: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
+    connectivity: HomeConnectivity = HomeConnectivity.Online,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         SectionTitle(
@@ -86,10 +91,11 @@ internal fun AlsoInProgressSection(
                     selection = selection,
                     onOpenBook = onOpenBook,
                     cardWidth = RailCardWidth,
+                    connectivity = connectivity,
                 )
             }
         } else {
-            AdaptiveCardRow(items = items, selection = selection, onOpenBook = onOpenBook)
+            AdaptiveCardRow(items = items, selection = selection, onOpenBook = onOpenBook, connectivity = connectivity)
         }
     }
 }
@@ -100,6 +106,7 @@ private fun AdaptiveCardRow(
     items: List<ContinueListeningItem>,
     selection: HomeSelection,
     onOpenBook: (String) -> Unit,
+    connectivity: HomeConnectivity,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin)) {
         val gap = Spacing.lg
@@ -113,6 +120,7 @@ private fun AdaptiveCardRow(
                         selection = selection,
                         onOpenBook = onOpenBook,
                         cardWidth = null,
+                        connectivity = connectivity,
                     )
                 }
             }
@@ -122,7 +130,10 @@ private fun AdaptiveCardRow(
     }
 }
 
-/** A Home card: Library's card (C4) with Home's one label (§8.2). A `Loading` item is a same-size skeleton. */
+/**
+ * A Home card: Library's card (C4) with Home's one label (§8.2). A `Loading` item is a same-size skeleton. Out of reach
+ * ([connectivity]), a book that is not downloaded dims and reads "Needs a connection"; it stays tappable (§2.5).
+ */
 @Composable
 internal fun HomeBookCard(
     item: ContinueListeningItem,
@@ -130,6 +141,7 @@ internal fun HomeBookCard(
     selection: HomeSelection,
     onOpenBook: (String) -> Unit,
     cardWidth: Dp?,
+    connectivity: HomeConnectivity = HomeConnectivity.Online,
 ) {
     when (item) {
         is ContinueListeningItem.Loading -> {
@@ -143,6 +155,7 @@ internal fun HomeBookCard(
 
         is ContinueListeningItem.Ready -> {
             val book = item.book
+            val blocked = book.needsConnection(connectivity)
             BookCard(
                 cover = book.toCoverModel(),
                 onClick = { if (selection.isActive) selection.onToggle(book.bookId) else onOpenBook(book.bookId) },
@@ -153,7 +166,8 @@ internal fun HomeBookCard(
                 isSelected = book.bookId in selection.selectedIds,
                 onLongPress = { selection.onEnter(book.bookId) },
                 cardWidth = cardWidth,
-                accessibilityLabel = homeCardLabel(book, withNarrator = isWide),
+                accessibilityLabel = homeCardLabel(book, withNarrator = isWide, needsConnection = blocked),
+                unavailableReason = if (blocked) stringResource(Res.string.home_needs_connection) else null,
             )
         }
     }
@@ -161,12 +175,14 @@ internal fun HomeBookCard(
 
 /**
  * "Babel, by R. F. Kuang, 11 percent listened, 18h 40m left" (spec §2.5); wide windows add "Read by …". The time left
- * is Library's wording on every card, whatever its length (open question 6: no "Almost done").
+ * is Library's wording on every card, whatever its length (open question 6: no "Almost done"). A card that
+ * [needsConnection] ends "not downloaded, needs a connection" instead.
  */
 @Composable
 internal fun homeCardLabel(
     book: ContinueListeningBook,
     withNarrator: Boolean,
+    needsConnection: Boolean = false,
 ): String =
     listOfNotNull(
         book.title,
@@ -175,5 +191,9 @@ internal fun homeCardLabel(
             ?.takeIf { withNarrator && it.isNotBlank() }
             ?.let { stringResource(Res.string.library_card_read_by, it) },
         stringResource(Res.string.library_card_progress_a11y, book.progressPercent),
-        stringResource(Res.string.book_time_left, DurationFormatter.hoursMinutes(book.timeRemainingMs.milliseconds)),
+        if (needsConnection) {
+            stringResource(Res.string.home_needs_connection_a11y)
+        } else {
+            stringResource(Res.string.book_time_left, DurationFormatter.hoursMinutes(book.timeRemainingMs.milliseconds))
+        },
     ).joinToString(", ")

@@ -10,6 +10,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -33,11 +35,15 @@ private const val MINUTES_PER_HOUR = 60L
  * stored in Room. Updates automatically when new listening events are added
  * (local or via sync).
  *
+ * While the library is still arriving on this device ([libraryArriving]) the section stays Loading: the stats it
+ * would compute are partial ("0m", a short best streak) until the listening history has landed.
+ *
  * @property statsRepository Repository for computing local stats
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeStatsViewModel(
     private val statsRepository: StatsRepository,
+    libraryArriving: Flow<Boolean> = flowOf(false),
 ) : ViewModel() {
     /**
      * Bumped by [refresh] to re-run a failed observation.
@@ -50,8 +56,11 @@ class HomeStatsViewModel(
 
     val uiState: StateFlow<HomeStatsUiState> =
         observationRuns
-            .flatMapLatest { observeStats() }
-            .stateIn(
+            .flatMapLatest {
+                libraryArriving.distinctUntilChanged().flatMapLatest { arriving ->
+                    if (arriving) flowOf(HomeStatsUiState.Loading) else observeStats()
+                }
+            }.stateIn(
                 scope = viewModelScope,
                 started = WhileSubscribedForUi,
                 initialValue = HomeStatsUiState.Loading,

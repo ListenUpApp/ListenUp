@@ -165,6 +165,12 @@ class HomeSlotRulesTest :
                 latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
             }
 
+            test("any playback position ends the welcome: a new listener resolves in place when history arrives") {
+                val held = LatchedSlot(point, SlotKind.NewListener)
+                latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+                latch(held, point, SlotKind.NothingInProgress) shouldBe LatchedSlot(point, SlotKind.NothingInProgress)
+            }
+
             test("a decision made while the leading book was still arriving resolves in place too") {
                 val held = LatchedSlot(point, SlotKind.NothingInProgress, isProvisional = true)
                 latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))

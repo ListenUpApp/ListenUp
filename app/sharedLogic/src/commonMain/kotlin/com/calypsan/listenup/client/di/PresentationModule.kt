@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.data.remote.rpcChannel
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
@@ -24,6 +25,7 @@ import com.calypsan.listenup.client.presentation.storage.StorageViewModel
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import com.calypsan.listenup.client.domain.model.signedInUserId
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import kotlinx.coroutines.flow.combine
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -587,7 +589,13 @@ internal val discoverPresentationModule =
             )
         }
         // HomeStatsViewModel for home screen stats section (observes local stats)
-        factory { HomeStatsViewModel(statsRepository = get()) }
+        factory {
+            val sync = get<SyncRepository>()
+            HomeStatsViewModel(
+                statsRepository = get(),
+                libraryArriving = combine(sync.buildingInitialLibrary, sync.firstCatchUpRunning) { a, b -> a || b },
+            )
+        }
         factory {
             com.calypsan.listenup.client.presentation.discover.DiscoverViewModel(
                 bookRepository = get(),

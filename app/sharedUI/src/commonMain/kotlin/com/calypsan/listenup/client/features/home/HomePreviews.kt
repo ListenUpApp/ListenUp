@@ -152,6 +152,7 @@ private fun mockReady(slot: HomeSlot) =
         myShelves = mockShelves(),
         isSyncing = false,
         isBuildingInitialLibrary = false,
+        isLibraryArriving = false,
         scanProgress = null,
         timeOfDay = TimeOfDay.Evening,
         firstName = PREVIEW_USER_NAME,

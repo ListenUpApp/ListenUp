@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -65,6 +66,11 @@ sealed interface HomeUiState {
          * [com.calypsan.listenup.client.presentation.library.LibraryUiState.Loaded].
          */
         val isBuildingInitialLibrary: Boolean,
+        /**
+         * Whether the library is still arriving on this device — its first population, or a fresh device's first
+         * catch-up (spec §3.2 H5). Home's first-sync strip reads this.
+         */
+        val isLibraryArriving: Boolean,
         val scanProgress: ScanProgressState?,
         /** The part of the day; each platform words the greeting from its catalogs (H2). */
         val timeOfDay: TimeOfDay,
@@ -76,17 +82,40 @@ sealed interface HomeUiState {
         val alsoInProgress: List<ContinueListeningItem>,
         /** Whether this device and the server can be reached (spec §3.1). */
         val connectivity: HomeConnectivity,
-        /** Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). */
+        /**
+         * Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). While it is set the
+         * slot is [HomeSlot.Absent], so each platform draws the failure line in the slot's place.
+         */
         val continueListeningError: AppError?,
     ) : HomeUiState {
+        /**
+         * Whether this device cannot stream right now — offline, or the server is out of reach (C15). Independent of
+         * [continueListeningError]: both can show at once.
+         */
+        val isOffline: Boolean
+            get() = connectivity != HomeConnectivity.Online
+
+        /** Whether Home shows the library-arriving strip above the slot (spec H5): arriving, or a scan is running. */
+        val showsArrivalStrip: Boolean
+            get() = isLibraryArriving || scanProgress != null
+
+        /**
+         * Whether My shelves shows its loading state: the library is still arriving and no shelf has landed, so an
+         * empty list is not yet the reader's (never the "a shelf is your own list" invitation during first sync).
+         */
+        val showsShelvesLoading: Boolean
+            get() = isLibraryArriving && myShelves.isEmpty()
+
         /** Whether pull-to-refresh shows as running: a sync pass is. */
         val isLoading: Boolean
             get() = isSyncing
     }
 
-    /** Home could not load at all; [error] says why, as a typed value each platform words. */
+    /** Home could not load at all; [error] says why, as a typed value each platform words. The greeting stays. */
     data class Error(
         val error: AppError,
+        /** The part of the day, so the greeting survives the failure (spec §3.3). */
+        val timeOfDay: TimeOfDay,
     ) : HomeUiState
 }
 
@@ -104,7 +133,7 @@ class HomeViewModel internal constructor(
     shelfRepository: ShelfRepository,
     private val syncRepository: SyncRepository,
     private val slotPresenter: HomeSlotPresenter,
-    serverReachability: ServerReachability,
+    private val serverReachability: ServerReachability,
     networkMonitor: NetworkMonitor,
     private val errorBus: ErrorBus,
     private val currentHour: () -> Int = { currentHourOfDay() },
@@ -133,18 +162,23 @@ class HomeViewModel internal constructor(
                 ContinueListeningRead(emptyList(), ErrorMapper.map(e))
             }
 
+    /** The library's first population and this device's first catch-up, folded (`combine` is typed to five flows). */
+    private val arrivalFlow: Flow<LibraryArrival> =
+        combine(syncRepository.buildingInitialLibrary, syncRepository.firstCatchUpRunning, ::LibraryArrival)
+
     // Folded into one upstream because `combine` is typed to five flows.
     private val shellFlow: Flow<HomeShell> =
         combine(
             flow = syncRepository.syncState,
-            flow2 = syncRepository.buildingInitialLibrary,
+            flow2 = arrivalFlow,
             flow3 = syncRepository.scanProgress,
             flow4 = serverReachability.state,
             flow5 = networkMonitor.onlineFlow,
-        ) { sync, building, scan, reachability, online ->
+        ) { sync, arrival, scan, reachability, online ->
             HomeShell(
                 isSyncing = sync is SyncState.Syncing || sync is SyncState.Progress,
-                isBuildingInitialLibrary = building,
+                isBuildingInitialLibrary = arrival.isBuilding,
+                isLibraryArriving = arrival.isArriving,
                 scanProgress = scan,
                 connectivity = connectivityOf(online, reachability),
             )
@@ -180,7 +214,7 @@ class HomeViewModel internal constructor(
             val slot =
                 slotPresenter.observe(
                     continueListening = continueListening.map { it.items },
-                    isBuildingInitialLibrary = syncRepository.buildingInitialLibrary,
+                    isLibraryArriving = arrivalFlow.map { it.isArriving }.distinctUntilChanged(),
                     decisionRuns = decisionRuns,
                     dismissedHere = dismissedHere,
                 )
@@ -200,11 +234,14 @@ class HomeViewModel internal constructor(
                         myShelves = shelves,
                         isSyncing = shell.isSyncing,
                         isBuildingInitialLibrary = shell.isBuildingInitialLibrary,
+                        isLibraryArriving = shell.isLibraryArriving,
                         scanProgress = shell.scanProgress,
                         timeOfDay = timeOfDay,
                         firstName = firstName,
-                        slot = slotState.slot,
-                        alsoInProgress = slotState.alsoInProgress,
+                        // A failed read leaves Continue Listening empty, which the slot rules would read as a new
+                        // listener or nothing in progress. The slot is the failure instead (spec §3.3).
+                        slot = if (read.error == null) slotState.slot else HomeSlot.Absent,
+                        alsoInProgress = if (read.error == null) slotState.alsoInProgress else emptyList(),
                         connectivity = shell.connectivity,
                         continueListeningError = read.error,
                     )
@@ -212,7 +249,7 @@ class HomeViewModel internal constructor(
             }.collect { send(it) }
         }.fallbackTo { e ->
             logger.error(e) { "Home state pipeline failed" }
-            HomeUiState.Error(ErrorMapper.map(e))
+            HomeUiState.Error(ErrorMapper.map(e), timeOfDayAt(currentHour()))
         }
 
     /**
@@ -252,6 +289,11 @@ class HomeViewModel internal constructor(
         }
     }
 
+    /** Ask for the server again (web's "Retry", spec §3.1). The answer arrives through [state]'s connectivity. */
+    fun retryConnection() {
+        viewModelScope.launch { serverReachability.retry() }
+    }
+
     /** Rate [bookId] from its just-finished card, on Now Playing's scale: [halfStars] 2..10. */
     fun rateFinished(
         bookId: String,
@@ -273,6 +315,15 @@ private data class ContinueListeningRead(
 private data class HomeShell(
     val isSyncing: Boolean,
     val isBuildingInitialLibrary: Boolean,
+    val isLibraryArriving: Boolean,
     val scanProgress: ScanProgressState?,
     val connectivity: HomeConnectivity,
 )
+
+/** Whether the library is still arriving: its first population, or this device's first catch-up. */
+private data class LibraryArrival(
+    val isBuilding: Boolean,
+    val isFirstCatchUp: Boolean,
+) {
+    val isArriving: Boolean get() = isBuilding || isFirstCatchUp
+}

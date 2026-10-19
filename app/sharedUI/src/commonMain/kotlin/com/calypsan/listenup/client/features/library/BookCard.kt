@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -88,6 +89,9 @@ internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
 // Material 3's hover state-layer opacity.
 private const val HOVER_STATE_LAYER_ALPHA = 0.08f
 
+/** How far an unavailable card's art and title fade (Home offline, spec §2.5). */
+private const val UNAVAILABLE_ALPHA = 0.5f
+
 /**
  * Unified floating book card with editorial design.
  *
@@ -112,6 +116,8 @@ private const val HOVER_STATE_LAYER_ALPHA = 0.08f
  * @param isFinished Authoritative completion status. Shows completion badge when true.
  * @param isLive Draws a [LiveChip] on the art's top-end corner: the reader on it is listening right now.
  * @param captions Quiet one-line facts under the author (e.g. "Book 1 of Mistborn", "24h 39m", "Added 2 days ago").
+ * @param unavailableReason When non-null, the book cannot play here right now (Home offline, "Needs a connection"):
+ *   the art and title dim to half and this line replaces the status line. The card stays tappable.
  * @param hasDocuments Whether this book has at least one PDF document attached.
  * @param isHeld Whether this book is held for review in the admin inbox — draws [HeldLabel] at the
  *   cover's top-leading corner.
@@ -152,7 +158,9 @@ fun BookCard(
     progressUnderTitle: Boolean = false,
     accessibilityLabel: String? = null,
     captions: List<String> = emptyList(),
+    unavailableReason: String? = null,
 ) {
+    val contentAlpha = if (unavailableReason != null) UNAVAILABLE_ALPHA else 1f
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -267,7 +275,7 @@ fun BookCard(
                 ),
     ) {
         // Cover with optional overlays and indicators
-        Box {
+        Box(Modifier.alpha(contentAlpha)) {
             val isCompleted = if (libraryStatus != null) libraryStatus is BookCardStatus.Finished else isFinished
             // A Library card's art carries the progress mark only on wide windows; compact grids draw
             // it under the title instead (board `Main`).
@@ -351,6 +359,7 @@ fun BookCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(contentAlpha),
             )
 
             cover.author?.let { author ->
@@ -360,6 +369,7 @@ fun BookCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(contentAlpha),
                 )
             }
 
@@ -383,7 +393,15 @@ fun BookCard(
                 )
             }
 
-            if (libraryStatus != null) {
+            if (unavailableReason != null) {
+                Text(
+                    text = unavailableReason,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else if (libraryStatus != null) {
                 LibraryStatusLine(status = libraryStatus, progressUnderTitle = progressUnderTitle)
             } else {
                 duration?.let { dur ->

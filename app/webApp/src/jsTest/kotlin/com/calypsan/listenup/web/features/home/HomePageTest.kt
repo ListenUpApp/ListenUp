@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
@@ -17,6 +18,7 @@ import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
@@ -229,7 +231,7 @@ class HomePageTest :
             played shouldBe "wok"
         }
 
-        test("until PR 4, nothing in progress offers a way into the library") {
+        test("nothing in progress offers a way into the library") {
             var opened = false
             homePage(
                 readyHome(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
@@ -393,7 +395,7 @@ class HomePageTest :
         test("a user who has never listened is told so, rather than shown an empty chart") {
             val host = homePage(readyHome(), stats = HomeStatsUiState.Empty)
 
-            host.textContent.orEmpty() shouldContain "No listening yet"
+            host.textContent.orEmpty() shouldContain "fill in here after your first book"
             host.count(".home-bar") shouldBe 0
         }
 
@@ -404,7 +406,7 @@ class HomePageTest :
                     stats = HomeStatsUiState.Error(isRetryable = true),
                 )
 
-            host.textContent.orEmpty() shouldContain "Stats are unavailable"
+            host.textContent.orEmpty() shouldContain "Couldn't load your stats."
             // The row someone opened Home for is still there.
             host.textOf(".home-card-t") shouldBe "The Institute"
         }
@@ -436,7 +438,11 @@ class HomePageTest :
 
         test("a failed Home offers Try again, and pressing it asks Home to reload") {
             var retries = 0
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()), actions = HomeActions.None.copy(onRetry = { retries++ }))
+            val host =
+                homePage(
+                    HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon),
+                    actions = HomeActions.None.copy(onRetry = { retries++ }),
+                )
 
             val retry = host.buttonsLabelled("Try again")
             retry.size shouldBe 1
@@ -447,24 +453,50 @@ class HomePageTest :
 
         // ── the library-still-arriving strip ────────────────────────────────────
 
-        test("a running scan says what it is doing and how far along it is") {
-            val host = homePage(readyHome(scanProgress = scanning(books = 40, booksTotal = 100)))
+        test("a running scan speaks Home's words, with its grouped count and how far along it is") {
+            val host = homePage(readyHome(scanProgress = scanning(books = 412, booksTotal = 1_280)))
 
-            host.textOf(".lib-status-t") shouldBe "Analyzing"
-            (host.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
+            host.textOf(".lib-status-t") shouldBe "Building your library · 412 of 1,280 books"
+            host.textOf(".lib-status-sub") shouldBe
+                "Your place in each book is already here; covers and titles are arriving."
+            (host.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "32"
         }
 
-        test("a scan outranks the initial seed, because only the scan can say how far along it is") {
+        test("one strip, even with a scan and a first seed at once") {
             val host = homePage(readyHome(isBuildingInitialLibrary = true, scanProgress = scanning()))
 
             host.count(".lib-status") shouldBe 1
-            host.textContent.orEmpty() shouldNotContain "Building your library"
         }
 
-        test("a first seed with no scan still explains the short shelf") {
+        test("a first seed with no scan says Home's title alone, with no count and no ellipsis") {
             val host = homePage(readyHome(isBuildingInitialLibrary = true))
 
-            host.textContent.orEmpty() shouldContain "Building your library"
+            host.textOf(".lib-status-t") shouldBe "Building your library"
+        }
+
+        test("the strip sits under the offline notice and above the slot (H5)") {
+            val host =
+                homePage(
+                    readyHome(
+                        slot = resumeSlot("wok"),
+                        scanProgress = scanning(),
+                        connectivity = HomeConnectivity.ServerUnreachable,
+                    ),
+                )
+            val order =
+                host.querySelectorAll(".home-notice, .lib-status, .home-hero").asList().map {
+                    (it as HTMLElement).className
+                }
+            order.map { it.substringBefore(' ') } shouldBe listOf("home-notice", "lib-status", "home-hero")
+        }
+
+        test("offline and a failed Continue Listening show together") {
+            val host =
+                homePage(
+                    readyHome(connectivity = HomeConnectivity.Offline, continueListeningError = UnexpectedClientError()),
+                )
+            host.count(".home-notice") shouldBe 1
+            host.count(".home-cl-failed") shouldBe 1
         }
 
         test("isSyncing alone says NOTHING, because it is false for the whole initial seed") {
@@ -492,10 +524,85 @@ class HomePageTest :
             host.textContent.orEmpty() shouldNotContain "Nothing on the go"
         }
 
-        test("a failed Home surfaces the error's message") {
-            val host = homePage(HomeUiState.Error(UnexpectedClientError()))
+        test("a failed Home keeps the greeting and says plainly that Home could not load") {
+            val host = homePage(HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Evening))
 
-            host.textContent.orEmpty() shouldContain "Something went wrong in the app."
+            host.textOf(".page-t") shouldBe "Good evening"
+            host.textContent.orEmpty() shouldContain "We couldn't load Home."
+        }
+
+        // ── first sync, loading, the server notice, the failures and the stats states ─────────
+
+        test("first sync: a status strip in Home's words over a skeleton slot with a disabled Resume") {
+            val page = homePage(readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true))
+            val strip = page.querySelector(".lib-status") as HTMLElement
+            strip.getAttribute("role") shouldBe "status"
+            strip.textContent.orEmpty() shouldContain "Your place in each book is already here; covers and titles are arriving."
+            page.count(".lib-status") shouldBe 1
+            page.querySelector("[aria-label='Up next, loading']") shouldNotBe null
+            val resume = page.querySelector("[aria-label='Up next, loading'] button") as HTMLElement
+            resume.textContent shouldBe "Resume"
+            resume.hasAttribute("disabled") shouldBe true
+        }
+
+        test("page loading draws the slot and rail skeletons and no strip") {
+            val page = homePage(HomeUiState.Loading)
+            page.querySelector("[aria-label='Up next, loading']") shouldNotBe null
+            page.querySelector("[aria-label='Loading books']") shouldNotBe null
+            page.count(".lib-status") shouldBe 0
+            page.count("[aria-label='Up next, loading'] button") shouldBe 0
+        }
+
+        test("unreachable or offline: one status notice with Retry") {
+            listOf(HomeConnectivity.ServerUnreachable, HomeConnectivity.Offline).forEach { connectivity ->
+                var retried = false
+                val page =
+                    homePage(
+                        readyHome(connectivity = connectivity),
+                        actions = HomeActions.None.copy(onRetryConnection = { retried = true }),
+                    )
+                val notice = page.querySelector(".home-notice") as HTMLElement
+                notice.getAttribute("role") shouldBe "status"
+                notice.textContent.orEmpty() shouldContain "Can't reach your server."
+                notice.textContent.orEmpty() shouldContain "Your library is here; playing needs the connection."
+                page.buttonsLabelled("Retry").single().click()
+                retried shouldBe true
+                mounts.disposeAll()
+            }
+        }
+
+        test("while the library arrives, My shelves loads rather than inviting a first shelf") {
+            val page = homePage(readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true))
+            page.querySelector("[aria-label='Loading shelves']") shouldNotBe null
+            page.textContent.orEmpty() shouldNotContain "A shelf is your own list"
+        }
+
+        test("online, there is no notice") {
+            homePage(readyHome()).count(".home-notice") shouldBe 0
+        }
+
+        test("a failed Continue Listening is one line with Try again (web gains it)") {
+            var retried = false
+            val page =
+                homePage(
+                    readyHome(continueListeningError = UnexpectedClientError()),
+                    actions = HomeActions.None.copy(onRetry = { retried = true }),
+                )
+            val line = page.querySelector(".home-cl-failed") as HTMLElement
+            line.textContent.orEmpty() shouldContain "Couldn't load what you're listening to"
+            page.buttonsLabelled("Try again").single().click()
+            retried shouldBe true
+        }
+
+        test("stats: a one-line invitation for a new listener, and an error with Try again") {
+            val empty = homePage(readyHome(), stats = HomeStatsUiState.Empty)
+            empty.textOf(".home-stats-invite") shouldBe
+                "Your listening time, streak and favourite genres fill in here after your first book."
+            empty.count(".home-chart") shouldBe 0
+            mounts.disposeAll()
+            val failed = homePage(readyHome(), stats = HomeStatsUiState.Error(isRetryable = true))
+            failed.textContent.orEmpty() shouldContain "Couldn't load your stats."
+            failed.buttonsLabelled("Try again").size shouldBe 1
         }
 
         // ⛔ While selecting, a press PICKS instead of opening. One gesture, two jobs, decided by

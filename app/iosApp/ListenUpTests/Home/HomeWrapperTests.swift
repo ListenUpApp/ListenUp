@@ -169,6 +169,7 @@ struct HomeWrapperTests {
             myShelves: [],
             isSyncing: false,
             isBuildingInitialLibrary: false,
+            isLibraryArriving: false,
             scanProgress: nil,
             timeOfDay: TimeOfDay.Evening,
             firstName: "Simon",
@@ -254,7 +255,8 @@ struct HomeWrapperTests {
     @Test func readyCarriesTheContinueListeningErrorMessage() {
         let ready = HomeUiStateReady(
             myShelves: [], isSyncing: false,
-            isBuildingInitialLibrary: false, scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
+            isBuildingInitialLibrary: false, isLibraryArriving: false,
+            scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
             slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,
             continueListeningError: UnexpectedClientError(correlationId: nil, debugInfo: nil)
@@ -272,5 +274,70 @@ struct HomeWrapperTests {
         let mapped = HomeStatsData(from: data)
         #expect(mapped.streakChipDays == nil)
         #expect(mapped.bestStreakDays == 9)
+    }
+
+    // MARK: - Every state
+
+    private func scan(books: Int32, total: Int32) -> ScanProgressState {
+        ScanProgressState(
+            phase: "analyzing", current: books, total: total, added: 0, updated: 0, removed: 0,
+            filesTotal: 0, books: books, booksTotal: total, authors: 0, durationMs: 0, currentFile: nil,
+            recentBooks: [], startedAtMs: 0
+        )
+    }
+
+    private func ready(
+        isLibraryArriving: Bool = false,
+        scanProgress: ScanProgressState? = nil,
+        alsoInProgress: [ContinueListeningItem] = [],
+        connectivity: HomeConnectivity = HomeConnectivity.Online
+    ) -> HomeUiStateReady {
+        HomeUiStateReady(
+            myShelves: [], isSyncing: false,
+            isBuildingInitialLibrary: false, isLibraryArriving: isLibraryArriving,
+            scanProgress: scanProgress, timeOfDay: TimeOfDay.Morning, firstName: nil,
+            slot: HomeSlotFirstSync.shared, alsoInProgress: alsoInProgress,
+            connectivity: connectivity,
+            continueListeningError: nil
+        )
+    }
+
+    @Test func readyCarriesTheLibraryArrivingAndTheScanCount() {
+        let mapped = HomeReady(from: ready(isLibraryArriving: true, scanProgress: scan(books: 412, total: 1280)))
+        #expect(mapped.isLibraryArriving)
+        #expect(mapped.arrivalCount == ArrivalCount(done: 412, total: 1280))
+        #expect(HomeReady(from: ready(scanProgress: scan(books: 3, total: 0))).arrivalCount == nil)
+    }
+
+    @Test func anErrorKeepsThePartOfTheDay() {
+        let error = UnexpectedClientError(correlationId: nil, debugInfo: nil)
+        let phase = HomePhase(error: HomeUiStateError(error: error, timeOfDay: TimeOfDay.Evening))
+        guard case .error(_, let timeOfDay) = phase else { Issue.record("expected error"); return }
+        #expect(timeOfDay == .evening)
+    }
+
+    @Test func aContinueItemKnowsWhenItNeedsAConnection() {
+        let item = ContinueListeningItemReady(bookId: "babel", book: clBook("babel"))
+        #expect(ContinueItem(from: item, connectivity: HomeConnectivity.Offline).needsConnection)
+        #expect(ContinueItem(from: item, connectivity: HomeConnectivity.ServerUnreachable).needsConnection)
+        #expect(!ContinueItem(from: item, connectivity: HomeConnectivity.Online).needsConnection)
+        let mapped = HomeReady(from: ready(alsoInProgress: [item], connectivity: HomeConnectivity.Offline))
+        #expect(mapped.alsoInProgress.first?.needsConnection == true)
+    }
+
+    @Test func readyCarriesTheSharedOfflineAndStripSignals() {
+        let quiet = HomeReady(from: ready())
+        #expect(!quiet.isOffline)
+        #expect(!quiet.showsArrivalStrip)
+        let scanning = HomeReady(
+            from: ready(scanProgress: scan(books: 1, total: 2), connectivity: HomeConnectivity.Offline)
+        )
+        #expect(scanning.isOffline)
+        #expect(scanning.showsArrivalStrip)
+    }
+
+    @Test func shelvesLoadWhileTheLibraryArrives() {
+        #expect(HomeReady(from: ready(isLibraryArriving: true)).showsShelvesLoading)
+        #expect(!HomeReady(from: ready()).showsShelvesLoading)
     }
 }

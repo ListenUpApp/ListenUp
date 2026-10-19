@@ -276,8 +276,9 @@ internal class SyncEngine(
         // Step 1: queue ownership.
         queue.clearForUserChange(currentUserId)
         // Step 2: catch-up across all registered domains, behind the shared catch-up guard so a
-        // lifecycle/cursorStale trigger racing startup can't page concurrently.
-        catchUpMutex.withLock { catchUp.catchUpAll(registry) }
+        // lifecycle/cursorStale trigger racing startup can't page concurrently. A store that has never
+        // advanced means this device is pulling its library for the first time (Home's "first sync").
+        state.markFirstCatchUp(store.highestCursor() == null) { catchUpMutex.withLock { catchUp.catchUpAll(registry) } }
         // Step 3: seed the firehose resume cursor.
         syncStreamClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.

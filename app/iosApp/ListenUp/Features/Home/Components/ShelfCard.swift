@@ -84,6 +84,8 @@ struct MyShelvesSection: View {
     let layout: HomeLayout
     /// Whether the section pads its own header and rail to `layout.margin` (false beside the stats card).
     var inset = true
+    /// The library is still arriving: shimmer, never the first-shelf invitation.
+    var isLoading = false
 
     @State private var isCreatingShelf = false
 
@@ -92,7 +94,19 @@ struct MyShelvesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header.padding(.horizontal, margin)
-            if shelves.isEmpty {
+            if isLoading {
+                HStack(spacing: 14) {
+                    ForEach(0..<2, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 150, height: 150)
+                            .shimmer()
+                    }
+                }
+                .padding(.horizontal, margin)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(String(localized: "home.loading_shelves_a11y"))
+            } else if shelves.isEmpty {
                 Text(String(localized: "home.shelves_invitation"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

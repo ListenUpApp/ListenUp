@@ -159,6 +159,15 @@ class SyncEngineStartIdempotencyTest :
         }
     })
 
+/** Builds an engine over [db] with a no-op tags domain, for start-sequence tests in this package. */
+internal fun buildStartTestEngine(
+    db: ListenUpDatabase,
+    state: SyncEngineState,
+    catchUp: CatchUp,
+    sse: SyncStreamClient,
+    scope: CoroutineScope,
+): SyncEngine = buildEngine(db, state, catchUp, sse, scope)
+
 private fun buildEngine(
     db: ListenUpDatabase,
     state: SyncEngineState,
@@ -204,7 +213,7 @@ private fun buildEngine(
  * Recording fake that counts `catchUpAll` invocations — the canonical signal
  * for "did start() run a catch-up loop?"
  */
-private class CountingCatchUp : CatchUp {
+internal open class CountingCatchUp : CatchUp {
     val invocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
@@ -267,7 +276,7 @@ private object IdempotencyNoopTagHandler : SyncDomainHandler<Tag> {
  * Fake SSE client mirroring production's `connect()`-flips-state semantics.
  * Local to this test so fakes don't leak between files.
  */
-private class FakeIdempotencySyncStreamClient(
+internal class FakeIdempotencySyncStreamClient(
     private val state: SyncEngineState,
 ) : SyncStreamClient {
     private val flow = MutableSharedFlow<SyncFrame>()

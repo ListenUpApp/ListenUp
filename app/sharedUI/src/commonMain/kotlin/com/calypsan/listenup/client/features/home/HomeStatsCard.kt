@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.features.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -21,6 +25,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -42,7 +51,7 @@ import listenup.composeapp.generated.resources.home_couldnt_load_stats
 import listenup.composeapp.generated.resources.home_hours_minutes
 import listenup.composeapp.generated.resources.home_leaderboard
 import listenup.composeapp.generated.resources.home_minutes
-import listenup.composeapp.generated.resources.home_start_listening_to_see_your
+import listenup.composeapp.generated.resources.home_stats_invitation_body
 import listenup.composeapp.generated.resources.home_streak_chip
 import listenup.composeapp.generated.resources.home_top_genres
 import listenup.composeapp.generated.resources.home_your_last_7_days
@@ -55,10 +64,18 @@ private val PhoneChartHeight = 120.dp
 private val WideChartHeight = 110.dp
 private val MinTouchTarget = 48.dp
 private val StreakChipHeight = 40.dp
+private val InvitationStroke = 1.dp
+private val InvitationCorner = 28.dp
+private const val DASH = 6f
+private const val GAP = 4f
+
+/** Test tag on the stats card's loading skeleton. */
+internal const val HOME_STATS_SKELETON_TAG = "home-stats-skeleton"
 
 /**
- * "Your last 7 days" (spec §2.6). Stateless: the screen hands it [stats] from `HomeStatsViewModel` (C12). Loading,
- * Empty and Error keep minimal content until Home PR 4 designs them (C16).
+ * "Your last 7 days" (spec §2.6). Stateless: the screen hands it [stats] from `HomeStatsViewModel` (C12). Loading is a
+ * skeleton the size of the data; a new listener sees a one-line dashed invitation, never a zero chart (gap 6); an
+ * error says so quietly with **Try again** (gap 17), which [onRetry] answers with `refresh()`.
  */
 @Composable
 internal fun HomeStatsCard(
@@ -68,6 +85,10 @@ internal fun HomeStatsCard(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (stats == HomeStatsUiState.Empty) {
+        StatsInvitation(modifier)
+        return
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -76,26 +97,31 @@ internal fun HomeStatsCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             when (stats) {
+                // Drawn above as the invitation, never inside the card.
+                HomeStatsUiState.Empty -> {}
+
                 HomeStatsUiState.Loading -> {
                     StatsHeading()
-                }
-
-                HomeStatsUiState.Empty -> {
-                    StatsHeading()
-                    Text(
-                        text = stringResource(Res.string.home_start_listening_to_see_your),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(if (isWide) WideChartHeight else PhoneChartHeight)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.large)
+                            .testTag(HOME_STATS_SKELETON_TAG),
                     )
                 }
 
                 is HomeStatsUiState.Error -> {
                     StatsHeading()
+                    // A quiet failure: onSurfaceVariant, not the error role (spec §2.6).
                     Text(
                         text = stringResource(Res.string.home_couldnt_load_stats),
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (stats.isRetryable) {
-                        TextButton(onClick = onRetry) { Text(stringResource(Res.string.common_try_again)) }
+                        FilledTonalButton(onClick = onRetry, modifier = Modifier.heightIn(min = MinTouchTarget)) {
+                            Text(stringResource(Res.string.common_try_again))
+                        }
                     }
                 }
 
@@ -104,6 +130,37 @@ internal fun HomeStatsCard(
                 }
             }
         }
+    }
+}
+
+/** The new listener's one-line invitation: the heading and what will fill in, inside a dashed outline. */
+@Composable
+private fun StatsInvitation(modifier: Modifier) {
+    val outline = MaterialTheme.colorScheme.outlineVariant
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    val stroke = InvitationStroke.toPx()
+                    drawRoundRect(
+                        color = outline,
+                        cornerRadius = CornerRadius(InvitationCorner.toPx()),
+                        style =
+                            Stroke(
+                                width = stroke,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(DASH * stroke, GAP * stroke)),
+                            ),
+                    )
+                }.padding(Spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
+        StatsHeading()
+        Text(
+            text = stringResource(Res.string.home_stats_invitation_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

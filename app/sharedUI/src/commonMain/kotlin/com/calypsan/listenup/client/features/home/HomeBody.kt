@@ -14,13 +14,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.home.components.EmptyContinueListening
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.home_couldnt_load_listening
+import org.jetbrains.compose.resources.stringResource
 
 /** The stats card's width beside shelves or Resume on a tablet (spec §3.4). */
 private val WideStatsWidth = 400.dp
@@ -48,8 +51,22 @@ internal fun HomeBody(
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
         // The shell header scrolls away with the page; the greeting is its leading content.
-        appHeader { HomeHeader(state.timeOfDay, state.firstName, isWide = width != HomeWidth.Compact) }
-        homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), width).forEach { block ->
+        appHeader {
+            HomeHeader(
+                timeOfDay = state.timeOfDay,
+                firstName = state.firstName,
+                isWide = width != HomeWidth.Compact,
+                isWelcome = state.slot is HomeSlot.NewListener,
+            )
+        }
+        homeBlocks(
+            slot = state.slot,
+            isOffline = state.isOffline,
+            continueListeningFailed = state.continueListeningError != null,
+            showsStrip = state.showsArrivalStrip,
+            hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+            width = width,
+        ).forEach { block ->
             HomeBlockContent(
                 block = block,
                 state = state,
@@ -81,15 +98,31 @@ private fun HomeBlockContent(
             ResumeHero(state, actions, margin)
         }
 
-        HomeBlock.ResumeBesideStats -> {
+        HomeBlock.SlotBesideStats -> {
             Row(margin, horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
-                ResumeHero(state, actions, Modifier.weight(1f))
+                SlotContent(state, actions, Modifier.weight(1f))
                 WideStats(stats, actions, onRetryStats)
             }
         }
 
-        HomeBlock.NothingToResume -> {
-            EmptyContinueListening(onBrowseLibrary = actions.onOpenLibrary)
+        HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
+            SlotContent(state, actions, margin)
+        }
+
+        HomeBlock.FirstSyncStrip -> {
+            FirstSyncStrip(state.scanProgress, margin)
+        }
+
+        HomeBlock.Offline -> {
+            OfflinePill(margin)
+        }
+
+        HomeBlock.ContinueListeningFailed -> {
+            InlineRetry(
+                line = stringResource(Res.string.home_couldnt_load_listening),
+                onRetry = actions.onRetry,
+                modifier = margin,
+            )
         }
 
         HomeBlock.AlsoInProgress -> {
@@ -99,6 +132,7 @@ private fun HomeBlockContent(
                 selection = selection,
                 onOpenBook = actions.onOpenBook,
                 onOpenLibrary = actions.onOpenLibrary,
+                connectivity = state.connectivity,
             )
         }
 
@@ -115,6 +149,7 @@ private fun HomeBlockContent(
         HomeBlock.Shelves -> {
             MyShelvesSection(
                 shelves = state.myShelves,
+                isLoading = state.showsShelvesLoading,
                 width = width,
                 onOpenShelf = actions.onOpenShelf,
                 onCreateShelf = actions.onCreateShelf,
@@ -126,6 +161,7 @@ private fun HomeBlockContent(
                 WideStats(stats, actions, onRetryStats)
                 MyShelvesSection(
                     shelves = state.myShelves,
+                    isLoading = state.showsShelvesLoading,
                     width = width,
                     onOpenShelf = actions.onOpenShelf,
                     onCreateShelf = actions.onCreateShelf,
@@ -134,6 +170,23 @@ private fun HomeBlockContent(
                 )
             }
         }
+    }
+}
+
+/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+@Composable
+private fun SlotContent(
+    state: HomeUiState.Ready,
+    actions: HomeActions,
+    modifier: Modifier,
+) {
+    when (val slot = state.slot) {
+        is HomeSlot.Resume -> ResumeHero(state, actions, modifier)
+        is HomeSlot.NothingInProgress -> HomeNothingInProgress(slot, actions, modifier)
+        is HomeSlot.NewListener -> HomeWelcome(slot, actions, modifier)
+        is HomeSlot.JustFinished -> HomeFinishedCard(slot.card, actions, modifier)
+        HomeSlot.FirstSync -> HomeSkeletonSlot(withResume = true, modifier = modifier)
+        HomeSlot.Absent -> Unit
     }
 }
 

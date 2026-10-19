@@ -50,6 +50,10 @@ private const val STREAK_ICON_SIZE = 16
 
 private const val LOCK_ICON_SIZE = 13
 
+private const val SKELETON_SHELVES = 2
+
+private const val ARIA_LABEL = "aria-label"
+
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
 
@@ -128,7 +132,7 @@ private fun ReadyCard(
         tabIndex(0)
         attr("role", if (selecting) "checkbox" else "button")
         if (selecting) attr("aria-checked", isSelected.toString())
-        attr("aria-label", homeCardLabel(book, withNarrator = isWide))
+        attr(ARIA_LABEL, homeCardLabel(book, withNarrator = isWide))
         onKeyDown { event ->
             if (event.key == "Enter" || event.key == " ") {
                 event.preventDefault()
@@ -180,8 +184,8 @@ internal fun homeCardLabel(
     ).joinToString(", ")
 
 /**
- * "Your last 7 days" (spec §2.6): one card with its heading inside. Loading, Empty and Error keep their current words
- * until Home PR 4 designs them (C16).
+ * "Your last 7 days" (spec §2.6): one card with its heading inside. Loading is a skeleton of the data's size, a new
+ * listener gets a one-line invitation, and a failure says so with **Try again** (gap 17).
  */
 @Composable
 internal fun LastSevenDays(
@@ -195,7 +199,7 @@ internal fun LastSevenDays(
         H2(attrs = {
             id("home-stats-h")
             classes("home-stats-h")
-        }) { Text("Your last 7 days") }
+        }) { Text(HomeWords.YOUR_LAST_7_DAYS) }
         UnderHeading(level = SECTION_HEADING_LEVEL) {
             when (stats) {
                 is HomeStatsUiState.Loading -> {
@@ -203,7 +207,8 @@ internal fun LastSevenDays(
                 }
 
                 is HomeStatsUiState.Empty -> {
-                    EmptyState(title = "No listening yet", body = "Your last 7 days fill in as you listen.")
+                    // A one-line invitation, never a zeroed week (spec §2.6, gap 6).
+                    P(attrs = { classes("home-stats-invite") }) { Text(HomeWords.STATS_INVITATION_BODY) }
                 }
 
                 is HomeStatsUiState.Error -> {
@@ -224,11 +229,11 @@ private fun StatsError(
     onRetry: () -> Unit,
 ) {
     if (stats.isRetryable) {
-        EmptyState(title = "Stats are unavailable", body = "Your last 7 days could not be read just now.") {
-            Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
+        EmptyState(title = HomeWords.COULDNT_LOAD_STATS) {
+            Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text(HomeWords.TRY_AGAIN) }
         }
     } else {
-        EmptyState(title = "Stats are unavailable", body = "Your listening history could not be read.")
+        EmptyState(title = HomeWords.COULDNT_LOAD_STATS)
     }
 }
 
@@ -277,7 +282,7 @@ private fun WeekChart(
     Div(attrs = {
         classes("home-chart")
         attr("role", "img")
-        attr("aria-label", weekChartLabel(columns))
+        attr(ARIA_LABEL, weekChartLabel(columns))
     }) {
         columns.forEach { column ->
             Div(attrs = {
@@ -331,6 +336,7 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
 internal fun MyShelves(
     shelves: List<Shelf>,
     actions: HomeActions,
+    isLoading: Boolean = false,
 ) {
     Section(attrs = {
         classes("home-section", "home-shelves-section")
@@ -343,7 +349,16 @@ internal fun MyShelves(
             }) { Text("My shelves") }
             Button(kind = ButtonKind.Secondary, onClick = { actions.onCreateShelf() }) { Text("New shelf") }
         }
-        if (shelves.isEmpty()) {
+        if (isLoading) {
+            // The library is still arriving: no shelves yet is not yet the reader's, so no invitation (spec §2.1).
+            Div(attrs = {
+                classes("home-shelves")
+                attr("role", "img")
+                attr(ARIA_LABEL, HomeWords.LOADING_SHELVES)
+            }) {
+                repeat(SKELETON_SHELVES) { Div(attrs = { classes("skel", "home-shelf-skel") }) }
+            }
+        } else if (shelves.isEmpty()) {
             P(attrs = { classes("home-shelves-invite") }) {
                 Text("A shelf is your own list of audiobooks — a series, a mood, a plan for the winter.")
             }
@@ -375,7 +390,7 @@ private fun ShelfCard(
                     Span(attrs = {
                         classes("home-shelf-lock")
                         attr("role", "img")
-                        attr("aria-label", "Private")
+                        attr(ARIA_LABEL, "Private")
                     }) { Icon(WebIcon.Lock, size = LOCK_ICON_SIZE) }
                 }
             }

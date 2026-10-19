@@ -21,9 +21,24 @@ internal fun rememberHomeWidth(): HomeWidth {
 
 /** One section of Home, in the order [homeBlocks] puts them. */
 internal enum class HomeBlock {
+    /** The quiet offline pill, directly under the greeting (spec §3.1). */
+    Offline,
+
+    /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
+    FirstSyncStrip,
     Resume,
-    ResumeBesideStats,
-    NothingToResume,
+    Finished,
+    NothingInProgress,
+    Welcome,
+
+    /** The skeleton slot that resolves in place (spec §2.1 rule 4). */
+    FirstSync,
+
+    /** Continue Listening could not load: one line with Try again, in the slot's position (spec §3.3). */
+    ContinueListeningFailed,
+
+    /** Whichever slot applies, beside the stats on a tablet (spec §3.4). */
+    SlotBesideStats,
     AlsoInProgress,
     Stats,
     Shelves,
@@ -31,26 +46,33 @@ internal enum class HomeBlock {
 }
 
 /**
- * Home's sections, top to bottom (spec §2.1, §3.4). The slot is first when it shows; below it the order is always
- * Also in progress → Your last 7 days → My shelves. A tablet puts Resume beside the stats when nothing is loaded, and
- * the stats beside the shelves when a book is.
+ * Home's sections, top to bottom (spec §2.1, §3.4). The offline pill sits under the greeting ([isOffline]), then the
+ * library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue Listening failed and there is no
+ * slot, the one-line failure in its place. Offline and the failure are separate signals, so both can show. Below the
+ * slot the order is always Also in progress → Your last 7 days → My shelves. A tablet puts the slot beside the stats,
+ * and the stats beside the shelves when there is no slot.
  */
 internal fun homeBlocks(
     slot: HomeSlot,
+    isOffline: Boolean,
+    continueListeningFailed: Boolean,
+    showsStrip: Boolean,
     hasAlsoInProgress: Boolean,
     width: HomeWidth,
 ): List<HomeBlock> =
     buildList {
-        val isResume = slot is HomeSlot.Resume
         val wide = width == HomeWidth.Expanded
+        if (isOffline) add(HomeBlock.Offline)
+        if (showsStrip) add(HomeBlock.FirstSyncStrip)
+        val slotBlock = slotBlockFor(slot)
         when {
-            isResume && wide -> add(HomeBlock.ResumeBesideStats)
-            isResume -> add(HomeBlock.Resume)
-            else -> interimSlotBlock(slot)?.let(::add)
+            slotBlock != null && wide -> add(HomeBlock.SlotBesideStats)
+            slotBlock != null -> add(slotBlock)
+            continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
         }
         if (hasAlsoInProgress) add(HomeBlock.AlsoInProgress)
         when {
-            isResume && wide -> {
+            contains(HomeBlock.SlotBesideStats) -> {
                 add(HomeBlock.Shelves)
             }
 
@@ -65,14 +87,15 @@ internal fun homeBlocks(
         }
     }
 
-/**
- * Open question 5 (the window between Home PR 3 and PR 4), in one place: until PR 4 draws them, JustFinished and
- * FirstSync take no space, and NothingInProgress / NewListener show the interim empty state.
- */
-private fun interimSlotBlock(slot: HomeSlot): HomeBlock? =
+/** The block that draws [slot], or null when there is no slot. */
+internal fun slotBlockFor(slot: HomeSlot): HomeBlock? =
     when (slot) {
-        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> HomeBlock.NothingToResume
-        HomeSlot.Absent, HomeSlot.FirstSync, is HomeSlot.JustFinished, is HomeSlot.Resume -> null
+        is HomeSlot.Resume -> HomeBlock.Resume
+        is HomeSlot.JustFinished -> HomeBlock.Finished
+        is HomeSlot.NothingInProgress -> HomeBlock.NothingInProgress
+        is HomeSlot.NewListener -> HomeBlock.Welcome
+        HomeSlot.FirstSync -> HomeBlock.FirstSync
+        HomeSlot.Absent -> null
     }
 
 /** What Home can ask the shell to do. All navigation leaves as one of these. */
@@ -83,6 +106,16 @@ internal data class HomeActions(
     val onOpenLeaderboard: () -> Unit,
     val onOpenShelf: (String) -> Unit,
     val onCreateShelf: () -> Unit,
+    /** Opens Discover (the quiet slots' second button). */
+    val onOpenDiscover: () -> Unit = {},
+    /** Dismisses the finished card for a book on every device. */
+    val onDismissFinished: (String) -> Unit = {},
+    /** Rates a finished book on the 2..10 half-star scale. */
+    val onRateFinished: (String, Int) -> Unit = { _, _ -> },
+    /** Opens a book with its readers in view (the finishers line). */
+    val onOpenReaders: (String) -> Unit = {},
+    /** Tries Home again: the page error and the Continue Listening line. */
+    val onRetry: () -> Unit = {},
 ) {
     companion object {
         /** For previews and tests that press nothing. */

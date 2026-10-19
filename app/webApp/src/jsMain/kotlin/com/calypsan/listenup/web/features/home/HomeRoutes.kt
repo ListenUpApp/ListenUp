@@ -46,6 +46,13 @@ internal fun HomeRoute(
             onCreateShelf = { router.navigate(Routes.newShelf) },
             onRetry = session.onRetry,
             onRetryStats = session.onRetryStats,
+            onOpenReaders = { id ->
+                feeds.onHeroBookIdChange(id)
+                router.navigate(Routes.Book.detail(id))
+            },
+            onDismissFinished = session.onDismissFinished,
+            onRateFinished = session.onRateFinished,
+            onRetryConnection = session.onRetryConnection,
         )
 
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->

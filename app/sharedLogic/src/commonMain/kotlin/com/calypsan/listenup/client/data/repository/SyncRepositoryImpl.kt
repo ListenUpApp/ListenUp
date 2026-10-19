@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -159,6 +160,17 @@ internal class SyncRepositoryImpl(
             started = SharingStarted.Eagerly,
             initialValue = false,
         )
+
+    override val firstCatchUpRunning: StateFlow<Boolean> =
+        syncEngineState
+            .observe()
+            .map { it.isFirstCatchUp }
+            .distinctUntilChanged()
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.Eagerly,
+                initialValue = false,
+            )
 
     override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 

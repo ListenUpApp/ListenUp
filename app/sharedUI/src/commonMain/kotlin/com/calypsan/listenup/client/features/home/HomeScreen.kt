@@ -1,55 +1,39 @@
 package com.calypsan.listenup.client.features.home
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
-import com.calypsan.listenup.client.presentation.error.localized
-import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_try_again
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Home screen: resolves Home's two ViewModels and draws [HomeBody] (C12). Pull-to-refresh, multi-select and the
- * Continue Listening snackbar live here; everything Home draws lives in [HomeBody].
+ * Home screen: resolves Home's two ViewModels and draws [HomeBody] (C12). Pull-to-refresh and multi-select live here;
+ * everything Home draws lives in [HomeBody], [HomeLoadingBody] and [HomeErrorBody].
  *
  * @param appHeader The shell header slot; the greeting is its leading content.
  * @param onBookClick Opens a book.
  * @param onPlayBook The player's play entry, from the saved position (P-R5, C18).
  * @param onNavigateToLibrary Opens the Library.
- * @param onNavigateToDiscover Opens Discover (the stats footer's leaderboard link; PR 5 adds the Week focus).
+ * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button and the stats footer's leaderboard link.
  * @param onShelfClick Opens a shelf.
  * @param onCreateShelf Starts a new shelf.
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
@@ -80,14 +64,6 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stats by statsViewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    // A Continue Listening failure is on the state now (spec §4.1). Home PR 4 draws it inline; until then, a snackbar.
-    val continueListeningError = (state as? HomeUiState.Ready)?.continueListeningError
-    LaunchedEffect(continueListeningError) {
-        continueListeningError?.let { snackbarHostState.showSnackbar(it.localizedString()) }
-    }
-
     val actions =
         HomeActions(
             onOpenBook = onBookClick,
@@ -96,10 +72,14 @@ fun HomeScreen(
             onOpenLeaderboard = onNavigateToDiscover,
             onOpenShelf = onShelfClick,
             onCreateShelf = onCreateShelf,
+            onOpenDiscover = onNavigateToDiscover,
+            onDismissFinished = viewModel::dismissFinished,
+            onRateFinished = viewModel::rateFinished,
+            onOpenReaders = onBookClick,
+            onRetry = viewModel::refresh,
         )
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
         // The shell owns the system-bar/nav insets and passes them in as [contentPadding]; this
         // inner Scaffold must not re-add them, or the top/bottom would be inset twice.
@@ -108,16 +88,22 @@ fun HomeScreen(
     ) { paddingValues ->
         when (val s = state) {
             is HomeUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
+                HomeLoadingBody(
+                    width = rememberHomeWidth(),
+                    appHeader = appHeader,
+                    contentPadding = contentPadding,
+                    modifier = Modifier.padding(paddingValues),
+                )
             }
 
             is HomeUiState.Error -> {
-                HomeError(s, onRetry = viewModel::refresh, modifier = Modifier.padding(paddingValues))
+                HomeErrorBody(
+                    state = s,
+                    onRetry = viewModel::refresh,
+                    appHeader = appHeader,
+                    contentPadding = contentPadding,
+                    modifier = Modifier.padding(paddingValues),
+                )
             }
 
             is HomeUiState.Ready -> {
@@ -136,25 +122,6 @@ fun HomeScreen(
                     contentPadding = contentPadding,
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun HomeError(
-    state: HomeUiState.Error,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = state.error.localized(), color = MaterialTheme.colorScheme.error)
-            // The pull-to-refresh lives in the Ready content, so the failed screen carries its own way back.
-            ListenUpButton(
-                text = stringResource(Res.string.common_try_again),
-                onClick = onRetry,
-                modifier = Modifier.padding(top = 16.dp),
-            )
         }
     }
 }

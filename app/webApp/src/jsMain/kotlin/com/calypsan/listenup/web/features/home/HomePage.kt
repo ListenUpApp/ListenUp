@@ -10,6 +10,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.library.ArrivingWords
 import com.calypsan.listenup.web.features.library.LibraryStatus
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
@@ -44,20 +45,42 @@ fun HomePage(
                 // not know whether the library is empty, syncing or broken, and guessing out loud is
                 // how a healthy first run ends up reading like a failure. The greeting's place is
                 // held by a skeleton, under an H1 that still names the page.
-                PageHeader(title = HOME, documentTitle = null, display = true, pending = true)
+                PageHeader(title = HomeWords.HOME, documentTitle = null, display = true, pending = true)
+                ResumeSkeleton(withResume = false)
+                RailSkeleton()
             }
 
             is HomeUiState.Error -> {
-                PageHeader(title = HOME, documentTitle = null)
-                EmptyState(title = "Home is unavailable", body = state.error.message) {
-                    Button(kind = ButtonKind.Primary, onClick = { actions.onRetry() }) { Text("Try again") }
-                }
+                // The greeting stays (spec §3.3); the error carries no name.
+                PageHeader(
+                    title = homeGreeting(state.timeOfDay, firstName = null),
+                    documentTitle = null,
+                    display = true,
+                )
+                HomeErrorSlot(onRetry = actions.onRetry)
             }
 
             is HomeUiState.Ready -> {
-                PageHeader(title = homeGreeting(state.timeOfDay, state.firstName), documentTitle = null, display = true)
-                LibraryStatus(scan = state.scanProgress, isBuilding = state.isBuildingInitialLibrary)
-                homeBlocks(state.slot, state.alsoInProgress.isNotEmpty(), isWide).forEach { block ->
+                PageHeader(
+                    title =
+                        homeGreeting(
+                            state.timeOfDay,
+                            state.firstName,
+                            isWelcome = state.slot is HomeSlot.NewListener,
+                        ),
+                    documentTitle = null,
+                    display = true,
+                )
+                val blocks =
+                    homeBlocks(
+                        slot = state.slot,
+                        isOffline = state.isOffline,
+                        continueListeningFailed = state.continueListeningError != null,
+                        showsStrip = state.showsArrivalStrip,
+                        hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+                        isWide = isWide,
+                    )
+                blocks.forEach { block ->
                     HomeBlockContent(block, state, stats, actions, isWide, nowMs, selection)
                 }
             }
@@ -65,7 +88,25 @@ fun HomePage(
     }
 }
 
-private const val HOME = "Home"
+/**
+ * The library-still-arriving strip in Home's words (spec H5, open question 1): Library's strip, titled "Building your
+ * library" with " · 412 of 1,280 books" while a scan knows both numbers, and Home's line about where your place is.
+ */
+@Composable
+private fun HomeLibraryStatus(state: HomeUiState.Ready) {
+    val scan = state.scanProgress
+    LibraryStatus(
+        scan = scan,
+        isBuilding = true,
+        words =
+            ArrivingWords(
+                title =
+                    scan?.takeIf { it.booksTotal > 0 }?.let { HomeWords.arrivingTitle(it.books, it.booksTotal) }
+                        ?: HomeWords.BUILDING_TITLE,
+                body = HomeWords.ARRIVING_BODY,
+            ),
+    )
+}
 
 /** One block of [homeBlocks], drawn. */
 @Composable
@@ -78,25 +119,28 @@ private fun HomeBlockContent(
     nowMs: Long,
     selection: BookSelection?,
 ) {
-    val isOnlyBook = state.slot is HomeSlot.Resume && state.alsoInProgress.isEmpty()
-    val resume = state.slot as? HomeSlot.Resume
     when (block) {
-        HomeBlock.Resume -> {
-            resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
-        }
-
-        HomeBlock.ResumeBesideStats -> {
+        HomeBlock.SlotBesideStats -> {
             Div(attrs = { classes("home-row") }) {
-                resume?.let { ResumeHero(it, isOnlyBook, nowMs, actions.onOpenBook, actions.onPlay) }
+                SlotContent(state, actions, nowMs)
                 LastSevenDays(stats, actions)
             }
         }
 
-        HomeBlock.NothingToResume -> {
-            // Interim for NothingInProgress and NewListener until Home PR 4 draws them (open question 5).
-            EmptyState(title = "Nothing on the go", body = "Start a book and it will wait for you here.") {
-                Button(kind = ButtonKind.Primary, onClick = { actions.onOpenLibrary() }) { Text("Browse the Library") }
-            }
+        HomeBlock.Resume, HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
+            SlotContent(state, actions, nowMs)
+        }
+
+        HomeBlock.Offline -> {
+            ServerNotice(onRetry = actions.onRetryConnection)
+        }
+
+        HomeBlock.FirstSyncStrip -> {
+            HomeLibraryStatus(state)
+        }
+
+        HomeBlock.ContinueListeningFailed -> {
+            ContinueListeningFailedLine(onRetry = actions.onRetry)
         }
 
         HomeBlock.AlsoInProgress -> {
@@ -108,14 +152,48 @@ private fun HomeBlockContent(
         }
 
         HomeBlock.Shelves -> {
-            MyShelves(state.myShelves, actions)
+            MyShelves(state.myShelves, actions, isLoading = state.showsShelvesLoading)
         }
 
         HomeBlock.StatsBesideShelves -> {
             Div(attrs = { classes("home-row") }) {
                 LastSevenDays(stats, actions)
-                MyShelves(state.myShelves, actions)
+                MyShelves(state.myShelves, actions, isLoading = state.showsShelvesLoading)
             }
+        }
+    }
+}
+
+/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+@Composable
+private fun SlotContent(
+    state: HomeUiState.Ready,
+    actions: HomeActions,
+    nowMs: Long,
+) {
+    when (val slot = state.slot) {
+        is HomeSlot.Resume -> {
+            ResumeHero(slot, state.alsoInProgress.isEmpty(), nowMs, actions.onOpenBook, actions.onPlay)
+        }
+
+        is HomeSlot.JustFinished -> {
+            HomeFinishedCard(slot.card, nowMs, actions)
+        }
+
+        is HomeSlot.NothingInProgress -> {
+            NothingInProgressSlot(slot, actions)
+        }
+
+        is HomeSlot.NewListener -> {
+            WelcomeSlot(slot, actions)
+        }
+
+        HomeSlot.FirstSync -> {
+            ResumeSkeleton(withResume = true)
+        }
+
+        HomeSlot.Absent -> {
+            Unit
         }
     }
 }

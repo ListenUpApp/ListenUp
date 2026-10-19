@@ -550,6 +550,46 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-hero-resume { align-self: stretch; border-radius: var(--r-pill); }
 .luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
 
+/* The just-finished kind (spec §2.3): the hero surface, with ✕ beside the eyebrow and the rating under the play. */
+.luw .home-finished-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
+/* Title, author and "45h 30m · 6 Sep – 10 Oct" sit from the cover's top, not its middle. */
+.luw .home-finished-id { align-items: flex-start; }
+.luw .home-finished-rate { display: flex; flex-direction: column; gap: 4px; }
+.luw .home-finished-rate-k { font-size: var(--fs-ui); font-weight: 700; color: var(--ink); }
+.luw .home-finished-others { align-self: flex-start; }
+/* The welcome breathes a little more than the other slots: it is the whole of a first Home. */
+.luw .home-welcome { gap: var(--sp-16); }
+
+/* Nothing in progress and the welcome (spec §2.3, H17): a standard group of pills, never connected. */
+.luw .home-row > .home-quiet { flex: 2 1 520px; min-width: 0; }
+.luw .home-quiet-actions { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.luw .home-quiet-actions > .home-hero-resume { align-self: auto; }
+.luw .home-welcome-covers { display: flex; gap: var(--sp-8); }
+.luw .home-welcome-blank { width: 72px; height: 72px; border-radius: var(--r-md); }
+
+/* Home's notices and failures (spec §3.1, §3.3): quiet lines in the column, never banners. */
+.luw .home-notice, .luw .home-cl-failed {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-12);
+  padding: var(--sp-12) var(--sp-16); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+}
+.luw .home-notice-t { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); }
+.luw .home-notice-k { font-weight: 700; color: var(--ink); }
+.luw .home-cl-failed { font-size: var(--fs-ui); color: var(--ink-2); }
+.luw .home-error { align-items: flex-start; }
+
+/* Skeletons the size of what they stand for (H14). */
+.luw .home-skel-id { display: flex; align-items: center; gap: 14px; }
+.luw .home-skel-cover { width: 112px; height: 112px; border-radius: var(--r-md); flex: none; }
+.luw .home-skel-lines { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.luw .home-shelf-skel { height: 88px; border-radius: var(--r-lg); }
+.luw .home-skel-rail { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.1rem; }
+
+/* The stats invitation (spec §2.6): one line in a dashed outline, never a zeroed chart. */
+.luw .home-stats-invite {
+  margin: 0; padding: var(--sp-12); border: 1px dashed var(--line); border-radius: var(--r-lg);
+  font-size: var(--fs-ui); color: var(--ink-2);
+}
+
 .luw .home-stats-card {
   display: flex; flex-direction: column; gap: var(--sp-12);
   padding: 1.25rem; border-radius: var(--r-xl); background: var(--surface); border: 1px solid var(--line);

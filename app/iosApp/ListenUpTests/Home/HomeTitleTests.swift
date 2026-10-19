@@ -16,4 +16,10 @@ struct HomeTitleTests {
     @Test func everyPartOfTheDayHasItsWords() {
         #expect(HomeTitle.greeting(.afternoon) == "Good afternoon")
     }
+
+    @Test func aNewListenerIsWelcomed() {
+        #expect(HomeTitle.subtitle(timeOfDay: .evening, firstName: "Simon", isWelcome: true) == "Welcome, Simon")
+        #expect(HomeTitle.subtitle(timeOfDay: .evening, firstName: "Simon", isWelcome: false) == "Good evening, Simon")
+        #expect(HomeTitle.subtitle(timeOfDay: .evening, firstName: nil, isWelcome: true) == "Welcome")
+    }
 }

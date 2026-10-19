@@ -1,53 +1,103 @@
 package com.calypsan.listenup.web.features.home
 
+import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
-/** Spec §2.1 (the order never changes) and §3.4 (wide arrangements), in one place — Android's HomeBlocksTest twin. */
+/** Spec §2.1 (the order never changes), §3.1/§3.3 (notices) and §3.4 (wide arrangements) — Android's twin. */
 class HomeLayoutTest :
     FunSpec({
         val resume = resumeSlot("wok")
 
+        fun blocks(
+            slot: HomeSlot,
+            hasAlsoInProgress: Boolean,
+            isWide: Boolean = false,
+            isOffline: Boolean = false,
+            continueListeningFailed: Boolean = false,
+            showsStrip: Boolean = false,
+        ) = homeBlocks(
+            slot = slot,
+            isOffline = isOffline,
+            continueListeningFailed = continueListeningFailed,
+            showsStrip = showsStrip,
+            hasAlsoInProgress = hasAlsoInProgress,
+            isWide = isWide,
+        )
+
         test("a loaded book on a phone: also in progress, stats, shelves — no slot") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = true, isWide = false) shouldBe
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true) shouldBe
                 listOf(HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("one book in progress and loaded: no also in progress section at all") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = false, isWide = false) shouldBe
-                listOf(HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false) shouldBe listOf(HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("nothing loaded on a phone: Resume first, then the fixed order") {
-            homeBlocks(resume, hasAlsoInProgress = true, isWide = false) shouldBe
+            blocks(resume, hasAlsoInProgress = true) shouldBe
                 listOf(HomeBlock.Resume, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("nothing loaded with nothing else in progress: Resume, stats, shelves") {
-            homeBlocks(resume, hasAlsoInProgress = false, isWide = false) shouldBe
-                listOf(HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
-        }
-
         test("a loaded book on a wide page: also in progress, then stats beside shelves") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = true, isWide = true) shouldBe
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true, isWide = true) shouldBe
                 listOf(HomeBlock.AlsoInProgress, HomeBlock.StatsBesideShelves)
         }
 
-        test("nothing loaded on a wide page: Resume beside stats, then also in progress, then shelves") {
-            homeBlocks(resume, hasAlsoInProgress = true, isWide = true) shouldBe
-                listOf(HomeBlock.ResumeBesideStats, HomeBlock.AlsoInProgress, HomeBlock.Shelves)
+        test("nothing loaded on a wide page: the slot beside stats, then also in progress, then shelves") {
+            blocks(resume, hasAlsoInProgress = true, isWide = true) shouldBe
+                listOf(HomeBlock.SlotBesideStats, HomeBlock.AlsoInProgress, HomeBlock.Shelves)
         }
 
-        test("until PR 4, nothing in progress and a new listener show the interim empty state in the slot's place") {
-            homeBlocks(HomeSlot.NothingInProgress(candidate = null), hasAlsoInProgress = false, isWide = false) shouldBe
-                listOf(HomeBlock.NothingToResume, HomeBlock.Stats, HomeBlock.Shelves)
-            homeBlocks(HomeSlot.NewListener(covers = emptyList()), hasAlsoInProgress = false, isWide = true) shouldBe
-                listOf(HomeBlock.NothingToResume, HomeBlock.StatsBesideShelves)
+        test("every nothing-loaded kind leads, in the Resume position") {
+            blocks(finishedSlot(), hasAlsoInProgress = true) shouldBe
+                listOf(HomeBlock.Finished, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(nothingSlot(), hasAlsoInProgress = false) shouldBe
+                listOf(HomeBlock.NothingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(welcomeSlot(), hasAlsoInProgress = false) shouldBe
+                listOf(HomeBlock.Welcome, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("until PR 4, just finished and first sync draw no slot") {
-            homeBlocks(HomeSlot.FirstSync, hasAlsoInProgress = true, isWide = false) shouldBe
-                listOf(HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+        test("the strip sits above any slot, and after the notice (H5)") {
+            blocks(HomeSlot.FirstSync, hasAlsoInProgress = true, showsStrip = true) shouldBe
+                listOf(
+                    HomeBlock.FirstSyncStrip,
+                    HomeBlock.FirstSync,
+                    HomeBlock.AlsoInProgress,
+                    HomeBlock.Stats,
+                    HomeBlock.Shelves,
+                )
+            blocks(resume, hasAlsoInProgress = false, isOffline = true, showsStrip = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("offline and a failed Continue Listening are separate signals") {
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false, continueListeningFailed = true) shouldBe
+                listOf(HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false, isOffline = true, continueListeningFailed = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("on a wide page every slot sits beside the stats, as Resume does") {
+            listOf(finishedSlot(), nothingSlot(), welcomeSlot(), HomeSlot.FirstSync).forEach { slot ->
+                blocks(slot, hasAlsoInProgress = true, isWide = true).first() shouldBe HomeBlock.SlotBesideStats
+            }
+        }
+
+        test("Home's words live in one object and mirror the catalog's English") {
+            HomeWords.WELCOME_HEADLINE shouldBe "Pick something new"
+            HomeWords.OFFLINE_NOTICE shouldBe "Can't reach your server."
+            HomeWords.BUILDING_TITLE shouldBe "Building your library"
+            HomeWords.arrivingTitle(done = 412, total = 1_280) shouldBe "Building your library · 412 of 1,280 books"
+            HomeWords.alsoFinished(listOf("Maya"), more = 0) shouldBe "Maya finished it too"
+            HomeWords.alsoFinished(listOf("Maya", "Tom"), more = 0) shouldBe "Maya and Tom finished it too"
+            HomeWords.alsoFinished(listOf("Maya"), more = 2) shouldBe "Maya and 2 more finished it too"
+            HomeWords.alsoFinished(listOf("Maya", "Tom"), more = 3) shouldBe "Maya, Tom and 3 more finished it too"
+            HomeWords.alsoFinished(emptyList(), more = 3) shouldBe null
+        }
+
+        test("a new listener is welcomed by name") {
+            homeGreeting(TimeOfDay.Evening, "Simon", isWelcome = true) shouldBe "Welcome, Simon"
         }
     })

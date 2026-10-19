@@ -60,12 +60,13 @@ internal class HomeSlotPresenter(
 ) {
     /**
      * The slot and its rail, or null until the loaded book has been restored — so no Resume flashes in on a cold start
-     * and then vanishes (spec §4.1 loading guard). [decisionRuns] moves on every refresh and dismissal (§2.1 rules 1,
+     * and then vanishes (spec §4.1 loading guard). [isLibraryArriving] is true while the library's first population or
+     * this device's first catch-up is running. [decisionRuns] moves on every refresh and dismissal (§2.1 rules 1,
      * 3); [dismissedHere] maps a book to the finish dismissed this visit, before Room has caught up.
      */
     fun observe(
         continueListening: Flow<List<ContinueListeningItem>>,
-        isBuildingInitialLibrary: Flow<Boolean>,
+        isLibraryArriving: Flow<Boolean>,
         decisionRuns: Flow<Int>,
         dismissedHere: Flow<Map<String, Long>>,
     ): Flow<HomeSlotState?> =
@@ -74,7 +75,7 @@ internal class HomeSlotPresenter(
             val decided =
                 decide(
                     continueListening = continueListening,
-                    isBuildingInitialLibrary = isBuildingInitialLibrary,
+                    isLibraryArriving = isLibraryArriving,
                     decisionRuns = decisionRuns,
                     dismissedHere = dismissedHere,
                 ).stateIn(this)
@@ -97,7 +98,7 @@ internal class HomeSlotPresenter(
 
     private fun decide(
         continueListening: Flow<List<ContinueListeningItem>>,
-        isBuildingInitialLibrary: Flow<Boolean>,
+        isLibraryArriving: Flow<Boolean>,
         decisionRuns: Flow<Int>,
         dismissedHere: Flow<Map<String, Long>>,
     ): Flow<Decided?> {
@@ -115,7 +116,7 @@ internal class HomeSlotPresenter(
             flow = loaded,
             flow2 = continueListening,
             flow3 = facts,
-            flow4 = isBuildingInitialLibrary,
+            flow4 = isLibraryArriving,
             flow5 = decisionRuns,
         ) { view, items, f, building, runs ->
             view?.let { Candidate(view = it, items = items, facts = f, building = building, runs = runs) }
@@ -136,7 +137,7 @@ internal class HomeSlotPresenter(
                             continueListening = c.items,
                             justFinishedBookId = justFinished,
                             hasHistory = c.facts.positions.isNotEmpty(),
-                            isBuildingInitialLibrary = c.building,
+                            isLibraryArriving = c.building,
                         ),
                     )
                 val latched =

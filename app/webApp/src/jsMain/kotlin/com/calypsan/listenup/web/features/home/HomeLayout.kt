@@ -19,7 +19,7 @@ data class HomeActions(
     val onPlay: (String) -> Unit,
     /** Opens the Library. */
     val onOpenLibrary: () -> Unit,
-    /** The stats footer's leaderboard link; PR 5 adds the Week focus (spec §6.4). */
+    /** Opens Discover: the quiet slots' Discover button and the stats footer's leaderboard link. */
     val onOpenDiscover: () -> Unit,
     /** Opens a shelf. */
     val onOpenShelf: (String) -> Unit,
@@ -29,6 +29,14 @@ data class HomeActions(
     val onRetry: () -> Unit,
     /** Re-runs failed stats, without touching the rest of the page. */
     val onRetryStats: () -> Unit,
+    /** Opens a finished book with its readers in view (the finishers line). */
+    val onOpenReaders: (String) -> Unit = {},
+    /** Dismisses a book's just-finished card on every device. */
+    val onDismissFinished: (String) -> Unit = {},
+    /** Rates a finished book on the 2..10 half-star scale. */
+    val onRateFinished: (String, Int) -> Unit = { _, _ -> },
+    /** Asks for the server again (the "Can't reach your server" notice's Retry). */
+    val onRetryConnection: () -> Unit = {},
 ) {
     /** Holds [None]. */
     companion object {
@@ -37,26 +45,39 @@ data class HomeActions(
     }
 }
 
-/** "Good evening, Simon" (spec §3.1, web): worded here, never by the ViewModel (H2). */
+/**
+ * "Good evening, Simon" (spec §3.1, web): worded here, never by the ViewModel (H2). A new listener is greeted
+ * "Welcome, Simon" ([isWelcome], spec §2.3 NewListener).
+ */
 internal fun homeGreeting(
     timeOfDay: TimeOfDay,
     firstName: String?,
+    isWelcome: Boolean = false,
 ): String {
-    val greeting =
-        when (timeOfDay) {
-            TimeOfDay.Morning -> "Good morning"
-            TimeOfDay.Afternoon -> "Good afternoon"
-            TimeOfDay.Evening -> "Good evening"
-            TimeOfDay.Night -> "Good night"
-        }
+    val greeting = if (isWelcome) HomeWords.WELCOME else HomeWords.greeting(timeOfDay)
     return if (firstName.isNullOrBlank()) greeting else "$greeting, $firstName"
 }
 
 /** One section of Home, in the order [homeBlocks] puts them. */
 internal enum class HomeBlock {
+    /** "Can't reach your server" with Retry, directly under the greeting (spec §3.1). */
+    Offline,
+
+    /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
+    FirstSyncStrip,
     Resume,
-    ResumeBesideStats,
-    NothingToResume,
+    Finished,
+    NothingInProgress,
+    Welcome,
+
+    /** The skeleton slot that resolves in place (spec §2.1 rule 4). */
+    FirstSync,
+
+    /** Continue Listening could not load: one line with Try again, in the slot's position (spec §3.3). */
+    ContinueListeningFailed,
+
+    /** Whichever slot applies, beside the stats on a wide page (spec §3.4). */
+    SlotBesideStats,
     AlsoInProgress,
     Stats,
     Shelves,
@@ -64,26 +85,33 @@ internal enum class HomeBlock {
 }
 
 /**
- * Home's sections, top to bottom (spec §2.1, §3.4). The slot is first when it shows; below it the order is always
- * Also in progress → Your last 7 days → My shelves. A wide page puts Resume beside the stats when nothing is loaded,
- * and the stats beside the shelves when a book is. Decided here and rendered in this order (C9), so the focus order
- * is the visual order.
+ * Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The server notice sits under the
+ * greeting ([isOffline]), then the library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue
+ * Listening failed and there is no slot, the one-line failure in its place. The notice and the failure are separate
+ * signals, so both can show. Below the slot the order is always Also in progress → Your last 7 days → My shelves. A
+ * wide page puts the slot beside the stats, and the stats beside the shelves when there is no slot. Decided here and
+ * rendered in this order (C9), so the focus order is the visual order.
  */
 internal fun homeBlocks(
     slot: HomeSlot,
+    isOffline: Boolean,
+    continueListeningFailed: Boolean,
+    showsStrip: Boolean,
     hasAlsoInProgress: Boolean,
     isWide: Boolean,
 ): List<HomeBlock> =
     buildList {
-        val isResume = slot is HomeSlot.Resume
+        if (isOffline) add(HomeBlock.Offline)
+        if (showsStrip) add(HomeBlock.FirstSyncStrip)
+        val slotBlock = slotBlockFor(slot)
         when {
-            isResume && isWide -> add(HomeBlock.ResumeBesideStats)
-            isResume -> add(HomeBlock.Resume)
-            else -> interimSlotBlock(slot)?.let(::add)
+            slotBlock != null && isWide -> add(HomeBlock.SlotBesideStats)
+            slotBlock != null -> add(slotBlock)
+            continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
         }
         if (hasAlsoInProgress) add(HomeBlock.AlsoInProgress)
         when {
-            isResume && isWide -> {
+            contains(HomeBlock.SlotBesideStats) -> {
                 add(HomeBlock.Shelves)
             }
 
@@ -98,14 +126,15 @@ internal fun homeBlocks(
         }
     }
 
-/**
- * Open question 5 (the window between Home PR 3 and PR 4), in one place: until PR 4 draws them, JustFinished and
- * FirstSync take no space, and NothingInProgress / NewListener show the interim empty state.
- */
-private fun interimSlotBlock(slot: HomeSlot): HomeBlock? =
+/** The block that draws [slot], or null when there is no slot. */
+internal fun slotBlockFor(slot: HomeSlot): HomeBlock? =
     when (slot) {
-        is HomeSlot.NothingInProgress, is HomeSlot.NewListener -> HomeBlock.NothingToResume
-        HomeSlot.Absent, HomeSlot.FirstSync, is HomeSlot.JustFinished, is HomeSlot.Resume -> null
+        is HomeSlot.Resume -> HomeBlock.Resume
+        is HomeSlot.JustFinished -> HomeBlock.Finished
+        is HomeSlot.NothingInProgress -> HomeBlock.NothingInProgress
+        is HomeSlot.NewListener -> HomeBlock.Welcome
+        HomeSlot.FirstSync -> HomeBlock.FirstSync
+        HomeSlot.Absent -> null
     }
 
 /** The wide arrangement starts where the shell's sidebar does (spec §3.4 "desktop ≥ 1024 px"). */

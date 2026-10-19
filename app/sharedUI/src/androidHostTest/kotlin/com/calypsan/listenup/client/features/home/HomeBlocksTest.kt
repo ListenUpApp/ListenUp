@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.features.home
 
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
+import com.calypsan.listenup.client.domain.model.ScanProgressState
+import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
-/** Spec §2.1 (the order never changes) and §3.4 (wide arrangements), in one place. */
+/** Spec §2.1 (the order never changes), §3.1/§3.3 (notices) and §3.4 (wide arrangements), in one place. */
 class HomeBlocksTest :
     FunSpec({
         val book =
@@ -23,45 +25,110 @@ class HomeBlocksTest :
             )
         val resume = HomeSlot.Resume(book = book, next = null, chapter = null, canPlay = true)
 
+        fun blocks(
+            slot: HomeSlot,
+            hasAlsoInProgress: Boolean,
+            width: HomeWidth = HomeWidth.Compact,
+            isOffline: Boolean = false,
+            continueListeningFailed: Boolean = false,
+            showsStrip: Boolean = false,
+        ) = homeBlocks(
+            slot = slot,
+            isOffline = isOffline,
+            continueListeningFailed = continueListeningFailed,
+            showsStrip = showsStrip,
+            hasAlsoInProgress = hasAlsoInProgress,
+            width = width,
+        )
+
         test("a loaded book on a phone: also in progress, stats, shelves — no slot") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = true, HomeWidth.Compact) shouldBe
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true) shouldBe
                 listOf(HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("one book in progress and loaded: no also in progress section at all") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = false, HomeWidth.Compact) shouldBe
-                listOf(HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false) shouldBe listOf(HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("nothing loaded on a phone: Resume first, then the fixed order") {
-            homeBlocks(resume, hasAlsoInProgress = true, HomeWidth.Compact) shouldBe
+            blocks(resume, hasAlsoInProgress = true) shouldBe
                 listOf(HomeBlock.Resume, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("a medium window keeps the phone order") {
-            homeBlocks(resume, hasAlsoInProgress = true, HomeWidth.Medium) shouldBe
+            blocks(resume, hasAlsoInProgress = true, width = HomeWidth.Medium) shouldBe
                 listOf(HomeBlock.Resume, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("a loaded book on a tablet: also in progress, then stats beside shelves") {
-            homeBlocks(HomeSlot.Absent, hasAlsoInProgress = true, HomeWidth.Expanded) shouldBe
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true, width = HomeWidth.Expanded) shouldBe
                 listOf(HomeBlock.AlsoInProgress, HomeBlock.StatsBesideShelves)
         }
 
-        test("nothing loaded on a tablet: Resume beside stats, then also in progress, then shelves") {
-            homeBlocks(resume, hasAlsoInProgress = true, HomeWidth.Expanded) shouldBe
-                listOf(HomeBlock.ResumeBesideStats, HomeBlock.AlsoInProgress, HomeBlock.Shelves)
+        test("nothing loaded on a tablet: the slot beside stats, then also in progress, then shelves") {
+            blocks(resume, hasAlsoInProgress = true, width = HomeWidth.Expanded) shouldBe
+                listOf(HomeBlock.SlotBesideStats, HomeBlock.AlsoInProgress, HomeBlock.Shelves)
         }
 
-        test("until PR 4, nothing in progress and a new listener show the interim empty state in the slot's place") {
-            homeBlocks(HomeSlot.NothingInProgress(candidate = null), hasAlsoInProgress = false, HomeWidth.Compact) shouldBe
-                listOf(HomeBlock.NothingToResume, HomeBlock.Stats, HomeBlock.Shelves)
-            homeBlocks(HomeSlot.NewListener(covers = emptyList()), hasAlsoInProgress = false, HomeWidth.Expanded) shouldBe
-                listOf(HomeBlock.NothingToResume, HomeBlock.StatsBesideShelves)
+        test("every nothing-loaded kind leads, in the Resume position") {
+            blocks(finishedSlot(), hasAlsoInProgress = true) shouldBe
+                listOf(HomeBlock.Finished, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(nothingSlot(), hasAlsoInProgress = false) shouldBe
+                listOf(HomeBlock.NothingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(welcomeSlot(), hasAlsoInProgress = false) shouldBe
+                listOf(HomeBlock.Welcome, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("until PR 4, just finished and first sync draw no slot") {
-            homeBlocks(HomeSlot.FirstSync, hasAlsoInProgress = true, HomeWidth.Compact) shouldBe
-                listOf(HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+        test("first sync puts the strip above a skeleton slot and keeps the rest in order") {
+            blocks(HomeSlot.FirstSync, hasAlsoInProgress = true, showsStrip = true) shouldBe
+                listOf(
+                    HomeBlock.FirstSyncStrip,
+                    HomeBlock.FirstSync,
+                    HomeBlock.AlsoInProgress,
+                    HomeBlock.Stats,
+                    HomeBlock.Shelves,
+                )
+        }
+
+        test("a scan or an arriving library shows the strip above any slot, and with no slot at all (H5)") {
+            blocks(resume, hasAlsoInProgress = false, showsStrip = true) shouldBe
+                listOf(HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true, showsStrip = true) shouldBe
+                listOf(HomeBlock.FirstSyncStrip, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("the offline pill sits under the greeting, above the strip, and never reorders the rest") {
+            blocks(HomeSlot.Absent, hasAlsoInProgress = true, isOffline = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(resume, hasAlsoInProgress = false, isOffline = true, showsStrip = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("a failed Continue Listening takes the slot position as one line") {
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false, continueListeningFailed = true) shouldBe
+                listOf(HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("offline and a failed Continue Listening both show: they are separate signals") {
+            blocks(HomeSlot.Absent, hasAlsoInProgress = false, isOffline = true, continueListeningFailed = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
+        }
+
+        test("on a tablet every slot sits beside the stats, as Resume does") {
+            listOf(finishedSlot(), nothingSlot(), welcomeSlot(), HomeSlot.FirstSync).forEach { slot ->
+                blocks(slot, hasAlsoInProgress = true, width = HomeWidth.Expanded).first() shouldBe
+                    HomeBlock.SlotBesideStats
+            }
+        }
+
+        test("the state's signals: offline is any connectivity but online; the strip is arriving or scanning") {
+            homeReady(HomeSlot.Absent, emptyList()).isOffline shouldBe false
+            homeReady(HomeSlot.Absent, emptyList(), connectivity = HomeConnectivity.ServerUnreachable).isOffline shouldBe true
+            homeReady(HomeSlot.Absent, emptyList(), connectivity = HomeConnectivity.Offline).isOffline shouldBe true
+            homeReady(HomeSlot.Absent, emptyList()).showsArrivalStrip shouldBe false
+            homeReady(HomeSlot.Absent, emptyList(), isLibraryArriving = true).showsArrivalStrip shouldBe true
+            homeReady(HomeSlot.Absent, emptyList(), scanProgress = scan()).showsArrivalStrip shouldBe true
         }
     })
+
+private fun scan() = ScanProgressState(phase = "analyzing", current = 1, total = 2, added = 0, updated = 0, removed = 0)

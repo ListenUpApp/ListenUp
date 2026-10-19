@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.home
 
+import listenup.composeapp.generated.resources.home_loading_shelves_a11y
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -71,6 +74,7 @@ internal fun MyShelvesSection(
     onCreateShelf: () -> Unit,
     modifier: Modifier = Modifier,
     horizontalMargin: Dp = Spacing.screenMargin,
+    isLoading: Boolean = false,
 ) {
     Column(modifier.fillMaxWidth()) {
         SectionTitle(
@@ -86,6 +90,10 @@ internal fun MyShelvesSection(
         )
         Spacer(Modifier.height(Spacing.titleGap))
         when {
+            isLoading -> {
+                ShelvesSkeleton(Modifier.padding(horizontal = horizontalMargin))
+            }
+
             shelves.isEmpty() -> {
                 Text(
                     text = stringResource(Res.string.home_shelves_invitation),
@@ -111,6 +119,26 @@ internal fun MyShelvesSection(
         }
     }
 }
+
+/** My shelves while the library is still arriving: two tile-sized shimmers, read as one "Loading shelves". */
+@Composable
+private fun ShelvesSkeleton(modifier: Modifier) {
+    val label = stringResource(Res.string.home_loading_shelves_a11y)
+    Row(
+        modifier.clearAndSetSemantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
+    ) {
+        repeat(SKELETON_SHELVES) {
+            Box(
+                Modifier
+                    .size(ShelfTileWidth)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.large),
+            )
+        }
+    }
+}
+
+private const val SKELETON_SHELVES = 2
 
 /** Two row cards per line on medium and expanded windows. */
 @Composable
