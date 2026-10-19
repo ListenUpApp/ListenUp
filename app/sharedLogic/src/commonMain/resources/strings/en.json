@@ -347,6 +347,7 @@
     "detail_cancel_download": "Cancel download",
     "detail_chapters": "Chapters",
     "detail_download": "Download",
+    "detail_remove_download_short": "Remove",
     "detail_queued": "Queued...",
     "detail_download_book": "Download book",
     "detail_download_failed": "Couldn't start the download. Please try again.",

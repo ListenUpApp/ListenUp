@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,13 +9,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -28,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
@@ -170,10 +170,9 @@ private fun PhoneActionRow(
 }
 
 /**
- * Tablet: an M3E standard button group, every segment labelled (separate buttons, 8 dp apart). Download and Add to
- * shelf take their own width so their labels never cut short (board: `flex: 0 0 auto`); Resume takes the rest of its
- * row and never less than half of it (spec §3.2.1). When a long label ("Delete download") leaves Resume less than
- * half, the two wrap onto a second row, as the board's row does (`flex-wrap: wrap`).
+ * Tablet: an M3E standard button group on one row, every segment labelled. Download and Add to shelf take their own
+ * width so their labels are never cut short (board: `flex: 0 0 auto`); Resume takes the rest, at least half the row.
+ * A downloaded book's segment reads "Remove" so the row still fits (Simon, 2026-10-19).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -182,38 +181,61 @@ private fun TabletActionGroup(
     modifier: Modifier,
 ) {
     val shelfName = stringResource(Res.string.book_detail_add_to_shelf)
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val halfRow = maxWidth / 2
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Button(
-                onClick = actions.onPrimary,
-                enabled = actions.primaryEnabled,
-                shapes = ButtonDefaults.shapes(),
-                modifier = Modifier.weight(1f).widthIn(min = halfRow).heightIn(min = ActionHeight),
-            ) { PrimaryContent(actions.label) }
-            actions.download?.let { download ->
-                DownloadLabelledButton(
-                    action = download,
-                    enabled = actions.downloadEnabled,
-                    onTap = actions.onDownloadTap,
-                    minHeight = ActionHeight,
-                )
-            }
-            FilledTonalButton(
-                onClick = actions.onAddToShelf,
-                shapes = ButtonDefaults.shapes(),
-                modifier = Modifier.heightIn(min = ActionHeight),
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(shelfName, maxLines = 1)
-            }
+    val resumeSource = remember { MutableInteractionSource() }
+    val downloadSource = remember { MutableInteractionSource() }
+    val shelfSource = remember { MutableInteractionSource() }
+    ButtonGroup(
+        overflowIndicator = {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        customItem(
+            buttonGroupContent = {
+                Button(
+                    onClick = actions.onPrimary,
+                    enabled = actions.primaryEnabled,
+                    shapes = ButtonDefaults.shapes(),
+                    interactionSource = resumeSource,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .animateWidth(resumeSource)
+                            .heightIn(min = ActionHeight),
+                ) { PrimaryContent(actions.label) }
+            },
+            menuContent = {},
+        )
+        actions.download?.let { download ->
+            customItem(
+                buttonGroupContent = {
+                    DownloadLabelledButton(
+                        action = download,
+                        enabled = actions.downloadEnabled,
+                        onTap = actions.onDownloadTap,
+                        minHeight = ActionHeight,
+                        interactionSource = downloadSource,
+                        modifier = Modifier.animateWidth(downloadSource),
+                    )
+                },
+                menuContent = {},
+            )
         }
+        customItem(
+            buttonGroupContent = {
+                FilledTonalButton(
+                    onClick = actions.onAddToShelf,
+                    shapes = ButtonDefaults.shapes(),
+                    interactionSource = shelfSource,
+                    modifier = Modifier.animateWidth(shelfSource).heightIn(min = ActionHeight),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(shelfName, maxLines = 1)
+                }
+            },
+            menuContent = {},
+        )
     }
 }
 

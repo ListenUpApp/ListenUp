@@ -585,6 +585,7 @@ One beautiful library.</string>
     <string name="book_detail_readers_read_on_hardcover">Read %1$s on Hardcover</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
+    <string name="book_detail_remove_download_short">Remove</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
     <string name="book_detail_restart">Restart</string>
     <string name="book_detail_restart_book">Restart book</string>

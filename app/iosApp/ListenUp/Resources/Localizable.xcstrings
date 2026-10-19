@@ -5841,6 +5841,16 @@
         }
       }
     },
+    "book.detail_remove_download_short": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
     "book.detail_remove_the_downloaded_files_for": {
       "localizations": {
         "en": {

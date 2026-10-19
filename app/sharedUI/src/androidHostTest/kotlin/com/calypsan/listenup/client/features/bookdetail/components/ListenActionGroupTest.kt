@@ -1,6 +1,11 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -18,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 class ListenActionGroupTest {
@@ -32,23 +38,26 @@ class ListenActionGroupTest {
         onPrimary: () -> Unit = {},
         onAddToShelf: () -> Unit = {},
         onRemoveDownload: () -> Unit = {},
+        width: Dp? = null,
     ) = composeRule.setContent {
         MaterialTheme {
-            ListenActionGroup(
-                primaryAction = action,
-                isPreparing = isPreparing,
-                downloadStatus = status,
-                isWaitingForWifi = false,
-                downloadSizeBytes = 1_288_490_189L,
-                supportsDownloads = true,
-                canDownload = true,
-                labelled = labelled,
-                onPrimaryClick = onPrimary,
-                onDownload = {},
-                onCancelDownload = {},
-                onRemoveDownload = onRemoveDownload,
-                onAddToShelf = onAddToShelf,
-            )
+            Box(if (width != null) Modifier.width(width) else Modifier) {
+                ListenActionGroup(
+                    primaryAction = action,
+                    isPreparing = isPreparing,
+                    downloadStatus = status,
+                    isWaitingForWifi = false,
+                    downloadSizeBytes = 1_288_490_189L,
+                    supportsDownloads = true,
+                    canDownload = true,
+                    labelled = labelled,
+                    onPrimaryClick = onPrimary,
+                    onDownload = {},
+                    onCancelDownload = {},
+                    onRemoveDownload = onRemoveDownload,
+                    onAddToShelf = onAddToShelf,
+                )
+            }
         }
     }
 
@@ -116,7 +125,7 @@ class ListenActionGroupTest {
     }
 
     @Test
-    fun `on a tablet a downloaded book's segment reads Delete download`() {
+    fun `on a tablet a downloaded book's segment reads Remove, is named Delete download, and removes it`() {
         var remove = false
         setGroup(
             PrimaryAction.Resume,
@@ -124,7 +133,8 @@ class ListenActionGroupTest {
             status = BookDownloadStatus.Completed("b1", totalBytes = 1_288_490_189L),
             onRemoveDownload = { remove = true },
         )
-        composeRule.onNodeWithText("Delete download").performClick()
+        composeRule.onNodeWithText("Remove", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Delete download").performClick()
         remove shouldBe true
     }
 
@@ -162,8 +172,10 @@ class ListenActionGroupTest {
     }
 
     @Test
+    @Config(qualifiers = "w1280dp-h800dp")
     fun `on a tablet Resume holds at least half the row (spec 3_2_1)`() {
-        setGroup(PrimaryAction.Resume, labelled = true)
+        // The tablet hero's action row is about 640 dp wide.
+        setGroup(PrimaryAction.Resume, labelled = true, width = 640.dp)
         val resume = composeRule.onNode(hasText("Resume") and hasClickAction()).fetchSemanticsNode().boundsInRoot
         val row = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
         (resume.width / row.width >= 0.5f) shouldBe true
