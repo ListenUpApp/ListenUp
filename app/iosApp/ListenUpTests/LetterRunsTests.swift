@@ -40,7 +40,6 @@ struct LetterRunsTests {
         ]
         #expect(LetterRun.railLetters(recurring) == ["#", "B"])
         #expect(LetterRun.sectionId(forLetter: "#", in: recurring) == "section-0")
-        #expect(LetterRun.firstIndex(forLetter: "B", in: recurring) == 1)
         #expect(LetterRun.sectionId(forLetter: "Z", in: recurring) == nil)
     }
 

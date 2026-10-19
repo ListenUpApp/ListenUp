@@ -18,6 +18,8 @@ final class LibraryObserver {
     private(set) var seriesSortState: SortState?
     /// `series` cut into index-letter runs on a name sort (article-aware); empty otherwise.
     private(set) var seriesLetters: [LetterRun] = []
+    /// `series` sliced by `seriesLetters` for the tab, once per content revision, as `authorSections` is.
+    private(set) var seriesSections: [LetterRun.Section<SeriesRow>] = []
     private(set) var authors: [ContributorRow] = []
     /// `authors` cut into index-letter runs on a name sort; empty otherwise.
     private(set) var authorLetters: [LetterRun] = []
@@ -156,6 +158,7 @@ final class LibraryObserver {
         booksSortState = loaded.booksSortState
         series = loaded.series.map { SeriesRow($0) }
         assignIfChanged(\.seriesLetters, loaded.seriesLetters.map { LetterRun($0) })
+        seriesSections = LetterRun.sections(of: series, runs: seriesLetters)
         seriesSortState = loaded.seriesSortState
         authorsSortState = loaded.authorsSortState
         narratorsSortState = loaded.narratorsSortState

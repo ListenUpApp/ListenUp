@@ -47,9 +47,4 @@ struct LetterRun: Equatable {
     static func sectionId(forLetter letter: String, in runs: [LetterRun]) -> String? {
         runs.firstIndex { $0.letter == letter }.map { "section-\($0)" }
     }
-
-    /// The list position an index letter jumps to: the start of the first run carrying it.
-    static func firstIndex(forLetter letter: String, in runs: [LetterRun]) -> Int? {
-        runs.first { $0.letter == letter }?.firstIndex
-    }
 }

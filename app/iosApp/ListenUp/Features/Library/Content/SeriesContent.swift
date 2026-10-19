@@ -7,12 +7,15 @@ import Shared
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
 /// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
-/// - Section index from the shared letter runs when sorted by name
+/// - Under a name sort, a lettered header per shared letter run (spec L25), pinned while its series
+///   scroll past, as the Authors and Narrators lists have, plus the section index
 /// - Empty state when no series
 struct SeriesContent: View {
-    let seriesList: [SeriesRow]
+    /// The series, sliced by the shared letter runs: one lettered section per run on a name sort, one
+    /// unlettered section on any other. Sliced once per content revision by `LibraryObserver`.
+    let sections: [LetterRun.Section<SeriesRow>]
     let seriesProgress: [String: SeriesProgressState]
-    /// The shared letter runs over `seriesList` (name sort only, article-aware so "The Expanse" files
+    /// The shared letter runs over the series (name sort only, article-aware so "The Expanse" files
     /// under E), bridged once per content revision by `LibraryObserver` rather than on every render
     /// of this body (2026-09-29 iOS audit, performance). Empty on any other sort: no index.
     let letters: [LetterRun]
@@ -22,13 +25,28 @@ struct SeriesContent: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var isScrolling = false
-    @State private var scrollTarget: String?
+    @State private var pendingJump: String?
 
     /// Generous side margins at regular width (matching `SeriesPad`); phone margins at compact.
     private var horizontalMargin: CGFloat { sizeClass == .regular ? 36 : 16 }
 
+    /// A name sort: the sections carry letters to head them.
+    nonisolated static func isLettered(_ sections: [LetterRun.Section<SeriesRow>]) -> Bool {
+        sections.first.map { !$0.letter.isEmpty } ?? false
+    }
+
+    /// Where an index letter jumps: the first series under it, by the id each card scrolls to.
+    nonisolated static func scrollTarget(
+        forLetter letter: String,
+        in sections: [LetterRun.Section<SeriesRow>]
+    ) -> String? {
+        sections.first { $0.letter == letter }?.items.first.map { "series-\($0.id)" }
+    }
+
+    private var isLettered: Bool { Self.isLettered(sections) }
+
     var body: some View {
-        if seriesList.isEmpty {
+        if sections.isEmpty {
             emptyState
         } else {
             seriesListView
@@ -58,14 +76,14 @@ struct SeriesContent: View {
                     isScrolling = newPhase != .idle
                 }
             }
-            .task(id: scrollTarget) {
-                guard let target = scrollTarget else { return }
+            .task(id: pendingJump) {
+                guard let target = pendingJump else { return }
                 // Instant jump, NOT animated: animating a scrollTo across a large lazy list
                 // freezes the main thread on every scrubber letter-change (#alphabet-scrubber-hang).
                 proxy.scrollTo(target, anchor: .top)
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
-                scrollTarget = nil
+                pendingJump = nil
             }
             // Alphabet scrubber (name sort only), at every width — see `BooksLayout.showsScrubber`.
             .overlay(alignment: .trailing) {
@@ -73,9 +91,8 @@ struct SeriesContent: View {
                     SectionIndexBar(
                         letters: indexLetters,
                         onLetterSelected: { letter in
-                            if let index = LetterRun.firstIndex(forLetter: letter, in: letters),
-                               seriesList.indices.contains(index) {
-                                scrollTarget = "series-\(seriesList[index].id)"
+                            if let target = Self.scrollTarget(forLetter: letter, in: sections) {
+                                pendingJump = target
                             }
                         },
                         isVisible: isScrolling
@@ -90,10 +107,16 @@ struct SeriesContent: View {
     // MARK: - iPhone List
 
     private var iPhoneList: some View {
-        LazyVStack(spacing: 12) {
-            ForEach(seriesList) { row in
-                SeriesRowCard(series: row, progress: progressFor(row))
-                    .id("series-\(row.id)")
+        LazyVStack(spacing: 12, pinnedViews: isLettered ? [.sectionHeaders] : []) {
+            ForEach(sections) { group in
+                Section {
+                    ForEach(group.items) { row in
+                        SeriesRowCard(series: row, progress: progressFor(row))
+                            .id("series-\(row.id)")
+                    }
+                } header: {
+                    letterHeader(group.letter)
+                }
             }
         }
         .padding(.horizontal, Spacing.m)
@@ -105,13 +128,28 @@ struct SeriesContent: View {
         // Responsive, not fixed-3-up: columns flow from the actual available width, so the
         // grid stays right across full-screen iPad, Split View, and Stage Manager widths.
         let columns = [GridItem(.adaptive(minimum: 260), spacing: 22)]
-        return LazyVGrid(columns: columns, spacing: 22) {
-            ForEach(seriesList) { row in
-                SeriesGridCard(series: row, progress: progressFor(row))
-                    .id("series-\(row.id)")
+        return LazyVGrid(columns: columns, spacing: 22, pinnedViews: isLettered ? [.sectionHeaders] : []) {
+            ForEach(sections) { group in
+                Section {
+                    ForEach(group.items) { row in
+                        SeriesGridCard(series: row, progress: progressFor(row))
+                            .id("series-\(row.id)")
+                    }
+                } header: {
+                    letterHeader(group.letter)
+                }
             }
         }
         .padding(.horizontal, horizontalMargin)
+    }
+
+    /// The run's letter on a name sort, on the surface so it stays legible when pinned; nothing otherwise.
+    @ViewBuilder
+    private func letterHeader(_ letter: String) -> some View {
+        if isLettered {
+            LetterHeader(letter: letter)
+                .background(Color.luSurface)
+        }
     }
 
     // MARK: - Helpers

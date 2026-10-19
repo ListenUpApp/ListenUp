@@ -207,7 +207,7 @@ struct LibraryView: View {
             )
         case .series:
             SeriesContent(
-                seriesList: observer.series,
+                sections: observer.seriesSections,
                 seriesProgress: observer.seriesProgress,
                 letters: observer.seriesLetters,
                 picker: sectionPicker
