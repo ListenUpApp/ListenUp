@@ -80,6 +80,7 @@ fun WideBookDetail(
     val readersRequester = remember { BringIntoViewRequester() }
     // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
     LaunchedEffect(landOnReaders) {
         if (landOnReaders && !landedOnReaders && !state.isHeld) {
             landedOnReaders = true
@@ -164,6 +165,8 @@ fun WideBookDetail(
                     lastMatchRow = lastMatchRow,
                     chapterPaneMaxHeight = viewportHeight,
                     readersModifier = Modifier.bringIntoViewRequester(readersRequester),
+                    focusReadersHeading = landOnReaders && !focusedReaders,
+                    onReadersHeadingFocused = { focusedReaders = true },
                     modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
                 )
             }
@@ -264,6 +267,8 @@ private fun WideBodyColumns(
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
     readersModifier: Modifier = Modifier,
+    focusReadersHeading: Boolean = false,
+    onReadersHeadingFocused: () -> Unit = {},
 ) {
     Row(
         modifier = modifier,
@@ -292,6 +297,8 @@ private fun WideBodyColumns(
             chapterPaneMaxHeight = chapterPaneMaxHeight,
             modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
             readersModifier = readersModifier,
+            focusReadersHeading = focusReadersHeading,
+            onReadersHeadingFocused = onReadersHeadingFocused,
         )
     }
 }
@@ -394,6 +401,8 @@ private fun WideRightColumn(
     chapterPaneMaxHeight: Dp,
     modifier: Modifier = Modifier,
     readersModifier: Modifier = Modifier,
+    focusReadersHeading: Boolean = false,
+    onReadersHeadingFocused: () -> Unit = {},
 ) {
     Column(
         modifier = modifier,
@@ -415,6 +424,8 @@ private fun WideRightColumn(
                 onUserClick = onUserProfileClick,
                 isCard = true,
                 onSeeAllClick = onSeeAllReaders,
+                focusHeadingOnArrival = focusReadersHeading,
+                onHeadingFocused = onReadersHeadingFocused,
                 modifier = readersModifier.fillMaxWidth(),
             )
 

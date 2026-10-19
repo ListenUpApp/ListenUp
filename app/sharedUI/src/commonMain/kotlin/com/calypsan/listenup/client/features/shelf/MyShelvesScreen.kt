@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
@@ -60,6 +61,7 @@ fun MyShelvesScreen(
         onBack = onBack,
         onOpenShelf = onOpenShelf,
         onCreateShelf = onCreateShelf,
+        onRetry = viewModel::refresh,
         modifier = modifier,
     )
 }
@@ -71,6 +73,7 @@ internal fun MyShelvesContent(
     onBack: () -> Unit,
     onOpenShelf: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ListenUpScaffold(
@@ -93,9 +96,12 @@ internal fun MyShelvesContent(
                     ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
                 }
 
-                // The list is live on Room, so there is no Try again: coming back to the screen reads it afresh.
                 is MyShelvesUiState.Error -> {
-                    MyShelvesMessage(stringResource(Res.string.home_couldnt_load_shelves))
+                    InlineRetry(
+                        line = stringResource(Res.string.home_couldnt_load_shelves),
+                        onRetry = onRetry,
+                        modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
+                    )
                 }
 
                 is MyShelvesUiState.Ready -> {

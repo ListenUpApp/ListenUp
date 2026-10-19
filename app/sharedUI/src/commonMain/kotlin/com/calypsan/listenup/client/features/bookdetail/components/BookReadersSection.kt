@@ -75,6 +75,13 @@ import listenup.composeapp.generated.resources.book_detail_readers_read_on_hardc
 import listenup.composeapp.generated.resources.book_detail_readers_count
 import listenup.composeapp.generated.resources.book_detail_readers_count_one
 import listenup.composeapp.generated.resources.book_detail_reader_view_profile
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusable
 
 private const val MAX_COLLAPSED_READERS = 5
 
@@ -210,6 +217,9 @@ internal fun List<Reader>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
  * @param modifier Optional modifier.
  * @param isCard When true, wraps the rendered content in a `surfaceContainerLow` card; otherwise
  *   renders frameless.
+ * @param focusHeadingOnArrival Move focus (and with it TalkBack's) to the Readers heading once it is drawn: Home's
+ *   finishers line lands here (spec §6.4).
+ * @param onHeadingFocused Called once the heading has taken that focus.
  * @param viewModel The ViewModel for loading readers data; scoped to [bookId].
  */
 @Composable
@@ -219,6 +229,8 @@ fun BookReadersSection(
     modifier: Modifier = Modifier,
     isCard: Boolean = false,
     onSeeAllClick: (String) -> Unit = {},
+    focusHeadingOnArrival: Boolean = false,
+    onHeadingFocused: () -> Unit = {},
     viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -238,6 +250,8 @@ fun BookReadersSection(
         onUserClick = onUserClick,
         onSeeAllClick = { onSeeAllClick(bookId) },
         modifier = modifier,
+        focusHeadingOnArrival = focusHeadingOnArrival,
+        onHeadingFocused = onHeadingFocused,
     )
 }
 
@@ -260,6 +274,8 @@ fun BookReadersSection(
  * @param onSeeAllClick Callback for the "See all" affordance, shown only when [totalCount] exceeds
  *   the number of rendered rows.
  * @param modifier Optional modifier.
+ * @param focusHeadingOnArrival Move focus to the heading once it is drawn (the Readers landing, spec §6.4).
+ * @param onHeadingFocused Called once the heading has taken that focus.
  */
 @Composable
 fun BookReadersContent(
@@ -270,9 +286,21 @@ fun BookReadersContent(
     onUserClick: (String) -> Unit,
     onSeeAllClick: () -> Unit = {},
     modifier: Modifier = Modifier,
+    focusHeadingOnArrival: Boolean = false,
+    onHeadingFocused: () -> Unit = {},
 ) {
     val haptics = LocalHaptics.current
     if (readers.isEmpty()) return
+
+    val headingFocus = remember { FocusRequester() }
+    val currentOnHeadingFocused by rememberUpdatedState(onHeadingFocused)
+    LaunchedEffect(focusHeadingOnArrival) {
+        if (!focusHeadingOnArrival) return@LaunchedEffect
+        // After the frame that places the heading, so the requester is attached and the scroll has settled.
+        withFrameNanos { }
+        headingFocus.requestFocus()
+        currentOnHeadingFocused()
+    }
 
     val innerPadding = if (isCard) Spacing.screenMargin else 0.dp
 
@@ -285,7 +313,11 @@ fun BookReadersContent(
             ) {
                 // The title and its count are one heading: "Readers, 3 readers". See all keeps its own node.
                 Row(
-                    modifier = Modifier.semantics(mergeDescendants = true) { heading() },
+                    modifier =
+                        Modifier
+                            .focusRequester(headingFocus)
+                            .focusable()
+                            .semantics(mergeDescendants = true) { heading() },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(

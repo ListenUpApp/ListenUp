@@ -43,8 +43,17 @@ class MyShelvesScreenTest {
         onBack: () -> Unit = {},
         onOpenShelf: (String) -> Unit = {},
         onCreateShelf: () -> Unit = {},
+        onRetry: () -> Unit = {},
     ) = composeRule.setContent {
-        MaterialTheme { MyShelvesContent(state, onBack = onBack, onOpenShelf = onOpenShelf, onCreateShelf = onCreateShelf) }
+        MaterialTheme {
+            MyShelvesContent(
+                state,
+                onBack = onBack,
+                onOpenShelf = onOpenShelf,
+                onCreateShelf = onCreateShelf,
+                onRetry = onRetry,
+            )
+        }
     }
 
     @Test
@@ -79,8 +88,11 @@ class MyShelvesScreenTest {
     }
 
     @Test
-    fun `a failed read says so`() {
-        show(MyShelvesUiState.Error(UnexpectedClientError()))
+    fun `a failed read says so, and Try again asks for the shelves again`() {
+        var retried = false
+        show(MyShelvesUiState.Error(UnexpectedClientError()), onRetry = { retried = true })
         composeRule.onNodeWithText("Couldn't load your shelves.").assertIsDisplayed()
+        composeRule.onNodeWithText("Try again").performClick()
+        retried shouldBe true
     }
 }
