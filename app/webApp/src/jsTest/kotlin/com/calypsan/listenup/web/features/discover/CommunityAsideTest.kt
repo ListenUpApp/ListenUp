@@ -146,5 +146,4 @@ class CommunityAsideTest :
             val host = mounts.mount { discoverPage(activity = feed(*rows)) }
             (host.querySelector("a.disc-see-all") as HTMLElement).className shouldContain "disc-phone-only"
         }
-
     })

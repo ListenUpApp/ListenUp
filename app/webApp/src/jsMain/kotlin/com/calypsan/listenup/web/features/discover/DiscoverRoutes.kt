@@ -7,10 +7,33 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.web.features.home.HomeRoute
 import com.calypsan.listenup.web.features.library.BookSelectionScaffold
 import com.calypsan.listenup.web.features.library.FeedSelection
+import com.calypsan.listenup.web.nav.ACTIVITY_KEY
+import com.calypsan.listenup.web.nav.LEADERBOARD_SECTION
+import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.SECTION_QUERY_KEY
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
 import com.calypsan.listenup.web.shell.nowMs
+
+/**
+ * Everything under `/discover`: See all activity at `/discover/activity`, else Discover itself
+ * (landing on the leaderboard for `?section=leaderboard`).
+ */
+@Composable
+internal fun DiscoverRouteContent(
+    router: Router,
+    route: Route,
+    openDiscover: OpenDiscover,
+    openActivityFeed: OpenActivityFeed,
+    feeds: FeedSelection,
+) {
+    if (route.segments.getOrNull(1) == ACTIVITY_KEY) {
+        ActivityFeedRoute(router, openActivityFeed, feeds)
+    } else {
+        DiscoverRoute(router, openDiscover, feeds, route.query[SECTION_QUERY_KEY] == LEADERBOARD_SECTION)
+    }
+}
 
 /**
  * The `/discover` branch — Discover's session lifecycle and its one destination.

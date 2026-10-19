@@ -215,4 +215,5 @@ private fun EditChaptersButton(onEditChapters: () -> Unit) {
 private const val EDIT_ICON = 16
 
 /** "1 chapter selected", "3 chapters selected": the chapter selection toolbar's name. */
-private fun chaptersSelectedLabel(count: Int): String = if (count == 1) "1 chapter selected" else "$count chapters selected"
+private fun chaptersSelectedLabel(count: Int): String =
+    if (count == 1) "1 chapter selected" else "$count chapters selected"

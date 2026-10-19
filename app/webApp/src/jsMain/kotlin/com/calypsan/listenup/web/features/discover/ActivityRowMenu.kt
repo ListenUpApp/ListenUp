@@ -83,7 +83,11 @@ internal fun ActivityRowMenu(
                 }
 
                 is ActivityRowAction.OpenShelf -> {
-                    MenuAction(DiscoverWords.openLabel(subject), WebIcon.Layers, onSelect = { onOpenShelf(action.shelfId) })
+                    MenuAction(
+                        DiscoverWords.openLabel(subject),
+                        WebIcon.Layers,
+                        onSelect = { onOpenShelf(action.shelfId) },
+                    )
                 }
 
                 is ActivityRowAction.OpenProfile -> {
@@ -96,7 +100,11 @@ internal fun ActivityRowMenu(
 
                 is ActivityRowAction.AddToShelf -> {
                     onShelveOne?.let { shelve ->
-                        MenuAction(DiscoverWords.addToShelfLabel(subject), WebIcon.Bookmark, onSelect = { shelve(action.bookId) })
+                        MenuAction(
+                            DiscoverWords.addToShelfLabel(subject),
+                            WebIcon.Bookmark,
+                            onSelect = { shelve(action.bookId) },
+                        )
                     }
                 }
             }

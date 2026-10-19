@@ -73,7 +73,6 @@ import org.jetbrains.compose.resources.stringResource
  *
  * @param onAddToShelf Shelve the row's one book; null hides that action (a host without a picker).
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ActivityRow(
     activity: ActivityUiModel,
@@ -83,25 +82,21 @@ internal fun ActivityRow(
     onAddToShelf: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHaptics.current
-    val parts = remember(activity) { activityParts(activity) }
-    val actor = if (activity.isYou) stringResource(Res.string.discover_activity_you) else activity.userDisplayName
-    val profileLabel =
-        if (activity.isYou) {
-            stringResource(Res.string.discover_activity_your_profile_a11y)
-        } else {
-            stringResource(Res.string.discover_activity_profile_a11y, activity.userDisplayName)
+    val actions =
+        remember(activity, onAddToShelf != null) {
+            activityRowActions(activity).filter { it !is ActivityRowAction.AddToShelf || onAddToShelf != null }
         }
-
-    val bodyColor = MaterialTheme.colorScheme.onSurface
-    val highlightColor = MaterialTheme.colorScheme.primary
-    val line =
-        remember(actor, parts, bodyColor, highlightColor) {
-            activityLine(actor = actor, parts = parts, bodyColor = bodyColor, highlightColor = highlightColor)
+    val perform: (ActivityRowAction) -> Unit = { action ->
+        when (action) {
+            is ActivityRowAction.OpenBook -> onBookClick(action.bookId)
+            is ActivityRowAction.OpenShelf -> onShelfClick(action.shelfId)
+            is ActivityRowAction.OpenProfile -> onUserClick(action.userId)
+            is ActivityRowAction.AddToShelf -> onAddToShelf?.invoke(action.bookId)
         }
-
+    }
     val bookId = activity.bookId
     val shelfId = activity.shelfId
+    // X31: a row with neither book nor shelf opens the person it is about.
     val openTarget: () -> Unit =
         when {
             bookId != null -> {
@@ -112,134 +107,198 @@ internal fun ActivityRow(
                 { onShelfClick(shelfId) }
             }
 
-            // X31: a row with neither book nor shelf opens the person it is about.
             else -> {
                 { onUserClick(activity.userId) }
             }
         }
-
-    val actions =
-        remember(activity, onAddToShelf != null) {
-            activityRowActions(activity).filter { it !is ActivityRowAction.AddToShelf || onAddToShelf != null }
-        }
-    val labels = actions.map { it.label(activity) }
-    val perform: (ActivityRowAction) -> Unit = { action ->
-        when (action) {
-            is ActivityRowAction.OpenBook -> onBookClick(action.bookId)
-            is ActivityRowAction.OpenShelf -> onShelfClick(action.shelfId)
-            is ActivityRowAction.OpenProfile -> onUserClick(action.userId)
-            is ActivityRowAction.AddToShelf -> onAddToShelf?.invoke(action.bookId)
-        }
-    }
-    var menuOpen by remember { mutableStateOf(false) }
-    val moreActionsLabel = stringResource(Res.string.common_more_actions)
 
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = 64.dp).testTag("activity-row"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .clickable(role = Role.Button, onClickLabel = profileLabel) {
-                        haptics.press()
-                        onUserClick(activity.userId)
-                    }.semantics { contentDescription = profileLabel },
-            contentAlignment = Alignment.Center,
-        ) {
-            UserAvatar(
-                userId = activity.userId,
-                size = AvatarSize.Medium,
-                fallbackName = activity.userDisplayName,
-                modifier = Modifier.clearAndSetSemantics {},
+        ActivityAvatarLink(activity = activity, onUserClick = onUserClick)
+        Box(Modifier.weight(1f)) {
+            var menuOpen by remember { mutableStateOf(false) }
+            val labels = actions.map { it.label(activity) }
+            ActivityRowBody(
+                activity = activity,
+                modifier =
+                    Modifier.activityRowGestures(
+                        labels = labels,
+                        actions = actions,
+                        onOpen = openTarget,
+                        onOpenMenu = { menuOpen = true },
+                        perform = perform,
+                    ),
+            )
+            ActivityRowMenu(
+                expanded = menuOpen,
+                actions = actions,
+                labels = labels,
+                onDismiss = { menuOpen = false },
+                perform = perform,
             )
         }
-        Box(Modifier.weight(1f)) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .onPreviewKeyEvent { event ->
-                            val isMenuKey = event.key == Key.Menu || (event.key == Key.F10 && event.isShiftPressed)
-                            if (isMenuKey && actions.isNotEmpty()) {
-                                if (event.type == KeyEventType.KeyUp) menuOpen = true
-                                true
-                            } else {
-                                false
-                            }
-                        }.combinedClickable(
-                            // Our gated haptics.longPress() owns the feel; suppress the built-in one.
-                            hapticFeedbackEnabled = false,
-                            role = Role.Button,
-                            onLongClickLabel = moreActionsLabel.takeIf { actions.isNotEmpty() },
-                            onLongClick =
-                                if (actions.isNotEmpty()) {
-                                    {
-                                        haptics.longPress()
-                                        menuOpen = true
-                                    }
-                                } else {
-                                    null
-                                },
-                            onClick = {
-                                haptics.press()
-                                openTarget()
-                            },
-                        ).semantics(mergeDescendants = true) {
-                            if (actions.isNotEmpty()) {
-                                customActions =
-                                    actions.mapIndexed { index, action ->
-                                        CustomAccessibilityAction(labels[index]) {
-                                            perform(action)
-                                            true
-                                        }
-                                    }
-                            }
-                        },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = relativeTime(activity.occurredAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (bookId != null) {
-                    BookCoverImage(
-                        bookId = bookId,
-                        coverPath = activity.bookCoverPath,
-                        contentDescription = null,
-                        coverHash = activity.bookCoverHash,
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).testTag("activity-cover"),
-                    )
-                }
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                actions.forEachIndexed { index, action ->
-                    DropdownMenuItem(
-                        text = { Text(labels[index]) },
-                        leadingIcon = { Icon(imageVector = action.icon, contentDescription = null) },
-                        onClick = {
-                            haptics.press()
-                            menuOpen = false
+    }
+}
+
+/** The avatar: its own profile link beside the row's body, never inside it. */
+@Composable
+private fun ActivityAvatarLink(
+    activity: ActivityUiModel,
+    onUserClick: (String) -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    val profileLabel =
+        if (activity.isYou) {
+            stringResource(Res.string.discover_activity_your_profile_a11y)
+        } else {
+            stringResource(Res.string.discover_activity_profile_a11y, activity.userDisplayName)
+        }
+    Box(
+        modifier =
+            Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button, onClickLabel = profileLabel) {
+                    haptics.press()
+                    onUserClick(activity.userId)
+                }.semantics { contentDescription = profileLabel },
+        contentAlignment = Alignment.Center,
+    ) {
+        UserAvatar(
+            userId = activity.userId,
+            size = AvatarSize.Medium,
+            fallbackName = activity.userDisplayName,
+            modifier = Modifier.clearAndSetSemantics {},
+        )
+    }
+}
+
+/**
+ * The body's gestures: a tap opens the row's subject; a long-press, or the Menu key (or Shift+F10)
+ * while focused, opens the menu; and every action is a TalkBack custom action. With no actions it is
+ * a plain link.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Modifier.activityRowGestures(
+    labels: List<String>,
+    actions: List<ActivityRowAction>,
+    onOpen: () -> Unit,
+    onOpenMenu: () -> Unit,
+    perform: (ActivityRowAction) -> Unit,
+): Modifier {
+    val haptics = LocalHaptics.current
+    val hasActions = actions.isNotEmpty()
+    val moreActionsLabel = stringResource(Res.string.common_more_actions)
+    return this
+        .onPreviewKeyEvent { event ->
+            val isMenuKey = event.key == Key.Menu || (event.key == Key.F10 && event.isShiftPressed)
+            if (isMenuKey && hasActions && event.type == KeyEventType.KeyUp) onOpenMenu()
+            isMenuKey && hasActions
+        }.combinedClickable(
+            // Our gated haptics.longPress() owns the feel; suppress the built-in one.
+            hapticFeedbackEnabled = false,
+            role = Role.Button,
+            onLongClickLabel = moreActionsLabel.takeIf { hasActions },
+            onLongClick =
+                if (hasActions) {
+                    {
+                        haptics.longPress()
+                        onOpenMenu()
+                    }
+                } else {
+                    null
+                },
+            onClick = {
+                haptics.press()
+                onOpen()
+            },
+        ).semantics(mergeDescendants = true) {
+            if (hasActions) {
+                customActions =
+                    actions.mapIndexed { index, action ->
+                        CustomAccessibilityAction(labels[index]) {
                             perform(action)
-                        },
-                    )
-                }
+                            true
+                        }
+                    }
             }
+        }
+}
+
+/** The body: the sentence and when, then a book's cover. */
+@Composable
+private fun ActivityRowBody(
+    activity: ActivityUiModel,
+    modifier: Modifier,
+) {
+    val parts = remember(activity) { activityParts(activity) }
+    val actor = if (activity.isYou) stringResource(Res.string.discover_activity_you) else activity.userDisplayName
+    val bodyColor = MaterialTheme.colorScheme.onSurface
+    val highlightColor = MaterialTheme.colorScheme.primary
+    val line =
+        remember(actor, parts, bodyColor, highlightColor) {
+            activityLine(actor = actor, parts = parts, bodyColor = bodyColor, highlightColor = highlightColor)
+        }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp)
+                .clip(MaterialTheme.shapes.small)
+                .then(modifier),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = relativeTime(activity.occurredAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        activity.bookId?.let { bookId ->
+            BookCoverImage(
+                bookId = bookId,
+                coverPath = activity.bookCoverPath,
+                contentDescription = null,
+                coverHash = activity.bookCoverHash,
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).testTag("activity-cover"),
+            )
+        }
+    }
+}
+
+/** The M3 menu, anchored to the row's body. */
+@Composable
+private fun ActivityRowMenu(
+    expanded: Boolean,
+    actions: List<ActivityRowAction>,
+    labels: List<String>,
+    onDismiss: () -> Unit,
+    perform: (ActivityRowAction) -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        actions.forEachIndexed { index, action ->
+            DropdownMenuItem(
+                text = { Text(labels[index]) },
+                leadingIcon = { Icon(imageVector = action.icon, contentDescription = null) },
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                    perform(action)
+                },
+            )
         }
     }
 }
