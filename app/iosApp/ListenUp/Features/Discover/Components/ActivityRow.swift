@@ -16,7 +16,7 @@ struct ActivityRow: View {
     var selection: BookSelectionObserver?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.mainShell) private var shell
+    @Environment(\.openActivitySubject) private var openSubject
 
     private var actions: [ActivityRowActions.Action] {
         ActivityRowActions.actions(for: item, canShelve: selection != nil)
@@ -67,9 +67,9 @@ struct ActivityRow: View {
 
     private func perform(_ action: ActivityRowActions.Action) {
         switch action {
-        case .openBook(let id): shell?.open(BookDestination(id: id))
-        case .openShelf(let id): shell?.open(ShelfDestination(id: id))
-        case .viewPerson(let userId): shell?.open(ProfileDestination(userId: userId))
+        case .openBook(let id): openSubject(.book(id))
+        case .openShelf(let id): openSubject(.shelf(id))
+        case .viewPerson(let userId): openSubject(.profile(userId))
         case .addToShelf(let id): selection?.addOneBookToShelf(id)
         }
     }

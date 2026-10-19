@@ -309,6 +309,7 @@ struct MainTabView: View {
         .environment(\.openLibraryNewestFirst, { shell.openLibraryNewestFirst() })
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
         .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
+        .environment(\.openActivitySubject, { shell.open(subject: $0) })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -400,6 +401,10 @@ extension EnvironmentValues {
     /// Open the Library's Books filtered to In Progress (spec §6.4). Provided by `MainTabView`; Home's Also in
     /// Progress heading uses it.
     @Entry var openLibraryInProgress: () -> Void = {}
+
+    /// Push an activity row's book, shelf or person onto this tab's stack: its context menu and
+    /// VoiceOver actions (spec §3.5). Provided by `MainTabView`.
+    @Entry var openActivitySubject: (ActivityDestination) -> Void = { _ in }
 }
 
 // MARK: - Navigation Destinations
