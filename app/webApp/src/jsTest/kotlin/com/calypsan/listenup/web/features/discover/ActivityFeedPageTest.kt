@@ -8,6 +8,8 @@ import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.isServed
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import com.calypsan.listenup.web.design.WebAppSurface
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 
 /** See all activity on the web (X33): `/discover/activity`, the whole feed in the section's own rows. */
@@ -58,6 +60,26 @@ class ActivityFeedPageTest :
             (failed.querySelector(".disc-error") as HTMLElement).textContent shouldBe "Couldn't load activity"
             (failed.querySelector(".disc-retry") as HTMLElement).click()
             retried shouldBe 1
+        }
+
+        test("rows flow into width-driven columns, as on Android and iOS") {
+            val host =
+                mounts.mount {
+                    WebAppSurface {
+                        ActivityFeedPage(
+                            state = feed(act("a1", "finished_book"), act("a2", "finished_book")),
+                            nowMs = DISCOVER_NOW_MS,
+                            onBack = {},
+                            onRefresh = {},
+                            onOpenBook = {},
+                            onOpenShelf = {},
+                            onOpenProfile = {},
+                            onShelveOne = {},
+                        )
+                    }
+                }
+            val feed = host.querySelector(".disc-feed") as HTMLElement
+            window.getComputedStyle(feed).display shouldBe "grid"
         }
 
         test("the breadcrumb leads back to Discover, and Refresh asks for anything newer") {

@@ -74,7 +74,7 @@
    missing. `inset:auto; margin:0` undo the UA popover sheet, which centres a popover in the window.
    `max-content` lets it size to its items while min-width keeps a small menu from looking mean, and
    the max-width keeps even the widest menu inside a 320px screen. */
-.menu { position:fixed; inset:auto; margin:0; z-index:30; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto; padding:6px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
+.menu { position:fixed; inset:auto; margin:0; z-index:45; width:max-content; min-width:min(216px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto; padding:6px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--shadow-pop); }
 /* Every menu item is a real <button role="menuitem">, so the reset a button needs lives on the base
    rule. It used to sit in a later sheet as `.luw .menu-i { background: transparent }`, whose extra
    class outranked `.menu-i:hover` and `.menu-i.hi` below — so no menu item ever showed a hover. */
@@ -427,7 +427,15 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 /* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
    sideways rather than spilling past the screen's edge when its labels outgrow a phone. */
 @media (max-width: 759px) {
-  .bulk { position:fixed; top:calc(env(safe-area-inset-top) + 8px); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; }
+  :root { --bulk-top:calc(env(safe-area-inset-top) + 8px); }
+  .bulk { position:fixed; top:var(--bulk-top); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; }
+  /* While the bar is up, the page reserves its height at the top, so nothing at scroll top (a
+     header's Select, a page title) sits under it, and focus scrolls clear of it. Repeated with
+     the docked-player selector, whose padding rule has that specificity. */
+  .shell-main:has(.bulk), .shell-main:has(> .tport):has(.bulk) {
+    padding-top:calc(var(--bulk-top) + 54px + 14px);
+    scroll-padding-top:calc(var(--bulk-top) + 54px + 8px);
+  }
 }
 .bulk-x { width:44px; height:44px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }

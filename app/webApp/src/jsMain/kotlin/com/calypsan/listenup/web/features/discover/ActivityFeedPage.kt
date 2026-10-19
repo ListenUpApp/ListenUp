@@ -79,12 +79,13 @@ internal fun ActivityFeedRoute(
         ActivityFeedPage(
             state = session.state.collectAsState().value,
             nowMs = nowMs,
-            onBack = { router.navigate(Routes.discover) },
+            // Back, not forward: replace this entry rather than push a second Discover onto history.
+            onBack = { router.replace(Routes.discover) },
             onRefresh = session.onRefresh,
             onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
             onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
             onOpenProfile = { id -> router.navigate(Routes.profile(id)) },
-            onShelveOne = selection.onShelveOne,
+            onShelveOne = selection.shelveOne,
         )
     }
 }

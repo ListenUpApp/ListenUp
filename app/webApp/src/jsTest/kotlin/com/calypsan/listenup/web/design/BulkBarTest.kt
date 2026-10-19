@@ -5,7 +5,12 @@ import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import com.calypsan.listenup.web.awaitFrame
+import kotlinx.browser.document
 import kotlinx.browser.window
+import org.w3c.dom.asList
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import org.w3c.dom.HTMLElement
 
 class BulkBarTest :
@@ -83,5 +88,30 @@ class BulkBarTest :
         test("a book selection's toolbar is named for how many books") {
             booksSelectedLabel(1) shouldBe "1 book selected"
             booksSelectedLabel(3) shouldBe "3 books selected"
+            chaptersSelectedLabel(1) shouldBe "1 chapter selected"
+            chaptersSelectedLabel(4) shouldBe "4 chapters selected"
+        }
+
+        test("the toolbar is one tab stop, and the arrows move between its controls") {
+            val host =
+                mount {
+                    BulkBar(
+                        count = 2,
+                        label = "2 books selected",
+                        actions = listOf(BulkAction("Add to shelf") {}, BulkAction("Edit") {}),
+                        onClear = {},
+                    )
+                }
+            val buttons = host.querySelectorAll(".bulk button").asList().map { it as HTMLElement }
+            buttons.map { it.tabIndex } shouldBe listOf(0, -1, -1)
+            buttons[0].focus()
+            buttons[0].dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowRight", bubbles = true)))
+            awaitFrame()
+            document.activeElement shouldBe buttons[1]
+            buttons.map { it.tabIndex } shouldBe listOf(-1, 0, -1)
+            buttons[1].dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "End", bubbles = true)))
+            awaitFrame()
+            document.activeElement shouldBe buttons[2]
+            rovingTarget("ArrowLeft", from = 0, count = 3) shouldBe 2
         }
     })
