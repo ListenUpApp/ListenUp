@@ -69,7 +69,7 @@ fun ActivityFeedScreen(
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val selectionState = rememberBookSelectionScaffoldState()
 

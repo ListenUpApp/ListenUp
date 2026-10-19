@@ -286,21 +286,21 @@ class ActivityFeedViewModelTest :
             }
         }
 
-        test("isRefreshing is true while a refresh is under way, and false once it lands") {
+        test("refreshing is true while a refresh is under way, and false once it lands") {
             runTest {
                 val fixture = createFixture()
                 val gate = CompletableDeferred<Unit>()
                 fixture.syncRepository.hold = gate
                 val viewModel = fixture.build()
-                viewModel.isRefreshing.value shouldBe false
+                viewModel.refreshing.value shouldBe false
 
                 viewModel.refresh()
                 advanceUntilIdle()
-                viewModel.isRefreshing.value shouldBe true
+                viewModel.refreshing.value shouldBe true
 
                 gate.complete(Unit)
                 advanceUntilIdle()
-                viewModel.isRefreshing.value shouldBe false
+                viewModel.refreshing.value shouldBe false
             }
         }
 
