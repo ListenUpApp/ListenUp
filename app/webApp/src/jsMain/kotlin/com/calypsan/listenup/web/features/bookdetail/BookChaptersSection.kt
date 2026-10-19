@@ -48,7 +48,7 @@ internal fun BookChaptersSection(
         classes("bd-ch")
     }) {
         Div(attrs = { classes("bd-ch-head") }) {
-            H2(attrs = { classes("bd-ch-title") }) {
+            H2(attrs = { classes("bd-sec-title") }) {
                 Text("Chapters ")
                 Span(attrs = { classes("bd-ch-count") }) { Text(chapters.size.toString()) }
             }

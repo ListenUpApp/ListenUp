@@ -40,6 +40,7 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.UnderHeading
 import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.match.TwoPaneWatch
@@ -49,7 +50,9 @@ import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
+import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -690,13 +693,17 @@ private fun AboutPanel(
             state.readingStage == ReadingStage.NotStarted -> ABOUT_LINES_NOT_STARTED
             else -> ABOUT_LINES
         }
-    Panel(title = "About") {
-        if (state.descriptionText.isNotBlank()) ClampedDescription(state, clampLines)
-        // ⛔ Every chip goes somewhere now. Before this they were inert text shaped like
-        // controls, which is the worst of both — it looks pressable and answers nothing.
-        FacetChips(state, panes.onOpenGenre, panes.onOpenTag, panes.onOpenMood)
-        if (state.descriptionText.isBlank() && !state.hasFacets()) {
-            PaneHint("No description has been written for this book.")
+    // Bare, under the board's large heading: About is reading, not a card of reference facts (as Chapters).
+    Section(attrs = { classes("bd-about") }) {
+        H2(attrs = { classes("bd-sec-title") }) { Text("About") }
+        UnderHeading(level = ABOUT_HEADING_LEVEL) {
+            if (state.descriptionText.isNotBlank()) ClampedDescription(state, clampLines)
+            // ⛔ Every chip goes somewhere now. Before this they were inert text shaped like
+            // controls, which is the worst of both — it looks pressable and answers nothing.
+            FacetChips(state, panes.onOpenGenre, panes.onOpenTag, panes.onOpenMood)
+            if (state.descriptionText.isBlank() && !state.hasFacets()) {
+                PaneHint("No description has been written for this book.")
+            }
         }
     }
 }
@@ -748,6 +755,8 @@ private fun ClampedDescription(
 private const val ABOUT_LINES_NOT_STARTED = 4
 
 private const val ABOUT_LINES = 2
+
+private const val ABOUT_HEADING_LEVEL = 2
 
 /**
  * The Details panel, built only from fields the book actually carries. A row that would read

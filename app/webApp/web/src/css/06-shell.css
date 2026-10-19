@@ -413,12 +413,15 @@ dialog.dlg.bd-credits { width:520px; }
 /* One column, in the visit's stage order: below 1024px Kotlin draws this instead of the two columns. */
 .bd-flow { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
 /* Chapters that play from the chapter they name (spec §2.5). */
-.bd-ch { display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:var(--rad); box-shadow:var(--shadow-card); overflow:clip; min-width:0; }
-/* The same header as every Panel: 46px, a hairline under it, the heading at the panel size. */
-.bd-ch-head { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-12); height:46px; padding:0 var(--sp-16); border-bottom:1px solid var(--line-2); }
-.bd-ch-body { display:flex; flex-direction:column; gap:var(--sp-8); padding:var(--sp-8) var(--sp-16) var(--sp-16); }
-.bd-ch-title { margin:0; font-size:0.875rem; font-weight:700; letter-spacing:-0.01em; color:var(--ink); }
-.bd-ch-count { font-weight:500; color:var(--ink-2); }
+/* Chapters and About are bare sections under the board's large heading (26 px; 22 px on a phone), no hairline. */
+.bd-sec-title { margin:0; font-size:1.625rem; font-weight:800; letter-spacing:-0.02em; line-height:1.15; color:var(--ink); }
+@media (max-width: 639px) { .bd-sec-title { font-size:var(--fs-h2); } }
+.bd-about { display:flex; flex-direction:column; gap:var(--sp-12); min-width:0; }
+.bd-ch { display:flex; flex-direction:column; gap:var(--sp-12); min-width:0; }
+.bd-ch-head { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-12); }
+/* The board's card wraps only the rows. */
+.bd-ch-body { display:flex; flex-direction:column; gap:var(--sp-8); padding:var(--sp-8) var(--sp-16) var(--sp-16); background:var(--surface); border:1px solid var(--line); border-radius:var(--rad); box-shadow:var(--shadow-card); overflow:clip; }
+.bd-ch-count { font-size:1rem; font-weight:500; letter-spacing:0; color:var(--ink-2); }
 .bd-chmap-link { font-size:0.875rem; font-weight:600; color:var(--coral-text); border-radius:var(--r-xs); }
 .bd-chmap-link:focus { outline:none; }
 .bd-chmap-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }

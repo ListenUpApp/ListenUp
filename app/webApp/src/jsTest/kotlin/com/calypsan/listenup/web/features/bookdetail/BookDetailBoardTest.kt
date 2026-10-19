@@ -30,16 +30,20 @@ class BookDetailBoardTest :
                 (0 until all.length).map { all.item(it) as HTMLElement }.first { it.textContent.orEmpty().startsWith(text) }
             }
 
-        test("the Chapters heading is styled like every other panel's") {
+        test("Chapters and About carry the board's large heading, bare, with no hairline under it") {
             val root = render()
-            val chapters = window.getComputedStyle(headingOf(root, "Chapters"))
-            val about = window.getComputedStyle(headingOf(root, "About"))
-            chapters.fontSize shouldBe about.fontSize
-            chapters.fontWeight shouldBe about.fontWeight
-            val chaptersHeader = window.getComputedStyle(headingOf(root, "Chapters").parentElement as HTMLElement)
-            val aboutHeader = window.getComputedStyle(headingOf(root, "About").parentElement as HTMLElement)
-            chaptersHeader.borderBottomWidth shouldBe aboutHeader.borderBottomWidth
-            chaptersHeader.height shouldBe aboutHeader.height
+            // The board: 26 px on a desktop, 22 px on a phone, weight 800; the card panels keep their small heading.
+            val large = if (window.innerWidth >= 640) "26px" else "22px"
+            listOf("Chapters", "About").forEach { name ->
+                val heading = headingOf(root, name)
+                val style = window.getComputedStyle(heading)
+                style.fontSize shouldBe large
+                style.fontWeight shouldBe "800"
+                window.getComputedStyle(heading.parentElement as HTMLElement).borderBottomWidth shouldBe "0px"
+                // Not a card: the section itself draws no border (the board's Chapters card wraps only the rows).
+                window.getComputedStyle(heading.closest("section") as HTMLElement).borderTopWidth shouldBe "0px"
+            }
+            window.getComputedStyle(headingOf(root, "Details")).fontSize shouldBe "14px"
         }
 
         test("the genre chips sit clear of the synopsis") {
