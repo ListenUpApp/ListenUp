@@ -12,6 +12,11 @@ class BookSelection(
     val selectedIds: Set<String>,
     val onToggle: (String) -> Unit,
     val onStart: () -> Unit,
+    /**
+     * Shelve one book: select it alone, open the shelf picker, and end the selection when the picker
+     * closes (plan C5). A row menu's "Add {book} to a shelf" — iOS's `addOneBookToShelf`.
+     */
+    val onShelveOne: (String) -> Unit = {},
 ) {
     /** Whether [bookId] is currently picked. */
     fun isSelected(bookId: String): Boolean = bookId in selectedIds

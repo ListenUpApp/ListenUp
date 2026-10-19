@@ -46,6 +46,9 @@ internal object DiscoverWords {
     const val ERROR_ACTIVITY = "Couldn't load activity"
     const val ERROR_SHELVES = "Couldn't load shelves by others"
     const val ERROR_RECENT = "Couldn't load recently added"
+    const val SELECT = "Select"
+    const val SELECTING = "Selecting"
+    const val REFRESH = "Refresh"
 
     /** "2 listening now · 3 more in the last two weeks"; null when nobody is shown. */
     fun listeningCount(
@@ -98,6 +101,18 @@ internal object DiscoverWords {
         name: String,
         isYou: Boolean,
     ): String = if (isYou) "Your profile" else "$name's profile"
+
+    /** A row menu's open action: "Open Piranesi", "Open Sci-fi". */
+    fun openLabel(subject: String): String = "Open $subject"
+
+    /** A book row's shelving action: "Add Piranesi to a shelf". */
+    fun addToShelfLabel(title: String): String = "Add $title to a shelf"
+
+    /** A row's ⋯ button: "More actions for Maya Chen's activity", or "More actions for your activity". */
+    fun moreActionsLabel(
+        name: String,
+        isYou: Boolean,
+    ): String = if (isYou) "More actions for your activity" else "More actions for $name's activity"
 
     /** "As of 2 hours ago": how old a roster is while the server cannot be reached. */
     fun listeningAsOf(whenText: String): String = "As of $whenText"
