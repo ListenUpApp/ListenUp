@@ -55,7 +55,13 @@ fun MyShelvesScreen(
     viewModel: MyShelvesViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    MyShelvesContent(state, onBack, onOpenShelf, onCreateShelf, modifier)
+    MyShelvesContent(
+        state = state,
+        onBack = onBack,
+        onOpenShelf = onOpenShelf,
+        onCreateShelf = onCreateShelf,
+        modifier = modifier,
+    )
 }
 
 /** The list for a given [state]; stateless, so tests and previews draw it without a ViewModel. */

@@ -213,7 +213,7 @@ private fun StatsData(
     StatsFooter(bestDays = streak.bestDays, onOpenLeaderboard = onOpenLeaderboard)
 }
 
-/** "Best streak 12 days" when there has been one, and the Leaderboard link (PR 5 adds Discover's Week focus). */
+/** "Best streak 12 days" when there has been one, and the Leaderboard link to Discover's board on Week (spec §6.4). */
 @Composable
 private fun StatsFooter(
     bestDays: Int?,

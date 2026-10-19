@@ -261,7 +261,6 @@ private fun StatsBody(
         Span(attrs = { classes("home-stats-best") }) {
             streak.bestDays?.let { Text(if (it == 1) "Best streak 1 day" else "Best streak $it days") }
         }
-        // PR 5 adds Discover's Week focus; until then the link opens Discover at the top (spec §11).
         LinkButton(label = "7-day leaderboard →", onClick = onOpenLeaderboard)
     }
 }
@@ -351,7 +350,11 @@ internal fun MyShelves(
             }) { Text("My shelves") }
             Div(attrs = { classes("home-section-actions") }) {
                 if (!isLoading && shelves.isNotEmpty()) {
-                    Button(kind = ButtonKind.Ghost, onClick = actions.onSeeAllShelves, label = HomeWords.SEE_ALL_SHELVES) {
+                    Button(
+                        kind = ButtonKind.Ghost,
+                        onClick = actions.onSeeAllShelves,
+                        label = HomeWords.SEE_ALL_SHELVES,
+                    ) {
                         Text(HomeWords.SEE_ALL)
                     }
                 }

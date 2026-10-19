@@ -30,6 +30,8 @@ import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.NARRATOR_ROLE_VALUE
 import com.calypsan.listenup.web.nav.IN_PROGRESS_STATUS
 import com.calypsan.listenup.web.nav.NEWEST_SORT
+import com.calypsan.listenup.web.nav.SORT_QUERY_KEY
+import com.calypsan.listenup.web.nav.STATUS_QUERY_KEY
 import com.calypsan.listenup.web.nav.ROLE_QUERY_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -74,11 +76,11 @@ internal fun LibraryRouteContent(
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
     onToast: (String) -> Unit,
-    sortQuery: String? = null,
-    statusQuery: String? = null,
+    /** The URL's query: a one-visit sort or status filter landing (spec §6.4). */
+    query: Map<String, String> = emptyMap(),
 ) {
-    LibrarySortLanding(sortQuery, librarySession.onEvent)
-    LibraryStatusLanding(statusQuery, librarySession.onEvent)
+    LibrarySortLanding(query[SORT_QUERY_KEY], librarySession.onEvent)
+    LibraryStatusLanding(query[STATUS_QUERY_KEY], librarySession.onEvent)
     BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
@@ -110,6 +112,20 @@ internal fun LibrarySortLanding(
 ) {
     LaunchedEffect(sortQuery) {
         if (sortQuery == NEWEST_SORT) onEvent(LibraryUiEvent.BooksShownNewestFirst)
+    }
+}
+
+/**
+ * `/library?status=in-progress` (Home's "In Library →"): the Books filtered to In progress. The filter is the
+ * session's own, so [rememberingStatusFilter] keeps it for the visit. Any other value, or none, asks nothing.
+ */
+@Composable
+internal fun LibraryStatusLanding(
+    statusQuery: String?,
+    onEvent: (LibraryUiEvent) -> Unit,
+) {
+    LaunchedEffect(statusQuery) {
+        if (statusQuery == IN_PROGRESS_STATUS) onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
     }
 }
 
@@ -299,17 +315,3 @@ internal fun routeFor(facet: LibraryFacet): Route =
             )
         }
     }
-
-/**
- * `/library?status=in-progress` (Home's "In Library →"): the Books filtered to In progress. The filter is the
- * session's own, so [rememberingStatusFilter] keeps it for the visit. Any other value, or none, asks nothing.
- */
-@Composable
-internal fun LibraryStatusLanding(
-    statusQuery: String?,
-    onEvent: (LibraryUiEvent) -> Unit,
-) {
-    LaunchedEffect(statusQuery) {
-        if (statusQuery == IN_PROGRESS_STATUS) onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
-    }
-}

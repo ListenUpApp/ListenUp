@@ -40,8 +40,6 @@ import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.SEARCH_KEY
 import com.calypsan.listenup.web.nav.SECTION_QUERY_KEY
 import com.calypsan.listenup.web.nav.SERIES_KEY
-import com.calypsan.listenup.web.nav.SORT_QUERY_KEY
-import com.calypsan.listenup.web.nav.STATUS_QUERY_KEY
 import com.calypsan.listenup.web.nav.browseTarget
 import com.calypsan.listenup.web.nav.bulkEditIds
 import com.calypsan.listenup.web.nav.editTargetOf
@@ -172,8 +170,7 @@ internal fun RouteContent(
             heroBookId = heroBookId,
             onHeroBookIdChange = onHeroBookIdChange,
             onToast = onToast,
-            sortQuery = route.query[SORT_QUERY_KEY],
-            statusQuery = route.query[STATUS_QUERY_KEY],
+            query = route.query,
         )
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)

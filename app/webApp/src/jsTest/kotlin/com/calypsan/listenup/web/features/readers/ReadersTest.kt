@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.browser.document
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -124,8 +125,8 @@ class ReadersTest :
             }
             awaitFrame()
 
-            kotlinx.browser.document.activeElement?.textContent shouldBe "Readers"
-            (kotlinx.browser.document.getElementById("readers") as? HTMLElement).shouldNotBeNull()
+            document.activeElement?.textContent shouldBe "Readers"
+            (document.getElementById("readers") as? HTMLElement).shouldNotBeNull()
             landed shouldBe 1
         }
 
