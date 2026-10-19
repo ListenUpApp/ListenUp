@@ -255,7 +255,13 @@ private fun runsByGroup(items: List<IndexedValue<MenuAction>>): List<List<Indexe
     val runs = mutableListOf<MutableList<IndexedValue<MenuAction>>>()
     items.forEach { entry ->
         val last = runs.lastOrNull()
-        if (last != null && last.first().value.group == entry.value.group) last += entry else runs += mutableListOf(entry)
+        if (last != null &&
+            last.first().value.group == entry.value.group
+        ) {
+            last += entry
+        } else {
+            runs += mutableListOf(entry)
+        }
     }
     return runs
 }

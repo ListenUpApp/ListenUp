@@ -108,8 +108,18 @@ private fun LoadedSeries(
         remember(state.series, state.seriesLetters) {
             buildMap {
                 state.seriesLetters.forEach { section ->
-                    for (index in section.firstIndex until minOf(section.firstIndex + section.count, state.series.size)) {
-                        put(state.series[index].series.id.value, section.letter.first())
+                    for (
+                    index in section.firstIndex until
+                        minOf(
+                            section.firstIndex + section.count,
+                            state.series.size,
+                        )
+                    ) {
+                        put(
+                            state.series[index]
+                                .series.id.value,
+                            section.letter.first(),
+                        )
                     }
                 }
             }

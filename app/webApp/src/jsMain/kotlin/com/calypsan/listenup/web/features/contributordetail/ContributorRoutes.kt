@@ -159,7 +159,17 @@ internal fun ContributorRouteContent(
                     }
                         ?: SortState(SortCategory.NAME, SortDirection.ASCENDING),
                 onEvent = librarySession.onEvent,
-                letters = library?.let { if (role == ContributorRole.NARRATOR) it.narratorLetters else it.authorLetters }.orEmpty(),
+                letters =
+                    library
+                        ?.let {
+                            if (role ==
+                                ContributorRole.NARRATOR
+                            ) {
+                                it.narratorLetters
+                            } else {
+                                it.authorLetters
+                            }
+                        }.orEmpty(),
             )
         }
 

@@ -27,7 +27,9 @@ internal fun SortDropdown(
     ignoreArticles: Boolean?,
     onToggleIgnoreArticles: () -> Unit,
 ) {
-    val summary = "Sort: ${state.category.webLabel()}, ${state.category.webDirectionLabel(state.direction).asTriggerText()}"
+    val summary = "Sort: ${state.category.webLabel()}, ${state.category.webDirectionLabel(
+        state.direction,
+    ).asTriggerText()}"
     val items =
         buildList {
             categories.forEach { category ->

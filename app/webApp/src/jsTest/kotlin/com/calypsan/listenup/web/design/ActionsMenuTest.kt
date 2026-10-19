@@ -144,7 +144,10 @@ class ActionsMenuTest :
             val root =
                 mounts.mount {
                     PopupMenu(
-                        items = listOf(MenuAction("Ignore", icon = null, onSelect = { runs++ }, checked = true, checkbox = true, keepsOpen = true)),
+                        items =
+                            listOf(
+                                MenuAction("Ignore", icon = null, onSelect = { runs++ }, checked = true, checkbox = true, keepsOpen = true),
+                            ),
                         label = "Sort",
                         icon = WebIcon.ChevronDown,
                         triggerClasses = arrayOf("t"),

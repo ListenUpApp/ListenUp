@@ -64,7 +64,9 @@ internal fun VirtualBookGrid(
         header = { letter ->
             Div(attrs = { classes("lib-section") }) {
                 Span { Text(letter.toString()) }
-                Span(attrs = { classes("lib-section-c") }) { Text(captionByLetter[letter]?.let(::sectionCaption).orEmpty()) }
+                Span(
+                    attrs = { classes("lib-section-c") },
+                ) { Text(captionByLetter[letter]?.let(::sectionCaption).orEmpty()) }
             }
         },
         jump = jump,
