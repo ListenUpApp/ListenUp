@@ -78,26 +78,6 @@ class SortStateTest :
             SortCategory.ADDED.defaultDirection shouldBe SortDirection.DESCENDING
         }
 
-        test("SortCategory directionLabel returns correct labels") {
-            SortCategory.TITLE.directionLabel(SortDirection.ASCENDING) shouldBe "A → Z"
-            SortCategory.TITLE.directionLabel(SortDirection.DESCENDING) shouldBe "Z → A"
-
-            SortCategory.DURATION.directionLabel(SortDirection.ASCENDING) shouldBe "Shortest"
-            SortCategory.DURATION.directionLabel(SortDirection.DESCENDING) shouldBe "Longest"
-
-            SortCategory.YEAR.directionLabel(SortDirection.ASCENDING) shouldBe "Oldest"
-            SortCategory.YEAR.directionLabel(SortDirection.DESCENDING) shouldBe "Newest"
-
-            SortCategory.ADDED.directionLabel(SortDirection.ASCENDING) shouldBe "First"
-            SortCategory.ADDED.directionLabel(SortDirection.DESCENDING) shouldBe "Recent"
-
-            SortCategory.BOOK_COUNT.directionLabel(SortDirection.ASCENDING) shouldBe "Fewest"
-            SortCategory.BOOK_COUNT.directionLabel(SortDirection.DESCENDING) shouldBe "Most"
-
-            SortCategory.RATING.directionLabel(SortDirection.ASCENDING) shouldBe "Lowest"
-            SortCategory.RATING.directionLabel(SortDirection.DESCENDING) shouldBe "Highest"
-        }
-
         test("SortCategory RATING defaults to descending, like LISTENER_RATING") {
             SortCategory.RATING.defaultDirection shouldBe SortDirection.DESCENDING
         }
@@ -194,16 +174,6 @@ class SortStateTest :
             // TITLE defaults to ASCENDING
             changed.direction shouldBe SortDirection.ASCENDING
         }
-
-        test("SortState directionLabel delegates to category") {
-            val state = SortState(SortCategory.TITLE, SortDirection.ASCENDING)
-            state.directionLabel shouldBe "A → Z"
-
-            val state2 = SortState(SortCategory.DURATION, SortDirection.DESCENDING)
-            state2.directionLabel shouldBe "Longest"
-        }
-
-        // ========== Default States Tests ==========
 
         test("SortState booksDefault is title ascending") {
             SortState.booksDefault.category shouldBe SortCategory.TITLE

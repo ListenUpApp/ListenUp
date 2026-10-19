@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -47,6 +49,37 @@ class LibrarySortCardTest {
         listOf("Title", "Author", "Length", "A–Z", "Z–A", "Ignore “A”, “An”, “The”").forEach {
             composeRule.onNodeWithText(it).assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun `every category names both its directions from the catalog`() {
+        val expected =
+            listOf(
+                Triple(SortCategory.TITLE, "A–Z", "Z–A"),
+                Triple(SortCategory.DURATION, "Shortest", "Longest"),
+                Triple(SortCategory.YEAR, "Oldest", "Newest"),
+                Triple(SortCategory.ADDED, "Oldest first", "Newest first"),
+                Triple(SortCategory.BOOK_COUNT, "Fewest", "Most"),
+                Triple(SortCategory.RATING, "Lowest", "Highest"),
+                Triple(SortCategory.SERIES, "1 → N", "N → 1"),
+            )
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    expected.forEach { (category, _, _) ->
+                        Text(
+                            "${category.catalogLabel()}: " +
+                                "${category.catalogDirectionLabel(SortDirection.ASCENDING)} / " +
+                                category.catalogDirectionLabel(SortDirection.DESCENDING),
+                        )
+                    }
+                }
+            }
+        }
+
+        listOf("Title", "Length", "Year published", "Recently added", "Number of books", "Rating", "Series")
+            .zip(expected)
+            .forEach { (label, row) -> composeRule.onNodeWithText("$label: ${row.second} / ${row.third}").assertIsDisplayed() }
     }
 
     @Test

@@ -1,11 +1,5 @@
 package com.calypsan.listenup.client.presentation.library
 
-/** Ascending label shared by every alphabetical sort category (Title, Author, Name). */
-private const val ALPHABETICAL_ASC = "A → Z"
-
-/** Descending label shared by every alphabetical sort category (Title, Author, Name). */
-private const val ALPHABETICAL_DESC = "Z → A"
-
 /**
  * Direction of a sort operation.
  */
@@ -28,97 +22,35 @@ enum class SortDirection {
 }
 
 /**
- * Categories available for sorting.
+ * Categories available for sorting, each with the direction it sensibly starts in.
  *
- * Each category defines how it labels itself in ascending and descending order,
- * and what the sensible default direction is.
+ * Carries no copy: each platform names a category and its directions from its own string catalog
+ * (spec R12), so a label can be translated and title-cased where the platform wants it.
  */
 enum class SortCategory(
-    val label: String,
-    val ascLabel: String,
-    val descLabel: String,
     val defaultDirection: SortDirection,
 ) {
     // Text-based sorts (alphabetical)
-    TITLE(
-        label = "Title",
-        ascLabel = ALPHABETICAL_ASC,
-        descLabel = ALPHABETICAL_DESC,
-        defaultDirection = SortDirection.ASCENDING,
-    ),
-    AUTHOR(
-        label = "Author",
-        ascLabel = ALPHABETICAL_ASC,
-        descLabel = ALPHABETICAL_DESC,
-        defaultDirection = SortDirection.ASCENDING,
-    ),
-    NAME(
-        label = "Name",
-        ascLabel = ALPHABETICAL_ASC,
-        descLabel = ALPHABETICAL_DESC,
-        defaultDirection = SortDirection.ASCENDING,
-    ),
+    TITLE(SortDirection.ASCENDING),
+    AUTHOR(SortDirection.ASCENDING),
+    NAME(SortDirection.ASCENDING),
 
     // Numeric sorts
-    DURATION(
-        label = "Duration",
-        ascLabel = "Shortest",
-        descLabel = "Longest",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
-    YEAR(
-        label = "Year",
-        ascLabel = "Oldest",
-        descLabel = "Newest",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
-    BOOK_COUNT(
-        label = "Books",
-        ascLabel = "Fewest",
-        descLabel = "Most",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
+    DURATION(SortDirection.DESCENDING),
+    YEAR(SortDirection.DESCENDING),
+    BOOK_COUNT(SortDirection.DESCENDING),
 
     // Date sorts
-    ADDED(
-        label = "Added",
-        ascLabel = "First",
-        descLabel = "Recent",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
+    ADDED(SortDirection.DESCENDING),
 
-    RATING(
-        label = "Rating",
-        ascLabel = "Lowest",
-        descLabel = "Highest",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
-    LISTENER_RATING(
-        label = "Listener rating",
-        ascLabel = "Lowest",
-        descLabel = "Highest",
-        defaultDirection = SortDirection.DESCENDING,
-    ),
+    RATING(SortDirection.DESCENDING),
+    LISTENER_RATING(SortDirection.DESCENDING),
 
     // Special sorts
-    SERIES(
-        label = "Series",
-        ascLabel = "1 \u2192 N",
-        descLabel = "N \u2192 1",
-        defaultDirection = SortDirection.ASCENDING,
-    ),
+    SERIES(SortDirection.ASCENDING),
     ;
 
     val key: String get() = name.lowercase()
-
-    /**
-     * Get the direction label for a given direction.
-     */
-    fun directionLabel(direction: SortDirection): String =
-        when (direction) {
-            SortDirection.ASCENDING -> ascLabel
-            SortDirection.DESCENDING -> descLabel
-        }
 
     companion object {
         /** Categories available for the Books tab. */
@@ -162,11 +94,6 @@ data class SortState(
     val category: SortCategory,
     val direction: SortDirection,
 ) {
-    /**
-     * The direction label for display (e.g., "A → Z", "Longest", "Recent").
-     */
-    val directionLabel: String get() = category.directionLabel(direction)
-
     /**
      * Persistence key combining category and direction.
      */
