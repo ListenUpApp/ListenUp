@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.library
 
+import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.design.LocalScrollport
+import com.calypsan.listenup.web.design.Scrollport
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -59,6 +62,42 @@ class JumpRailTest :
             (document.activeElement as HTMLElement).textContent!!.contains("Zulu 1") shouldBe true
         }
 
+        // The shell's own case: inside its scrollport the grid virtualises, so the section jumped to
+        // is not even rendered yet. The spec above mounts outside any shell and never virtualises.
+        test("inside the shell's scrollport, where the grid virtualises, a letter still jumps and focuses") {
+            val books = (1..150).map { contractBook("a$it", "Alpha $it") } + (1..150).map { contractBook("z$it", "Zulu $it") }
+            val letters = listOf(LetterSection("A", 0, 150), LetterSection("Z", 150, 150))
+            val port = Scrollport()
+            val root =
+                mounts.mount {
+                    Div(attrs = {
+                        classes("shell-main")
+                        style {
+                            property("height", "400px")
+                            property("overflow", "auto")
+                        }
+                        ref { element ->
+                            port.element = element
+                            onDispose { port.element = null }
+                        }
+                    }) {
+                        CompositionLocalProvider(LocalScrollport provides port) {
+                            BooksWithRail(books = books, letters = letters, statusOf = { null }, onOpenBook = {})
+                        }
+                    }
+                }
+            repeat(SETTLE_FRAMES) { awaitFrame() }
+            val host = root.querySelector(".shell-main") as HTMLElement
+            host.scrollTop shouldBe 0.0
+            root.querySelector("[data-section=\"Z\"]") shouldBe null
+
+            (root.querySelector(".lib-rail button[aria-label=\"Jump to Z\"]") as HTMLElement).click()
+            repeat(SETTLE_FRAMES) { awaitFrame() }
+
+            (host.scrollTop > 0.0) shouldBe true
+            (document.activeElement as HTMLElement).textContent!!.contains("Zulu 1") shouldBe true
+        }
+
         test("letter headers carry their caption") {
             val books = listOf(contractBook("a1", "Alpha"), contractBook("a2", "Amber"), contractBook("z1", "Zulu"))
             val root =
@@ -82,3 +121,6 @@ class JumpRailTest :
             root.querySelector(".lib-rail") shouldBe null
         }
     })
+
+/** Frames for a virtualised grid to measure itself, or to render the rows a scroll brought in. */
+private const val SETTLE_FRAMES = 6

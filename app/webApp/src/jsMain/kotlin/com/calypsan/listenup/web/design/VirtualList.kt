@@ -124,13 +124,18 @@ internal fun <T> VirtualList(
         classes(containerClass)
         attr("role", "list")
         attr("aria-label", label)
-        // Held whether or not the list virtualises: a jump needs the list in both cases.
-        ref { element ->
-            tracker.listElement = element
-            onDispose { tracker.listElement = null }
-        }
-        if (scrollport != null) {
+        // Held whether or not the list virtualises: a jump needs the list in both cases. ⛔ Set in
+        // whichever ONE ref runs: a second `ref` in this builder replaces the first, and a ref of its
+        // own here was silently replaced by the scrollport's — so inside the shell, the one place the
+        // grid virtualises, every jump did nothing.
+        if (scrollport == null) {
             ref { element ->
+                tracker.listElement = element
+                onDispose { tracker.listElement = null }
+            }
+        } else {
+            ref { element ->
+                tracker.listElement = element
                 val port = scrollport.element ?: element.closest(SCROLLPORT_SELECTOR) as? HTMLElement
                 val detach =
                     port?.let {
@@ -158,6 +163,7 @@ internal fun <T> VirtualList(
                 onDispose {
                     detach?.invoke()
                     tracker.container = null
+                    tracker.listElement = null
                 }
             }
         }
