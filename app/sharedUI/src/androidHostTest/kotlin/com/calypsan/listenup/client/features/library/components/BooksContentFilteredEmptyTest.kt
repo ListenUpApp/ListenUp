@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.library.components
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -57,7 +58,7 @@ class BooksContentFilteredEmptyTest {
     }
 
     @Test
-    fun `a filter that leaves one book counts it in the singular`() {
+    fun `a filter that leaves one book never reads 1 titles, because the chips carry the counts`() {
         composeRule.setContent {
             MaterialTheme {
                 BooksContent(
@@ -91,6 +92,9 @@ class BooksContentFilteredEmptyTest {
             }
         }
 
-        composeRule.onNodeWithText("1 title").assertIsDisplayed()
+        // The Books sort control carries no count (board `Main`): the status chips above say how many.
+        composeRule.onNodeWithText("1 titles").assertDoesNotExist()
+        composeRule.onNodeWithText("1 title").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Sort: Title, A–Z").assertIsDisplayed()
     }
 }

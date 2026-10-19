@@ -19,10 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -39,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -47,10 +46,9 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_count_unit
-import listenup.composeapp.generated.resources.library_ignore_articles
-import listenup.composeapp.generated.resources.library_sort_ascending
-import listenup.composeapp.generated.resources.library_sort_descending
-import listenup.composeapp.generated.resources.library_sort_options
+import listenup.composeapp.generated.resources.library_ignore_articles_quoted
+import listenup.composeapp.generated.resources.library_sort_trigger
+import listenup.composeapp.generated.resources.library_sort_trigger_a11y
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.shape.CircleShape
 
@@ -59,24 +57,26 @@ import androidx.compose.foundation.shape.CircleShape
  * the sort category, the Ascending/Descending direction, and the "ignore leading articles" toggle
  * together.
  *
- * Layout: a muted "{count} {unit}" label on the left and a tonal, capsule-shaped trigger on the
- * right showing the current category plus a direction arrow. Tapping the trigger opens a single
- * [DropdownMenu] that groups everything — category items (checked when selected), then the
- * direction toggle, then (when [showArticleToggle]) the article toggle. Selecting a category
- * dismisses the menu; toggling direction or articles keeps it open so the effect is visible
- * immediately. The whole control fades with [visible] for the scroll affordance.
+ * Layout: a tonal, capsule-shaped trigger that says the sort in words ("Title, A–Z", spec §5.1 c5),
+ * after a muted "{count} {unit}" label when there is a count. Tapping the trigger opens a single
+ * [DropdownMenu] that groups everything — category items (checked when selected), then both
+ * directions named for the category, then (when [showArticleToggle]) the article toggle. Every label
+ * comes from the string catalog (R12). Selecting a category dismisses the menu; choosing a direction
+ * or toggling articles keeps it open so the effect is visible immediately. The whole control fades
+ * with [visible] for the scroll affordance.
  *
- * This replaces the old two-control split (`SortSplitButton` + `LibrarySortBar`) with one cohesive
- * surface, mirroring the unified iOS sort menu.
+ * Every Library section uses this one control, mirroring the unified iOS sort menu and web's Sort
+ * dropdown.
  *
  * @param state Current sort state (category + direction).
  * @param categories Available sort categories for the active tab.
- * @param count Number of items under the active filter.
+ * @param count Number of items under the active filter; null shows the trigger alone, leading the row
+ *   (Books, whose status chips already carry the counts).
  * @param unit Plural noun for [count] (e.g. "titles" / "series").
  * @param ignoreArticles Whether leading articles (A / An / The) are ignored in the text sort.
  * @param showArticleToggle Whether to offer the article toggle (only for the text category).
  * @param onCategorySelected Invoked when a new category is chosen.
- * @param onDirectionToggle Invoked when the direction row is tapped.
+ * @param onDirectionToggle Invoked when the other direction is chosen.
  * @param onToggleArticles Invoked when the article toggle is tapped.
  * @param visible Whether the card is shown (scroll fade).
  * @param modifier Optional modifier.
@@ -86,7 +86,7 @@ import androidx.compose.foundation.shape.CircleShape
 fun LibrarySortCard(
     state: SortState,
     categories: List<SortCategory>,
-    count: Int,
+    count: Int?,
     unit: String,
     ignoreArticles: Boolean,
     showArticleToggle: Boolean,
@@ -110,13 +110,15 @@ fun LibrarySortCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(Res.string.library_count_unit, count, unit),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
+            if (count != null) {
+                Text(
+                    text = stringResource(Res.string.library_count_unit, count, unit),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             SortTrigger(
                 state = state,
@@ -147,7 +149,10 @@ private fun SortTrigger(
 ) {
     val haptics = LocalHaptics.current
     var menuExpanded by remember { mutableStateOf(false) }
-    val triggerLabel = stringResource(Res.string.library_sort_options)
+    val categoryLabel = state.category.catalogLabel()
+    val directionLabel = state.category.catalogDirectionLabel(state.direction)
+    val triggerText = stringResource(Res.string.library_sort_trigger, categoryLabel, directionLabel)
+    val triggerDescription = stringResource(Res.string.library_sort_trigger_a11y, categoryLabel, directionLabel)
 
     Box {
         Surface(
@@ -160,7 +165,7 @@ private fun SortTrigger(
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier =
                 Modifier.clearAndSetSemantics {
-                    contentDescription = "$triggerLabel: ${state.category.label}, ${state.directionLabel}"
+                    contentDescription = triggerDescription
                     role = Role.Button
                 },
         ) {
@@ -170,23 +175,17 @@ private fun SortTrigger(
                 modifier =
                     Modifier
                         .height(42.dp)
-                        .padding(start = 16.dp, end = 12.dp),
+                        .padding(start = 10.dp, end = 14.dp),
             ) {
                 Icon(
-                    imageVector = state.direction.arrowIcon(),
+                    imageVector = Icons.Default.SwapVert,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = state.category.label,
+                    text = triggerText,
                     style = MaterialTheme.typography.labelLarge,
-                )
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
@@ -224,7 +223,6 @@ private fun SortMenu(
     onDirectionToggle: () -> Unit,
     onToggleArticles: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -232,7 +230,7 @@ private fun SortMenu(
     ) {
         categories.forEach { category ->
             CheckableMenuItem(
-                label = category.label,
+                label = category.catalogLabel(),
                 checked = category == state.category,
                 onClick = { onCategorySelected(category) },
             )
@@ -240,41 +238,21 @@ private fun SortMenu(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        val directionLabel =
-            stringResource(
-                if (state.direction == SortDirection.ASCENDING) {
-                    Res.string.library_sort_ascending
-                } else {
-                    Res.string.library_sort_descending
-                },
+        // Both directions as a choice, each named for this category ("A–Z" / "Z–A", "Shortest" /
+        // "Longest"); picking the current one does nothing. The menu stays open so the effect shows.
+        listOf(SortDirection.ASCENDING, SortDirection.DESCENDING).forEach { direction ->
+            CheckableMenuItem(
+                label = state.category.catalogDirectionLabel(direction),
+                checked = direction == state.direction,
+                onClick = { if (direction != state.direction) onDirectionToggle() },
             )
-        DropdownMenuItem(
-            text = {
-                Text(
-                    text = directionLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            },
-            onClick = {
-                haptics.selectionTick()
-                onDirectionToggle()
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = state.direction.arrowIcon(),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
-        )
+        }
 
         if (showArticleToggle) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             CheckableMenuItem(
-                label = stringResource(Res.string.library_ignore_articles),
+                label = stringResource(Res.string.library_ignore_articles_quoted),
                 checked = ignoreArticles,
                 onClick = onToggleArticles,
                 isToggle = true,
@@ -337,10 +315,3 @@ private fun CheckableMenuItem(
         },
     )
 }
-
-/** Up arrow for ascending, down arrow for descending. */
-private fun SortDirection.arrowIcon() =
-    when (this) {
-        SortDirection.ASCENDING -> Icons.Default.ArrowUpward
-        SortDirection.DESCENDING -> Icons.Default.ArrowDownward
-    }

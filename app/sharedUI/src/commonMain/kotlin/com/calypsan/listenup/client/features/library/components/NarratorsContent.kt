@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
-import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.presentation.library.LetterSection
@@ -69,66 +68,70 @@ fun NarratorsContent(
             val scope = rememberCoroutineScope()
 
             // The shared letter sections: empty on a non-name sort, so no scrollbar.
-            val alphabetIndex = remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
+            val alphabetIndex =
+                remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
 
             val isScrolling by remember {
                 derivedStateOf { listState.isScrollInProgress }
             }
 
-            // Track scroll direction for button visibility
-            val showSortButton by rememberSortButtonVisibility(listState)
-
-            LazyColumn(
-                state = listState,
-                contentPadding =
-                    PaddingValues(
-                        start = Spacing.gridMargin,
-                        end = Spacing.gridMargin,
-                        top = 48.dp,
-                        bottom = 16.dp,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(
-                    items = narrators,
-                    key = { it.contributor.id.value },
-                ) { narratorWithCount ->
-                    // Reuse ContributorCard from AuthorsContent
-                    ContributorCard(
-                        contributorWithCount = narratorWithCount,
-                        onClick = { onNarratorClick(narratorWithCount.contributor.id.value) },
-                    )
-                }
-            }
-
-            // Sort split button
-            SortSplitButton(
-                state = sortState,
-                categories = SortCategory.contributorCategories,
-                onCategorySelected = onCategorySelected,
-                onDirectionToggle = onDirectionToggle,
-                visible = showSortButton,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 16.dp, top = 8.dp),
-            )
-
-            // Alphabet scrollbar (only for name sort)
-            // Anchored to TopEnd so it stays fixed relative to content start
-            if (alphabetIndex != null) {
-                AlphabetScrollbar(
-                    alphabetIndex = alphabetIndex,
-                    onLetterSelected = { index ->
-                        scope.launch { listState.scrollToItem(index) }
-                    },
-                    isScrolling = isScrolling,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
+            Column(modifier = Modifier.fillMaxSize()) {
+                // The same sort control as Books and Series, at the top of the list (spec §5.1 c5).
+                LibrarySortCard(
+                    state = sortState,
+                    categories = SortCategory.contributorCategories,
+                    count = narrators.size,
+                    unit = if (narrators.size == 1) "narrator" else "narrators",
+                    ignoreArticles = false,
+                    showArticleToggle = false,
+                    onCategorySelected = onCategorySelected,
+                    onDirectionToggle = onDirectionToggle,
+                    onToggleArticles = {},
+                    visible = true,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding =
+                            PaddingValues(
+                                start = Spacing.gridMargin,
+                                end = Spacing.gridMargin,
+                                top = 12.dp,
+                                bottom = 16.dp,
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(
+                            items = narrators,
+                            key = { it.contributor.id.value },
+                        ) { narratorWithCount ->
+                            // Reuse ContributorCard from AuthorsContent
+                            ContributorCard(
+                                contributorWithCount = narratorWithCount,
+                                onClick = { onNarratorClick(narratorWithCount.contributor.id.value) },
+                            )
+                        }
+                    }
+
+                    // Alphabet scrollbar (only for name sort)
+                    // Anchored to TopEnd so it stays fixed relative to content start
+                    if (alphabetIndex != null) {
+                        AlphabetScrollbar(
+                            alphabetIndex = alphabetIndex,
+                            onLetterSelected = { index ->
+                                scope.launch { listState.scrollToItem(index) }
+                            },
+                            isScrolling = isScrolling,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 12.dp, end = 4.dp, bottom = 0.dp),
+                        )
+                    }
+                }
             }
         }
     }
