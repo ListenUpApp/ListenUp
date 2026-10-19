@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.design.booksSelectedLabel
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
@@ -172,12 +173,23 @@ internal fun BookSelectionScaffold(
     val selected = mode.selectedIds()
     val isAdmin = session.adminAccess.collectAsState().value
     var picking by remember { mutableStateOf<SelectionDestination?>(null) }
+    // A row menu's "Add {book} to a shelf" selects that one book and opens the picker; when the picker
+    // closes, by dismissal or success, the selection it made ends with it (plan C5, iOS's rule).
+    var shelvingOne by remember { mutableStateOf(false) }
+
+    fun closePicker() {
+        picking = null
+        if (shelvingOne) {
+            shelvingOne = false
+            session.onExit()
+        }
+    }
 
     LaunchedEffect(session) {
         session.events.collect { event ->
             // The picker closes on success, never on failure: a failed add keeps the selection so
             // the reader can try a different destination rather than rebuild it.
-            picking = null
+            closePicker()
             onToast(confirmationFor(event))
         }
     }
@@ -188,12 +200,19 @@ internal fun BookSelectionScaffold(
             selectedIds = selected,
             onToggle = session.onToggle,
             onStart = session.onEnter,
+            onShelveOne = { bookId ->
+                session.onEnter()
+                session.onToggle(bookId)
+                shelvingOne = true
+                picking = SelectionDestination.Shelf
+            },
         ),
     )
 
     if (mode.isActive()) {
         BulkBar(
             count = selected.size,
+            label = booksSelectedLabel(selected.size),
             actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
             onClear = session.onExit,
         )
@@ -229,7 +248,7 @@ internal fun BookSelectionScaffold(
                 isBusy = session.addingToShelf.collectAsState().value,
                 onPick = session.onAddToShelf,
                 onCreate = session.onCreateShelfAndAdd,
-                onDismiss = { picking = null },
+                onDismiss = ::closePicker,
             )
         }
 

@@ -211,8 +211,11 @@ private fun ShowMoreToggle(
  * "Activity": who did what, most recent first, in the one shared sentence ([activityParts]).
  *
  * Six rows on a phone, eight beside the main column (rows past six wear `disc-aside-extra`), then
- * "See all activity →". Until PR 6's See all screen exists, that link expands the section in place to
- * the full feed and then reads "Show less"; PR 6 swaps it for navigation (plan Q1).
+ * "See all activity →", a link to `/discover/activity` (X33). It never expands in place. With seven
+ * or eight rows the aside already shows them all, so the link is for phones only.
+ *
+ * @param onOpenAllActivity Opens See all activity; null leaves the link out.
+ * @param onShelveOne Shelves a row's one book from its ⋯ menu; null leaves that action out.
  */
 @Composable
 internal fun ActivityFeedSection(
@@ -222,6 +225,8 @@ internal fun ActivityFeedSection(
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onRefresh: () -> Unit,
+    onOpenAllActivity: (() -> Unit)? = null,
+    onShelveOne: ((String) -> Unit)? = null,
 ) {
     Section(DiscoverWords.ACTIVITY) {
         when (state) {
@@ -237,25 +242,44 @@ internal fun ActivityFeedSection(
                 if (state.isEmpty) {
                     QuietLine(DiscoverWords.NO_ACTIVITY)
                 } else {
-                    ActivityRows(state.activities, nowMs, onOpenBook, onOpenShelf, onOpenProfile)
+                    val activities = state.activities
+                    ActivityRows(
+                        activities.take(ASIDE_ACTIVITY),
+                        nowMs,
+                        onOpenBook,
+                        onOpenShelf,
+                        onOpenProfile,
+                        onShelveOne,
+                        asideFrom = PHONE_ACTIVITY,
+                    )
+                    if (onOpenAllActivity != null && activities.size > PHONE_ACTIVITY) {
+                        AppLink(Routes.discoverActivity.toUrl(), onOpen = onOpenAllActivity, attrs = {
+                            classes("disc-see-all")
+                            if (activities.size <= ASIDE_ACTIVITY) classes("disc-phone-only")
+                        }) { Text(DiscoverWords.SEE_ALL_ACTIVITY) }
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Activity rows in a feed; rows from [asideFrom] on wear `disc-aside-extra` (shown beside the main
+ * column only). Shared by the section and the See all activity page (plan C6).
+ */
 @Composable
-private fun ActivityRows(
+internal fun ActivityRows(
     activities: List<ActivityUiModel>,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onShelveOne: ((String) -> Unit)?,
+    asideFrom: Int = Int.MAX_VALUE,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val shown = if (expanded) activities else activities.take(ASIDE_ACTIVITY)
     Div(attrs = { classes("disc-feed") }) {
-        shown.forEachIndexed { index, item ->
+        activities.forEachIndexed { index, item ->
             key(item.id) {
                 ActivityRow(
                     item = item,
@@ -263,28 +287,20 @@ private fun ActivityRows(
                     onOpenBook = onOpenBook,
                     onOpenShelf = onOpenShelf,
                     onOpenProfile = onOpenProfile,
-                    asideOnly = !expanded && index >= PHONE_ACTIVITY,
+                    onShelveOne = onShelveOne,
+                    asideOnly = index >= asideFrom,
                 )
             }
         }
     }
-    if (activities.size > PHONE_ACTIVITY) {
-        // Seven or eight rows all show beside the main column; the toggle is for phones only.
-        ShowMoreToggle(
-            styleClass = "disc-see-all",
-            expanded = expanded,
-            phoneOnly = !expanded && activities.size <= ASIDE_ACTIVITY,
-            collapsedLabel = DiscoverWords.SEE_ALL_ACTIVITY,
-            onToggle = { expanded = !expanded },
-        )
-    }
 }
 
 /**
- * One activity, as two links: the person's avatar (to them), then the body — the sentence, when, and
+ * One activity, as two links and a ⋯: the person's avatar (to them), then the body — the sentence, when, and
  * a book row's cover — as ONE link to what the sentence is about: the book, else the shelf, else the
  * person (spec X27–X33). The body is named by the whole sentence and its time, so a screen reader
- * hears one stop that says what happened, not three fragments and a name it already passed.
+ * hears one stop that says what happened, not three fragments and a name it already passed. Then
+ * the row's ⋯ menu ([ActivityRowMenu]), for any row about a book or a shelf.
  */
 @Composable
 internal fun ActivityRow(
@@ -293,6 +309,7 @@ internal fun ActivityRow(
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    onShelveOne: ((String) -> Unit)? = null,
     asideOnly: Boolean = false,
 ) {
     val parts = activityParts(item)
@@ -344,6 +361,8 @@ internal fun ActivityRow(
                 })
             }
         }
+        // The third sibling, never inside either link: a button nested in a link is invalid.
+        ActivityRowMenu(item, onOpenBook, onOpenShelf, onOpenProfile, onShelveOne)
     }
 }
 
