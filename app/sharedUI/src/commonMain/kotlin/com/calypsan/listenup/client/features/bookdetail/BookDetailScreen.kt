@@ -933,7 +933,12 @@ private fun ImmersiveBookDetail(
 
                         // The Resume unit directly over the action group (spec §2.9): where you are, then what next.
                         PhoneDetailItem.Listen -> {
-                            PhoneListenUnit(state, actions, isPreparing, screenPadding)
+                            PhoneListenUnit(
+                                state = state,
+                                actions = actions,
+                                isPreparing = isPreparing,
+                                screenPadding = screenPadding,
+                            )
                         }
 
                         // Who else is reading (spec §2.10): a tap brings the Readers section into view.
