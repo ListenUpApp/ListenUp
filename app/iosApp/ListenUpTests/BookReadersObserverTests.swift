@@ -152,6 +152,21 @@ struct BookReadersObserverTests {
         #expect(rows[1].isReading == false)
     }
 
+    @Test func onlyTheRowTheSharedAnswerNamesIsLive() {
+        let readers = BookReaders(readers: [
+            reader(id: "me", name: "Rowan Hale", isYou: true, progressPct: 40),
+            reader(id: "u2", name: "Priya Nair", progressPct: 20)
+        ])
+
+        let rows = BookReadersObserver.rows(from: readers, isLive: { $0.isYou })
+
+        #expect(rows[0].isLive == true)
+        #expect(rows[1].isLive == false)
+        #expect(rows[1].isReading == true)
+        // Without the player playing this book, nobody is live.
+        #expect(BookReadersObserver.rows(from: readers).allSatisfy { !$0.isLive })
+    }
+
     @Test func emptyReadersYieldsNoRows() {
         #expect(BookReadersObserver.rows(from: BookReaders(readers: [])).isEmpty)
     }

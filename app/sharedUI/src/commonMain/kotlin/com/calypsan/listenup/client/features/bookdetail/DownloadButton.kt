@@ -38,6 +38,7 @@ import listenup.composeapp.generated.resources.book_detail_download
 import listenup.composeapp.generated.resources.book_detail_download_size_a11y
 import listenup.composeapp.generated.resources.book_detail_downloading_percent
 import listenup.composeapp.generated.resources.book_detail_queued
+import listenup.composeapp.generated.resources.book_detail_remove_download_short
 import listenup.composeapp.generated.resources.book_detail_retry_download
 import listenup.composeapp.generated.resources.book_detail_waiting_for_wifi
 import org.jetbrains.compose.resources.stringResource
@@ -99,7 +100,7 @@ internal fun DownloadLabelledButton(
     ) {
         DownloadGlyph(action.kind)
         Spacer(Modifier.width(8.dp))
-        Text(downloadLabel(action.kind), maxLines = 1)
+        Text(shortDownloadLabel(action.kind), maxLines = 1)
     }
 }
 
@@ -110,6 +111,21 @@ private fun downloadAccessibleName(action: DownloadAction): String =
         stringResource(Res.string.book_detail_download_size_a11y, action.sizeLabel)
     } else {
         downloadLabel(action.kind)
+    }
+
+/**
+ * The words beside the glyph on the labelled button: a downloaded book's "Remove", short enough to sit in the tablet's
+ * one-row group beside the trash icon that already carries the meaning (Simon, 2026-10-19). The button's accessible
+ * name stays the full "Delete download".
+ */
+@Composable
+private fun shortDownloadLabel(kind: DownloadActionKind): String =
+    if (kind ==
+        DownloadActionKind.Downloaded
+    ) {
+        stringResource(Res.string.book_detail_remove_download_short)
+    } else {
+        downloadLabel(kind)
     }
 
 @Composable

@@ -113,7 +113,7 @@ private fun BookReadersBody(
 
         is BookReadersUiState.Data -> {
             val nowMs = Clock.System.now().toEpochMilliseconds()
-            val rows = state.readers.readers.toReaderRows(nowMs)
+            val rows = state.lines.toReaderRows(nowMs)
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(innerPadding),

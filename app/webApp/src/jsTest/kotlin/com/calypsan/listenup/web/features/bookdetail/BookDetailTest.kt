@@ -97,12 +97,13 @@ import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotContain
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
- * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
- * switches replace rather than push (Back leaves the page, not the pane), and the breadcrumb is
- * a real navigation.
+ * Book Detail through the URL contract: `/book/{id}` names the book and is one page; the chapter map and the files are
+ * `/book/{id}/map` and `/book/{id}/files`; an old `?tab=` link redirects without growing history; and the breadcrumb
+ * is a real navigation.
  */
 class BookDetailTest :
     FunSpec({
@@ -217,34 +218,107 @@ class BookDetailTest :
             }
         }
 
-        test("the pane comes from the URL") {
-            val (host, router) = mountAt("/book/42?tab=chapters")
+        test("there are no tabs: the page is one page") {
+            val (host, router) = mountAt("/book/42")
 
             try {
-                (host.querySelector(".tab.on") as HTMLElement)
-                    .textContent
-                    .orEmpty() shouldContain "Chapters"
+                awaitFrame()
+                host.querySelectorAll("[role=tab]").length shouldBe 0
+                host.querySelector("#bd-chapters") shouldNotBe null
             } finally {
                 router.dispose()
             }
         }
 
-        test("switching panes rewrites the URL without growing history") {
-            // A pane switch is shareable state, so it belongs in the URL — but Back should leave
-            // the page, not unwind every pane the user looked at.
-            val (host, router) = mountAt("/book/42")
-            val depth = window.history.length
+        test("an old ?tab=chapters link lands on the chapter map, keeping the selection") {
+            val (host, router) = mountAt("/book/42?tab=chapters&sel=9,10")
 
             try {
-                val tabs = host.querySelectorAll(".tab")
-                (tabs.item(1) as HTMLElement).click()
-
-                window.location.search shouldContain "tab=chapters"
-                window.history.length shouldBe depth
                 awaitFrame()
-                (host.querySelector(".tab.on") as HTMLElement)
-                    .textContent
-                    .orEmpty() shouldContain "Chapters"
+                window.location.pathname shouldBe "/book/42/map"
+                window.location.search shouldContain "sel=9,10"
+                window.location.search shouldNotContain "tab"
+                awaitFrame()
+                host.querySelector(".chmap") shouldNotBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("an old ?tab=files link lands on the files view") {
+            val (host, router) = mountAt("/book/42?tab=files")
+
+            try {
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42/files"
+                awaitFrame()
+                host.querySelector(".bd-files") shouldNotBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("?tab=overview just drops the parameter") {
+            val (_, router) = mountAt("/book/42?tab=overview")
+
+            try {
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42"
+                window.location.search shouldNotContain "tab"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the redirect replaces history rather than adding to it") {
+            val before = window.history.length
+            val (_, router) = mountAt("/book/42?tab=chapters")
+
+            try {
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42/map"
+                window.history.length shouldBe before
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the Chapters header links to the chapter map, for every user") {
+            val (host, router) = mountAt("/book/42", fixedBookDetail(readyBook(canEditMetadata = false)))
+
+            try {
+                awaitFrame()
+                (host.querySelector("a.bd-chmap-link") as HTMLElement).click()
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42/map"
+                awaitFrame()
+                host.querySelector(".chmap") shouldNotBe null
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the files view is reachable from Details") {
+            val (host, router) = mountAt("/book/42")
+
+            try {
+                awaitFrame()
+                (host.querySelector("a.bd-files-link") as HTMLElement).click()
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42/files"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the chapter map's breadcrumb leads back to the book") {
+            val (host, router) = mountAt("/book/42/map")
+
+            try {
+                awaitFrame()
+                (host.querySelectorAll(".crumb a").item(1) as HTMLElement).click()
+                awaitFrame()
+                window.location.pathname shouldBe "/book/42"
             } finally {
                 router.dispose()
             }
@@ -325,7 +399,7 @@ class BookDetailTest :
         test("a book with no chapter marks says so rather than drawing an empty table") {
             val (host, router) =
                 mountAt(
-                    "/book/42?tab=chapters",
+                    "/book/42/map",
                     fixedBookDetail(readyBook(chapters = emptyList())),
                 )
 

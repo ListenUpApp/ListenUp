@@ -37,8 +37,7 @@ class BookDetailSeriesTest :
                         } else {
                             readyBook(series = series, seriesPaths = seriesPaths)
                         },
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onOpenSeries = onOpenSeries,

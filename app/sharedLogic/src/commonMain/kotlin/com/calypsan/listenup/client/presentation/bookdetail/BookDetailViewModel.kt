@@ -19,6 +19,8 @@ import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.playback.LoadedBookPlayhead
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -87,6 +90,8 @@ class BookDetailViewModel(
     private val seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
+    loadedBookRepository: LoadedBookRepository,
+    private val playhead: LoadedBookPlayhead,
 ) : ViewModel() {
     /**
      * The requested book id. Writing it is the single entry point for switching books; every per-book flow
@@ -136,12 +141,14 @@ class BookDetailViewModel(
             flow2 = permissionsRepository.observeCan(Permission.EDIT_METADATA),
             flow3 = seriesRepository.observeHierarchy(),
             flow4 = tagRepository.observeAll(),
-        ) { isAdmin, canEditMetadata, hierarchy, allTags ->
+            flow5 = loadedBookRepository.observeLoadedBookId(),
+        ) { isAdmin, canEditMetadata, hierarchy, allTags, loadedBookId ->
             BookDetailAmbient(
                 isAdmin = isAdmin,
                 canEditMetadata = canEditMetadata,
                 hierarchy = hierarchy,
                 allTags = allTags,
+                loadedBookId = loadedBookId?.value,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookDetailAmbient())
 
@@ -223,8 +230,9 @@ class BookDetailViewModel(
 
     /**
      * Room's word on [bookId], all of it live: the row and its first series, the chapters, the saved position, its
-     * availability, the held set and its visibility. A position saved by playback (about every 10 s) re-emits the
-     * page; the overlay and the section-order latch sit outside the load, so neither notices.
+     * availability, the held set and its visibility. For the player's loaded book the position is the live playhead,
+     * re-emitting only when the chapter or a shown minute moves; the overlay and the section-order latch sit outside
+     * the load, so neither notices.
      */
     private fun observeBook(bookId: String): Flow<BookLoad> {
         val id = BookId(bookId)
@@ -237,12 +245,25 @@ class BookDetailViewModel(
                     seriesRepository.observeSeriesWithBooks(seriesId).map { detail to it }
                 }
             }
+        // The player's book reads the player's live playhead rather than the row it saves on a timer (Android: every
+        // 30 s), so the current chapter, its minutes and the time left keep up with the mini player. Only what the page
+        // shows counts: a tick inside the same chapter and minute changes nothing, so Ready is not rebuilt per tick.
+        // The playhead names its book, so another book's position can never land here, even mid-switch.
+        val livePositionMs: Flow<Long?> = playhead.playhead.map { live -> live?.takeIf { it.bookId == id }?.positionMs }
         val listening: Flow<Pair<List<Chapter>, PlaybackPosition?>> =
             combine(
                 bookRepository.observeChapters(bookId),
                 playbackPositionRepository.observe(id),
-            ) { chapters, position ->
+                livePositionMs,
+            ) { chapters, saved, live ->
+                val position = if (live != null) saved?.copy(positionMs = live) else saved
                 chapters to position
+            }.distinctUntilChangedBy { (chapters, position) ->
+                Triple(
+                    chapters,
+                    position?.copy(positionMs = 0L),
+                    position?.let { visiblePlayhead(it.positionMs, chapters) },
+                )
             }
         return combine(
             flow = rowAndSeries,

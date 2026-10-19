@@ -54,9 +54,6 @@ import org.jetbrains.compose.resources.stringResource
  */
 private val ActionHeight = 56.dp
 
-/** Resume against the two labelled segments (1 each): enough that Resume holds at least half the row after the gaps. */
-private const val RESUME_WEIGHT_LABELLED = 2.4f
-
 /**
  * Book Detail's action row. On a tablet ([labelled]) it is an M3E **standard** button group (spec A15, M3E addendum):
  * Resume filled and dominant, Download and Add to shelf labelled tonal buttons. On a phone, Resume and Download are
@@ -172,7 +169,11 @@ private fun PhoneActionRow(
     }
 }
 
-/** Tablet: an M3E standard button group, every segment labelled, Resume holding at least half the row. */
+/**
+ * Tablet: an M3E standard button group on one row, every segment labelled. Download and Add to shelf take their own
+ * width so their labels are never cut short (board: `flex: 0 0 auto`); Resume takes the rest, at least half the row.
+ * A downloaded book's segment reads "Remove" so the row still fits (Simon, 2026-10-19).
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TabletActionGroup(
@@ -198,7 +199,7 @@ private fun TabletActionGroup(
                     interactionSource = resumeSource,
                     modifier =
                         Modifier
-                            .weight(RESUME_WEIGHT_LABELLED)
+                            .weight(1f)
                             .animateWidth(resumeSource)
                             .heightIn(min = ActionHeight),
                 ) { PrimaryContent(actions.label) }
@@ -214,7 +215,7 @@ private fun TabletActionGroup(
                         onTap = actions.onDownloadTap,
                         minHeight = ActionHeight,
                         interactionSource = downloadSource,
-                        modifier = Modifier.weight(1f).animateWidth(downloadSource),
+                        modifier = Modifier.animateWidth(downloadSource),
                     )
                 },
                 menuContent = {},
@@ -226,7 +227,7 @@ private fun TabletActionGroup(
                     onClick = actions.onAddToShelf,
                     shapes = ButtonDefaults.shapes(),
                     interactionSource = shelfSource,
-                    modifier = Modifier.weight(1f).animateWidth(shelfSource).heightIn(min = ActionHeight),
+                    modifier = Modifier.animateWidth(shelfSource).heightIn(min = ActionHeight),
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
                     Spacer(Modifier.width(8.dp))

@@ -11,7 +11,8 @@ struct BookDetailReadingModelsTests {
 
     @Test func currentChapterProjectsEveryField() {
         let projected = BookCurrentChapter(
-            CurrentChapter(index: 5, number: 6, title: "Bridge Four", startMs: 9_000, elapsedInChapterMs: 720_000))
+            CurrentChapter(index: 5, number: 6, title: "Bridge Four", startMs: 9_000, elapsedInChapterMs: 720_000,
+                           isInPlayer: false))
         #expect(projected == BookCurrentChapter(
             index: 5, number: 6, title: "Bridge Four", startMs: 9_000, elapsedInChapterMs: 720_000))
     }
@@ -47,6 +48,16 @@ struct BookDetailReadingModelsTests {
         #expect(line?.listening == ["Maya"])
         #expect(line?.finished == ["Tom"])
         #expect(line?.avatarUserIds == ["m", "t"])
+    }
+
+    @Test func socialLineNamesReadersByFirstName() {
+        let maya = ReaderRef(userId: "m", displayName: "Maya Chen")
+        let tom = ReaderRef(userId: "t", displayName: "Tom Okafor")
+        let line = ReadersSocialLine(ReadersSummary(listening: [maya], finished: [tom], avatars: [maya, tom], othersCount: 0))
+        #expect(line?.listening == ["Maya"])
+        #expect(line?.finished == ["Tom"])
+        // The avatars keep the full name: it is their initials.
+        #expect(line?.avatarNames == ["Maya Chen", "Tom Okafor"])
     }
 
     @Test func noOtherReadersHidesTheLine() {

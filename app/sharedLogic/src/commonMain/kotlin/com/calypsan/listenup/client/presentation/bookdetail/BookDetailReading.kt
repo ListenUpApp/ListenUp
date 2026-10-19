@@ -70,6 +70,8 @@ sealed interface BookDetailSection {
  * @property title The chapter's own title.
  * @property startMs Where the chapter starts in the book, in milliseconds.
  * @property elapsedInChapterMs How far into the chapter the position is ("Now playing · 12 min in").
+ * @property isInPlayer Whether this book is the player's loaded book: its row says "Now playing" only then, and
+ *   "You're here" while another book is in the player.
  */
 data class CurrentChapter(
     val index: Int,
@@ -77,6 +79,7 @@ data class CurrentChapter(
     val title: String,
     val startMs: Long,
     val elapsedInChapterMs: Long,
+    val isInPlayer: Boolean = false,
 )
 
 /**

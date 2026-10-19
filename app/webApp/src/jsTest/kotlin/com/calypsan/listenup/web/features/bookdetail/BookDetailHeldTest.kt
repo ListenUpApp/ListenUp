@@ -58,8 +58,7 @@ class BookDetailHeldTest :
             mounts.mount {
                 BookDetailPage(
                     state = state,
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onRetryConnection = {},
@@ -180,13 +179,13 @@ class BookDetailHeldTest :
         // of them is supplied in a state that draws its panel, so only the guard can keep them out —
         // the ordinary book beside it proves the fixture really does draw them.
         test("a held book's side column is Details alone, even with ratings, a Hardcover match and readers") {
+            // The side column follows the visit's stage order (spec §2.4): not started, Ratings leads it.
             fun sidePanels(state: BookDetailUiState): List<String?> {
                 val host =
                     mounts.mount {
                         BookDetailPage(
                             state = state,
-                            tab = "overview",
-                            onSelectTab = {},
+                            onPlayFromChapter = {},
                             onOpenLibrary = {},
                             onPlay = {},
                             onRetryConnection = {},
@@ -198,7 +197,7 @@ class BookDetailHeldTest :
                 return host.querySelectorAll(".bd-side h2").asList().map { it.textContent?.trim() }
             }
 
-            sidePanels(readyBook()) shouldBe listOf("Details", "On Hardcover", "Ratings", "Readers")
+            sidePanels(readyBook()) shouldBe listOf("Ratings", "On Hardcover", "Readers", "Details")
             sidePanels(held) shouldBe listOf("Details")
         }
 
@@ -211,8 +210,7 @@ class BookDetailHeldTest :
                 mounts.mount {
                     BookDetailPage(
                         state = state,
-                        tab = "overview",
-                        onSelectTab = {},
+                        onPlayFromChapter = {},
                         onOpenLibrary = {},
                         onPlay = {},
                         onRetryConnection = {},

@@ -69,6 +69,9 @@ private val TITLE_SIZED_ALLOWED =
         "dialog.dlg .rt-src-big .rt-star",
         // The sign-in screen's brand line, beside the page's own H1 — a poster, not a title.
         ".auth-hd",
+        // Book Detail's two reading sections, Chapters and About, at their board's 26 px: section headings set
+        // under the hero's far larger H1, not a second page title.
+        ".bd-sec-title",
     )
 
 /** A class named for "nothing here": `.brw-none`, `.mdx-empty`… */

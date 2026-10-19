@@ -17,13 +17,18 @@ struct BookDescriptionSection: View {
     let genres: [FacetChip]
     let tags: [FacetChip]
     let moods: [FacetChip]
+    /// Lines before "Read more" (spec §3.2.1 D29: four while deciding, two otherwise, on iPhone); nil shows the whole
+    /// synopsis with no toggle (iPad, where the main column has the room).
+    var lineLimit: Int? = 4
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ExpandableText(
                 title: String(localized: "common.description"),
                 text: description,
-                lineLimit: 4
+                lineLimit: lineLimit ?? .max,
+                // A short synopsis needs no toggle; an unclamped one never does.
+                minimumLengthForToggle: lineLimit == nil ? .max : 150
             )
 
             if !genres.isEmpty {

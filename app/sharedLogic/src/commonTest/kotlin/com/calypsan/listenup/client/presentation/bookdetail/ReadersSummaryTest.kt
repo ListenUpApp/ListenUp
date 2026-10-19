@@ -47,4 +47,11 @@ class ReadersSummaryTest :
         test("a reader with neither progress nor a finish is in neither clause") {
             BookReaders(listOf(reader("idle"))).summary().avatars shouldBe emptyList()
         }
+
+        test("the sentence's names are first names, as the boards write them") {
+            ReaderRef("p", "Priya Nair").firstName shouldBe "Priya"
+            ReaderRef("m", "Maya").firstName shouldBe "Maya"
+            ReaderRef("j", "  Jean-Luc   Picard ").firstName shouldBe "Jean-Luc"
+            ReaderRef("x", "").firstName shouldBe ""
+        }
     })

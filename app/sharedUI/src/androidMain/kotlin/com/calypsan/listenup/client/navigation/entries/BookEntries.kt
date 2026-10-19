@@ -82,6 +82,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onUserProfileClick = { userId ->
                     backStack.add(UserProfile(userId))
                 },
+                onBookClick = { id -> backStack.add(BookDetail(id)) },
                 onSeeAllReaders = { id -> backStack.add(BookReaders(id)) },
                 onFindHardcoverMatch = { id -> backStack.add(HardcoverMatch(id)) },
                 onCollectionClick = { id -> backStack.add(AdminCollectionDetail(id)) },

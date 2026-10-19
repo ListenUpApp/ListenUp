@@ -38,6 +38,10 @@ import com.calypsan.listenup.web.features.readers.ReadersPage
 import com.calypsan.listenup.web.features.settings.AccountRouteContent
 import com.calypsan.listenup.web.features.shelf.ShelfRouteContent
 import com.calypsan.listenup.web.nav.CHAPTERS_KEY
+import com.calypsan.listenup.web.nav.CHAPTER_MAP_KEY
+import com.calypsan.listenup.web.nav.FILES_KEY
+import com.calypsan.listenup.web.nav.LEGACY_TAB_QUERY_KEY
+import com.calypsan.listenup.web.nav.SELECTION_QUERY_KEY
 import com.calypsan.listenup.web.nav.COMPARE_VIEW
 import com.calypsan.listenup.web.nav.HARDCOVER_KEY
 import com.calypsan.listenup.web.nav.MATCH_KEY
@@ -131,6 +135,42 @@ internal fun BookRouteContent(
     val readersBookId = bookId.takeIf { route.segments.getOrNull(2) == READERS_KEY }
     // `/book/{id}/hardcover` — Find on Hardcover, where the Hardcover panel's Change match leads.
     val hardcoverBookId = bookId.takeIf { route.segments.getOrNull(2) == HARDCOVER_KEY }
+    // `/book/{id}/map` and `/book/{id}/files` — the chapter map and the files, pages of their own now that Book
+    // Detail is one page; its old `?tab=` links land on them.
+    val subPage = route.segments.getOrNull(2)
+
+    if (subPage == CHAPTER_MAP_KEY) {
+        val session = bookDetailSession(bookId, openBookDetail)
+        ChapterMapPage(
+            state = session.state.collectAsState().value,
+            selection = parseSelection(route.query[SELECTION_QUERY_KEY]),
+            // replace, not navigate: a selection is page state, and Back should leave the page, not unwind it.
+            onSelectionChange = { selection ->
+                val query =
+                    if (selection.isEmpty()) {
+                        route.query - SELECTION_QUERY_KEY
+                    } else {
+                        route.query + (SELECTION_QUERY_KEY to selection.sorted().joinToString(","))
+                    }
+                router.replace(Route(route.segments, query))
+            },
+            onOpenBook = { router.navigate(Routes.Book.detail(bookId)) },
+            onOpenLibrary = { router.navigate(Routes.library) },
+            onEditChapters = { router.navigate(Routes.Book.chapters(bookId)) },
+        )
+        return
+    }
+
+    if (subPage == FILES_KEY) {
+        val session = bookDetailSession(bookId, openBookDetail)
+        BookFilesPage(
+            state = session.state.collectAsState().value,
+            documents = session.documents.collectAsState().value,
+            onOpenBook = { router.navigate(Routes.Book.detail(bookId)) },
+            onOpenLibrary = { router.navigate(Routes.library) },
+        )
+        return
+    }
 
     if (hardcoverBookId != null) {
         HardcoverMatchRoute(
@@ -230,6 +270,38 @@ private fun BookDetailRoute(
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
 ) {
+    // An old `?tab=` link (Book Detail had tabs): to the page that now holds that pane, replacing the entry so Back
+    // never returns to the retired URL, and never a 404.
+    val legacyTab = route.query[LEGACY_TAB_QUERY_KEY]
+    LaunchedEffect(legacyTab) {
+        when (legacyTab) {
+            null -> {
+                Unit
+            }
+
+            "chapters" -> {
+                router.replace(
+                    Route(
+                        Routes.Book.chapterMap(bookId).segments,
+                        route.query - LEGACY_TAB_QUERY_KEY,
+                    ),
+                )
+            }
+
+            "files" -> {
+                router.replace(
+                    Route(
+                        Routes.Book.files(bookId).segments,
+                        route.query - LEGACY_TAB_QUERY_KEY - SELECTION_QUERY_KEY,
+                    ),
+                )
+            }
+
+            else -> {
+                router.replace(Route(route.segments, route.query - LEGACY_TAB_QUERY_KEY))
+            }
+        }
+    }
     val detailSession = bookDetailSession(bookId, openBookDetail)
     val ratingsSession = bookRatingsSession(bookId, openBookRatings)
     // Bumped by Undo, so focus lands on the stars it puts back rather than on the page, where the
@@ -272,27 +344,14 @@ private fun BookDetailRoute(
     }
     BookDetailPage(
         state = detailSession.state.collectAsState().value,
-        tab = route.query["tab"] ?: "overview",
-        // replace, not navigate: panes and selection are page state, and Back should
-        // leave the page rather than unwind every pane and toggle.
-        onSelectTab = { tab ->
-            // Animated: switching a pane is a page-level change. The selection change
-            // below deliberately is not — see Router.replace.
-            router.replace(Route(route.segments, route.query + ("tab" to tab)))
-        },
         onOpenLibrary = { router.navigate(Routes.library) },
         bookId = bookId,
-        selection = parseSelection(route.query["sel"]),
-        onSelectionChange = { selection ->
-            val query =
-                if (selection.isEmpty()) {
-                    route.query - "sel"
-                } else {
-                    route.query + ("sel" to selection.sorted().joinToString(","))
-                }
-            router.replace(Route(route.segments, query))
-        },
         onPlay = { playback.onPlayBook(BookId(bookId), null) },
+        // A seek when this book is loaded, otherwise a prepare there (the player decides; spec §2.5).
+        onPlayFromChapter = { startMs -> playback.onPlayBook(BookId(bookId), startMs) },
+        onOpenChapterMap = { router.navigate(Routes.Book.chapterMap(bookId)) },
+        onOpenFiles = { router.navigate(Routes.Book.files(bookId)) },
+        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         isPreparing = playback.preparingBookId.collectAsState().value == bookId,
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,

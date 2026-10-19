@@ -45,7 +45,7 @@ final class BookReadersObserver {
             socialLine = nil
         case .data(let dataType):
             let data = dataType.value
-            phase = .data(Self.rows(from: data.readers))
+            phase = .data(Self.rows(from: data.readers, isLive: { data.isLive(reader: $0) }))
             socialLine = ReadersSocialLine(data.summary)
         case .error(let errorType):
             let error = errorType.value
@@ -54,10 +54,14 @@ final class BookReadersObserver {
         }
     }
 
-    /// Pure: project the shared `BookReaders` to display rows. `nonisolated` because it touches
-    /// no actor state — callable from tests off the main actor.
-    nonisolated static func rows(from readers: BookReaders) -> [BookReaderRow] {
-        readers.readers.map { BookReaderRow(from: $0) }
+    /// Pure: project the shared `BookReaders` to display rows. `isLive` is the shared answer for who is listening
+    /// right now (`BookReadersUiState.Data.isLive`: you, while the player plays this book). `nonisolated` because
+    /// it touches no actor state — callable from tests off the main actor.
+    nonisolated static func rows(
+        from readers: BookReaders,
+        isLive: (Reader) -> Bool = { _ in false }
+    ) -> [BookReaderRow] {
+        readers.readers.map { BookReaderRow(from: $0, isLive: isLive($0)) }
     }
 }
 
@@ -88,8 +92,11 @@ struct BookReaderRow: Identifiable, Equatable {
     let displayName: String
     let initials: String
     let isYou: Bool
-    /// 0...100 when reading now; nil otherwise.
+    /// 0...100 when partway through; nil otherwise.
     let progressPercent: Int?
+    /// Listening right now: only you, while the player plays this book. A reading row that is not live says
+    /// "Listening" with its bar, no ring and no mark — progress is not presence.
+    let isLive: Bool
     /// Most recent completion, when finished and not currently reading; nil otherwise.
     let lastFinished: Date?
     /// True when `lastFinished` is a read logged on Hardcover (#601 B3), not a finish in ListenUp.
@@ -107,8 +114,9 @@ struct BookReaderRow: Identifiable, Equatable {
     /// no progress bar and no finished date.
     var isRatedOnly: Bool { progressPercent == nil && lastFinished == nil && halfStars != nil }
 
-    init(from reader: Reader) {
+    init(from reader: Reader, isLive: Bool = false) {
         self.id = reader.userId
+        self.isLive = isLive && reader.currentProgressPct != nil
         self.displayName = reader.displayName
         self.initials = Self.initials(from: reader.displayName)
         self.isYou = reader.isYou
@@ -137,9 +145,11 @@ struct BookReaderRow: Identifiable, Equatable {
         halfStars: Int? = nil,
         note: String? = nil,
         lastFinishedOnHardcover: Bool = false,
-        lastFinishedAlsoOnHardcover: Bool = false
+        lastFinishedAlsoOnHardcover: Bool = false,
+        isLive: Bool = false
     ) {
         self.id = id
+        self.isLive = isLive
         self.displayName = displayName
         self.initials = initials
         self.isYou = isYou

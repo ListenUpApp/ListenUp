@@ -57,7 +57,7 @@ class BookReadersHeadingFocusTest {
         WithAvatarDependencies {
             BookReadersContent(
                 readers = readers,
-                listeningNowCount = 0,
+                readingCount = 0,
                 totalCount = 1,
                 isCard = isCard,
                 onUserClick = {},

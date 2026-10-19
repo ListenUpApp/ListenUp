@@ -40,4 +40,8 @@ data class BookDetailActions(
     val onRestoreToAllBooksClick: () -> Unit = {},
     /** Opens a collection from the Visibility card; null (the frozen desktop) shows plain names. */
     val onCollectionClick: ((collectionId: String) -> Unit)? = null,
+    /** Plays this book from a chapter's start, in book milliseconds: a seek when it is loaded, a prepare otherwise. */
+    val onPlayFromChapter: (startMs: Long) -> Unit = {},
+    /** Opens another book: a cover on the series shelf. */
+    val onBookClick: (bookId: String) -> Unit = {},
 )

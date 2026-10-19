@@ -28,8 +28,7 @@ class BookDetailBylineTest :
             mounts.mount {
                 BookDetailPage(
                     state = readyBook(authors = authors, narrators = narrators),
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onOpenContributor = onOpenContributor,

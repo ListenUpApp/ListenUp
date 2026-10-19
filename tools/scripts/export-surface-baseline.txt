@@ -99,6 +99,7 @@ BookCardStatus_SealedType
 BookContributor
 BookContributorInput
 BookDetail
+BookDetailColumns
 BookDetailNavAction
 BookDetailNavAction_SealedType
 BookDetailSection
@@ -137,6 +138,7 @@ BookMetadata
 BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
 BookMultiSelectViewModel
+BookPlayhead
 BookRatingRepository
 BookRatingsEvent
 BookRatingsEvent_SealedType
@@ -559,6 +561,7 @@ ListenerRating
 ListenerRatingLimits
 ListeningEventRecorder
 LoadedBook
+LoadedBookPlayhead
 LoadedBookRepository
 LoadedBookStore
 LoadedBook_SealedType

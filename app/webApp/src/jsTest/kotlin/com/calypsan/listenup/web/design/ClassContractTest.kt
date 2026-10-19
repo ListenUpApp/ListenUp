@@ -281,6 +281,10 @@ import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.web.features.bookdetail.BookFilesPage
+import com.calypsan.listenup.web.features.bookdetail.ChapterMapPage
+import com.calypsan.listenup.web.features.bookdetail.sampleDocuments
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
@@ -481,36 +485,59 @@ class ClassContractTest :
                                     tags = listOf(Tag(id = "t1", name = "Grimdark", slug = "grimdark")),
                                     moods = listOf(Mood(id = "m1", name = "Cosy", slug = "cosy")),
                                 ),
-                            tab = "overview",
-                            onSelectTab = {},
+                            onPlayFromChapter = {},
                             onOpenLibrary = {},
                             onPlay = {},
                             onRetryConnection = {},
                         )
+                        // The one page in progress, with readers and a series shelf: the social line, the
+                        // chapter rows and the shelf each draw classes of their own.
                         BookDetailPage(
-                            state = readyBook(),
-                            tab = "chapters",
-                            onSelectTab = {},
+                            state =
+                                readyBook(
+                                    readingStage = ReadingStage.InProgress,
+                                    series =
+                                        listOf(
+                                            BookSeries(seriesId = "s1", seriesName = "The Stormlight Archive", sequence = 1.0),
+                                        ),
+                                ),
                             onOpenLibrary = {},
                             onPlay = {},
-                            selection = setOf(1, 2),
+                            onPlayFromChapter = {},
+                            readers =
+                                readersData(
+                                    reader(userId = "u1", displayName = "Maya", progressPct = 40),
+                                    reader(userId = "u2", displayName = "Tom", finishes = listOf(1L)),
+                                ),
                             onRetryConnection = {},
+                        )
+                        ChapterMapPage(
+                            state = readyBook(),
+                            selection = setOf(1, 2),
+                            onSelectionChange = {},
+                            onOpenBook = {},
+                            onOpenLibrary = {},
+                            onEditChapters = {},
+                        )
+                        BookFilesPage(
+                            state = readyBook(),
+                            documents = sampleDocuments(),
+                            onOpenBook = {},
+                            onOpenLibrary = {},
                         )
                         // The states with no book draw classes of their own, so they belong in
                         // the contract too — an invented class hides just as well in an empty
                         // state as in a full one.
                         BookDetailPage(
                             state = BookDetailUiState.Error(BookError.NotFound()),
-                            tab = "overview",
-                            onSelectTab = {},
+                            onPlayFromChapter = {},
                             onOpenLibrary = {},
                             onPlay = {},
                             onRetryConnection = {},
                         )
                         BookDetailPage(
                             state = BookDetailUiState.Loading,
-                            tab = "overview",
-                            onSelectTab = {},
+                            onPlayFromChapter = {},
                             onOpenLibrary = {},
                             onPlay = {},
                             onRetryConnection = {},

@@ -133,6 +133,8 @@ class BookDetailViewModelTest :
                     seriesRepository = seriesRepository,
                     undoMatch = mock(),
                     userProfileRepository = mock(),
+                    loadedBookRepository = FakeLoadedBookRepository(),
+                    playhead = FakeLoadedBookPlayhead(),
                 )
         }
 

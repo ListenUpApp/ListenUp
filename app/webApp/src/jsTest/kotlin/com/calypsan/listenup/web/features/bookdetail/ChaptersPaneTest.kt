@@ -101,7 +101,7 @@ import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
- * The chapters workbench through its URL contract: `?tab=chapters&sel=9,10` names the selection,
+ * The chapters workbench through its URL contract: `/book/{id}/map?sel=9,10` names the selection,
  * selection changes replace the history entry, and the inspector follows a single selection.
  */
 class ChaptersPaneTest :
@@ -202,7 +202,7 @@ class ChaptersPaneTest :
         }
 
         test("the chapters pane is a selectable table of every chapter") {
-            val (host, router) = mountAt("/book/42?tab=chapters")
+            val (host, router) = mountAt("/book/42/map")
 
             try {
                 host.querySelectorAll(".tbl tbody tr").length shouldBe CHAPTER_COUNT
@@ -215,7 +215,7 @@ class ChaptersPaneTest :
         }
 
         test("the selection comes from the URL") {
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=9,10")
+            val (host, router) = mountAt("/book/42/map?sel=9,10")
 
             try {
                 host.querySelectorAll(".tbl tbody tr.sel").length shouldBe 2
@@ -227,7 +227,7 @@ class ChaptersPaneTest :
         }
 
         test("toggling a row rewrites sel without growing history") {
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=9")
+            val (host, router) = mountAt("/book/42/map?sel=9")
             val depth = window.history.length
 
             try {
@@ -243,7 +243,7 @@ class ChaptersPaneTest :
         }
 
         test("clear empties the selection and drops the param") {
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=9,10")
+            val (host, router) = mountAt("/book/42/map?sel=9,10")
 
             try {
                 (host.querySelector(".bulk-x") as HTMLElement).click()
@@ -257,7 +257,7 @@ class ChaptersPaneTest :
         }
 
         test("select all from the header, then again to clear") {
-            val (host, router) = mountAt("/book/42?tab=chapters")
+            val (host, router) = mountAt("/book/42/map")
 
             try {
                 (host.querySelector(".tbl thead input[type=checkbox]") as HTMLElement).click()
@@ -273,7 +273,7 @@ class ChaptersPaneTest :
         }
 
         test("a single selection opens the inspector on that chapter") {
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=12")
+            val (host, router) = mountAt("/book/42/map?sel=12")
 
             try {
                 val inspector = host.querySelector(".bd-side") as HTMLElement
@@ -285,7 +285,7 @@ class ChaptersPaneTest :
         }
 
         test("a multi-selection keeps the inspector honest") {
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=9,10,11")
+            val (host, router) = mountAt("/book/42/map?sel=9,10,11")
 
             try {
                 (host.querySelector(".bd-side") as HTMLElement)
@@ -297,7 +297,7 @@ class ChaptersPaneTest :
         }
 
         test("the chapter map draws one segment per chapter") {
-            val (host, router) = mountAt("/book/42?tab=chapters")
+            val (host, router) = mountAt("/book/42/map")
 
             try {
                 host.querySelectorAll(".chmap button").length shouldBe CHAPTER_COUNT
@@ -307,7 +307,7 @@ class ChaptersPaneTest :
         }
         test("the chapter map is one tab stop of labelled toggle buttons") {
             // ⛔ Its segments were `<i onClick>`: the map could only be used with a mouse.
-            val (host, router) = mountAt("/book/42?tab=chapters&sel=2")
+            val (host, router) = mountAt("/book/42/map?sel=2")
 
             try {
                 val map = host.querySelector(".chmap") as HTMLElement
@@ -325,7 +325,7 @@ class ChaptersPaneTest :
         }
 
         test("arrow keys walk the chapter map, and pressing a segment toggles it") {
-            val (host, router) = mountAt("/book/42?tab=chapters")
+            val (host, router) = mountAt("/book/42/map")
 
             try {
                 val segments = host.querySelectorAll(".chmap button").asList().filterIsInstance<HTMLElement>()

@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.test.fake.FakeBookVisibilityRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
+import com.calypsan.listenup.client.playback.BookPlayhead
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.calls
@@ -78,6 +79,12 @@ internal class BookDetailFixture {
 
     /** The saved position Room holds for the book; specs push it, and the progress writes move it like Room does. */
     val position = MutableStateFlow<PlaybackPosition?>(null)
+
+    /** The player's loaded book; nothing by default. */
+    val loadedBookId = MutableStateFlow<BookId?>(null)
+
+    /** The player's live playhead and the book it belongs to; read only when that book is this one. */
+    val playhead = MutableStateFlow<BookPlayhead?>(null)
 
     /** The book's chapters as Room holds them. */
     val chapters = MutableStateFlow<List<Chapter>>(emptyList())
@@ -193,6 +200,8 @@ internal class BookDetailFixture {
             seriesRepository = seriesRepository,
             undoMatch = mock(),
             userProfileRepository = mock(),
+            loadedBookRepository = FakeLoadedBookRepository(loadedBookId),
+            playhead = FakeLoadedBookPlayhead(playhead),
         )
 }
 

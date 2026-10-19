@@ -26,7 +26,10 @@
    the date when a narrow column or a large text size leaves no room beside it. */
 .luw .rdr-sl { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-8); min-width: 0; }
 .luw .rdr-src { flex: none; font-size: var(--fs-caption); font-weight: 600; padding: 1px var(--sp-8); border-radius: var(--r-pill); background: var(--surface-3); color: var(--ink-2); white-space: nowrap; }
-.luw .rdr-all { padding: 3px 9px; border: none; border-radius: var(--r-sm); background: transparent; color: var(--coral-text); font-family: inherit; font-size: 0.76rem; font-weight: 750; cursor: pointer; }
+/* Below the rows, full width (spec §2.10): "See all N readers". */
+.luw .rdr-all { width: 100%; min-height: 44px; margin-top: var(--sp-8); padding: var(--sp-8) var(--sp-12); border: none; border-radius: var(--r-pill); background: var(--surface-2); color: var(--coral-text); font-family: inherit; font-size: 0.875rem; font-weight: 700; cursor: pointer; }
+/* A reader's progress is a bar, not a number (spec §5.2): the number is in the bar's name. */
+.luw .rdr-bar { width: 100%; max-width: 150px; margin-top: 4px; }
 @media (hover: hover) { .luw .rdr-all:hover { background: var(--coral-soft); } }
 .luw .rdr-all:active { transform: translateY(1px); }
 .luw .rdr-all:focus { outline: none; }

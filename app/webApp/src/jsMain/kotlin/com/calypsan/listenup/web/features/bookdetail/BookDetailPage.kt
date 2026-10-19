@@ -4,6 +4,8 @@ import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +17,10 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
@@ -35,14 +40,19 @@ import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.UnderHeading
 import com.calypsan.listenup.web.design.Pill
-import com.calypsan.listenup.web.design.TabItem
-import com.calypsan.listenup.web.design.TabPanel
-import com.calypsan.listenup.web.design.Tabs
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.features.match.TwoPaneWatch
+import com.calypsan.listenup.web.motion.staggerChildrenOnArrival
+import kotlinx.browser.window
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
+import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
+import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
@@ -55,8 +65,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * this layer. That keeps the URL and layout specs able to drive any state deterministically, and
  * it is why the store wiring lives one level up in `WebAppRoot`.
  *
- * The pane is URL state (`?tab=…`), reported through [onSelectTab] so the caller can `replace`
- * the history entry: Back leaves the page, not the pane.
+ * One page (spec §3.2.1 D47): below the hero, the sections in the visit's stage order (spec §2.4) — one column on a
+ * phone, two on a desktop (§3.2.4), decided in Kotlin by [rememberBookDetailWide] so a section never changes column
+ * and the narrow order is the stage order. The chapter map and the files are pages of their own
+ * (`/book/{id}/map`, `/book/{id}/files`), reached from the Chapters header and the Details panel.
  *
  * There is a Play control and there is deliberately NO Download one. `BookDetailUiState.Ready`
  * carries `canDownload`, and it turns true on the web the moment playback becomes available — but
@@ -75,10 +87,10 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun BookDetailPage(
     state: BookDetailUiState,
-    tab: String,
-    onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     onPlay: () -> Unit,
+    /** Plays this book from a chapter's start (book milliseconds). No default, for the reason [onPlay] has none. */
+    onPlayFromChapter: (Long) -> Unit,
     onEdit: () -> Unit = {},
     onEditChapters: () -> Unit = {},
     onMatchMetadata: () -> Unit = {},
@@ -128,8 +140,12 @@ fun BookDetailPage(
     onFindHardcoverMatch: () -> Unit = {},
     onRemoveHardcoverMatch: () -> Unit = {},
     onSetHardcoverSynced: (Boolean) -> Unit = {},
-    selection: Set<Int> = emptySet(),
-    onSelectionChange: (Set<Int>) -> Unit = {},
+    /** The chapter map page (`/book/{id}/map`), from the Chapters header. */
+    onOpenChapterMap: () -> Unit = {},
+    /** The files page (`/book/{id}/files`), from the Details panel. */
+    onOpenFiles: () -> Unit = {},
+    /** Another book: a cover on the series shelf. */
+    onOpenBook: (String) -> Unit = {},
     bookId: String? = null,
     /**
      * Delete this book's folder from the server (admin-only; the menu gates it). The confirm dialog
@@ -143,7 +159,7 @@ fun BookDetailPage(
     onRestoreToAllBooks: () -> Unit = {},
     /** Open an admin collection from the Visibility panel. */
     onOpenCollection: (String) -> Unit = {},
-    /** The last-match row ("Details matched … · See what changed · Undo last match"), above the tabs. */
+    /** The last-match row ("Details matched … · See what changed · Undo last match"), above the sections. */
     lastMatchRow: @Composable () -> Unit = {},
     /** Arrive with the Readers panel in view and its heading focused: Home's finishers line (spec §6.4). */
     landOnReaders: Boolean = false,
@@ -151,13 +167,22 @@ fun BookDetailPage(
     onLandedOnReaders: () -> Unit = {},
 ) {
     val root = remember { PageRoot() }
+    // Kotlin decides the layout, not CSS: the two columns split the stage order, one column keeps it whole. A first
+    // guess from this window, then the page's own window answers (a phone-sized frame answers for that frame).
+    var pageElement by remember { mutableStateOf<HTMLElement?>(null) }
+    var wide by remember { mutableStateOf(window.matchMedia(BOOK_DETAIL_WIDE_QUERY).matches) }
+    TwoPaneWatch(pageElement, useTwoPane = { wide = it }, twoPaneQuery = BOOK_DETAIL_WIDE_QUERY)
     // Once per arrival, the Discover leaderboard landing's shape: cleared when the panel has landed.
     var landingOnReaders by remember(landOnReaders) { mutableStateOf(landOnReaders) }
     Div(attrs = {
         classes("bd")
         ref { element ->
             root.element = element
-            onDispose { root.element = null }
+            pageElement = element
+            onDispose {
+                root.element = null
+                pageElement = null
+            }
         }
     }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
@@ -181,6 +206,7 @@ fun BookDetailPage(
             documents = documents,
             onDeleteBook = onDeleteBook,
             onClearDeleteError = onClearDeleteError,
+            readers = readers,
         )
 
         when (state) {
@@ -207,8 +233,8 @@ fun BookDetailPage(
                 ServerOfflineBanner(state.showServerWarning, onRetryConnection)
                 FocusHeadingWhenBlocksLeave(state, root)
 
-                // A held book is triage-only (spec §8). The panel stands above the tabs so it stays in
-                // view whichever pane is open; Release asks first (§7).
+                // A held book is triage-only (spec §8). The panel stands above the sections; Release asks
+                // first (§7).
                 if (state.isHeld) {
                     HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
@@ -216,74 +242,43 @@ fun BookDetailPage(
                 // Under the header's actions, as the canvas draws it (A-04): the last match, while it can be undone.
                 lastMatchRow()
 
-                // An unknown `?tab=` shows Overview, so it is Overview the strip and the panel name.
-                val shownTab = if (tab == "chapters" || tab == "files") tab else "overview"
-                Tabs(
-                    items =
-                        listOf(
-                            TabItem("overview", "Overview"),
-                            TabItem("chapters", "Chapters", count = state.chapters.size.toString()),
-                            TabItem(
-                                "files",
-                                "Files",
-                                // Audio AND documents: the tab says Files and the pane holds both
-                                // tables, so a count of the audio alone would read as a smaller
-                                // number than the rows underneath it.
-                                count = (state.book.audioFiles.size + documents.size).toString(),
-                            ),
+                BookSections(
+                    state = state,
+                    wide = wide,
+                    panes =
+                        SectionPanes(
+                            onOpenGenre = onOpenGenre,
+                            onOpenTag = onOpenTag,
+                            onOpenMood = onOpenMood,
+                            ratings = ratings,
+                            onRate = onRate,
+                            onClearRating = onClearRating,
+                            onRefreshExternalRating = onRefreshExternalRating,
+                            onSetStars = onSetStars,
+                            ratingStarsFocusRequest = ratingStarsFocusRequest,
+                            readers = readers,
+                            nowMs = nowMs,
+                            onOpenProfile = onOpenProfile,
+                            onSeeAllReaders = onSeeAllReaders,
+                            landOnReaders = landingOnReaders,
+                            onLandedOnReaders = {
+                                landingOnReaders = false
+                                onLandedOnReaders()
+                            },
+                            hardcover = hardcover,
+                            onFindHardcoverMatch = onFindHardcoverMatch,
+                            onRemoveHardcoverMatch = onRemoveHardcoverMatch,
+                            onSetHardcoverSynced = onSetHardcoverSynced,
+                            onRestoreToAllBooks = onRestoreToAllBooks,
+                            onOpenCollection = onOpenCollection,
+                            onAddToCollection = pickers.onShowCollectionPicker,
+                            onPlayFromChapter = onPlayFromChapter,
+                            onOpenChapterMap = onOpenChapterMap,
+                            onOpenFiles = onOpenFiles,
+                            onOpenBook = onOpenBook,
+                            onOpenSeries = onOpenSeries,
                         ),
-                    active = shownTab,
-                    idBase = TABS_ID,
-                    onSelect = onSelectTab,
                 )
-
-                TabPanel(idBase = TABS_ID, key = shownTab) {
-                    when (tab) {
-                        "chapters" -> {
-                            ChaptersPane(
-                                chapters = state.chapters.toWebChapters(),
-                                selection = selection,
-                                onSelectionChange = onSelectionChange,
-                                onEditChapters = onEditChapters.takeIf { state.canEditMetadata },
-                            )
-                        }
-
-                        "files" -> {
-                            FilesPane(state, documents)
-                        }
-
-                        else -> {
-                            OverviewPane(
-                                state = state,
-                                onOpenGenre = onOpenGenre,
-                                onOpenTag = onOpenTag,
-                                onOpenMood = onOpenMood,
-                                ratings = ratings,
-                                onRate = onRate,
-                                onClearRating = onClearRating,
-                                onRefreshExternalRating = onRefreshExternalRating,
-                                onSetStars = onSetStars,
-                                ratingStarsFocusRequest = ratingStarsFocusRequest,
-                                readers = readers,
-                                nowMs = nowMs,
-                                onOpenProfile = onOpenProfile,
-                                onSeeAllReaders = onSeeAllReaders,
-                                landOnReaders = landingOnReaders,
-                                onLandedOnReaders = {
-                                    landingOnReaders = false
-                                    onLandedOnReaders()
-                                },
-                                hardcover = hardcover,
-                                onFindHardcoverMatch = onFindHardcoverMatch,
-                                onRemoveHardcoverMatch = onRemoveHardcoverMatch,
-                                onSetHardcoverSynced = onSetHardcoverSynced,
-                                onRestoreToAllBooks = onRestoreToAllBooks,
-                                onOpenCollection = onOpenCollection,
-                                onAddToCollection = pickers.onShowCollectionPicker,
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -325,6 +320,7 @@ private fun SharedHeader(
     documents: List<BookDocument>,
     onDeleteBook: () -> Unit,
     onClearDeleteError: () -> Unit,
+    readers: BookReadersUiState,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -383,6 +379,8 @@ private fun SharedHeader(
                         onDeleteBook = onDeleteBook,
                         onClearDeleteError = onClearDeleteError,
                     )
+                    // Who else is reading, under the actions: one link to the Readers panel (spec §2.10).
+                    (readers as? BookReadersUiState.Data)?.let { HeroSocialLine(it.summary) }
                 }
             }
         }
@@ -500,100 +498,265 @@ private fun HeroActions(
     }
 }
 
+/** Everything the sections answer to, gathered once so [BookSections] can hand each its own. */
+internal class SectionPanes(
+    val onOpenGenre: (String) -> Unit,
+    val onOpenTag: (String) -> Unit,
+    val onOpenMood: (String) -> Unit,
+    val ratings: BookRatingsUiState,
+    val onRate: (halfStars: Int, note: String?) -> Unit,
+    val onClearRating: () -> Unit,
+    val onRefreshExternalRating: () -> Unit,
+    val onSetStars: (halfStars: Int) -> Unit,
+    val ratingStarsFocusRequest: Int,
+    val readers: BookReadersUiState,
+    val nowMs: Long,
+    val onOpenProfile: (String) -> Unit,
+    val onSeeAllReaders: () -> Unit,
+    /** Arrive on the Readers panel (Home's finishers line, spec §6.4), once; [onLandedOnReaders] says it happened. */
+    val landOnReaders: Boolean,
+    val onLandedOnReaders: () -> Unit,
+    val hardcover: BookHardcoverUiState,
+    val onFindHardcoverMatch: () -> Unit,
+    val onRemoveHardcoverMatch: () -> Unit,
+    val onSetHardcoverSynced: (Boolean) -> Unit,
+    val onRestoreToAllBooks: () -> Unit,
+    val onOpenCollection: (String) -> Unit,
+    val onAddToCollection: () -> Unit,
+    val onPlayFromChapter: (Long) -> Unit,
+    val onOpenChapterMap: () -> Unit,
+    val onOpenFiles: () -> Unit,
+    val onOpenBook: (String) -> Unit,
+    val onOpenSeries: (String) -> Unit,
+)
+
+/**
+ * The sections, in the visit's stage order (spec §2.4). [wide]: the two columns of [bookDetailColumns], with the
+ * admins' Visibility panel atop the side column (§3.2.4 rule 4); narrow: one column in the whole order, the Visibility
+ * panel first. A held book keeps About, Chapters and Details (§3.2.3).
+ */
 @Composable
-private fun OverviewPane(
+private fun BookSections(
     state: BookDetailUiState.Ready,
-    onOpenGenre: (String) -> Unit,
-    onOpenTag: (String) -> Unit,
-    onOpenMood: (String) -> Unit,
-    ratings: BookRatingsUiState,
-    onRate: (halfStars: Int, note: String?) -> Unit,
-    onClearRating: () -> Unit,
-    onRefreshExternalRating: () -> Unit,
-    onSetStars: (halfStars: Int) -> Unit,
-    ratingStarsFocusRequest: Int,
-    readers: BookReadersUiState,
-    nowMs: Long,
-    onOpenProfile: (String) -> Unit,
-    onSeeAllReaders: () -> Unit,
-    landOnReaders: Boolean,
-    onLandedOnReaders: () -> Unit,
-    hardcover: BookHardcoverUiState,
-    onFindHardcoverMatch: () -> Unit,
-    onRemoveHardcoverMatch: () -> Unit,
-    onSetHardcoverSynced: (Boolean) -> Unit,
-    onRestoreToAllBooks: () -> Unit,
-    onOpenCollection: (String) -> Unit,
-    onAddToCollection: () -> Unit,
+    wide: Boolean,
+    panes: SectionPanes,
 ) {
-    Div(attrs = { classes("bd-cols") }) {
-        Div(attrs = { classes("bd-main") }) {
-            Panel(title = "About") {
-                if (state.descriptionText.isNotBlank()) {
-                    // The description arrives Markdown-flavoured and is untrusted external
-                    // metadata; [BookMarkdown] owns both halves of that.
-                    Div(attrs = { classes("bd-desc") }) {
-                        BookMarkdown(state.descriptionText)
-                    }
-                }
-                // ⛔ Every chip goes somewhere now. Before this they were inert text shaped like
-                // controls, which is the worst of both — it looks pressable and answers nothing.
-                FacetChips(state, onOpenGenre, onOpenTag, onOpenMood)
-                if (state.descriptionText.isBlank() && !state.hasFacets()) {
-                    PaneHint("No description has been written for this book.")
-                }
+    val order = state.shownSections()
+    if (wide) {
+        val columns = bookDetailColumns(order)
+        Div(attrs = { classes("bd-cols") }) {
+            Div(attrs = {
+                classes("bd-main")
+                staggerChildrenOnArrival()
+            }) { columns.main.forEach { section -> key(section) { BookSection(section, state, wide = true, panes) } } }
+            Div(attrs = {
+                classes("bd-side")
+                staggerChildrenOnArrival()
+            }) {
+                Visibility(state, panes)
+                columns.side.forEach { section -> key(section) { BookSection(section, state, wide = true, panes) } }
             }
         }
-        Div(attrs = { classes("bd-side") }) {
-            // First in the side column (canvas). Admins only — a member's visibility is null — and
-            // never for a held book: the held panel above the tabs already says who can't see it.
-            val visibility = state.visibility
-            if (!state.isHeld && visibility != null) {
-                VisibilityPanel(
-                    bookId = state.book.id.value,
-                    visibility = visibility,
-                    isRestoring = state.isRestoringToAllBooks,
-                    onOpenCollection = onOpenCollection,
-                    onRestoreToAllBooks = onRestoreToAllBooks,
-                    onAddToCollection = onAddToCollection,
-                )
-            }
+    } else {
+        Div(attrs = {
+            classes("bd-flow")
+            staggerChildrenOnArrival()
+        }) {
+            Visibility(state, panes)
+            order.forEach { section -> key(section) { BookSection(section, state, wide = false, panes) } }
+        }
+    }
+}
+
+/** The sections a page shows: a held book is triage-only, so its social sections and Series stay hidden. */
+internal fun BookDetailUiState.Ready.shownSections(): List<BookDetailSection> =
+    if (isHeld) {
+        sectionOrder.filter {
+            it == BookDetailSection.About || it == BookDetailSection.Chapters || it == BookDetailSection.Details
+        }
+    } else {
+        sectionOrder
+    }
+
+/** Who can't see this book. Admins only — a member's visibility is null — and never for a held book. */
+@Composable
+private fun Visibility(
+    state: BookDetailUiState.Ready,
+    panes: SectionPanes,
+) {
+    val visibility = state.visibility
+    if (state.isHeld || visibility == null) return
+    VisibilityPanel(
+        bookId = state.book.id.value,
+        visibility = visibility,
+        isRestoring = state.isRestoringToAllBooks,
+        onOpenCollection = panes.onOpenCollection,
+        onRestoreToAllBooks = panes.onRestoreToAllBooks,
+        onAddToCollection = panes.onAddToCollection,
+    )
+}
+
+/** One section. Readers, Ratings and Hardcover draw nothing when they have nothing (spec §2.4: skipped, no gap). */
+@Composable
+private fun BookSection(
+    section: BookDetailSection,
+    state: BookDetailUiState.Ready,
+    wide: Boolean,
+    panes: SectionPanes,
+) {
+    when (section) {
+        BookDetailSection.Chapters -> {
+            BookChaptersSection(
+                bookId = state.book.id.value,
+                chapters = state.chapters,
+                preview = state.chapterPreview,
+                canPlay = state.canPlay,
+                wide = wide,
+                onPlayFromChapter = panes.onPlayFromChapter,
+                onOpenChapterMap = panes.onOpenChapterMap,
+            )
+        }
+
+        BookDetailSection.About -> {
+            AboutPanel(state, wide, panes)
+        }
+
+        BookDetailSection.Series -> {
+            state.seriesShelf?.let { SeriesShelfSection(it, state.readingStage, panes.onOpenBook, panes.onOpenSeries) }
+        }
+
+        BookDetailSection.Readers -> {
+            ReadersPanel(
+                state = panes.readers,
+                nowMs = panes.nowMs,
+                onOpenProfile = panes.onOpenProfile,
+                onSeeAll = panes.onSeeAllReaders,
+                land = panes.landOnReaders,
+                onLanded = panes.onLandedOnReaders,
+            )
+        }
+
+        BookDetailSection.Ratings -> {
+            RatingsPanel(
+                state = panes.ratings,
+                onSetStars = panes.onSetStars,
+                onRate = panes.onRate,
+                onClear = panes.onClearRating,
+                onRefreshExternal = panes.onRefreshExternalRating,
+                nowMs = panes.nowMs,
+                starsFocusRequest = panes.ratingStarsFocusRequest,
+            )
+        }
+
+        BookDetailSection.Hardcover -> {
+            BookHardcoverPanel(
+                state = panes.hardcover,
+                onFindMatch = panes.onFindHardcoverMatch,
+                onRemoveMatch = panes.onRemoveHardcoverMatch,
+                onSetSynced = panes.onSetHardcoverSynced,
+            )
+        }
+
+        BookDetailSection.Details -> {
             Panel(title = "Details") {
                 MetaList(details(state))
-            }
-            // Hidden for a held book (spec §9: hidden, not refused).
-            if (!state.isHeld) {
-                // Between Details and Readers, as the sync canvas draws it, and silent unless connected
-                // — see [BookHardcoverPanel].
-                BookHardcoverPanel(
-                    state = hardcover,
-                    onFindMatch = onFindHardcoverMatch,
-                    onRemoveMatch = onRemoveHardcoverMatch,
-                    onSetSynced = onSetHardcoverSynced,
-                )
-                // Directly above Readers, as on Android and iOS; silent while loading — see [RatingsPanel].
-                RatingsPanel(
-                    state = ratings,
-                    onSetStars = onSetStars,
-                    onRate = onRate,
-                    onClear = onClearRating,
-                    onRefreshExternal = onRefreshExternalRating,
-                    nowMs = nowMs,
-                    starsFocusRequest = ratingStarsFocusRequest,
-                )
-                // Under Details, and silent when there is nothing to say — see [ReadersPanel].
-                ReadersPanel(
-                    state = readers,
-                    nowMs = nowMs,
-                    onOpenProfile = onOpenProfile,
-                    onSeeAll = onSeeAllReaders,
-                    land = landOnReaders,
-                    onLanded = onLandedOnReaders,
-                )
+                // The files and the book's documents, a page of their own now the tabs are gone (Decision 9).
+                A(href = "/book/${state.book.id.value}/files", attrs = {
+                    classes("bd-files-link")
+                    onClick {
+                        it.preventDefault()
+                        panes.onOpenFiles()
+                    }
+                }) {
+                    // Only the words are underlined; the arrow rides beside them (board).
+                    Span(attrs = { classes("bd-files-label") }) { Text("Files & audio") }
+                    Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
+                }
             }
         }
     }
 }
+
+/**
+ * The synopsis and its facets. On a phone it clamps — four lines while deciding, two otherwise (spec §3.2.1 D29) —
+ * with "Read more" only when the clamp actually hides something; a desktop shows it whole.
+ */
+@Composable
+private fun AboutPanel(
+    state: BookDetailUiState.Ready,
+    wide: Boolean,
+    panes: SectionPanes,
+) {
+    val clampLines =
+        when {
+            wide -> null
+            state.readingStage == ReadingStage.NotStarted -> ABOUT_LINES_NOT_STARTED
+            else -> ABOUT_LINES
+        }
+    // Bare, under the board's large heading: About is reading, not a card of reference facts (as Chapters).
+    Section(attrs = { classes("bd-about") }) {
+        H2(attrs = { classes("bd-sec-title") }) { Text("About") }
+        UnderHeading(level = ABOUT_HEADING_LEVEL) {
+            if (state.descriptionText.isNotBlank()) ClampedDescription(state, clampLines)
+            // ⛔ Every chip goes somewhere now. Before this they were inert text shaped like
+            // controls, which is the worst of both — it looks pressable and answers nothing.
+            FacetChips(state, panes.onOpenGenre, panes.onOpenTag, panes.onOpenMood)
+            if (state.descriptionText.isBlank() && !state.hasFacets()) {
+                PaneHint("No description has been written for this book.")
+            }
+        }
+    }
+}
+
+/** The synopsis, clamped to [clampLines] (null: whole) with "Read more" only when the clamp hides something. */
+@Composable
+private fun ClampedDescription(
+    state: BookDetailUiState.Ready,
+    clampLines: Int?,
+) {
+    var expanded by remember(state.book.id) { mutableStateOf(false) }
+    var overflows by remember(state.book.id, state.descriptionText, clampLines) { mutableStateOf(false) }
+    var descElement by remember { mutableStateOf<HTMLElement?>(null) }
+    val clamped = clampLines != null && !expanded
+    LaunchedEffect(descElement, clampLines, expanded) {
+        val element = descElement
+        if (element != null && clamped) {
+            // Measured after the frame that lays it out: overflowing means the clamp hides something.
+            withFrameNanos { }
+            overflows = element.scrollHeight > element.clientHeight + 1
+        }
+    }
+    // The description arrives Markdown-flavoured and is untrusted external
+    // metadata; [BookMarkdown] owns both halves of that.
+    Div(attrs = {
+        classes("bd-desc")
+        if (clamped) {
+            classes("is-clamped")
+            style { property("--clamp", clampLines.toString()) }
+        }
+        ref { element ->
+            descElement = element
+            onDispose { descElement = null }
+        }
+    }) {
+        BookMarkdown(state.descriptionText)
+    }
+    if (clampLines != null && overflows) {
+        Button(attrs = {
+            classes("bd-more")
+            attr("type", "button")
+            attr("aria-expanded", expanded.toString())
+            onClick { expanded = !expanded }
+        }) { Text(if (expanded) "Read less" else "Read more") }
+    }
+}
+
+/** Synopsis lines on a phone before "Read more". */
+private const val ABOUT_LINES_NOT_STARTED = 4
+
+private const val ABOUT_LINES = 2
+
+private const val ABOUT_HEADING_LEVEL = 2
 
 /**
  * The Details panel, built only from fields the book actually carries. A row that would read
@@ -881,9 +1044,6 @@ private fun HeldTriage(
     )
 }
 
-/** The id stem Book Detail's tab strip and its panel share. */
-private const val TABS_ID = "bd"
-
 /**
  * Release (the held panel) and both stranded fixes succeed by unmounting the control that had focus;
  * the page's H1 takes it rather than `<body>`.
@@ -896,3 +1056,10 @@ private fun FocusHeadingWhenBlocksLeave(
     FocusHeadingWhenLeft(state.book.id.value, state.isHeld) { root.element }
     FocusHeadingWhenLeft(state.book.id.value, state.visibility == BookVisibility.Stranded) { root.element }
 }
+
+/**
+ * Book Detail goes to two columns at the shell's desktop breakpoint (spec §3.2.4; the `BreakpointsTest` contract).
+ * Kotlin reads it, not CSS: wide splits the stage order into two columns, narrow keeps it as one list, and a CSS fold
+ * of the two columns would put the side column after the main one instead of in stage order.
+ */
+internal const val BOOK_DETAIL_WIDE_QUERY = "(min-width: 1024px)"

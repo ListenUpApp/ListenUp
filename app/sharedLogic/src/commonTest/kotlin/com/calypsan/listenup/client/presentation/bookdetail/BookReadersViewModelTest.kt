@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
+import com.calypsan.listenup.client.domain.readers.ReaderLineKind
+import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
 import io.kotest.core.spec.style.FunSpec
@@ -52,7 +54,12 @@ class BookReadersViewModelTest :
 
         test("initial state is Loading") {
             runTest {
-                val viewModel = BookReadersViewModel(fakeRepo(flowOf(BookReaders(emptyList()))), bookId = "b1")
+                val viewModel =
+                    BookReadersViewModel(
+                        fakeRepo(flowOf(BookReaders(emptyList()))),
+                        bookId = "b1",
+                        loadedBooks = FakeLoadedBookRepository(),
+                    )
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe BookReadersUiState.Loading
@@ -63,7 +70,12 @@ class BookReadersViewModelTest :
 
         test("empty readers maps to NoReaders") {
             runTest {
-                val viewModel = BookReadersViewModel(fakeRepo(flowOf(BookReaders(emptyList()))), bookId = "b1")
+                val viewModel =
+                    BookReadersViewModel(
+                        fakeRepo(flowOf(BookReaders(emptyList()))),
+                        bookId = "b1",
+                        loadedBooks = FakeLoadedBookRepository(),
+                    )
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe BookReadersUiState.Loading
@@ -76,7 +88,7 @@ class BookReadersViewModelTest :
         test("non-empty readers maps to Data") {
             runTest {
                 val readers = BookReaders(listOf(reader(userId = "u2", displayName = "Jake")))
-                val viewModel = BookReadersViewModel(fakeRepo(flowOf(readers)), bookId = "b1")
+                val viewModel = BookReadersViewModel(fakeRepo(flowOf(readers)), bookId = "b1", loadedBooks = FakeLoadedBookRepository())
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe BookReadersUiState.Loading
@@ -91,11 +103,36 @@ class BookReadersViewModelTest :
         test("upstream flow failure maps to Error(isRetryable = true)") {
             runTest {
                 val failingFlow: Flow<BookReaders> = flow { throw SimulatedFailure("room blew up") }
-                val viewModel = BookReadersViewModel(fakeRepo(failingFlow), bookId = "b1")
+                val viewModel = BookReadersViewModel(fakeRepo(failingFlow), bookId = "b1", loadedBooks = FakeLoadedBookRepository())
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe BookReadersUiState.Loading
                     awaitItem() shouldBe BookReadersUiState.Error(isRetryable = true)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("you are live only while the player is playing this book") {
+            runTest {
+                val readers = BookReaders(listOf(reader(userId = "me", isYou = true, currentProgressPct = 40)))
+                val player = FakeLoadedBookRepository()
+                val viewModel = BookReadersViewModel(fakeRepo(flowOf(readers)), bookId = "b1", loadedBooks = player)
+
+                viewModel.uiState.test {
+                    awaitItem() shouldBe BookReadersUiState.Loading
+                    (awaitItem() as BookReadersUiState.Data).youAreLive shouldBe false
+
+                    player.loaded.value = LoadedBook.Loaded(bookId = "other", isPlaying = true, isFinished = false)
+                    expectNoEvents()
+
+                    player.loaded.value = LoadedBook.Loaded(bookId = "b1", isPlaying = false, isFinished = false)
+                    expectNoEvents()
+
+                    player.loaded.value = LoadedBook.Loaded(bookId = "b1", isPlaying = true, isFinished = false)
+                    val live = awaitItem() as BookReadersUiState.Data
+                    live.youAreLive shouldBe true
+                    live.lines.first().kind shouldBe ReaderLineKind.Reading(40, isLive = true)
                     cancelAndIgnoreRemainingEvents()
                 }
             }

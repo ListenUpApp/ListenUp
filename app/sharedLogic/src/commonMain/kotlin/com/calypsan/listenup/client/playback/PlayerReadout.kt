@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -100,6 +102,29 @@ internal class PlayerReadout(
             if (bound) enginePosition else pending ?: saved?.positionMs ?: 0L
         }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
+    /**
+     * The engine's playhead, attributed to a book only from a position it reports after it took that book: an engine
+     * names its next book before it moves its position (PlaybackManager sets the id, then the start), so a position
+     * from before the switch is never paired with the new id. Null until such a position arrives.
+     */
+    private val enginePlayhead: StateFlow<BookPlayhead?> =
+        merge(
+            engine.loadedBookId.map { EngineReport.Book(it) },
+            engine.positionMs.map { EngineReport.Position(it) },
+        ).scan(EngineHeld(bookId = null, positionMs = null)) { held, report ->
+            when (report) {
+                is EngineReport.Book -> EngineHeld(bookId = report.bookId, positionMs = null)
+                is EngineReport.Position -> held.copy(positionMs = report.positionMs)
+            }
+        }.map { held -> held.bookId?.let { id -> held.positionMs?.let { BookPlayhead(id, it) } } }
+            .stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** [enginePlayhead] while the engine holds the session's book; null otherwise (the saved position stands). */
+    val playhead: StateFlow<BookPlayhead?> =
+        combine(stage, enginePlayhead) { s, live ->
+            live?.takeIf { s is SessionStage.Engine && it.bookId == s.bookId }
+        }.stateIn(scope, SharingStarted.Eagerly, null)
+
     /** The loaded book's chapters: the engine's prepared list, or Room's before a prepare. */
     val chapters: StateFlow<List<Chapter>> =
         combine(engineBound, engine.chapters, roomChapters) { bound, prepared, room -> if (bound) prepared else room }
@@ -177,3 +202,22 @@ internal class PlayerReadout(
                 verdicts.map { verdict -> id to verdict }
             }.distinctUntilChanged()
 }
+
+/** One report from the engine, in the order it made them. */
+private sealed interface EngineReport {
+    /** The engine now holds [bookId] (null: nothing). */
+    data class Book(
+        val bookId: BookId?,
+    ) : EngineReport
+
+    /** The engine's playhead moved to [positionMs]. */
+    data class Position(
+        val positionMs: Long,
+    ) : EngineReport
+}
+
+/** The book the engine holds and the first position it reported for it, if it has yet. */
+private data class EngineHeld(
+    val bookId: BookId?,
+    val positionMs: Long?,
+)

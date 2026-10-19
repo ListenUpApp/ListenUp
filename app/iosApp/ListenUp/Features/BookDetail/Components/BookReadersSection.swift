@@ -12,11 +12,32 @@ import SwiftUI
 /// Hardcover badge; one whose newest ListenUp finish was logged on Hardcover too reads "Finished {date}"
 /// with an "Also on Hardcover" badge. Tapping a row opens that reader's profile.
 ///
+/// On Book Detail the rows are capped at three (spec §2.10, on every platform) and "See All N Readers" opens the
+/// whole list (`BookReadersListView`); a reader's progress is a bar, its percent spoken in the row's label.
+///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
 struct BookReadersSection: View {
     let readers: [BookReaderRow]
+    /// At most this many rows, then "See All N Readers"; nil shows every row (the full list).
+    var cap: Int?
+    /// The book the "See All" link opens the readers of; required for the link to show.
+    var bookId: String?
+    /// False on the full list, whose navigation title already says Readers.
+    var showsHeading = true
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The rows a capped section shows, and how many there are in all.
+    struct Capped: Equatable {
+        let shown: [BookReaderRow]
+        let total: Int
+        var hasMore: Bool { total > shown.count }
+    }
+
+    /// The first [limit] rows of [rows], and the count behind them.
+    static func capped(_ rows: [BookReaderRow], limit: Int = 3) -> Capped {
+        Capped(shown: Array(rows.prefix(limit)), total: rows.count)
+    }
 
     /// How a reader row lays out at a text size. At the accessibility sizes a one-line name beside the
     /// stars and a body-sized trailing glyph truncated to "Rig Rea…", or to nothing at all; there the name
@@ -35,22 +56,44 @@ struct BookReadersSection: View {
         }
     }
 
-    private var listeningCount: Int {
+    /// People partway through: "N reading". Never "listening now" — progress is not presence.
+    private var readingCount: Int {
         readers.lazy.filter(\.isReading).count
     }
 
     var body: some View {
+        let capped = cap.map { Self.capped(readers, limit: $0) } ?? Capped(shown: readers, total: readers.count)
         VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.bottom, Spacing.xxs)
+            if showsHeading {
+                header
+                    .padding(.bottom, Spacing.xxs)
+            }
 
-            ForEach(Array(readers.enumerated()), id: \.element.id) { index, reader in
+            ForEach(Array(capped.shown.enumerated()), id: \.element.id) { index, reader in
                 if index > 0 {
                     Divider()
                         .padding(.leading, 57)
                 }
                 NavigationLink(value: ProfileDestination(userId: reader.id)) {
                     readerRow(reader)
+                }
+                .buttonStyle(.pressScaleRow)
+            }
+
+            if capped.hasMore, let bookId {
+                Divider()
+                NavigationLink(value: BookReadersDestination(bookId: bookId)) {
+                    HStack {
+                        Text(String(format: String(localized: "book.detail_see_all_readers_ios"), capped.total))
+                            .foregroundStyle(Color.listenUpOrange)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 50)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.pressScaleRow)
             }
@@ -66,8 +109,8 @@ struct BookReadersSection: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
 
-            if listeningCount > 0 {
-                Text(String(format: String(localized: "book.detail_readers_listening_now"), listeningCount))
+            if readingCount > 0 {
+                Text(String(format: String(localized: "book.detail_readers_reading"), readingCount))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -186,8 +229,8 @@ struct BookReadersSection: View {
     private func avatar(_ reader: BookReaderRow) -> some View {
         UserAvatarView(userId: reader.id, fallbackName: reader.displayName, size: 44)
             .overlay {
-                // A coral ring marks the readers listening right now.
-                if reader.isReading {
+                // A coral ring marks the one reader known to be listening right now: you, while it plays.
+                if reader.isLive {
                     Circle()
                         .strokeBorder(Color.listenUpOrange, lineWidth: 2.5)
                 }
@@ -196,24 +239,24 @@ struct BookReadersSection: View {
 
     @ViewBuilder
     private func progress(_ reader: BookReaderRow) -> some View {
+        Text(reader.isLive
+             ? String(localized: "book.detail_reader_listening_now")
+             : String(localized: "book.detail_reader_listening"))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        // The bar replaces the number (spec §5.2); the percent is in the row's VoiceOver label.
         if let pct = reader.progressPercent {
-            HStack(spacing: 8) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.luFill)
-                        Capsule()
-                            .fill(Color.listenUpOrange)
-                            .frame(width: geo.size.width * CGFloat(pct) / 100)
-                    }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.luFill)
+                    Capsule()
+                        .fill(Color.listenUpOrange)
+                        .frame(width: geo.size.width * CGFloat(pct) / 100)
                 }
-                .frame(height: 5)
-                .frame(maxWidth: 150)
-
-                Text("\(pct)%")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(Color.listenUpOrange)
             }
+            .frame(height: 5)
+            .frame(maxWidth: 150)
         }
     }
 
@@ -227,10 +270,13 @@ struct BookReadersSection: View {
 
     @ViewBuilder
     private func trailingSymbol(_ reader: BookReaderRow) -> some View {
-        if reader.isReading {
+        if reader.isLive {
             Image(systemName: "sparkles")
                 .font(.body)
                 .foregroundStyle(Color.listenUpOrange)
+        } else if reader.isReading {
+            // Partway through but not live: the bar says how far; no mark claims they are listening.
+            EmptyView()
         } else if reader.isRatedOnly {
             Image(systemName: "star")
                 .font(.body.weight(.semibold))

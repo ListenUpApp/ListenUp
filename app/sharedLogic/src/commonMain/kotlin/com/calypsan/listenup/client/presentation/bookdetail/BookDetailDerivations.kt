@@ -169,3 +169,33 @@ internal fun seriesShelfOf(
         nextBookId = series.bookAfter(thisBookId)?.run { id.value },
     )
 }
+
+/**
+ * What Book Detail shows of a playhead at [positionMs]: the chapter, whole minutes into it, into the book and left.
+ * Two playheads with the same answer draw the same page, so the live playhead only rebuilds the page when this moves.
+ */
+internal data class VisiblePlayhead(
+    val chapterIndex: Int,
+    val minutesIntoChapter: Long,
+    val minutesIntoBook: Long,
+    val minutesLeft: Long,
+)
+
+/** [VisiblePlayhead] at [positionMs] over [chapters]. Pure. */
+internal fun visiblePlayhead(
+    positionMs: Long,
+    chapters: List<Chapter>,
+): VisiblePlayhead {
+    // The same answer as [currentChapterOf], so the key moves exactly when the current chapter does.
+    val index = currentChapterIndex(chapters.map { it.startTime }, positionMs) ?: -1
+    val chapterStart = chapters.getOrNull(index)?.startTime ?: 0L
+    val end = chapters.lastOrNull()?.let { it.startTime + it.duration } ?: positionMs
+    return VisiblePlayhead(
+        chapterIndex = index,
+        minutesIntoChapter = (positionMs - chapterStart) / MILLIS_PER_MINUTE,
+        minutesIntoBook = positionMs / MILLIS_PER_MINUTE,
+        minutesLeft = (end - positionMs).coerceAtLeast(0L) / MILLIS_PER_MINUTE,
+    )
+}
+
+private const val MILLIS_PER_MINUTE = 60_000L

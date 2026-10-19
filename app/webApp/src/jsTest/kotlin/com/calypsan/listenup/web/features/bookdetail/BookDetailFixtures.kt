@@ -9,7 +9,11 @@ import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
+import com.calypsan.listenup.client.presentation.bookdetail.SeriesShelf
+import com.calypsan.listenup.client.presentation.bookdetail.SeriesShelfBook
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.core.BookId
@@ -37,6 +41,9 @@ internal fun readyBook(
     moods: List<Mood> = emptyList(),
     showServerWarning: Boolean = false,
     canEditMetadata: Boolean = true,
+    readingStage: ReadingStage = ReadingStage.NotStarted,
+    // The visit's order the ViewModel decides (spec §2.4); Series only when the book has one.
+    sectionOrder: List<BookDetailSection> = defaultOrder(readingStage, hasSeries = series.isNotEmpty()),
 ): BookDetailUiState.Ready =
     BookDetailUiState.Ready(
         book =
@@ -69,7 +76,84 @@ internal fun readyBook(
         showServerWarning = showServerWarning,
         seriesPaths = seriesPaths,
         canEditMetadata = canEditMetadata,
+        readingStage = readingStage,
+        sectionOrder = sectionOrder,
+        chapterPreview = chapters.take(PREVIEW_ROWS),
+        seriesShelf =
+            series.firstOrNull()?.let { first ->
+                SeriesShelf(
+                    seriesId = first.seriesId,
+                    name = first.seriesName,
+                    books =
+                        listOf(
+                            SeriesShelfBook(
+                                id = "42",
+                                coverPath = null,
+                                coverHash = null,
+                                sequenceLabel = "1",
+                                isThis = true,
+                            ),
+                            SeriesShelfBook(
+                                id = "43",
+                                coverPath = null,
+                                coverHash = null,
+                                sequenceLabel = "2",
+                                isThis = false,
+                            ),
+                        ),
+                    thisIndex = 0,
+                    nextBookId = "43",
+                )
+            },
     )
+
+/** The order PR 1's ViewModel emits for [stage] (spec §2.4), with Series only when there is one. */
+internal fun defaultOrder(
+    stage: ReadingStage,
+    hasSeries: Boolean,
+): List<BookDetailSection> {
+    val order =
+        when (stage) {
+            ReadingStage.NotStarted -> {
+                listOf(
+                    BookDetailSection.About,
+                    BookDetailSection.Ratings,
+                    BookDetailSection.Hardcover,
+                    BookDetailSection.Readers,
+                    BookDetailSection.Series,
+                    BookDetailSection.Chapters,
+                    BookDetailSection.Details,
+                )
+            }
+
+            ReadingStage.InProgress -> {
+                listOf(
+                    BookDetailSection.Chapters,
+                    BookDetailSection.About,
+                    BookDetailSection.Series,
+                    BookDetailSection.Readers,
+                    BookDetailSection.Ratings,
+                    BookDetailSection.Hardcover,
+                    BookDetailSection.Details,
+                )
+            }
+
+            ReadingStage.Finished -> {
+                listOf(
+                    BookDetailSection.Ratings,
+                    BookDetailSection.Hardcover,
+                    BookDetailSection.Readers,
+                    BookDetailSection.Series,
+                    BookDetailSection.Chapters,
+                    BookDetailSection.About,
+                    BookDetailSection.Details,
+                )
+            }
+        }
+    return if (hasSeries) order else order - BookDetailSection.Series
+}
+
+private const val PREVIEW_ROWS = 5
 
 /**
  * Two supplementary documents: one the browser renders, one it can only hand over.

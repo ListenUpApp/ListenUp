@@ -595,7 +595,7 @@ class WebAppRootTest :
                 )
 
             try {
-                host.querySelectorAll(".rdr-row").length shouldBe 5
+                host.querySelectorAll(".rdr-row").length shouldBe 3
 
                 (host.querySelector(".rdr-all") as HTMLElement).click()
                 awaitFrame()
@@ -816,7 +816,7 @@ class WebAppRootTest :
 
         test("Edit chapters on a book's chapters pane opens the editor") {
             val (host, router) =
-                mountAt("/book/b-stormlight?tab=chapters", openBookDetail = fixedBookDetail(readyBook()))
+                mountAt("/book/b-stormlight/map", openBookDetail = fixedBookDetail(readyBook()))
 
             try {
                 (host.querySelector(".bd-chapters-edit button") as HTMLElement).click()

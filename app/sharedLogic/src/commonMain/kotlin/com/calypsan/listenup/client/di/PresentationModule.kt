@@ -380,12 +380,15 @@ internal val bookPresentationModule =
                 seriesRepository = get(),
                 undoMatch = get(),
                 userProfileRepository = get(),
+                loadedBookRepository = get(),
+                playhead = get(),
             )
         }
         factory { params ->
             com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel(
                 repo = get(),
                 bookId = params.get(),
+                loadedBooks = get(),
             )
         }
         factory { params ->

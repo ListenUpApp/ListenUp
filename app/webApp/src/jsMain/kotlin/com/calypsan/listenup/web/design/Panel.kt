@@ -21,7 +21,7 @@ import org.jetbrains.compose.web.dom.Text
  * reader only ("Needs a match, 3 books"); the drawn count is then hidden from it. A bare "3" read
  * after the heading says nothing about what was counted.
  *
- * [elementId] names the panel so a landing can scroll to it (Book Detail's Readers, spec §6.4).
+ * [elementId] names the panel so a link or a landing can scroll to it (Book Detail's Readers, spec §2.10).
  */
 @Composable
 fun Panel(

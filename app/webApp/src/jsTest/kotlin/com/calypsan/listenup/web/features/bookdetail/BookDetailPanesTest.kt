@@ -58,6 +58,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.asList
 import org.w3c.dom.HTMLAnchorElement
@@ -208,29 +209,20 @@ class BookDetailPanesTest :
             return host to router
         }
 
-        fun tabText(host: HTMLElement): String =
-            (0 until host.querySelectorAll(".tab").length)
-                .mapNotNull { index -> (host.querySelectorAll(".tab").item(index) as? HTMLElement)?.textContent }
-                .joinToString(" ")
-
-        test("the page offers exactly the panes it has data for") {
+        test("the book is one page: no tabs, and the chapters and the files a link away") {
             val (host, router) = mountAt("/book/42")
 
             try {
-                val tabs = tabText(host)
-                host.querySelectorAll(".tab").length shouldBe 3
-                tabs shouldContain "Overview"
-                tabs shouldContain "Chapters"
-                tabs shouldContain "Files"
-                // No activity source exists, and Readers needs a second ViewModel that isn't wired.
-                tabs.contains("Activity") shouldBe false
+                host.querySelectorAll(".tab").length shouldBe 0
+                (host.querySelector("a.bd-chmap-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/map"
+                (host.querySelector("a.bd-files-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/files"
             } finally {
                 router.dispose()
             }
         }
 
         test("the files pane lists every file with the numbers an operator came to check") {
-            val (host, router) = mountAt("/book/42?tab=files")
+            val (host, router) = mountAt("/book/42/files")
 
             try {
                 host.querySelectorAll(".bd-main .tbl tbody tr").length shouldBe 3
@@ -243,7 +235,7 @@ class BookDetailPanesTest :
         }
 
         test("the files rail reports the audio specs the primary file carries") {
-            val (host, router) = mountAt("/book/42?tab=files")
+            val (host, router) = mountAt("/book/42/files")
 
             try {
                 val rail = (host.querySelector(".bd-side") as HTMLElement).textContent.orEmpty()
@@ -256,7 +248,7 @@ class BookDetailPanesTest :
 
         test("a book whose files never got scanned says so rather than drawing an empty table") {
             val (host, router) =
-                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(audioFiles = emptyList())))
+                mountAt("/book/42/files", fixedBookDetail(readyBook(audioFiles = emptyList())))
 
             try {
                 (host.querySelector(".bd .tblwrap") == null) shouldBe true
@@ -268,15 +260,13 @@ class BookDetailPanesTest :
             }
         }
 
-        test("the Files tab counts the documents it holds, not just the audio") {
-            // ⛔ Pinned because it was wrong by omission the moment documents arrived in this pane:
-            // 3 audio files and 2 documents is five rows, and a tab reading "3" over five rows is
-            // the kind of small lie the reader has no way to check.
+        test("the files page holds the documents as well as the audio") {
             val (host, router) =
-                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+                mountAt("/book/42/files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
 
             try {
-                tabText(host) shouldContain "5"
+                host.querySelector(".bd-files") shouldNotBe null
+                (host.querySelector(".bd-files") as HTMLElement).textContent.orEmpty() shouldContain "institute-map.pdf"
             } finally {
                 router.dispose()
             }
@@ -332,7 +322,7 @@ class BookDetailPanesTest :
             // ⛔ The gap this closes. `BookDetailViewModel.documents` has always existed and web
             // read it nowhere, so a PDF the server had found was invisible in the browser.
             val (host, router) =
-                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+                mountAt("/book/42/files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
 
             try {
                 val main = (host.querySelector(".bd-main") as HTMLElement).textContent.orEmpty()
@@ -350,7 +340,7 @@ class BookDetailPanesTest :
 
         test("a PDF is opened in a tab and everything else is handed over") {
             val (host, router) =
-                mountAt("/book/42?tab=files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
+                mountAt("/book/42/files", fixedBookDetail(readyBook(), documents = sampleDocuments()))
 
             try {
                 val links =
@@ -379,7 +369,7 @@ class BookDetailPanesTest :
         }
 
         test("a book with no documents draws no documents panel at all") {
-            val (host, router) = mountAt("/book/42?tab=files")
+            val (host, router) = mountAt("/book/42/files")
 
             try {
                 (host.querySelector(".doc-open") == null) shouldBe true
@@ -397,7 +387,7 @@ class BookDetailPanesTest :
             // server actually has.
             val (host, router) =
                 mountAt(
-                    "/book/42?tab=files",
+                    "/book/42/files",
                     fixedBookDetail(readyBook(audioFiles = emptyList()), documents = sampleDocuments()),
                 )
 

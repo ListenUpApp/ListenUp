@@ -123,4 +123,17 @@ class ReaderLineTest :
                     ReaderLineKind.Finished(300L),
                 )
         }
+
+        test("only your own reading line can be live, and only when the player is playing this book") {
+            val readers =
+                listOf(
+                    Reader("me", "You", isYou = true, currentProgressPct = 40, finishes = emptyList()),
+                    Reader("u2", "Jake", isYou = false, currentProgressPct = 43, finishes = emptyList()),
+                )
+            flattenToLines(readers, youAreLive = true).map { it.kind } shouldBe
+                listOf(ReaderLineKind.Reading(40, isLive = true), ReaderLineKind.Reading(43, isLive = false))
+            // Progress alone never claims anyone is live: we only know it for you.
+            flattenToLines(readers).map { it.kind } shouldBe
+                listOf(ReaderLineKind.Reading(40, isLive = false), ReaderLineKind.Reading(43, isLive = false))
+        }
     })

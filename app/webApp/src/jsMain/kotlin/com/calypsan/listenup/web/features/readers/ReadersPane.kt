@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.readers.ReaderLine
-import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
+import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.util.relativeOrMonthYear
 import com.calypsan.listenup.web.design.EmptyLook
@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
@@ -35,7 +36,8 @@ import org.jetbrains.compose.web.dom.Text
  * that said "couldn't load readers" would make it look like it was. That is the same call Compose
  * and iOS make, for the same reason.
  *
- * Capped at [COLLAPSED_READERS] with a "See all" when there are more — see [ReadersPage].
+ * Capped at [COLLAPSED_READERS] (spec §2.10: three, on every platform) with "See all N readers" below the rows when
+ * there are more — see [ReadersPage]. The panel is the page's `#readers` anchor: the hero's social line scrolls to it.
  */
 @Composable
 fun ReadersPanel(
@@ -47,7 +49,7 @@ fun ReadersPanel(
     onLanded: () -> Unit = {},
 ) {
     val data = state as? BookReadersUiState.Data ?: return
-    val lines = flattenToLines(data.readers.readers)
+    val lines = data.lines
     if (lines.isEmpty()) return
 
     // Home's finishers line (spec §6.4): once there are readers to show, bring the panel into view and its heading into
@@ -62,21 +64,17 @@ fun ReadersPanel(
     }
 
     val shown = lines.take(COLLAPSED_READERS)
-    Panel(
-        title = READERS,
-        elementId = READERS_PANEL_ID,
-        trailing = {
-            if (lines.size > shown.size) {
-                Button(attrs = {
-                    classes("rdr-all")
-                    attr("type", "button")
-                    onClick { onSeeAll() }
-                }) { Text("See all") }
-            }
-        },
-    ) {
-        ListeningNow(lines)
+    Panel(title = READERS, elementId = READERS_PANEL_ID) {
+        ReadingCount(lines)
         ReaderRows(shown, nowMs, onOpenProfile)
+        // Below the rows, full width, as the boards draw it: the way to everyone past the first three.
+        if (lines.size > shown.size) {
+            Button(attrs = {
+                classes("rdr-all")
+                attr("type", "button")
+                onClick { onSeeAll() }
+            }) { Text("See all ${lines.size} readers") }
+        }
     }
 }
 
@@ -113,24 +111,24 @@ fun ReadersPage(
             }
 
             is BookReadersUiState.Data -> {
-                val lines = flattenToLines(state.readers.readers)
+                val lines = state.lines
                 if (lines.isEmpty()) {
                     EmptyState(title = "Nobody has started this book yet.", look = EmptyLook.Inline)
                     return@Div
                 }
-                ListeningNow(lines)
+                ReadingCount(lines)
                 ReaderRows(lines, nowMs, onOpenProfile)
             }
         }
     }
 }
 
-/** "3 listening now" — only when somebody actually is. */
+/** "3 reading": people partway through — only when somebody is. Never "listening now": progress is not presence. */
 @Composable
-private fun ListeningNow(lines: List<ReaderLine>) {
-    val listening = lines.count { it.kind is ReaderLineKind.Reading }
-    if (listening == 0) return
-    Div(attrs = { classes("rdr-now") }) { Text("$listening listening now") }
+private fun ReadingCount(lines: List<ReaderLine>) {
+    val reading = lines.count { it.kind is ReaderLineKind.Reading }
+    if (reading == 0) return
+    Div(attrs = { classes("rdr-now") }) { Text("$reading reading") }
 }
 
 @Composable
@@ -183,7 +181,8 @@ private fun ReaderRow(
     val kind = line.kind
     Button(attrs = {
         classes("rdr-row")
-        if (kind is ReaderLineKind.Reading) classes("is-live")
+        // Live only for you, while the player plays this book: the one listener we know is listening now.
+        if (kind is ReaderLineKind.Reading && kind.isLive) classes("is-live")
         attr("type", "button")
         attr("aria-describedby", OPENS_PROFILE_ID)
         onClick { onOpenProfile(line.userId) }
@@ -227,28 +226,33 @@ private fun ReaderRow(
             } else {
                 Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
             }
+            // The bar replaces the number (spec §5.2); the number is in the bar's name, so the row still says it.
+            if (kind is ReaderLineKind.Reading) {
+                kind.progressPct?.let { pct ->
+                    ProgressBar(value = pct / PERCENT, label = "$pct percent", attrs = { classes("rdr-bar") })
+                }
+            }
             line.rating?.note?.let { note ->
                 Span(attrs = { classes("rdr-note") }) { Text("\u201C$note\u201D") }
             }
         }
-        Icon(
+        // A reading row that is not live carries no mark: its bar says how far, and nothing claims they are listening.
+        val mark =
             when (kind) {
-                is ReaderLineKind.Reading -> WebIcon.Volume
+                is ReaderLineKind.Reading -> if (kind.isLive) WebIcon.Volume else null
                 is ReaderLineKind.Finished -> WebIcon.Check
                 is ReaderLineKind.FinishedOnHardcover -> WebIcon.Check
                 ReaderLineKind.Rated -> WebIcon.Star
-            },
-            size = MARK_SIZE,
-        )
+            }
+        mark?.let { Icon(it, size = MARK_SIZE) }
     }
 }
 
 /**
  * What one reader line says about itself.
  *
- * A Reading line with no percentage still says "Listening now": presence tells us they are on the
- * book even when no position has synced, and an empty second line would read as missing data
- * rather than as a reader we know less about.
+ * A Reading line says "Listening" — or "Listening now" when it is live (yours, while the player plays this book) —
+ * with or without a percentage: the progress is the bar under it, never a number (spec §5.2).
  *
  * A read logged on Hardcover says "Read …", never "Finished …": it wasn't listened to here.
  */
@@ -257,7 +261,7 @@ internal fun stateLine(
     nowMs: Long,
 ): String =
     when (kind) {
-        is ReaderLineKind.Reading -> kind.progressPct?.let { "$it% through" } ?: "Listening now"
+        is ReaderLineKind.Reading -> if (kind.isLive) "Listening now" else "Listening"
 
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
 
@@ -268,16 +272,19 @@ internal fun stateLine(
         ReaderLineKind.Rated -> "Rated"
     }
 
-private const val COLLAPSED_READERS = 5
+private const val COLLAPSED_READERS = 3
+
+/** A percentage as a fraction. */
+private const val PERCENT = 100f
+
+/** The Book Detail readers panel's element id: the social line's `#readers` link, and a landing's target. */
+internal const val READERS_PANEL_ID = "readers"
 
 private const val AVATAR_SIZE = 32
 
 private const val MARK_SIZE = 16
 
 private const val READERS = "Readers"
-
-/** The Book Detail readers panel's element id, which a landing scrolls to. */
-internal const val READERS_PANEL_ID = "readers"
 
 private const val HARDCOVER = "Hardcover"
 

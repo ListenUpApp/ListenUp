@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.util.relativeOrMonthYear
@@ -29,7 +30,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val row = readers.toReaderRows(nowMs = 10_000L).single()
+            val row = flattenToLines(readers).toReaderRows(nowMs = 10_000L).single()
 
             row.isRatedOnly shouldBe true
             row.isReading shouldBe false
@@ -52,7 +53,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val rows = readers.toReaderRows(nowMs = 10_000L)
+            val rows = flattenToLines(readers).toReaderRows(nowMs = 10_000L)
 
             rows shouldHaveSize 2
             rows[0].halfStars shouldBe 10
@@ -73,7 +74,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val rows = readers.toReaderRows(nowMs = 10_000L)
+            val rows = flattenToLines(readers).toReaderRows(nowMs = 10_000L)
 
             rows shouldHaveSize 2
             rows[0].isOnHardcover shouldBe false
@@ -95,7 +96,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val row = readers.toReaderRows(nowMs = 10_000L).single()
+            val row = flattenToLines(readers).toReaderRows(nowMs = 10_000L).single()
 
             row.isAlsoOnHardcover shouldBe true
             row.isOnHardcover shouldBe false
@@ -115,7 +116,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val rows = readers.toReaderRows(nowMs = 10_000L)
+            val rows = flattenToLines(readers).toReaderRows(nowMs = 10_000L)
 
             rows.map { it.finishedWhen }.distinct() shouldHaveSize 1
             rows.map { it.listKey }.distinct() shouldHaveSize 2
@@ -135,7 +136,7 @@ class ReaderRowsRatingTest :
                     ),
                 )
 
-            val rows = readers.toReaderRows(nowMs = nowMs)
+            val rows = flattenToLines(readers).toReaderRows(nowMs = nowMs)
 
             rows.map { it.finishedWhen }.distinct() shouldHaveSize 1
             rows.map { it.listKey }.distinct() shouldHaveSize 2

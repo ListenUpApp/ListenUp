@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.core.BookId
@@ -145,6 +146,16 @@ class BookDetailTriageTest {
                             isReleasingFromInbox = isReleasing,
                             canPlay = false,
                             canDownload = false,
+                            // Every section, social ones included: the held layout must drop them itself.
+                            sectionOrder =
+                                listOf(
+                                    BookDetailSection.About,
+                                    BookDetailSection.Ratings,
+                                    BookDetailSection.Hardcover,
+                                    BookDetailSection.Readers,
+                                    BookDetailSection.Chapters,
+                                    BookDetailSection.Details,
+                                ),
                         ),
                     actions =
                         BookDetailActions(

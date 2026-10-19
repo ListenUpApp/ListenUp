@@ -46,8 +46,7 @@ class BookDetailCreditsTest :
             mounts.mount {
                 BookDetailPage(
                     state = readyBook(authors = authors, narrators = narrators, allContributors = allContributors),
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onOpenContributor = onOpenContributor,
