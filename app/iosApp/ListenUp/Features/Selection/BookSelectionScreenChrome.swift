@@ -50,7 +50,8 @@ struct BookSelectionToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            Text(String(format: String(localized: "selection.n_selected"),
+            // HIG title case in a navigation title: "2 Selected" (plan Q9).
+            Text(String(format: String(localized: "selection.n_selected_ios"),
                         selection.selectedBookIds.count))
                 .font(.headline)
         }

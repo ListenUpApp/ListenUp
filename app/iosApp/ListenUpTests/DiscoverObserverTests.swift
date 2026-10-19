@@ -270,10 +270,12 @@ struct ActivityFeedObserverTests {
         #expect(item.predicate == "joined the server")
     }
 
-    @Test func activityCapsAtSix() {
-        #expect(ActivitySectionView.visibleCount(total: 9, expanded: false) == 6)
-        #expect(ActivitySectionView.visibleCount(total: 9, expanded: true) == 9)
-        #expect(ActivitySectionView.visibleCount(total: 4, expanded: false) == 4)
+    // Rewritten from the expand-in-place cap: rows 7–100 are still reachable, on See All Activity.
+    @Test func activityCapsAtSixAndSeeAllIsADestination() {
+        #expect(ActivitySectionView.visibleCount(total: 40) == 6)
+        #expect(ActivitySectionView.visibleCount(total: 4) == 4)
+        #expect(ActivitySectionView.offersSeeAll(total: 7))
+        #expect(!ActivitySectionView.offersSeeAll(total: 6))
     }
 }
 

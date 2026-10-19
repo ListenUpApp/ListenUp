@@ -442,6 +442,9 @@ private extension View {
             .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
             }
+            .navigationDestination(for: ActivityFeedDestination.self) { _ in
+                ActivityFeedView()
+            }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
