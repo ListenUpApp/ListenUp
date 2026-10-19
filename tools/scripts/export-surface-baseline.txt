@@ -560,6 +560,7 @@ ListenerRating
 ListenerRatingLimits
 ListeningEventRecorder
 LoadedBook
+LoadedBookPlayhead
 LoadedBookRepository
 LoadedBookStore
 LoadedBook_SealedType
