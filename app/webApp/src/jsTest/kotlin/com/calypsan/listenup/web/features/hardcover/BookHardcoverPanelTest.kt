@@ -264,13 +264,12 @@ class BookHardcoverPanelTest :
             host.textContent.orEmpty() shouldBe ""
         }
 
-        test("on Book Detail it sits in the side rail, after Details and before Readers") {
+        test("on Book Detail it sits in the side rail, in the visit's stage order: before Details") {
             val host =
                 mounts.mount {
                     BookDetailPage(
                         state = readyBook(),
-                        tab = "overview",
-                        onSelectTab = {},
+                        onPlayFromChapter = {},
                         onOpenLibrary = {},
                         onPlay = {},
                         onRetryConnection = {},
@@ -280,6 +279,7 @@ class BookHardcoverPanelTest :
             awaitFrame()
 
             val headings = host.querySelectorAll(".bd-side h2").asList().map { it.textContent }
-            headings.indexOf("Hardcover") shouldBe headings.indexOf("Details") + 1
+            // Not started: Ratings, Hardcover, Readers, Details — Ratings and Readers are silent while they load.
+            headings shouldBe listOf("Hardcover", "Details")
         }
     })

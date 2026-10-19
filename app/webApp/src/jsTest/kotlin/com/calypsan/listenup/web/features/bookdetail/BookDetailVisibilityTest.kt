@@ -35,8 +35,7 @@ class BookDetailVisibilityTest :
             mounts.mount {
                 BookDetailPage(
                     state = state,
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onRetryConnection = {},
@@ -147,8 +146,7 @@ class BookDetailVisibilityTest :
                     mounts.mount {
                         BookDetailPage(
                             state = state,
-                            tab = "overview",
-                            onSelectTab = {},
+                            onPlayFromChapter = {},
                             onOpenLibrary = {},
                             onPlay = {},
                             onRetryConnection = {},

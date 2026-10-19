@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.InShell
 import com.calypsan.listenup.web.PHONE
 import com.calypsan.listenup.web.SMALL_PHONE
 import com.calypsan.listenup.web.ViewportFrames
+import com.calypsan.listenup.web.awaitPresent
 import com.calypsan.listenup.web.contentOverflow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -28,8 +29,7 @@ class BookHeaderOnAPhoneTest :
                 InShell {
                     BookDetailPage(
                         state = readyBook(),
-                        tab = "overview",
-                        onSelectTab = {},
+                        onPlayFromChapter = {},
                         onOpenLibrary = {},
                         onPlay = {},
                         onEdit = {},
@@ -41,6 +41,8 @@ class BookHeaderOnAPhoneTest :
         listOf(SMALL_PHONE, PHONE).forEach { width ->
             test("at ${width}px every header action is on screen") {
                 val frame = header(width)
+                // The page settles to its one column once it has read its own frame's width.
+                awaitPresent(frame.host, ".bd-flow")
                 val actions = frame.findAll(".bd-actions > *")
                 val edge = frame.rect(frame.find(".bd")).right
 

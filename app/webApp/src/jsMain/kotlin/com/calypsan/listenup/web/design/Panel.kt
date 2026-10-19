@@ -20,6 +20,8 @@ import org.jetbrains.compose.web.dom.Text
  * [spokenCount] is what a count drawn in [trailing] means, said inside the heading for a screen
  * reader only ("Needs a match, 3 books"); the drawn count is then hidden from it. A bare "3" read
  * after the heading says nothing about what was counted.
+ *
+ * [elementId] names the panel so a link or a landing can scroll to it (Book Detail's Readers, spec §2.10).
  */
 @Composable
 fun Panel(
@@ -27,9 +29,11 @@ fun Panel(
     flush: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
     spokenCount: String? = null,
+    elementId: String? = null,
     content: @Composable () -> Unit,
 ) {
     Section(attrs = {
+        elementId?.let { id(it) }
         style {
             property("background", "var(--surface)")
             property("border", "1px solid var(--line)")

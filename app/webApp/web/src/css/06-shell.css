@@ -410,6 +410,67 @@ dialog.dlg.bd-credits { width:520px; }
 .f-check input { width:18px; height:18px; accent-color:var(--coral); cursor:pointer; }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
+/* One column, in the visit's stage order: below 1024px Kotlin draws this instead of the two columns. */
+.bd-flow { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
+/* Chapters that play from the chapter they name (spec §2.5). */
+.bd-ch { display:flex; flex-direction:column; gap:var(--sp-8); padding:var(--sp-16); background:var(--surface); border:1px solid var(--line); border-radius:var(--rad); box-shadow:var(--shadow-card); min-width:0; }
+.bd-ch-head { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-12); }
+.bd-ch-title { margin:0; font-size:1rem; font-weight:700; }
+.bd-ch-count { font-weight:500; color:var(--ink-2); }
+.bd-chmap-link { font-size:0.875rem; font-weight:600; color:var(--coral-text); border-radius:var(--r-xs); }
+.bd-chmap-link:focus { outline:none; }
+.bd-chmap-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-ch-list { display:flex; flex-direction:column; }
+.bd-ch-table { width:100%; border-collapse:collapse; }
+.bd-ch-table th { padding:0 var(--sp-8); height:32px; text-align:left; font-size:0.75rem; font-weight:600; color:var(--ink-3); border-bottom:1px solid var(--line); }
+.bd-ch-table td { padding:0 var(--sp-8); border-bottom:1px solid var(--line-2); vertical-align:middle; }
+.bd-ch-table td.bd-ch-n { width:2.5rem; color:var(--ink-2); }
+.bd-ch-table td.bd-ch-d { width:5.5rem; white-space:nowrap; }
+.bd-ch-row { width:100%; min-height:46px; display:flex; align-items:center; gap:var(--sp-12); padding:0 var(--sp-8); text-align:left; background:none; border:0; border-radius:var(--r-sm); font:inherit; font-size:0.9375rem; color:var(--ink); cursor:pointer; }
+.bd-ch-list .bd-ch-row { border-bottom:1px solid var(--line-2); border-radius:0; }
+@media (hover: hover) { .bd-ch-row:not([disabled]):hover { background:var(--surface-2); } }
+/* A row says it in colour when pressed (03-press.css: rows deepen rather than move). */
+.bd-ch-row:not([disabled]):active { background:var(--surface-3); }
+.bd-ch-row:focus { outline:none; }
+.bd-ch-row:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.bd-ch-row.is-current, .bd-ch-table tr.is-current { background:var(--surface-2); font-weight:700; }
+.bd-ch-row[disabled] { opacity:0.5; cursor:not-allowed; }
+.bd-ch-n { width:1.5rem; flex:none; color:var(--ink-2); }
+.bd-ch-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bd-ch-d { flex:none; color:var(--ink-2); }
+.bd-ch-play { flex:none; color:var(--coral-text); }
+.bd-ch-all { align-self:stretch; min-height:44px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
+.bd-ch-all:focus { outline:none; }
+.bd-ch-all:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* Who else is reading: one link to the Readers panel, under the actions (spec §2.10). */
+.bd-social { display:flex; align-items:center; gap:10px; min-height:44px; font-size:0.875rem; color:var(--ink-2); text-decoration:none; border-radius:var(--r-sm); }
+.bd-social b { font-weight:600; color:var(--ink); }
+.bd-social:focus { outline:none; }
+.bd-social:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-social-avatars { display:flex; flex:none; }
+.bd-social-text { min-width:0; }
+.bd-social-avatars > * + * { margin-left:-8px; }
+.bd-social-avatars > * { box-shadow:0 0 0 2px var(--bd-hero-wash); border-radius:50%; }
+/* The synopsis on a phone: clamped by lines, "Read more" only when the clamp hides something. */
+.bd-desc.is-clamped { display:-webkit-box; -webkit-line-clamp:var(--clamp); -webkit-box-orient:vertical; overflow:hidden; }
+.bd-desc.is-clamped p { margin:0; }
+.bd-more { align-self:flex-start; min-height:44px; padding:0; background:none; border:0; font:inherit; font-size:0.875rem; font-weight:700; color:var(--coral-text); cursor:pointer; border-radius:var(--r-xs); }
+.bd-more:focus { outline:none; }
+.bd-more:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* The series as square covers in sequence, this book outlined (spec §3.2.2). */
+.bd-series-row { display:flex; gap:var(--sp-12); overflow-x:auto; padding:4px; }
+.bd-series-cover { flex:none; display:block; border-radius:var(--r-md); }
+.bd-series-cover.is-this { outline:2px solid var(--coral-fill); outline-offset:2px; }
+.bd-series-cover:focus { outline:none; }
+.bd-series-cover:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.bd-series-caption { margin:var(--sp-8) 0 0; font-size:0.875rem; font-weight:600; color:var(--ink-2); }
+.bd-series-open { font-size:0.875rem; font-weight:600; color:var(--coral-text); }
+/* The chapter map and the files: Book Detail's own sub-pages, the same column rhythm as the page. */
+.bd-map, .bd-files { gap:var(--gap); }
+/* Details ends with the way to the files (Decision 9). */
+.bd-files-link { display:inline-flex; align-items:center; min-height:44px; margin-top:var(--sp-8); font-size:0.875rem; font-weight:600; color:var(--coral-text); border-radius:var(--r-xs); }
+.bd-files-link:focus { outline:none; }
+.bd-files-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* Retry sits at the end of the offline banner's single flex row: a small Button, placed here. */
 .luw .bd-retry { margin-left:auto; }
 /* A document row's open/download link: a small secondary ButtonLink, its glyph tucked close. */

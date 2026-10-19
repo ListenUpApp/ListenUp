@@ -35,8 +35,7 @@ class BookDetailDeleteTest :
             mounts.mount {
                 BookDetailPage(
                     state = state(),
-                    tab = "overview",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onRetryConnection = {},

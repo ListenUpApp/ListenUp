@@ -29,8 +29,7 @@ class BookDetailEditButtonTest :
             mounts.mount {
                 BookDetailPage(
                     state = readyBook(canEditMetadata = canEditMetadata),
-                    tab = "chapters",
-                    onSelectTab = {},
+                    onPlayFromChapter = {},
                     onOpenLibrary = {},
                     onPlay = {},
                     onEdit = onEdit,
@@ -51,7 +50,19 @@ class BookDetailEditButtonTest :
 
             root.querySelector("button[aria-label='Edit book']") shouldBe null
             root.querySelector("button[aria-label='Match details']") shouldBe null
-            root.querySelectorAll("button").asList().none { it.textContent?.trim() == "Edit chapters" } shouldBe true
+            // Edit chapters lives on the chapter map page now.
+            val map =
+                mounts.mount {
+                    ChapterMapPage(
+                        state = readyBook(canEditMetadata = false),
+                        selection = emptySet(),
+                        onSelectionChange = {},
+                        onOpenBook = {},
+                        onOpenLibrary = {},
+                        onEditChapters = {},
+                    )
+                }
+            map.querySelectorAll("button").asList().none { it.textContent?.trim() == "Edit chapters" } shouldBe true
         }
 
         test("edit stands exactly as tall as Play") {

@@ -109,6 +109,12 @@ internal object Routes {
 
         fun chapters(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTERS_KEY))
 
+        /** `/book/{id}/map`: the chapter map, its selection inspector and the full chapter table. */
+        fun chapterMap(id: String): Route = Route(listOf(BOOK_KEY, id, CHAPTER_MAP_KEY))
+
+        /** `/book/{id}/files`: the audio files, their specs and the book's documents. */
+        fun files(id: String): Route = Route(listOf(BOOK_KEY, id, FILES_KEY))
+
         fun edit(id: String): Route = Route(listOf(BOOK_KEY, id, EDIT_KEY))
 
         fun hardcover(id: String): Route = Route(listOf(BOOK_KEY, id, HARDCOVER_KEY))
@@ -162,7 +168,8 @@ private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
         LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
         SEARCH_KEY to { it.size <= 2 },
         SETTINGS_KEY to { it.isSettingsShape() },
-        BOOK_KEY to { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, MATCH_KEY, READERS_KEY, HARDCOVER_KEY) },
+        BOOK_KEY to
+            { it.isIdWith(EDIT_KEY, CHAPTERS_KEY, CHAPTER_MAP_KEY, FILES_KEY, MATCH_KEY, READERS_KEY, HARDCOVER_KEY) },
         BOOKS_KEY to { it.size == 2 && it[1] == EDIT_KEY },
         CONTRIBUTOR_KEY to { it.isIdWith(EDIT_KEY, BOOKS_KEY, MATCH_KEY) },
         SERIES_KEY to { it.isIdWith(EDIT_KEY) },
@@ -265,6 +272,21 @@ internal const val EDIT_KEY = "edit"
 
 /** `/book/{id}/chapters` — the chapter editor over one book. */
 internal const val CHAPTERS_KEY = "chapters"
+
+/**
+ * `/book/{id}/map` — the chapter map and table, with `?sel=` its selection. Not `chapters`: that is the editor. Book
+ * Detail is one page, and its old `?tab=chapters` links land here.
+ */
+internal const val CHAPTER_MAP_KEY = "map"
+
+/** `/book/{id}/files` — the audio files and documents; where Book Detail's old `?tab=files` links land. */
+internal const val FILES_KEY = "files"
+
+/** `/book/{id}?tab=…` — the retired pane parameter, read only to redirect an old link. */
+internal const val LEGACY_TAB_QUERY_KEY = "tab"
+
+/** `/book/{id}/map?sel=9,10` — the chapter map's selection. */
+internal const val SELECTION_QUERY_KEY = "sel"
 
 /** `/book/{id}/readers` — everyone on this book. */
 internal const val READERS_KEY = "readers"

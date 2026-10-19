@@ -120,7 +120,17 @@ class ReadersTest :
                 )
 
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Ada Lovelace42% through", "Grace HopperFinished yesterday")
+                listOf("Ada LovelaceListening now", "Grace HopperFinished yesterday")
+        }
+
+        test("a reading row draws its progress as a bar named with the percent, and prints no number") {
+            val host = panel(readersData(reader(userId = "u1", displayName = "Ada Lovelace", progressPct = 64)))
+
+            val row = rows(host).single()
+            val bar = row.querySelector("[role=progressbar]") as HTMLElement
+            bar.getAttribute("aria-valuenow") shouldBe "64"
+            bar.getAttribute("aria-label") shouldBe "64 percent"
+            row.textContent.orEmpty().contains("%") shouldBe false
         }
 
         test("a reader with no progress and a finish is shown as finished, not as both") {
@@ -141,7 +151,7 @@ class ReadersTest :
             // The arm is still live — the type says `Int?` — and a spec that could not fail here
             // would be no spec at all.
             stateLine(ReaderLineKind.Reading(null), READERS_NOW) shouldBe "Listening now"
-            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "42% through"
+            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "Listening now"
             stateLine(ReaderLineKind.Finished(READERS_NOW - DAY), READERS_NOW) shouldBe "Finished yesterday"
             stateLine(ReaderLineKind.FinishedOnHardcover(READERS_NOW - DAY), READERS_NOW) shouldBe "Read yesterday"
         }
@@ -211,7 +221,7 @@ class ReadersTest :
                 )
 
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Grace Hopper10% through", "You80% through")
+                listOf("Grace HopperListening now", "YouListening now")
         }
 
         test("someone reading now is counted, and nobody reading says nothing at all") {
@@ -240,23 +250,23 @@ class ReadersTest :
                 listOf("Ada LovelaceFinished yesterday", "Ada LovelaceFinished December 2026")
         }
 
-        test("the panel caps at five and offers the rest") {
+        test("the panel caps at three and offers the rest, counted") {
             var sawAll = 0
-            val many = (1..7).map { reader(userId = "u$it", displayName = "Reader $it", progressPct = it) }
+            val many = (1..6).map { reader(userId = "u$it", displayName = "Reader $it", progressPct = it) }
             val host = panel(readersData(*many.toTypedArray()), onSeeAll = { sawAll++ })
 
-            rows(host).size shouldBe 5
-            button(host, "See all").shouldNotBeNull().click()
+            rows(host).size shouldBe 3
+            button(host, "See all 6 readers").shouldNotBeNull().click()
             awaitFrame()
 
             sawAll shouldBe 1
         }
 
-        test("five or fewer is the whole list, and offers nothing more") {
-            val host = panel(readersData(*(1..5).map { reader(userId = "u$it", progressPct = it) }.toTypedArray()))
+        test("three or fewer is the whole list, and offers nothing more") {
+            val host = panel(readersData(*(1..3).map { reader(userId = "u$it", progressPct = it) }.toTypedArray()))
 
-            rows(host).size shouldBe 5
-            button(host, "See all").shouldBeNull()
+            rows(host).size shouldBe 3
+            host.querySelector(".rdr-all").shouldBeNull()
         }
 
         test("clicking a reader opens that person") {
