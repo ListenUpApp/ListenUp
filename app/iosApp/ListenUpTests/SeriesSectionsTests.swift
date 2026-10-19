@@ -9,10 +9,17 @@ struct SeriesSectionsTests {
         SeriesRow(id: id, name: name, bookCount: 1, authorName: nil, covers: [])
     }
 
-    private let runs = [LetterRun(letter: "D", firstIndex: 0, count: 2), LetterRun(letter: "W", firstIndex: 2, count: 1)]
+    private let runs = [
+        LetterRun(letter: "D", firstIndex: 0, count: 2),
+        LetterRun(letter: "W", firstIndex: 2, count: 1)
+    ]
+
+    private var lettered: [LetterRun.Section<SeriesRow>] {
+        LetterRun.sections(of: [row("d1", "Dune"), row("d2", "Dungeon Crawler Carl"), row("w1", "Wool")], runs: runs)
+    }
 
     @Test func aNameSortIsLetteredBySharedRuns() {
-        let sections = LetterRun.sections(of: [row("d1", "Dune"), row("d2", "Dungeon Crawler Carl"), row("w1", "Wool")], runs: runs)
+        let sections = lettered
         #expect(SeriesContent.isLettered(sections))
         #expect(sections.map(\.letter) == ["D", "W"])
     }
@@ -23,7 +30,7 @@ struct SeriesSectionsTests {
     }
 
     @Test func letterJumpsToTheFirstSeriesUnderIt() {
-        let sections = LetterRun.sections(of: [row("d1", "Dune"), row("d2", "Dungeon Crawler Carl"), row("w1", "Wool")], runs: runs)
+        let sections = lettered
         #expect(SeriesContent.scrollTarget(forLetter: "W", in: sections) == "series-w1")
         #expect(SeriesContent.scrollTarget(forLetter: "Z", in: sections) == nil)
     }
