@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.discover
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -71,6 +72,7 @@ class ActivityFeedScreenTest {
                     onShelfClick = {},
                     onUserClick = {},
                     onAddToShelf = {},
+                    isRefreshing = false,
                 )
             }
         }
@@ -85,6 +87,25 @@ class ActivityFeedScreenTest {
         composeRule.onNodeWithText("Piranesi a39", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         assertEquals(1, back)
+    }
+
+    // Pull-to-refresh needs a scrollable child, so the skeleton, the failure and the empty feed scroll too.
+    @Test
+    fun loadingCanBePulledToRefresh() {
+        show(ActivityFeedUiState.Loading)
+        composeRule.onNode(hasScrollAction()).assertExists()
+    }
+
+    @Test
+    fun aFailureCanBePulledToRefresh() {
+        show(ActivityFeedUiState.Error(TransportError.NetworkUnavailable()))
+        composeRule.onNode(hasScrollAction()).assertExists()
+    }
+
+    @Test
+    fun anEmptyFeedCanBePulledToRefresh() {
+        show(ActivityFeedUiState.Ready(emptyList()))
+        composeRule.onNode(hasScrollAction()).assertExists()
     }
 
     @Test

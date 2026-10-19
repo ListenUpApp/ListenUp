@@ -18,6 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -285,6 +286,24 @@ class ActivityFeedViewModelTest :
             }
         }
 
+        test("isRefreshing is true while a refresh is under way, and false once it lands") {
+            runTest {
+                val fixture = createFixture()
+                val gate = CompletableDeferred<Unit>()
+                fixture.syncRepository.hold = gate
+                val viewModel = fixture.build()
+                viewModel.isRefreshing.value shouldBe false
+
+                viewModel.refresh()
+                advanceUntilIdle()
+                viewModel.isRefreshing.value shouldBe true
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                viewModel.isRefreshing.value shouldBe false
+            }
+        }
+
         test("an activity's cover path and hash reach the UI model") {
             runTest {
                 val fixture = createFixture()
@@ -324,6 +343,9 @@ private class RecordingSyncRepository : SyncRepository {
     var refreshCalled: Boolean = false
         private set
 
+    /** When set, [refresh] waits on it, so a spec can see a refresh in flight. */
+    var hold: CompletableDeferred<Unit>? = null
+
     override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.Idle)
 
     override val serverScanning: StateFlow<Boolean> = MutableStateFlow(false)
@@ -348,6 +370,7 @@ private class RecordingSyncRepository : SyncRepository {
 
     override suspend fun refresh(): AppResult<Unit> {
         refreshCalled = true
+        hold?.await()
         return AppResult.Success(Unit)
     }
 

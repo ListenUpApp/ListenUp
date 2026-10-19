@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -68,6 +69,7 @@ fun ActivityFeedScreen(
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val selectionState = rememberBookSelectionScaffoldState()
 
@@ -82,7 +84,8 @@ fun ActivityFeedScreen(
             onBookClick = onBookClick,
             onShelfClick = onShelfClick,
             onUserClick = onUserClick,
-            onAddToShelf = { id -> selectionState.shelveOne(id, multiSelect) },
+            onAddToShelf = selectionState.shelveOneOrNull(multiSelect),
+            isRefreshing = isRefreshing,
         )
         BookSelectionScaffold(
             multiSelect = multiSelect,
@@ -110,6 +113,7 @@ internal fun ActivityFeedContent(
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onAddToShelf: ((String) -> Unit)?,
+    isRefreshing: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -118,7 +122,7 @@ internal fun ActivityFeedContent(
         topBar = { ListenUpTopAppBar(title = stringResource(Res.string.discover_activity), onBack = onBack) },
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = false,
+            isRefreshing = isRefreshing,
             onRefresh = {
                 haptics.thresholdActivate()
                 onRefresh()
@@ -127,25 +131,26 @@ internal fun ActivityFeedContent(
         ) {
             when (state) {
                 is ActivityFeedUiState.Loading -> {
-                    Column(Modifier.padding(horizontal = Spacing.screenMargin)) {
+                    ScrollableState {
                         RowsSkeleton(rows = ACTIVITY_CAP, modifier = Modifier.testTag("activity-skeleton"))
                     }
                 }
 
                 is ActivityFeedUiState.Error -> {
-                    Column(Modifier.padding(horizontal = Spacing.screenMargin)) {
+                    ScrollableState {
                         InlineRetry(line = stringResource(Res.string.discover_error_activity), onRetry = onRetry)
                     }
                 }
 
                 is ActivityFeedUiState.Ready -> {
                     if (state.isEmpty) {
-                        Text(
-                            text = stringResource(Res.string.discover_no_activity_yet_start_listening),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-                        )
+                        ScrollableState {
+                            Text(
+                                text = stringResource(Res.string.discover_no_activity_yet_start_listening),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(minSize = ActivityColumnMinWidth),
@@ -170,5 +175,16 @@ internal fun ActivityFeedContent(
                 }
             }
         }
+    }
+}
+
+/** A state with no rows, still scrollable so pull-to-refresh can start from it. */
+@Composable
+private fun ScrollableState(content: @Composable () -> Unit) {
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        item { content() }
     }
 }

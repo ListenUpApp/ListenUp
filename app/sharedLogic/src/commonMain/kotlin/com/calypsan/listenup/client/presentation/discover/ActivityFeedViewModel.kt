@@ -106,8 +106,19 @@ class ActivityFeedViewModel internal constructor(
      */
     fun refresh() {
         if (state.value is ActivityFeedUiState.Error) observationRuns.update { it + 1 }
-        viewModelScope.launch { syncRepository.refresh() }
+        viewModelScope.launch {
+            isRefreshing.value = true
+            try {
+                syncRepository.refresh()
+            } finally {
+                isRefreshing.value = false
+            }
+        }
     }
+
+    /** Whether a [refresh] is under way: a pull-to-refresh's spinner, held until the reconcile lands. */
+    val isRefreshing: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 }
 
 /**
