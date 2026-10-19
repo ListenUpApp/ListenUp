@@ -1197,7 +1197,10 @@
     "needs_connection": "Needs a connection",
     "needs_connection_a11y": "not downloaded, needs a connection",
     "couldnt_load_listening": "Couldn't load what you're listening to",
-    "stats_invitation_body": "Your listening time, streak and favourite genres fill in here after your first book."
+    "stats_invitation_body": "Your listening time, streak and favourite genres fill in here after your first book.",
+    "see_all_ios": "See All",
+    "see_all_shelves_a11y": "See all shelves",
+    "couldnt_load_shelves": "Couldn't load your shelves."
   },
   "profile": {
     "avatar": "Avatar",

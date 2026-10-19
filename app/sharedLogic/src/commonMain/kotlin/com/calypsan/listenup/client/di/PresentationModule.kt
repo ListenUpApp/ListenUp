@@ -626,6 +626,13 @@ internal val discoverPresentationModule =
 internal val shelfPresentationModule =
     module {
         factory {
+            com.calypsan.listenup.client.presentation.shelf.MyShelvesViewModel(
+                userRepository = get(),
+                shelfRepository = get(),
+                syncRepository = get(),
+            )
+        }
+        factory {
             com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel(
                 loadShelfDetailUseCase = get(),
                 removeBookFromShelfUseCase = get(),

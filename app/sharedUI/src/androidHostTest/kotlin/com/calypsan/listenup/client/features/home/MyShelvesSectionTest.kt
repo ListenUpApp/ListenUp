@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -47,8 +48,17 @@ class MyShelvesSectionTest {
         width: HomeWidth = HomeWidth.Compact,
         onCreateShelf: () -> Unit = {},
         onOpenShelf: (String) -> Unit = {},
+        onSeeAll: (() -> Unit)? = {},
     ) = composeRule.setContent {
-        MaterialTheme { MyShelvesSection(shelves, width, onOpenShelf = onOpenShelf, onCreateShelf = onCreateShelf) }
+        MaterialTheme {
+            MyShelvesSection(
+                shelves,
+                width,
+                onOpenShelf = onOpenShelf,
+                onCreateShelf = onCreateShelf,
+                onSeeAll = onSeeAll,
+            )
+        }
     }
 
     @Test
@@ -76,8 +86,22 @@ class MyShelvesSectionTest {
     }
 
     @Test
-    fun `there is no See all until the list screen exists`() {
-        show(listOf(shelf("Winter reads", 6, 266_400L)))
+    fun `See all appears with one shelf or more and opens the list`() {
+        var seeAll = false
+        show(listOf(shelf("Winter reads", 6, 266_400L)), onSeeAll = { seeAll = true })
+        composeRule.onNodeWithContentDescription("See all shelves").performClick()
+        seeAll shouldBe true
+    }
+
+    @Test
+    fun `no shelves, no See all`() {
+        show(emptyList())
+        composeRule.onAllNodesWithContentDescription("See all shelves").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a host with no list offers no See all`() {
+        show(listOf(shelf("Winter reads", 6, 266_400L)), onSeeAll = null)
         composeRule.onAllNodesWithText("See all", substring = true, ignoreCase = true).assertCountEquals(0)
     }
 

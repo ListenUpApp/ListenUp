@@ -148,12 +148,12 @@ class HomePageTest :
             (card.querySelector(".progress") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
 
-        test("the header says Also in progress and In Library leaves for the Library") {
+        test("the header says Also in progress and In Library leaves for the Library's In progress") {
             var opened = false
             val host =
                 homePage(
                     readyHome(alsoInProgress = listOf(continuing("b1", "Babel"))),
-                    actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+                    actions = HomeActions.None.copy(onOpenInProgress = { opened = true }),
                 )
             host.textOf(".home-also-h") shouldBe "Also in progress"
             host.buttonsLabelled("In Library →").single().click()
@@ -242,17 +242,42 @@ class HomePageTest :
 
         // ── the two honesty guards ──────────────────────────────────────────────
 
-        test("there is no See all anywhere, because there is nowhere for it to go") {
-            val host =
-                homePage(
-                    readyHome(
-                        alsoInProgress = listOf(continuing("b1", "The Institute")),
-                        myShelves = listOf(shelf("Finished")),
-                    ),
-                    stats = weekStats(),
-                )
+        test("See all appears only with a shelf, and opens the My shelves list (H24)") {
+            var seeAll = false
+            homePage(
+                readyHome(myShelves = listOf(shelf("Winter"))),
+                actions = HomeActions.None.copy(onSeeAllShelves = { seeAll = true }),
+            ).buttonsLabelled("See all").single().apply {
+                getAttribute("aria-label") shouldBe "See all shelves"
+                click()
+            }
+            seeAll shouldBe true
 
-            host.textContent.orEmpty() shouldNotContain "See all"
+            homePage(readyHome(myShelves = emptyList())).buttonsLabelled("See all").size shouldBe 0
+        }
+
+        test("Select in the Also in progress header starts selecting, and hides while selecting (H16)") {
+            var started = false
+            val idle = BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = {}, onStart = { started = true })
+            homePage(readyHome(alsoInProgress = listOf(continuing("babel", "Babel"))), selection = idle)
+                .buttonsLabelled("Select")
+                .single()
+                .click()
+            started shouldBe true
+
+            val page =
+                homePage(
+                    readyHome(alsoInProgress = listOf(continuing("babel", "Babel"), continuing("dcc", "DCC"))),
+                    selection = selecting(selected = setOf("babel")),
+                )
+            page.querySelectorAll("[role=checkbox]").asList().map { (it as HTMLElement).getAttribute("aria-checked") } shouldBe
+                listOf("true", "false")
+            page.buttonsLabelled("Select").size shouldBe 0
+        }
+
+        test("a Home that cannot select offers no Select") {
+            homePage(readyHome(alsoInProgress = listOf(continuing("babel", "Babel")))).buttonsLabelled("Select").size shouldBe
+                0
         }
 
         test("every shelf is rendered, now that each one opens") {
@@ -374,9 +399,9 @@ class HomePageTest :
             chart.getAttribute("aria-label")!! shouldEndWith "today 1m"
         }
 
-        test("the leaderboard link leaves for Discover") {
+        test("the leaderboard link leaves for Discover's leaderboard") {
             var opened = false
-            homePage(readyHome(), stats = weekStats(), actions = HomeActions.None.copy(onOpenDiscover = { opened = true }))
+            homePage(readyHome(), stats = weekStats(), actions = HomeActions.None.copy(onOpenLeaderboard = { opened = true }))
                 .buttonsLabelled("7-day leaderboard →")
                 .single()
                 .click()

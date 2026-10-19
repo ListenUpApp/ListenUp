@@ -1186,3 +1186,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 8px; padding-bottom: 14px; }
   .lib-filters .pill { flex-shrink: 0; }
 }
+/* Home's section headers that carry two controls (Select + In Library, See all + New shelf) */
+.luw .home-section-actions { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; justify-content: flex-end; }
+/* `/shelves`: the reader's own shelves, in Home's card grid (spec §3.2 H24) */
+.luw .shelves-page { display: grid; gap: var(--sp-16); grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+/* `/shelves` as one column: the header, then the grid, with the page's gap between (as `.rdr`) */
+.luw .shelves-list { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }

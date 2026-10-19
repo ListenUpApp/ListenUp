@@ -1386,6 +1386,7 @@ One beautiful library.</string>
     <string name="home_continue_listening">Continue listening</string>
     <string name="home_couldnt_load">We couldn't load Home.</string>
     <string name="home_couldnt_load_listening">Couldn't load what you're listening to</string>
+    <string name="home_couldnt_load_shelves">Couldn't load your shelves.</string>
     <string name="home_couldnt_load_stats">Couldn't load your stats.</string>
     <string name="home_date_range">%1$s – %2$s</string>
     <string name="home_dismiss_everywhere_a11y">Dismiss on all your devices</string>
@@ -1431,6 +1432,8 @@ One beautiful library.</string>
     <string name="home_private_shelf">Private shelf</string>
     <string name="home_progress_of_length">%1$s of %2$s</string>
     <string name="home_resume_unavailable_offline">Can't reach your server. This book isn't downloaded, so it can't play right now.</string>
+    <string name="home_see_all_ios">See All</string>
+    <string name="home_see_all_shelves_a11y">See all shelves</string>
     <string name="home_series_book_length">%1$s, Book %2$s · %3$s</string>
     <string name="home_series_length">%1$s · %2$s</string>
     <string name="home_shelf_books_count">%1$d books</string>

@@ -145,8 +145,14 @@ fun BookDetailPage(
     onOpenCollection: (String) -> Unit = {},
     /** The last-match row ("Details matched … · See what changed · Undo last match"), above the tabs. */
     lastMatchRow: @Composable () -> Unit = {},
+    /** Arrive with the Readers panel in view and its heading focused: Home's finishers line (spec §6.4). */
+    landOnReaders: Boolean = false,
+    /** Called once that landing has happened, so the route can drop it from the URL. */
+    onLandedOnReaders: () -> Unit = {},
 ) {
     val root = remember { PageRoot() }
+    // Once per arrival, the Discover leaderboard landing's shape: cleared when the panel has landed.
+    var landingOnReaders by remember(landOnReaders) { mutableStateOf(landOnReaders) }
     Div(attrs = {
         classes("bd")
         ref { element ->
@@ -262,6 +268,11 @@ fun BookDetailPage(
                                 nowMs = nowMs,
                                 onOpenProfile = onOpenProfile,
                                 onSeeAllReaders = onSeeAllReaders,
+                                landOnReaders = landingOnReaders,
+                                onLandedOnReaders = {
+                                    landingOnReaders = false
+                                    onLandedOnReaders()
+                                },
                                 hardcover = hardcover,
                                 onFindHardcoverMatch = onFindHardcoverMatch,
                                 onRemoveHardcoverMatch = onRemoveHardcoverMatch,
@@ -505,6 +516,8 @@ private fun OverviewPane(
     nowMs: Long,
     onOpenProfile: (String) -> Unit,
     onSeeAllReaders: () -> Unit,
+    landOnReaders: Boolean,
+    onLandedOnReaders: () -> Unit,
     hardcover: BookHardcoverUiState,
     onFindHardcoverMatch: () -> Unit,
     onRemoveHardcoverMatch: () -> Unit,
@@ -574,6 +587,8 @@ private fun OverviewPane(
                     nowMs = nowMs,
                     onOpenProfile = onOpenProfile,
                     onSeeAll = onSeeAllReaders,
+                    land = landOnReaders,
+                    onLanded = onLandedOnReaders,
                 )
             }
         }

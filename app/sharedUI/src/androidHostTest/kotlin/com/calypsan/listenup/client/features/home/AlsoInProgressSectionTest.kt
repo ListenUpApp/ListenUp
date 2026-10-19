@@ -43,7 +43,7 @@ class AlsoInProgressSectionTest {
     private fun show(
         width: HomeWidth,
         onOpenBook: (String) -> Unit = {},
-        onOpenLibrary: () -> Unit = {},
+        onOpenInProgress: () -> Unit = {},
     ) = composeRule.setContent {
         MaterialTheme {
             AlsoInProgressSection(
@@ -51,7 +51,7 @@ class AlsoInProgressSectionTest {
                 width = width,
                 selection = HomeSelection.None,
                 onOpenBook = onOpenBook,
-                onOpenLibrary = onOpenLibrary,
+                onOpenInProgress = onOpenInProgress,
             )
         }
     }
@@ -78,9 +78,9 @@ class AlsoInProgressSectionTest {
     }
 
     @Test
-    fun `In Library leaves for the Library`() {
+    fun `In Library leaves for the Library filtered to In progress`() {
         var opened = false
-        show(HomeWidth.Compact, onOpenLibrary = { opened = true })
+        show(HomeWidth.Compact, onOpenInProgress = { opened = true })
         composeRule.onNodeWithText("In Library").performClick()
         opened shouldBe true
     }

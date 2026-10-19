@@ -128,6 +128,7 @@ import com.calypsan.listenup.web.features.admin.fixedUpload
 import org.w3c.dom.asList
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 private const val DESKTOP_WIDTH = 1440
 
@@ -225,6 +226,7 @@ private fun Gate(
                     ),
                 openShelfDetail = fixedShelfDetail(),
                 openShelfEdit = fixedShelfEdit(),
+                openMyShelves = fixedMyShelves(),
                 openLibrary = fakeLibrary(),
                 openSearch = fixedSearch(SearchUiState.Idle()),
                 openMultiSelect = fixedMultiSelect(),

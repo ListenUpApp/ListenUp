@@ -27,7 +27,7 @@ import kotlin.time.Clock
  * [homeBlocks] decides the sections and their order from the slot and [isWide]; the page draws them in that order.
  *
  * Pure, like every other page here: no routing decisions, no session lifetime. Every gesture leaves through
- * [actions]. There is no "See all" anywhere: the My shelves list arrives with Home PR 4 (open question 1).
+ * [actions]; My shelves' See all leaves for the `/shelves` list (H24).
  */
 @Composable
 fun HomePage(
