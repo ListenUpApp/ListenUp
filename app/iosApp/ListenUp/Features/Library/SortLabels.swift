@@ -22,22 +22,22 @@ enum SortLabels {
 
     /// How `direction` reads for `category`: "A–Z", "Longest", "Newest first".
     static func direction(_ category: SortCategory, _ direction: SortDirection) -> String {
-        let ascending = direction == .ascending
-        return switch category {
+        let (ascending, descending): (String, String) = switch category {
         case .title, .author, .name:
-            ascending ? String(localized: "library.dir_a_to_z") : String(localized: "library.dir_z_to_a")
+            (String(localized: "library.dir_a_to_z"), String(localized: "library.dir_z_to_a"))
         case .duration:
-            ascending ? String(localized: "library.dir_shortest") : String(localized: "library.dir_longest")
+            (String(localized: "library.dir_shortest"), String(localized: "library.dir_longest"))
         case .year:
-            ascending ? String(localized: "library.dir_oldest") : String(localized: "library.dir_newest")
+            (String(localized: "library.dir_oldest"), String(localized: "library.dir_newest"))
         case .bookCount:
-            ascending ? String(localized: "library.dir_fewest") : String(localized: "library.dir_most")
+            (String(localized: "library.dir_fewest"), String(localized: "library.dir_most"))
         case .added:
-            ascending ? String(localized: "library.dir_first_added") : String(localized: "library.dir_recent")
+            (String(localized: "library.dir_first_added"), String(localized: "library.dir_recent"))
         case .rating, .listenerRating:
-            ascending ? String(localized: "library.dir_lowest") : String(localized: "library.dir_highest")
+            (String(localized: "library.dir_lowest"), String(localized: "library.dir_highest"))
         case .series:
-            ascending ? String(localized: "library.dir_series_asc") : String(localized: "library.dir_series_desc")
+            (String(localized: "library.dir_series_asc"), String(localized: "library.dir_series_desc"))
         }
+        return direction == .ascending ? ascending : descending
     }
 }

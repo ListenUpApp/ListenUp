@@ -80,7 +80,8 @@ struct LibraryChromeTests {
         let labels = LibrarySortOptions.categories(for: .books).map(SortLabels.category)
             + LibrarySortOptions.categories(for: .series).map(SortLabels.category)
         #expect(Set(labels).count == 10)
-        #expect(!labels.contains(where: \.isEmpty))
+        let blank = labels.filter(\.isEmpty)
+        #expect(blank.isEmpty)
     }
 
     @Test func filteredEmptyCopyFollowsTheFilter() {
