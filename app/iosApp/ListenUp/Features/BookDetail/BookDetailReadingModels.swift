@@ -147,13 +147,25 @@ struct ReadersSocialLine: Equatable {
     let listening: [String]
     let finished: [String]
     let avatarUserIds: [String]
+    /// The avatars' names, in step with `avatarUserIds`: the initials while a picture loads.
+    let avatarNames: [String]
     let othersCount: Int
+
+    init(listening: [String], finished: [String], avatarUserIds: [String], avatarNames: [String]? = nil,
+         othersCount: Int) {
+        self.listening = listening
+        self.finished = finished
+        self.avatarUserIds = avatarUserIds
+        self.avatarNames = avatarNames ?? Array((listening + finished).prefix(avatarUserIds.count))
+        self.othersCount = othersCount
+    }
 
     init?(_ summary: ReadersSummary) {
         guard !summary.avatars.isEmpty else { return nil }
         listening = summary.listening.map(\.displayName)
         finished = summary.finished.map(\.displayName)
         avatarUserIds = summary.avatars.map(\.userId)
+        avatarNames = summary.avatars.map(\.displayName)
         othersCount = Int(summary.othersCount)
     }
 }

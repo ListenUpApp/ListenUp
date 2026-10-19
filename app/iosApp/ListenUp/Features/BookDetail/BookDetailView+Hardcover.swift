@@ -11,7 +11,6 @@ extension BookDetailView {
     @ViewBuilder
     var hardcoverSection: some View {
         if let phase = hardcoverObserver?.phase, phase != .hidden {
-            Divider()
             BookHardcoverSection(
                 phase: phase,
                 onFindMatch: { hardcoverMatchTarget = HardcoverMatchTarget(bookId: bookId) },

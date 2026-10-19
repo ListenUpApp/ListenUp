@@ -408,6 +408,9 @@ private extension View {
                 BookDetailView(bookId: destination.id)
                     .heroDestination(bookCoverHeroID(destination.id))
             }
+            .navigationDestination(for: BookReadersDestination.self) { destination in
+                BookReadersListView(bookId: destination.bookId)
+            }
             .navigationDestination(for: SeriesDestination.self) { destination in
                 SeriesDetailView(seriesId: destination.id)
                     .heroDestination(seriesHeroID(destination.id))

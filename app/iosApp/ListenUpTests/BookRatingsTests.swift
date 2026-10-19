@@ -343,10 +343,6 @@ struct BookRatingsTests {
         #expect(BookRatingsObserver.announcement(for: BookRatingsEventRatingRemoved.shared) == "Rating removed")
     }
 
-    @Test func bookDetailPutsTheSocialSectionsAboveChapters() {
-        #expect(BookDetailContentSection.allCases == [.social, .chapters, .documents, .details])
-    }
-
     // MARK: - Hit-testing
 
     @Test func touchesMapToHalfStarsFromTheLeadingEdge() {

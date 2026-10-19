@@ -11,6 +11,11 @@ struct BookDestination: Hashable, Codable {
     let id: String
 }
 
+/// Everyone reading a book, uncapped: where Book Detail's "See All N Readers" leads.
+struct BookReadersDestination: Hashable, Codable {
+    let bookId: String
+}
+
 /// Series detail screen.
 struct SeriesDestination: Hashable, Codable {
     let id: String

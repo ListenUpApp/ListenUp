@@ -3,20 +3,20 @@ import Shared
 
 /// Book detail screen — the native, redesigned assembly.
 ///
-/// A centered hero (with a soft `CoverGlow` halo behind the cover) leads on a neutral band, with the Resume unit and
-/// the actions (`listenUnit`) inside it, followed by the description / chapters / details sections — with Readers
-/// and, for a book matched on Hardcover, its Hardcover section. A narrow width stacks everything; a wide one splits
-/// into a left rail (hero + the listen unit), sized from the width, beside a flexible right column (description,
-/// chapters, details) — see `DetailColumns`. All state comes from `BookDetailObserver`; the overflow menu offers
-/// Mark as Finished, the progress resets and, for an admin, Delete Book.
+/// A centered hero (with a soft `CoverGlow` halo behind the cover) leads on a neutral band, with the Resume unit, the
+/// actions (`listenUnit`) and the social line inside it, followed by the sections in the visit's stage order (spec
+/// §2.4): chapters first while listening, the synopsis first while deciding, ratings first once finished. A narrow
+/// width stacks everything; a wide one splits into a left rail (hero, listen unit, social line), sized from the width,
+/// beside a main column of the sections — see `DetailColumns` and `BookDetailIPadRows`. All state comes from
+/// `BookDetailObserver`; the overflow menu offers Mark as Finished, the progress resets and, for an admin, Delete Book.
 struct BookDetailView: View {
     let bookId: String
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme) var colorScheme
     @State var observer: BookDetailObserver?
-    @State private var readersObserver: BookReadersObserver?
+    @State var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
     @State var hardcoverObserver: BookHardcoverObserver?
     /// Find on Hardcover, opened from the Hardcover section (Change Match, or Find on Hardcover).
@@ -33,6 +33,8 @@ struct BookDetailView: View {
     @State var showMarkFinished = false
     /// True once the hero title has scrolled under the navigation bar.
     @State var showsInlineTitle = false
+    /// The iPad main column's width, which decides whether Ratings sits beside Chapters (`BookDetailIPadRows`).
+    @State var mainColumnWidth: CGFloat = 0
 
     var body: some View {
         Group {
@@ -182,24 +184,27 @@ struct BookDetailView: View {
     @ViewBuilder
     private func content(_ observer: BookDetailObserver) -> some View {
         DetailColumnsReader { columns in
-            ScrollView {
-                Group {
-                    switch columns {
-                    case .split(let railWidth): regularContent(observer, railWidth: railWidth)
-                    case .stacked: compactContent(observer)
+            // The reader the social line scrolls with, to the Readers section's anchor.
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Group {
+                        switch columns {
+                        case .split(let railWidth): regularContent(observer, railWidth: railWidth, proxy: proxy)
+                        case .stacked: compactContent(observer, proxy: proxy)
+                        }
                     }
+                    .padding(.bottom, Spacing.xxl)
+                    // One modifier for every book action, above the layout branch, so one tap fires `.success`
+                    // once whichever branch renders.
+                    .haptic(.commit, trigger: bookActionCount)
                 }
-                .padding(.bottom, Spacing.xxl)
-                // One modifier for every book action, above the layout branch, so one tap fires `.success`
-                // once whichever branch renders.
-                .haptic(.commit, trigger: bookActionCount)
             }
         }
     }
 
-    /// iPhone: a single vertical stack of every section, the hero and the listen unit on one band.
+    /// iPhone: the hero, the listen unit and the social line on one band, then every section in the visit's order.
     @ViewBuilder
-    private func compactContent(_ observer: BookDetailObserver) -> some View {
+    private func compactContent(_ observer: BookDetailObserver, proxy: ScrollViewProxy) -> some View {
         VStack(spacing: 24) {
             VStack(spacing: 20) {
                 hero(observer)
@@ -210,6 +215,7 @@ struct BookDetailView: View {
                         serverBanner(observer)
                         listenUnit(observer)
                     }
+                    socialLine(observer, proxy: proxy)
                 }
                 .padding(.horizontal)
             }
@@ -226,22 +232,21 @@ struct BookDetailView: View {
                     .padding(.bottom, Radius.xxl)
             )
 
-            VStack(spacing: 20) {
+            VStack(spacing: 26) {
+                // Admins only, directly under the action unit (spec §3.2.4 rule 4).
+                visibilitySection(observer)
                 lastMatchSection(observer)
-
-                Divider()
-
-                descriptionAndVisibility(observer)
-
-                contentSections(observer)
+                ForEach(shownSections(observer), id: \.self) { kind in
+                    section(kind, observer, isWide: false)
+                }
             }
             .padding(.horizontal)
         }
     }
 
-    /// Wide: a rail sized from the width beside a flexible right column.
+    /// Wide: a rail sized from the width beside a flexible main column of the sections.
     @ViewBuilder
-    private func regularContent(_ observer: BookDetailObserver, railWidth: CGFloat) -> some View {
+    private func regularContent(_ observer: BookDetailObserver, railWidth: CGFloat, proxy: ScrollViewProxy) -> some View {
         HStack(alignment: .top, spacing: DetailColumns.gutter) {
             VStack(spacing: 20) {
                 hero(observer)
@@ -251,6 +256,7 @@ struct BookDetailView: View {
                     serverBanner(observer)
                     listenUnit(observer)
                 }
+                socialLine(observer, proxy: proxy)
                 lastMatchSection(observer)
             }
             .padding(Spacing.l)
@@ -260,12 +266,13 @@ struct BookDetailView: View {
             )
             .frame(width: railWidth)
 
-            VStack(alignment: .leading, spacing: 28) {
-                descriptionAndVisibility(observer)
-
-                contentSections(observer)
+            VStack(alignment: .leading, spacing: 26) {
+                // Admins only, at the top of the main column (spec §3.2.4 rule 4).
+                visibilitySection(observer)
+                iPadRows(observer)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { mainColumnWidth = $0 }
         }
         .padding(.horizontal, DetailColumns.margin)
         .padding(.top, Spacing.xxl)
@@ -287,7 +294,6 @@ struct BookDetailView: View {
     @ViewBuilder
     var ratingSection: some View {
         if case .ready(let snapshot) = ratingsObserver?.phase {
-            Divider()
             BookRatingSection(
                 snapshot: snapshot,
                 onSetStars: { ratingsObserver?.setStars($0) },
@@ -299,13 +305,14 @@ struct BookDetailView: View {
         }
     }
 
-    /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,
-    /// and error phases keep the section (and its surrounding divider) out of the layout entirely.
+    /// The social "Readers" block: three rows, then "See All N Readers". Renders only when the readers VM has data;
+    /// loading, empty and error phases keep the section out of the layout entirely. Its anchor is what the social
+    /// line scrolls to.
     @ViewBuilder
     var readersSection: some View {
         if case .data(let rows) = readersObserver?.phase {
-            Divider()
-            BookReadersSection(readers: rows)
+            BookReadersSection(readers: rows, cap: 3, bookId: bookId)
+                .id(Self.readersAnchor)
         }
     }
 

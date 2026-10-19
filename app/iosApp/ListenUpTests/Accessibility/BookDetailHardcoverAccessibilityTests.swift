@@ -112,6 +112,15 @@ struct BookDetailHardcoverAccessibilityTests {
         #expect(stops[quiet].frame.minY >= stops[toggle].frame.maxY - 1)
     }
 
+    /// Sync with Hardcover is a switch to VoiceOver: one stop, named by its label, with an on/off value (spec §5.2).
+    @Test func syncWithHardcoverIsANamedSwitchWithAState() async throws {
+        let hosted = await hardcoverCard(linked)
+        defer { hosted.close() }
+        let toggle = try #require(hosted.stop(labelled: String(localized: "hardcover.keep_off_switch")), "\(hosted.tree)")
+        #expect(toggle.isButton, "\(toggle)")
+        #expect(!toggle.value.isEmpty, "\(toggle)")
+    }
+
     @Test func onlyAnUnmatchedBookShowsTheLine() async {
         let line = String(localized: "hardcover.never_matched_line")
         for phase in [linked, .needsMatch, .keptOff(isResuming: false)] {
