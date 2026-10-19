@@ -87,6 +87,14 @@ class BookDetailStateTest :
                 snapshot().toReady(BookDetailAmbient()).chapters.none { it.isCurrent } shouldBe true
             }
 
+            test("a finished book marks no chapter as current, wherever its position was left") {
+                listOf(0L, 1_000_000L, 3_600_000L).forEach { ms ->
+                    val ready = snapshot(position = position(ms, finished = true)).toReady(BookDetailAmbient())
+                    ready.chapters.none { it.isCurrent } shouldBe true
+                    ready.currentChapter shouldBe null
+                }
+            }
+
             test("a finished book is complete, with no progress bar and no time left") {
                 val ready = snapshot(position = position(3_600_000L, finished = true)).toReady(BookDetailAmbient())
                 ready.isComplete shouldBe true
