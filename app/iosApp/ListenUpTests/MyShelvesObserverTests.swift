@@ -40,7 +40,7 @@ struct MyShelvesObserverTests {
 
     @Test func loadingAndErrorMap() {
         #expect(MyShelvesPhase(from: MyShelvesUiStateLoading.shared) == .loading)
-        let error = MyShelvesPhase(from: MyShelvesUiStateError(error: UnexpectedClientError(correlationId: nil, debugInfo: nil)))
-        #expect(error == .error)
+        let failure = UnexpectedClientError(correlationId: nil, debugInfo: nil)
+        #expect(MyShelvesPhase(from: MyShelvesUiStateError(error: failure)) == .error)
     }
 }

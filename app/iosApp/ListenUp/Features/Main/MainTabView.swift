@@ -404,11 +404,11 @@ private extension View {
     /// admin group so neither builder trips the function-length lint.
     func navigationDestinations() -> some View {
         contentDestinations()
+            .shelfDestinations()
             .adminDestinations()
     }
 
-    /// Library/content-facing destinations: books, series, contributors, facets, shelves, profiles,
-    /// settings, and storage.
+    /// Library/content-facing destinations: books, series, contributors, facets, profiles, settings, and storage.
     func contentDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
@@ -436,12 +436,6 @@ private extension View {
             }
             .navigationDestination(for: GenreDestination.self) { destination in
                 GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
-            }
-            .navigationDestination(for: ShelfDestination.self) { destination in
-                ShelfDetailView(shelfId: destination.id)
-            }
-            .navigationDestination(for: MyShelvesDestination.self) { _ in
-                MyShelvesView()
             }
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
@@ -472,6 +466,17 @@ private extension View {
             }
             .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
+            }
+    }
+
+    /// Shelf destinations: one shelf, and the reader's own list of them (spec §3.2 H24).
+    func shelfDestinations() -> some View {
+        self
+            .navigationDestination(for: ShelfDestination.self) { destination in
+                ShelfDetailView(shelfId: destination.id)
+            }
+            .navigationDestination(for: MyShelvesDestination.self) { _ in
+                MyShelvesView()
             }
     }
 
