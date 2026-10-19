@@ -26,17 +26,21 @@ private const val SHELVES_INVITATION = "A shelf is your own list of audiobooks โ
 
 private const val COULDNT_LOAD_SHELVES = "Couldn't load your shelves."
 
+private const val TRY_AGAIN = "Try again"
+
 private const val SKELETON_SHELVES = 2
 
 /**
  * `/shelves` (spec ยง3.2 H24): every shelf the reader owns, as Home's cards, with New shelf in the header. Words mirror
- * `en.json`'s `home.my_shelves`, `home.new_shelf`, `home.shelves_invitation` and `home.couldnt_load_shelves`.
+ * `en.json`'s `home.my_shelves`, `home.new_shelf`, `home.shelves_invitation`, `home.couldnt_load_shelves` and
+ * `common.try_again`.
  */
 @Composable
 internal fun MyShelvesPage(
     state: MyShelvesUiState,
     onOpenShelf: (String) -> Unit,
     onCreateShelf: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     PageHeader(
         title = MY_SHELVES,
@@ -58,9 +62,10 @@ internal fun MyShelvesPage(
             }
         }
 
-        // The list is live on the local database, so there is no Try again: coming back reads it afresh.
         is MyShelvesUiState.Error -> {
-            EmptyState(title = COULDNT_LOAD_SHELVES, look = EmptyLook.Inline)
+            EmptyState(title = COULDNT_LOAD_SHELVES) {
+                Button(kind = ButtonKind.Secondary, onClick = onRetry) { Text(TRY_AGAIN) }
+            }
         }
 
         is MyShelvesUiState.Ready -> {
@@ -86,5 +91,6 @@ internal fun MyShelvesRoute(
         state = session.state.collectAsState().value,
         onOpenShelf = { id -> router.navigate(Routes.shelf(id)) },
         onCreateShelf = { router.navigate(Routes.newShelf) },
+        onRetry = session.onRetry,
     )
 }

@@ -24,7 +24,8 @@ class MyShelvesPageTest :
             state: MyShelvesUiState,
             onOpenShelf: (String) -> Unit = {},
             onCreateShelf: () -> Unit = {},
-        ): HTMLElement = mounts.mount { MyShelvesPage(state, onOpenShelf = onOpenShelf, onCreateShelf = onCreateShelf) }
+            onRetry: () -> Unit = {},
+        ): HTMLElement = mounts.mount { MyShelvesPage(state, onOpenShelf = onOpenShelf, onCreateShelf = onCreateShelf, onRetry = onRetry) }
 
         test("the page is headed My shelves and lists every shelf as Home's card") {
             val host = page(MyShelvesUiState.Ready(listOf(shelf("Winter"), shelf("Mood"))))
@@ -60,8 +61,11 @@ class MyShelvesPageTest :
             host.querySelectorAll(".skel").length shouldBe 2
         }
 
-        test("a failed read says so") {
-            page(MyShelvesUiState.Error(UnexpectedClientError())).textContent.orEmpty() shouldContain
-                "Couldn't load your shelves."
+        test("a failed read says so, and Try again asks for the shelves again") {
+            var retried = false
+            val host = page(MyShelvesUiState.Error(UnexpectedClientError()), onRetry = { retried = true })
+            host.textContent.orEmpty() shouldContain "Couldn't load your shelves."
+            host.buttonsLabelled("Try again").single().click()
+            retried shouldBe true
         }
     })

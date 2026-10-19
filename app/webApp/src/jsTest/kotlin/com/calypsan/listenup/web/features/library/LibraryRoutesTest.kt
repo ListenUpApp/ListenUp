@@ -40,6 +40,17 @@ class LibraryRoutesTest :
             sent shouldBe listOf(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
         }
 
+        test("a landing that applies says so once, so the route can drop it from the URL") {
+            var applied = 0
+            mounts.mount { LibraryStatusLanding(statusQuery = "in-progress", onEvent = {}, onApplied = { applied++ }) }
+            mounts.mount { LibrarySortLanding(sortQuery = "added-desc", onEvent = {}, onApplied = { applied++ }) }
+            mounts.mount { LibraryStatusLanding(statusQuery = null, onEvent = {}, onApplied = { applied++ }) }
+            awaitFrame()
+            awaitFrame()
+
+            applied shouldBe 2
+        }
+
         test("no status query, or an unknown one, asks for nothing") {
             val sent = mutableListOf<LibraryUiEvent>()
             mounts.mount { LibraryStatusLanding(statusQuery = null, onEvent = { sent += it }) }

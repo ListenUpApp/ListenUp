@@ -344,6 +344,8 @@ private fun BookDetailRoute(
         onSetHardcoverSynced = hardcoverSession.onSetSynced,
         lastMatchRow = { BookLastMatch(session = detailSession, nowMs = nowMs()) },
         landOnReaders = route.query[SECTION_QUERY_KEY] == READERS_SECTION,
+        // Landed: the URL lets go of it, so Back to this book does not pull the page to its readers again.
+        onLandedOnReaders = { router.replace(Route(route.segments, route.query - SECTION_QUERY_KEY)) },
     )
     // After Match details' Apply: what changed, See what changed and Undo, until dismissed.
     BookMatchReceipt(bookId = bookId, graph = matchDetails)

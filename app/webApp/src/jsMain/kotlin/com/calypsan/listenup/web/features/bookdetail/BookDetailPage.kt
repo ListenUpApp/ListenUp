@@ -147,6 +147,8 @@ fun BookDetailPage(
     lastMatchRow: @Composable () -> Unit = {},
     /** Arrive with the Readers panel in view and its heading focused: Home's finishers line (spec §6.4). */
     landOnReaders: Boolean = false,
+    /** Called once that landing has happened, so the route can drop it from the URL. */
+    onLandedOnReaders: () -> Unit = {},
 ) {
     val root = remember { PageRoot() }
     // Once per arrival, the Discover leaderboard landing's shape: cleared when the panel has landed.
@@ -267,7 +269,10 @@ fun BookDetailPage(
                                 onOpenProfile = onOpenProfile,
                                 onSeeAllReaders = onSeeAllReaders,
                                 landOnReaders = landingOnReaders,
-                                onLandedOnReaders = { landingOnReaders = false },
+                                onLandedOnReaders = {
+                                    landingOnReaders = false
+                                    onLandedOnReaders()
+                                },
                                 hardcover = hardcover,
                                 onFindHardcoverMatch = onFindHardcoverMatch,
                                 onRemoveHardcoverMatch = onRemoveHardcoverMatch,

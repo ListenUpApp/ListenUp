@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -79,8 +80,13 @@ internal fun LibraryRouteContent(
     /** The URL's query: a one-visit sort or status filter landing (spec §6.4). */
     query: Map<String, String> = emptyMap(),
 ) {
-    LibrarySortLanding(query[SORT_QUERY_KEY], librarySession.onEvent)
-    LibraryStatusLanding(query[STATUS_QUERY_KEY], librarySession.onEvent)
+    // Once applied, each landing leaves the URL, so Back to here does not force it again over the reader's own choice.
+    LibrarySortLanding(query[SORT_QUERY_KEY], librarySession.onEvent) {
+        router.replace(Route(listOf(LIBRARY_KEY), query - SORT_QUERY_KEY))
+    }
+    LibraryStatusLanding(query[STATUS_QUERY_KEY], librarySession.onEvent) {
+        router.replace(Route(listOf(LIBRARY_KEY), query - STATUS_QUERY_KEY))
+    }
     BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
@@ -103,29 +109,41 @@ internal fun LibraryRouteContent(
 
 /**
  * `/library?sort=added-desc` (Discover's "Newest in Library →"): the Books, newest first, for this
- * visit only; the reader's saved sort is untouched (plan Q6). Any other value, or none, asks nothing.
+ * visit only; the reader's saved sort is untouched (plan Q6). Any other value, or none, asks nothing. [onApplied] runs
+ * once the sort is asked for, so the route can drop the query.
  */
 @Composable
 internal fun LibrarySortLanding(
     sortQuery: String?,
     onEvent: (LibraryUiEvent) -> Unit,
+    onApplied: () -> Unit = {},
 ) {
+    val currentOnApplied by rememberUpdatedState(onApplied)
     LaunchedEffect(sortQuery) {
-        if (sortQuery == NEWEST_SORT) onEvent(LibraryUiEvent.BooksShownNewestFirst)
+        if (sortQuery == NEWEST_SORT) {
+            onEvent(LibraryUiEvent.BooksShownNewestFirst)
+            currentOnApplied()
+        }
     }
 }
 
 /**
  * `/library?status=in-progress` (Home's "In Library →"): the Books filtered to In progress. The filter is the
  * session's own, so [rememberingStatusFilter] keeps it for the visit. Any other value, or none, asks nothing.
+ * [onApplied] runs once the filter is asked for, so the route can drop the query.
  */
 @Composable
 internal fun LibraryStatusLanding(
     statusQuery: String?,
     onEvent: (LibraryUiEvent) -> Unit,
+    onApplied: () -> Unit = {},
 ) {
+    val currentOnApplied by rememberUpdatedState(onApplied)
     LaunchedEffect(statusQuery) {
-        if (statusQuery == IN_PROGRESS_STATUS) onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+        if (statusQuery == IN_PROGRESS_STATUS) {
+            onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+            currentOnApplied()
+        }
     }
 }
 

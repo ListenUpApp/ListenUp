@@ -13,6 +13,10 @@ import com.calypsan.listenup.web.features.licences.LicencesUiState
 import com.calypsan.listenup.web.features.licences.fixedLicences
 import com.calypsan.listenup.web.features.shelf.fixedShelfDetail
 import com.calypsan.listenup.web.features.shelf.fixedShelfEdit
+import com.calypsan.listenup.web.features.readers.READERS_NOW
+import com.calypsan.listenup.web.features.readers.fixedBookReaders
+import com.calypsan.listenup.web.features.readers.reader
+import com.calypsan.listenup.web.features.readers.readersData
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -263,6 +267,50 @@ class RouteResolutionTest :
             try {
                 asked shouldBe listOf("s-bedtime")
                 heading(host) shouldBe "Edit shelf"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        // A landing is a one-time push: once it has applied, the URL lets go of it, so coming Back to the page
+        // does not force the filter or the scroll again over what the reader chose since.
+        test("/library?status=in-progress filters the Library, then the URL drops the landing") {
+            val (_, router, composition) = mountAt("/library?status=in-progress")
+            try {
+                awaitFrame()
+                awaitFrame()
+                window.location.pathname shouldBe "/library"
+                window.location.search shouldBe ""
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/library?sort=added-desc sorts newest first, then the URL drops the landing") {
+            val (_, router, composition) = mountAt("/library?sort=added-desc")
+            try {
+                awaitFrame()
+                awaitFrame()
+                window.location.search shouldBe ""
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/book/{id}?section=readers lands on the readers, then the URL drops the landing") {
+            val (_, router, composition) =
+                mountAt(
+                    "/book/b1?section=readers",
+                    openBookReaders = fixedBookReaders(readersData(reader(finishes = listOf(READERS_NOW)))),
+                )
+            try {
+                awaitFrame()
+                awaitFrame()
+                window.location.pathname shouldBe "/book/b1"
+                window.location.search shouldBe ""
             } finally {
                 composition.dispose()
                 router.dispose()
