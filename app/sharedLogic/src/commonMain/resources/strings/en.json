@@ -1027,7 +1027,9 @@
     "add_to_collection": "Add to collection",
     "cancel_a11y": "Cancel selection",
     "toolbar_a11y_one": "1 book selected",
-    "toolbar_a11y_plural": "%1$d books selected"
+    "toolbar_a11y_plural": "%1$d books selected",
+    "chapters_a11y_one": "1 chapter selected",
+    "chapters_a11y_plural": "%1$d chapters selected"
   },
   "discover": {
     "activity": "Activity",

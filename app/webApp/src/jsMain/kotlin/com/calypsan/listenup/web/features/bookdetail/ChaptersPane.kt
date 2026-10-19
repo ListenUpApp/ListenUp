@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.design.chaptersSelectedLabel
 import com.calypsan.listenup.web.design.ColumnAlign
 import com.calypsan.listenup.web.design.DataTable
 import com.calypsan.listenup.web.design.MetaEntry
@@ -213,7 +214,3 @@ private fun EditChaptersButton(onEditChapters: () -> Unit) {
 }
 
 private const val EDIT_ICON = 16
-
-/** "1 chapter selected", "3 chapters selected": the chapter selection toolbar's name. */
-private fun chaptersSelectedLabel(count: Int): String =
-    if (count == 1) "1 chapter selected" else "$count chapters selected"

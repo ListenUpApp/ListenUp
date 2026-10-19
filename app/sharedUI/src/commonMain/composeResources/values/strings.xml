@@ -2178,6 +2178,8 @@ One beautiful library.</string>
     <string name="selection_added_to_shelf_one">1 book added to shelf</string>
     <string name="selection_added_to_shelf_plural">%1$d books added to shelf</string>
     <string name="selection_cancel_a11y">Cancel selection</string>
+    <string name="selection_chapters_a11y_one">1 chapter selected</string>
+    <string name="selection_chapters_a11y_plural">%1$d chapters selected</string>
     <string name="selection_created_with_books_one">Created "%1$s" with 1 book</string>
     <string name="selection_created_with_books_plural">Created "%1$s" with %2$d books</string>
     <string name="selection_n_selected">%1$d selected</string>
