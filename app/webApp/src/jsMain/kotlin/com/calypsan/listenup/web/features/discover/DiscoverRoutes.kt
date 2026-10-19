@@ -68,6 +68,7 @@ internal fun DiscoverRoute(
             onBrowseLibrary = { router.navigate(Routes.library) },
             landOnLeaderboard = landOnLeaderboard,
             selection = selection,
+            onOpenAllActivity = { router.navigate(Routes.discoverActivity) },
         )
     }
 }

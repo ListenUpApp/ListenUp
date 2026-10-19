@@ -9,6 +9,7 @@ import com.calypsan.listenup.web.features.bookdetail.BookRouteContent
 import com.calypsan.listenup.web.features.browse.BrowseRouteContent
 import com.calypsan.listenup.web.features.bulkedit.BulkEditRoute
 import com.calypsan.listenup.web.features.contributordetail.ContributorRouteContent
+import com.calypsan.listenup.web.features.discover.ActivityFeedRoute
 import com.calypsan.listenup.web.features.discover.DiscoverRoute
 import com.calypsan.listenup.web.features.home.HomeRoute
 import com.calypsan.listenup.web.features.library.FeedSelection
@@ -25,6 +26,7 @@ import com.calypsan.listenup.web.features.settings.isAccountRoute
 import com.calypsan.listenup.web.features.shelf.ShelfRouteContent
 import com.calypsan.listenup.web.features.shelf.shelfRouteOf
 import com.calypsan.listenup.web.nav.BOOK_KEY
+import com.calypsan.listenup.web.nav.ACTIVITY_KEY
 import com.calypsan.listenup.web.nav.CONTRIBUTORS_KEY
 import com.calypsan.listenup.web.nav.CONTRIBUTOR_KEY
 import com.calypsan.listenup.web.nav.DISCOVER_KEY
@@ -201,6 +203,8 @@ internal fun RouteContent(
             onToast = onToast,
             onActionToast = onActionToast,
         )
+    } else if (active == DISCOVER_KEY && route.segments.getOrNull(1) == ACTIVITY_KEY) {
+        ActivityFeedRoute(router, graph.openActivityFeed, feeds)
     } else if (active == DISCOVER_KEY) {
         DiscoverRoute(router, graph.openDiscover, feeds, route.query[SECTION_QUERY_KEY] == LEADERBOARD_SECTION)
     } else {

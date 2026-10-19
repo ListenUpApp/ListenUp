@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.BulkAction
 import com.calypsan.listenup.web.design.BulkBar
+import com.calypsan.listenup.web.design.booksSelectedLabel
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.ActionsMenu
 import com.calypsan.listenup.web.design.Checkbox
@@ -149,6 +150,7 @@ private fun ReadyContent(
     if (state.hasSelection) {
         BulkBar(
             count = state.selectedCount,
+            label = booksSelectedLabel(state.selectedCount),
             actions =
                 listOf(
                     BulkAction(

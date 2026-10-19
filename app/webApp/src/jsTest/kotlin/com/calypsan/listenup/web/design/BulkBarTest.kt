@@ -26,14 +26,14 @@ class BulkBarTest :
             //
             // Markup is not reach. This asserts the computed position, which is the property that
             // was missing and the only one a content assertion cannot see.
-            val host = mount { BulkBar(count = 2, onClear = {}) }
+            val host = mount { BulkBar(count = 2, label = "2 books selected", onClear = {}) }
 
             val bar = host.querySelector(".bulk") as HTMLElement
             window.getComputedStyle(bar).position shouldBe "sticky"
         }
 
         test("the bar states how many rows are selected") {
-            val host = mount { BulkBar(count = 2, onClear = {}) }
+            val host = mount { BulkBar(count = 2, label = "2 books selected", onClear = {}) }
 
             (host.querySelector(".bulk") as HTMLElement).textContent.orEmpty() shouldContain "2 selected"
         }
@@ -44,6 +44,7 @@ class BulkBarTest :
                 mount {
                     BulkBar(
                         count = 3,
+                        label = "3 books selected",
                         actions = listOf(BulkAction("Merge", WebIcon.Merge) { fired++ }),
                         onClear = {},
                     )
@@ -56,10 +57,31 @@ class BulkBarTest :
 
         test("clear is always offered and reports") {
             var cleared = 0
-            val host = mount { BulkBar(count = 5, onClear = { cleared++ }) }
+            val host = mount { BulkBar(count = 5, label = "5 books selected", onClear = { cleared++ }) }
 
             (host.querySelector(".bulk .bulk-x") as HTMLElement).click()
 
             cleared shouldBe 1
+        }
+
+        test("the bar is a labelled toolbar: Cancel selection first, the count, full action labels") {
+            val host =
+                mount {
+                    BulkBar(
+                        count = 2,
+                        label = "2 books selected",
+                        actions = listOf(BulkAction("Add to shelf") {}),
+                        onClear = {},
+                    )
+                }
+            val bar = host.querySelector("[role=toolbar]") as HTMLElement
+            bar.getAttribute("aria-label") shouldBe "2 books selected"
+            (bar.firstElementChild as HTMLElement).getAttribute("aria-label") shouldBe "Cancel selection"
+            bar.textContent.orEmpty() shouldContain "Add to shelf"
+        }
+
+        test("a book selection's toolbar is named for how many books") {
+            booksSelectedLabel(1) shouldBe "1 book selected"
+            booksSelectedLabel(3) shouldBe "3 books selected"
         }
     })

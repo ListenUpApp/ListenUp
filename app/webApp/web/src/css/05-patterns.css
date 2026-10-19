@@ -416,13 +416,20 @@ dialog.dlg .dlg-close { align-self: flex-start; }
    Sticky rather than fixed so it stays in flow and cannot cover the transport bar, which is
    itself a flex sticky-footer rather than a fixed element. A modal `<dialog>` sits in the top
    layer, above it. */
-.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:var(--sp-16) auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 10px 0 18px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
+.bulk { position:sticky; bottom:16px; z-index:35; width:max-content; max-width:calc(100% - 32px); margin:var(--sp-16) auto 0; display:flex; align-items:center; gap:10px; height:54px; padding:0 18px 0 10px; background:var(--ink); color:var(--paper); border-radius:15px; box-shadow:var(--shadow-float); white-space:nowrap; }
 [data-theme="dark"] .bulk { background:var(--surface-3); color:var(--ink); border:1px solid var(--line); }
 .bulk-b { height:36px; padding:0 13px; border-radius:var(--r-sm); border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.09); color:inherit; font-family:inherit; font-size:var(--fs-small); font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
 @media (hover: hover) { .bulk-b:hover { background:rgba(255,255,255,.18); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
-.bulk-x { width:36px; height:36px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.bulk-n { font-weight:700; }
+.bulk-gap { flex:1; }
+/* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
+   sideways rather than spilling past the screen's edge when its labels outgrow a phone. */
+@media (max-width: 759px) {
+  .bulk { position:fixed; top:calc(env(safe-area-inset-top) + 8px); bottom:auto; left:16px; right:16px; width:auto; max-width:none; margin:0; overflow-x:auto; }
+}
+.bulk-x { width:44px; height:44px; border-radius:var(--r-sm); border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 @media (hover: hover) { .bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); } }
 @media (hover: hover) { [data-theme="dark"] .bulk-x:hover { background:var(--surface-2); } }
 

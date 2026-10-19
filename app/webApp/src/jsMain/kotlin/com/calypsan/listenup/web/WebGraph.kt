@@ -45,6 +45,8 @@ import com.calypsan.listenup.web.features.contributoredit.graphContributorEdit
 import com.calypsan.listenup.web.features.devices.OpenDevices
 import com.calypsan.listenup.web.features.devices.graphDevices
 import com.calypsan.listenup.web.features.discover.OpenDiscover
+import com.calypsan.listenup.web.features.discover.OpenActivityFeed
+import com.calypsan.listenup.web.features.discover.graphActivityFeed
 import com.calypsan.listenup.web.features.discover.graphDiscover
 import com.calypsan.listenup.web.features.hardcover.OpenBookHardcover
 import com.calypsan.listenup.web.features.hardcover.OpenHardcover
@@ -129,6 +131,8 @@ class WebGraph(
     val openEditProfile: OpenEditProfile,
     val openHome: OpenHome,
     val openDiscover: OpenDiscover,
+    /** See all activity's own feed session (X33). */
+    val openActivityFeed: OpenActivityFeed,
     val openSettings: OpenSettings,
     val openDevices: OpenDevices,
     val openHardcover: OpenHardcover,
@@ -181,6 +185,7 @@ fun graphWeb(koin: Koin): WebGraph =
         openLibrary = graphLibrary(koin),
         openHome = graphHome(koin),
         openDiscover = graphDiscover(koin),
+        openActivityFeed = graphActivityFeed(koin),
         openSettings = graphSettings(koin),
         openLicences = graphLicences(),
         openDevices = graphDevices(koin),

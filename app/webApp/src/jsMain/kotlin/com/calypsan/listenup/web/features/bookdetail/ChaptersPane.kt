@@ -63,7 +63,11 @@ internal fun ChaptersPane(
             }
 
             if (selection.isNotEmpty()) {
-                BulkBar(count = selection.size, onClear = { onSelectionChange(emptySet()) })
+                BulkBar(
+                    count = selection.size,
+                    label = chaptersSelectedLabel(selection.size),
+                    onClear = { onSelectionChange(emptySet()) },
+                )
             }
 
             Panel(flush = true) {
@@ -209,3 +213,6 @@ private fun EditChaptersButton(onEditChapters: () -> Unit) {
 }
 
 private const val EDIT_ICON = 16
+
+/** "1 chapter selected", "3 chapters selected": the chapter selection toolbar's name. */
+private fun chaptersSelectedLabel(count: Int): String = if (count == 1) "1 chapter selected" else "$count chapters selected"

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.web.WebGraph
+import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.web.features.admin.fixedRestrictedBooks
 import androidx.compose.runtime.Composition
@@ -154,6 +155,7 @@ class BookDetailPanesTest :
                                 openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
                                 openHome = fixedHome(HomeUiState.Loading),
                                 openDiscover = fixedDiscover(),
+                                openActivityFeed = fixedActivityFeed(),
                                 openSettings = fixedSettings(),
                                 openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
                                 openDevices = fixedDevices(),

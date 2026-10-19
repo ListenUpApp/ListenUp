@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
+import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedRestrictedBooks
 import com.calypsan.listenup.web.features.hardcover.fixedBookHardcover
 import com.calypsan.listenup.web.features.hardcover.fixedHardcoverMatch
@@ -130,6 +131,7 @@ class ComposeHtmlRenderTest :
                                 openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
                                 openHome = fixedHome(HomeUiState.Loading),
                                 openDiscover = fixedDiscover(),
+                                openActivityFeed = fixedActivityFeed(),
                                 openSettings = fixedSettings(),
                                 openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
                                 openDevices = fixedDevices(),
@@ -211,6 +213,7 @@ class ComposeHtmlRenderTest :
                                 openEditProfile = fixedEditProfile(EditProfileUiState.Loading),
                                 openHome = fixedHome(HomeUiState.Loading),
                                 openDiscover = fixedDiscover(),
+                                openActivityFeed = fixedActivityFeed(),
                                 openSettings = fixedSettings(),
                                 openLicences = fixedLicences(LicencesUiState.Ready(emptyList())),
                                 openDevices = fixedDevices(),
