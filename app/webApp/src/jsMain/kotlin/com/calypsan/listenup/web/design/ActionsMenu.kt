@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -191,12 +192,14 @@ private fun MenuItems(
     onChosen: () -> Unit,
 ) {
     val menuNode = remember { NodeHolder() }
+    val lastFocused = remember { NodeHolder() }
     Div(attrs = {
         classes("menu")
         attr("role", "menu")
         attr("aria-label", label)
         // Manual: the menu keeps its own outside-press and Escape handling (PopupMenu).
         attr("popover", "manual")
+        onFocusIn { event -> lastFocused.element = event.target as? HTMLElement }
         ref { menu ->
             menuNode.element = menu
             menu.showInTopLayer()
@@ -247,6 +250,12 @@ private fun MenuItems(
                 }
             }
         }
+    }
+    // Compose re-applies EVERY attribute of the menu when any one of them changes, and taking
+    // `popover` off closes it. A kept-open sort menu re-words its name when its direction flips, so
+    // the menu shows itself again in the same frame, and focus goes back to the item that had it.
+    SideEffect {
+        if (menuNode.element?.reopenInTopLayer() == true) lastFocused.element?.focusWithoutScrolling()
     }
 }
 
@@ -316,6 +325,14 @@ private fun MenuItem(
 private fun HTMLElement.showInTopLayer() {
     val element: dynamic = this
     if (jsTypeOf(element.showPopover) == "function") element.showPopover()
+}
+
+/** Shows [this] again in the top layer if an attribute pass closed it; true when it had to. */
+private fun HTMLElement.reopenInTopLayer(): Boolean {
+    val element: dynamic = this
+    val closed = jsTypeOf(element.showPopover) == "function" && !(element.matches(":popover-open") as Boolean)
+    if (closed) element.showPopover()
+    return closed
 }
 
 private fun HTMLElement.focusWithoutScrolling() {

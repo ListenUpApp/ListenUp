@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.design
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -7,6 +11,7 @@ import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
 
@@ -97,6 +102,35 @@ class SortDropdownTest :
             awaitFrame()
             toggles shouldBe 1
             (root.querySelector("[role=menu]") != null) shouldBe true
+        }
+
+        test("a direction that re-words the trigger leaves the menu showing, with focus still inside it") {
+            val root =
+                mounts.mount {
+                    var state by remember { mutableStateOf(SortState(SortCategory.TITLE, SortDirection.ASCENDING)) }
+                    SortDropdown(
+                        noun = "books",
+                        categories = listOf(SortCategory.TITLE, SortCategory.AUTHOR),
+                        state = state,
+                        onCategory = {},
+                        onToggleDirection = { state = state.toggleDirection() },
+                        ignoreArticles = true,
+                        onToggleIgnoreArticles = {},
+                    )
+                }
+            val trigger = root.querySelector("button[aria-haspopup=menu]") as HTMLElement
+            trigger.click()
+            awaitFrame()
+            val descending =
+                root.querySelectorAll("[role=group][aria-label=\"Direction\"] [role=menuitemradio]").item(1) as HTMLElement
+            descending.focus()
+            descending.click()
+            awaitFrame()
+            awaitFrame()
+            trigger.textContent shouldBe "Sort: Title, Z–A"
+            val menu = root.querySelector("[role=menu]") as HTMLElement
+            menu.asDynamic().matches(":popover-open") as Boolean shouldBe true
+            menu.contains(document.activeElement) shouldBe true
         }
 
         test("choosing a category reports it and closes the menu") {
