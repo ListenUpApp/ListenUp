@@ -182,4 +182,24 @@ class SelectionToolbarTest {
         val padding = PaddingValues(bottom = 16.dp).plusSelectionToolbar(isSelecting = false)
         padding.calculateBottomPadding() shouldBe 16.dp
     }
+
+    @Test
+    fun `the header starts below the host's top inset, as Library's does, instead of under the status bar`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    SelectionToolbar(
+                        selectedCount = 2,
+                        onAddToShelf = {},
+                        onAddToCollection = null,
+                        onEdit = null,
+                        onClose = {},
+                        topClearance = 24.dp,
+                    )
+                }
+            }
+        }
+        val header = composeRule.onNodeWithTag("selection-header").fetchSemanticsNode().boundsInRoot
+        header.top shouldBe with(composeRule.density) { 24.dp.toPx() }
+    }
 }

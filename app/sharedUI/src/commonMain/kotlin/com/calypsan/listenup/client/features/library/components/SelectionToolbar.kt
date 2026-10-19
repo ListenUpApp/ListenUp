@@ -107,6 +107,8 @@ private class BottomExtended(
  * @param onClose Called when Cancel selection is tapped
  * @param modifier Optional modifier for the full-size layer holding both parts
  * @param visible Whether the bar is up; each part slides in from its own edge
+ * @param topClearance Space above the header for what the host keeps clear at its top (the status
+ *   bar), so the header sits where a host's own header would, as in Library
  * @param bottomClearance Space under the floating toolbar for what the host draws there (navigation
  *   bar, mini player), so the toolbar floats above it
  */
@@ -121,13 +123,14 @@ fun SelectionToolbar(
     modifier: Modifier = Modifier,
     visible: Boolean = true,
     bottomClearance: Dp = 0.dp,
+    topClearance: Dp = 0.dp,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
             enter = slideInVertically { -it },
             exit = slideOutVertically { -it },
-            modifier = Modifier.align(Alignment.TopCenter),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = topClearance),
         ) {
             SelectionHeader(selectedCount = selectedCount, onClose = onClose)
         }
