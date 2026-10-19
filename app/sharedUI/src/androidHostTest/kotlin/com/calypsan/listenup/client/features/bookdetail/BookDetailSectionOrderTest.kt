@@ -15,6 +15,7 @@ import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,9 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import org.junit.After
 import org.junit.Before
@@ -185,6 +189,22 @@ class BookDetailSectionOrderTest {
         composeRule.onNode(isHeading() and hasText("Readers")).assertIsDisplayed()
     }
 
+    // The readers arrive after the page has drawn, as they do from the repository: the hero's social line appears above
+    // the columns and pushes Readers down, so the landing has to wait for them, as the phone's does.
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `on a tablet, the landing waits for the readers, so Readers is still in view once they arrive`() {
+        val arriving = MutableStateFlow<BookReaders?>(null)
+        setScreen(ready(ReadingStage.NotStarted, notStartedOrder), readersFlow = arriving.filterNotNull(), landOnReaders = true)
+        composeRule.waitForIdle()
+        arriving.value = BookReaders(readers = listOf(other("Maya", 40)))
+        composeRule.waitForIdle()
+        val heading = composeRule.onNode(isHeading() and hasText("Readers")).getUnclippedBoundsInRoot()
+        val root = composeRule.onRoot().getUnclippedBoundsInRoot()
+        (heading.top >= root.top && heading.bottom <= root.bottom) shouldBe true
+        composeRule.onNodeWithText("Listening now").assertIsDisplayed()
+    }
+
     @Test
     fun `nobody else reading draws no social line`() {
         setScreen(ready(ReadingStage.InProgress, inProgressOrder))
@@ -246,12 +266,13 @@ class BookDetailSectionOrderTest {
     private fun setScreen(
         state: BookDetailUiState.Ready,
         readers: List<Reader> = emptyList(),
+        readersFlow: Flow<BookReaders> = flowOf(BookReaders(readers = readers)),
         landOnReaders: Boolean = false,
         frame: @Composable (@Composable () -> Unit) -> Unit = { it() },
     ) {
         val readersRepo =
             mock<BookReadersRepository>(MockMode.autoUnit) {
-                every { observeReadersFor(any()) } returns flowOf(BookReaders(readers = readers))
+                every { observeReadersFor(any()) } returns readersFlow
             }
         val ratings =
             mock<BookRatingRepository>(MockMode.autoUnit) {

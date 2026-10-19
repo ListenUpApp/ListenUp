@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
 import kotlinx.coroutines.launch
 
@@ -67,10 +68,14 @@ fun WideBookDetail(
     // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
     var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
-    LaunchedEffect(landOnReaders) {
-        if (landOnReaders && !landedOnReaders && !state.isHeld) {
+    // A held book is triage-only: no social line and no Readers, so its readers are never asked for.
+    val readers = if (state.isHeld) PageReaders(hasArrived = false, summary = null) else rememberPageReaders(bookId)
+    // Once the readers have arrived: until then the hero has no social line and the card no rows, so both grow after
+    // a landing that went first, and push Readers back out of view.
+    LaunchedEffect(landOnReaders, readers.hasArrived) {
+        if (landOnReaders && !landedOnReaders && readers.hasArrived) {
             landedOnReaders = true
-            // After the first layout, so the card has a place in the scroll to be brought to.
+            // After the layout that draws them, so the card has its height in the scroll it is brought to.
             withFrameNanos { }
             readersRequester.bringIntoView()
         }
@@ -131,6 +136,7 @@ fun WideBookDetail(
                 actions = actions,
                 isPreparing = isPreparing,
                 onShowCast = { castRole = it },
+                summary = readers.summary,
                 onOpenReaders = { scope.launch { readersRequester.bringIntoView() } },
             )
 
@@ -176,12 +182,11 @@ private fun WideHero(
     actions: BookDetailActions,
     isPreparing: Boolean,
     onShowCast: (CastRole) -> Unit,
+    summary: ReadersSummary?,
     onOpenReaders: () -> Unit,
 ) {
     val book = state.book
     val showListen = !state.isHeld && state.isPlaybackAvailable
-    // A held book is triage-only: no social line, so its readers are never asked for.
-    val summary = if (state.isHeld) null else rememberPageReaders(bookId).summary
     WideHeroBand(
         coverPath = book.coverPath,
         coverHash = book.coverHash,
