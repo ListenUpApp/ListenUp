@@ -40,7 +40,8 @@ class JumpRailTest :
         }
 
         test("a recurring letter is one button, and a descending sort runs the rail Z to A") {
-            val rail = railLetters(listOf(LetterSection("Z", 0, 1), LetterSection("#", 1, 1), LetterSection("B", 2, 1), LetterSection("#", 3, 1)))
+            val rail =
+                railLetters(listOf(LetterSection("Z", 0, 1), LetterSection("#", 1, 1), LetterSection("B", 2, 1), LetterSection("#", 3, 1)))
             rail.map { it.letter } shouldBe ('A'..'Z').reversed().map { it.toString() } + "#"
             rail.filter { it.hasSection }.map { it.letter } shouldBe listOf("Z", "B", "#")
         }
