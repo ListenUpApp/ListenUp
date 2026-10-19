@@ -78,7 +78,7 @@ struct ShelfCard: View {
 
 /// The "My Shelves" section (spec §2.7): a header with New Shelf (always there, so the first shelf is one tap away),
 /// then the reader's shelves — a scrolling rail of tiles in one column, a grid of row cards when Home is wide — or,
-/// with none yet, a line inviting the first. No See all until the My Shelves list exists (open question 1).
+/// with none yet, a line inviting the first. See All opens the My Shelves list once there is a shelf to see (H24).
 struct MyShelvesSection: View {
     let shelves: [ShelfItem]
     let layout: HomeLayout
@@ -138,6 +138,16 @@ struct MyShelvesSection: View {
                 .font(.title3.weight(.semibold))
                 .accessibilityAddTraits(.isHeader)
             Spacer()
+            if !isLoading && !shelves.isEmpty {
+                NavigationLink(value: MyShelvesDestination()) {
+                    Text(String(localized: "home.see_all_ios"))
+                        .font(.body)
+                        .foregroundStyle(Color.luTint)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "home.see_all_shelves_a11y"))
+            }
             Button {
                 isCreatingShelf = true
             } label: {

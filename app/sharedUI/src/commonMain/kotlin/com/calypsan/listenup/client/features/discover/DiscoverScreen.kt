@@ -33,6 +33,10 @@ import org.koin.compose.viewmodel.koinViewModel
  * - Pull to refresh
  * - Users grouped with their shelves
  * - Click shelf to view details
+ *
+ * @param onInvite Opens the create-invite screen from the only-you invitation; shown to an admin only. Null
+ *   (desktop) hides the button.
+ * @param onBrowseLibrary Opens the Library from "You've started every book here."; null hides the button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +46,8 @@ fun DiscoverScreen(
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
+    onInvite: (() -> Unit)? = null,
+    onBrowseLibrary: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -56,6 +62,8 @@ fun DiscoverScreen(
     val leaderboardState by leaderboardViewModel.uiState.collectAsStateWithLifecycle()
     val leaderboardSelection by leaderboardViewModel.selection.collectAsStateWithLifecycle()
     val activityState by activityFeedViewModel.state.collectAsStateWithLifecycle()
+    val community by viewModel.communitySize.collectAsStateWithLifecycle()
+    val viewer by viewModel.viewer.collectAsStateWithLifecycle()
     val haptics = LocalHaptics.current
     val landings = LocalShellLandings.current
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
@@ -95,6 +103,8 @@ fun DiscoverScreen(
                             activity = activityState,
                             shelves = shelvesState,
                             recentlyAdded = recentState,
+                            community = community,
+                            viewer = viewer,
                         ),
                     actions =
                         DiscoverActions(
@@ -108,6 +118,13 @@ fun DiscoverScreen(
                             onSelectCategory = leaderboardViewModel::selectCategory,
                             onOpenLibraryNewest = { landings?.request(ShellLanding.LibraryNewestFirst) },
                             onBookLongPress = multiSelect::enterSelectionMode,
+                            onInvite = onInvite,
+                            onRetryListening = viewModel::retryListeningNow,
+                            onRetryRecent = viewModel::retryRecentlyAdded,
+                            onRetryLeaderboard = leaderboardViewModel::refresh,
+                            onRetryActivity = activityFeedViewModel::refresh,
+                            onRetryShelves = viewModel::retryShelvesByOthers,
+                            onBrowseLibrary = onBrowseLibrary,
                         ),
                     appHeader = appHeader,
                     contentPadding = contentPadding,

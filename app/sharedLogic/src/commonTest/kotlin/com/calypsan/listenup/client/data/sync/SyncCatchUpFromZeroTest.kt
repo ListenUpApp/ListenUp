@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.SyncEvent
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.Flow
 import com.calypsan.listenup.api.sync.SyncPage
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
@@ -115,6 +117,16 @@ private class InMemoryDao : SyncCursorDao {
         val current = cursors[domainName]
         if (current == null || revision > current) cursors[domainName] = revision
     }
+
+    override suspend fun advanceExistingCursor(
+        domainName: String,
+        revision: Long,
+    ) {
+        val current = cursors[domainName] ?: return
+        if (revision > current) cursors[domainName] = revision
+    }
+
+    override fun observeCursor(domainName: String): Flow<Long?> = flowOf(cursors[domainName])
 
     override suspend fun all(): List<SyncCursorEntity> =
         cursors.map {

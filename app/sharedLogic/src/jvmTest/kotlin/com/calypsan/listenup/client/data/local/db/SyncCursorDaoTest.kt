@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -66,6 +67,49 @@ class SyncCursorDaoTest :
                     dao.setCursor(SyncCursorEntity(domainName = "books", revision = booksRevision))
                     dao.getCursor("tags") shouldBe tagsRevision
                     dao.getCursor("books") shouldBe booksRevision
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("advanceExistingCursor writes no row for a domain no pull has created") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dao = db.syncCursorDao()
+                    dao.advanceExistingCursor(domainName = "public_profiles", revision = 41L)
+                    dao.getCursor("public_profiles") shouldBe null
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("advanceExistingCursor moves an existing cursor forward and never back") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dao = db.syncCursorDao()
+                    dao.setCursor(SyncCursorEntity(domainName = "tags", revision = 5L))
+                    dao.advanceExistingCursor(domainName = "tags", revision = 8L)
+                    dao.getCursor("tags") shouldBe 8L
+                    dao.advanceExistingCursor(domainName = "tags", revision = 3L)
+                    dao.getCursor("tags") shouldBe 8L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("observeCursor is null until the domain has a cursor, then follows it") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dao = db.syncCursorDao()
+                    dao.observeCursor("public_profiles").first() shouldBe null
+                    dao.setCursorMonotonic(domainName = "public_profiles", revision = 12L)
+                    dao.observeCursor("public_profiles").first() shouldBe 12L
                 } finally {
                     db.close()
                 }

@@ -44,8 +44,8 @@ struct JustFinishedCard: View {
             }
             rating
             if let line = FinishedCardText.alsoFinished(names: slot.alsoFinishedNames, more: slot.alsoFinishedOthers) {
-                // Home PR 4b lands it on Book Detail's readers; until then it opens the book.
-                NavigationLink(value: BookDestination(id: slot.bookId)) {
+                // Book Detail, landed on its Readers (spec §6.4).
+                NavigationLink(value: BookDestination(id: slot.bookId, focus: .readers)) {
                     Text(line)
                         .font(.subheadline)
                         .foregroundStyle(Color.luTintInk)

@@ -32,8 +32,8 @@ interface UserProfileRepository {
     fun observeProfile(userId: String): Flow<CachedUserProfile?>
 
     /**
-     * Observe the ids of everyone on the server's public roster (live rows only), the reader included.
-     * Empty until the roster has synced.
+     * Every live profile's user id on the server's public roster, the reader included; null until the roster has been
+     * pulled at least once, so a caller can tell "not synced" from "only you".
      */
-    fun observeRosterUserIds(): Flow<List<String>>
+    fun observeRosterUserIds(): Flow<List<String>?>
 }

@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.browser.document
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -109,6 +110,42 @@ class ReadersTest :
                     onOpenBook = onOpenBook,
                 )
             }
+
+        test("landing on the readers focuses the panel's heading once it has readers, and says it landed") {
+            var landed = 0
+            mounts.mount {
+                ReadersPanel(
+                    state = readersData(reader(finishes = listOf(READERS_NOW - DAY))),
+                    nowMs = READERS_NOW,
+                    onOpenProfile = {},
+                    onSeeAll = {},
+                    land = true,
+                    onLanded = { landed++ },
+                )
+            }
+            awaitFrame()
+
+            document.activeElement?.textContent shouldBe "Readers"
+            (document.getElementById("readers") as? HTMLElement).shouldNotBeNull()
+            landed shouldBe 1
+        }
+
+        test("a landing waits while the readers load: nothing to land on, so nothing is claimed") {
+            var landed = 0
+            mounts.mount {
+                ReadersPanel(
+                    state = BookReadersUiState.Loading,
+                    nowMs = READERS_NOW,
+                    onOpenProfile = {},
+                    onSeeAll = {},
+                    land = true,
+                    onLanded = { landed++ },
+                )
+            }
+            awaitFrame()
+
+            landed shouldBe 0
+        }
 
         test("the panel names each reader and what they are doing") {
             val host =

@@ -112,6 +112,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
@@ -2307,6 +2309,7 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
         leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
         activityState: ActivityFeedUiState = ActivityFeedUiState.Loading,
         shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
+        community: CommunitySize = CommunitySize.Others,
     ): @Composable () -> Unit =
         {
             DiscoverPage(
@@ -2323,11 +2326,17 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
                 onOpenProfile = {},
                 onSelectPeriod = {},
                 onSelectCategory = {},
-                onRefresh = {},
+                onRetryListening = {},
+                onRetryRecent = {},
+                onRetryShelves = {},
                 onRefreshLeaderboard = {},
                 onRefreshActivity = {},
                 onShuffle = {},
                 onOpenLibraryNewest = {},
+                communitySize = community,
+                viewer = DiscoverViewer("me", "Simon", canInvite = true),
+                onInvite = {},
+                onBrowseLibrary = {},
             )
         }
 
@@ -2351,6 +2360,15 @@ private fun discoverShapes(): List<@Composable () -> Unit> {
             leaderboard = LeaderboardUiState.Empty,
             activityState = ActivityFeedUiState.Ready(emptyList()),
             shelves = DiscoverShelvesUiState.Ready(emptyList()),
+        ),
+        // Only you, a started-everything library, and a stale roster: the states' own classes.
+        page(
+            books = DiscoverBooksUiState.AllStarted,
+            currentlyListening = CurrentlyListeningUiState.Ready(emptyList(), observedAtMs = null, isStale = false),
+            community = CommunitySize.JustYou,
+        ),
+        page(
+            currentlyListening = CurrentlyListeningUiState.Ready(listOf(listener), observedAtMs = 1L, isStale = true),
         ),
         // Every section populated — where most of the classes actually live.
         page(

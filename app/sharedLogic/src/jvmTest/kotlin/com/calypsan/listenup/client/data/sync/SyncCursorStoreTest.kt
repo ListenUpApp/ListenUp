@@ -58,4 +58,50 @@ class SyncCursorStoreTest :
                 db.close()
             }
         }
+
+        test("a live frame never creates a cursor: only a pull may, so unpulled history is never skipped") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                store.advanceFromLiveFrame("public_profiles", 41L)
+                store.getCursor("public_profiles") shouldBe null
+                db.close()
+            }
+        }
+
+        test("a live frame advances a pulled cursor monotonically") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                store.setCursor("tags", 5L)
+                store.advanceFromLiveFrame("tags", 9L)
+                store.getCursor("tags") shouldBe 9L
+                store.advanceFromLiveFrame("tags", 7L)
+                store.getCursor("tags") shouldBe 9L
+                db.close()
+            }
+        }
+
+        test("the catch-up path still creates the cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                store.setCursor("public_profiles", 3L)
+                store.getCursor("public_profiles") shouldBe 3L
+                db.close()
+            }
+        }
+
+        test("highestCursor treats the 0 an empty pull records as no revision seen") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                store.setCursor("tags", 0L)
+                store.setCursor("genres", 0L)
+                store.highestCursor() shouldBe null
+                store.setCursor("books", 12L)
+                store.highestCursor() shouldBe 12L
+                db.close()
+            }
+        }
     })

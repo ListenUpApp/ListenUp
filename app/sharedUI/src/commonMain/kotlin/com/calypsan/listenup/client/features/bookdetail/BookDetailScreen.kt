@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
@@ -149,6 +150,8 @@ fun BookDetailScreen(
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
+    landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
         Modifier,
@@ -253,6 +256,7 @@ fun BookDetailScreen(
                         onSeeAllReaders = onSeeAllReaders,
                         onFindHardcoverMatch = onFindHardcoverMatch,
                         onCollectionClick = onCollectionClick,
+                        landOnReaders = landOnReaders,
                     )
                     // The receipt after Match details applied, above the mini player.
                     matchReceipt(
@@ -363,6 +367,7 @@ private fun BookDetailReadyContent(
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     onCollectionClick: ((collectionId: String) -> Unit)?,
+    landOnReaders: Boolean,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -477,6 +482,7 @@ private fun BookDetailReadyContent(
         documents = documents,
         isPreparing = isPreparing,
         lastMatchRow = { modifier -> LastMatchHost(viewModel = viewModel, modifier = modifier) },
+        landOnReaders = landOnReaders,
     )
 
     when (dialog) {
@@ -626,6 +632,8 @@ fun BookDetailContent(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    /** Scroll the Readers section into view once, on arrival (spec §6.4). */
+    landOnReaders: Boolean = false,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
 
@@ -645,6 +653,7 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
         )
     } else {
         ImmersiveBookDetail(
@@ -654,6 +663,98 @@ fun BookDetailContent(
             documents = documents,
             isPreparing = isPreparing,
             lastMatchRow = lastMatchRow,
+            landOnReaders = landOnReaders,
+        )
+    }
+}
+
+/**
+ * The phone column's leading items, keyed, in the order the column draws them. The column is built by walking this
+ * list, so [readersItemIndex] is read off the same order rather than counted by hand.
+ */
+internal enum class PhoneDetailItem(
+    val key: String,
+) {
+    Offline("offline"),
+    ScanWarning("scan-warning"),
+    Hero("hero"),
+    Held("held"),
+    Listen("listen"),
+    LastMatch("last-match"),
+    About("about"),
+    Visibility("visibility"),
+    Rating("rating"),
+    Readers("readers"),
+    Hardcover("hardcover"),
+}
+
+/**
+ * Which [PhoneDetailItem]s a book's phone column shows: the advisories, the hero, the held panel or the action unit,
+ * the last match and About, then — never for a held book (spec §9) — the admins' visibility card, rating, readers and
+ * Hardcover.
+ */
+internal fun phoneDetailItems(
+    showServerWarning: Boolean,
+    isHeld: Boolean,
+    isPlaybackAvailable: Boolean,
+    hasVisibility: Boolean,
+): List<PhoneDetailItem> =
+    buildList {
+        if (showServerWarning) add(PhoneDetailItem.Offline)
+        add(PhoneDetailItem.ScanWarning)
+        add(PhoneDetailItem.Hero)
+        if (isHeld) {
+            add(PhoneDetailItem.Held)
+        } else if (isPlaybackAvailable) {
+            add(PhoneDetailItem.Listen)
+        }
+        add(PhoneDetailItem.LastMatch)
+        add(PhoneDetailItem.About)
+        if (!isHeld) {
+            if (hasVisibility) add(PhoneDetailItem.Visibility)
+            add(PhoneDetailItem.Rating)
+            add(PhoneDetailItem.Readers)
+            add(PhoneDetailItem.Hardcover)
+        }
+    }
+
+/** Where Readers sits in [items] — the column's own index for it — or null when the column shows none. */
+internal fun readersItemIndex(items: List<PhoneDetailItem>): Int? =
+    items.indexOf(PhoneDetailItem.Readers).takeIf { it >= 0 }
+
+/** The phone column's Resume unit over its action group (spec §2.9). */
+@Composable
+private fun PhoneListenUnit(
+    state: BookDetailUiState.Ready,
+    actions: BookDetailActions,
+    isPreparing: Boolean,
+    screenPadding: Modifier,
+) {
+    Column(
+        modifier = screenPadding.padding(top = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ResumeUnit(
+            readingStage = state.readingStage,
+            currentChapter = state.currentChapter,
+            timeRemainingMs = state.timeRemainingMs,
+            progress = state.progress,
+            finishedSpan = state.finishedSpan,
+        )
+        ListenActionGroup(
+            primaryAction = state.primaryAction,
+            isPreparing = isPreparing,
+            downloadStatus = state.downloadStatus,
+            isWaitingForWifi = state.isWaitingForWifi,
+            downloadSizeBytes = state.downloadSizeBytes,
+            supportsDownloads = LocalDeviceContext.current.supportsDownloads,
+            canDownload = state.canDownload,
+            labelled = false,
+            onPrimaryClick = actions.onPlayClick,
+            onDownload = actions.onDownloadClick,
+            onCancelDownload = actions.onCancelClick,
+            onRemoveDownload = actions.onDeleteClick,
+            onAddToShelf = actions.onAddToShelfClick,
         )
     }
 }
@@ -678,6 +779,7 @@ private fun ImmersiveBookDetail(
     documents: List<BookDocument> = emptyList(),
     isPreparing: Boolean = false,
     lastMatchRow: @Composable (Modifier) -> Unit = {},
+    landOnReaders: Boolean = false,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -686,6 +788,24 @@ private fun ImmersiveBookDetail(
 
     val book = state.book
     val screenPadding = Modifier.padding(horizontal = Spacing.screenMargin)
+    val listState = rememberLazyListState()
+    val leadingItems =
+        phoneDetailItems(
+            showServerWarning = state.showServerWarning,
+            isHeld = state.isHeld,
+            isPlaybackAvailable = state.isPlaybackAvailable,
+            hasVisibility = state.visibility != null,
+        )
+    val readersIndex = readersItemIndex(leadingItems)
+    // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
+    var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    var focusedReaders by rememberSaveable(bookId) { mutableStateOf(false) }
+    LaunchedEffect(landOnReaders, readersIndex) {
+        if (landOnReaders && !landedOnReaders && readersIndex != null) {
+            landedOnReaders = true
+            listState.animateScrollToItem(readersIndex)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         BookDetailTopBar(
@@ -709,159 +829,139 @@ private fun ImmersiveBookDetail(
         val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(bottom = 32.dp + playerInset),
         ) {
-            // Offline advisory — streaming unavailable, downloads still play.
-            if (state.showServerWarning) {
-                item {
-                    OfflineBanner(
-                        onRetryClick = actions.onRetryConnection,
-                        compact = true,
-                        modifier = screenPadding.padding(vertical = 8.dp),
-                    )
-                }
-            }
+            // The leading items, in [phoneDetailItems]' order: the Readers landing reads its index off the same list.
+            leadingItems.forEach { entry ->
+                item(key = entry.key) {
+                    when (entry) {
+                        // Offline advisory — streaming unavailable, downloads still play.
+                        PhoneDetailItem.Offline -> {
+                            OfflineBanner(
+                                onRetryClick = actions.onRetryConnection,
+                                compact = true,
+                                modifier = screenPadding.padding(vertical = 8.dp),
+                            )
+                        }
 
-            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
-            item {
-                BookDetailScanWarning(
-                    hasScanWarning = state.hasScanWarning,
-                    modifier = screenPadding.padding(vertical = 8.dp),
-                )
-            }
+                        // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+                        PhoneDetailItem.ScanWarning -> {
+                            BookDetailScanWarning(
+                                hasScanWarning = state.hasScanWarning,
+                                modifier = screenPadding.padding(vertical = 8.dp),
+                            )
+                        }
 
-            // Identity — cover, series path, title, subtitle, byline and the quick-stat chips.
-            item(key = "hero") {
-                BookDetailHeroBand(
-                    coverPath = book.coverPath,
-                    coverHash = book.coverHash,
-                    bookId = bookId,
-                    title = book.title,
-                    subtitle = state.subtitle,
-                    seriesPaths = state.seriesPaths,
-                    authors = book.authors,
-                    narrators = book.narrators,
-                    durationMs = book.duration,
-                    year = state.year,
-                    abridged = book.abridged,
-                    onContributorClick = actions.onContributorClick,
-                    onSeriesClick = actions.onSeriesClick,
-                    onShowCast = { castRole = it },
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
+                        // Identity — cover, series path, title, subtitle, byline and the quick-stat chips.
+                        PhoneDetailItem.Hero -> {
+                            BookDetailHeroBand(
+                                coverPath = book.coverPath,
+                                coverHash = book.coverHash,
+                                bookId = bookId,
+                                title = book.title,
+                                subtitle = state.subtitle,
+                                seriesPaths = state.seriesPaths,
+                                authors = book.authors,
+                                narrators = book.narrators,
+                                durationMs = book.duration,
+                                year = state.year,
+                                abridged = book.abridged,
+                                onContributorClick = actions.onContributorClick,
+                                onSeriesClick = actions.onSeriesClick,
+                                onShowCast = { castRole = it },
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
 
-            // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match,
-            // Edit chapters — stands where the action unit would, under the title, and nothing below offers
-            // anything else. Match and Edit chapters reuse the overflow menu's routes.
-            if (state.isHeld) {
-                item(key = "held") {
-                    HeldForReviewSection(
-                        isReleasing = state.isReleasingFromInbox,
-                        onReleaseClick = actions.onReleaseFromInboxClick,
-                        onEditClick = actions.onEditClick,
-                        onMatchClick = actions.onFindMetadataClick,
-                        onEditChaptersClick = actions.onEditChaptersClick,
-                        modifier = screenPadding.padding(top = 20.dp),
-                    )
-                }
-            } else if (state.isPlaybackAvailable) {
-                // The Resume unit directly over the action group (spec §2.9): where you are, then what to do next.
-                item(key = "listen") {
-                    Column(
-                        modifier = screenPadding.padding(top = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        ResumeUnit(
-                            readingStage = state.readingStage,
-                            currentChapter = state.currentChapter,
-                            timeRemainingMs = state.timeRemainingMs,
-                            progress = state.progress,
-                            finishedSpan = state.finishedSpan,
-                        )
-                        ListenActionGroup(
-                            primaryAction = state.primaryAction,
-                            isPreparing = isPreparing,
-                            downloadStatus = state.downloadStatus,
-                            isWaitingForWifi = state.isWaitingForWifi,
-                            downloadSizeBytes = state.downloadSizeBytes,
-                            supportsDownloads = LocalDeviceContext.current.supportsDownloads,
-                            canDownload = state.canDownload,
-                            labelled = false,
-                            onPrimaryClick = actions.onPlayClick,
-                            onDownload = actions.onDownloadClick,
-                            onCancelDownload = actions.onCancelClick,
-                            onRemoveDownload = actions.onDeleteClick,
-                            onAddToShelf = actions.onAddToShelfClick,
-                        )
+                        // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match,
+                        // Edit chapters — stands where the action unit would, under the title, and nothing below
+                        // offers anything else. Match and Edit chapters reuse the overflow menu's routes.
+                        PhoneDetailItem.Held -> {
+                            HeldForReviewSection(
+                                isReleasing = state.isReleasingFromInbox,
+                                onReleaseClick = actions.onReleaseFromInboxClick,
+                                onEditClick = actions.onEditClick,
+                                onMatchClick = actions.onFindMetadataClick,
+                                onEditChaptersClick = actions.onEditChaptersClick,
+                                modifier = screenPadding.padding(top = 20.dp),
+                            )
+                        }
+
+                        // The Resume unit directly over the action group (spec §2.9): where you are, then what to do.
+                        PhoneDetailItem.Listen -> {
+                            PhoneListenUnit(
+                                state = state,
+                                actions = actions,
+                                isPreparing = isPreparing,
+                                screenPadding = screenPadding,
+                            )
+                        }
+
+                        // The last match, with See what changed and Undo — under the actions (A-04).
+                        PhoneDetailItem.LastMatch -> {
+                            lastMatchRow(screenPadding.padding(top = 16.dp))
+                        }
+
+                        // About — description + Genres + Tags, frameless.
+                        PhoneDetailItem.About -> {
+                            AboutSection(
+                                description = state.descriptionText,
+                                genres = state.genres,
+                                tags = state.tags,
+                                moods = state.moods,
+                                isLoadingTags = state.isLoadingTags,
+                                isCard = false,
+                                isDescriptionExpanded = isDescriptionExpanded,
+                                onToggleDescriptionExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
+                                onGenreClick = { genre -> actions.onGenreClick(genre.id) },
+                                onTagClick = { tag -> actions.onTagClick(tag.id, tag.displayName()) },
+                                onMoodClick = { mood -> actions.onMoodClick(mood.id, mood.displayName()) },
+                                creditsSlot = null,
+                                modifier = screenPadding.padding(top = 24.dp),
+                            )
+                        }
+
+                        // Who can't see it — straight after About, before Rating (canvas). Admins only.
+                        PhoneDetailItem.Visibility -> {
+                            state.visibility?.let { visibility ->
+                                BookVisibilitySection(
+                                    visibility = visibility,
+                                    isRestoring = state.isRestoringToAllBooks,
+                                    onCollectionClick = actions.onCollectionClick,
+                                    onShowToAllMembers = actions.onRestoreToAllBooksClick,
+                                    onAddToCollection = actions.onAddToCollectionClick,
+                                    modifier = screenPadding.padding(vertical = 8.dp),
+                                )
+                            }
+                        }
+
+                        // Rating — your listeners' stars and your own, right above the people who left them.
+                        PhoneDetailItem.Rating -> {
+                            BookRatingBlock(bookId = bookId, modifier = screenPadding.padding(vertical = 8.dp))
+                        }
+
+                        // Readers — social reading activity; the finishers line lands here (spec §6.4).
+                        PhoneDetailItem.Readers -> {
+                            BookReadersSection(
+                                bookId = bookId,
+                                onUserClick = actions.onUserProfileClick,
+                                onSeeAllClick = actions.onSeeAllReaders,
+                                focusHeadingOnArrival = landOnReaders && !focusedReaders,
+                                onHeadingFocused = { focusedReaders = true },
+                                modifier = screenPadding.padding(vertical = 8.dp),
+                            )
+                        }
+
+                        // Hardcover — where this book stands on the user's Hardcover shelf; nothing when not connected.
+                        PhoneDetailItem.Hardcover -> {
+                            BookHardcoverSection(
+                                bookId = bookId,
+                                onFindMatch = actions.onFindHardcoverMatch,
+                                modifier = screenPadding.padding(vertical = 8.dp),
+                            )
+                        }
                     }
-                }
-            }
-
-            // The last match, with See what changed and Undo — under the actions, as the canvas draws it (A-04).
-            item { lastMatchRow(screenPadding.padding(top = 16.dp)) }
-
-            // About — description + Genres + Tags, frameless.
-            item {
-                AboutSection(
-                    description = state.descriptionText,
-                    genres = state.genres,
-                    tags = state.tags,
-                    moods = state.moods,
-                    isLoadingTags = state.isLoadingTags,
-                    isCard = false,
-                    isDescriptionExpanded = isDescriptionExpanded,
-                    onToggleDescriptionExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
-                    onGenreClick = { genre -> actions.onGenreClick(genre.id) },
-                    onTagClick = { tag -> actions.onTagClick(tag.id, tag.displayName()) },
-                    onMoodClick = { mood -> actions.onMoodClick(mood.id, mood.displayName()) },
-                    creditsSlot = null,
-                    modifier = screenPadding.padding(top = 24.dp),
-                )
-            }
-
-            // Rating, readers and Hardcover are hidden for a held book (spec §9: hidden, not refused).
-            if (!state.isHeld) {
-                // Who can't see it — straight after About, before Rating (canvas). Admins only: a
-                // member's visibility is null. Never in the triage layout: the held section says it.
-                state.visibility?.let { visibility ->
-                    item {
-                        BookVisibilitySection(
-                            visibility = visibility,
-                            isRestoring = state.isRestoringToAllBooks,
-                            onCollectionClick = actions.onCollectionClick,
-                            onShowToAllMembers = actions.onRestoreToAllBooksClick,
-                            onAddToCollection = actions.onAddToCollectionClick,
-                            modifier = screenPadding.padding(vertical = 8.dp),
-                        )
-                    }
-                }
-
-                // Rating — your listeners' stars and your own, right above the people who left them.
-                item {
-                    BookRatingBlock(
-                        bookId = bookId,
-                        modifier = screenPadding.padding(vertical = 8.dp),
-                    )
-                }
-
-                // Readers — social reading activity.
-                item {
-                    BookReadersSection(
-                        bookId = bookId,
-                        onUserClick = actions.onUserProfileClick,
-                        onSeeAllClick = actions.onSeeAllReaders,
-                        modifier = screenPadding.padding(vertical = 8.dp),
-                    )
-                }
-
-                // Hardcover — where this book stands on the user's Hardcover shelf; nothing when not connected.
-                item {
-                    BookHardcoverSection(
-                        bookId = bookId,
-                        onFindMatch = actions.onFindHardcoverMatch,
-                        modifier = screenPadding.padding(vertical = 8.dp),
-                    )
                 }
             }
 

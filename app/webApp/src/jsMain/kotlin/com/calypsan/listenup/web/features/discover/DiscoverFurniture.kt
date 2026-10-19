@@ -54,18 +54,62 @@ internal fun Section(
 }
 
 /**
- * The pre-first-emission state, said with a shape rather than a word.
+ * The pre-first-emission state, said with a shape rather than a word: [count] cards drawn inside [gridClass],
+ * the same grid the real cards fill, each a square cover and its caption lines (spec §3.8). Nothing moves when
+ * the cards land. Hidden from assistive tech; the section heading already says what is coming.
  *
  * Deliberately silent about why: at this point the section does not know whether it is empty,
  * loading slowly or broken, and guessing out loud is how a page ends up lying.
  */
 @Composable
-internal fun SectionSkeleton() {
-    Div(attrs = { classes("skel", "disc-skel") })
+internal fun CardSkeletons(
+    gridClass: String,
+    captionLines: Int,
+    cardClass: String = "disc-card",
+    count: Int = SKELETON_CARDS,
+) {
+    Div(attrs = {
+        classes(gridClass)
+        attr("aria-hidden", "true")
+    }) {
+        repeat(count) {
+            Div(attrs = { classes(cardClass, "disc-skel-card") }) {
+                Div(attrs = { classes("skel", "disc-skel-cover") })
+                repeat(captionLines) { Div(attrs = { classes("skel", "disc-skel-line") }) }
+            }
+        }
+    }
 }
 
+/** Shelves by others while loading: an owner's header bar over two shelf cards, the shape that replaces it. */
+@Composable
+internal fun ShelvesSkeleton() {
+    Div(attrs = {
+        classes("disc-owner-block")
+        attr("aria-hidden", "true")
+    }) {
+        Div(attrs = { classes("skel", "disc-skel-owner") })
+        Div(attrs = { classes("disc-shelves") }) {
+            repeat(2) { Div(attrs = { classes("skel", "disc-skel-shelf") }) }
+        }
+    }
+}
+
+/** The leaderboard or the activity feed while loading: rows of people, silent like [CardSkeletons]. */
+@Composable
+internal fun RowsSkeleton() {
+    Div(attrs = {
+        classes("skel", "disc-skel", "disc-skel-rows")
+        attr("aria-hidden", "true")
+    })
+}
+
+/** How many cards a loading rail or grid stands in with. */
+internal const val SKELETON_CARDS = 4
+
 /**
- * A section that failed, and — when [onRetry] is given — the one way back without reloading the tab.
+ * A section that failed, in its own words ("Couldn't load activity", spec §3.8), and — when [onRetry] is
+ * given — that section's own restart, the one way back without reloading the tab.
  *
  * [onRetry] is passed only where the ViewModel can actually recover that section. A "Try again"
  * over a flow that has already ended would be a control that does nothing, which is worse than none.
@@ -75,7 +119,11 @@ internal fun SectionError(
     message: String,
     onRetry: (() -> Unit)? = null,
 ) {
-    P(attrs = { classes("disc-error") }) { Text(message) }
+    // A status line (spec §8.2): a screen reader hears the failure without losing its place.
+    P(attrs = {
+        classes("disc-error")
+        attr("role", "status")
+    }) { Text(message) }
     onRetry?.let { retry ->
         Button(
             kind = ButtonKind.Secondary,
@@ -83,6 +131,15 @@ internal fun SectionError(
             attrs = { classes("disc-retry") },
         ) { Text("Try again") }
     }
+}
+
+/**
+ * One quiet line in place of a section's content: what an empty section is waiting for ("Nobody's
+ * listening right now…"), said once and plainly (spec §3.8), rather than a titled empty-state card.
+ */
+@Composable
+internal fun QuietLine(text: String) {
+    P(attrs = { classes("disc-quiet") }) { Text(text) }
 }
 
 /** A section's own heading is an H2, so anything headed inside it is an H3. */

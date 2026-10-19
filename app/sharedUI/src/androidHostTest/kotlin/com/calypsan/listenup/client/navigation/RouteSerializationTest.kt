@@ -26,6 +26,10 @@ class RouteSerializationTest :
             }
         }
 
+        test("a Book Detail saved before it had a focus still decodes, landing at its top") {
+            json.decodeFromString(BookDetail.serializer(), """{"bookId":"wok"}""") shouldBe BookDetail("wok", focus = null)
+        }
+
         // A back stack is saved by serializing it, so a route that cannot round-trip is a crash on
         // the first process death with it on the stack. The round-trip above only proves the routes
         // it was given — these two make sure it was given all of them.
@@ -50,6 +54,7 @@ internal fun sampleRoutes(): List<Route> =
         // Core
         add(Shell)
         add(BookDetail(bookId = "test-book-id"))
+        add(BookDetail(bookId = "test-book-id", focus = BookDetailFocus.Readers))
         add(BookReaders(bookId = "test-book-id"))
         add(BookEdit(bookId = "test-book-id"))
         add(MatchDetails(subject = MatchSubject.Book(bookId = "test-book-id")))
@@ -106,6 +111,7 @@ internal fun sampleRoutes(): List<Route> =
         add(HardcoverKeptOff)
 
         // Shelf
+        add(MyShelves)
         add(ShelfDetail(shelfId = "test-shelf-id"))
         add(CreateShelf)
         add(ShelfEdit(shelfId = "test-shelf-id"))

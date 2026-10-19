@@ -15,12 +15,17 @@ import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.test.SimulatedFailure
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -36,6 +41,8 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -151,6 +158,20 @@ class DiscoverViewModelTest :
                 covers = covers,
             )
 
+        fun user(
+            id: String,
+            name: String,
+            isAdmin: Boolean,
+        ): User =
+            User(
+                id = UserId(id),
+                email = "$id@example.com",
+                displayName = name,
+                isAdmin = isAdmin,
+                createdAtMs = 0L,
+                updatedAtMs = 0L,
+            )
+
         // ========== Test Fixture ==========
 
         class TestFixture {
@@ -159,7 +180,9 @@ class DiscoverViewModelTest :
             val authSession: AuthSession = mock()
             val shelfRepository: ShelfRepository = mock()
             val userProfileRepository: UserProfileRepository = mock()
-            val rosterFlow = MutableStateFlow<List<String>>(emptyList())
+            val rosterFlow = MutableStateFlow<List<String>?>(null)
+            val userRepository: UserRepository = mock()
+            val currentUser = MutableStateFlow<User?>(null)
 
             val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
@@ -180,6 +203,7 @@ class DiscoverViewModelTest :
                             override suspend fun retry() = Unit
                         },
                     userProfileRepository = userProfileRepository,
+                    userRepository = userRepository,
                     errorBus = errorBus,
                 )
         }
@@ -198,6 +222,7 @@ class DiscoverViewModelTest :
             every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } returns flowOf(randomBooks)
             everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(discoveredShelves)
             every { fixture.userProfileRepository.observeRosterUserIds() } returns fixture.rosterFlow
+            every { fixture.userRepository.observeCurrentUser() } returns fixture.currentUser
 
             return fixture
         }
@@ -400,6 +425,37 @@ class DiscoverViewModelTest :
             }
         }
 
+        test("your own row alone, before the roster has been pulled, is not 'just you'") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.communitySize) }
+                fixture.rosterFlow.value = null
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.Unknown
+
+                fixture.rosterFlow.value = listOf(USER_ID)
+                advanceUntilIdle()
+                viewModel.communitySize.value shouldBe CommunitySize.JustYou
+            }
+        }
+
+        test("the viewer carries your id and name, and only an admin may invite") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build().also { keepStateHot(it.viewer) }
+                advanceUntilIdle()
+                viewModel.viewer.value shouldBe null
+
+                fixture.currentUser.value = user(id = USER_ID, name = "Simon", isAdmin = false)
+                advanceUntilIdle()
+                viewModel.viewer.value shouldBe DiscoverViewer(userId = USER_ID, displayName = "Simon", canInvite = false)
+
+                fixture.currentUser.value = user(id = USER_ID, name = "Simon", isAdmin = true)
+                advanceUntilIdle()
+                viewModel.viewer.value?.canInvite shouldBe true
+            }
+        }
+
         test("communitySize stays Unknown while signed out") {
             runTest {
                 val fixture = createFixture(authState = AuthState.Initializing)
@@ -486,6 +542,175 @@ class DiscoverViewModelTest :
                 val ready = viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
                 ready.books.first().id shouldBe "new-1"
             }
+        }
+
+        test("offline with nothing cached, Listening now says it needs a connection, never a lasting skeleton") {
+            runTest {
+                val fixture = createFixture()
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow { throw TypedAppErrorException(TransportError.NetworkUnavailable()) }
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+                    .needsConnection shouldBe true
+            }
+        }
+
+        test("a Listening now that failed comes back on its own once the server is reachable") {
+            runTest {
+                val fixture = createFixture()
+                var subscriptions = 0
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow {
+                        subscriptions++
+                        if (subscriptions == 1) {
+                            throw TypedAppErrorException(TransportError.NetworkUnavailable())
+                        }
+                        emit(listOf(createActiveSession(sessionId = "back")))
+                    }
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value
+                    .shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                    .sessions
+                    .single()
+                    .sessionId shouldBe "back"
+            }
+        }
+
+        test("an empty library that stays empty settles on its empty line and never draws again") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceTimeBy(60_000)
+                advanceUntilIdle()
+
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+            }
+        }
+
+        test("retrying Listening now restarts only Listening now") {
+            runTest {
+                val fixture = createFixture()
+                var subscriptions = 0
+                every { fixture.activeSessionRepository.observeActiveSessions(any()) } returns
+                    flow {
+                        subscriptions++
+                        if (subscriptions == 1) throw SimulatedFailure("transient") else emit(emptyList())
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel.currentlyListeningState)
+                keepStateHot(viewModel.discoverBooksState)
+                advanceUntilIdle()
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
+
+                viewModel.retryListeningNow()
+                advanceUntilIdle()
+
+                viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+                verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("retrying Recently added restarts only a failed subscription") {
+            runTest {
+                val fixture = createFixture(randomBooks = listOf(createDiscoveryPick()))
+                var collections = 0
+                every { fixture.bookRepository.observeRecentlyAddedBooks(any()) } returns
+                    flow {
+                        collections++
+                        if (collections == 1) throw SimulatedFailure("transient")
+                        emit(listOf(createDiscoveryBook(id = "new-1")))
+                    }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel.recentlyAddedState)
+                keepStateHot(viewModel.discoverBooksState)
+                advanceUntilIdle()
+                viewModel.recentlyAddedState.value.shouldBeInstanceOf<RecentlyAddedUiState.Error>()
+
+                viewModel.retryRecentlyAdded()
+                advanceUntilIdle()
+
+                viewModel.recentlyAddedState.value
+                    .shouldBeInstanceOf<RecentlyAddedUiState.Ready>()
+                    .books
+                    .first()
+                    .id shouldBe "new-1"
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+            }
+        }
+
+        test("retrying Shelves by others refetches shelves and leaves the picks alone") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                val failed = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+                failed.needsConnection shouldBe true
+
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns AppResult.Success(emptyList())
+                viewModel.retryShelvesByOthers()
+                advanceUntilIdle()
+
+                viewModel.discoverShelvesState.value shouldBe DiscoverShelvesUiState.Ready(emptyList())
+                verify(VerifyMode.exactly(1)) { fixture.bookRepository.observeRandomUnstartedBooks(any()) }
+            }
+        }
+
+        test("Shelves by others that failed offline come back on their own once the server is reachable") {
+            // ⛔ Shelves are an on-demand read, not a Room mirror, so nothing re-fetched them on reconnect:
+            // every other section recovered by itself and Shelves waited for a Try again.
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Success(listOf(createShelf()))
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
+            }
+        }
+
+        test("a reconnect leaves healthy shelves alone") {
+            runTest {
+                val fixture = createFixture(discoveredShelves = listOf(createShelf()))
+                fixture.build()
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Unreachable
+                advanceUntilIdle()
+                fixture.reachability.value = Reachability.Reachable
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("a non-connectivity failure does not claim to need a connection") {
+            DiscoverShelvesUiState.Error(UnexpectedClientError()).needsConnection shouldBe false
+            DiscoverShelvesUiState.Error(TransportError.Timeout()).needsConnection shouldBe true
+            DiscoverShelvesUiState.Error(TransportError.NetworkUnavailable()).needsConnection shouldBe true
         }
 
         test("refresh leaves a healthy recently-added subscription alone") {
@@ -701,6 +926,50 @@ class DiscoverViewModelTest :
 
                 val ready = viewModel.discoverBooksState.value.shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
                 ready.books.first().id shouldBe "r-1"
+            }
+        }
+
+        test("an empty draw over a library that has books is AllStarted") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook())
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.AllStarted
+            }
+        }
+
+        test("a draw taken before the library arrived draws again once it has books") {
+            // ⛔ The draw is a one-shot snapshot (RANDOM() must not reshuffle on every write). Taken while
+            // the library was still syncing in, it found nothing and said "Nothing new just yet." for the
+            // rest of the visit, beside a full Recently added.
+            runTest {
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeRandomUnstartedBooks(any()) } sequentiallyReturns
+                    listOf(flowOf(emptyList()), flowOf(listOf(createDiscoveryPick(id = "arrived"))))
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
+
+                fixture.recentlyAddedFlow.value = listOf(createDiscoveryBook(id = "arrived"))
+                advanceUntilIdle()
+
+                viewModel.discoverBooksState.value
+                    .shouldBeInstanceOf<DiscoverBooksUiState.Ready>()
+                    .books
+                    .single()
+                    .id shouldBe "arrived"
+            }
+        }
+
+        test("an empty draw over an empty library is an empty Ready, never 'you started everything'") {
+            runTest {
+                val fixture = createFixture(randomBooks = emptyList())
+                fixture.recentlyAddedFlow.value = emptyList()
+                val viewModel = fixture.build().also { keepStateHot(it.discoverBooksState) }
+                advanceUntilIdle()
+                viewModel.discoverBooksState.value shouldBe DiscoverBooksUiState.Ready(emptyList())
             }
         }
 

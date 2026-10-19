@@ -102,7 +102,7 @@ private fun ShelfEditRoute(
 }
 
 /**
- * The three shelf screens, behind the shell's single shelf branch.
+ * The shelf screens, behind the shell's single shelf branch.
  *
  * Split out so [RouteContent] has one condition for shelves rather than three. The URL grammar is
  * [shelfRouteOf]'s job; this only maps a parsed route to a screen.
@@ -113,9 +113,14 @@ internal fun ShelfRouteContent(
     router: Router,
     openShelfDetail: OpenShelfDetail,
     openShelfEdit: OpenShelfEdit,
+    openMyShelves: OpenMyShelves,
     onHeroBookIdChange: (String) -> Unit,
 ) {
     when (shelfRoute) {
+        is ShelfRoute.Mine -> {
+            MyShelvesRoute(router = router, openMyShelves = openMyShelves)
+        }
+
         is ShelfRoute.Create -> {
             ShelfEditRoute(router = router, openShelfEdit = openShelfEdit, shelfId = null)
         }

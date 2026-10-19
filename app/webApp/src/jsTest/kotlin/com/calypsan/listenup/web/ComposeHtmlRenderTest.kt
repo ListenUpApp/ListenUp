@@ -88,6 +88,7 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
  * Proves Compose HTML actually drives the DOM in this build — the composition runs, emits real
@@ -155,6 +156,7 @@ class ComposeHtmlRenderTest :
                                     ),
                                 openShelfDetail = fixedShelfDetail(),
                                 openShelfEdit = fixedShelfEdit(),
+                                openMyShelves = fixedMyShelves(),
                                 openLibrary = fakeLibrary(),
                                 openSearch = fixedSearch(SearchUiState.Idle()),
                                 openMultiSelect = fixedMultiSelect(),
@@ -235,6 +237,7 @@ class ComposeHtmlRenderTest :
                                     ),
                                 openShelfDetail = fixedShelfDetail(),
                                 openShelfEdit = fixedShelfEdit(),
+                                openMyShelves = fixedMyShelves(),
                                 openLibrary = fakeLibrary(),
                                 openSearch = fixedSearch(SearchUiState.Idle()),
                                 openMultiSelect = fixedMultiSelect(),

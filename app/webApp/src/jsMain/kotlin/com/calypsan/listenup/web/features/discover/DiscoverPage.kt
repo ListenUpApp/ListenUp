@@ -10,9 +10,11 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverBooksUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
@@ -65,11 +67,12 @@ fun DiscoverPage(
     onOpenProfile: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
-    /**
-     * Asks Discover's ViewModel for a fresh load — offered as "Try again" on the four sections it
-     * owns when one has failed. Not a page-level refresh: web deliberately has none.
-     */
-    onRefresh: () -> Unit,
+    /** Try again on a failed Listening now: that section's own restart (spec §3.8). */
+    onRetryListening: () -> Unit,
+    /** Try again on a failed Recently added: that section's own restart. */
+    onRetryRecent: () -> Unit,
+    /** Try again on a failed Shelves by others: refetches the shelves, nothing else. */
+    onRetryShelves: () -> Unit,
     /** Re-runs a failed leaderboard — its own ViewModel's refresh, not Discover's. */
     onRefreshLeaderboard: () -> Unit,
     /** Re-runs a failed activity feed — its own ViewModel's refresh, not Discover's. */
@@ -78,6 +81,14 @@ fun DiscoverPage(
     onShuffle: () -> Unit,
     /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
     onOpenLibraryNewest: () -> Unit,
+    /** Who else is on the server: chooses the only-you and nobody-listening treatments (spec §3.8). */
+    communitySize: CommunitySize,
+    /** Who is looking: the invitation's avatar, and whether Invite someone is theirs to offer. */
+    viewer: DiscoverViewer?,
+    /** Opens the invite page; shown to an admin only. */
+    onInvite: (() -> Unit)?,
+    /** Opens the Library from "You've started every book here." */
+    onBrowseLibrary: (() -> Unit)?,
     /**
      * Arrived at `/discover?section=leaderboard` (the stats card's footer link): select Week, then
      * bring the leaderboard into view and focus its heading (spec §6.4).
@@ -113,12 +124,23 @@ fun DiscoverPage(
                                 onOpenBook,
                                 onOpenProfile,
                                 selection,
-                                onRefresh,
+                                onRetryListening,
+                                communitySize,
+                                viewer,
+                                onInvite,
                             )
                         }
 
                         DiscoverBlock.SomethingNew -> {
-                            SomethingNewSection(books, onOpenBook, onShuffle, selection, onRefresh)
+                            // A fresh draw is the picks' restart.
+                            SomethingNewSection(
+                                books,
+                                onOpenBook,
+                                onShuffle,
+                                selection,
+                                onRetry = onShuffle,
+                                onBrowseLibrary = onBrowseLibrary,
+                            )
                         }
 
                         DiscoverBlock.Community -> {
@@ -133,6 +155,7 @@ fun DiscoverPage(
                                     onSelectCategory,
                                     onOpenProfile,
                                     onRefreshLeaderboard,
+                                    community = communitySize,
                                     land = landing,
                                     onLanded = { landing = false },
                                 )
@@ -148,7 +171,7 @@ fun DiscoverPage(
                         }
 
                         DiscoverBlock.ShelvesByOthers -> {
-                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRefresh)
+                            ShelvesByOthersSection(shelves, onOpenShelf, onOpenProfile, onRetryShelves)
                         }
 
                         DiscoverBlock.RecentlyAdded -> {
@@ -158,7 +181,7 @@ fun DiscoverPage(
                                 onOpenBook,
                                 onOpenLibraryNewest,
                                 selection,
-                                onRefresh,
+                                onRetryRecent,
                             )
                         }
                     }

@@ -301,7 +301,7 @@ fun HomePreviewGallery() {
                 width = HomeWidth.Compact,
                 selection = HomeSelection.None,
                 onOpenBook = {},
-                onOpenLibrary = {},
+                onOpenInProgress = {},
             )
 
             GalleryLabel("Your last 7 days — populated (compact)")

@@ -16,6 +16,11 @@ import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.delay
+import dev.mokkery.answering.calls
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -342,7 +347,10 @@ class ActiveSessionRepositoryImplTest :
             }
         }
 
-        test("an empty cache with a failing RPC emits empty gracefully") {
+        test("an empty cache with a failing first fetch fails the flow with the typed error") {
+            // ⛔ Emitting the never-filled cache said "Nobody's listening" whenever the first fetch failed;
+            // holding it back forever left a skeleton that never ended. Neither is honest: the failure is
+            // the answer, typed, so the section can say it needs a connection and offer Try again.
             runTest {
                 val service =
                     mock<SocialService> {
@@ -353,7 +361,65 @@ class ActiveSessionRepositoryImplTest :
                 repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
+                        val failure = awaitError().shouldBeInstanceOf<TypedAppErrorException>()
+                        failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                    }
+            }
+        }
+
+        test("a slow first fetch: nothing is claimed until it answers") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } calls {
+                            delay(5_000)
+                            AppResult.Success(emptyList())
+                        }
+                    }
+
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        advanceTimeBy(4_000)
+                        expectNoEvents()
+                        advanceTimeBy(2_000)
                         awaitItem().shouldBeEmpty()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a fetch that finds nobody is said: the empty roster arrives once the server has answered") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns AppResult.Success(emptyList())
+                    }
+
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitItem().shouldBeEmpty()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("once a fetch has landed, a later failure keeps what it found rather than failing") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } sequentiallyReturns
+                            listOf(AppResult.Success(emptyList()), AppResult.Failure(TransportError.Timeout()))
+                    }
+                val presence = PresenceRefreshSignal()
+
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao(), presence = presence)
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitItem().shouldBeEmpty()
+                        presence.ping()
+                        expectNoEvents()
                         cancelAndIgnoreRemainingEvents()
                     }
             }

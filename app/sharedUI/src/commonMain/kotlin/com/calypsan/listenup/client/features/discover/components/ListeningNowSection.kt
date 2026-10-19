@@ -40,6 +40,17 @@ import com.calypsan.listenup.client.features.discover.listeningCountLine
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiSession
 import com.calypsan.listenup.client.presentation.discover.CurrentlyListeningUiState
+import com.calypsan.listenup.client.presentation.discover.CommunitySize
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewer
+import com.calypsan.listenup.client.design.components.InlineRetry
+import com.calypsan.listenup.client.design.components.RailSkeleton
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import listenup.composeapp.generated.resources.discover_error_listening
+import listenup.composeapp.generated.resources.discover_listening_as_of
+import listenup.composeapp.generated.resources.discover_listening_need_connection
+import listenup.composeapp.generated.resources.discover_nobody_listening
 import com.calypsan.listenup.client.util.relativeLastActive
 import com.calypsan.listenup.client.util.relativeLastActiveInSentence
 import kotlin.time.Clock
@@ -63,8 +74,8 @@ private val LISTENER_MIN_CELL = 150.dp
  * from one that is broken.
  *
  * The server owns the split and the order (live by session start, then recent by last-played), and
- * the Room mirror preserves it — this composable renders the list as given. Loading and Error render
- * nothing, as does a genuinely empty roster (PR 6 owns those states).
+ * the Room mirror preserves it — this composable renders the list as given. Every other state keeps
+ * the heading (spec §3.8): see [listeningNowBody].
  *
  * @param wide A wide window: every listener in a wrapping grid, so no person is hidden in a row that
  *   ran out (plan Q2). Otherwise a horizontal rail.
@@ -75,6 +86,10 @@ private val LISTENER_MIN_CELL = 150.dp
 @Composable
 internal fun ListeningNowSection(
     state: CurrentlyListeningUiState,
+    community: CommunitySize,
+    viewer: DiscoverViewer?,
+    onInvite: (() -> Unit)?,
+    onRetry: () -> Unit,
     onBookClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     isInSelectionMode: Boolean,
@@ -84,42 +99,168 @@ internal fun ListeningNowSection(
     wide: Boolean = false,
     nowMs: Long = remember { Clock.System.now().toEpochMilliseconds() },
 ) {
-    val ready = state as? CurrentlyListeningUiState.Ready ?: return
-    if (ready.isEmpty) return
+    val ready = state as? CurrentlyListeningUiState.Ready
     Column(modifier) {
         SectionTitle(
             title = stringResource(Res.string.discover_listening_now),
-            subtitle = listeningCountLine(ready.liveCount, ready.recentCount),
+            subtitle = ready?.let { listeningCountLine(it.liveCount, it.recentCount) },
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
-        Spacer(Modifier.height(Spacing.md))
-        val card: @Composable (CurrentlyListeningUiSession, Dp) -> Unit = { session, width ->
-            ListenerCard(
-                session = session,
-                width = width,
-                nowMs = nowMs,
-                onBookClick = onBookClick,
-                onUserClick = onUserClick,
-                isInSelectionMode = isInSelectionMode,
-                isSelected = session.bookId in selectedBookIds,
-                onBookLongPress = onBookLongPress,
+        val staleSince = ready?.takeIf { it.isStale && !it.isEmpty }?.observedAtMs
+        if (staleSince != null) {
+            Text(
+                text =
+                    stringResource(
+                        Res.string.discover_listening_as_of,
+                        relativeLastActiveInSentence(staleSince, nowMs),
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .padding(horizontal = Spacing.screenMargin)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        if (wide) {
-            AdaptiveCardGrid(
-                items = ready.sessions,
-                minCellWidth = LISTENER_MIN_CELL,
-                key = { it.sessionId },
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-            ) { session, width -> card(session, width) }
-        } else {
-            BrowseCarousel(
-                items = ready.sessions,
-                itemWidth = LISTENER_CARD_WIDTH,
-                itemSpacing = Spacing.md,
-                key = { it.sessionId },
-            ) { card(it, LISTENER_CARD_WIDTH) }
+        Spacer(Modifier.height(Spacing.md))
+        when (val body = listeningNowBody(state, community)) {
+            ListeningNowBody.Skeleton -> {
+                RailSkeleton(
+                    cardWidth = if (wide) null else LISTENER_CARD_WIDTH,
+                    captionLines = 2,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin).testTag("listening-skeleton"),
+                )
+            }
+
+            ListeningNowBody.Retry -> {
+                val offline = (state as? CurrentlyListeningUiState.Error)?.needsConnection == true
+                InlineRetry(
+                    line =
+                        stringResource(
+                            if (offline) Res.string.discover_listening_need_connection else Res.string.discover_error_listening,
+                        ),
+                    onRetry = onRetry,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                )
+            }
+
+            ListeningNowBody.Invitation -> {
+                OnlyYouInvitation(
+                    viewer = viewer,
+                    onInvite = onInvite.takeIf { viewer?.canInvite == true },
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                )
+            }
+
+            ListeningNowBody.NobodyListening -> {
+                Text(
+                    text = stringResource(Res.string.discover_nobody_listening),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+                )
+            }
+
+            is ListeningNowBody.Rows -> {
+                ListenerRows(
+                    sessions = body.sessions,
+                    wide = wide,
+                    nowMs = nowMs,
+                    onBookClick = onBookClick,
+                    onUserClick = onUserClick,
+                    isInSelectionMode = isInSelectionMode,
+                    selectedBookIds = selectedBookIds,
+                    onBookLongPress = onBookLongPress,
+                )
+            }
         }
+    }
+}
+
+/** What Listening now draws under its heading: one decision, so every platform reads the same table. */
+internal sealed interface ListeningNowBody {
+    /** Loading, or empty before the roster has synced: never claim "nobody" or "just you" early (plan C4). */
+    data object Skeleton : ListeningNowBody
+
+    /** The section failed: its line and Try again. */
+    data object Retry : ListeningNowBody
+
+    /** Only you on the server: the invitation. */
+    data object Invitation : ListeningNowBody
+
+    /** Others on the server, but nobody to show. */
+    data object NobodyListening : ListeningNowBody
+
+    /** People to show. */
+    data class Rows(
+        val sessions: List<CurrentlyListeningUiSession>,
+    ) : ListeningNowBody
+}
+
+/** Listening now's body for [state], given who else is on the server. */
+internal fun listeningNowBody(
+    state: CurrentlyListeningUiState,
+    community: CommunitySize,
+): ListeningNowBody =
+    when (state) {
+        CurrentlyListeningUiState.Loading -> {
+            ListeningNowBody.Skeleton
+        }
+
+        is CurrentlyListeningUiState.Error -> {
+            ListeningNowBody.Retry
+        }
+
+        is CurrentlyListeningUiState.Ready -> {
+            if (!state.isEmpty) {
+                ListeningNowBody.Rows(state.sessions)
+            } else {
+                when (community) {
+                    CommunitySize.Unknown -> ListeningNowBody.Skeleton
+                    CommunitySize.JustYou -> ListeningNowBody.Invitation
+                    CommunitySize.Others -> ListeningNowBody.NobodyListening
+                }
+            }
+        }
+    }
+
+@Composable
+private fun ListenerRows(
+    sessions: List<CurrentlyListeningUiSession>,
+    wide: Boolean,
+    nowMs: Long,
+    onBookClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+    isInSelectionMode: Boolean,
+    selectedBookIds: Set<String>,
+    onBookLongPress: ((String) -> Unit)?,
+) {
+    val card: @Composable (CurrentlyListeningUiSession, Dp) -> Unit = { session, width ->
+        ListenerCard(
+            session = session,
+            width = width,
+            nowMs = nowMs,
+            onBookClick = onBookClick,
+            onUserClick = onUserClick,
+            isInSelectionMode = isInSelectionMode,
+            isSelected = session.bookId in selectedBookIds,
+            onBookLongPress = onBookLongPress,
+        )
+    }
+    if (wide) {
+        AdaptiveCardGrid(
+            items = sessions,
+            minCellWidth = LISTENER_MIN_CELL,
+            key = { it.sessionId },
+            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
+        ) { session, width -> card(session, width) }
+    } else {
+        BrowseCarousel(
+            items = sessions,
+            itemWidth = LISTENER_CARD_WIDTH,
+            itemSpacing = Spacing.md,
+            key = { it.sessionId },
+        ) { card(it, LISTENER_CARD_WIDTH) }
     }
 }
 

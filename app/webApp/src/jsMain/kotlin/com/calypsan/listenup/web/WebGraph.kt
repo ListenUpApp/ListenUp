@@ -88,6 +88,8 @@ import com.calypsan.listenup.web.features.settings.OpenSettings
 import com.calypsan.listenup.web.features.settings.graphSettings
 import com.calypsan.listenup.web.features.shelf.OpenShelfDetail
 import com.calypsan.listenup.web.features.shelf.OpenShelfEdit
+import com.calypsan.listenup.web.features.shelf.OpenMyShelves
+import com.calypsan.listenup.web.features.shelf.graphMyShelves
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
@@ -134,6 +136,7 @@ class WebGraph(
     val admin: AdminSessions,
     val openShelfDetail: OpenShelfDetail,
     val openShelfEdit: OpenShelfEdit,
+    val openMyShelves: OpenMyShelves,
     val openLibrary: OpenLibrary,
     val openSearch: OpenSearch,
     val openMultiSelect: OpenMultiSelect,
@@ -204,6 +207,7 @@ fun graphWeb(koin: Koin): WebGraph =
             ),
         openShelfDetail = graphShelfDetail(koin),
         openShelfEdit = graphShelfEdit(koin),
+        openMyShelves = graphMyShelves(koin),
         openSearch = graphSearch(koin),
         openMultiSelect = graphMultiSelect(koin),
         openBulkEdit = graphBulkEdit(koin),

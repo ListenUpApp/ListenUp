@@ -27,6 +27,16 @@ struct DiscoverCopyTests {
         #expect(expected.contains("39"))
     }
 
+    @Test func asOfSaysHowOldTheRosterIs() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let twoHoursAgo = now.addingTimeInterval(-2 * 3_600)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        formatter.dateTimeStyle = .named
+        let words = formatter.localizedString(for: twoHoursAgo, relativeTo: now)
+        #expect(DiscoverCopy.asOf(twoHoursAgo, relativeTo: now) == "As of \(words)")
+    }
+
     @Test func addedReadsInWords() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let twoDaysAgo = now.addingTimeInterval(-2 * 86_400)

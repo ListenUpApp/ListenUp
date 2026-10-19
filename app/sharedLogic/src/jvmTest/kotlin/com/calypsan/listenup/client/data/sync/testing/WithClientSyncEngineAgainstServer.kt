@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.testing
 
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.CollectionService
@@ -740,7 +741,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 SyncEventDispatcher(
                     registry = registry,
                     state = state,
-                    cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+                    cursorAdvance = liveFrameCursorAdvance(store),
                     onCursorStale = {
                         checkNotNull(engineRef) { "SyncEngine not yet constructed" }
                             .handleCursorStale()

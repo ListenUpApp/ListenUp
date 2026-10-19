@@ -266,6 +266,37 @@ struct MainShellModelTests {
         #expect(shell.selectedTab == .librarySection(.books))
     }
 
+    @Test func inProgressOpensTheBooksSectionAndCountsTheRequest() {
+        let shell = MainShellModel()
+        shell.isPlayerPresented = true
+        shell.librarySection = .series
+        shell.openLibraryInProgress()
+        #expect(shell.selectedTab == .library)
+        #expect(shell.librarySection == .books)
+        #expect(shell.libraryInProgressRequest == 1)
+        #expect(shell.isPlayerPresented == false)
+    }
+
+    @Test func inProgressOpensTheBooksEntryInTheSidebar() {
+        let shell = MainShellModel()
+        shell.adaptToLayout(usesSidebar: true)
+        shell.openLibraryInProgress()
+        #expect(shell.selectedTab == .librarySection(.books))
+    }
+
+    /// Scene storage saved before a book could land on its readers still decodes, at the top.
+    @Test func aBookDestinationDecodesWithoutAFocus() throws {
+        let decoded = try JSONDecoder().decode(BookDestination.self, from: Data(#"{"id":"wok"}"#.utf8))
+        #expect(decoded == BookDestination(id: "wok"))
+        #expect(decoded.focus == nil)
+    }
+
+    @Test func aBookDestinationWithItsReadersInViewRoundTrips() throws {
+        let destination = BookDestination(id: "wok", focus: .readers)
+        let decoded = try JSONDecoder().decode(BookDestination.self, from: JSONEncoder().encode(destination))
+        #expect(decoded == destination)
+    }
+
     @Test func unreadableSceneStateLeavesTheDefaults() {
         let shell = MainShellModel()
         shell.restore(from: Data("not a snapshot".utf8))

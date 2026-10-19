@@ -172,3 +172,36 @@
    class stronger than any row's own display, so it always wins. */
 @media (max-width: 1279px) { .luw .disc .disc-aside-extra { display: none; } }
 @media (min-width: 1280px) { .luw .disc .disc-phone-only { display: none; } }
+
+/* Loading (spec §3.8): each section keeps its place with the shape it will take. A rail is a card's
+   square art plus its caption lines; rows are the leaderboard's and the activity feed's people. */
+.luw .disc-skel-card { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+/* 1/1, like every cover (Home's .home-card-cover-skel): a skeleton that reshapes when the art lands reads as a flinch. */
+.luw .disc-skel-cover { width: 100%; aspect-ratio: 1 / 1; border-radius: 10px; }
+.luw .disc-skel-line { height: 0.75rem; width: 100%; border-radius: var(--r-xs); }
+.luw .disc-skel-line + .disc-skel-line { width: 60%; }
+/* An owner's header (avatar, name, count) and a shelf card, at the real ones' sizes. */
+.luw .disc-skel-owner { height: 44px; width: min(220px, 70%); border-radius: var(--r-xs); }
+.luw .disc-skel-shelf { height: calc(72px + 1.2rem + 2px); border-radius: 14px; }
+@media (max-width: 759px) { .luw .disc-skel-shelf { height: calc(56px + 1.2rem + 2px); } }
+.luw .disc-skel-rows { height: calc(5 * 56px); }
+
+/* A section's quiet line in place of content (§3.8): an empty period, nobody listening, all started. */
+.luw .disc-quiet { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+.luw .disc-a-new .disc-browse { margin-top: 0.75rem; }
+
+/* "As of 2 hours ago": how old a roster is while the server cannot be reached. */
+.luw .disc-as-of { margin: 0 0 0.6rem; font-size: var(--fs-small); color: var(--ink-2); }
+
+/* Only you: your avatar beside two dashed circles for the people not here yet, then the invitation. */
+.luw .disc-invite {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;
+  padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2);
+}
+.luw .disc-invite-avatars { display: flex; }
+.luw .disc-invite-avatars > * + * { margin-left: -10px; }
+.luw .disc-invite-ghost {
+  width: 40px; height: 40px; border-radius: 50%; border: 2px dashed var(--ink-3); background: var(--surface-3);
+}
+.luw .disc-invite-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.luw .disc-invite-body { margin: 0; max-width: 40rem; color: var(--ink-2); }

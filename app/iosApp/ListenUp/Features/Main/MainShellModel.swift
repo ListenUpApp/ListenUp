@@ -59,6 +59,8 @@ final class MainShellModel {
     private(set) var leaderboardLandingRequest = 0
     /// Bumped by Discover's "Recently Added" link; Library shows Books newest first for this session.
     private(set) var libraryNewestRequest = 0
+    /// Bumped by Home's "Also in Progress" link; Library shows Books filtered to In Progress (spec §6.4).
+    private(set) var libraryInProgressRequest = 0
     /// Whether the window shows the sidebar (one entry per Library section) or the compact tab bar.
     private(set) var usesSidebar = false
 
@@ -118,6 +120,14 @@ final class MainShellModel {
         librarySection = .books
         selectedTab = usesSidebar ? .librarySection(.books) : .library
         libraryNewestRequest += 1
+    }
+
+    /// Opens the Library's Books filtered to In Progress (spec §6.4). The filter is the Library's session state.
+    func openLibraryInProgress() {
+        isPlayerPresented = false
+        librarySection = .books
+        selectedTab = usesSidebar ? .librarySection(.books) : .library
+        libraryInProgressRequest += 1
     }
 
     // MARK: - Library section

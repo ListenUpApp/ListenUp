@@ -44,6 +44,7 @@ import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.data.sync.SyncReconciler
@@ -513,7 +514,8 @@ internal val clientSyncModule =
             SyncEventDispatcher(
                 registry = get(),
                 state = get(),
-                cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
+                // Only a pull creates a cursor: a live frame advances an existing one and never creates it.
+                cursorAdvance = liveFrameCursorAdvance(get()),
                 // Lets the dispatcher lift an opt-out (positions) freeze once catch-up has advanced
                 // the persisted cursor past the frozen hole — otherwise one failed apply freezes live
                 // cursor advancement for the whole session and forces a growing catch-up delta.

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.testing
 
+import com.calypsan.listenup.client.data.sync.liveFrameCursorAdvance
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.SyncStreamService
@@ -329,7 +330,7 @@ private suspend fun buildMemberSyncEngine(
         SyncEventDispatcher(
             registry = registry,
             state = state,
-            cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
+            cursorAdvance = liveFrameCursorAdvance(store),
             onCursorStale = {
                 checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale()
             },
