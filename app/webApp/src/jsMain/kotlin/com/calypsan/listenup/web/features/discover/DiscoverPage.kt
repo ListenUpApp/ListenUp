@@ -169,7 +169,7 @@ fun DiscoverPage(
                                     onOpenProfile,
                                     onRefreshActivity,
                                     onOpenAllActivity = onOpenAllActivity,
-                                    onShelveOne = selection?.onShelveOne,
+                                    onShelveOne = selection?.shelveOne,
                                 )
                             }
                         }

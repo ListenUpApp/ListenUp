@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
+import com.calypsan.listenup.client.features.library.components.plusSelectionToolbar
 import com.calypsan.listenup.client.features.library.components.rememberBookSelectionScaffoldState
 import com.calypsan.listenup.client.features.shell.LocalShellLandings
 import com.calypsan.listenup.client.features.shell.ShellLanding
@@ -129,11 +130,12 @@ fun DiscoverScreen(
                             onRetryActivity = activityFeedViewModel::refresh,
                             onRetryShelves = viewModel::retryShelvesByOthers,
                             onBrowseLibrary = onBrowseLibrary,
-                            onAddToShelf = { id -> selectionState.shelveOne(id, multiSelect) },
+                            onAddToShelf = selectionState.shelveOneOrNull(multiSelect),
                             onOpenAllActivity = onOpenAllActivity,
                         ),
                     appHeader = appHeader,
-                    contentPadding = contentPadding,
+                    // While selecting, the end of Discover scrolls clear of the floating selection toolbar.
+                    contentPadding = contentPadding.plusSelectionToolbar(isInSelectionMode),
                     isInSelectionMode = isInSelectionMode,
                     selectedBookIds = selectedBookIds,
                     listState = listState,

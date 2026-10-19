@@ -74,6 +74,22 @@ class ActivityRowMenuTest :
             shelved shouldBe "b1"
         }
 
+        test("while a selection is under way, the menu leaves Add to a shelf out, so it cannot wipe the picks") {
+            var shelved: String? = null
+            val host =
+                mounts.mount {
+                    discoverPage(
+                        activity = feed(act("a1", "finished_book")),
+                        selection = selection(isSelecting = true, selected = setOf("p0"), onShelveOne = { shelved = it }),
+                    )
+                }
+            (host.querySelector("[aria-haspopup=menu]") as HTMLElement).click()
+            awaitFrame()
+            host.querySelectorAll("[role=menuitem]").asList().map { it.textContent } shouldBe
+                listOf("Open The Institute", "Ada's profile")
+            shelved shouldBe null
+        }
+
         test("with nowhere to shelve, the menu leaves Add to a shelf out") {
             val host = mounts.mount { discoverPage(activity = feed(act("a1", "finished_book")), selection = null) }
             (host.querySelector("[aria-haspopup=menu]") as HTMLElement).click()

@@ -23,7 +23,11 @@ enum ActivityRowActions {
         return []
     }
 
-    /// "Open Piranesi", "View Maya Chen" (or "Your profile" on your own row), "Add to Shelf".
+    /// Whether a row may offer Add to Shelf: only with a selection to shelve through, and never while
+    /// one is under way — shelving one book replaces the selection and ends it, wiping the picks.
+    static func canShelve(hasSelection: Bool, isSelecting: Bool) -> Bool { hasSelection && !isSelecting }
+
+    /// "Open Piranesi", "View Maya Chen" (or "Your profile" on your own row), "Add Piranesi to a shelf".
     static func title(_ action: Action, item: ActivityRowItem) -> String {
         switch action {
         case .openBook, .openShelf:
@@ -33,7 +37,7 @@ enum ActivityRowActions {
                 ? String(localized: "discover.activity_your_profile_a11y")
                 : String(format: String(localized: "discover.activity_view_person_ios"), item.actorName)
         case .addToShelf:
-            return String(localized: "book.detail_add_to_shelf")
+            return String(format: String(localized: "discover.activity_add_book_to_shelf"), item.highlight ?? "")
         }
     }
 

@@ -18,6 +18,12 @@ class BookSelection(
      */
     val onShelveOne: (String) -> Unit = {},
 ) {
+    /**
+     * [onShelveOne] for a row menu, or null while a selection is under way: shelving one book
+     * replaces the selection and ends it when the picker closes, which would wipe the reader's picks.
+     */
+    val shelveOne: ((String) -> Unit)? get() = onShelveOne.takeUnless { isSelecting }
+
     /** Whether [bookId] is currently picked. */
     fun isSelected(bookId: String): Boolean = bookId in selectedIds
 }

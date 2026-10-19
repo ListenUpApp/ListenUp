@@ -21771,6 +21771,26 @@
         }
       }
     },
+    "selection.chapters_a11y_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 chapter selected"
+          }
+        }
+      }
+    },
+    "selection.chapters_a11y_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters selected"
+          }
+        }
+      }
+    },
     "selection.created_with_books_one": {
       "localizations": {
         "en": {

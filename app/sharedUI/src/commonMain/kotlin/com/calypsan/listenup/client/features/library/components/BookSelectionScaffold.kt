@@ -166,6 +166,18 @@ class BookSelectionScaffoldState internal constructor(
         showShelfPicker = true
     }
 
+    /**
+     * [shelveOne] for a row menu, or null while a selection is already under way: shelving one book
+     * replaces the selection and ends it when the picker closes, which would wipe the reader's picks.
+     * Their selection bar already offers Add to shelf for everything picked.
+     */
+    fun shelveOneOrNull(multiSelect: BookMultiSelectViewModel): ((String) -> Unit)? =
+        if (multiSelect.selectionMode.value is SelectionMode.Active) {
+            null
+        } else {
+            { bookId -> shelveOne(bookId, multiSelect) }
+        }
+
     /** Close the shelf picker; a one-book shelving also ends its selection. */
     fun closeShelfPicker(multiSelect: BookMultiSelectViewModel) {
         showShelfPicker = false

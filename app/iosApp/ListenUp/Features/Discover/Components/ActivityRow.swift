@@ -19,7 +19,13 @@ struct ActivityRow: View {
     @Environment(\.openActivitySubject) private var openSubject
 
     private var actions: [ActivityRowActions.Action] {
-        ActivityRowActions.actions(for: item, canShelve: selection != nil)
+        ActivityRowActions.actions(
+            for: item,
+            canShelve: ActivityRowActions.canShelve(
+                hasSelection: selection != nil,
+                isSelecting: selection?.isSelecting == true
+            )
+        )
     }
 
     /// Pure: the cover moves under the sentence once text reaches the accessibility sizes.

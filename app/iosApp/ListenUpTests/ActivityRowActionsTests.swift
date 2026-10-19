@@ -24,7 +24,7 @@ struct ActivityRowActionsTests {
         let actions = ActivityRowActions.actions(for: row)
         #expect(actions == [.openBook("b1"), .viewPerson("maya"), .addToShelf("b1")])
         #expect(actions.map { ActivityRowActions.title($0, item: row) }
-            == ["Open Piranesi", "View Maya Chen", String(localized: "book.detail_add_to_shelf")])
+            == ["Open Piranesi", "View Maya Chen", "Add Piranesi to a shelf"])
     }
 
     @Test func yourOwnRowsPersonActionIsYourProfile() {
@@ -45,6 +45,14 @@ struct ActivityRowActionsTests {
 
     @Test func withoutASelectionThereIsNoAddToShelf() {
         #expect(ActivityRowActions.actions(for: item(), canShelve: false) == [.openBook("b1"), .viewPerson("maya")])
+    }
+
+    @Test func shelvingOneBookIsOfferedOnlyWhenNothingIsBeingSelected() {
+        // Shelving one book replaces the selection and ends it on close: during a selection it would
+        // wipe the reader's picks, and the selection's own toolbar already shelves them.
+        #expect(ActivityRowActions.canShelve(hasSelection: true, isSelecting: false))
+        #expect(!ActivityRowActions.canShelve(hasSelection: true, isSelecting: true))
+        #expect(!ActivityRowActions.canShelve(hasSelection: false, isSelecting: false))
     }
 
     @Test func theSelectionTitleIsTitleCase() {

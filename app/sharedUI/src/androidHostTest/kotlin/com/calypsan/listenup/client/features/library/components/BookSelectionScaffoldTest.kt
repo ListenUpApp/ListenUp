@@ -219,4 +219,16 @@ class BookSelectionScaffoldTest {
         }
         composeRule.runOnIdle { viewModel.selectionMode.value shouldBe SelectionMode.Active(setOf("book-1")) }
     }
+
+    @Test
+    fun `no one-book shelving is offered while a selection is under way, so it cannot wipe that selection`() {
+        val viewModel = multiSelect(isAdmin = false)
+        val state = BookSelectionScaffoldState(showShelfPicker = false, shelvingOneBook = false)
+
+        (state.shelveOneOrNull(viewModel) != null) shouldBe true
+
+        viewModel.enterSelectionMode("book-1")
+
+        state.shelveOneOrNull(viewModel) shouldBe null
+    }
 }
