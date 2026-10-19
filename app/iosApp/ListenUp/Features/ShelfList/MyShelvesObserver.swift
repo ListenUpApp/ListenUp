@@ -20,8 +20,8 @@ enum MyShelvesPhase: Equatable {
     }
 }
 
-/// Observes `MyShelvesViewModel` for the My Shelves list. The list has no actions of its own — opening a shelf and
-/// starting a new one are navigation and a sheet.
+/// Observes `MyShelvesViewModel` for the My Shelves list. Its one action is Try Again; opening a shelf and starting a
+/// new one are navigation and a sheet.
 @Observable
 @MainActor
 final class MyShelvesObserver {
@@ -34,5 +34,10 @@ final class MyShelvesObserver {
         self.viewModel = viewModel
         bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.phase = MyShelvesPhase(from: $0) }
+    }
+
+    /// Try Again after a failed read.
+    func refresh() {
+        viewModel.refresh()
     }
 }
