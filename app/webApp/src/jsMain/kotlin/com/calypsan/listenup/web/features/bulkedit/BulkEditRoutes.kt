@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditEvent
+import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
@@ -14,7 +15,7 @@ import com.calypsan.listenup.web.nav.rememberSession
  * ⛔ Keyed on the ids. A bulk editor that could switch the books it edits is one keystroke away
  * from writing a publisher onto the wrong forty.
  *
- * Both outcomes navigate back to the library, and both say what happened — including the failure,
+ * Both outcomes, and backing out, return to the page the books were picked on; both outcomes say what happened — including the failure,
  * which names how many books were already committed. There is no rollback, so "it failed" without
  * that number leaves the reader unable to tell what state their library is in.
  */
@@ -28,16 +29,25 @@ internal fun BulkEditRoute(
     val key = bookIds.joinToString(",")
     val session = rememberSession(key) { openBulkEdit(bookIds) }
 
-    val library = Routes.library
+    // Back to the page the books were picked on (the Library when nothing says otherwise).
+    val handOff = LocalSelectionHandOff.current
+    val origin = handOff.origin ?: Routes.library
 
     LaunchedEffect(session) {
         session.events.collect { event ->
             when (event) {
-                is BulkEditEvent.Applied -> onToast(appliedLabel(event.changedCount))
-                is BulkEditEvent.Failed -> onToast(failedLabel(event.appliedCount))
+                is BulkEditEvent.Applied -> {
+                    // The books have changed: the selection that chose them ends, as on Android.
+                    handOff.end()
+                    onToast(appliedLabel(event.changedCount))
+                }
+
+                is BulkEditEvent.Failed -> {
+                    onToast(failedLabel(event.appliedCount))
+                }
             }
             // The outcome is the page's own departure: the draft was applied, so do not ask.
-            router.navigate(library, force = true)
+            router.navigate(origin, force = true)
         }
     }
 
@@ -65,7 +75,7 @@ internal fun BulkEditRoute(
                 onMoods = session.onMoods,
                 onApply = session.onApply,
                 // The page has already asked about a draft.
-                onLeave = { router.navigate(library, force = true) },
+                onLeave = { router.navigate(origin, force = true) },
             ),
     )
 }

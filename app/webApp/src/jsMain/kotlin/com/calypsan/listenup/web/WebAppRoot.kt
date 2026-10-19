@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
+import com.calypsan.listenup.web.features.books.SelectionHandOff
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -123,22 +125,26 @@ fun WebAppRoot(
             // makes going back instant instead of merely fast.
             val librarySession = libraryState(graph.openLibrary)
             ScrollRestoration(route)
+            // One per window: carries a selection to the bulk editor and back.
+            val selectionHandOff = remember { SelectionHandOff() }
             PageArrival(page) {
-                RouteContent(
-                    router = router,
-                    route = route,
-                    page = page,
-                    active = active,
-                    graph = graph,
-                    currentUserId = currentUserId,
-                    onToast = onToast,
-                    onActionToast = onActionToast,
-                    librarySession = librarySession,
-                    inbox = inbox,
-                    playback = playback,
-                    heroBookId = heroBookId,
-                    onHeroBookIdChange = { heroBookId = it },
-                )
+                CompositionLocalProvider(LocalSelectionHandOff provides selectionHandOff) {
+                    RouteContent(
+                        router = router,
+                        route = route,
+                        page = page,
+                        active = active,
+                        graph = graph,
+                        currentUserId = currentUserId,
+                        onToast = onToast,
+                        onActionToast = onActionToast,
+                        librarySession = librarySession,
+                        inbox = inbox,
+                        playback = playback,
+                        heroBookId = heroBookId,
+                        onHeroBookIdChange = { heroBookId = it },
+                    )
+                }
             }
 
             // Above the player bar, and unlike a playback problem it is not dismissible: a failed edit stays
