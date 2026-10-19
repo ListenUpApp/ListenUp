@@ -68,6 +68,7 @@ class SeriesProgressTest {
                 series = listOf(stormlight),
                 seriesProgress = mapOf(SeriesId("s1") to SeriesProgress(finishedCount = 2, totalCount = 4)),
                 sortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
+                letters = emptyList(),
                 ignoreArticles = false,
                 onCategorySelected = {},
                 onDirectionToggle = {},

@@ -1,170 +1,17 @@
 package com.calypsan.listenup.client.design.components
 
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.maps.shouldBeEmpty
-import io.kotest.matchers.maps.shouldContainKey
 import io.kotest.matchers.shouldBe
 
 /**
- * Tests for [AlphabetIndex.build] and [calculateWeight].
- *
- * [AlphabetIndex.build] extracts each item's leading character (uppercased),
- * records the first-seen list index for each character, and sorts the resulting
- * letter set with non-letters (digits, symbols) before A–Z.
+ * Tests for [calculateWeight]. The index itself comes from the shared letter sections and is
+ * tested with them (`BookGridAlphabetIndexTest`).
  *
  * [calculateWeight] returns a fisheye weight based on distance from the
  * selected letter index, using constants from [AdaptiveScrollbarConfig].
  */
 class AlphabetScrollbarTest :
     FunSpec({
-        // =====================================================================
-        // AlphabetIndex.build — index building
-        // =====================================================================
-
-        test("empty list produces empty AlphabetIndex") {
-            val index = AlphabetIndex.build(emptyList<String>()) { it }
-            index.letters.shouldBeEmpty()
-            index.letterToIndex.shouldBeEmpty()
-        }
-
-        test("single item produces one-letter index") {
-            val index = AlphabetIndex.build(listOf(APPLE)) { it }
-            index.letters shouldBe listOf('A')
-            index.letterToIndex shouldBe mapOf('A' to 0)
-        }
-
-        test("items with different leading letters each get their own entry") {
-            val items = listOf(APPLE, "Banana", "Cherry")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters shouldBe listOf('A', 'B', 'C')
-            index.letterToIndex shouldBe mapOf('A' to 0, 'B' to 1, 'C' to 2)
-        }
-
-        test("duplicate leading letters map to the FIRST occurrence") {
-            // 'A' appears at index 0 (Apple) and index 1 (Avocado); only 0 is recorded
-            val items = listOf(APPLE, "Avocado", "Banana")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters shouldBe listOf('A', 'B')
-            index.letterToIndex['A'] shouldBe 0
-        }
-
-        test("leading letter is uppercased") {
-            val items = listOf("apple", "banana")
-            val index = AlphabetIndex.build(items) { it }
-            index.letterToIndex shouldContainKey 'A'
-            index.letterToIndex shouldContainKey 'B'
-        }
-
-        test("mixed-case items are case-insensitive — same bucket as uppercase") {
-            val items = listOf("apple", "Apple", "APPLE")
-            val index = AlphabetIndex.build(items) { it }
-            // All three start with 'A' (uppercased); only index 0 is recorded
-            index.letters shouldBe listOf('A')
-            index.letterToIndex['A'] shouldBe 0
-        }
-
-        // =====================================================================
-        // AlphabetIndex.build — sort order: non-letters first, then A-Z
-        // =====================================================================
-
-        test("digits sort before letters") {
-            val items = listOf("1 Thing", APPLE)
-            val index = AlphabetIndex.build(items) { it }
-            // '1' is not a letter → sorts before 'A'
-            index.letters[0] shouldBe '1'
-            index.letters[1] shouldBe 'A'
-        }
-
-        test("symbol sorts before letters") {
-            val items = listOf("#tag", "Zebra")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters[0] shouldBe '#'
-            index.letters[1] shouldBe 'Z'
-        }
-
-        test("letters are sorted alphabetically A before Z") {
-            val items = listOf("Zebra", APPLE, "Mango")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters shouldBe listOf('A', 'M', 'Z')
-        }
-
-        test("digits sort before letters and digit order is preserved") {
-            val items = listOf("9Lives", "1Thing", APPLE)
-            val index = AlphabetIndex.build(items) { it }
-            // Non-letters come first, then sorted; '1' < '9' < 'A'
-            index.letters[0] shouldBe '1'
-            index.letters[1] shouldBe '9'
-            index.letters[2] shouldBe 'A'
-        }
-
-        test("mixed letters digits and symbols: non-letters first then letters alphabetically") {
-            val items = listOf("Zoo", "#hash", "1one", APPLE)
-            val index = AlphabetIndex.build(items) { it }
-            val nonLetters = index.letters.filter { !it.isLetter() }
-            val letters = index.letters.filter { it.isLetter() }
-            // Non-letters come before every letter
-            nonLetters.forEach { nl ->
-                letters.forEach { l ->
-                    val nlPos = index.letters.indexOf(nl)
-                    val lPos = index.letters.indexOf(l)
-                    (nlPos < lPos) shouldBe true
-                }
-            }
-            // Letters are sorted
-            letters shouldBe letters.sorted()
-        }
-
-        // =====================================================================
-        // AlphabetIndex.build — empty / blank names
-        // =====================================================================
-
-        test("items with empty names are skipped") {
-            val items = listOf("", APPLE, "")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters shouldBe listOf('A')
-            index.letterToIndex['A'] shouldBe 1
-        }
-
-        test("list of only empty-name items produces empty index") {
-            val items = listOf("", "", "")
-            val index = AlphabetIndex.build(items) { it }
-            index.letters.shouldBeEmpty()
-        }
-
-        // =====================================================================
-        // AlphabetIndex.build — custom key selector
-        // =====================================================================
-
-        test("keySelector is applied before extracting leading character") {
-            data class Book(
-                val title: String,
-                val author: String,
-            )
-
-            val books =
-                listOf(
-                    Book("The Way of Kings", "Brandon Sanderson"),
-                    Book("Mistborn", "Brandon Sanderson"),
-                )
-            // Build by title
-            val index = AlphabetIndex.build(books) { it.title }
-            index.letterToIndex shouldContainKey 'T'
-            index.letterToIndex shouldContainKey 'M'
-        }
-
-        // =====================================================================
-        // AlphabetIndex.letterToIndex maps to list positions
-        // =====================================================================
-
-        test("letterToIndex values match the actual list positions") {
-            val items = listOf("Cherry", APPLE, "Banana")
-            val index = AlphabetIndex.build(items) { it }
-            index.letterToIndex['C'] shouldBe 0
-            index.letterToIndex['A'] shouldBe 1
-            index.letterToIndex['B'] shouldBe 2
-        }
-
         // =====================================================================
         // calculateWeight — fisheye distance weighting
         // =====================================================================
@@ -228,10 +75,3 @@ class AlphabetScrollbarTest :
             }
         }
     })
-
-/**
- * The stock A-item across these fixtures. Named rather than repeated so the file reads as one set
- * of variations on a shared input — the case-sensitivity test above deliberately keeps its literals
- * spelled out, because the exact casing is what that case is about.
- */
-private const val APPLE = "Apple"

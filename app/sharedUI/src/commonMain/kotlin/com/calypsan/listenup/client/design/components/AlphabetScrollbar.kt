@@ -55,38 +55,13 @@ import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 /**
- * Data class representing the alphabet index for a list of items.
+ * The scrollbar's letters, in the order shown, and the list position each one jumps to. Built from the
+ * shared Library letter sections (`libraryAlphabetIndex`).
  */
 data class AlphabetIndex(
     val letters: List<Char>,
     val letterToIndex: Map<Char, Int>,
-) {
-    companion object {
-        fun <T> build(
-            items: List<T>,
-            keySelector: (T) -> String,
-        ): AlphabetIndex {
-            val letterToIndex = mutableMapOf<Char, Int>()
-
-            items.forEachIndexed { index, item ->
-                val key = keySelector(item)
-                if (key.isNotEmpty()) {
-                    val firstChar = key.first().uppercaseChar()
-                    if (firstChar !in letterToIndex) {
-                        letterToIndex[firstChar] = index
-                    }
-                }
-            }
-
-            // Sort: non-letters (#) first, then alphabetically
-            val letters =
-                letterToIndex.keys
-                    .sortedWith(compareBy({ it.isLetter() }, { it }))
-
-            return AlphabetIndex(letters, letterToIndex)
-        }
-    }
-}
+)
 
 // =============================================================================
 // Adaptive Sizing Configuration

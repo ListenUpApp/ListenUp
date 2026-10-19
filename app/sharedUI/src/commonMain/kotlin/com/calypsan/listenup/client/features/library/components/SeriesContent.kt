@@ -27,15 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SeriesProgress
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
-import com.calypsan.listenup.client.util.sortableTitle
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -52,6 +51,7 @@ import listenup.composeapp.generated.resources.library_empty_tab_description
  * @param series List of series with their books
  * @param seriesProgress Per-series finished counts; a series missing from it reads as not started
  * @param sortState Current sort state (category + direction)
+ * @param letters The shared letter sections over [series]; empty for a non-name sort
  * @param ignoreArticles Whether leading articles (A / An / The) are ignored when sorting by name
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
@@ -64,6 +64,7 @@ fun SeriesContent(
     series: List<SeriesWithBooks>,
     seriesProgress: Map<SeriesId, SeriesProgress>,
     sortState: SortState,
+    letters: List<LetterSection>,
     ignoreArticles: Boolean,
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
@@ -96,15 +97,10 @@ fun SeriesContent(
                     val gridState = rememberLazyGridState()
                     val scope = rememberCoroutineScope()
 
-                    // Alphabet index for name sort — article-aware so "The Wandering Inn" files under W.
+                    // The shared letter sections: name sort only, article-aware so "The Wandering Inn"
+                    // files under W.
                     val alphabetIndex =
-                        remember(series, sortState, ignoreArticles) {
-                            if (sortState.category == SortCategory.NAME) {
-                                AlphabetIndex.build(series) { it.series.name.sortableTitle(ignoreArticles) }
-                            } else {
-                                null
-                            }
-                        }
+                        remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
 
                     val isScrolling by remember {
                         derivedStateOf { gridState.isScrollInProgress }

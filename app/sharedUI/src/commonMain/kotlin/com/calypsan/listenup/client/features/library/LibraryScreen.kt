@@ -226,6 +226,7 @@ internal fun LibraryLoadedContent(
             scanProgress = state.scanProgress,
             sortState = state.booksSortState,
             ignoreTitleArticles = state.ignoreTitleArticles,
+            bookLetters = state.bookLetters,
             bookStatus = state.bookStatus,
             progressUnderTitle = !isWide,
             isInSelectionMode = isInSelectionMode,
@@ -304,6 +305,7 @@ internal fun LibraryLoadedContent(
                             series = state.series,
                             seriesProgress = state.seriesProgress,
                             sortState = state.seriesSortState,
+                            letters = state.seriesLetters,
                             ignoreArticles = state.ignoreTitleArticles,
                             onCategorySelected = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
@@ -315,6 +317,7 @@ internal fun LibraryLoadedContent(
                         AuthorsContent(
                             authors = state.authors,
                             sortState = state.authorsSortState,
+                            letters = state.authorLetters,
                             onCategorySelected = { onEvent(LibraryUiEvent.AuthorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.AuthorsDirectionToggled) },
                             onAuthorClick = onAuthorClick,
@@ -324,6 +327,7 @@ internal fun LibraryLoadedContent(
                         NarratorsContent(
                             narrators = state.narrators,
                             sortState = state.narratorsSortState,
+                            letters = state.narratorLetters,
                             onCategorySelected = { onEvent(LibraryUiEvent.NarratorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.NarratorsDirectionToggled) },
                             onNarratorClick = onNarratorClick,

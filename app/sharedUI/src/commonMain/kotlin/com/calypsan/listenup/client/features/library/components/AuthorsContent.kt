@@ -35,7 +35,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
@@ -45,6 +44,7 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import kotlinx.coroutines.launch
@@ -63,6 +63,7 @@ import listenup.composeapp.generated.resources.genre_books_count
  *
  * @param authors List of authors with book counts
  * @param sortState Current sort state (category + direction)
+ * @param letters The shared letter sections over the list; empty for a non-name sort
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
  * @param onAuthorClick Callback when an author is clicked
@@ -72,6 +73,7 @@ import listenup.composeapp.generated.resources.genre_books_count
 fun AuthorsContent(
     authors: List<ContributorWithBookCount>,
     sortState: SortState,
+    letters: List<LetterSection>,
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
     onAuthorClick: (String) -> Unit,
@@ -84,15 +86,8 @@ fun AuthorsContent(
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
-            // Build alphabet index for name-based sort
-            val alphabetIndex =
-                remember(authors, sortState) {
-                    if (sortState.category == SortCategory.NAME) {
-                        AlphabetIndex.build(authors) { it.contributor.name }
-                    } else {
-                        null
-                    }
-                }
+            // The shared letter sections: empty on a non-name sort, so no scrollbar.
+            val alphabetIndex = remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
 
             val isScrolling by remember {
                 derivedStateOf { listState.isScrollInProgress }
