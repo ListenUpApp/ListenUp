@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import kotlin.math.abs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -50,9 +51,19 @@ class VirtualJump {
     var current: Char? by mutableStateOf(null)
         internal set
 
+    /**
+     * Where the list came to rest after a jump, once known. A section near the end can't scroll to
+     * the top, so the header passed there is an earlier one; the letter pressed stays current until
+     * the reader scrolls away from here. [Double.NaN] while the jump's scroll is still to be read.
+     */
+    internal var jumpRestingTop: Double? = null
+
     /** Brings section [letter] into view and focuses its first item. Nothing happens before the list is composed. */
     fun toSection(letter: Char) {
-        handler?.invoke(letter)
+        val jumps = handler ?: return
+        current = letter
+        jumpRestingTop = Double.NaN
+        jumps(letter)
     }
 }
 
@@ -411,6 +422,23 @@ private fun VirtualJump.reportTop(
     tracker: WindowTracker,
     view: ListView,
 ) {
+    val resting = jumpRestingTop
+    when {
+        resting == null -> {}
+
+        resting.isNaN() -> {
+            jumpRestingTop = view.top
+            return
+        }
+
+        abs(view.top - resting) < JUMP_REST_SLACK_PX -> {
+            return
+        }
+
+        else -> {
+            jumpRestingTop = null
+        }
+    }
     val top = sectionAt(tracker.sections, tracker.offsets, view)
     if (top != current) current = top
 }
@@ -606,3 +634,6 @@ private const val JUMP_FOCUS_FRAMES = 4
 
 /** How far below the scrollport's top a header may sit and still count as the one on show. */
 private const val SECTION_TOP_SLACK_PX = 64.0
+
+/** How far the reader may drift from where a jump came to rest before the rail follows the scroll. */
+private const val JUMP_REST_SLACK_PX = 2.0

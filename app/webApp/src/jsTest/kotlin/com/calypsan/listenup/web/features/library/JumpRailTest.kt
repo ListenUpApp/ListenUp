@@ -123,6 +123,41 @@ class JumpRailTest :
             root.querySelector(".lib-rail button[aria-current=true]")!!.textContent shouldBe "Z"
         }
 
+        // A section near the end can't scroll to the top, so the header passed there is an earlier
+        // one. The letter the reader pressed is still the one the rail marks, until they scroll.
+        test("a jump to a letter near the end marks that letter, though it can't reach the top") {
+            val books =
+                (1..150).map { contractBook("a$it", "Alpha $it") } +
+                    (1..3).map { contractBook("y$it", "Yew $it") } +
+                    (1..3).map { contractBook("z$it", "Zulu $it") }
+            val letters = listOf(LetterSection("A", 0, 150), LetterSection("Y", 150, 3), LetterSection("Z", 153, 3))
+            val port = Scrollport()
+            val root =
+                mounts.mount {
+                    Div(attrs = {
+                        classes("shell-main")
+                        style {
+                            property("height", "900px")
+                            property("overflow", "auto")
+                        }
+                        ref { element ->
+                            port.element = element
+                            onDispose { port.element = null }
+                        }
+                    }) {
+                        CompositionLocalProvider(LocalScrollport provides port) {
+                            BooksWithRail(books = books, letters = letters, statusOf = { null }, onOpenBook = {})
+                        }
+                    }
+                }
+            repeat(SETTLE_FRAMES) { awaitFrame() }
+
+            (root.querySelector(".lib-rail button[aria-label=\"Jump to Y\"]") as HTMLElement).click()
+            repeat(SETTLE_FRAMES) { awaitFrame() }
+
+            root.querySelector(".lib-rail button[aria-current=true]")!!.textContent shouldBe "Y"
+        }
+
         test("letter headers carry their caption") {
             val books = listOf(contractBook("a1", "Alpha"), contractBook("a2", "Amber"), contractBook("z1", "Zulu"))
             val root =
