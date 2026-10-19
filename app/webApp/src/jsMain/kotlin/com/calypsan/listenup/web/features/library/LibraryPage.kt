@@ -96,19 +96,10 @@ fun LibraryPage(
                     ?.takeIf { it.statusCounts.all > 0 }
                     ?.let { libraryCountLine(it.statusCounts.all, it.totalDurationMs) },
         ) {
-            // Offered only once there is something to select. Arming selection over an empty grid
-            // is an affordance whose only outcome is nothing — the same reason Sort stays with the
-            // loaded branch.
-            if (state is LibraryUiState.Loaded && state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
-                Button(
-                    kind = ButtonKind.Secondary,
-                    onClick = { onStartSelecting() },
-                    attrs = {
-                        classes("lib-select")
-                    },
-                ) { Text("Select") }
-            }
-            if (state is LibraryUiState.Loaded) BookSortControl(state, onEvent)
+            // A library with books carries Select and Sort at the end of its status-chip row (board
+            // `Library-WebDesktop`, see [LibraryControls]); one with no books has no chips, so its
+            // Sort keeps the header.
+            if (state is LibraryUiState.Loaded && state.isEmpty) BookSortControl(state, onEvent)
         }
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
@@ -137,6 +128,7 @@ fun LibraryPage(
                 selecting = selecting,
                 selectedIds = selectedIds,
                 onToggleSelect = onToggleSelect,
+                onStartSelecting = onStartSelecting,
                 inbox = inbox,
                 onOpenInbox = onOpenInbox,
             )
@@ -154,6 +146,7 @@ private fun LoadedLibrary(
     selecting: Boolean,
     selectedIds: Set<String>,
     onToggleSelect: (String) -> Unit,
+    onStartSelecting: (() -> Unit)?,
     inbox: InboxBadgeState,
     onOpenInbox: () -> Unit,
 ) {
@@ -167,13 +160,8 @@ private fun LoadedLibrary(
     // Above the grid and above an empty library alike: an admin whose every new book is held has
     // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
     if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
-    // Filters only over a library that has books: offering to narrow nothing is no offer at all.
-    if (!state.isEmpty && !selecting) {
-        StatusFilterRow(
-            selected = state.statusFilter,
-            counts = state.statusCounts,
-            onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-        )
+    if (!state.isEmpty) {
+        LibraryControls(state, onEvent, selecting, onStartSelecting)
     }
     // ⛔ `isEmpty` is the LIBRARY having no books; a filter that matches nothing is `isFilteredEmpty`,
     // and telling that reader "No books yet" would say their library had gone.
@@ -366,6 +354,41 @@ private fun CardCover(
             RestrictedMarker(book.id.value, shifted = selecting)
         },
     )
+}
+
+/**
+ * The status chips, then Select and Sort at the row's end (board `Library-WebDesktop`). Only over a
+ * library that has books: offering to narrow or reorder nothing is no offer at all. While selecting,
+ * the chips and Select step aside; Sort stays.
+ */
+@Composable
+private fun LibraryControls(
+    state: LibraryUiState.Loaded,
+    onEvent: (LibraryUiEvent) -> Unit,
+    selecting: Boolean,
+    onStartSelecting: (() -> Unit)?,
+) {
+    Div(attrs = { classes("lib-controls") }) {
+        if (!selecting) {
+            StatusFilterRow(
+                selected = state.statusFilter,
+                counts = state.statusCounts,
+                onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+            )
+        }
+        Div(attrs = { classes("lib-controls-end") }) {
+            // Offered only once there is something to select: arming selection over an empty grid
+            // is an affordance whose only outcome is nothing.
+            if (state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
+                Button(
+                    kind = ButtonKind.Secondary,
+                    onClick = { onStartSelecting() },
+                    attrs = { classes("lib-select") },
+                ) { Text("Select") }
+            }
+            BookSortControl(state, onEvent)
+        }
+    }
 }
 
 /**

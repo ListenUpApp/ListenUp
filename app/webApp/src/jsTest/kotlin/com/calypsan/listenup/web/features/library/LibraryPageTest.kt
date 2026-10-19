@@ -82,6 +82,26 @@ class LibraryPageTest :
             events shouldBe listOf(LibraryUiEvent.ToggleIgnoreTitleArticles)
         }
 
+        // Board `Library-WebDesktop`: Select and Sort sit at the right end of the status-chip row,
+        // not in the page header.
+        test("Select and Sort sit at the end of the status-chip row") {
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = loadedWith(listOf(bookItem("b1", "Dune"), bookItem("b2", "Ubik"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                        onStartSelecting = {},
+                    )
+                }
+            val row = root.querySelector(".lib-controls") as HTMLElement
+            (row.querySelector(".lib-filters") != null) shouldBe true
+            (row.querySelector(".lib-select") != null) shouldBe true
+            (row.querySelector(".lib-sort-trigger") != null) shouldBe true
+            root.querySelector(".page-h .lib-sort-trigger") shouldBe null
+        }
+
         test("a length sort offers no Ignore articles") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune")), sort = SortCategory.DURATION))
 
