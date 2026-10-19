@@ -5,9 +5,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkManager
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Test
@@ -76,6 +78,16 @@ class ApplicationBootTest {
     fun tearDown() {
         cancelEveryScopeTheApplicationStarted()
         stopKoin()
+        assertNothingEscapedTheBoot()
+    }
+
+    /**
+     * Fails here, naming the cause, if any coroutine the boot launched died with an exception no handler
+     * caught. Left alone, kotlinx-coroutines-test hands it to whichever `runTest` runs next in this JVM,
+     * which then fails as `UncaughtExceptionsBeforeTest` with nothing to say where it came from.
+     */
+    private fun assertNothingEscapedTheBoot() {
+        runTest { }
     }
 
     /**
@@ -131,5 +143,12 @@ class ApplicationBootTest {
                         ?.let { "${field.name.removeSuffix("\$delegate")}: ${(it.message ?: it.javaClass.name).take(120)}" }
                 }
         unresolved shouldBe emptyList()
+
+        // Every app-lifetime scope the graph binds catches what its fire-and-forget launches throw. The
+        // boot's first shortcut refresh runs on the unbound-name scope and, under Robolectric, dies with
+        // an Error (Room's native library is absent); with no handler it escaped into the next test.
+        val unhandled =
+            GlobalContext.get().getAll<CoroutineScope>().count { it.coroutineContext[CoroutineExceptionHandler] == null }
+        unhandled shouldBe 0
     }
 }
