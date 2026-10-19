@@ -56,6 +56,7 @@ class BookDetailViewModelReadingTest :
                 val f = BookDetailFixture().withChapters()
                 f.position.value = positionOf(1_000_000L)
                 f.loadedBookId.value = BookId("other-book")
+                f.playhead.value = 1_000_000L // once loaded, the player starts from the saved place
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
@@ -65,6 +66,67 @@ class BookDetailViewModelReadingTest :
                 advanceUntilIdle()
 
                 vm.ready().currentChapter?.isInPlayer shouldBe true
+            }
+        }
+
+        test("for the player's book, the live playhead crossing a chapter moves the current chapter at once") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L) // saved: chapter 2
+                f.loadedBookId.value = BookId("book-1")
+                f.playhead.value = 1_000_000L
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+                vm.ready().currentChapter?.number shouldBe 2
+
+                f.playhead.value = 1_805_000L // the player crossed into chapter 3; the saved row has not caught up
+                advanceUntilIdle()
+
+                vm.ready().currentChapter?.number shouldBe 3
+                vm.ready().currentChapter?.elapsedInChapterMs shouldBe 5_000L
+                vm.ready().timeRemainingMs shouldBe 5_400_000L - 1_805_000L
+            }
+        }
+
+        test("a book that is not in the player ignores the playhead") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L)
+                f.loadedBookId.value = BookId("other-book")
+                f.playhead.value = 2_800_000L
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+
+                vm.ready().currentChapter?.number shouldBe 2
+                vm.ready().timeRemainingMs shouldBe 5_400_000L - 1_000_000L
+            }
+        }
+
+        test("playhead ticks inside the same minute and chapter do not re-emit the page, and keep a picker open") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L)
+                f.loadedBookId.value = BookId("book-1")
+                f.playhead.value = 1_000_000L
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+                vm.showShelfPicker()
+                advanceUntilIdle()
+                val before = vm.state.value
+
+                f.playhead.value = 1_000_250L
+                advanceUntilIdle()
+                f.playhead.value = 1_010_000L
+                advanceUntilIdle()
+                (vm.state.value === before) shouldBe true
+
+                f.playhead.value = 1_080_000L // a minute on: what the page shows changes
+                advanceUntilIdle()
+                (vm.state.value === before) shouldBe false
+                vm.ready().showShelfPicker shouldBe true
             }
         }
 

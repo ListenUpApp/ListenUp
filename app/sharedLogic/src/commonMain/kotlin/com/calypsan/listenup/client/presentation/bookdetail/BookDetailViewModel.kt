@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.playback.LoadedBookPlayhead
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -88,7 +90,8 @@ class BookDetailViewModel(
     private val seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
-    loadedBookRepository: LoadedBookRepository,
+    private val loadedBookRepository: LoadedBookRepository,
+    private val playhead: LoadedBookPlayhead,
 ) : ViewModel() {
     /**
      * The requested book id. Writing it is the single entry point for switching books; every per-book flow
@@ -241,12 +244,26 @@ class BookDetailViewModel(
                     seriesRepository.observeSeriesWithBooks(seriesId).map { detail to it }
                 }
             }
+        // The player's book reads the player's live playhead rather than the row it saves on a timer (Android: every
+        // 30 s), so the current chapter, its minutes and the time left keep up with the mini player. Only what the page
+        // shows counts: a tick inside the same chapter and minute changes nothing, so Ready is not rebuilt per tick.
+        val livePositionMs: Flow<Long?> =
+            combine(loadedBookRepository.observeLoadedBookId(), playhead.positionMs) { loaded, positionMs ->
+                positionMs.takeIf { loaded == id }
+            }
         val listening: Flow<Pair<List<Chapter>, PlaybackPosition?>> =
             combine(
                 bookRepository.observeChapters(bookId),
                 playbackPositionRepository.observe(id),
-            ) { chapters, position ->
-                chapters to position
+                livePositionMs,
+            ) { chapters, saved, live ->
+                chapters to (if (live != null) saved?.copy(positionMs = live) else saved)
+            }.distinctUntilChangedBy { (chapters, position) ->
+                Triple(
+                    chapters,
+                    position?.copy(positionMs = 0L),
+                    position?.let { visiblePlayhead(it.positionMs, chapters) },
+                )
             }
         return combine(
             flow = rowAndSeries,

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.repository.LoadedBookRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.playback.LoadedBookPlayhead
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.presentation.player.PlayerSheetState
@@ -38,6 +39,8 @@ internal val playerModule =
         single<LoadedBookRepository> {
             LoadedBookRepositoryImpl(store = get(), bookRepository = get(), positionRepository = get(), engine = get())
         }
+        // The loaded book's live playhead, for Book Detail: the session is it.
+        single<LoadedBookPlayhead> { get<PlayerSession>() }
         single(createdAtStart = true) {
             PlayerSession(
                 engine = get(),

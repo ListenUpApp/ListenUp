@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
+import com.calypsan.listenup.client.playback.LoadedBookPlayhead
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,3 +29,8 @@ internal class FakeLoadedBookRepository(
         loadedBookId.value = null
     }
 }
+
+/** The player's playhead for Book Detail specs that do not move it: still at the start. */
+internal class FakeLoadedBookPlayhead(
+    override val positionMs: MutableStateFlow<Long> = MutableStateFlow(0L),
+) : LoadedBookPlayhead

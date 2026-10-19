@@ -147,6 +147,7 @@ class BookDetailViewModelLastMatchTest :
                     undoMatch = UndoMatch(matching),
                     userProfileRepository = profiles,
                     loadedBookRepository = FakeLoadedBookRepository(),
+                    playhead = FakeLoadedBookPlayhead(),
                 ).apply { loadBook("book-1") }
             }
         }

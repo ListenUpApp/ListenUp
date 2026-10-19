@@ -133,6 +133,7 @@ class BookDetailViewModelVisibilityTest :
                     undoMatch = mock(),
                     userProfileRepository = mock(),
                     loadedBookRepository = FakeLoadedBookRepository(),
+                    playhead = FakeLoadedBookPlayhead(),
                 )
         }
 

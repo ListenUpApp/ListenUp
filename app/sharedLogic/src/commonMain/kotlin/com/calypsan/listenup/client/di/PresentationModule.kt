@@ -381,6 +381,7 @@ internal val bookPresentationModule =
                 undoMatch = get(),
                 userProfileRepository = get(),
                 loadedBookRepository = get(),
+                playhead = get(),
             )
         }
         factory { params ->

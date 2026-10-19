@@ -72,7 +72,7 @@ class PlayerSession(
     /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
     val offlineCopiesSupported: Boolean,
     private val scope: CoroutineScope,
-) {
+) : LoadedBookPlayhead {
     private val stage = MutableStateFlow<SessionStage?>(null)
     private val restoring = MutableStateFlow(true)
     private var generation = 0
@@ -107,7 +107,7 @@ class PlayerSession(
     val pendingStartMs: StateFlow<Long?> get() = readout.pendingStartMs
 
     /** Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position. Ticks. */
-    val positionMs: StateFlow<Long> get() = readout.positionMs
+    override val positionMs: StateFlow<Long> get() = readout.positionMs
 
     /** The loaded book's chapters: the engine's prepared list, or Room's before a prepare. */
     val chapters: StateFlow<List<Chapter>> get() = readout.chapters
