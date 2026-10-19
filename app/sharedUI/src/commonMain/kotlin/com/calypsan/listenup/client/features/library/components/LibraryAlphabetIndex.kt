@@ -65,3 +65,41 @@ internal fun libraryAlphabetIndex(
     }
     return AlphabetIndex(letters = positions.keys.toList(), letterToIndex = positions)
 }
+
+/** A row of a lettered list (Authors, Narrators): a section header or one entry. */
+internal sealed interface LetteredRow<out T> {
+    /** The lazy-list key, unique even when a letter recurs. */
+    val key: String
+
+    /** The [letter] heading above its run; [ordinal] is that run's place. */
+    data class Header(
+        val letter: Char,
+        val ordinal: Int,
+    ) : LetteredRow<Nothing> {
+        override val key: String get() = "header-$ordinal"
+    }
+
+    /** One entry of the list, keyed by its own identity. */
+    data class Entry<T>(
+        val value: T,
+        override val key: String,
+    ) : LetteredRow<T>
+}
+
+/** [items] with a header before each shared [LetterSection]; plain entries when there are none. */
+internal fun <T> letteredRows(
+    items: List<T>,
+    letters: List<LetterSection>,
+    keyOf: (T) -> String,
+): List<LetteredRow<T>> {
+    val headerBefore =
+        letters.withIndex().associate { (ordinal, section) ->
+            section.firstIndex to LetteredRow.Header(section.letter.first(), ordinal)
+        }
+    return buildList {
+        items.forEachIndexed { index, item ->
+            headerBefore[index]?.let(::add)
+            add(LetteredRow.Entry(item, keyOf(item)))
+        }
+    }
+}

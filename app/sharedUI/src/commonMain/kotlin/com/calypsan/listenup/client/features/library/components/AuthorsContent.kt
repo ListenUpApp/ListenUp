@@ -87,7 +87,8 @@ fun AuthorsContent(
 
             // The shared letter sections: empty on a non-name sort, so no scrollbar.
             val alphabetIndex =
-                remember(letters) { libraryAlphabetIndex(letters, withHeaders = false, leadingItems = 0) }
+                remember(letters) { libraryAlphabetIndex(letters, withHeaders = true, leadingItems = 0) }
+            val rows = remember(authors, letters) { letteredRows(authors, letters) { it.contributor.id.value } }
 
             val isScrolling by remember {
                 derivedStateOf { listState.isScrollInProgress }
@@ -122,14 +123,25 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
+                        // A header before each letter on a name sort (spec L25), from the shared sections.
                         items(
-                            items = authors,
-                            key = { it.contributor.id.value },
-                        ) { authorWithCount ->
-                            ContributorCard(
-                                contributorWithCount = authorWithCount,
-                                onClick = { onAuthorClick(authorWithCount.contributor.id.value) },
-                            )
+                            items = rows,
+                            key = { it.key },
+                            contentType = { if (it is LetteredRow.Header) "header" else "person" },
+                        ) { row ->
+                            when (row) {
+                                is LetteredRow.Header -> {
+                                    SectionHeader(letter = row.letter)
+                                }
+
+                                is LetteredRow.Entry -> {
+                                    val authorWithCount = row.value
+                                    ContributorCard(
+                                        contributorWithCount = authorWithCount,
+                                        onClick = { onAuthorClick(authorWithCount.contributor.id.value) },
+                                    )
+                                }
+                            }
                         }
                     }
 

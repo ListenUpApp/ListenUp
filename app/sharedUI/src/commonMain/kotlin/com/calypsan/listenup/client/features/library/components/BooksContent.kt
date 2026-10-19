@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,10 +78,11 @@ private const val INBOX_ENTRY_KEY = "library-inbox-entry"
 
 /**
  * Section header: an Expressive coral "cookie" badge carrying the section [letter], trailed by a
- * rounded divider line (matches the design's scalloped section letters).
+ * rounded divider line (matches the design's scalloped section letters). Shared by the Books grid
+ * and the Authors and Narrators lists. A heading, so TalkBack can move from letter to letter.
  */
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     letter: Char,
     modifier: Modifier = Modifier,
 ) {
@@ -87,6 +90,7 @@ private fun SectionHeader(
         modifier =
             modifier
                 .fillMaxWidth()
+                .semantics(mergeDescendants = true) { heading() }
                 .padding(top = 10.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),

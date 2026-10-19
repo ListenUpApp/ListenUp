@@ -28,6 +28,14 @@ class BookGridAlphabetIndexTest :
             } shouldBe listOf('A', "Alpha", "Amber", 'M', "Mist", 'Z', "Zed")
         }
 
+        test("any list gets a header before each section, keyed apart from its rows") {
+            val rows = letteredRows(listOf("Andy", "Ann", "Zoe"), listOf(LetterSection("A", 0, 2), LetterSection("Z", 2, 1))) { it }
+            rows.map { (it as? LetteredRow.Header)?.letter ?: (it as LetteredRow.Entry).value } shouldBe
+                listOf('A', "Andy", "Ann", 'Z', "Zoe")
+            rows.map { it.key }.distinct().size shouldBe rows.size
+            letteredRows(listOf("Andy"), emptyList()) { it }.map { it.key } shouldBe listOf("Andy")
+        }
+
         test("a recurring letter gets a header per run, each keyed apart") {
             val recurring = listOf(LetterSection("#", 0, 1), LetterSection("B", 1, 1), LetterSection("#", 2, 1))
             val headers = bookGridItems(books.take(3), recurring).filterIsInstance<BookGridItem.Header>()
