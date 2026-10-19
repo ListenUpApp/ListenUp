@@ -76,4 +76,16 @@ class SocialSentenceTest {
             ReadersSummary(listening = refs("Maya"), finished = emptyList(), avatars = refs("Maya"), othersCount = 0),
             "Maya is listening",
         )
+
+    @Test
+    fun `full names read as first names, as the boards write them`() =
+        assertSentence(
+            ReadersSummary(
+                listening = refs("Maya Chen", "Priya Nair"),
+                finished = refs("Tom Okafor"),
+                avatars = refs("Maya Chen", "Priya Nair", "Tom Okafor"),
+                othersCount = 0,
+            ),
+            "Maya and Priya are listening · Tom finished it",
+        )
 }

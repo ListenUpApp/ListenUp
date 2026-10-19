@@ -28,12 +28,16 @@ data class ReadersSummary(
  * A reader named on the social line.
  *
  * @property userId Their user id: the avatar's seed and the profile link.
- * @property displayName The name the sentence uses.
+ * @property displayName Their full name: the avatar's initials.
  */
 data class ReaderRef(
     val userId: String,
     val displayName: String,
-)
+) {
+    /** The name the sentence uses: the first word of [displayName], as the boards write it ("Maya and Priya"). */
+    val firstName: String
+        get() = displayName.trim().substringBefore(' ')
+}
 
 /** The social-line summary of these readers. Pure. */
 internal fun BookReaders.summary(): ReadersSummary {

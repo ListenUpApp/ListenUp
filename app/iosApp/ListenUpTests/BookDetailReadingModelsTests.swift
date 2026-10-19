@@ -49,6 +49,16 @@ struct BookDetailReadingModelsTests {
         #expect(line?.avatarUserIds == ["m", "t"])
     }
 
+    @Test func socialLineNamesReadersByFirstName() {
+        let maya = ReaderRef(userId: "m", displayName: "Maya Chen")
+        let tom = ReaderRef(userId: "t", displayName: "Tom Okafor")
+        let line = ReadersSocialLine(ReadersSummary(listening: [maya], finished: [tom], avatars: [maya, tom], othersCount: 0))
+        #expect(line?.listening == ["Maya"])
+        #expect(line?.finished == ["Tom"])
+        // The avatars keep the full name: it is their initials.
+        #expect(line?.avatarNames == ["Maya Chen", "Tom Okafor"])
+    }
+
     @Test func noOtherReadersHidesTheLine() {
         let summary = ReadersSummary(listening: [], finished: [], avatars: [], othersCount: 0)
         #expect(ReadersSocialLine(summary) == nil)

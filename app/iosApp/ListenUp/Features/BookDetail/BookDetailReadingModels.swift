@@ -162,8 +162,8 @@ struct ReadersSocialLine: Equatable {
 
     init?(_ summary: ReadersSummary) {
         guard !summary.avatars.isEmpty else { return nil }
-        listening = summary.listening.map(\.displayName)
-        finished = summary.finished.map(\.displayName)
+        listening = summary.listening.map(\.firstName)
+        finished = summary.finished.map(\.firstName)
         avatarUserIds = summary.avatars.map(\.userId)
         avatarNames = summary.avatars.map(\.displayName)
         othersCount = Int(summary.othersCount)

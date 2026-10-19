@@ -53,7 +53,7 @@ private fun SocialSentence(summary: ReadersSummary) {
             summary.listening.take(
                 NAMED_PER_CLAUSE,
             ) + summary.finished.take(NAMED_PER_CLAUSE)
-        ).map { it.displayName }
+        ).map { it.firstName }
     var from = 0
     named.forEach { name ->
         val at = sentence.indexOf(name, startIndex = from)
@@ -81,7 +81,7 @@ private fun clause(
     one: String,
     many: String,
 ): String? {
-    val names = readers.map { it.displayName }
+    val names = readers.map { it.firstName }
     return when (names.size) {
         0 -> null
         1 -> "${names[0]} $one"

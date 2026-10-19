@@ -46,4 +46,13 @@ class HeroSocialLineTest :
             socialSentence(ReadersSummary(emptyList(), refs("Tom"), refs("Tom"), 0)) shouldBe "Tom finished it"
             socialSentence(ReadersSummary(refs("Maya"), emptyList(), refs("Maya"), 0)) shouldBe "Maya is listening"
         }
+    
+        test("full names read as first names, in the sentence and in bold") {
+            val full = refs("Maya Chen", "Priya Nair")
+            val summary = ReadersSummary(full, refs("Tom Okafor"), full + refs("Tom Okafor"), 0)
+            socialSentence(summary) shouldBe "Maya and Priya are listening · Tom finished it"
+            val root = mounts.mount { HeroSocialLine(summary) }
+            val bold = root.querySelectorAll(".bd-social-text b")
+            (0 until bold.length).map { bold.item(it)!!.textContent } shouldBe listOf("Maya", "Priya", "Tom")
+        }
     })

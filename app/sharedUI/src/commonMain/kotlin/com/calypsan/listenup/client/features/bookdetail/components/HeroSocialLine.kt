@@ -75,7 +75,7 @@ private fun clause(
     readers: List<ReaderRef>,
     keys: ClauseKeys,
 ): String? {
-    val names = readers.map { it.displayName }
+    val names = readers.map { it.firstName }
     return when (names.size) {
         0 -> null
         1 -> stringResource(keys.one, names[0])
@@ -99,7 +99,7 @@ internal fun socialSentence(summary: ReadersSummary): AnnotatedString {
         } else {
             listening ?: finished.orEmpty()
         }
-    val named = (summary.listening.take(2) + summary.finished.take(2)).map { it.displayName }
+    val named = (summary.listening.take(2) + summary.finished.take(2)).map { it.firstName }
     val nameStyle = SpanStyle(fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     return buildAnnotatedString {
         append(plain)
