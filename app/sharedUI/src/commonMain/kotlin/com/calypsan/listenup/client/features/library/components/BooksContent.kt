@@ -403,7 +403,8 @@ private fun BookGrid(
                     end = Spacing.gridMargin,
                     top = 12.dp,
                     bottom = 16.dp,
-                ),
+                    // While selecting, the grid's end scrolls clear of the floating selection toolbar.
+                ).plusSelectionToolbar(isInSelectionMode),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),

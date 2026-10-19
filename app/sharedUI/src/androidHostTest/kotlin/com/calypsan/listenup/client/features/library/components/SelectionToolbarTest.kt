@@ -2,6 +2,13 @@ package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertHasClickAction
@@ -137,5 +144,42 @@ class SelectionToolbarTest {
         listOf("Add to shelf", "Add to collection", "Edit").forEach {
             composeRule.onNode(hasText(it) and hasClickAction()).assertHeightIsAtLeast(48.dp)
         }
+    }
+
+    @Test
+    fun `a host that adds the toolbar's clearance keeps its last item above the floating toolbar`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Box(Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(bottom = 16.dp).plusSelectionToolbar(isSelecting = true),
+                        modifier = Modifier.fillMaxSize().testTag("host-list"),
+                    ) {
+                        items(60) { index ->
+                            Text("Row $index", Modifier.fillMaxWidth().height(60.dp).testTag("row-$index"))
+                        }
+                    }
+                    SelectionToolbar(
+                        selectedCount = 2,
+                        onAddToShelf = {},
+                        onAddToCollection = {},
+                        onEdit = {},
+                        onClose = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("host-list").performScrollToIndex(59)
+        composeRule.waitForIdle()
+
+        val last = composeRule.onNodeWithTag("row-59").fetchSemanticsNode().boundsInRoot
+        val toolbar = composeRule.onNodeWithTag("selection-actions").fetchSemanticsNode().boundsInRoot
+        (last.bottom <= toolbar.top) shouldBe true
+    }
+
+    @Test
+    fun `no clearance is added when nothing is being selected`() {
+        val padding = PaddingValues(bottom = 16.dp).plusSelectionToolbar(isSelecting = false)
+        padding.calculateBottomPadding() shouldBe 16.dp
     }
 }

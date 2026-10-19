@@ -6,6 +6,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +38,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -56,6 +58,36 @@ private val SelectionHeaderHeight = 64.dp
 
 /** The smallest touch target an action may have. */
 private val ActionMinHeight = 48.dp
+
+/** The floating toolbar's own height: its 64dp container, grown to hold an icon over a label. */
+private val SelectionToolbarHeight = 72.dp
+
+/**
+ * How much of a host's bottom edge the floating selection toolbar covers, above whatever the host
+ * already clears (navigation bar, mini player): the toolbar and the gaps either side of it. A host
+ * adds it to its content's bottom padding while selecting ([plusSelectionToolbar]), so the end of
+ * its list can always scroll clear of the toolbar.
+ */
+val SelectionToolbarClearance: Dp = SelectionToolbarHeight + Spacing.md * 2
+
+/** These paddings, with [SelectionToolbarClearance] added at the bottom while [isSelecting]. */
+fun PaddingValues.plusSelectionToolbar(isSelecting: Boolean): PaddingValues =
+    if (isSelecting) BottomExtended(this, SelectionToolbarClearance) else this
+
+/** [base] with [extra] more at the bottom. */
+private class BottomExtended(
+    private val base: PaddingValues,
+    private val extra: Dp,
+) : PaddingValues {
+    override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp = base.calculateLeftPadding(layoutDirection)
+
+    override fun calculateTopPadding(): Dp = base.calculateTopPadding()
+
+    override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp =
+        base.calculateRightPadding(layoutDirection)
+
+    override fun calculateBottomPadding(): Dp = base.calculateBottomPadding() + extra
+}
 
 /**
  * The selection bar, in two parts laid over the host's full-size `Box` (spec §6.1):
