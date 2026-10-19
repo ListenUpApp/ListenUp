@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -47,6 +48,23 @@ class BookDetailViewModelReadingTest :
                 vm.ready().currentChapter?.number shouldBe 4
                 vm.ready().timeRemainingMs shouldBe 5_400_000L - 2_800_000L
                 vm.ready().chapterPreview.map { it.id } shouldBe listOf("chapter-2", "chapter-3", "chapter-4", "chapter-5", "chapter-6")
+            }
+        }
+
+        test("the current chapter follows whether this book is the player's loaded book, live") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L)
+                f.loadedBookId.value = BookId("other-book")
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+                vm.ready().currentChapter?.isInPlayer shouldBe false
+
+                f.loadedBookId.value = BookId("book-1") // a chapter tap loads this book
+                advanceUntilIdle()
+
+                vm.ready().currentChapter?.isInPlayer shouldBe true
             }
         }
 

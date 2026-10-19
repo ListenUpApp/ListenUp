@@ -428,6 +428,8 @@
     "detail_readers_note": "“%1$s”",
     "detail_play_from_chapter_a11y": "Play from chapter %1$d: %2$s",
     "detail_now_playing": "Now playing",
+    "detail_youre_here": "You're here",
+    "detail_youre_here_in": "You're here · %1$s in",
     "detail_now_playing_in": "Now playing · %1$s in",
     "detail_all_chapters": "All %1$d chapters",
     "detail_all_chapters_ios": "All %1$d Chapters",

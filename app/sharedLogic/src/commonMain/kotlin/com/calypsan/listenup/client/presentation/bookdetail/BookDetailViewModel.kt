@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.BookVisibilityRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -87,6 +88,7 @@ class BookDetailViewModel(
     private val seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
+    loadedBookRepository: LoadedBookRepository,
 ) : ViewModel() {
     /**
      * The requested book id. Writing it is the single entry point for switching books; every per-book flow
@@ -136,12 +138,14 @@ class BookDetailViewModel(
             flow2 = permissionsRepository.observeCan(Permission.EDIT_METADATA),
             flow3 = seriesRepository.observeHierarchy(),
             flow4 = tagRepository.observeAll(),
-        ) { isAdmin, canEditMetadata, hierarchy, allTags ->
+            flow5 = loadedBookRepository.observeLoadedBookId(),
+        ) { isAdmin, canEditMetadata, hierarchy, allTags, loadedBookId ->
             BookDetailAmbient(
                 isAdmin = isAdmin,
                 canEditMetadata = canEditMetadata,
                 hierarchy = hierarchy,
                 allTags = allTags,
+                loadedBookId = loadedBookId?.value,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookDetailAmbient())
 

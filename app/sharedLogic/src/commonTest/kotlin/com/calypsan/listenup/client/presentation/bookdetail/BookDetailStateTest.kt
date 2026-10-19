@@ -87,6 +87,13 @@ class BookDetailStateTest :
                 snapshot().toReady(BookDetailAmbient()).chapters.none { it.isCurrent } shouldBe true
             }
 
+            test("the current chapter says whether this book is the one loaded in the player") {
+                val reading = snapshot(position = position(1_000_000L))
+                reading.toReady(BookDetailAmbient(loadedBookId = "book-1")).currentChapter?.isInPlayer shouldBe true
+                reading.toReady(BookDetailAmbient(loadedBookId = "book-2")).currentChapter?.isInPlayer shouldBe false
+                reading.toReady(BookDetailAmbient(loadedBookId = null)).currentChapter?.isInPlayer shouldBe false
+            }
+
             test("a finished book marks no chapter as current, wherever its position was left") {
                 listOf(0L, 1_000_000L, 3_600_000L).forEach { ms ->
                     val ready = snapshot(position = position(ms, finished = true)).toReady(BookDetailAmbient())

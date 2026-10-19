@@ -36,6 +36,8 @@ internal data class BookDetailAmbient(
     val canEditMetadata: Boolean = false,
     val hierarchy: SeriesHierarchy = SeriesHierarchy.Empty,
     val allTags: List<Tag> = emptyList(),
+    /** The player's loaded book on this device, if any: the current chapter says "Now playing" only for it. */
+    val loadedBookId: String? = null,
 )
 
 /**
@@ -65,7 +67,12 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
     val progress =
         if (hasMeaningfulProgress) (positionMs.toFloat() / detail.duration).coerceIn(0f, 1f) else null
 
-    val current = if (hasMeaningfulProgress) currentChapterOf(chapters, positionMs) else null
+    val current =
+        if (hasMeaningfulProgress) {
+            currentChapterOf(chapters, positionMs)?.copy(isInPlayer = ambient.loadedBookId == detail.id.value)
+        } else {
+            null
+        }
 
     val chapterRows =
         chapters.mapIndexed { index, domainChapter ->

@@ -123,6 +123,7 @@ class BookDetailViewModelHeldTest :
                         },
                     undoMatch = mock(),
                     userProfileRepository = mock(),
+                    loadedBookRepository = FakeLoadedBookRepository(),
                 )
         }
 

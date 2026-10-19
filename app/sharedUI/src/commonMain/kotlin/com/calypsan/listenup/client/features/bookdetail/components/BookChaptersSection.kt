@@ -49,6 +49,8 @@ import listenup.composeapp.generated.resources.book_detail_fewer_chapters
 import listenup.composeapp.generated.resources.book_detail_now_playing
 import listenup.composeapp.generated.resources.book_detail_now_playing_in
 import listenup.composeapp.generated.resources.book_detail_play_from_chapter_a11y
+import listenup.composeapp.generated.resources.book_detail_youre_here
+import listenup.composeapp.generated.resources.book_detail_youre_here_in
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -183,7 +185,7 @@ private fun ChapterRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 current?.let { here ->
-                    Text(text = nowPlayingLabel(here.elapsedInChapterMs), style = MaterialTheme.typography.labelMedium)
+                    Text(text = currentChapterLabel(here), style = MaterialTheme.typography.labelMedium)
                 }
             }
             Text(text = chapter.duration, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
@@ -197,16 +199,20 @@ private fun ChapterRow(
     }
 }
 
-/** "Now playing · 12m in"; under a minute in there is nothing to count yet, so just "Now playing". */
+/**
+ * "Now playing · 12m in" for the player's book; "You're here · 12m in" while another book is in the player, so the
+ * row never claims a book is playing that isn't. Under a minute in there is nothing to count yet: just the words.
+ */
 @Composable
-private fun nowPlayingLabel(elapsedInChapterMs: Long): String =
-    if (elapsedInChapterMs < MILLIS_PER_MINUTE) {
-        stringResource(Res.string.book_detail_now_playing)
-    } else {
-        stringResource(
-            Res.string.book_detail_now_playing_in,
-            DurationFormatter.hoursMinutes(elapsedInChapterMs.milliseconds),
-        )
+private fun currentChapterLabel(current: CurrentChapter): String {
+    val elapsed = current.elapsedInChapterMs
+    val inLabel = DurationFormatter.hoursMinutes(elapsed.milliseconds)
+    return when {
+        current.isInPlayer && elapsed < MILLIS_PER_MINUTE -> stringResource(Res.string.book_detail_now_playing)
+        current.isInPlayer -> stringResource(Res.string.book_detail_now_playing_in, inLabel)
+        elapsed < MILLIS_PER_MINUTE -> stringResource(Res.string.book_detail_youre_here)
+        else -> stringResource(Res.string.book_detail_youre_here_in, inLabel)
     }
+}
 
 private const val MILLIS_PER_MINUTE = 60_000L

@@ -79,6 +79,9 @@ internal class BookDetailFixture {
     /** The saved position Room holds for the book; specs push it, and the progress writes move it like Room does. */
     val position = MutableStateFlow<PlaybackPosition?>(null)
 
+    /** The player's loaded book; nothing by default. */
+    val loadedBookId = MutableStateFlow<BookId?>(null)
+
     /** The book's chapters as Room holds them. */
     val chapters = MutableStateFlow<List<Chapter>>(emptyList())
 
@@ -193,6 +196,7 @@ internal class BookDetailFixture {
             seriesRepository = seriesRepository,
             undoMatch = mock(),
             userProfileRepository = mock(),
+            loadedBookRepository = FakeLoadedBookRepository(loadedBookId),
         )
 }
 

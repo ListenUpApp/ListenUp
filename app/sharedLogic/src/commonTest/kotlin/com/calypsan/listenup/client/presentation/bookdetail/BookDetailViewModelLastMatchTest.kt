@@ -146,6 +146,7 @@ class BookDetailViewModelLastMatchTest :
                         mock<SeriesRepository> { every { observeHierarchy() } returns flowOf(SeriesHierarchy.Empty) },
                     undoMatch = UndoMatch(matching),
                     userProfileRepository = profiles,
+                    loadedBookRepository = FakeLoadedBookRepository(),
                 ).apply { loadBook("book-1") }
             }
         }

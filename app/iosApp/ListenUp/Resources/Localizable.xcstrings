@@ -6231,6 +6231,26 @@
         }
       }
     },
+    "book.detail_youre_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're here"
+          }
+        }
+      }
+    },
+    "book.detail_youre_here_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're here · %1$@ in"
+          }
+        }
+      }
+    },
     "book.edit_abridged": {
       "localizations": {
         "en": {

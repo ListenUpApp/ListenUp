@@ -380,6 +380,7 @@ internal val bookPresentationModule =
                 seriesRepository = get(),
                 undoMatch = get(),
                 userProfileRepository = get(),
+                loadedBookRepository = get(),
             )
         }
         factory { params ->

@@ -39,7 +39,14 @@ class BookChaptersSectionTest {
         }
     private val window = all.subList(3, 8)
     private val current =
-        CurrentChapter(index = 5, number = 6, title = "Chapter title 6", startMs = 3_000_000L, elapsedInChapterMs = 720_000L)
+        CurrentChapter(
+            index = 5,
+            number = 6,
+            title = "Chapter title 6",
+            startMs = 3_000_000L,
+            elapsedInChapterMs = 720_000L,
+            isInPlayer = true,
+        )
 
     private fun set(
         canPlay: Boolean = true,
@@ -77,7 +84,7 @@ class BookChaptersSectionTest {
     }
 
     @Test
-    fun `the current row says how far in it is`() {
+    fun `the current row of the player's book says Now playing and how far in it is`() {
         set()
         composeRule.onNodeWithText("Now playing · 12m in", useUnmergedTree = true).assertExists()
     }
@@ -103,8 +110,22 @@ class BookChaptersSectionTest {
         composeRule.onNodeWithText("All 12 chapters").assertExists()
     }
 
+    // Another book is in the player: this row is where you are in this book, not what is playing.
     @Test
-    fun `under a minute in, the current row just says Now playing`() {
+    fun `when another book is in the player, the current row says You're here and how far in`() {
+        set(current = current.copy(isInPlayer = false))
+        composeRule.onNodeWithText("You're here · 12m in", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Now playing", substring = true, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `under a minute in, with another book in the player, the current row just says You're here`() {
+        set(current = current.copy(isInPlayer = false, elapsedInChapterMs = 6_000L))
+        composeRule.onNodeWithText("You're here", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `under a minute in, the current row of the player's book just says Now playing`() {
         set(current = current.copy(elapsedInChapterMs = 6_000L))
         composeRule.onNodeWithText("Now playing", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("Now playing · 0m in", useUnmergedTree = true).assertDoesNotExist()

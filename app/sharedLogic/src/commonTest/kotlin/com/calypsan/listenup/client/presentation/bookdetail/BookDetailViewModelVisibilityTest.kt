@@ -132,6 +132,7 @@ class BookDetailViewModelVisibilityTest :
                         },
                     undoMatch = mock(),
                     userProfileRepository = mock(),
+                    loadedBookRepository = FakeLoadedBookRepository(),
                 )
         }
 

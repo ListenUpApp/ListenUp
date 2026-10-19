@@ -105,6 +105,7 @@ class BookDetailViewModelCollectionTest :
                         },
                     undoMatch = mock(),
                     userProfileRepository = mock(),
+                    loadedBookRepository = FakeLoadedBookRepository(),
                 )
         }
 
