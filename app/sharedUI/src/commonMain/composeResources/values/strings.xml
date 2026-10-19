@@ -1588,7 +1588,6 @@ One beautiful library.</string>
     <string name="library_filtered_empty_in_progress">Nothing in progress right now.</string>
     <string name="library_filtered_empty_not_started">You've started every book.</string>
     <string name="library_has_documents_badge">Has supplementary material</string>
-    <string name="library_ignore_articles">Ignore A, An, The</string>
     <string name="library_ignore_articles_quoted">Ignore “A”, “An”, “The”</string>
     <string name="library_index_jump">Jump to %1$s</string>
     <string name="library_jump_index_label">Jump to letter</string>
@@ -1606,18 +1605,15 @@ One beautiful library.</string>
     <string name="library_sort">Sort</string>
     <string name="library_sort_added">Recently added</string>
     <string name="library_sort_added_ios">Recently Added</string>
-    <string name="library_sort_ascending">Ascending</string>
     <string name="library_sort_author">Author</string>
     <string name="library_sort_book_count">Number of books</string>
     <string name="library_sort_book_count_ios">Number of Books</string>
     <string name="library_sort_by">Sort By</string>
     <string name="library_sort_by_a11y">Sort by %1$s</string>
-    <string name="library_sort_descending">Descending</string>
     <string name="library_sort_duration">Length</string>
     <string name="library_sort_listener_rating">Your listeners' rating</string>
     <string name="library_sort_listener_rating_ios">Your Listeners' Rating</string>
     <string name="library_sort_name">Name</string>
-    <string name="library_sort_options">Sort options</string>
     <string name="library_sort_order">Order</string>
     <string name="library_sort_rating">Rating</string>
     <string name="library_sort_series">Series</string>

@@ -15871,16 +15871,6 @@
         }
       }
     },
-    "library.ignore_articles": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ignore A, An, The"
-          }
-        }
-      }
-    },
     "library.ignore_articles_quoted": {
       "localizations": {
         "en": {
@@ -16051,16 +16041,6 @@
         }
       }
     },
-    "library.sort_ascending": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ascending"
-          }
-        }
-      }
-    },
     "library.sort_author": {
       "localizations": {
         "en": {
@@ -16111,16 +16091,6 @@
         }
       }
     },
-    "library.sort_descending": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Descending"
-          }
-        }
-      }
-    },
     "library.sort_duration": {
       "localizations": {
         "en": {
@@ -16157,16 +16127,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Name"
-          }
-        }
-      }
-    },
-    "library.sort_options": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sort options"
           }
         }
       }
