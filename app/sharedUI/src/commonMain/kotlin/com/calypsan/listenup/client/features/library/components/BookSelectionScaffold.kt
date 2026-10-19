@@ -20,6 +20,16 @@ import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.selection_added_to_collection_none
+import listenup.composeapp.generated.resources.selection_added_to_collection_one
+import listenup.composeapp.generated.resources.selection_added_to_collection_plural
+import listenup.composeapp.generated.resources.selection_added_to_shelf_none
+import listenup.composeapp.generated.resources.selection_added_to_shelf_one
+import listenup.composeapp.generated.resources.selection_added_to_shelf_plural
+import listenup.composeapp.generated.resources.selection_created_with_books_one
+import listenup.composeapp.generated.resources.selection_created_with_books_plural
+import org.jetbrains.compose.resources.getString
 
 /**
  * Reusable multi-select overlay for any books-bearing screen (Library, Home, Discover).
@@ -98,6 +108,7 @@ fun BookSelectionScaffold(
             },
         onClose = multiSelect::exitSelectionMode,
         bottomClearance = contentPadding.calculateBottomPadding(),
+        topClearance = contentPadding.calculateTopPadding(),
         modifier = modifier,
     )
 
@@ -223,9 +234,7 @@ private fun BookSelectionFeedback(
             when (event) {
                 is BookMultiSelectEvent.BooksAddedToCollection -> {
                     onCollectionActionHandled()
-                    scope.launch {
-                        snackbarHostState.showSnackbar(booksAddedToCollectionMessage(event.count))
-                    }
+                    scope.launch { snackbarHostState.showSnackbar(booksAddedToCollectionMessage(event.count)) }
                 }
 
                 is BookMultiSelectEvent.BooksAddedToShelf -> {
@@ -235,17 +244,15 @@ private fun BookSelectionFeedback(
 
                 is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
                     onShelfActionHandled()
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
-                    scope.launch { snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText") }
+                    scope.launch {
+                        snackbarHostState.showSnackbar(createdWithBooksMessage(event.shelfName, event.bookCount))
+                    }
                 }
 
                 is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
                     onCollectionActionHandled()
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
                     scope.launch {
-                        snackbarHostState.showSnackbar(
-                            "Created \"${event.collectionName}\" with $bookText",
-                        )
+                        snackbarHostState.showSnackbar(createdWithBooksMessage(event.collectionName, event.bookCount))
                     }
                 }
             }
@@ -254,23 +261,34 @@ private fun BookSelectionFeedback(
 }
 
 /**
- * How an add to a collection is announced.
+ * How an add to a collection is announced (`selection.added_to_collection_*`, every platform's words).
  *
  * The count is what the collection actually gained, so zero is a real outcome and gets its own
  * sentence: books already in the collection are not added again, and "2 books added to collection"
  * when nothing moved is precisely the lie this wording exists to avoid.
  */
-internal fun booksAddedToCollectionMessage(count: Int): String =
+internal suspend fun booksAddedToCollectionMessage(count: Int): String =
     when (count) {
-        0 -> "Already in that collection"
-        1 -> "1 book added to collection"
-        else -> "$count books added to collection"
+        0 -> getString(Res.string.selection_added_to_collection_none)
+        1 -> getString(Res.string.selection_added_to_collection_one)
+        else -> getString(Res.string.selection_added_to_collection_plural, count)
     }
 
 /** How an add to a shelf is announced. Zero means every selected book was already on it. */
-internal fun booksAddedToShelfMessage(count: Int): String =
+internal suspend fun booksAddedToShelfMessage(count: Int): String =
     when (count) {
-        0 -> "Already on that shelf"
-        1 -> "1 book added to shelf"
-        else -> "$count books added to shelf"
+        0 -> getString(Res.string.selection_added_to_shelf_none)
+        1 -> getString(Res.string.selection_added_to_shelf_one)
+        else -> getString(Res.string.selection_added_to_shelf_plural, count)
+    }
+
+/** How a shelf or collection made with the selection in it is announced. */
+internal suspend fun createdWithBooksMessage(
+    name: String,
+    bookCount: Int,
+): String =
+    if (bookCount == 1) {
+        getString(Res.string.selection_created_with_books_one, name)
+    } else {
+        getString(Res.string.selection_created_with_books_plural, name, bookCount)
     }

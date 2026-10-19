@@ -21,6 +21,7 @@ import com.calypsan.listenup.web.features.books.BookSelection
 import com.calypsan.listenup.web.features.books.OpenMultiSelect
 import com.calypsan.listenup.web.features.books.PickerTarget
 import com.calypsan.listenup.web.features.books.SelectionPicker
+import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
 import com.calypsan.listenup.web.features.books.bookCountLabel
 import com.calypsan.listenup.web.features.books.isActive
 import com.calypsan.listenup.web.features.books.selectedIds
@@ -168,6 +169,14 @@ internal fun BookSelectionScaffold(
     content: @Composable (BookSelection) -> Unit,
 ) {
     val session = rememberSession { openMultiSelect() }
+    val handOff = LocalSelectionHandOff.current
+    // Back from the bulk editor: this page's new session picks up where the last one left off.
+    LaunchedEffect(session) {
+        handOff.takeFor(router.current)?.let { ids ->
+            session.onEnter()
+            ids.forEach(session.onToggle)
+        }
+    }
 
     val mode = session.selectionMode.collectAsState().value
     val selected = mode.selectedIds()
@@ -228,6 +237,8 @@ internal fun BookSelectionScaffold(
         SelectionDestination.Edit -> {
             LaunchedEffect(selected) {
                 picking = null
+                // Held so backing out of the editor returns to these picks, as on Android.
+                handOff.hold(router.current, selected)
                 router.navigate(
                     Routes.bulkEdit(selected),
                 )
@@ -310,25 +321,41 @@ private fun bulkActions(
     }
 }
 
-/** What a completed bulk action says. The number is the point — it is what the reader cannot see. */
-private fun confirmationFor(event: BookMultiSelectEvent): String =
+/**
+ * What a completed bulk action says: the `selection.added_to_*` and `selection.created_with_books_*`
+ * words, the same sentence Android and iOS show. The number is what the shelf or collection gained.
+ */
+internal fun confirmationFor(event: BookMultiSelectEvent): String =
     when (event) {
         is BookMultiSelectEvent.BooksAddedToShelf -> {
-            "Added ${bookCountLabel(event.count)} to the shelf."
+            when (event.count) {
+                0 -> "Already on that shelf"
+                1 -> "1 book added to shelf"
+                else -> "${event.count} books added to shelf"
+            }
         }
 
         is BookMultiSelectEvent.BooksAddedToCollection -> {
-            "Added ${bookCountLabel(event.count)} to the collection."
+            when (event.count) {
+                0 -> "Already in that collection"
+                1 -> "1 book added to collection"
+                else -> "${event.count} books added to collection"
+            }
         }
 
         is BookMultiSelectEvent.ShelfCreatedAndBooksAdded -> {
-            "Created ${event.shelfName} with ${bookCountLabel(event.bookCount)}."
+            createdWithBooks(event.shelfName, event.bookCount)
         }
 
         is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
-            "Created ${event.collectionName} with ${bookCountLabel(event.bookCount)}."
+            createdWithBooks(event.collectionName, event.bookCount)
         }
     }
+
+private fun createdWithBooks(
+    name: String,
+    count: Int,
+): String = if (count == 1) "Created \"$name\" with 1 book" else "Created \"$name\" with $count books"
 
 /** Where selecting [facet] in the shared facet row navigates to. */
 internal fun routeFor(facet: LibraryFacet): Route =

@@ -1254,7 +1254,7 @@ class WebAppRootTest :
             try {
                 awaitFrame()
 
-                said shouldBe listOf("Added 12 books to the shelf.")
+                said shouldBe listOf("12 books added to shelf")
             } finally {
                 router.dispose()
             }
