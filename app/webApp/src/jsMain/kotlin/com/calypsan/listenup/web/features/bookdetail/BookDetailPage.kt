@@ -665,8 +665,9 @@ private fun BookSection(
                         panes.onOpenFiles()
                     }
                 }) {
-                    Text("Files & audio")
-                    Span(attrs = { attr("aria-hidden", "true") }) { Text(" →") }
+                    // Only the words are underlined; the arrow rides beside them (board).
+                    Span(attrs = { classes("bd-files-label") }) { Text("Files & audio") }
+                    Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
                 }
             }
         }

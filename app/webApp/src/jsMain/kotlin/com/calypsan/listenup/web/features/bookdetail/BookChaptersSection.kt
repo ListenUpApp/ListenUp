@@ -26,7 +26,7 @@ import org.jetbrains.compose.web.dom.Tr
 /**
  * Chapters that play from the chapter they name (spec §2.5): a table with start times on a desktop, button rows on a
  * phone, both collapsed to [preview] (the 5-row window around the current chapter, or the first five) with "Show all N
- * chapters" expanding in place. Every row's title is a button named "Play from chapter N: title"; the current row
+ * chapters" expanding in place and "Show fewer chapters" collapsing it. Every row's title is a button named "Play from chapter N: title"; the current row
  * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map (D35).
  */
 @Composable
@@ -61,40 +61,44 @@ internal fun BookChaptersSection(
                 }
             }) { Text("Chapter map") }
         }
-        if (wide) {
-            Table(attrs = { classes("bd-ch-table") }) {
-                Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
-                Tbody {
-                    shown.forEach { chapter ->
-                        key(chapter.id) {
-                            val number = numberById[chapter.id] ?: 0
-                            Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
-                                Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
-                                Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
-                                Td(attrs = { classes("bd-ch-d", "mono") }) {
-                                    Text(formatClock((chapter.startMs / MILLIS_PER_SECOND).toInt()))
+        Div(attrs = { classes("bd-ch-body") }) {
+            if (wide) {
+                Table(attrs = { classes("bd-ch-table") }) {
+                    Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
+                    Tbody {
+                        shown.forEach { chapter ->
+                            key(chapter.id) {
+                                val number = numberById[chapter.id] ?: 0
+                                Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
+                                    Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
+                                    Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
+                                    Td(attrs = { classes("bd-ch-d", "mono") }) {
+                                        Text(formatClock((chapter.startMs / MILLIS_PER_SECOND).toInt()))
+                                    }
+                                    Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
                                 }
-                                Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
                             }
                         }
                     }
                 }
-            }
-        } else {
-            Div(attrs = { classes("bd-ch-list") }) {
-                shown.forEach { chapter ->
-                    key(chapter.id) {
-                        ChapterButton(chapter, numberById[chapter.id] ?: 0, canPlay, onPlayFromChapter, withMeta = true)
+            } else {
+                Div(attrs = { classes("bd-ch-list") }) {
+                    shown.forEach { chapter ->
+                        key(chapter.id) {
+                            ChapterButton(chapter, numberById[chapter.id] ?: 0, canPlay, onPlayFromChapter, withMeta = true)
+                        }
                     }
                 }
             }
-        }
-        if (!expanded && chapters.size > preview.size) {
-            Button(attrs = {
-                classes("bd-ch-all")
-                attr("type", "button")
-                onClick { expanded = true }
-            }) { Text("Show all ${chapters.size} chapters") }
+            // Expands in place and collapses again; aria-expanded says which (spec §2.5).
+            if (chapters.size > preview.size) {
+                Button(attrs = {
+                    classes("bd-ch-all")
+                    attr("type", "button")
+                    attr("aria-expanded", expanded.toString())
+                    onClick { expanded = !expanded }
+                }) { Text(if (expanded) "Show fewer chapters" else "Show all ${chapters.size} chapters") }
+            }
         }
     }
 }
@@ -117,10 +121,17 @@ private fun ChapterButton(
         if (!canPlay) attr("disabled", "")
         onClick { onPlayFromChapter(chapter.startMs) }
     }) {
-        if (withMeta) Span(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
-        Span(attrs = { classes("bd-ch-t") }) { Text(chapter.title) }
-        if (withMeta) Span(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
-        Icon(WebIcon.Play, size = PLAY_MARK_SIZE, attrs = { classes("bd-ch-play") })
+        if (withMeta) {
+            // A phone row (board): number, title, length, then the play mark.
+            Span(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
+            Span(attrs = { classes("bd-ch-t") }) { Text(chapter.title) }
+            Span(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
+            Icon(WebIcon.Play, size = PLAY_MARK_SIZE, attrs = { classes("bd-ch-play") })
+        } else {
+            // A desktop title cell (board): the play mark leads the title.
+            Icon(WebIcon.Play, size = PLAY_MARK_SIZE, attrs = { classes("bd-ch-play") })
+            Span(attrs = { classes("bd-ch-t") }) { Text(chapter.title) }
+        }
     }
 }
 

@@ -77,12 +77,30 @@ class BookChaptersSectionTest :
             row.textContent.orEmpty().contains("1:00:00") shouldBe true
         }
 
-        test("Show all expands in place") {
+        test("Show all expands in place, says so, and Show fewer collapses it again") {
             val root = mount(wide = false)
-            (root.querySelector(".bd-ch-all") as HTMLButtonElement).click()
+            val toggle = root.querySelector(".bd-ch-all") as HTMLButtonElement
+            toggle.getAttribute("aria-expanded") shouldBe "false"
+            toggle.textContent shouldBe "Show all 12 chapters"
+            toggle.click()
             awaitFrame()
             playButtons(root).size shouldBe 12
-            (root.querySelector(".bd-ch-all") == null) shouldBe true
+            val expanded = root.querySelector(".bd-ch-all") as HTMLButtonElement
+            expanded.getAttribute("aria-expanded") shouldBe "true"
+            expanded.textContent shouldBe "Show fewer chapters"
+            expanded.click()
+            awaitFrame()
+            playButtons(root).size shouldBe 5
+            (root.querySelector(".bd-ch-all") as HTMLButtonElement).getAttribute("aria-expanded") shouldBe "false"
+        }
+
+        test("on a desktop the play mark leads the title, as the board draws it") {
+            val root = mount(wide = true)
+            val button = root.querySelector("button[aria-label='Play from chapter 7: Chapter 7']") as HTMLElement
+            val mark = button.firstElementChild!!
+            mark.classList.contains("bd-ch-play") shouldBe true
+            val title = button.querySelector(".bd-ch-t")!!
+            (title.getBoundingClientRect().left - mark.getBoundingClientRect().right < 16.0) shouldBe true
         }
 
         test("when the book can't play the rows are disabled, and only then carry the attribute") {
