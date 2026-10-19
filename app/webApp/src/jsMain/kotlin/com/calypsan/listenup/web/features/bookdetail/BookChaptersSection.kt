@@ -85,7 +85,13 @@ internal fun BookChaptersSection(
                 Div(attrs = { classes("bd-ch-list") }) {
                     shown.forEach { chapter ->
                         key(chapter.id) {
-                            ChapterButton(chapter, numberById[chapter.id] ?: 0, canPlay, onPlayFromChapter, withMeta = true)
+                            ChapterButton(
+                                chapter,
+                                numberById[chapter.id] ?: 0,
+                                canPlay,
+                                onPlayFromChapter,
+                                withMeta = true,
+                            )
                         }
                     }
                 }

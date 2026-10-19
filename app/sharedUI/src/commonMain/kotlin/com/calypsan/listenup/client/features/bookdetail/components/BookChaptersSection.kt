@@ -203,7 +203,10 @@ private fun nowPlayingLabel(elapsedInChapterMs: Long): String =
     if (elapsedInChapterMs < MILLIS_PER_MINUTE) {
         stringResource(Res.string.book_detail_now_playing)
     } else {
-        stringResource(Res.string.book_detail_now_playing_in, DurationFormatter.hoursMinutes(elapsedInChapterMs.milliseconds))
+        stringResource(
+            Res.string.book_detail_now_playing_in,
+            DurationFormatter.hoursMinutes(elapsedInChapterMs.milliseconds),
+        )
     }
 
 private const val MILLIS_PER_MINUTE = 60_000L
