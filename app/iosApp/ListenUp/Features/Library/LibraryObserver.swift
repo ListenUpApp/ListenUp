@@ -51,6 +51,12 @@ final class LibraryObserver {
     /// The library has books, but the status filter matches none of them.
     private(set) var isFilteredEmpty = false
     private(set) var isSyncing: Bool = false
+    /// What the status strip above the Books grid says; nil hides it. Moves on sync ticks, not content,
+    /// so it is mapped outside the revision gate.
+    private(set) var statusStrip: LibraryStatusStripModel?
+    /// The library's first population, or this device's first catch-up, is still arriving. An empty grid
+    /// reads this, never `isSyncing` (false for the whole seed): it is arriving, not empty.
+    private(set) var isLibraryArriving: Bool = false
     private(set) var errorMessage: String?
 
     @ObservationIgnored private var contentRevision = ContentRevisionGate()
@@ -144,6 +150,8 @@ final class LibraryObserver {
             assignIfChanged(\.bookStatus, mapStatus(loaded.bookStatus))
             assignIfChanged(\.seriesProgress, mapSeriesProgress(loaded.seriesProgress))
             assignIfChanged(\.isSyncing, loaded.isSyncing)
+            assignIfChanged(\.statusStrip, LibraryStatusStripModel.from(loaded.statusStrip))
+            assignIfChanged(\.isLibraryArriving, loaded.isLibraryArriving)
         case .error(let eType):
             isLoading = false
             errorMessage = eType.value.message

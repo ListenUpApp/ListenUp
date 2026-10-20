@@ -1,6 +1,14 @@
 package com.calypsan.listenup.client.navigation.entries
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
+import com.calypsan.listenup.client.navigation.BookEdit
+import com.calypsan.listenup.client.share.bookShareUrl
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -156,14 +164,15 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                         onSeriesClick = { seriesId -> backStack.add(SeriesDetail(seriesId)) },
                         onAuthorClick = { authorId -> backStack.add(ContributorDetail(authorId)) },
-                        onNarratorClick = { narratorId ->
-                            backStack.add(ContributorDetail(narratorId))
-                        },
+                        onNarratorClick = { narratorId -> backStack.add(ContributorDetail(narratorId)) },
                         appHeader = appHeader,
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        onPlayBook = { bookId -> nowPlayingViewModel.playBook(BookId(bookId)) },
+                        onShareBook = rememberBookSharer(),
+                        onEditBook = { bookId -> backStack.add(BookEdit(bookId)) },
                         // Onto the Library's own stack: Back pops to the shell with Library still selected.
                         onOpenInbox = { backStack.add(AdminInbox) },
                         modifier = Modifier.padding(padding),
@@ -187,6 +196,24 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     )
                 },
             )
+        }
+    }
+}
+
+/**
+ * Shares a book from the Library's menu: the link from the one share builder, Book Detail's sentence, the platform's
+ * own sheet. A server that cannot name itself shares nothing rather than a link that resolves nowhere.
+ */
+@Composable
+private fun rememberBookSharer(): (bookId: String, title: String) -> Unit {
+    val scope = rememberCoroutineScope()
+    val instanceRepository: InstanceRepository = koinInject()
+    val shareActions: BookDetailPlatformActions = koinInject()
+    return { bookId, title ->
+        scope.launch {
+            bookShareUrl(instanceRepository, BookId(bookId))?.let { url ->
+                shareActions.shareText("Check out $title on ListenUp!\n$url", url)
+            }
         }
     }
 }

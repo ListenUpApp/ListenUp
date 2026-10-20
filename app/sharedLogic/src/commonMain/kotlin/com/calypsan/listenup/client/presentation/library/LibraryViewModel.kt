@@ -81,6 +81,7 @@ private data class SyncSnapshot(
     val isServerScanning: Boolean,
     val scanProgress: ScanProgressState?,
     val isBuildingInitialLibrary: Boolean,
+    val isFirstCatchUp: Boolean,
 )
 
 /** Per-book card state and finished flags, derived from playback positions and book durations. */
@@ -337,6 +338,7 @@ class LibraryViewModel(
             flow2 = syncRepository.serverScanning,
             flow3 = syncRepository.scanProgress,
             flow4 = syncRepository.buildingInitialLibrary,
+            flow5 = syncRepository.firstCatchUpRunning,
             transform = ::SyncSnapshot,
             // SyncSnapshot is a data class — structural equality prevents re-sorting the library
             // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.
@@ -565,6 +567,7 @@ class LibraryViewModel(
         sync: SyncSnapshot,
     ): LibraryUiState.Loaded {
         val sorted = revised.content
+        val arriving = sync.isBuildingInitialLibrary || sync.isFirstCatchUp
         val seriesProgress =
             sorted.series.associate { sb ->
                 sb.series.id to
@@ -591,6 +594,14 @@ class LibraryViewModel(
             isServerScanning = sync.isServerScanning,
             scanProgress = sync.scanProgress,
             isBuildingInitialLibrary = sync.isBuildingInitialLibrary,
+            isLibraryArriving = arriving,
+            statusStrip =
+                libraryStatusStrip(
+                    isServerScanning = sync.isServerScanning,
+                    scanProgress = sync.scanProgress,
+                    isLibraryArriving = arriving,
+                    booksSoFar = sorted.statusCounts.all,
+                ),
             statusFilter = sorted.intent.statusFilter,
             statusCounts = sorted.statusCounts,
             bookStatus = progress.cardStatus,

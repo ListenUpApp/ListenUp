@@ -59,6 +59,7 @@ import org.jetbrains.compose.resources.getString
  * @param modifier Modifier applied to the overlay container.
  * @param contentPadding The host's insets (navigation bar, mini player) the floating toolbar must clear;
  *   a host already padded by its parent passes none.
+ * @param selectAll "Select all N" in the selection header (null = this host offers none: Home, Discover).
  * @param state Which picker is up, hoisted so a host can shelve one book ([BookSelectionScaffoldState.shelveOne]).
  */
 @Composable
@@ -68,6 +69,7 @@ fun BookSelectionScaffold(
     modifier: Modifier = Modifier,
     state: BookSelectionScaffoldState = rememberBookSelectionScaffoldState(),
     contentPadding: PaddingValues = PaddingValues(),
+    selectAll: SelectAllAction? = null,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
@@ -80,13 +82,11 @@ fun BookSelectionScaffold(
     val selectedIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
     val selectedCount = selectedIds.size
 
-    var showCollectionPicker by rememberSaveable { mutableStateOf(false) }
-
     // Success feedback: dismiss the matching picker and show a confirmation snackbar.
     BookSelectionFeedback(
         multiSelect = multiSelect,
         onShelfActionHandled = { state.closeShelfPicker(multiSelect) },
-        onCollectionActionHandled = { showCollectionPicker = false },
+        onCollectionActionHandled = { state.closeCollectionPicker(multiSelect) },
     )
 
     // Selection bar: a header over the top of the host container, a floating toolbar over its bottom.
@@ -96,7 +96,7 @@ fun BookSelectionScaffold(
         onAddToShelf = { state.showShelfPicker = true },
         onAddToCollection =
             if (isAdmin) {
-                { showCollectionPicker = true }
+                { state.showCollectionPicker = true }
             } else {
                 null
             },
@@ -109,12 +109,13 @@ fun BookSelectionScaffold(
         onClose = multiSelect::exitSelectionMode,
         bottomClearance = contentPadding.calculateBottomPadding(),
         topClearance = contentPadding.calculateTopPadding(),
+        selectAll = selectAll,
         modifier = modifier,
     )
 
     // Collection picker sheet. Collections are admin-managed — gate the picker
     // presentation (and the inline-create affordance) on isAdmin as defense-in-depth.
-    if (showCollectionPicker && isAdmin) {
+    if (state.showCollectionPicker && isAdmin) {
         CollectionPickerSheet(
             collections = collections,
             selectedBookCount = selectedCount,
@@ -125,7 +126,7 @@ fun BookSelectionScaffold(
                 multiSelect.createCollectionAndAddBooks(name)
             },
             canCreate = isAdmin,
-            onDismiss = { showCollectionPicker = false },
+            onDismiss = { state.closeCollectionPicker(multiSelect) },
             isLoading = isAddingToCollection,
         )
     }
@@ -148,17 +149,20 @@ fun BookSelectionScaffold(
 }
 
 /**
- * Which shelf picker is up over a [BookSelectionScaffold], and whether it was opened for one book.
+ * Which picker is up over a [BookSelectionScaffold], and whether it was opened for one book.
  *
  * "Add {book} to a shelf" from a row's menu (plan C5) shelves one book through the same picker and
  * the same feedback as a multi-book selection: it selects that book, opens the picker, and ends the
  * selection when the picker closes, by dismissal or success, so no selection is left behind. iOS's
- * `addOneBookToShelf` follows the same rule.
+ * `addOneBookToShelf` follows the same rule. Add {book} to a collection (the Library menu's admin group) is the same
+ * shape over the collection picker.
  */
 @Stable
 class BookSelectionScaffoldState internal constructor(
     showShelfPicker: Boolean,
     shelvingOneBook: Boolean,
+    showCollectionPicker: Boolean = false,
+    collectingOneBook: Boolean = false,
 ) {
     /** Whether the shelf picker is showing. */
     var showShelfPicker by mutableStateOf(showShelfPicker)
@@ -198,11 +202,59 @@ class BookSelectionScaffoldState internal constructor(
         }
     }
 
+    /** Whether the collection picker is showing. */
+    var showCollectionPicker by mutableStateOf(showCollectionPicker)
+
+    /** Whether the collection picker was opened for one book, so closing it ends the selection. */
+    var collectingOneBook by mutableStateOf(collectingOneBook)
+        private set
+
+    /** Select [bookId] alone and open the collection picker for it. */
+    fun collectOne(
+        bookId: String,
+        multiSelect: BookMultiSelectViewModel,
+    ) {
+        multiSelect.enterSelectionMode(bookId)
+        collectingOneBook = true
+        showCollectionPicker = true
+    }
+
+    /** [collectOne] for a book's menu, or null while a selection is under way ([shelveOneOrNull]'s rule). */
+    fun collectOneOrNull(multiSelect: BookMultiSelectViewModel): ((String) -> Unit)? =
+        if (multiSelect.selectionMode.value is SelectionMode.Active) {
+            null
+        } else {
+            { bookId -> collectOne(bookId, multiSelect) }
+        }
+
+    /** Close the collection picker; a one-book add also ends its selection. */
+    fun closeCollectionPicker(multiSelect: BookMultiSelectViewModel) {
+        showCollectionPicker = false
+        if (collectingOneBook) {
+            collectingOneBook = false
+            multiSelect.exitSelectionMode()
+        }
+    }
+
     internal companion object {
         val Saver: Saver<BookSelectionScaffoldState, Any> =
             listSaver(
-                save = { listOf(it.showShelfPicker, it.shelvingOneBook) },
-                restore = { BookSelectionScaffoldState(showShelfPicker = it[0], shelvingOneBook = it[1]) },
+                save = { state ->
+                    listOf(
+                        state.showShelfPicker,
+                        state.shelvingOneBook,
+                        state.showCollectionPicker,
+                        state.collectingOneBook,
+                    )
+                },
+                restore = { saved ->
+                    BookSelectionScaffoldState(
+                        showShelfPicker = saved[0],
+                        shelvingOneBook = saved[1],
+                        showCollectionPicker = saved[2],
+                        collectingOneBook = saved[3],
+                    )
+                },
             )
     }
 }

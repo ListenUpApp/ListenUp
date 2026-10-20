@@ -130,4 +130,26 @@ class BulkBarTest :
             action.getAttribute("title") shouldBe "Add to collection"
             (action.querySelector(".bulk-bl") as HTMLElement).textContent shouldBe "Add to collection"
         }
+
+        test("Select all sits before the actions, inside the roving toolbar, and reports") {
+            var selectAlls = 0
+            val host =
+                mount {
+                    BulkBar(
+                        count = 1,
+                        label = "1 book selected",
+                        actions = listOf(BulkAction("Add to shelf") {}),
+                        onClear = {},
+                        selectAll = BulkAction("Select all 248") { selectAlls++ },
+                    )
+                }
+            val buttons = host.querySelectorAll(".bulk button").asList().map { it as HTMLElement }
+            buttons.map { it.getAttribute("aria-label") } shouldBe listOf("Cancel selection", "Select all 248", "Add to shelf")
+            buttons[0].focus()
+            buttons[0].dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "ArrowRight", bubbles = true)))
+            awaitFrame()
+            document.activeElement shouldBe buttons[1]
+            buttons[1].click()
+            selectAlls shouldBe 1
+        }
     })

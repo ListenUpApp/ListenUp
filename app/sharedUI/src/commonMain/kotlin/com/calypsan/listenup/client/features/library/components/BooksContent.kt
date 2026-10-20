@@ -1,6 +1,15 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.aspectRatio
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
+import listenup.composeapp.generated.resources.library_arriving_placeholder_a11y
+import listenup.composeapp.generated.resources.library_book_menu_long_press
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,13 +28,15 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -67,14 +77,15 @@ import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.library_add_audiobooks_to_your_server
 import listenup.composeapp.generated.resources.library_failed_to_load_library
 import listenup.composeapp.generated.resources.library_loading_your_library
-import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 import org.jetbrains.compose.resources.stringResource
-import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.foundation.shape.CircleShape
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 private const val INBOX_ENTRY_KEY = "library-inbox-entry"
+private const val ARRIVING_PLACEHOLDERS = 4
+private const val ARRIVING_PLACEHOLDER_TAG = "library-arriving-placeholder"
+private val PlaceholderLines = listOf(0.9f, 0.6f)
 
 /**
  * Section header: an Expressive coral "cookie" badge carrying the section [letter], trailed by a
@@ -139,18 +150,21 @@ internal fun SectionHeader(
  * @param onDirectionToggle Called when the user toggles sort direction
  * @param onToggleIgnoreArticles Called when the "Ignore articles" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
- * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
+ * @param bookMenu A book's menu, opened by a long press or right-click on its cover (spec §3.1.2); Select is one tap
+ *   inside it. Null = no menu. While selecting there is none: a tap already toggles.
  * @param onRetry Callback when retry is clicked in error state
  * @param isFilteredEmpty The library has books but [statusFilter] matches none of them
  * @param statusFilter The active reading-state filter, which picks the filtered-empty copy
  * @param onShowAllBooks Clears the status filter from the filtered-empty state
  * @param header Content drawn as the grid's first, full-width item — the Library's inbox entry. Scrolls
  *   with the books.
+ * @param statusStrip What the pinned status strip above the grid says. While the library is still arriving the grid
+ *   ends in placeholders, and an empty grid is never called empty.
  * @param modifier Optional modifier
  */
 @Suppress("LongParameterList")
 @Composable
-fun BooksContent(
+internal fun BooksContent(
     books: List<BookListItem>,
     hasLoadedBooks: Boolean,
     syncState: SyncState,
@@ -167,19 +181,44 @@ fun BooksContent(
     onDirectionToggle: () -> Unit,
     onToggleIgnoreArticles: () -> Unit,
     onBookClick: (String) -> Unit,
-    onBookLongPress: ((String) -> Unit)? = null,
+    bookMenu: LibraryBookMenuHost? = null,
     onRetry: () -> Unit,
     isFilteredEmpty: Boolean = false,
     statusFilter: BookStatusFilter = BookStatusFilter.ALL,
     onShowAllBooks: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
+    statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
     modifier: Modifier = Modifier,
 ) {
+    val isArriving = statusStrip is LibraryStatusStrip.Arriving
     Box(modifier = modifier.fillMaxSize()) {
         when {
             // Haven't loaded from database yet - show loading
             !hasLoadedBooks -> {
                 BooksLoadingState()
+            }
+
+            // Empty while the library is still arriving (a first sync, or this device's first catch-up): say so
+            // over placeholders. Never "empty": the socket is Connected for the whole seed, so the sync state
+            // cannot tell this apart from a library with nothing in it.
+            books.isEmpty() && !isFilteredEmpty && isArriving -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    PinnedStatusStrip(statusStrip)
+                    BookGrid(
+                        books = books,
+                        bookLetters = emptyList(),
+                        bookStatus = bookStatus,
+                        progressUnderTitle = progressUnderTitle,
+                        statusFilter = statusFilter,
+                        isInSelectionMode = isInSelectionMode,
+                        selectedBookIds = selectedBookIds,
+                        onBookClick = onBookClick,
+                        bookMenu = bookMenu,
+                        header = header,
+                        trailingPlaceholders = ARRIVING_PLACEHOLDERS,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             // Loaded but empty AND syncing - show loading
@@ -229,9 +268,7 @@ fun BooksContent(
             // Loaded with books - show grid
             else -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    if (isServerScanning && scanProgress != null) {
-                        ScanProgressBanner(scanProgress = scanProgress)
-                    }
+                    PinnedStatusStrip(statusStrip)
                     LibrarySortCard(
                         state = sortState,
                         categories = SortCategory.booksCategories,
@@ -255,12 +292,63 @@ fun BooksContent(
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
-                        onBookLongPress = onBookLongPress,
+                        bookMenu = bookMenu,
                         header = header,
+                        trailingPlaceholders = if (isArriving) ARRIVING_PLACEHOLDERS else 0,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
+        }
+    }
+}
+
+/** The status strip, pinned above the grid at the grid's margins; nothing when there is nothing to say. */
+@Composable
+private fun PinnedStatusStrip(strip: LibraryStatusStrip) {
+    if (strip is LibraryStatusStrip.Hidden) return
+    LibraryStatusStripSlot(
+        strip = strip,
+        modifier =
+            Modifier.padding(
+                start = Spacing.gridMargin,
+                end = Spacing.gridMargin,
+                top = Spacing.xs,
+                bottom = Spacing.sm,
+            ),
+    )
+}
+
+/**
+ * A book card's shape with nothing in it yet: a cover-sized block and two lines. The first is named for TalkBack ("More
+ * books arriving"); the rest are hidden, so the reader hears the news once rather than four times.
+ */
+@Composable
+private fun ArrivingPlaceholderCard(
+    isNamed: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(Res.string.library_arriving_placeholder_a11y)
+    Column(
+        modifier =
+            modifier
+                .testTag(ARRIVING_PLACEHOLDER_TAG)
+                .clearAndSetSemantics { if (isNamed) contentDescription = label else hideFromAccessibility() },
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest, ContentShapes.card),
+        )
+        PlaceholderLines.forEach { fraction ->
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(Spacing.md)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest, ContentShapes.card),
+            )
         }
     }
 }
@@ -279,12 +367,18 @@ private fun BookGrid(
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
-    onBookLongPress: ((String) -> Unit)?,
+    bookMenu: LibraryBookMenuHost?,
     header: (@Composable () -> Unit)?,
+    trailingPlaceholders: Int,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    // The one book whose menu is open, by id, so it survives rotation and a recycled cell.
+    var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val longPressLabel = stringResource(Res.string.library_book_menu_long_press)
+    val menu = bookMenu.takeUnless { isInSelectionMode }
 
     // A new status filter is a new list: open it at the top. A grid keeps its place by item key, so
     // without this a filter opened part-way down, its first books scrolled off above. The last filter
@@ -301,6 +395,14 @@ private fun BookGrid(
     val gridItems = remember(books, bookLetters) { bookGridItems(books, bookLetters) }
 
     val hasHeader = header != null
+    // The header slot (the inbox strip) can arrive after the books, as a first sync settles. The grid keeps its first
+    // book anchored when an item is inserted above it, which would leave the strip just above the viewport. A reader
+    // who was at the top stays at the top, so the strip is seen.
+    LaunchedEffect(hasHeader) {
+        if (hasHeader && gridState.firstVisibleItemIndex == 1 && gridState.firstVisibleItemScrollOffset == 0) {
+            gridState.scrollToItem(0)
+        }
+    }
     val alphabetIndex =
         remember(bookLetters, hasHeader) {
             libraryAlphabetIndex(bookLetters, withHeaders = true, leadingItems = if (hasHeader) 1 else 0)
@@ -366,13 +468,41 @@ private fun BookGrid(
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,
                             onLongPress =
-                                onBookLongPress?.let { callback ->
-                                    { callback(bookId) }
+                                menu?.let { host ->
+                                    {
+                                        scope.launch {
+                                            // Board: the menu hangs below the cover. Make room first, so it only
+                                            // flips up when the grid cannot scroll any further.
+                                            val menuHeight =
+                                                estimatedMenuHeight(host.actionsFor(bookId)).value * density.density
+                                            gridState.makeRoomBelowCover(gridItem.key, menuHeight)
+                                            menuFor = bookId
+                                        }
+                                    }
+                                },
+                            longPressLabel = menu?.let { longPressLabel },
+                            coverOverlay =
+                                menu?.takeIf { menuFor == bookId }?.let { host ->
+                                    {
+                                        LibraryBookMenu(
+                                            expanded = true,
+                                            onDismiss = { menuFor = null },
+                                            primary = host.primaryFor(bookId),
+                                            actions = host.actionsFor(bookId),
+                                        )
+                                    }
                                 },
                             modifier = Modifier.animateItem(),
                         )
                     }
                 }
+            }
+            items(
+                count = trailingPlaceholders,
+                key = { "arriving-placeholder-$it" },
+                contentType = { "placeholder" },
+            ) { index ->
+                ArrivingPlaceholderCard(isNamed = index == 0)
             }
         }
 
@@ -415,56 +545,6 @@ private fun BooksLoadingState() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-/**
- * Compact banner showing scan progress when books are already loaded.
- */
-@Composable
-private fun ScanProgressBanner(scanProgress: ScanProgressState) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ListenUpLoadingIndicatorSmall()
-                Text(
-                    text =
-                        scanProgress.phaseDisplayName +
-                            if (scanProgress.total > 0) " ${scanProgress.current}/${scanProgress.total}" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                val summary = scanProgress.changesSummary
-                if (summary != null) {
-                    Text(
-                        text = stringResource(Res.string.library_summary, summary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
-                            HeroInk.muted(
-                                MaterialTheme.colorScheme.onSecondaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer,
-                            ),
-                    )
-                }
-            }
-            scanProgress.progressFraction?.let { fraction ->
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    trackColor =
-                        HeroInk.wash(
-                            MaterialTheme.colorScheme.onSecondaryContainer,
-                            MaterialTheme.colorScheme.secondaryContainer,
-                        ),
-                )
-            }
         }
     }
 }
@@ -591,4 +671,21 @@ private fun BooksErrorState(
             ListenUpButton(text = stringResource(Res.string.common_retry), onClick = onRetry)
         }
     }
+}
+
+/**
+ * Scrolls the grid just enough that [menuHeight] px fits between the foot of [key]'s cover (a square as wide as its
+ * cell) and the bottom of the viewport, never lifting the card's top out of view.
+ */
+private suspend fun LazyGridState.makeRoomBelowCover(
+    key: Any,
+    menuHeight: Float,
+) {
+    val info = layoutInfo.visibleItemsInfo.firstOrNull { it.key == key } ?: return
+    val coverBottom = info.offset.y + info.size.width
+    val room = layoutInfo.viewportEndOffset - coverBottom
+    val shortfall = menuHeight - room
+    val headroom = (info.offset.y - layoutInfo.viewportStartOffset).toFloat()
+    val scroll = minOf(shortfall, headroom)
+    if (scroll > 0f) animateScrollBy(scroll)
 }

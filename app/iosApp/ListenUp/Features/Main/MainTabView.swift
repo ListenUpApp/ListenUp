@@ -279,10 +279,7 @@ struct MainTabView: View {
             ),
             chrome: LibraryChrome(tab: tab),
             observer: libraryObserver,
-            inbox: LibraryInboxEntryModel.make(
-                count: heldCount,
-                previewBookIds: inboxBadge?.previewBookIds ?? []
-            )
+            inbox: LibraryInboxEntryModel.make(count: heldCount)
         )
     }
 

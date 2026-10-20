@@ -438,7 +438,10 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
 .bulk-n { font-weight:700; }
 .bulk-bl { white-space:nowrap; }
+/* Select all chooses books rather than acting on them: a quieter, text-only control (its label shows on a phone too). */
+.bulk-all { border-color:transparent; background:transparent; }
 .bulk-gap { flex:1; }
+.bulk-bs { display:none; }
 /* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
    sideways rather than spilling past the screen's edge when its labels outgrow a phone. */
 @media (max-width: 759px) {
@@ -447,6 +450,10 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   /* Every action fits 320px: an action with an icon shows the icon alone (its label is its name). */
   .bulk-b:has(svg) { width:44px; height:44px; padding:0; justify-content:center; flex:none; }
   .bulk-b:has(svg) .bulk-bl { display:none; }
+  /* One row with shorter words (the icon carries an action's meaning): the count alone, "All" for Select all. */
+  .bulk-nw { display:none; }
+  .bulk-b:has(.bulk-bs) .bulk-bl { display:none; }
+  .bulk-bs { display:inline; }
   /* While the bar is up, the page reserves its height at the top, so nothing at scroll top (a
      header's Select, a page title) sits under it, and focus scrolls clear of it. Repeated with
      the docked-player selector, whose padding rule has that specificity. */

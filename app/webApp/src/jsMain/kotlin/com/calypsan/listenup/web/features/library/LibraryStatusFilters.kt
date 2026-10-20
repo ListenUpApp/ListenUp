@@ -145,6 +145,7 @@ internal fun rememberingStatusFilter(open: () -> LibrarySession): OpenLibrary {
                 session.onEvent(event)
             },
             close = session.close,
+            onShareBook = session.onShareBook,
         )
     }
 }

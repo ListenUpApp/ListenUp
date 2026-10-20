@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.library
 
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -92,6 +93,26 @@ class CardUniformityTest :
             val heights = (0 until cards.length).map { (cards.item(it) as HTMLElement).offsetHeight }
 
             heights shouldHaveSize 3
+            heights.toSet().size shouldBe 1
+        }
+
+        test("a placeholder card while the library arrives is exactly a book card's height") {
+            val state =
+                contractLibrary(listOf(contractBook("b1", "Ubik"))).copy(
+                    isLibraryArriving = true,
+                    statusStrip = LibraryStatusStrip.Arriving(booksSoFar = 1),
+                )
+            val root =
+                mounts.mount {
+                    Div(attrs = { style { width(TWO_UP_WIDTH.px) } }) {
+                        LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                    }
+                }
+
+            val cards = root.querySelectorAll(".lib-card")
+            val heights = (0 until cards.length).map { (cards.item(it) as HTMLElement).offsetHeight }
+
+            heights shouldHaveSize 5
             heights.toSet().size shouldBe 1
         }
 

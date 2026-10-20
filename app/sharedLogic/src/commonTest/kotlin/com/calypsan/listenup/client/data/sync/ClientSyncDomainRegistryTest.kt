@@ -60,6 +60,19 @@ class ClientSyncDomainRegistryTest :
             registry.registeredDomains().first() shouldBe "playback_positions"
         }
 
+        test("inbox membership catches up before books, so a held book never reaches the Library grid") {
+            // ⛔ The regression: "held" is a live membership in an INBOX collection, and catch-up ran alphabetically, so
+            // `books` landed long before `collections` / `collection_books`. On a fresh device an admin's Library
+            // showed every held book (18 books, settling to 15) until the memberships arrived.
+            val registry = ClientSyncDomainRegistry()
+            listOf("books", "collection_books", "collections", "playback_positions", "tags")
+                .forEach { registry.register(handler(it)) }
+
+            val order = registry.registeredDomains()
+            (order.indexOf("collections") < order.indexOf("books")) shouldBe true
+            (order.indexOf("collection_books") < order.indexOf("books")) shouldBe true
+        }
+
         test("domains with no declared priority stay alphabetical after the prioritised ones") {
             val registry = ClientSyncDomainRegistry()
             listOf("zeta", "alpha", "playback_positions", "mu").forEach { registry.register(handler(it)) }

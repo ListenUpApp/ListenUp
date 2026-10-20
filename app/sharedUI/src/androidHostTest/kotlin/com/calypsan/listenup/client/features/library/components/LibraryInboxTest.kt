@@ -2,12 +2,19 @@ package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -24,49 +31,46 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * The Library's inbox entry: absent at zero, one button that says how many books wait and opens the
- * inbox, and the first item of the Books grid. Covers are left out of the preview here because a
- * cover without a local path takes the Koin-backed loader; the fan is decoration (hidden from
- * TalkBack), so the contract under test is the count, the words and the tap.
+ * The phone Library's inbox strip (spec a6): one line, "Inbox · 3 waiting", absent at zero, one button that names how
+ * many books wait and opens the inbox, and the first item of the Books grid.
  */
 @RunWith(RobolectricTestRunner::class)
-class LibraryInboxEntryTest {
+class LibraryInboxTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     private var opens = 0
 
     @Test
-    fun `nothing held, no entry — not even a placeholder`() {
-        setEntry(heldCount = 0)
+    fun `nothing held, no strip — not even a placeholder`() {
+        setStrip(heldCount = 0)
 
-        composeRule.onNodeWithText(SUBTITLE).assertDoesNotExist()
+        composeRule.onAllNodesWithContentDescription(ENTRY, substring = true).fetchSemanticsNodes().size shouldBe 0
     }
 
     @Test
-    fun `the entry says how many books wait, and what for`() {
-        setEntry(heldCount = 3)
+    fun `the strip is one line saying how many books wait`() {
+        setStrip(heldCount = 3)
 
-        composeRule.onNodeWithText("Inbox · 3 new books").assertIsDisplayed()
-        composeRule.onNodeWithText(SUBTITLE).assertIsDisplayed()
+        composeRule.onNodeWithText("Inbox · 3 waiting", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
-    fun `one book is one book`() {
-        setEntry(heldCount = 1)
-
-        composeRule.onNodeWithText("Inbox · 1 new book").assertIsDisplayed()
-    }
-
-    @Test
-    fun `the whole entry is one button that opens the inbox`() {
-        setEntry(heldCount = 3)
+    fun `the whole strip is one button, named for TalkBack, that opens the inbox`() {
+        setStrip(heldCount = 3)
 
         composeRule
-            .onNodeWithContentDescription("Inbox, 3 books waiting for review")
+            .onNodeWithContentDescription(ENTRY)
             .assertHasClickAction()
             .performClick()
         composeRule.runOnIdle { opens shouldBe 1 }
+    }
+
+    @Test
+    fun `the strip is a full touch target`() {
+        setStrip(heldCount = 3)
+
+        composeRule.onNodeWithContentDescription(ENTRY).assertHeightIsAtLeast(48.dp)
     }
 
     @Test
@@ -115,14 +119,45 @@ class LibraryInboxEntryTest {
             }
         }
 
-        // An admin whose every new book is held has an empty grid; the entry is how they find them.
+        // An admin whose every new book is held has an empty grid; the strip is how they find them.
         composeRule.onNodeWithText(HEADER).assertIsDisplayed()
     }
 
-    private fun setEntry(heldCount: Int) {
+    @Test
+    fun `a strip that arrives after the books, with the grid at the top, is in view`() {
+        // ⛔ The regression: the grid kept its first book anchored when the header slot was inserted at index 0
+        // after a first sync, so the strip sat just above the viewport and an admin saw only the tab badge.
+        var showHeader by mutableStateOf(false)
+        val headerSlot: @Composable () -> Unit = { Text(HEADER) }
         composeRule.setContent {
             MaterialTheme {
-                LibraryInboxEntry(heldCount = heldCount, previewBookIds = emptyList(), onOpenInbox = { opens++ })
+                BooksContent(
+                    books = (1..12).map { book("b$it", "Book $it") },
+                    hasLoadedBooks = true,
+                    syncState = SyncState.Idle,
+                    isServerScanning = false,
+                    sortState = SortState(SortCategory.ADDED, SortDirection.DESCENDING),
+                    ignoreTitleArticles = true,
+                    onCategorySelected = {},
+                    onDirectionToggle = {},
+                    onToggleIgnoreArticles = {},
+                    onBookClick = {},
+                    onRetry = {},
+                    header = headerSlot.takeIf { showHeader },
+                )
+            }
+        }
+        composeRule.onNodeWithText("Book 1").assertIsDisplayed()
+
+        showHeader = true
+
+        composeRule.onNodeWithText(HEADER).assertIsDisplayed()
+    }
+
+    private fun setStrip(heldCount: Int) {
+        composeRule.setContent {
+            MaterialTheme {
+                LibraryInboxStrip(heldCount = heldCount, onOpenInbox = { opens++ })
             }
         }
     }
@@ -145,7 +180,7 @@ class LibraryInboxEntryTest {
     )
 
     private companion object {
-        const val SUBTITLE = "Waiting for you to release"
+        const val ENTRY = "Inbox, 3 books waiting for review"
         const val HEADER = "INBOX ENTRY"
     }
 }

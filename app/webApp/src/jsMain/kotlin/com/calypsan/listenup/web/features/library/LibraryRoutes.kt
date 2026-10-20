@@ -7,6 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import com.calypsan.listenup.client.presentation.library.LibraryUiState
+import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
@@ -74,13 +78,13 @@ internal fun SeriesListRoute(
 internal fun LibraryRouteContent(
     librarySession: LibrarySession,
     inbox: InboxBadgeState,
-    openMultiSelect: OpenMultiSelect,
+    feeds: FeedSelection,
     router: Router,
     heroBookId: String?,
-    onHeroBookIdChange: (String) -> Unit,
-    onToast: (String) -> Unit,
     /** The URL's query: a one-visit sort or status filter landing (spec §6.4). */
     query: Map<String, String> = emptyMap(),
+    /** Plays a book from its menu: the shell's one play entry. */
+    onPlayBook: (String) -> Unit = {},
 ) {
     // Once applied, each landing leaves the URL, so Back to here does not force it again over the reader's own choice.
     LibrarySortLanding(query[SORT_QUERY_KEY], librarySession.onEvent) {
@@ -89,12 +93,18 @@ internal fun LibraryRouteContent(
     LibraryStatusLanding(query[STATUS_QUERY_KEY], librarySession.onEvent) {
         router.replace(Route(listOf(LIBRARY_KEY), query - STATUS_QUERY_KEY))
     }
-    BookSelectionScaffold(openMultiSelect, router, onToast) { selection ->
+    val onToast = feeds.onToast
+    // Navigate away mid-share and the share is cancelled rather than toasting over a page the reader has left.
+    val shareScope = rememberCoroutineScope()
+    val libraryState = librarySession.state.collectAsState().value
+    // Select all takes what the Books grid shows, as filtered (open question 8).
+    val onScreen = (libraryState as? LibraryUiState.Loaded)?.books?.map { it.id.value }.orEmpty()
+    BookSelectionScaffold(feeds.openMultiSelect, router, onToast, selectAllOf = { onScreen }) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
             onEvent = librarySession.onEvent,
             onOpenBook = { id ->
-                onHeroBookIdChange(id)
+                feeds.onHeroBookIdChange(id)
                 router.navigate(Routes.Book.detail(id))
             },
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
@@ -105,6 +115,30 @@ internal fun LibraryRouteContent(
             onStartSelecting = selection.onStart,
             inbox = inbox,
             onOpenInbox = { router.navigate(Routes.Admin.inbox) },
+            bookMenu =
+                LibraryBookMenuSource(
+                    isAdmin = selection.isAdmin,
+                    onPlay = onPlayBook,
+                    onShare = { bookId, title ->
+                        shareScope.launch {
+                            // Book Detail's words: a browser that showed its own sheet has already said it.
+                            when (librarySession.onShareBook(bookId, title)) {
+                                ShareOutcome.COPIED -> onToast("Link copied")
+                                ShareOutcome.FAILED -> onToast("That link could not be shared.")
+                                ShareOutcome.SHARED -> Unit
+                            }
+                        }
+                    },
+                    onSelectOne = selection.onStartWith,
+                    onShelveOne = selection.shelveOne,
+                    onCollectOne = selection.collectOne,
+                    onEdit =
+                        if (selection.isAdmin) {
+                            { bookId: String -> router.navigate(Routes.Book.edit(bookId)) }
+                        } else {
+                            null
+                        },
+                ),
         )
     }
 }
@@ -166,6 +200,8 @@ internal fun BookSelectionScaffold(
     openMultiSelect: OpenMultiSelect,
     router: Router,
     onToast: (String) -> Unit,
+    /** The books "Select all" takes (the Library's grid, as filtered); null offers none (Home, Discover). */
+    selectAllOf: (() -> List<String>)? = null,
     content: @Composable (BookSelection) -> Unit,
 ) {
     val session = rememberSession { openMultiSelect() }
@@ -194,6 +230,17 @@ internal fun BookSelectionScaffold(
         }
     }
 
+    // One book into a destination: select it alone, open the picker, end the selection when the picker closes.
+    fun pickForOne(
+        bookId: String,
+        destination: SelectionDestination,
+    ) {
+        session.onEnter()
+        session.onToggle(bookId)
+        shelvingOne = true
+        picking = destination
+    }
+
     LaunchedEffect(session) {
         session.events.collect { event ->
             // The picker closes on success, never on failure: a failed add keeps the selection so
@@ -209,21 +256,30 @@ internal fun BookSelectionScaffold(
             selectedIds = selected,
             onToggle = session.onToggle,
             onStart = session.onEnter,
-            onShelveOne = { bookId ->
+            onShelveOne = { bookId -> pickForOne(bookId, SelectionDestination.Shelf) },
+            onCollectOne = { bookId -> pickForOne(bookId, SelectionDestination.Collection) },
+            onStartWith = { bookId ->
                 session.onEnter()
                 session.onToggle(bookId)
-                shelvingOne = true
-                picking = SelectionDestination.Shelf
             },
+            isAdmin = isAdmin,
         ),
     )
 
     if (mode.isActive()) {
+        val everyBook = selectAllOf?.invoke().orEmpty()
         BulkBar(
             count = selected.size,
             label = booksSelectedLabel(selected.size),
             actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
             onClear = session.onExit,
+            selectAll =
+                selectAllAction(
+                    everyBook,
+                    selected,
+                    onSelectAll = session.onSelectAll,
+                    onDeselectAll = session.onEnter,
+                ),
         )
     }
 
@@ -276,25 +332,41 @@ internal fun BookSelectionScaffold(
                 isBusy = session.addingToCollection.collectAsState().value,
                 onPick = session.onAddToCollection,
                 onCreate = session.onCreateCollectionAndAdd,
-                onDismiss = { picking = null },
+                onDismiss = ::closePicker,
             )
         }
     }
 }
 
 /**
- * What Home and Discover both need beyond their own session.
+ * What Home, Discover and the Library's grid all need beyond their own session.
  *
- * Three values that travel together to exactly two call sites, bundled so [RouteContent]'s chain
+ * Three values that travel together to exactly three call sites, bundled so [RouteContent]'s chain
  * stays one glance of routing — the same budget that pushed [ShelfRouteContent] and
- * [SearchRouteContent] out. ⛔ Not the start of a general opener bundle: it is scoped to the two
- * book feeds and grows only if a third feed appears.
+ * [SearchRouteContent] out. ⛔ Not the start of a general opener bundle: it is scoped to the book
+ * surfaces that select and fly a hero, and grows only if another such surface appears.
  */
 internal class FeedSelection(
     val openMultiSelect: OpenMultiSelect,
     val onHeroBookIdChange: (String) -> Unit,
     val onToast: (String) -> Unit,
 )
+
+/**
+ * "Select all N" over the books on screen, or "Deselect all" once every one of them is picked (the standard pairing),
+ * which clears the picks and stays in selection. None when the screen offers no books to take.
+ */
+private fun selectAllAction(
+    onScreen: List<String>,
+    selected: Set<String>,
+    onSelectAll: (List<String>) -> Unit,
+    onDeselectAll: () -> Unit,
+): BulkAction? =
+    when {
+        onScreen.isEmpty() -> null
+        selected.containsAll(onScreen) -> BulkAction("Deselect all", shortLabel = "None") { onDeselectAll() }
+        else -> BulkAction("Select all ${groupedCount(onScreen.size)}", shortLabel = "All") { onSelectAll(onScreen) }
+    }
 
 /** Where a selection can be sent. */
 private enum class SelectionDestination { Edit, Shelf, Collection }

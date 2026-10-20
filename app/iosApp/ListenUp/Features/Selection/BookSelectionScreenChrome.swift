@@ -47,8 +47,26 @@ struct BookSelectionScreenChrome: ViewModifier {
 /// principal count doesn't sit under a large title.
 struct BookSelectionToolbar: ToolbarContent {
     let selection: BookSelectionObserver
+    /// Whether every book the screen shows is already picked, so the button reads Deselect All.
+    var isAllSelected = false
+    /// Selects every book the screen shows; nil offers no Select All (Home, Discover).
+    var selectAll: (() -> Void)?
+
+    /// "Select All", or "Deselect All" once everything is picked: the standard edit-mode pairing, with no count (HIG).
+    static func selectAllTitle(isAllSelected: Bool) -> String {
+        isAllSelected ? String(localized: "library.deselect_all_ios") : String(localized: "library.select_all_ios")
+    }
 
     var body: some ToolbarContent {
+        if let selectAll {
+            // HIG: in an editing context, Select All sits opposite Done.
+            ToolbarItem(placement: .topBarLeading) {
+                Button(Self.selectAllTitle(isAllSelected: isAllSelected)) {
+                    // Deselect All clears the picks and stays in selection.
+                    if isAllSelected { selection.deselectAll() } else { selectAll() }
+                }
+            }
+        }
         ToolbarItem(placement: .principal) {
             // HIG title case in a navigation title: "2 Selected" (plan Q9).
             Text(String(format: String(localized: "selection.n_selected_ios"),
@@ -120,7 +138,7 @@ struct BookSelectionSheets: ViewModifier {
             .sheet(isPresented: Binding(
                 get: { selection.isAdmin && selection.showCollectionPicker },
                 set: { selection.showCollectionPicker = $0 }
-            )) {
+            ), onDismiss: { selection.collectionPickerClosed() }) {
                 BulkCollectionPickerSheet(
                     observer: selection,
                     count: selection.selectedBookIds.count
@@ -136,6 +154,14 @@ struct BookSelectionSheets: ViewModifier {
                     selection.showBulkEdit = false
                     selection.exit()
                     confirm(BulkEditFormatting.applied(changedCount: changedCount))
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { selection.isAdmin && selection.editingBookId != nil },
+                set: { if !$0 { selection.editingBookId = nil } }
+            )) {
+                if let bookId = selection.editingBookId {
+                    BookEditView(bookId: bookId)
                 }
             }
             .onChange(of: selection.confirmation) { _, message in

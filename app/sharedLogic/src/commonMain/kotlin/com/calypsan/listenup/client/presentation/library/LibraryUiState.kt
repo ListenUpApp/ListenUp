@@ -66,8 +66,20 @@ sealed interface LibraryUiState {
          * whole of an initial seed, so [isSyncing] is false while thousands of books are still
          * streaming in. An empty screen must consult this instead, or it tells a reader their
          * library is empty while it is being filled.
+         *
+         * ⛔ False on a fresh device catching up to a library the server already holds: an empty or
+         * short screen reads [isLibraryArriving], which covers both.
          */
         val isBuildingInitialLibrary: Boolean,
+        /**
+         * Whether the library is still arriving: its first population ([isBuildingInitialLibrary]) OR this device's
+         * first catch-up against a library the server already holds. Anything explaining a short or empty shelf reads
+         * THIS, never [isSyncing] (false for the whole seed) nor [isBuildingInitialLibrary] alone (false on a fresh
+         * device).
+         */
+        val isLibraryArriving: Boolean = false,
+        /** What the status-strip slot above the grid says (spec L27/L28). */
+        val statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
         /** The active reading-state filter. [books] is already filtered by it. Session-scoped. */
         val statusFilter: BookStatusFilter = BookStatusFilter.ALL,
         /** Counts per reading state over the WHOLE library, whatever [statusFilter] is. */
@@ -105,7 +117,7 @@ sealed interface LibraryUiState {
          *
          * ⛔ Not "is my library still arriving". This tracks the connection, which is `Connected`
          * for the whole of an initial seed, so this is false while thousands of books stream in.
-         * Anything explaining a short or empty shelf must read [isBuildingInitialLibrary] instead.
+         * Anything explaining a short or empty shelf must read [isLibraryArriving] instead.
          */
         val isSyncing: Boolean
             get() = syncState is SyncState.Syncing || syncState is SyncState.Progress

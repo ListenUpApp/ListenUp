@@ -53,6 +53,7 @@ class SelectionToolbarTest {
         onAddToCollection: (() -> Unit)? = {},
         onEdit: (() -> Unit)? = null,
         onClose: () -> Unit = {},
+        selectAll: SelectAllAction? = null,
     ) {
         composeRule.setContent {
             MaterialTheme {
@@ -63,6 +64,7 @@ class SelectionToolbarTest {
                         onAddToCollection = onAddToCollection,
                         onEdit = onEdit,
                         onClose = onClose,
+                        selectAll = selectAll,
                     )
                 }
             }
@@ -201,5 +203,32 @@ class SelectionToolbarTest {
         }
         val header = composeRule.onNodeWithTag("selection-header").fetchSemanticsNode().boundsInRoot
         header.top shouldBe with(composeRule.density) { 24.dp.toPx() }
+    }
+
+    @Test
+    fun `with Select all the header offers every book on screen, by count, and calls it`() {
+        var selectAlls = 0
+        render(selectAll = SelectAllAction(count = 248, isAllSelected = false, onSelectAll = { selectAlls++ }, onDeselectAll = {}))
+
+        composeRule.onNodeWithText("Select all 248").assertHasClickAction().performClick()
+        composeRule.runOnIdle { selectAlls shouldBe 1 }
+    }
+
+    @Test
+    fun `with everything already selected the header offers Deselect all instead`() {
+        var deselects = 0
+        render(selectAll = SelectAllAction(count = 3, isAllSelected = true, onSelectAll = {}, onDeselectAll = { deselects++ }))
+
+        composeRule.onNodeWithText("Select all", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Deselect all").assertHasClickAction().performClick()
+        composeRule.runOnIdle { deselects shouldBe 1 }
+    }
+
+    @Test
+    fun `without it (Home, Discover) there is no Select all`() {
+        render(selectAll = null)
+
+        composeRule.onNodeWithText("Add to shelf").assertIsDisplayed()
+        composeRule.onNodeWithText("Select all", substring = true).assertDoesNotExist()
     }
 }

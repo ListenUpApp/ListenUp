@@ -47,4 +47,14 @@ struct BookSelectionRowTests {
         ]
         #expect(Set(rows.map(\.id)).count == rows.count)
     }
+
+    /// Select All in the selection toolbar: the standard edit-mode title, with no count (HIG).
+    @Test @MainActor func selectAllUsesTheStandardTitle() {
+        #expect(BookSelectionToolbar.selectAllTitle(isAllSelected: false) == "Select All")
+    }
+
+    /// Once everything on screen is picked, the same button reads Deselect All (HIG pairing).
+    @Test @MainActor func everythingPickedReadsDeselectAll() {
+        #expect(BookSelectionToolbar.selectAllTitle(isAllSelected: true) == "Deselect All")
+    }
 }

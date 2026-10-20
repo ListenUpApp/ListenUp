@@ -25,6 +25,11 @@ import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.design.ContextMenuHost
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.client.presentation.library.bookMenuPrimary
+import org.jetbrains.compose.web.attributes.AttrsScope
+import org.w3c.dom.HTMLDivElement
 import com.calypsan.listenup.web.motion.CoverSurface
 import com.calypsan.listenup.web.motion.flyHeroInto
 import com.calypsan.listenup.web.motion.recordHeroOrigin
@@ -81,6 +86,8 @@ fun LibraryPage(
     /** The held-for-review count and cover fan for the inbox strip; nothing held draws nothing. */
     inbox: InboxBadgeState = InboxBadgeState(),
     onOpenInbox: () -> Unit = {},
+    /** Each book's menu on right-click, the Menu key or a long press; null offers none. */
+    bookMenu: LibraryBookMenuSource? = null,
 ) {
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
@@ -99,7 +106,13 @@ fun LibraryPage(
             // A library with books carries Select and Sort at the end of its status-chip row (board
             // `Library-WebDesktop`, see [LibraryControls]); one with no books has no chips, so its
             // Sort keeps the header.
-            if (state is LibraryUiState.Loaded && state.isEmpty) BookSortControl(state, onEvent)
+            // Not while the library is still arriving: there is nothing to sort yet, and the first book would move Sort
+            // from here to the chip row below the strip.
+            if (state is LibraryUiState.Loaded && state.isEmpty &&
+                !state.isLibraryArriving
+            ) {
+                BookSortControl(state, onEvent)
+            }
         }
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
@@ -131,6 +144,7 @@ fun LibraryPage(
                 onStartSelecting = onStartSelecting,
                 inbox = inbox,
                 onOpenInbox = onOpenInbox,
+                bookMenu = bookMenu,
             )
         }
     }
@@ -149,14 +163,10 @@ private fun LoadedLibrary(
     onStartSelecting: (() -> Unit)?,
     inbox: InboxBadgeState,
     onOpenInbox: () -> Unit,
+    bookMenu: LibraryBookMenuSource?,
 ) {
-    // Android's banner gate: `scanProgress` alone can outlive the scan it describes. The seed half
-    // is only offered over a partial grid — an empty one already says it is syncing, in its own words.
-    LibraryStatus(
-        scan = state.scanProgress.takeIf { state.isServerScanning },
-        isBuilding = state.isBuildingInitialLibrary && state.books.isNotEmpty(),
-        placement = "is-above-grid",
-    )
+    // The shared decision: a scan outranks a library still arriving, and a fresh device's first catch-up counts.
+    LibraryStripStatus(strip = state.statusStrip, placement = "is-above-grid")
     // Above the grid and above an empty library alike: an admin whose every new book is held has
     // an empty grid, and the strip is the way in. Selecting turns the grid into a picking surface.
     if (!selecting) LibraryInboxStrip(inbox = inbox, onOpenInbox = onOpenInbox)
@@ -164,9 +174,10 @@ private fun LoadedLibrary(
         LibraryControls(state, onEvent, selecting, onStartSelecting)
     }
     // ⛔ `isEmpty` is the LIBRARY having no books; a filter that matches nothing is `isFilteredEmpty`,
-    // and telling that reader "No books yet" would say their library had gone.
-    if (state.isEmpty) {
-        EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
+    // and telling that reader "No books yet" would say their library had gone. A library still arriving is not
+    // empty either: the strip above says so, over the placeholders its first books will fill.
+    if (state.isEmpty && !state.isLibraryArriving) {
+        EmptyLibrary()
         return
     }
     if (state.isFilteredEmpty) {
@@ -185,6 +196,31 @@ private fun LoadedLibrary(
         heroBookId = heroBookId,
         selecting = selecting,
         isSelected = { it in selectedIds },
+        trailingPlaceholders = if (state.isLibraryArriving) ARRIVING_PLACEHOLDERS else 0,
+        // No menu while selecting: the card is a checkbox then, and a press picks it.
+        menuOf = bookMenu?.takeUnless { selecting }?.let { source -> { book -> menuFor(book, state, source) } },
+    )
+}
+
+/** [book]'s menu, leading with what its card says about it (the shared [bookMenuPrimary]). */
+private fun menuFor(
+    book: BookListItem,
+    state: LibraryUiState.Loaded,
+    source: LibraryBookMenuSource,
+): List<MenuAction> {
+    val id = book.id.value
+    return libraryBookMenuItems(
+        primary = bookMenuPrimary(state.bookStatus[book.id]),
+        isAdmin = source.isAdmin,
+        actions =
+            LibraryBookMenuActions(
+                onPrimary = { source.onPlay(id) },
+                onAddToShelf = source.onShelveOne?.let { shelve -> { shelve(id) } },
+                onShare = source.onShare?.let { share -> { share(id, book.title) } },
+                onSelect = { source.onSelectOne(id) },
+                onAddToCollection = source.onCollectOne?.let { collect -> { collect(id) } },
+                onEditDetails = source.onEdit?.let { edit -> { edit(id) } },
+            ),
     )
 }
 
@@ -205,20 +241,14 @@ private fun openWithOrigin(
 }
 
 /**
- * Zero books means one of two very different things, and saying the wrong one is worse than saying
- * nothing: a library mid-seed is not an empty library.
- *
- * Driven by `isBuildingInitialLibrary` rather than `isSyncing` deliberately. `isSyncing` reports the
- * CONNECTION, which is `Connected` for the whole of an initial seed — so this branch read "No books
- * yet" for the entire pre-first-batch window against a real 1195-book library.
+ * A library with no books that is not still arriving. Zero books mid-seed is a different thing, and saying the wrong
+ * one is worse than saying nothing: the caller gates on `isLibraryArriving`, never `isSyncing`, which reports the
+ * CONNECTION — `Connected` for the whole of an initial seed — and so read "No books yet" for the entire
+ * pre-first-batch window against a real 1195-book library.
  */
 @Composable
-private fun EmptyLibrary(isBuilding: Boolean) {
-    if (isBuilding) {
-        EmptyState(title = "Syncing your library…", body = "Books will appear here as they arrive.")
-    } else {
-        EmptyState(title = "No books yet", body = "Add a folder on the server and run a scan.")
-    }
+private fun EmptyLibrary() {
+    EmptyState(title = "No books yet", body = "Add a folder on the server and run a scan.")
 }
 
 @Composable
@@ -229,8 +259,32 @@ internal fun BookCard(
     isHero: Boolean = false,
     selecting: Boolean = false,
     isSelected: Boolean = false,
+    /** The book's menu (right-click, the Menu key, a long press); null or empty, and while selecting, none. */
+    menu: List<MenuAction>? = null,
+) {
+    if (menu.isNullOrEmpty() || selecting) {
+        CardBody(book, status, onOpen, isHero, selecting, isSelected, menuTarget = null)
+    } else {
+        ContextMenuHost(items = menu, label = "Actions for ${book.title}", anchorSelector = ".lib-cover") {
+            CardBody(book, status, onOpen, isHero, selecting, isSelected, menuTarget = { contextMenuTarget() })
+        }
+    }
+}
+
+@Composable
+@Suppress("LongParameterList", "LongMethod")
+private fun CardBody(
+    book: BookListItem,
+    status: BookCardStatus?,
+    onOpen: () -> Unit,
+    isHero: Boolean,
+    selecting: Boolean,
+    isSelected: Boolean,
+    /** Makes the card its menu's target; first, so a long press's click is swallowed before the card opens. */
+    menuTarget: (AttrsScope<HTMLDivElement>.() -> Unit)?,
 ) {
     Div(attrs = {
+        menuTarget?.invoke(this)
         classes("lib-card")
         if (selecting && isSelected) classes("on")
         // The dense desktop grid drops the narrator line; the tooltip carries it (spec §2.6).
@@ -423,6 +477,9 @@ private fun coverSrcset(
         "${coverUrl(bookId, coverHash, GRID_RUNG_DENSE)} 2x"
 
 private const val TICK_ICON = 14
+
+/** Book-shaped blanks after the last book while the library is still arriving (spec boards `*-FirstSync`). */
+private const val ARRIVING_PLACEHOLDERS = 4
 
 private const val DONE_ICON = 11
 

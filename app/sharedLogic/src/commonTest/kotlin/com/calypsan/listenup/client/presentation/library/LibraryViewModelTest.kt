@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.ListenerAverage
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -209,6 +210,7 @@ class LibraryViewModelTest :
             every { fixture.syncRepository.serverScanning } returns MutableStateFlow(false)
             every { fixture.syncRepository.scanProgress } returns MutableStateFlow(null)
             every { fixture.syncRepository.buildingInitialLibrary } returns MutableStateFlow(false)
+            every { fixture.syncRepository.firstCatchUpRunning } returns MutableStateFlow(false)
             every { fixture.playbackPositionRepository.observeAll() } returns flowOf(emptyMap())
             every { fixture.bookRatingRepository.observeAverages() } returns flowOf(emptyMap())
             every { fixture.bookRatingRepository.observeCombinedScores() } returns flowOf(emptyMap())
@@ -1959,6 +1961,81 @@ class LibraryViewModelTest :
                         advanceUntilIdle()
                         val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
                         after.bookLetters shouldBeSameInstanceAs before.bookLetters
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+        }
+
+        context("status strip") {
+            test("a fresh device's first catch-up is arriving even though the library was never 'building'") {
+                runTest {
+                    val catchUp = MutableStateFlow(true)
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "b1", title = "Babel")))
+                    every { fixture.syncRepository.firstCatchUpRunning } returns catchUp
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    val arriving = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    arriving.isBuildingInitialLibrary shouldBe false
+                    arriving.isLibraryArriving shouldBe true
+                    arriving.statusStrip shouldBe LibraryStatusStrip.Arriving(booksSoFar = 1)
+
+                    catchUp.value = false
+                    advanceUntilIdle()
+                    val settled = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    settled.isLibraryArriving shouldBe false
+                    settled.statusStrip shouldBe LibraryStatusStrip.Hidden
+                }
+            }
+
+            test("a scan in progress wins the strip") {
+                runTest {
+                    val scan =
+                        ScanProgressState(
+                            phase = "analyzing",
+                            current = 1,
+                            total = 2,
+                            added = 0,
+                            updated = 0,
+                            removed = 0,
+                            books = 1,
+                            booksTotal = 2,
+                        )
+                    val fixture = createFixture()
+                    every { fixture.syncRepository.serverScanning } returns MutableStateFlow(true)
+                    every { fixture.syncRepository.scanProgress } returns MutableStateFlow(scan)
+                    every { fixture.syncRepository.buildingInitialLibrary } returns MutableStateFlow(true)
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    advanceUntilIdle()
+
+                    viewModel.uiState.value
+                        .shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        .statusStrip shouldBe LibraryStatusStrip.Scanning(scan)
+                }
+            }
+
+            test("the arriving flag moving keeps the content revision") {
+                runTest {
+                    val catchUp = MutableStateFlow(true)
+                    val fixture = createFixture()
+                    every { fixture.bookRepository.observeBookListItems() } returns
+                        flowOf(listOf(createTestBook(id = "b1", title = "Babel")))
+                    every { fixture.syncRepository.firstCatchUpRunning } returns catchUp
+                    val viewModel = fixture.build()
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        catchUp.value = false
+                        advanceUntilIdle()
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.isLibraryArriving shouldBe false
                         after.contentRevision shouldBe before.contentRevision
                         states.cancel()
                     }

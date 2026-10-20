@@ -33,6 +33,11 @@ struct BooksContent: View {
     /// The admin inbox entry, the Books section's first row after the picker; nil when nothing is
     /// held, for a member, while selecting, or in the other sections.
     var inbox: LibraryInboxEntryModel?
+    /// The status strip pinned above the grid's sections; nil when there is nothing to say.
+    var statusStrip: LibraryStatusStripModel?
+    /// The library is still arriving: an empty grid shows the strip over placeholders, never "empty", and a
+    /// grid with books ends in placeholders.
+    var isArriving = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -57,6 +62,8 @@ struct BooksContent: View {
                 loadingGrid
             } else if let error = errorMessage {
                 errorState(message: error)
+            } else if isEmpty && isArriving {
+                arrivingGrid
             } else if isEmpty {
                 emptyState
             } else if isFilteredEmpty {
@@ -81,6 +88,7 @@ struct BooksContent: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 picker?.headerRow(horizontalMargin: layout.sideMargin)
+                statusStripRow
                 if let inbox {
                     LibraryInboxEntry(model: inbox)
                         .padding(.horizontal, layout.sideMargin)
@@ -98,6 +106,9 @@ struct BooksContent: View {
                                 sectionHeader(section)
                             }
                         }
+                    }
+                    if isArriving {
+                        arrivingPlaceholders
                     }
                 }
                 .padding(.horizontal, layout.sideMargin)
@@ -183,14 +194,71 @@ struct BooksContent: View {
                 .buttonStyle(.plain)
         } else {
             // A plain value-based NavigationLink: a tap opens the book. A long-press opens the book's
-            // context menu (Play, Add to Shelf, Share, Select), which iOS arbitrates against the
-            // link's own tap so the two never double-fire.
+            // context menu (Play/Resume/Listen Again, Add to Shelf, Share, Select, and an admin's group),
+            // which iOS arbitrates against the link's own tap so the two never double-fire.
             NavigationLink(value: BookDestination(id: book.id)) {
                 card.heroSource(bookCoverHeroID(book.id))
             }
                 .buttonStyle(.plain)
                 .draggableBookCover(book)
-                .bookContextMenu(bookId: book.id, selection: selection) { card }
+                .bookContextMenu(
+                    bookId: book.id,
+                    selection: selection,
+                    primary: BookMenuPrimaryValue(bookStatus[book.id])
+                ) { card }
+        }
+    }
+
+    // MARK: - Arriving
+
+    /// The status strip, the first row under the picker; nothing when hidden.
+    @ViewBuilder
+    private var statusStripRow: some View {
+        if let statusStrip {
+            LibraryStatusStripView(model: statusStrip)
+                .padding(.horizontal, layout.sideMargin)
+                .padding(.bottom, Spacing.s)
+        }
+    }
+
+    /// Book-shaped placeholders where more books are arriving (boards `*-FirstSync`). VoiceOver hears the
+    /// news once, on the first; the rest are hidden.
+    @ViewBuilder
+    private var arrivingPlaceholders: some View {
+        ForEach(0 ..< Self.arrivingPlaceholderCount, id: \.self) { index in
+            if index == 0 {
+                BookCoverShimmer()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(String(localized: "library.arriving_placeholder_a11y"))
+            } else {
+                BookCoverShimmer()
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private static let arrivingPlaceholderCount = 4
+
+    /// An empty library that is still arriving: the strip over placeholders, never "Your library is empty"
+    /// (the socket is connected for the whole seed, so `isSyncing` cannot tell).
+    private var arrivingGrid: some View {
+        ScrollView {
+            picker?.headerRow(horizontalMargin: layout.sideMargin)
+            statusStripRow
+            if let inbox {
+                LibraryInboxEntry(model: inbox)
+                    .padding(.horizontal, layout.sideMargin)
+                    .padding(.bottom, Spacing.s)
+            }
+            LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
+                arrivingPlaceholders
+            }
+            .padding(.horizontal, layout.sideMargin)
+        }
+        .scrollContentBackground(.hidden)
+        .refreshable {
+            onRefresh()
+            try? await Task.sleep(for: .seconds(1))
         }
     }
 

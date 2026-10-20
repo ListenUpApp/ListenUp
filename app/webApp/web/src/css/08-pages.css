@@ -17,7 +17,13 @@
 .luw .lib-status-sub { font-size: var(--fs-small); color: var(--ink-2); }
 .luw .lib-status-track { flex: 1; min-width: 8rem; }
 /* On Library the strip sits above the grid, so it needs the gap Home's column gives it for free. */
-.luw .lib-status.is-above-grid { margin-bottom: var(--sp-16); }
+.luw .lib-status.is-above-grid {
+  margin-bottom: var(--sp-16);
+  /* Pinned: the strip is news about the whole list, so it stays in view while the grid scrolls under it. */
+  position: sticky; top: 0; z-index: 3;
+  /* Opaque while pinned: the soft coral over the page colour, so cards scrolling under it do not show through. */
+  background: linear-gradient(var(--coral-soft), var(--coral-soft)), var(--paper);
+}
 /* The Library's inbox strip: the .lib-status slot above the virtualised grid, so card heights never
    change. Amber (--warn) is "waiting for you"; the focus ring is the coral one .lib-card uses. */
 .luw .lib-inbox {

@@ -8,7 +8,8 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import listenup.composeapp.generated.resources.selection_select
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,6 +25,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -123,7 +125,9 @@ private const val UNAVAILABLE_ALPHA = 0.5f
  *   cover's top-leading corner.
  * @param isInSelectionMode Whether multi-select mode is active
  * @param isSelected Whether this book is currently selected
- * @param onLongPress Callback when card is long-pressed (for entering selection mode)
+ * @param onLongPress Callback when card is long-pressed or right-clicked (selection, or the Library's book menu)
+ * @param longPressLabel What TalkBack calls the long press ("Book actions" in the Library); "Select" when null
+ * @param coverOverlay Drawn last inside the cover's box, so a menu placed there hangs from the cover (spec §3.1.2)
  * @param cardWidth Fixed width for horizontal rows, or null to fill parent (library grid)
  * @param narrators "Read by …" line. Library grids pass it; their `Adaptive(160.dp)` cells always meet
  *   spec §2.6's 160 dp floor.
@@ -152,6 +156,8 @@ fun BookCard(
     isInSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
+    longPressLabel: String? = null,
+    coverOverlay: (@Composable BoxScope.() -> Unit)? = null,
     cardWidth: Dp? = null,
     narrators: String? = null,
     libraryStatus: BookCardStatus? = null,
@@ -202,7 +208,7 @@ fun BookCard(
     )
 
     val widthModifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier
-    val selectLabel = stringResource(Res.string.selection_select)
+    val selectLabel = longPressLabel ?: stringResource(Res.string.selection_select)
 
     Column(
         modifier =
@@ -212,7 +218,7 @@ fun BookCard(
                     scaleX = scale
                     scaleY = scale
                 }
-                // A right-click is the pointer's long press: it opens selection, never the book.
+                // A right-click is the pointer's long press: it takes the long-press path, never the book.
                 .onSecondaryClick(
                     onLongPress?.let { longPress ->
                         {
@@ -228,7 +234,7 @@ fun BookCard(
                             // Our gated haptics.longPress() owns the feel; suppress
                             // combinedClickable's built-in long-press haptic so it doesn't double up.
                             hapticFeedbackEnabled = false,
-                            // Long-press enters multi-select; say so, or TalkBack offers a bare "long press".
+                            // Say what the long press does, or TalkBack offers a bare "long press".
                             onLongClickLabel = selectLabel,
                             onClick = {
                                 haptics.press()
@@ -250,13 +256,20 @@ fun BookCard(
                         )
                     },
                 ).then(
-                    // In multi-select a tap toggles the book, so its selection is state, not just a border.
-                    if (isInSelectionMode) Modifier.semantics { selected = isSelected } else Modifier,
+                    // In multi-select a tap toggles the book: a checkbox, checked or not (spec §5.2), not just a border.
+                    if (isInSelectionMode) {
+                        Modifier.semantics {
+                            role = Role.Checkbox
+                            toggleableState = ToggleableState(isSelected)
+                        }
+                    } else {
+                        Modifier
+                    },
                 ).then(
                     if (accessibilityLabel != null) {
                         Modifier.clearAndSetSemantics {
                             contentDescription = accessibilityLabel
-                            role = Role.Button
+                            role = if (isInSelectionMode) Role.Checkbox else Role.Button
                             onClick {
                                 onClick()
                                 true
@@ -267,7 +280,7 @@ fun BookCard(
                                     true
                                 }
                             }
-                            if (isInSelectionMode) selected = isSelected
+                            if (isInSelectionMode) toggleableState = ToggleableState(isSelected)
                         }
                     } else {
                         Modifier
@@ -336,6 +349,8 @@ fun BookCard(
                     modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                 )
             }
+
+            coverOverlay?.invoke(this)
         }
 
         Spacer(modifier = Modifier.height(if (cardWidth != null) 8.dp else 6.dp))

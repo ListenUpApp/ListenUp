@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.shell
 
+import com.calypsan.listenup.core.BookId
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.WebGraph
@@ -163,12 +164,11 @@ internal fun RouteContent(
         LibraryRouteContent(
             librarySession = librarySession,
             inbox = inbox,
-            openMultiSelect = graph.openMultiSelect,
+            feeds = feeds,
             router = router,
             heroBookId = heroBookId,
-            onHeroBookIdChange = onHeroBookIdChange,
-            onToast = onToast,
             query = route.query,
+            onPlayBook = { id -> playback.onPlayBook(BookId(id), null) },
         )
     } else if (page == SEARCH_KEY) {
         SearchRouteContent(router = router, route = route, openSearch = graph.openSearch, openSeeAll = graph.openSeeAll)
