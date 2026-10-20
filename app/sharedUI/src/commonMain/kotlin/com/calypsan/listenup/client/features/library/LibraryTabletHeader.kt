@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +28,7 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
  *
  * - **Band 1:** the title over "248 books · 41 days of listening", the four sections, and the Inbox pill at the end.
  * - **Band 2 (Books only):** the status chips, scrolling sideways rather than wrapping, and the sort trigger at the
- *   end. The chips step aside while books are being picked; the sort stays.
+ *   end. While books are being picked both bands hold still: the chips and the pill are stilled in place.
  *
  * The title is the one display moment (M3 Expressive, type: emphasis goes to one element); everything else is the
  * phone's own components, laid out wider.
@@ -79,8 +78,14 @@ internal fun LibraryTabletHeader(
                 onSelect = onSelectSection,
                 modifier = Modifier.weight(1f),
             )
-            if (onOpenInbox != null && !isInSelectionMode) {
-                LibraryInboxPill(heldCount = heldCount, previewBookIds = previewBookIds, onOpenInbox = onOpenInbox)
+            // While books are picked the pill is out of reach but keeps its place, so the sections never jump into it.
+            if (onOpenInbox != null) {
+                LibraryInboxPill(
+                    heldCount = heldCount,
+                    previewBookIds = previewBookIds,
+                    onOpenInbox = onOpenInbox,
+                    enabled = !isInSelectionMode,
+                )
             }
         }
 
@@ -90,16 +95,15 @@ internal fun LibraryTabletHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (isInSelectionMode) {
-                    Spacer(Modifier.weight(1f))
-                } else {
-                    LibraryStatusChips(
-                        selected = state.statusFilter,
-                        counts = state.statusCounts,
-                        onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // The chips stay while books are picked, stilled, so the band never empties to Sort alone and the grid
+                // below never moves: filtering mid-selection would change what is being picked.
+                LibraryStatusChips(
+                    selected = state.statusFilter,
+                    counts = state.statusCounts,
+                    onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+                    enabled = !isInSelectionMode,
+                    modifier = Modifier.weight(1f),
+                )
                 SortTrigger(
                     state = state.booksSortState,
                     categories = SortCategory.booksCategories,

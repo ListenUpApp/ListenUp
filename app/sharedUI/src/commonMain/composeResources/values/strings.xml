@@ -1642,7 +1642,6 @@ One beautiful library.</string>
     <string name="library_filtered_empty_not_started">You've started every book.</string>
     <string name="library_has_documents_badge">Has supplementary material</string>
     <string name="library_ignore_articles_quoted">Ignore “A”, “An”, “The”</string>
-    <string name="library_inbox_pill_a11y">Inbox, %1$d waiting for review</string>
     <string name="library_inbox_strip">Inbox · %1$d waiting</string>
     <string name="library_index_jump">Jump to %1$s</string>
     <string name="library_ipad_books_subtitle">%1$s · sorted by %2$s</string>

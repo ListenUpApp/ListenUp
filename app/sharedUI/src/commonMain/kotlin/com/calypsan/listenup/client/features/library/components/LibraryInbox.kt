@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.graphicsLayer
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import listenup.composeapp.generated.resources.library_inbox_pill_a11y
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -104,7 +106,8 @@ fun LibraryInboxStrip(
  * The Android tablet's way into the admin inbox (board `Library-AndroidTablet`): a pill at the end of the first header
  * band, three fanned held covers, "Inbox · 3 waiting" and a chevron. Amber (tertiary) is "waiting for you".
  *
- * Absent at zero. One button for TalkBack, named "Inbox, 3 waiting for review"; the covers are decoration under it.
+ * Absent at zero. One button for TalkBack, named as the phone strip is ("Inbox, 3 books waiting for review"); the
+ * covers are decoration under it. Not [enabled] (while books are picked), it keeps its place, unseen and unread.
  *
  * @param heldCount books held for review; the pill renders nothing at 0
  * @param previewBookIds the newest held books, newest first; at most three are fanned
@@ -116,22 +119,34 @@ fun LibraryInboxPill(
     previewBookIds: List<String>,
     onOpenInbox: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     if (heldCount <= 0) return
     val haptics = LocalHaptics.current
-    val description = stringResource(Res.string.library_inbox_pill_a11y, heldCount)
+    // The strip's sentence, word for word: one inbox, one name, on every surface that leads to it.
+    val description = inboxEntryDescription(heldCount)
     Surface(
         onClick = {
             haptics.press()
             onOpenInbox()
         },
+        enabled = enabled,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         modifier =
             modifier
                 .minimumInteractiveComponentSize()
-                .semantics(mergeDescendants = true) { contentDescription = description },
+                .testTag(INBOX_PILL_TAG)
+                // Out of reach while books are picked: invisible and unread, but still holding its place.
+                .alpha(if (enabled) 1f else 0f)
+                .then(
+                    if (enabled) {
+                        Modifier.semantics(mergeDescendants = true) { contentDescription = description }
+                    } else {
+                        Modifier.clearAndSetSemantics {}
+                    },
+                ),
     ) {
         Row(
             modifier = Modifier.heightIn(min = PillMinHeight).padding(start = Spacing.sm, end = Spacing.md),
@@ -176,3 +191,6 @@ private fun HeldCoverFan(bookIds: List<String>) {
         }
     }
 }
+
+/** Test tag on the tablet's Inbox pill, which shares the phone strip's spoken name. */
+internal const val INBOX_PILL_TAG = "library-inbox-pill"

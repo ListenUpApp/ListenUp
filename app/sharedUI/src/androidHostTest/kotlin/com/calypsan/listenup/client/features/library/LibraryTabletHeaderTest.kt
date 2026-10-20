@@ -3,6 +3,10 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onNodeWithTag
+import com.calypsan.listenup.client.features.library.components.INBOX_PILL_TAG
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -38,6 +42,7 @@ import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
 import org.junit.Test
@@ -67,7 +72,9 @@ class LibraryTabletHeaderTest {
         val count = composeRule.onNodeWithText(COUNT_LINE).getUnclippedBoundsInRoot()
         val books = composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot()
         val narrators = composeRule.onNodeWithText("Narrators").getUnclippedBoundsInRoot()
-        val pill = composeRule.onNodeWithContentDescription(PILL).getUnclippedBoundsInRoot()
+        // The pill shares the phone strip's spoken name: one inbox, one sentence.
+        composeRule.onNodeWithTag(INBOX_PILL_TAG).assertContentDescriptionEquals(PILL)
+        val pill = composeRule.onNodeWithTag(INBOX_PILL_TAG).getUnclippedBoundsInRoot()
 
         listOf(count.top, books.top, narrators.top, pill.top).forEach { top ->
             abs((top - title.top).value).dp shouldBeLessThanOrEqualTo 48.dp
@@ -95,7 +102,7 @@ class LibraryTabletHeaderTest {
         awaitText(BOOK_TITLE)
 
         composeRule.onNodeWithText(COUNT_LINE).assertDoesNotExist()
-        composeRule.onNodeWithContentDescription(PILL).assertDoesNotExist()
+        composeRule.onNodeWithTag(INBOX_PILL_TAG).assertDoesNotExist()
         val sort = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
         val all = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
         // The phone's sort is its own row under the chips, not beside them.
@@ -108,7 +115,7 @@ class LibraryTabletHeaderTest {
         render(heldCount = 0)
         awaitText(COUNT_LINE)
 
-        composeRule.onNodeWithContentDescription(PILL).assertDoesNotExist()
+        composeRule.onNodeWithTag(INBOX_PILL_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -117,7 +124,29 @@ class LibraryTabletHeaderTest {
         render(heldCount = 3, onOpenInbox = null)
         awaitText(COUNT_LINE)
 
+        composeRule.onNodeWithTag(INBOX_PILL_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = Windows.TABLET)
+    fun `entering selection keeps band 1 still and band 2 full`() {
+        val multiSelect = multiSelect()
+        render(heldCount = 3, multiSelect = multiSelect)
+        awaitText(COUNT_LINE)
+        val booksBefore = composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot()
+        val narratorsBefore = composeRule.onNodeWithText("Narrators").getUnclippedBoundsInRoot()
+        val allBefore = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
+
+        composeRule.runOnIdle { multiSelect.enterSelectionMode("b1") }
+        composeRule.waitForIdle()
+
+        // The sections do not jump wider into the pill's place: its space is kept while it is out of reach.
+        composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot() shouldBe booksBefore
+        composeRule.onNodeWithText("Narrators").getUnclippedBoundsInRoot() shouldBe narratorsBefore
         composeRule.onNodeWithContentDescription(PILL).assertDoesNotExist()
+        // Band 2 keeps its chips, stilled while books are picked, so it never becomes a row holding Sort alone.
+        composeRule.onNodeWithText("All 248").assertIsNotEnabled()
+        composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot() shouldBe allBefore
     }
 
     private fun androidx.compose.ui.unit.DpRect.centerY(): Dp = (top + bottom) / 2
@@ -125,13 +154,14 @@ class LibraryTabletHeaderTest {
     private fun render(
         heldCount: Int,
         onOpenInbox: (() -> Unit)? = {},
+        multiSelect: BookMultiSelectViewModel = multiSelect(),
     ) {
         composeRule.setContent {
             MaterialTheme {
                 CompositionLocalProvider(LocalSnackbarHostState provides SnackbarHostState()) {
                     LibraryLoadedContent(
                         state = loaded(),
-                        multiSelect = multiSelect(),
+                        multiSelect = multiSelect,
                         onBookClick = {},
                         onSeriesClick = {},
                         onAuthorClick = {},
@@ -223,7 +253,7 @@ class LibraryTabletHeaderTest {
     private companion object {
         const val BOOK_TITLE = "Piranesi"
         const val COUNT_LINE = "248 books · 41 days of listening"
-        const val PILL = "Inbox, 3 waiting for review"
+        const val PILL = "Inbox, 3 books waiting for review"
         const val SORT = "Sort: Title, A–Z"
     }
 }

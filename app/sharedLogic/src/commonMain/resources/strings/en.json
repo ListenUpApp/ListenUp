@@ -366,7 +366,6 @@
     "length_minutes_one": "1 minute of listening",
     "length_minutes": "%1$d minutes of listening",
     "count_line": "%1$s · %2$s",
-    "inbox_pill_a11y": "Inbox, %1$d waiting for review",
     "ipad_books_subtitle": "%1$s · sorted by %2$s",
     "series_count_badge_a11y": "%1$d books"
   },

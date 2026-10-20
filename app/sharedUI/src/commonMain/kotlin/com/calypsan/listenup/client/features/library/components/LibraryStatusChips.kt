@@ -35,6 +35,7 @@ internal fun LibraryStatusChips(
     counts: BookStatusCounts,
     onSelect: (BookStatusFilter) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val groupLabel = stringResource(Res.string.library_status_filters_label)
     LazyRow(
@@ -47,6 +48,7 @@ internal fun LibraryStatusChips(
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelect(filter) },
+                enabled = enabled,
                 label = {
                     Text(
                         stringResource(Res.string.library_status_chip, filter.label(), counts.countFor(filter)),
