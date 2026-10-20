@@ -4,6 +4,7 @@ import Testing
 @testable import ListenUp
 
 @Suite("Book Detail cover theme")
+@MainActor
 struct BookDetailCoverThemeTests {
     @Test func noCoverColoursIsTheNeutralTone() {
         #expect(BookDetailView.heroWash(nil, scheme: .light) == BookDetailHeroTone.color(for: .light))
