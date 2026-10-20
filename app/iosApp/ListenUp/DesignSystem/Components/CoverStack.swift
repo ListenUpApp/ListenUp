@@ -100,7 +100,7 @@ struct CoverStack: View {
                     .font(.caption.weight(.bold))
                     .monospacedDigit()
                     .foregroundStyle(Color(.systemBackground))
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, Spacing.xxs)
                     .padding(.vertical, 2)
                     .background(Capsule().fill(.primary))
                     .offset(x: 4, y: 4)
