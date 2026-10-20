@@ -6481,16 +6481,6 @@
         }
       }
     },
-    "book.detail_scan_warning": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This book had a scanning error — double-check the files aren’t corrupted."
-          }
-        }
-      }
-    },
     "book.detail_see_all_readers": {
       "localizations": {
         "en": {

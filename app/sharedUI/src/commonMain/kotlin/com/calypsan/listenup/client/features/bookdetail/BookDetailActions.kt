@@ -45,6 +45,8 @@ data class BookDetailActions(
     val onPlayFromChapter: (startMs: Long) -> Unit = {},
     /** Opens another book: a cover on the series shelf. */
     val onBookClick: (bookId: String) -> Unit = {},
+    /** Opens the Files & audio sheet: the Details row, and the scan warning's Review. */
+    val onOpenFilesAndAudio: () -> Unit = {},
 )
 
 /** Runs the action behind a More menu [item]. */

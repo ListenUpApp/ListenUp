@@ -129,7 +129,12 @@ internal fun BookDetailSectionContent(
         }
 
         BookDetailSection.Ratings -> {
-            BookRatingBlock(bookId = bookId, isCard = true, modifier = modifier.fillMaxWidth())
+            BookRatingBlock(
+                bookId = bookId,
+                isCard = true,
+                isFinished = state.readingStage == ReadingStage.Finished,
+                modifier = modifier.fillMaxWidth(),
+            )
         }
 
         BookDetailSection.Hardcover -> {

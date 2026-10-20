@@ -32,8 +32,10 @@ import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_rating_add_note
+import listenup.composeapp.generated.resources.book_detail_rating_add_note_for_listeners
 import listenup.composeapp.generated.resources.book_detail_rating_edit_note
 import listenup.composeapp.generated.resources.book_detail_rating_from_hardcover
+import listenup.composeapp.generated.resources.book_detail_rating_how_was_it
 import listenup.composeapp.generated.resources.book_detail_rating_saved_on_lift
 import listenup.composeapp.generated.resources.book_detail_rating_tap_hint
 import listenup.composeapp.generated.resources.book_detail_rating_yours
@@ -54,6 +56,8 @@ private val YourStarSize = 36.dp
  * @param onSetStars Saves the stars you settled on.
  * @param onEditNote Opens the rate sheet, for the note.
  * @param onRemove Removes your rating; the block offers Undo.
+ * @param isFinished The reader has finished the book: the heading asks "How was it?" and the note is for your
+ *   listeners (spec §3.2.3 Finished).
  * @param isContained Whether "You" is a filled card of its own. False inside a section that is already a
  *   card (the wide layout, per A-And-Tablet), where a second card would nest one surface in another.
  */
@@ -65,6 +69,7 @@ internal fun RatingsYouCard(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
     isContained: Boolean = true,
+    isFinished: Boolean = false,
 ) {
     if (isContained) {
         Card(
@@ -77,11 +82,19 @@ internal fun RatingsYouCard(
                 onSetStars = onSetStars,
                 onEditNote = onEditNote,
                 onRemove = onRemove,
+                isFinished = isFinished,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
             )
         }
     } else {
-        YourRating(mine = mine, onSetStars = onSetStars, onEditNote = onEditNote, onRemove = onRemove, modifier = modifier)
+        YourRating(
+            mine = mine,
+            onSetStars = onSetStars,
+            onEditNote = onEditNote,
+            onRemove = onRemove,
+            isFinished = isFinished,
+            modifier = modifier,
+        )
     }
 }
 
@@ -91,6 +104,7 @@ private fun YourRating(
     onSetStars: (Int) -> Unit,
     onEditNote: () -> Unit,
     onRemove: () -> Unit,
+    isFinished: Boolean,
     modifier: Modifier,
 ) {
     val haptics = LocalHaptics.current
@@ -108,7 +122,10 @@ private fun YourRating(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(Res.string.book_detail_rating_yours),
+                text =
+                    stringResource(
+                        if (isFinished) Res.string.book_detail_rating_how_was_it else Res.string.book_detail_rating_yours,
+                    ),
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
@@ -150,6 +167,7 @@ private fun YourRating(
                 }
                 NoteAndActions(
                     mine = mine,
+                    isFinished = isFinished,
                     onEditNote = onEditNote,
                     onRemove = {
                         haptics.press()
@@ -178,6 +196,7 @@ private fun Hint(text: String) {
 @Composable
 private fun NoteAndActions(
     mine: ListenerRating,
+    isFinished: Boolean,
     onEditNote: () -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -193,7 +212,11 @@ private fun NoteAndActions(
         FilledTonalButton(onClick = onEditNote) {
             Text(
                 stringResource(
-                    if (mine.note == null) Res.string.book_detail_rating_add_note else Res.string.book_detail_rating_edit_note,
+                    when {
+                        mine.note != null -> Res.string.book_detail_rating_edit_note
+                        isFinished -> Res.string.book_detail_rating_add_note_for_listeners
+                        else -> Res.string.book_detail_rating_add_note
+                    },
                 ),
             )
         }

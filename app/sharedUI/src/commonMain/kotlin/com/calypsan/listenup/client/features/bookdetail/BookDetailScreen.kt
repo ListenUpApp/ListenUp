@@ -81,7 +81,10 @@ import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHer
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.MarkNotStartedDialog
-import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
+import com.calypsan.listenup.client.features.bookdetail.components.OfflineReason
+import com.calypsan.listenup.client.features.bookdetail.components.ScanWarningBanner
+import com.calypsan.listenup.client.features.bookdetail.components.BookDetailErrorState
+import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.features.bookdetail.components.ListenActionGroup
 import com.calypsan.listenup.client.features.bookdetail.components.PhoneHeroCoverSize
 import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDialog
@@ -106,7 +109,6 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_meta
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_insufficient_storage
-import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import com.calypsan.listenup.client.design.LocalDeviceContext
 
@@ -220,16 +222,21 @@ fun BookDetailScreen(
             }
 
             is BookDetailUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = s.error.localized(),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    BookDetailTopBar(
+                        onBackClick = onBackClick,
+                        menu = emptyList(),
+                        progressBusy = false,
+                        onMenuItem = {},
+                        isHeld = false,
+                    )
+                    // Retry asks the server again (a reconnect runs catch-up); the page turns Ready by itself when
+                    // the book lands in Room.
+                    BookDetailErrorState(
+                        error = s.error,
+                        onRetry = { viewModel.retryConnection() },
+                        onBack = onBackClick,
+                    )
                 }
             }
 
@@ -325,6 +332,7 @@ private enum class BookDetailDialog {
     MarkNotStarted,
     Restart,
     ReleaseFromInbox,
+    FilesAndAudio,
 }
 
 /**
@@ -436,6 +444,7 @@ private fun BookDetailReadyContent(
                     }
                 },
                 onDeleteClick = { dialog = BookDetailDialog.RemoveDownload },
+                onOpenFilesAndAudio = { dialog = BookDetailDialog.FilesAndAudio },
                 onSeriesClick = onSeriesClick,
                 onContributorClick = onContributorClick,
                 onGenreClick = onGenreClick,
@@ -542,6 +551,9 @@ private fun BookDetailReadyContent(
                 )
             }
         }
+
+        // The Files & audio sheet (Task: Details rows) renders here.
+        BookDetailDialog.FilesAndAudio -> {}
 
         null -> {
             // No question is open.
@@ -662,6 +674,8 @@ private fun PhoneListenUnit(
             progress = state.progress,
             finishedSpan = state.finishedSpan,
         )
+        // Why the primary below is disabled, directly above it (spec §2.9).
+        if (state.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetry = actions.onRetryConnection)
         ListenActionGroup(
             primaryAction = state.primaryAction,
             isPreparing = isPreparing,
@@ -692,12 +706,7 @@ internal sealed interface PhoneDetailItem {
     /** The item's key in the column. */
     val key: String
 
-    /** The offline advisory. */
-    data object Offline : PhoneDetailItem {
-        override val key = "offline"
-    }
-
-    /** The scanner's advisory (it renders nothing unless flagged). */
+    /** The scanner's flag, for an admin, at the top of the hero. */
     data object ScanWarning : PhoneDetailItem {
         override val key = "scan-warning"
     }
@@ -755,7 +764,7 @@ private fun BookDetailSection.itemKey(): String =
 internal const val READERS_ITEM_KEY = "readers"
 
 /**
- * The phone column's items, in the order it draws them (spec §2.4): advisories, the hero, the action unit (or the held
+ * The phone column's items, in the order it draws them (spec §2.4): the admin's scan warning, the hero, the action unit (or the held
  * panel), the social line, the Visibility card, the last match, then the sections in the visit's stage order.
  */
 internal fun phoneDetailItems(
@@ -763,8 +772,7 @@ internal fun phoneDetailItems(
     hasSocialLine: Boolean,
 ): List<PhoneDetailItem> =
     buildList {
-        if (state.showServerWarning) add(PhoneDetailItem.Offline)
-        add(PhoneDetailItem.ScanWarning)
+        if (state.showScanWarning) add(PhoneDetailItem.ScanWarning)
         add(PhoneDetailItem.Hero)
         when {
             state.isHeld -> add(PhoneDetailItem.Held)
@@ -846,19 +854,10 @@ private fun ImmersiveBookDetail(
             items.forEach { entry ->
                 item(key = entry.key) {
                     when (entry) {
-                        // Offline advisory — streaming unavailable, downloads still play.
-                        PhoneDetailItem.Offline -> {
-                            OfflineBanner(
-                                onRetryClick = actions.onRetryConnection,
-                                compact = true,
-                                modifier = screenPadding.padding(vertical = 8.dp),
-                            )
-                        }
-
-                        // Scan-warning advisory — heads-up when the scanner flagged this book's files.
+                        // The scanner's flag, for an admin: Review opens Files & audio.
                         PhoneDetailItem.ScanWarning -> {
-                            BookDetailScanWarning(
-                                hasScanWarning = state.hasScanWarning,
+                            ScanWarningBanner(
+                                onReview = actions.onOpenFilesAndAudio,
                                 modifier = screenPadding.padding(vertical = 8.dp),
                             )
                         }
@@ -986,44 +985,6 @@ private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =
         is BookDownloadStatus.Paused -> downloadedBytes
         is BookDownloadStatus.NotDownloaded, is BookDownloadStatus.Failed -> 0L
     }
-
-/**
- * Advisory banner shown when the scanner flagged a problem with this book's
- * files. Renders nothing when [hasScanWarning] is `false`, so callers can place
- * it unconditionally; the gate lives here.
- */
-@Composable
-fun BookDetailScanWarning(
-    hasScanWarning: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    if (!hasScanWarning) return
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.errorContainer,
-        tonalElevation = 1.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-            )
-            Text(
-                text = stringResource(Res.string.book_detail_scan_warning),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        }
-    }
-}
 
 /**
  * "Supplementary materials" section — a header followed by one tappable card per document.

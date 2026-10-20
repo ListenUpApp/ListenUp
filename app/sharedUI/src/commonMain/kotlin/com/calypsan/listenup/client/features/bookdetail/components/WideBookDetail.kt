@@ -30,12 +30,12 @@ import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
-import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
 import com.calypsan.listenup.client.features.bookdetail.perform
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
@@ -48,7 +48,7 @@ private val RIGHT_COLUMN_MAX_WIDTH = 360.dp
  * Wide (tablet / desktop) Book Detail layout on the Material 3 Expressive "Color Block" design.
  *
  * A plain, untitled [BookDetailTopBar] is hoisted above the scroll; the scrolling [Column] then carries, in
- * order: an optional [OfflineBanner] and [BookDetailScanWarning] advisory, the [WideHeroBand] (identity, then the
+ * order: the admin's [ScanWarningBanner], the [WideHeroBand] (identity, then the
  * [ResumeUnit], a labelled [ListenActionGroup] and the [HeroSocialLine] inside it, spec §3.2.4), and the two columns
  * from [bookDetailColumns]: the reading column (Chapters, About, Series) and the side column (Readers, Ratings,
  * Hardcover, Details), each in the visit's stage order. A section never changes column.
@@ -113,20 +113,13 @@ fun WideBookDetail(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 32.dp + playerInset),
         ) {
-            // Offline advisory — streaming unavailable, downloads still play.
-            if (state.showServerWarning) {
-                OfflineBanner(
-                    onRetryClick = actions.onRetryConnection,
-                    compact = false,
-                    modifier = screenPadding.padding(top = 8.dp),
+            // The scanner's flag, for an admin, at the top of the hero: Review opens Files & audio.
+            if (state.showScanWarning) {
+                ScanWarningBanner(
+                    onReview = actions.onOpenFilesAndAudio,
+                    modifier = screenPadding.padding(vertical = 8.dp),
                 )
             }
-
-            // Scan-warning advisory — heads-up when the scanner flagged this book's files.
-            BookDetailScanWarning(
-                hasScanWarning = state.hasScanWarning,
-                modifier = screenPadding.padding(vertical = 8.dp),
-            )
 
             // Identity, then the Resume unit, the action group and the social line inside the hero (spec §3.2.4).
             WideHero(
@@ -217,6 +210,10 @@ private fun WideHero(
         },
         actions = {
             if (showListen) {
+                // Why the primary below is disabled, directly above it (spec §2.9).
+                if (state.primaryAction == PrimaryAction.UnavailableOffline) {
+                    OfflineReason(onRetry = actions.onRetryConnection)
+                }
                 ListenActionGroup(
                     primaryAction = state.primaryAction,
                     isPreparing = isPreparing,
