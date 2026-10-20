@@ -47,6 +47,8 @@ data class BookDetailActions(
     val onBookClick: (bookId: String) -> Unit = {},
     /** Opens the Files & audio sheet: the Details row, and the scan warning's Review. */
     val onOpenFilesAndAudio: () -> Unit = {},
+    /** Opens the Maps & illustrations list, when the book has more than one document. */
+    val onOpenDocuments: () -> Unit = {},
 )
 
 /** Runs the action behind a More menu [item]. */

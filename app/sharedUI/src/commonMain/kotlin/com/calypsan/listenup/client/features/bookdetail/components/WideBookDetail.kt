@@ -149,6 +149,7 @@ fun WideBookDetail(
                         focusHeading = focusReadersHeading,
                         onHeadingFocused = { focusReadersHeading = false },
                     ),
+                onShowAllCredits = { castRole = CastRole.All },
                 modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
             )
         }
@@ -261,6 +262,7 @@ private fun WideBodyColumns(
     lastMatchRow: @Composable (Modifier) -> Unit,
     readersModifier: Modifier,
     readersLanding: ReadersLanding,
+    onShowAllCredits: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val columns = bookDetailColumns(state.shownSections())
@@ -291,6 +293,7 @@ private fun WideBodyColumns(
                     documents = documents,
                     isWide = true,
                     description = description,
+                    onShowAllCredits = onShowAllCredits,
                 )
             }
         }
@@ -320,6 +323,7 @@ private fun WideBodyColumns(
                     documents = documents,
                     isWide = true,
                     description = description,
+                    onShowAllCredits = onShowAllCredits,
                     modifier = if (section == BookDetailSection.Readers) readersModifier else Modifier,
                     readersLanding = readersLanding,
                 )

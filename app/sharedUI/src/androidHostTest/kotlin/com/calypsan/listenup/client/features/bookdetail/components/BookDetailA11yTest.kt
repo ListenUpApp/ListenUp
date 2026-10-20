@@ -13,6 +13,7 @@ import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookSync
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -94,12 +95,10 @@ class BookDetailA11yTest {
         composeRule.setContent {
             MaterialTheme {
                 DetailsSection(
-                    publisher = "Tor",
-                    publishYear = 2022,
-                    language = null,
-                    audioFiles = emptyList(),
-                    credits = emptyList(),
-                    onContributorClick = {},
+                    rows = listOf(BookDetailRow.Publisher("Tor"), BookDetailRow.Released(2022)),
+                    onAllCredits = {},
+                    onFilesAndAudio = {},
+                    onMaps = {},
                 )
             }
         }

@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesCrumb
 import com.calypsan.listenup.client.domain.model.BookVisibility
@@ -45,6 +46,7 @@ import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
+import com.calypsan.listenup.client.features.bookdetail.components.FilesAndAudioContent
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineReason
 import com.calypsan.listenup.client.features.bookdetail.components.ScanWarningBanner
 import com.calypsan.listenup.client.features.bookdetail.components.ListenActionGroup
@@ -351,17 +353,25 @@ private fun AboutSectionGallery() {
 
 @Composable
 private fun DetailsSectionGallery() {
-    GalleryLabel("Details — publisher / published / language / format + credits")
+    GalleryLabel("Details — the rows, then All credits, Files & audio, Maps & illustrations")
     DetailsSection(
-        publisher = "Tor Books",
-        publishYear = MOCK_YEAR,
-        language = "en",
-        audioFiles = mockAudioFiles,
-        credits = mockCredits,
-        onContributorClick = {},
+        rows =
+            listOf(
+                BookDetailRow.Publisher("Tor Books"),
+                BookDetailRow.Released(MOCK_YEAR),
+                BookDetailRow.Language("English"),
+                BookDetailRow.Added(MOCK_ADDED_AT_MS),
+                BookDetailRow.AllCredits(mockCredits.size),
+                BookDetailRow.FilesAndAudio(container = "M4B", bitrate = "64 kbps"),
+            ),
+        onAllCredits = {},
+        onFilesAndAudio = {},
+        onMaps = {},
         modifier = horizontalGutter(),
-        addedAt = MOCK_ADDED_AT_MS,
     )
+
+    GalleryLabel("Files & audio — the sheet's body")
+    FilesAndAudioContent(audioFiles = mockAudioFiles, modifier = horizontalGutter())
 }
 
 @Composable

@@ -90,6 +90,8 @@ import com.calypsan.listenup.client.features.bookdetail.components.PhoneHeroCove
 import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDialog
 import com.calypsan.listenup.client.features.bookdetail.components.ResumeUnit
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
+import com.calypsan.listenup.client.features.bookdetail.components.FilesAndAudioSheet
+import com.calypsan.listenup.client.features.bookdetail.components.DocumentsSheet
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
@@ -106,10 +108,8 @@ import com.calypsan.listenup.client.share.bookShareUrl
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_document_meta
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_insufficient_storage
-import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import com.calypsan.listenup.client.design.LocalDeviceContext
 
 /**
@@ -333,6 +333,7 @@ private enum class BookDetailDialog {
     Restart,
     ReleaseFromInbox,
     FilesAndAudio,
+    Documents,
 }
 
 /**
@@ -445,6 +446,7 @@ private fun BookDetailReadyContent(
                 },
                 onDeleteClick = { dialog = BookDetailDialog.RemoveDownload },
                 onOpenFilesAndAudio = { dialog = BookDetailDialog.FilesAndAudio },
+                onOpenDocuments = { dialog = BookDetailDialog.Documents },
                 onSeriesClick = onSeriesClick,
                 onContributorClick = onContributorClick,
                 onGenreClick = onGenreClick,
@@ -552,8 +554,20 @@ private fun BookDetailReadyContent(
             }
         }
 
-        // The Files & audio sheet (Task: Details rows) renders here.
-        BookDetailDialog.FilesAndAudio -> {}
+        BookDetailDialog.FilesAndAudio -> {
+            FilesAndAudioSheet(audioFiles = book.audioFiles, onDismiss = { dialog = null })
+        }
+
+        BookDetailDialog.Documents -> {
+            DocumentsSheet(
+                documents = documents,
+                onOpen = { docId ->
+                    viewModel.onOpenDocument(docId)
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
 
         null -> {
             // No question is open.
@@ -951,6 +965,7 @@ private fun ImmersiveBookDetail(
                                 documents = documents,
                                 isWide = false,
                                 description = description,
+                                onShowAllCredits = { castRole = CastRole.All },
                                 modifier = screenPadding.padding(top = 16.dp),
                                 readersLanding =
                                     ReadersLanding(
@@ -985,98 +1000,6 @@ private fun BookDownloadStatus.downloadedOrTotalBytes(): Long =
         is BookDownloadStatus.Paused -> downloadedBytes
         is BookDownloadStatus.NotDownloaded, is BookDownloadStatus.Failed -> 0L
     }
-
-/**
- * "Supplementary materials" section — a header followed by one tappable card per document.
- *
- * Rendered only when [documents] is non-empty (the caller gates on this). Each card shows a tinted
- * icon tile, the file's basename, format + size, and a chevron. Tapping calls [onOpenDocument] with
- * the document's id — the ViewModel handles format dispatch.
- */
-@Composable
-internal fun SupplementaryMaterialsSection(
-    documents: List<BookDocument>,
-    onOpenDocument: (docId: String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Section header — mirrors ChaptersHeader style.
-        Text(
-            text = stringResource(Res.string.book_detail_supplementary_materials),
-            style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                ),
-            modifier = Modifier.padding(vertical = 8.dp),
-        )
-
-        documents.forEach { doc ->
-            DocumentCard(doc = doc, onClick = { onOpenDocument(doc.id) })
-        }
-    }
-}
-
-/**
- * Tappable format card for a single supplementary document: tinted icon tile, filename basename,
- * format + size label, and a trailing chevron.
- */
-@Composable
-private fun DocumentCard(
-    doc: BookDocument,
-    onClick: () -> Unit,
-) {
-    val haptics = LocalHaptics.current
-    Surface(
-        onClick = {
-            haptics.press()
-            onClick()
-        },
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().semantics { role = Role.Button },
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(44.dp)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = doc.filename.substringAfterLast('/'),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.book_detail_document_meta,
-                            doc.format.uppercase(),
-                            formatFileSize(doc.size),
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
 
 private suspend fun handleDownloadResult(
     result: AppResult<DownloadOutcome>,
