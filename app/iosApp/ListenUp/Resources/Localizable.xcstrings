@@ -15921,6 +15921,56 @@
         }
       }
     },
+    "library.arriving_none_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books appear here as they arrive."
+          }
+        }
+      }
+    },
+    "library.arriving_placeholder_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More books arriving"
+          }
+        }
+      }
+    },
+    "library.arriving_so_far": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books so far. Books appear here as they arrive; you can start listening now."
+          }
+        }
+      }
+    },
+    "library.arriving_so_far_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book so far. Books appear here as they arrive; you can start listening now."
+          }
+        }
+      }
+    },
+    "library.arriving_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building Your Library"
+          }
+        }
+      }
+    },
     "library.author_count": {
       "localizations": {
         "en": {
@@ -15957,6 +16007,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "library.book_menu_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions for %1$@"
+          }
+        }
+      }
+    },
+    "library.book_menu_long_press": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book actions"
           }
         }
       }
@@ -16331,6 +16401,16 @@
         }
       }
     },
+    "library.inbox_strip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox · %1$d waiting"
+          }
+        }
+      }
+    },
     "library.index_jump": {
       "localizations": {
         "en": {
@@ -16357,6 +16437,96 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading your library..."
+          }
+        }
+      }
+    },
+    "library.menu_add_to_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to collection…"
+          }
+        }
+      }
+    },
+    "library.menu_add_to_collection_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Collection…"
+          }
+        }
+      }
+    },
+    "library.menu_add_to_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to shelf…"
+          }
+        }
+      }
+    },
+    "library.menu_add_to_shelf_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Shelf…"
+          }
+        }
+      }
+    },
+    "library.menu_admin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin"
+          }
+        }
+      }
+    },
+    "library.menu_edit_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit details"
+          }
+        }
+      }
+    },
+    "library.menu_edit_details_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Details"
+          }
+        }
+      }
+    },
+    "library.menu_primary_with_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "library.menu_share": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share…"
           }
         }
       }
@@ -16391,6 +16561,46 @@
         }
       }
     },
+    "library.scan_strip_new": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d new"
+          }
+        }
+      }
+    },
+    "library.scan_strip_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d"
+          }
+        }
+      }
+    },
+    "library.scan_strip_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning your server"
+          }
+        }
+      }
+    },
+    "library.scan_strip_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning Your Server"
+          }
+        }
+      }
+    },
     "library.section_index": {
       "localizations": {
         "en": {
@@ -16407,6 +16617,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Library sections"
+          }
+        }
+      }
+    },
+    "library.select_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all %1$d"
+          }
+        }
+      }
+    },
+    "library.select_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select All"
           }
         }
       }
