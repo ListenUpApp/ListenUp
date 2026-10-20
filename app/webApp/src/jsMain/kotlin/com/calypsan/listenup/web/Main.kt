@@ -67,6 +67,8 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import org.w3c.dom.Element
 import org.w3c.dom.Worker
+import com.calypsan.listenup.client.core.CookieMirroringSecureStorage
+import com.calypsan.listenup.core.SecureStorage
 
 /**
  * Mounts the web body over the real client graph.
@@ -136,6 +138,9 @@ private fun bootInto(mount: Element) {
         }
     CoroutineScope(Dispatchers.Default + bootFailureHandler).launch {
         seedServerUrlIfNeeded(koin)
+        // The cover cookie is a session cookie: after a browser restart it is gone while the stored token is still
+        // valid, so every cover would 401 until the next token save. Mirror it before anything renders.
+        (koin.get<SecureStorage>() as? CookieMirroringSecureStorage)?.mirrorStoredAccessToken()
         // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not
         // at all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
         // Sequenced ahead of the mount for the same reason as the URL seed, plus one of its own:

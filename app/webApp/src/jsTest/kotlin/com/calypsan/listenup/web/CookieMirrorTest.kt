@@ -77,6 +77,26 @@ class CookieMirrorTest :
             document.cookie shouldNotContain "token-abc"
         }
 
+        test("a token stored by an earlier session is mirrored at boot, before any new token is saved") {
+            // The cookie is a session cookie: a browser restart drops it while the token in localStorage stays valid,
+            // and every cover 401s until something saves a token again.
+            val namespace = "test-${Random.nextInt(0, Int.MAX_VALUE)}"
+            BrowserSecureStorage(namespace).save("access_token", "token-from-last-session")
+            document.cookie = "listenup_access=; path=/; Max-Age=0; SameSite=Strict"
+
+            CookieMirroringSecureStorage(BrowserSecureStorage(namespace)).mirrorStoredAccessToken()
+
+            document.cookie shouldContain "listenup_access=token-from-last-session"
+        }
+
+        test("with no stored token, boot writes no cookie") {
+            document.cookie = "listenup_access=; path=/; Max-Age=0; SameSite=Strict"
+
+            freshStorage().mirrorStoredAccessToken()
+
+            document.cookie shouldNotContain "listenup_access="
+        }
+
         test("reads still reach the delegate") {
             val storage = freshStorage()
             storage.save("access_token", "token-abc")

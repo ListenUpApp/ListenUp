@@ -40,6 +40,15 @@ class CookieMirroringSecureStorage(
         if (key == KEY_ACCESS_TOKEN) writeCookie(value)
     }
 
+    /**
+     * Writes the cookie from the token a previous session stored. Run once at boot: the cookie is a session cookie, so
+     * a browser restart drops it while the token in `localStorage` is still valid, and without this every cover 401s
+     * until something next saves a token.
+     */
+    suspend fun mirrorStoredAccessToken() {
+        delegate.read(KEY_ACCESS_TOKEN)?.let(::writeCookie)
+    }
+
     override suspend fun read(key: String): String? = delegate.read(key)
 
     override suspend fun readCredential(key: String): String? = delegate.readCredential(key)
