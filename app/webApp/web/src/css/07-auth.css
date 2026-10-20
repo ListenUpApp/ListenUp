@@ -221,6 +221,12 @@
   height: calc(var(--fs-caption) * 1.25);
 }
 @container (max-width: 159px) { .lib-narrator { display: none; } }
+/* The grid while books are still arriving: blanks after the last book, each exactly a card's height (the
+   virtualised grid's invariant), a cover-sized block over the same fixed lines. Not a control: no pointer. */
+.lib-card.is-placeholder { cursor: default; pointer-events: none; }
+.lib-cover-ph { width: 100%; aspect-ratio: 1 / 1; flex-shrink: 0; border-radius: var(--r-md); }
+.lib-ph-line { display: block; width: 80%; height: 100%; border-radius: var(--r-sm); }
+.lib-ph-line.is-short { width: 55%; }
 /* Time left is the Library's action colour (N6): the coral that reads as text on paper. */
 .lib-meta.is-progress { color: var(--coral-text); font-weight: 700; }
 /* On the art: the finished badge at bottom-right (the listening bar is `ProgressLook.Overlay`). */

@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
+import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -292,7 +293,8 @@ class LibraryPageTest :
         test("an empty library that is still being built says so, not 'empty'") {
             val root = render(loadedWith(emptyList(), building = true))
 
-            root.textContent!! shouldContain "Syncing"
+            root.textContent!! shouldContain "Building your library"
+            root.textContent!! shouldNotContain "No books yet"
         }
 
         // The regression this arc actually hit. Against a real 1195-book library the socket reports
@@ -302,7 +304,40 @@ class LibraryPageTest :
         test("a connected client mid-seed does not claim the library is empty") {
             val root = render(loadedWith(emptyList(), syncing = false, building = true))
 
-            root.textContent!! shouldContain "Syncing"
+            root.textContent!! shouldContain "Building your library"
+            root.textContent!! shouldNotContain "No books yet"
+        }
+
+        // The gap `isBuildingInitialLibrary` left: a fresh device catching up to a library the server already holds was
+        // never "building", so its empty grid read "No books yet" for the whole first catch-up.
+        test("a first catch-up with no books says it is arriving, never 'No books yet'") {
+            val root =
+                render(
+                    loadedWith(emptyList()).copy(
+                        isLibraryArriving = true,
+                        statusStrip = LibraryStatusStrip.Arriving(booksSoFar = 0),
+                    ),
+                )
+
+            root.querySelector("[role=status]")!!.textContent!! shouldContain "Books appear here as they arrive."
+            root.textContent!! shouldNotContain "No books yet"
+            root.querySelectorAll(".lib-card.is-placeholder").length shouldBe 4
+        }
+
+        test("while arriving, four placeholder cards follow the books, one named for a screen reader") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"), bookItem("b2", "Emma")), building = true))
+
+            root.querySelectorAll(".lib-card").length shouldBe 6
+            val placeholders = root.querySelectorAll(".lib-card.is-placeholder")
+            placeholders.length shouldBe 4
+            (placeholders.item(0) as HTMLElement).getAttribute("aria-label") shouldBe "More books arriving"
+            (placeholders.item(1) as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
+        }
+
+        test("a settled library has no placeholders") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            root.querySelectorAll(".lib-card.is-placeholder").length shouldBe 0
         }
 
         test("an empty library that has finished building says it is empty") {
@@ -334,10 +369,15 @@ class LibraryPageTest :
             val root =
                 render(
                     loadedWith(listOf(bookItem("b1", "Dune")))
-                        .copy(isServerScanning = true, scanProgress = scanning(books = 40, booksTotal = 100)),
+                        .copy(
+                            isServerScanning = true,
+                            scanProgress = scanning(books = 40, booksTotal = 100),
+                            statusStrip = LibraryStatusStrip.Scanning(scanning(books = 40, booksTotal = 100)),
+                        ),
                 )
 
-            root.querySelector(".lib-status-t")!!.textContent shouldBe "Analyzing"
+            root.querySelector(".lib-status-t")!!.textContent shouldBe "Scanning your server"
+            root.querySelector(".lib-status-sub")!!.textContent shouldBe "40 of 100 · 3 new"
             (root.querySelector(".lib-status-track") as HTMLElement).getAttribute("aria-valuenow") shouldBe "40"
             root.querySelectorAll(".lib-card").length shouldBe 1
         }
@@ -433,6 +473,9 @@ private fun loadedWith(
         isServerScanning = false,
         scanProgress = null,
         isBuildingInitialLibrary = building,
+        // What the shared ViewModel derives from a building library: arriving, with the strip saying so.
+        isLibraryArriving = building,
+        statusStrip = if (building) LibraryStatusStrip.Arriving(booksSoFar = books.size) else LibraryStatusStrip.Hidden,
         statusFilter = statusFilter,
         statusCounts = statusCounts,
         bookStatus = books.associate { it.id to BookCardStatus.NotStarted(durationMs = it.duration) },
