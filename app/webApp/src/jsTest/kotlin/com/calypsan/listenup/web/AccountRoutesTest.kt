@@ -314,7 +314,7 @@ class AccountRoutesTest :
                     .querySelectorAll(".bd-held-actions button")
                     .asList()
                     .filterIsInstance<HTMLElement>()
-                    .first { it.textContent?.trim() == "Release" }
+                    .first { it.textContent?.trim() == "Release to members" }
                     .click()
                 awaitFrame()
                 (host.querySelectorAll(".bd dialog.dlg .dlg-actions button").item(1) as HTMLElement).click()

@@ -16,15 +16,15 @@ private const val HELD_HEADING_ID = "bd-held-h"
 private const val HELD_TILE_ICON_SIZE = 22
 
 /**
- * Book Detail's triage panel for a book held for review: what it is, why there is no Play, and the
- * only things a held book allows (spec §8, §10) — Edit (secondary), Release (primary, it finishes
- * the triage), and Match and Edit chapters (ghost, the secondary tier: fixing a new book's metadata
- * is the point of triage). Canvas `W-Detail-Held`; the second row is §10's.
+ * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be: what it
+ * is, one sentence of why there is no Play, and the only things a held book allows — **Release to members** (amber,
+ * the panel's one primary; it asks first), then Edit details, Match details and Edit chapters. Amber, not coral: the
+ * sheet's `--warn` family, "waiting for you", so the panel never reads as Play.
  *
  * @param isReleasing a release is in flight: Release says so and every action waits
  * @param onRelease asks first — the page shows the confirmation
- * @param onMatch the hero row's Match route (`/book/{id}/match`)
- * @param onEditChapters the Chapters tab's route (`/book/{id}/chapters`)
+ * @param onMatch Match details (`/book/{id}/match`)
+ * @param onEditChapters the chapter editor (`/book/{id}/chapters`)
  */
 @Composable
 internal fun HeldPanel(
@@ -48,24 +48,28 @@ internal fun HeldPanel(
                 classes("bd-held-t")
             }) { Text("Held for review") }
             P(attrs = { classes("bd-held-sub") }) {
-                Text("Hidden from all members. It can’t be played until you release it.")
+                Text("Hidden from every member, and it can’t be played until you release it.")
             }
         }
         Div(attrs = { classes("bd-held-actions") }) {
+            Button(
+                kind = ButtonKind.Primary,
+                onClick = { onRelease() },
+                enabled = !isReleasing,
+                attrs = { classes("bd-release") },
+            ) {
+                Icon(if (isReleasing) WebIcon.Clock else WebIcon.Check)
+                Text(if (isReleasing) "Releasing…" else "Release to members")
+            }
             Button(kind = ButtonKind.Secondary, onClick = { onEdit() }, enabled = !isReleasing) {
                 Icon(WebIcon.Pencil)
-                Text("Edit")
+                Text("Edit details")
             }
-            Button(kind = ButtonKind.Primary, onClick = { onRelease() }, enabled = !isReleasing) {
-                Icon(if (isReleasing) WebIcon.Clock else WebIcon.Check)
-                Text(if (isReleasing) "Releasing…" else "Release")
-            }
-            // Secondary (spec §10): the two metadata fixes, on the routes the page already has.
-            Button(kind = ButtonKind.Ghost, onClick = { onMatch() }, enabled = !isReleasing) {
+            Button(kind = ButtonKind.Secondary, onClick = { onMatch() }, enabled = !isReleasing) {
                 Icon(WebIcon.Sparkles)
                 Text("Match details")
             }
-            Button(kind = ButtonKind.Ghost, onClick = { onEditChapters() }, enabled = !isReleasing) {
+            Button(kind = ButtonKind.Secondary, onClick = { onEditChapters() }, enabled = !isReleasing) {
                 Icon(WebIcon.ListOrdered)
                 Text("Edit chapters")
             }
