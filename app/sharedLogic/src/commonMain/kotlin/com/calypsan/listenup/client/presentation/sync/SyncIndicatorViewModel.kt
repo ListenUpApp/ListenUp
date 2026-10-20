@@ -10,10 +10,17 @@ import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
+import com.calypsan.listenup.api.result.onFailure
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * A single pending operation for UI display.
@@ -53,6 +60,11 @@ data class SyncIndicatorUiState(
      * Whether there are any failed operations.
      */
     val hasErrors: Boolean = false,
+    /**
+     * When the library last finished syncing, in epoch ms, or null before the first sync this session. Kept through
+     * the next sync, so "Synced 2 min ago" does not blink while a refresh runs.
+     */
+    val lastSyncedAtMs: Long? = null,
 )
 
 /**
@@ -83,6 +95,9 @@ sealed interface SyncIndicatorUiEvent {
      * User requested to dismiss all failed operations.
      */
     data object DismissAll : SyncIndicatorUiEvent
+
+    /** User asked to sync now ("Refresh now"). */
+    data object RefreshRequested : SyncIndicatorUiEvent
 }
 
 /**
@@ -100,8 +115,14 @@ sealed interface SyncIndicatorUiEvent {
  */
 class SyncIndicatorViewModel(
     private val pendingOperationRepository: PendingOperationRepository,
-    syncRepository: SyncRepository,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
+    /** The last successful sync's time, remembered across the syncs that follow it. */
+    private val lastSyncedAtMs: Flow<Long?> =
+        syncRepository.syncState
+            .scan(null as Long?) { last, state -> (state as? SyncState.Success)?.timestamp?.epochMillis ?: last }
+            .distinctUntilChanged()
+
     val expanded: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -111,7 +132,8 @@ class SyncIndicatorViewModel(
             flow2 = pendingOperationRepository.observeInProgressOperation(),
             flow3 = pendingOperationRepository.observeFailedOperations(),
             flow4 = syncRepository.syncState,
-        ) { visibleOps, inProgress, failedOps, pullSyncState ->
+            flow5 = lastSyncedAtMs,
+        ) { visibleOps, inProgress, failedOps, pullSyncState, lastSynced ->
             val pendingCount =
                 visibleOps.count {
                     it.status == PendingOperationStatus.PENDING
@@ -155,6 +177,7 @@ class SyncIndicatorViewModel(
                 pendingCount = pendingCount,
                 failedOperations = failedUi,
                 hasErrors = failedOps.isNotEmpty(),
+                lastSyncedAtMs = lastSynced,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -168,11 +191,18 @@ class SyncIndicatorViewModel(
             is SyncIndicatorUiEvent.DismissOperation -> dismissOperation(event.operationId)
             is SyncIndicatorUiEvent.RetryAll -> retryAllFailed()
             is SyncIndicatorUiEvent.DismissAll -> dismissAllFailed()
+            is SyncIndicatorUiEvent.RefreshRequested -> refresh()
         }
     }
 
     fun toggleExpanded() {
         expanded.value = !expanded.value
+    }
+
+    private fun refresh() {
+        viewModelScope.launch {
+            syncRepository.sync().onFailure { logger.warn { "Refresh failed: ${it.message}" } }
+        }
     }
 
     private fun retryOperation(id: String) {

@@ -9,6 +9,11 @@ import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.everySuspend
+import dev.mokkery.verify.VerifyMode.Companion.exactly
+import dev.mokkery.verifySuspend
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -162,6 +167,44 @@ class SyncIndicatorViewModelTest :
                 }
 
                 repo.retried shouldBe listOf("op1", "op2")
+            }
+        }
+    
+        test("lastSyncedAtMs is the last successful sync, and stays through the next one") {
+            runTest(testDispatcher) {
+                val syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+                val syncRepository = mock<SyncRepository> { every { this@mock.syncState } returns syncState }
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository)
+
+                vm.state.test {
+                    awaitItem().lastSyncedAtMs shouldBe null
+                    syncState.value = SyncState.Success(Timestamp(1_000L))
+                    var item = awaitItem()
+                    while (item.lastSyncedAtMs == null) item = awaitItem()
+                    item.lastSyncedAtMs shouldBe 1_000L
+
+                    syncState.value = SyncState.Syncing
+                    item = awaitItem()
+                    while (!item.isSyncing) item = awaitItem()
+                    item.lastSyncedAtMs shouldBe 1_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("RefreshRequested asks the sync repository for a sync") {
+            runTest(testDispatcher) {
+                val syncRepository =
+                    mock<SyncRepository> {
+                        every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
+                        everySuspend { sync() } returns AppResult.Success(Unit)
+                    }
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository)
+
+                vm.onEvent(SyncIndicatorUiEvent.RefreshRequested)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                verifySuspend(exactly(1)) { syncRepository.sync() }
             }
         }
     })
