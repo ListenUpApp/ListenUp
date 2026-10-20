@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import com.calypsan.listenup.api.dto.image.ImageFrame
+import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.web.features.admin.AdminSessions
@@ -163,6 +164,11 @@ class WebGraph(
      * draw everyone's picture as the centre crop, whatever they chose.
      */
     val observeAvatarFrame: (userId: String) -> Flow<ImageFrame?>,
+    /**
+     * Cover colours for every hero (Book Detail spec §2.3), provided as [com.calypsan.listenup.web.design.LocalCoverThemes].
+     * A defaulted neutral source would quietly leave every hero uncoloured.
+     */
+    val coverThemes: CoverThemeRepository,
 )
 
 /** The production graph, built once from the client's dependency graph. */
@@ -230,4 +236,5 @@ fun graphWeb(koin: Koin): WebGraph =
         observeAvatarFrame = { userId ->
             koin.get<UserProfileRepository>().observeProfile(userId).map { it?.avatarFrame }
         },
+        coverThemes = koin.get(),
     )

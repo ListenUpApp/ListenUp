@@ -245,6 +245,35 @@
 :root { --bd-hero-wash: #EFE9E1; }
 [data-theme="dark"] { --bd-hero-wash: var(--surface-2); }
 .bd-head { background:var(--bd-hero-wash); border-radius:var(--r-xl); padding:var(--sp-32); }
+/* Cover colour (Book Detail spec §2.3): `coverThemed` (design/CoverTheme.kt) sets --cover-*-l/-d on a hero and adds
+   .cover-themed; these map them onto the hero's own tokens, on that element only. A hero without the class is
+   unchanged. Dark follows [data-theme] like the rest of the sheet (WebTheme.kt). */
+.cover-themed {
+  --bd-hero-wash: var(--cover-wash-l);
+  --cover-track: var(--cover-track-l);
+  --coral-fill: var(--cover-action-l);
+  --coral-fill-press: color-mix(in oklab, var(--cover-action-l) 88%, #000);
+  --on-coral: var(--cover-on-action-l);
+  --shadow-glow: 0 6px 18px color-mix(in srgb, var(--cover-action-l) 28%, transparent);
+  --shadow-glow-hover: 0 8px 22px color-mix(in srgb, var(--cover-action-l) 36%, transparent);
+}
+[data-theme="dark"] .cover-themed {
+  --bd-hero-wash: var(--cover-wash-d);
+  --cover-track: var(--cover-track-d);
+  --coral-fill: var(--cover-action-d);
+  --coral-fill-press: color-mix(in oklab, var(--cover-action-d) 88%, #000);
+  --on-coral: var(--cover-on-action-d);
+  --shadow-glow: 0 6px 18px rgba(0,0,0,0.45);
+  --shadow-glow-hover: 0 8px 22px rgba(0,0,0,0.55);
+}
+.cover-themed .progress { background: var(--cover-track); }
+.cover-themed .progress-fill { background: var(--coral-fill); }
+/* The crossfade from neutral, for colours that arrived after a miss (C10); none for a reader who asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .cover-fade, .cover-fade .btn-primary, .cover-fade .progress, .cover-fade .progress-fill {
+    transition: background-color var(--dur-slow) var(--ease-out), transform var(--dur-slow) linear;
+  }
+}
 /* The cover is fluid inside this box, so CSS owns its size at every width (260px here, 210px on a phone). */
 .bd-cover { width:260px; flex-shrink:0; }
 .bd-subtitle { margin:0; font-size:1.125rem; color:var(--ink-2); }

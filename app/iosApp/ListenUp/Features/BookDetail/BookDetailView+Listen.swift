@@ -34,7 +34,8 @@ extension BookDetailView {
                 currentChapter: observer.reading.currentChapter,
                 timeRemainingMs: observer.reading.timeRemainingMs,
                 progress: observer.progress,
-                finishedSpan: observer.reading.finishedSpan
+                finishedSpan: observer.reading.finishedSpan,
+                cover: coverTheme.colors
             )
             BookListenActions(
                 label: BookPrimaryActionLabel(kind: observer.reading.primaryAction,
@@ -53,7 +54,8 @@ extension BookDetailView {
                     bookActionCount += 1
                     observer.deleteDownload()
                 },
-                onAddToShelf: { observer.openShelfPicker() }
+                onAddToShelf: { observer.openShelfPicker() },
+                actionTint: coverTheme.colors?.action
             )
         }
     }

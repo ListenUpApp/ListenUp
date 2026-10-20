@@ -36,6 +36,9 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
+import com.calypsan.listenup.client.data.repository.CoverThemeRepositoryImpl
+import com.calypsan.listenup.client.data.covertheme.AppleCoverPixelReader
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -133,7 +136,7 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
 
     startKoin {
         // Include shared modules, iOS playback module, and any app-specific modules
-        modules(sharedModules + iosPlaybackModule + iosPushModule + additionalModules)
+        modules(sharedModules + iosPlaybackModule + iosPushModule + iosCoverThemeModule + additionalModules)
     }
 
     // Attach the rotating file sink: from here every line (plus the startup buffer) is persisted
@@ -150,6 +153,15 @@ internal val iosPushModule: Module =
     module {
         single<PushPlatform> { PushPlatform.IOS }
         single { ApnsTokenStore() } bind PushTokenProvider::class
+    }
+
+/**
+ * Cover colours (Book Detail spec §2.3): the shared rule over iOS's ImageIO reader. iOS and the browser bind it;
+ * Android does not (its surfaces stay neutral under Material You).
+ */
+internal val iosCoverThemeModule: Module =
+    module {
+        single<CoverThemeRepository> { CoverThemeRepositoryImpl(reader = AppleCoverPixelReader(imageStorage = get())) }
     }
 
 /**
@@ -324,6 +336,8 @@ object KoinHelper {
     fun getLibraryViewModel(): LibraryViewModel = resolve(LibraryViewModel::class)
 
     fun getSyncRepository(): SyncRepository = resolve(SyncRepository::class)
+
+    fun getCoverThemeRepository(): CoverThemeRepository = resolve(CoverThemeRepository::class)
 
     fun getHomeViewModel(): HomeViewModel = resolve(HomeViewModel::class)
 

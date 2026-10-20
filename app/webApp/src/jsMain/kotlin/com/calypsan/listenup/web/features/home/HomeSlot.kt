@@ -22,6 +22,8 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.web.dom.Button as DomButton
+import com.calypsan.listenup.web.design.coverThemed
+import com.calypsan.listenup.web.design.rememberCoverThemes
 
 private const val HERO_COVER_RUNG = 240
 private const val ONLY_BOOK_COVER = 170
@@ -32,7 +34,7 @@ private const val PLAY_ICON_SIZE = 18
 /**
  * The Resume kind (spec §2.3): nothing is loaded and this is the book last played. The cover and title are one button
  * into the book (H15, one tab stop); Resume is a separate primary button that plays from the saved position (C18).
- * The surface is Book Detail's neutral hero wash until the cover wash lands (spec D3). The author is plain text and
+ * The surface is the cover's wash, or Book Detail's neutral tone when the cover gives none (spec D3). The author is plain text and
  * there is no series line: the shared state carries neither a series nor an author link (open question 4).
  */
 @Composable
@@ -44,8 +46,11 @@ internal fun ResumeHero(
     onPlay: (String) -> Unit,
 ) {
     val book = resume.book
+    // The cover's wash, or Book Detail's neutral tone when the cover gives none (Home spec D3).
+    val coverTheme = rememberCoverThemes(book.bookId, book.coverHash)
     Section(attrs = {
         classes("home-hero")
+        coverThemed(coverTheme)
         if (isOnlyBook) classes("is-only")
         attr("aria-label", "Up next")
     }) {

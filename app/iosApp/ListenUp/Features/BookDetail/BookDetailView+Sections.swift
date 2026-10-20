@@ -99,7 +99,7 @@ extension BookDetailView {
         if observer.layout.showsSocial, let line = readersObserver?.socialLine {
             HeroSocialLineView(
                 line: line,
-                ringColor: BookDetailHeroTone.color(for: colorScheme),
+                ringColor: heroWash,
                 onOpenReaders: { withAnimation { proxy.scrollTo(Self.readersAnchor, anchor: .top) } }
             )
         }

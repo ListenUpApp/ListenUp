@@ -31,6 +31,7 @@ import com.calypsan.listenup.web.lifecycle.flushPositionWhenHidden
 import com.calypsan.listenup.web.lifecycle.keepCoverCookieFreshWhileVisible
 import com.calypsan.listenup.web.lifecycle.lapseWhenAnotherTabSignsOut
 import com.calypsan.listenup.web.lifecycle.recoverSyncOnReturn
+import com.calypsan.listenup.web.di.webCoverThemeModule
 import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.RestoreCurrentUser
@@ -66,6 +67,8 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import org.w3c.dom.Element
 import org.w3c.dom.Worker
+import com.calypsan.listenup.client.core.CookieMirroringSecureStorage
+import com.calypsan.listenup.core.SecureStorage
 
 /**
  * Mounts the web body over the real client graph.
@@ -135,6 +138,9 @@ private fun bootInto(mount: Element) {
         }
     CoroutineScope(Dispatchers.Default + bootFailureHandler).launch {
         seedServerUrlIfNeeded(koin)
+        // The cover cookie is a session cookie: after a browser restart it is gone while the stored token is still
+        // valid, so every cover would 401 until the next token save. Mirror it before anything renders.
+        (koin.get<SecureStorage>() as? CookieMirroringSecureStorage)?.mirrorStoredAccessToken()
         // Device-local preferences sit behind a suspend read, so they arrive as a boot step or not
         // at all — the StateFlows start on hard-coded defaults and nothing else ever replaces them.
         // Sequenced ahead of the mount for the same reason as the URL seed, plus one of its own:
@@ -280,7 +286,7 @@ private fun takeInviteCodeFromLaunchUrl(): Pair<String?, Route> =
     }
 
 /**
- * Starts the browser's graph — [jsSharedModules], [webPlaybackModule] and [extra] — with every
+ * Starts the browser's graph — [jsSharedModules], [webPlaybackModule], [webCoverThemeModule] and [extra] — with every
  * `createdAtStart` singleton built, as it is on every other platform.
  *
  * Koin's JS `startKoin` registers the application but, unlike its native and JVM counterparts, never
@@ -290,7 +296,7 @@ private fun takeInviteCodeFromLaunchUrl(): Pair<String?, Route> =
  * reconnection supervisor and the connection coordinator never started either.
  */
 internal fun startWebKoin(vararg extra: Module): KoinApplication =
-    startKoin { modules(jsSharedModules() + webPlaybackModule + extra) }
+    startKoin { modules(jsSharedModules() + webPlaybackModule + webCoverThemeModule + extra) }
         .also { it.createEagerInstances() }
 
 /**

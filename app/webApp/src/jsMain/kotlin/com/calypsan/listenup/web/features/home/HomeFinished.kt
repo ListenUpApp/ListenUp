@@ -27,6 +27,8 @@ import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import org.jetbrains.compose.web.dom.Button as DomButton
+import com.calypsan.listenup.web.design.coverThemed
+import com.calypsan.listenup.web.design.rememberCoverThemes
 
 private const val FINISHED_COVER = 112
 private const val FINISHED_COVER_RUNG = 240
@@ -46,8 +48,11 @@ internal fun HomeFinishedCard(
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
     val book = card.book
+    // The cover's wash, or Book Detail's neutral tone when the cover gives none (Home spec D3).
+    val coverTheme = rememberCoverThemes(book.bookId, book.coverHash)
     Section(attrs = {
         classes("home-hero")
+        coverThemed(coverTheme)
         attr("aria-label", HomeWords.YOU_FINISHED_A_BOOK)
     }) {
         Div(attrs = { classes("home-finished-top") }) {

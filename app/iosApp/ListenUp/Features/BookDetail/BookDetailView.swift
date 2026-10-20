@@ -22,6 +22,9 @@ struct BookDetailView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    /// The hero's cover colours (spec §2.3): neutral until known, at once on a revisit.
+    @State var coverTheme = CoverThemeObserver()
     @State var observer: BookDetailObserver?
     @State var readersObserver: BookReadersObserver?
     @State private var ratingsObserver: BookRatingsObserver?
@@ -194,6 +197,13 @@ struct BookDetailView: View {
             ratingsObserver = BookRatingsObserver(viewModel: deps.createBookRatingsViewModel(bookId: bookId))
             hardcoverObserver = BookHardcoverObserver(viewModel: deps.createBookHardcoverViewModel(bookId: bookId))
         }
+        // Load once the book (and so its cover) is known; a re-cover while open loads the new colours.
+        .onChange(of: coverKey, initial: true) { _, _ in
+            guard let header = observer?.header else { return }
+            coverTheme.load(bookId: header.coverBookId, coverHash: header.coverHash)
+        }
+        .animation(CoverThemeMotion.animation(fadesIn: coverTheme.fadesIn, reduceMotion: reduceMotion),
+                   value: coverTheme.colors)
     }
 
     // MARK: - Content
@@ -247,12 +257,12 @@ struct BookDetailView: View {
             .padding(.top, Spacing.xs)
             .padding(.bottom, Spacing.l)
             .background(
-                BookDetailHeroTone.color(for: colorScheme),
+                heroWash,
                 in: UnevenRoundedRectangle(bottomLeadingRadius: Radius.xxl, bottomTrailingRadius: Radius.xxl)
             )
             // The band runs up under the navigation bar; held short of the rounded bottom so its corners show.
             .background(
-                BookDetailHeroTone.color(for: colorScheme)
+                heroWash
                     .ignoresSafeArea(edges: .top)
                     .padding(.bottom, Radius.xxl)
             )
@@ -290,7 +300,7 @@ struct BookDetailView: View {
             }
             .padding(Spacing.l)
             .background(
-                BookDetailHeroTone.color(for: colorScheme),
+                heroWash,
                 in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous)
             )
             .frame(width: railWidth)

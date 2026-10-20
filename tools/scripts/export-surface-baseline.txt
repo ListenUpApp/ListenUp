@@ -251,6 +251,11 @@ ContributorWithBookCount
 CoverCandidate
 CoverError
 CoverError_SealedType
+CoverTheme
+CoverThemeRepository
+CoverThemeStyle
+CoverThemeTokens
+CoverThemes
 CoverUi
 CoverUploadDelegate
 CreateEditShelfNavAction

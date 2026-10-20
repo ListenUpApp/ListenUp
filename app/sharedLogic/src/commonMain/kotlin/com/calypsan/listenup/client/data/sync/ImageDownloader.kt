@@ -18,7 +18,6 @@ private val logger = KotlinLogging.logger {}
  * Responsibilities:
  * - Download covers from backend via ImageApi
  * - Save to local storage via ImageStorage
- * - Extract color palette from covers for instant UI rendering
  * - Handle errors gracefully (missing covers are non-fatal)
  * - Support batch operations for efficient syncing
  *

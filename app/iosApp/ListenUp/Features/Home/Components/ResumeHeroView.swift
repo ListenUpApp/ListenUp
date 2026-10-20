@@ -2,13 +2,16 @@ import SwiftUI
 
 /// The Resume kind (spec §2.3): nothing is loaded and this is the book last played. The cover and title are one link
 /// into the book (H15); Resume is a separate coral capsule that plays from the saved position (C18). The surface is
-/// Book Detail's neutral hero tone until the cover wash lands (spec D3). `isOnlyBook` centres a larger cover.
+/// the cover's wash, or Book Detail's neutral tone when the cover gives none (spec D3). `isOnlyBook` centres a larger cover.
 struct ResumeHeroView: View {
     let resume: ResumeSlot
     let isOnlyBook: Bool
     let onResume: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The cover's colours (Home spec D3): neutral until known, at once on a revisit.
+    @State private var coverTheme = CoverThemeObserver()
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
@@ -24,6 +27,7 @@ struct ResumeHeroView: View {
                     .frame(maxWidth: .infinity)
             }
             .prominentAction()
+            .tint(coverTheme.colors?.action)
             .buttonBorderShape(.capsule)
             .disabled(!resume.canPlay)
             if !resume.canPlay {
@@ -34,9 +38,14 @@ struct ResumeHeroView: View {
         }
         .padding(Spacing.m)
         .background(
-            BookDetailHeroTone.color(for: colorScheme),
+            coverTheme.colors?.wash ?? BookDetailHeroTone.color(for: colorScheme),
             in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
         )
+        .task(id: "\(resume.book.id)#\(resume.book.coverHash ?? "")") {
+            coverTheme.load(bookId: resume.book.id, coverHash: resume.book.coverHash)
+        }
+        .animation(CoverThemeMotion.animation(fadesIn: coverTheme.fadesIn, reduceMotion: reduceMotion),
+                   value: coverTheme.colors)
     }
 
     private var identity: some View {
@@ -93,9 +102,16 @@ struct ResumeHeroView: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Color.luTintInk)
             }
-            ProgressView(value: min(max(book.progress, 0), 1))
-                .tint(.listenUpOrange)
-                .accessibilityLabel(
+            // On the cover's colours, the cover track under the harmonised fill, as Book Detail draws it.
+            Group {
+                if let cover = coverTheme.colors {
+                    ProgressView(value: min(max(book.progress, 0), 1))
+                        .progressViewStyle(CoverTrackProgressStyle(track: cover.track, fill: cover.action))
+                } else {
+                    ProgressView(value: min(max(book.progress, 0), 1)).tint(.listenUpOrange)
+                }
+            }
+            .accessibilityLabel(
                     String(format: String(localized: "library.card_progress_a11y"), book.progressPercent)
                 )
             Text(ResumeHeroText.progressOfLength(percent: book.progressPercent, totalMs: book.totalMs))

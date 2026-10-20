@@ -3722,6 +3722,29 @@
             ]
         },
         {
+            "uniqueId": "com.materialkolor:material-color-utilities",
+            "artifactVersion": "5.0.1",
+            "name": "MaterialKolor",
+            "description": "Material You dynamic color for Compose Multiplatform",
+            "website": "https://github.com/jordond/materialkolor",
+            "developers": [
+                {
+                    "name": "Jordon de Hoog"
+                }
+            ],
+            "scm": {
+                "connection": "scm:git:https://github.com/jordond/materialkolor.git",
+                "developerConnection": "scm:git:git@github.com:jordond/materialkolor.git",
+                "url": "https://github.com/jordond/materialkolor"
+            },
+            "licenses": [
+                "MIT"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
             "uniqueId": "com.mikepenz:aboutlibraries-compose-core",
             "artifactVersion": "15.2.0",
             "name": "AboutLibraries Compose UI Library",
@@ -3874,6 +3897,29 @@
                 "connection": "scm:git:git://github.com/lysine-dev/okio.git",
                 "developerConnection": "scm:git:ssh://git@github.com/lysine-dev/okio.git",
                 "url": "https://github.com/lysine-dev/okio/"
+            },
+            "licenses": [
+                "Apache-2.0"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
+            "uniqueId": "dev.drewhamilton.poko:poko-annotations",
+            "artifactVersion": "0.23.1",
+            "name": "Poko Annotations",
+            "description": "A Kotlin compiler plugin for generating equals, hashCode, and toString for plain old Kotlin objects.",
+            "website": "https://github.com/drewhamilton/Poko",
+            "developers": [
+                {
+                    "name": "Drew Hamilton"
+                }
+            ],
+            "scm": {
+                "connection": "scm:git:github.com/drewhamilton/Poko.git",
+                "developerConnection": "scm:git:ssh://github.com/drewhamilton/Poko.git",
+                "url": "https://github.com/drewhamilton/Poko/tree/main"
             },
             "licenses": [
                 "Apache-2.0"

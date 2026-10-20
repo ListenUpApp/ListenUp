@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.auth
 
+import com.calypsan.listenup.web.NoCoverThemes
 import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
@@ -245,6 +246,7 @@ private fun Gate(
                 observeIsAdmin = { flowOf(false) },
                 observeCurrentUserId = { flowOf(null) },
                 observeAvatarFrame = { flowOf(null) },
+                coverThemes = NoCoverThemes,
             ),
         observeThemeMode = { themeMode },
         initialInviteCode = inviteCode,

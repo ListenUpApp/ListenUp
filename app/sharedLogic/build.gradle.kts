@@ -107,6 +107,9 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)
             implementation(libs.atomicfu)
+            // MCU's HCT, Blend.harmonize and Celebi quantizer for the cover colour rule (Book Detail spec §2.3).
+            // `implementation`, never `api`: no MaterialKolor type may reach the Swift Export surface.
+            implementation(libs.materialkolor.utilities)
 
             // `implementation`, not `api`: Koin's `Module` type must not reach the public
             // export surface. A public `Module` val drags `ParametersHolder.initialize(

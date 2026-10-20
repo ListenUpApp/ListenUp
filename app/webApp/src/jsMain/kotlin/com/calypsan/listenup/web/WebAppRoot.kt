@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.LocalAvatarFrames
+import com.calypsan.listenup.web.design.LocalCoverThemes
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
@@ -95,6 +96,7 @@ fun WebAppRoot(
     CompositionLocalProvider(
         LocalRestrictedBookIds provides restrictedBookIds,
         LocalAvatarFrames provides graph.observeAvatarFrame,
+        LocalCoverThemes provides graph.coverThemes,
     ) {
         Shell(
             sections = listOf(primaryNav(heldCount = inbox.heldCount)),
