@@ -187,6 +187,16 @@ class BookMultiSelectViewModel(
             }
     }
 
+    /**
+     * Select exactly [bookIds]: what the screen shows, so a filtered Library selects only what the reader sees.
+     * Replaces the current picks rather than adding to them. Nothing to select is a no-op.
+     */
+    fun selectAll(bookIds: List<String>) {
+        if (bookIds.isEmpty()) return
+        selectionMode.value = SelectionMode.Active(selectedIds = bookIds.toSet())
+        logger.debug { "Selected all ${bookIds.size} books on screen" }
+    }
+
     /** Exit selection mode and clear all selections. */
     fun exitSelectionMode() {
         selectionMode.value = SelectionMode.None

@@ -190,6 +190,32 @@ class BookMultiSelectViewModelTest :
             }
         }
 
+        test("selectAll selects exactly the books it is given, entering selection if needed") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.enterSelectionMode("b9")
+                viewModel.selectAll(listOf("b1", "b2", "b3"))
+                viewModel.selectionMode.value shouldBe SelectionMode.Active(selectedIds = setOf("b1", "b2", "b3"))
+            }
+        }
+
+        test("selectAll outside selection starts selecting with them") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.selectAll(listOf("b1", "b2"))
+                viewModel.selectionMode.value shouldBe SelectionMode.Active(selectedIds = setOf("b1", "b2"))
+            }
+        }
+
+        test("selectAll with nothing to select leaves the selection alone") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.enterSelectionMode("b9")
+                viewModel.selectAll(emptyList())
+                viewModel.selectionMode.value shouldBe SelectionMode.Active(selectedIds = setOf("b9"))
+            }
+        }
+
         // ========== adminAccess ==========
 
         test("adminAccess reflects the current user admin flag") {
