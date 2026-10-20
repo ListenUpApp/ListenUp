@@ -34,7 +34,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
-import com.calypsan.listenup.client.features.library.components.LibraryInboxEntry
+import com.calypsan.listenup.client.features.library.components.LibraryInboxStrip
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
 import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
@@ -76,7 +76,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
  * @param multiSelect The per-screen multi-select ViewModel (injected via Koin)
- * @param inboxBadge The held count and cover preview behind the entry (injected via Koin)
+ * @param inboxBadge The held count behind the inbox strip (injected via Koin)
  */
 @Composable
 fun LibraryScreen(
@@ -101,7 +101,6 @@ fun LibraryScreen(
 
     // Shell-scoped like the nav badge: the same ViewModelStore resolves the same InboxBadgeViewModel.
     val heldCount by inboxBadge.heldCount.collectAsStateWithLifecycle()
-    val previewBookIds by inboxBadge.previewBookIds.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is LibraryUiState.Loading -> {
@@ -127,7 +126,6 @@ fun LibraryScreen(
                 appHeader = appHeader,
                 onEditSelected = onEditSelected,
                 heldCount = heldCount,
-                previewBookIds = previewBookIds,
                 onOpenInbox = onOpenInbox,
                 onEvent = viewModel::onEvent,
                 modifier = modifier,
@@ -192,7 +190,6 @@ internal fun LibraryLoadedContent(
     appHeader: AppHeaderSlot,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     heldCount: Int,
-    previewBookIds: List<String>,
     onOpenInbox: (() -> Unit)?,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
@@ -253,11 +250,7 @@ internal fun LibraryLoadedContent(
             header =
                 if (heldCount > 0 && !isInSelectionMode && onOpenInbox != null) {
                     {
-                        LibraryInboxEntry(
-                            heldCount = heldCount,
-                            previewBookIds = previewBookIds,
-                            onOpenInbox = onOpenInbox,
-                        )
+                        LibraryInboxStrip(heldCount = heldCount, onOpenInbox = onOpenInbox)
                     }
                 } else {
                     null

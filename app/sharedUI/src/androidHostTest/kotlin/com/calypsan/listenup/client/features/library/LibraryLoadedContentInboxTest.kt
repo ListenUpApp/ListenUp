@@ -121,7 +121,6 @@ class LibraryLoadedContentInboxTest {
                         appHeader = { leading -> leading() },
                         onEditSelected = null,
                         heldCount = 3,
-                        previewBookIds = emptyList(),
                         onOpenInbox = onOpenInbox,
                         onEvent = {},
                     )
