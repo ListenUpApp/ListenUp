@@ -66,10 +66,24 @@ class BookDetailCreditsTest :
             dialog.open shouldBe true
             dialog.querySelector(".dlg-t")!!.textContent shouldBe "Credits"
             dialog.textContent!! shouldContain "3 contributors"
+            // By role (spec D8): a heading per role, then its people; a person in two roles is under both.
+            dialog.querySelectorAll(".credit-role-h").asList().map { it.textContent } shouldBe
+                listOf("Author", "Narrator", "Editor", "Translator")
             dialog.querySelectorAll(".credit-row").asList().map {
                 (it as HTMLElement).querySelector(".credit-name")!!.textContent
-            } shouldBe listOf("James S. A. Corey", "Jefferson Mays", "Ann Editor")
-            (dialog.querySelectorAll(".credit-roles").item(2) as HTMLElement).textContent shouldBe "Editor, Translator"
+            } shouldBe listOf("James S. A. Corey", "Jefferson Mays", "Ann Editor", "Ann Editor")
+        }
+
+        test("the Details panel's All credits row opens the same dialog") {
+            val host = render()
+            host
+                .querySelectorAll(".bd-detail-link")
+                .asList()
+                .map { it as HTMLElement }
+                .first { it.getAttribute("aria-label") == "All credits (3)" }
+                .click()
+            awaitFrame()
+            host.querySelector("dialog.bd-credits").shouldNotBeNull()
         }
 
         test("a credit with a photo shows it framed in a circle; one without shows initials") {

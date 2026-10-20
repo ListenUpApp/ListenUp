@@ -305,7 +305,7 @@ class BookDetailTest :
 
             try {
                 awaitFrame()
-                (host.querySelector("a.bd-files-link") as HTMLElement).click()
+                (host.querySelector("a.bd-detail-link[href='/book/42/files']") as HTMLElement).click()
                 awaitFrame()
                 window.location.pathname shouldBe "/book/42/files"
             } finally {

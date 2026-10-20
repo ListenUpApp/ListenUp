@@ -217,7 +217,8 @@ class BookDetailPanesTest :
             try {
                 host.querySelectorAll(".tab").length shouldBe 0
                 (host.querySelector("a.bd-chmap-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/map"
-                (host.querySelector("a.bd-files-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/files"
+                (host.querySelector("a.bd-detail-link[href='/book/42/files']") as HTMLElement).getAttribute("href") shouldBe
+                    "/book/42/files"
             } finally {
                 router.dispose()
             }

@@ -18,7 +18,9 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailRows
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
@@ -38,8 +40,6 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.MetaEntry
-import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UnderHeading
 import com.calypsan.listenup.web.design.Pill
@@ -50,7 +50,10 @@ import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.design.Dd
 import org.jetbrains.compose.web.dom.Div
+import com.calypsan.listenup.web.design.Dl
+import com.calypsan.listenup.web.design.Dt
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Section
@@ -277,6 +280,8 @@ fun BookDetailPage(
                             onOpenFiles = onOpenFiles,
                             onOpenBook = onOpenBook,
                             onOpenSeries = onOpenSeries,
+                            documents = documents,
+                            onOpenContributor = onOpenContributor,
                         ),
                 )
             }
@@ -556,6 +561,10 @@ internal class SectionPanes(
     val onOpenFiles: () -> Unit,
     val onOpenBook: (String) -> Unit,
     val onOpenSeries: (String) -> Unit,
+    /** The book's documents, for the Details panel's Maps & illustrations row. */
+    val documents: List<BookDocument> = emptyList(),
+    /** A person's page, from the Details panel's All credits. */
+    val onOpenContributor: (String) -> Unit = {},
 )
 
 /**
@@ -687,21 +696,7 @@ private fun BookSection(
         }
 
         BookDetailSection.Details -> {
-            Panel(title = "Details") {
-                MetaList(details(state))
-                // The files and the book's documents, a page of their own now the tabs are gone (Decision 9).
-                A(href = "/book/${state.book.id.value}/files", attrs = {
-                    classes("bd-files-link")
-                    onClick {
-                        it.preventDefault()
-                        panes.onOpenFiles()
-                    }
-                }) {
-                    // Only the words are underlined; the arrow rides beside them (board).
-                    Span(attrs = { classes("bd-files-label") }) { Text("Files & audio") }
-                    Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
-                }
-            }
+            Panel(title = "Details") { DetailsRows(state, panes) }
         }
     }
 }
@@ -788,18 +783,133 @@ private const val ABOUT_LINES = 2
 private const val ABOUT_HEADING_LEVEL = 2
 
 /**
- * The Details panel, built only from fields the book actually carries. A row that would read
- * "Unknown" is a row that shouldn't be drawn.
+ * The Details panel (spec §3.2.1 D31): the shared rule's rows ([bookDetailRows]) as a description list — Publisher,
+ * Released, Genre, Language, Length, Added, ISBN, ASIN — then three links: **All credits** (the credits dialog, by
+ * role), **Files & audio** (the Files view) and **Maps & illustrations** (one document opens in a new tab; more go to
+ * the Files view). A row whose datum is absent is not drawn, never "Unknown".
  */
-private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
-    buildList {
-        add(MetaEntry("Duration", state.book.formatDuration(), machine = true))
-        if (state.chapters.isNotEmpty()) add(MetaEntry("Chapters", state.chapters.size.toString()))
-        state.year?.let { add(MetaEntry("Published", it.toString(), machine = true)) }
-        state.book.publisher?.let { add(MetaEntry("Publisher", it)) }
-        state.book.language?.let { add(MetaEntry("Language", it)) }
-        if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
+@Composable
+private fun DetailsRows(
+    state: BookDetailUiState.Ready,
+    panes: SectionPanes,
+) {
+    var showingCredits by remember(state.book.id) { mutableStateOf(false) }
+    val bookId = state.book.id.value
+    Dl(attrs = { classes("bd-details") }) {
+        bookDetailRows(state, panes.documents).forEach { row ->
+            Div(attrs = { classes("meta-r") }) {
+                Dt { Text(row.label()) }
+                Dd(attrs = { if (row.isMachine()) classes("mono") }) {
+                    when (row) {
+                        is BookDetailRow.AllCredits -> {
+                            Button(attrs = {
+                                classes("bd-detail-link")
+                                attr("type", BUTTON_VALUE)
+                                attr("aria-label", "All credits (${row.count})")
+                                onClick { showingCredits = true }
+                            }) {
+                                Text(row.count.toString())
+                                Span(attrs = { attr("aria-hidden", "true") }) { Text("›") }
+                            }
+                        }
+
+                        is BookDetailRow.FilesAndAudio -> {
+                            FilesLink(bookId, row.value(), panes.onOpenFiles)
+                        }
+
+                        is BookDetailRow.MapsAndIllustrations -> {
+                            val only = row.onlyDocumentId
+                            if (only == null) {
+                                FilesLink(bookId, row.value(), panes.onOpenFiles)
+                            } else {
+                                A(href = documentUrl(bookId, only), attrs = {
+                                    classes("bd-detail-link")
+                                    attr("target", "_blank")
+                                    attr("rel", "noopener")
+                                }) {
+                                    Text(row.value())
+                                    Span(attrs = { attr("aria-hidden", "true") }) { Text("↗") }
+                                    Span(attrs = { classes("sr-only") }) { Text(" (opens in a new tab)") }
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Text(row.value())
+                        }
+                    }
+                }
+            }
+        }
     }
+    if (showingCredits) {
+        CreditsDialog(
+            credits = state.book.allContributors.ifEmpty { (state.book.authors + state.book.narrators).distinctBy { it.id } },
+            onOpenContributor = panes.onOpenContributor,
+            onDismiss = { showingCredits = false },
+        )
+    }
+}
+
+/** A Details link to the Files view (`/book/{id}/files`): a real link, followed in-app on a plain click. */
+@Composable
+private fun FilesLink(
+    bookId: String,
+    text: String,
+    onOpenFiles: () -> Unit,
+) {
+    A(href = "/book/$bookId/files", attrs = {
+        classes("bd-detail-link")
+        onClick {
+            it.preventDefault()
+            onOpenFiles()
+        }
+    }) {
+        Text(text)
+        Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
+    }
+}
+
+/** A Details row's label, in the web's words. */
+private fun BookDetailRow.label(): String =
+    when (this) {
+        is BookDetailRow.Publisher -> "Publisher"
+        is BookDetailRow.Released -> "Released"
+        is BookDetailRow.GenreLine -> "Genre"
+        is BookDetailRow.Language -> "Language"
+        is BookDetailRow.Length -> "Length"
+        is BookDetailRow.Added -> "Added"
+        is BookDetailRow.Isbn -> "ISBN"
+        is BookDetailRow.Asin -> "ASIN"
+        is BookDetailRow.AllCredits -> "All credits"
+        is BookDetailRow.FilesAndAudio -> "Files & audio"
+        is BookDetailRow.MapsAndIllustrations -> "Maps & illustrations"
+    }
+
+/** A Details row's value, with its units. */
+private fun BookDetailRow.value(): String =
+    when (this) {
+        is BookDetailRow.Publisher -> name
+        is BookDetailRow.Released -> year.toString()
+        is BookDetailRow.GenreLine -> "$genreName · ${if (abridged) "Abridged" else "Unabridged"}"
+        is BookDetailRow.Language -> displayName
+        is BookDetailRow.Length ->
+            listOfNotNull(
+                DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
+                chapterCount.takeIf { it > 0 }?.let { if (it == 1) "1 chapter" else "$it chapters" },
+            ).joinToString(" · ")
+        is BookDetailRow.Added -> calendarDay(epochMs, withYear = true)
+        is BookDetailRow.Isbn -> isbn
+        is BookDetailRow.Asin -> asin
+        is BookDetailRow.AllCredits -> count.toString()
+        is BookDetailRow.FilesAndAudio -> listOfNotNull(container, bitrate).joinToString(" · ")
+        is BookDetailRow.MapsAndIllustrations ->
+            "${format ?: if (count == 1) "1 document" else "$count documents"} · ${formatBytes(totalBytes)}"
+    }
+
+/** Identifiers and years read in the monospace face, as the old Details list drew them. */
+private fun BookDetailRow.isMachine(): Boolean =
+    this is BookDetailRow.Released || this is BookDetailRow.Isbn || this is BookDetailRow.Asin
 
 /**
  * "Author · read by Narrator", dropping either half when the book doesn't name it — same sentence

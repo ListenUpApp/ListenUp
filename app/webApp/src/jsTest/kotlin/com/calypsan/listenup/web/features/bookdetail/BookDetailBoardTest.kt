@@ -53,12 +53,12 @@ class BookDetailBoardTest :
             (chips.top - desc.bottom >= 11.5) shouldBe true
         }
 
-        test("Files & audio is underlined, its arrow is not") {
+        test("the Files & audio row's link is underlined, its arrow is not") {
             val root = render()
-            val link = root.querySelector("a.bd-files-link") as HTMLElement
-            window.getComputedStyle(link).textDecorationLine shouldBe "none"
-            val label = link.querySelector(".bd-files-label") as HTMLElement
-            label.textContent shouldBe "Files & audio"
-            window.getComputedStyle(label).textDecorationLine shouldBe "underline"
+            val link = root.querySelector("a.bd-detail-link[href='/book/42/files']") as HTMLElement
+            window.getComputedStyle(link).textDecorationLine shouldBe "underline"
+            val arrow = link.querySelector("[aria-hidden]") as HTMLElement
+            arrow.textContent shouldBe "→"
+            window.getComputedStyle(arrow).textDecorationLine shouldBe "none"
         }
     })
