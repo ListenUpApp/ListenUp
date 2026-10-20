@@ -34,7 +34,12 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
+import com.calypsan.listenup.client.features.library.components.LibraryBookMenuActions
+import com.calypsan.listenup.client.features.library.components.LibraryBookMenuHost
 import com.calypsan.listenup.client.features.library.components.LibraryInboxStrip
+import com.calypsan.listenup.client.features.library.components.rememberBookSelectionScaffoldState
+import com.calypsan.listenup.client.presentation.library.bookMenuPrimary
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
 import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
@@ -71,6 +76,9 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param onEditSelected Navigate to the bulk metadata editor with the current multi-selection,
  *   with a callback that ends the selection once an apply has landed
  *   (null = this host has no route to the editor, so the action is not offered)
+ * @param onPlayBook Plays a book from its menu: the same play entry Home and Book Detail use
+ * @param onShareBook Shares a book from its menu, given its id and title (null = no share here, so no item)
+ * @param onEditBook Opens a book's metadata editor from its menu's admin group (null = no route, so no item)
  * @param onOpenInbox Opens the admin inbox from the Books view's entry
  *   (null = this host has no route to the inbox, so the entry is not offered)
  * @param modifier Modifier from parent (includes scaffold padding)
@@ -86,6 +94,9 @@ fun LibraryScreen(
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)? = null,
+    onPlayBook: (String) -> Unit = {},
+    onShareBook: ((bookId: String, title: String) -> Unit)? = null,
+    onEditBook: ((String) -> Unit)? = null,
     onOpenInbox: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
@@ -125,6 +136,9 @@ fun LibraryScreen(
                 onNarratorClick = onNarratorClick,
                 appHeader = appHeader,
                 onEditSelected = onEditSelected,
+                onPlayBook = onPlayBook,
+                onShareBook = onShareBook,
+                onEditBook = onEditBook,
                 heldCount = heldCount,
                 onOpenInbox = onOpenInbox,
                 onEvent = viewModel::onEvent,
@@ -193,8 +207,13 @@ internal fun LibraryLoadedContent(
     onOpenInbox: (() -> Unit)?,
     onEvent: (LibraryUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onPlayBook: (String) -> Unit = {},
+    onShareBook: ((bookId: String, title: String) -> Unit)? = null,
+    onEditBook: ((String) -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
+    val selectionState = rememberBookSelectionScaffoldState()
+    val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
@@ -218,6 +237,27 @@ internal fun LibraryLoadedContent(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
 
+    // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only, open question 1:
+    // Home, Discover and shelves keep long press = Select). Select is one tap inside it.
+    val bookMenu =
+        LibraryBookMenuHost(
+            primaryFor = { id -> bookMenuPrimary(state.bookStatus[BookId(id)]) },
+            actionsFor = { id ->
+                LibraryBookMenuActions(
+                    onPrimary = { onPlayBook(id) },
+                    onAddToShelf = selectionState.shelveOneOrNull(multiSelect)?.let { shelve -> { shelve(id) } },
+                    onShare =
+                        onShareBook?.let { share ->
+                            { share(id, state.books.firstOrNull { it.id.value == id }?.title.orEmpty()) }
+                        },
+                    onSelect = { multiSelect.enterSelectionMode(id) },
+                    onAddToCollection =
+                        if (isAdmin) selectionState.collectOneOrNull(multiSelect)?.let { collect -> { collect(id) } } else null,
+                    onEditDetails = if (isAdmin) onEditBook?.let { edit -> { edit(id) } } else null,
+                )
+            },
+        )
+
     val booksGrid: @Composable () -> Unit = {
         BooksContent(
             books = state.books,
@@ -238,7 +278,7 @@ internal fun LibraryLoadedContent(
             onBookClick = { bookId ->
                 if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)
             },
-            onBookLongPress = multiSelect::enterSelectionMode,
+            bookMenu = bookMenu,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
             isFilteredEmpty = state.isFilteredEmpty,
             statusFilter = state.statusFilter,
@@ -335,6 +375,6 @@ internal fun LibraryLoadedContent(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected)
+        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected, state = selectionState)
     }
 }

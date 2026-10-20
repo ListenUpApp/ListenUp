@@ -1,6 +1,13 @@
 package com.calypsan.listenup.client.navigation.entries
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
+import com.calypsan.listenup.client.navigation.BookEdit
+import com.calypsan.listenup.client.share.bookShareUrl
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -152,6 +159,9 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     )
                 },
                 libraryContent = { padding, appHeader ->
+                    val shareScope = rememberCoroutineScope()
+                    val instanceRepository: InstanceRepository = koinInject()
+                    val shareActions: BookDetailPlatformActions = koinInject()
                     LibraryScreen(
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                         onSeriesClick = { seriesId -> backStack.add(SeriesDetail(seriesId)) },
@@ -164,6 +174,17 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        // A book's menu: the same play entry Home and the mini player use, the one share builder,
+                        // and the single-book editor.
+                        onPlayBook = { bookId -> nowPlayingViewModel.playBook(BookId(bookId)) },
+                        onShareBook = { bookId, title ->
+                            shareScope.launch {
+                                bookShareUrl(instanceRepository, BookId(bookId))?.let { url ->
+                                    shareActions.shareText("Check out $title on ListenUp!\n$url", url)
+                                }
+                            }
+                        },
+                        onEditBook = { bookId -> backStack.add(BookEdit(bookId)) },
                         // Onto the Library's own stack: Back pops to the shell with Library still selected.
                         onOpenInbox = { backStack.add(AdminInbox) },
                         modifier = Modifier.padding(padding),

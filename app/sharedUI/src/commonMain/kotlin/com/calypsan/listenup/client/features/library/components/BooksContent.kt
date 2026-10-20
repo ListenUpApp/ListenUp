@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
 import listenup.composeapp.generated.resources.library_arriving_placeholder_a11y
+import listenup.composeapp.generated.resources.library_book_menu_long_press
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -146,7 +147,8 @@ internal fun SectionHeader(
  * @param onDirectionToggle Called when the user toggles sort direction
  * @param onToggleIgnoreArticles Called when the "Ignore articles" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
- * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
+ * @param bookMenu A book's menu, opened by a long press or right-click on its cover (spec §3.1.2); Select is one tap
+ *   inside it. Null = no menu. While selecting there is none: a tap already toggles.
  * @param onRetry Callback when retry is clicked in error state
  * @param isFilteredEmpty The library has books but [statusFilter] matches none of them
  * @param statusFilter The active reading-state filter, which picks the filtered-empty copy
@@ -159,7 +161,7 @@ internal fun SectionHeader(
  */
 @Suppress("LongParameterList")
 @Composable
-fun BooksContent(
+internal fun BooksContent(
     books: List<BookListItem>,
     hasLoadedBooks: Boolean,
     syncState: SyncState,
@@ -176,7 +178,7 @@ fun BooksContent(
     onDirectionToggle: () -> Unit,
     onToggleIgnoreArticles: () -> Unit,
     onBookClick: (String) -> Unit,
-    onBookLongPress: ((String) -> Unit)? = null,
+    bookMenu: LibraryBookMenuHost? = null,
     onRetry: () -> Unit,
     isFilteredEmpty: Boolean = false,
     statusFilter: BookStatusFilter = BookStatusFilter.ALL,
@@ -208,7 +210,7 @@ fun BooksContent(
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
-                        onBookLongPress = onBookLongPress,
+                        bookMenu = bookMenu,
                         header = header,
                         trailingPlaceholders = ARRIVING_PLACEHOLDERS,
                         modifier = Modifier.weight(1f),
@@ -287,7 +289,7 @@ fun BooksContent(
                         isInSelectionMode = isInSelectionMode,
                         selectedBookIds = selectedBookIds,
                         onBookClick = onBookClick,
-                        onBookLongPress = onBookLongPress,
+                        bookMenu = bookMenu,
                         header = header,
                         trailingPlaceholders = if (isArriving) ARRIVING_PLACEHOLDERS else 0,
                         modifier = Modifier.weight(1f),
@@ -356,13 +358,17 @@ private fun BookGrid(
     isInSelectionMode: Boolean,
     selectedBookIds: Set<String>,
     onBookClick: (String) -> Unit,
-    onBookLongPress: ((String) -> Unit)?,
+    bookMenu: LibraryBookMenuHost?,
     header: (@Composable () -> Unit)?,
     trailingPlaceholders: Int,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+    // The one book whose menu is open, by id, so it survives rotation and a recycled cell.
+    var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val longPressLabel = stringResource(Res.string.library_book_menu_long_press)
+    val menu = bookMenu.takeUnless { isInSelectionMode }
 
     // A new status filter is a new list: open it at the top. A grid keeps its place by item key, so
     // without this a filter opened part-way down, its first books scrolled off above. The last filter
@@ -443,9 +449,18 @@ private fun BookGrid(
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,
-                            onLongPress =
-                                onBookLongPress?.let { callback ->
-                                    { callback(bookId) }
+                            onLongPress = menu?.let { { menuFor = bookId } },
+                            longPressLabel = menu?.let { longPressLabel },
+                            coverOverlay =
+                                menu?.takeIf { menuFor == bookId }?.let { host ->
+                                    {
+                                        LibraryBookMenu(
+                                            expanded = true,
+                                            onDismiss = { menuFor = null },
+                                            primary = host.primaryFor(bookId),
+                                            actions = host.actionsFor(bookId),
+                                        )
+                                    }
                                 },
                             modifier = Modifier.animateItem(),
                         )
