@@ -106,7 +106,9 @@ fun LibraryPage(
             // A library with books carries Select and Sort at the end of its status-chip row (board
             // `Library-WebDesktop`, see [LibraryControls]); one with no books has no chips, so its
             // Sort keeps the header.
-            if (state is LibraryUiState.Loaded && state.isEmpty) BookSortControl(state, onEvent)
+            // Not while the library is still arriving: there is nothing to sort yet, and the first book would move Sort
+            // from here to the chip row below the strip.
+            if (state is LibraryUiState.Loaded && state.isEmpty && !state.isLibraryArriving) BookSortControl(state, onEvent)
         }
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)

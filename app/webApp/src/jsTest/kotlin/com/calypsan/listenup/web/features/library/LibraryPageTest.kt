@@ -334,6 +334,20 @@ class LibraryPageTest :
             (placeholders.item(1) as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
 
+        // On a phone the header's Sort jumped below the strip the moment the first book landed. A library still arriving
+        // has nothing to sort yet, so Sort waits for the chip row it will live in.
+        test("an empty library still arriving offers no Sort in the header") {
+            val root =
+                render(
+                    loadedWith(emptyList()).copy(
+                        isLibraryArriving = true,
+                        statusStrip = LibraryStatusStrip.Arriving(booksSoFar = 0),
+                    ),
+                )
+
+            root.querySelectorAll(".lib-header .sort-dd, .lib-header [aria-haspopup=menu]").length shouldBe 0
+        }
+
         test("a settled library has no placeholders") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 

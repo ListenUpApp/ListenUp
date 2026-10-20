@@ -93,6 +93,26 @@ class LibraryBookMenuTest :
             menuLabels().drop(1) shouldContainExactly listOf("Add to shelf…", "Share…", "Select")
         }
 
+        test("a card with a menu says so to assistive technology, and one without does not") {
+            val withMenu =
+                mounts.mount {
+                    LibraryPage(
+                        state = contractLibrary(listOf(contractBook("b1", "Dune"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                        bookMenu = source(),
+                    )
+                }
+            (withMenu.querySelector(".lib-card") as HTMLElement).getAttribute("aria-haspopup") shouldBe "menu"
+
+            val without =
+                mounts.mount {
+                    LibraryPage(state = contractLibrary(listOf(contractBook("b1", "Dune"))), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                }
+            (without.querySelector(".lib-card") as HTMLElement).getAttribute("aria-haspopup") shouldBe null
+        }
+
         test("choosing Select starts selecting with that book") {
             val root =
                 mounts.mount {

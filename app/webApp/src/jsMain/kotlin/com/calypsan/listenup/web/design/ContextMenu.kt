@@ -67,6 +67,8 @@ class ContextMenuScope internal constructor(
      * Call it before the element's own click and key handlers, so a long press's click is swallowed before them.
      */
     fun AttrsScope<*>.contextMenuTarget() {
+        // The element opens a menu, so assistive technology can say so.
+        attr("aria-haspopup", "menu")
         onClick { event ->
             if (state.swallowNextClick) {
                 state.swallowNextClick = false
