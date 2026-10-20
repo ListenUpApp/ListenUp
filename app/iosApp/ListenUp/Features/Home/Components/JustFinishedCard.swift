@@ -10,6 +10,9 @@ struct JustFinishedCard: View {
     let onRate: (Int) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The cover's colours (Home spec D3): neutral until known, at once on a revisit.
+    @State private var coverTheme = CoverThemeObserver()
     /// The rating while a drag previews it; nil shows the saved one.
     @State private var dragging: Int?
 
@@ -39,6 +42,7 @@ struct JustFinishedCard: View {
                         .frame(maxWidth: .infinity)
                 }
                 .prominentAction()
+                .tint(coverTheme.colors?.action)
                 .buttonBorderShape(.capsule)
                 .accessibilityLabel(String(format: String(localized: "home.play_next_book_a11y_ios"), next.title))
             }
@@ -56,9 +60,14 @@ struct JustFinishedCard: View {
         }
         .padding(Spacing.m)
         .background(
-            BookDetailHeroTone.color(for: colorScheme),
+            coverTheme.colors?.wash ?? BookDetailHeroTone.color(for: colorScheme),
             in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
         )
+        .task(id: "\(slot.bookId)#\(slot.coverHash ?? "")") {
+            coverTheme.load(bookId: slot.bookId, coverHash: slot.coverHash)
+        }
+        .animation(CoverThemeMotion.animation(fadesIn: coverTheme.fadesIn, reduceMotion: reduceMotion),
+                   value: coverTheme.colors)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(String(localized: "home.you_finished_a_book_a11y"))
     }
