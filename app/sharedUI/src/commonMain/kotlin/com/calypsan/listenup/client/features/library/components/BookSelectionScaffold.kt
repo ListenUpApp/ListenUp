@@ -59,6 +59,7 @@ import org.jetbrains.compose.resources.getString
  * @param modifier Modifier applied to the overlay container.
  * @param contentPadding The host's insets (navigation bar, mini player) the floating toolbar must clear;
  *   a host already padded by its parent passes none.
+ * @param selectAll "Select all N" in the selection header (null = this host offers none: Home, Discover).
  * @param state Which picker is up, hoisted so a host can shelve one book ([BookSelectionScaffoldState.shelveOne]).
  */
 @Composable
@@ -68,6 +69,7 @@ fun BookSelectionScaffold(
     modifier: Modifier = Modifier,
     state: BookSelectionScaffoldState = rememberBookSelectionScaffoldState(),
     contentPadding: PaddingValues = PaddingValues(),
+    selectAll: SelectAllAction? = null,
 ) {
     val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isAdmin by multiSelect.adminAccess.collectAsStateWithLifecycle()
@@ -107,6 +109,7 @@ fun BookSelectionScaffold(
         onClose = multiSelect::exitSelectionMode,
         bottomClearance = contentPadding.calculateBottomPadding(),
         topClearance = contentPadding.calculateTopPadding(),
+        selectAll = selectAll,
         modifier = modifier,
     )
 

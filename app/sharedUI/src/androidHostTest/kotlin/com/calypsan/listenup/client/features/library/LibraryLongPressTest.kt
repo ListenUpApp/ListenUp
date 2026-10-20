@@ -105,6 +105,19 @@ class LibraryLongPressTest {
         composeRule.onNodeWithText("Edit details").assertExists()
     }
 
+    @Test
+    fun `Select all in the header takes every book the grid shows`() {
+        val multiSelect = multiSelect()
+        render(multiSelect)
+        awaitText(BOOK_TITLE)
+
+        // Armed with nothing picked yet: Select all is what puts the book in.
+        composeRule.runOnIdle { multiSelect.enterSelectionMode() }
+        composeRule.onNodeWithText("Select all 1").performClick()
+
+        composeRule.runOnIdle { multiSelect.selectionMode.value shouldBe SelectionMode.Active(setOf("b1")) }
+    }
+
     private fun render(multiSelect: BookMultiSelectViewModel) {
         composeRule.setContent {
             MaterialTheme {

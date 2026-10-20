@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -44,6 +45,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_edit
+import listenup.composeapp.generated.resources.library_select_all
 import listenup.composeapp.generated.resources.selection_add_to_collection
 import listenup.composeapp.generated.resources.selection_add_to_shelf
 import listenup.composeapp.generated.resources.selection_cancel_a11y
@@ -89,6 +91,12 @@ private class BottomExtended(
     override fun calculateBottomPadding(): Dp = base.calculateBottomPadding() + extra
 }
 
+/** "Select all N" in the selection header: every book the screen shows, filtered as the reader sees it. */
+data class SelectAllAction(
+    val count: Int,
+    val onSelectAll: () -> Unit,
+)
+
 /**
  * The selection bar, in two parts laid over the host's full-size `Box` (spec §6.1):
  * - a `primaryContainer` **header** at the top with **Cancel selection** (✕) and "N selected", which
@@ -111,6 +119,7 @@ private class BottomExtended(
  *   bar), so the header sits where a host's own header would, as in Library
  * @param bottomClearance Space under the floating toolbar for what the host draws there (navigation
  *   bar, mini player), so the toolbar floats above it
+ * @param selectAll "Select all N" at the header's end (null = this host offers none: Home, Discover)
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -124,6 +133,7 @@ fun SelectionToolbar(
     visible: Boolean = true,
     bottomClearance: Dp = 0.dp,
     topClearance: Dp = 0.dp,
+    selectAll: SelectAllAction? = null,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -132,7 +142,7 @@ fun SelectionToolbar(
             exit = slideOutVertically { -it },
             modifier = Modifier.align(Alignment.TopCenter).padding(top = topClearance),
         ) {
-            SelectionHeader(selectedCount = selectedCount, onClose = onClose)
+            SelectionHeader(selectedCount = selectedCount, onClose = onClose, selectAll = selectAll)
         }
         AnimatedVisibility(
             visible = visible,
@@ -176,11 +186,12 @@ fun SelectionToolbar(
     }
 }
 
-/** The top half: Cancel selection and the count, on `primaryContainer`. */
+/** The top half: Cancel selection, the count and, where offered, Select all, on `primaryContainer`. */
 @Composable
 private fun SelectionHeader(
     selectedCount: Int,
     onClose: () -> Unit,
+    selectAll: SelectAllAction?,
 ) {
     val haptics = LocalHaptics.current
     Surface(
@@ -213,6 +224,19 @@ private fun SelectionHeader(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
+            if (selectAll != null) {
+                Spacer(Modifier.weight(1f))
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        selectAll.onSelectAll()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.heightIn(min = ActionMinHeight),
+                ) {
+                    Text(stringResource(Res.string.library_select_all, selectAll.count))
+                }
+            }
         }
     }
 }

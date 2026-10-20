@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.presentation.library.bookMenuPrimary
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
 import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
+import com.calypsan.listenup.client.features.library.components.SelectAllAction
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SeriesContent
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -375,6 +376,17 @@ internal fun LibraryLoadedContent(
         }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
-        BookSelectionScaffold(multiSelect = multiSelect, onEditSelected = onEditSelected, state = selectionState)
+        BookSelectionScaffold(
+            multiSelect = multiSelect,
+            onEditSelected = onEditSelected,
+            state = selectionState,
+            // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
+            selectAll =
+                if (selectedSection == LibrarySection.Books && state.books.isNotEmpty()) {
+                    SelectAllAction(state.books.size) { multiSelect.selectAll(state.books.map { it.id.value }) }
+                } else {
+                    null
+                },
+        )
     }
 }
