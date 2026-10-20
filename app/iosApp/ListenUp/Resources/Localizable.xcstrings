@@ -941,6 +941,16 @@
         }
       }
     },
+    "admin.held_for_review_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Held for Review"
+          }
+        }
+      }
+    },
     "admin.held_hidden_from_members": {
       "localizations": {
         "en": {
@@ -4311,6 +4321,26 @@
         }
       }
     },
+    "book.detail_all_credits_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d"
+          }
+        }
+      }
+    },
+    "book.detail_asin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ASIN"
+          }
+        }
+      }
+    },
     "book.detail_authors": {
       "localizations": {
         "en": {
@@ -4591,6 +4621,86 @@
         }
       }
     },
+    "book.detail_delete_server_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This deletes %1$d files (%2$@) for “%3$@”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_body_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d files (%2$@) and everything else in its folder are removed for every member. This can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_body_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This deletes 1 file (%1$@) for “%2$@”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_body_one_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 file (%1$@) and everything else in its folder are removed for every member. This can’t be undone."
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete book"
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_confirm_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Book"
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete from the server?"
+          }
+        }
+      }
+    },
+    "book.detail_delete_server_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete “%1$@” from the server?"
+          }
+        }
+      }
+    },
     "book.detail_details": {
       "localizations": {
         "en": {
@@ -4717,6 +4827,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Page %1$d of %2$d"
+          }
+        }
+      }
+    },
+    "book.detail_documents_sheet_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maps & illustrations"
+          }
+        }
+      }
+    },
+    "book.detail_documents_sheet_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maps & Illustrations"
           }
         }
       }
@@ -4881,6 +5011,46 @@
         }
       }
     },
+    "book.detail_files_audio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files & audio"
+          }
+        }
+      }
+    },
+    "book.detail_files_audio_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files & Audio"
+          }
+        }
+      }
+    },
+    "book.detail_files_sheet_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files & audio"
+          }
+        }
+      }
+    },
+    "book.detail_files_sheet_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files & Audio"
+          }
+        }
+      }
+    },
     "book.detail_finish_dates_before_start": {
       "localizations": {
         "en": {
@@ -4951,12 +5121,72 @@
         }
       }
     },
+    "book.detail_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre"
+          }
+        }
+      }
+    },
+    "book.detail_genre_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_held_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden from every member, and it can’t be played until you release it."
+          }
+        }
+      }
+    },
+    "book.detail_held_release": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release to members"
+          }
+        }
+      }
+    },
+    "book.detail_held_release_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Release to Members"
+          }
+        }
+      }
+    },
     "book.detail_insufficient_storage": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Not enough storage. Need %1$dMB, have %2$dMB available."
+          }
+        }
+      }
+    },
+    "book.detail_isbn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ISBN"
           }
         }
       }
@@ -5001,6 +5231,36 @@
         }
       }
     },
+    "book.detail_maps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maps & illustrations"
+          }
+        }
+      }
+    },
+    "book.detail_maps_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d documents"
+          }
+        }
+      }
+    },
+    "book.detail_maps_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maps & Illustrations"
+          }
+        }
+      }
+    },
     "book.detail_mark_as_finished": {
       "localizations": {
         "en": {
@@ -5031,12 +5291,172 @@
         }
       }
     },
+    "book.detail_menu_delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete from server…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_delete_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete from Server…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "book.detail_menu_edit_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit chapters"
+          }
+        }
+      }
+    },
+    "book.detail_menu_edit_chapters_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Chapters"
+          }
+        }
+      }
+    },
+    "book.detail_menu_mark_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as finished…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_mark_finished_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Finished…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_mark_not_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as not started…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_mark_not_started_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Not Started…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_match_details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match details…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_match_details_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match Details…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progress"
+          }
+        }
+      }
+    },
+    "book.detail_menu_restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart from the beginning…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_restart_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Over…"
+          }
+        }
+      }
+    },
+    "book.detail_menu_share_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share"
+          }
+        }
+      }
+    },
     "book.detail_mood": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Moods"
+          }
+        }
+      }
+    },
+    "book.detail_more_actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions"
           }
         }
       }
@@ -5137,6 +5557,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Streaming is unavailable. Downloaded books still play."
+          }
+        }
+      }
+    },
+    "book.detail_offline_reason": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can’t reach your server. This book isn’t downloaded, so it can’t play right now."
           }
         }
       }
@@ -5261,6 +5691,26 @@
         }
       }
     },
+    "book.detail_rating_add_note_for_listeners": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a note for your listeners"
+          }
+        }
+      }
+    },
+    "book.detail_rating_add_note_for_listeners_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a Note for Your Listeners"
+          }
+        }
+      }
+    },
     "book.detail_rating_checking": {
       "localizations": {
         "en": {
@@ -5337,6 +5787,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ratings"
+          }
+        }
+      }
+    },
+    "book.detail_rating_how_was_it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How was it?"
+          }
+        }
+      }
+    },
+    "book.detail_rating_how_was_it_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How Was It?"
           }
         }
       }
@@ -5821,12 +6291,72 @@
         }
       }
     },
+    "book.detail_remove_download_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frees %1$@ on this device. The book stays in your library, keeps your place, and streams when you’re online."
+          }
+        }
+      }
+    },
+    "book.detail_remove_download_body_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frees %1$@ on this device. The book stays in your library and keeps your place."
+          }
+        }
+      }
+    },
+    "book.detail_remove_download_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        }
+      }
+    },
+    "book.detail_remove_download_keep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep"
+          }
+        }
+      }
+    },
     "book.detail_remove_download_short": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remove"
+          }
+        }
+      }
+    },
+    "book.detail_remove_download_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove download?"
+          }
+        }
+      }
+    },
+    "book.detail_remove_download_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Download?"
           }
         }
       }
@@ -5927,6 +6457,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sample rate"
+          }
+        }
+      }
+    },
+    "book.detail_scan_flagged": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The scanner flagged this book’s files."
+          }
+        }
+      }
+    },
+    "book.detail_scan_review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review"
           }
         }
       }
