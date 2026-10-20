@@ -9,6 +9,8 @@ struct ResumeUnit: View {
     let timeRemainingMs: Int64?
     let progress: Float?
     let finishedSpan: BookFinishedSpan?
+    /// The hero's cover colours, when it has them: the bar draws the cover track under the harmonised fill.
+    var cover: CoverColors?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -42,11 +44,18 @@ struct ResumeUnit: View {
                     timeLeftLabel.layoutPriority(1)
                 }
             }
-            // HIG, Progress indicators: a determinate bar for a known amount; the system draws it.
-            ProgressView(value: fraction)
-                .tint(.listenUpOrange)
-                .accessibilityLabel(String(format: String(localized: "book.detail_progress_a11y"),
-                                           Int((fraction * 100).rounded())))
+            // HIG, Progress indicators: a determinate bar for a known amount. On a cover's colours, the cover track
+            // under the harmonised fill (Covers boards, Q4); otherwise the system bar, as PR 2 shipped it.
+            Group {
+                if let cover {
+                    ProgressView(value: fraction)
+                        .progressViewStyle(CoverTrackProgressStyle(track: cover.track, fill: cover.action))
+                } else {
+                    ProgressView(value: fraction).tint(.listenUpOrange)
+                }
+            }
+            .accessibilityLabel(String(format: String(localized: "book.detail_progress_a11y"),
+                                       Int((fraction * 100).rounded())))
         }
         .accessibilityElement(children: .combine)
     }

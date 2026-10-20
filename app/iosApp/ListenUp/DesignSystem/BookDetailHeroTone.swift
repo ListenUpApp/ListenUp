@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The one colour Book Detail's hero sits on, until PR 3 derives it from the cover: the spec's neutral wash
-/// (#F3EEEA) in light mode, the system's grouped secondary background in dark. Every hero surface reads it from here,
-/// so the cover-derived wash replaces exactly this.
+/// The neutral every hero falls back to when its cover gives no colour (`CoverThemeObserver`): the spec's neutral wash
+/// (#F3EEEA) in light mode, the system's grouped secondary background in dark.
 enum BookDetailHeroTone {
     static func color(for scheme: ColorScheme) -> Color {
         scheme == .dark ? Color(.secondarySystemBackground) : neutralLight

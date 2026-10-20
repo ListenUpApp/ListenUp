@@ -16,6 +16,8 @@ struct BookListenActions: View {
     let onCancelDownload: () -> Void
     let onDeleteDownload: () -> Void
     let onAddToShelf: () -> Void
+    /// The cover's harmonised coral for the primary fill; `nil` keeps the app's coral.
+    var actionTint: Color?
 
     @State private var confirmingDelete = false
 
@@ -27,6 +29,7 @@ struct BookListenActions: View {
                 ActionLabel(title: label.title, systemImage: label.systemImage, isBusy: label.isBusy)
             }
             .prominentAction()
+            .tint(actionTint)
             .buttonBorderShape(.capsule)
             .disabled(!label.isEnabled || label.isBusy)
 
