@@ -4,7 +4,6 @@ import com.calypsan.listenup.client.domain.model.CoverTheme
 import com.calypsan.listenup.client.domain.model.CoverThemeStyle
 import com.calypsan.listenup.client.domain.model.CoverThemeTokens
 import com.calypsan.listenup.client.domain.model.CoverThemes
-import com.materialkolor.blend.Blend
 import com.materialkolor.contrast.Contrast
 import com.materialkolor.hct.Hct
 import com.materialkolor.utils.ColorUtils
@@ -41,7 +40,7 @@ internal fun deriveCoverTheme(
     tokens: CoverThemeTokens,
     appearance: CoverAppearance,
 ): CoverTheme? {
-    if (swatches.clusters.all { Hct.fromInt(it.argb).tone < NEAR_BLACK_TONE }) return null
+    if (darkShare(swatches) >= NEAR_BLACK_SHARE) return null
     val brandHue = Hct.fromInt(tokens.brandArgb).hue
     val source =
         listOfNotNull(swatches.lightMuted, swatches.lightVibrant, swatches.muted)
@@ -55,14 +54,15 @@ internal fun deriveCoverTheme(
             tone = appearance.washTone,
         )
     if (contrastRatio(tokens.inkArgb, wash) < MIN_TEXT_CONTRAST) return null
-    // Blend.harmonize keeps the coral's tone, so its contrast with the label barely moves; the guard is for tokens
-    // that never cleared it. (A softer cap than MCU's fixed 15° would rotate with Hct.from here instead: Q3.)
-    val harmonized = Blend.harmonize(tokens.brandArgb, source.toInt())
+    // Harmonising keeps the coral's tone, so its contrast with the label barely moves; the guard is for tokens that
+    // never cleared it.
+    val harmonized = harmonize(tokens.brandArgb, source)
     val action =
         if (contrastRatio(tokens.onBrandArgb, harmonized) >= MIN_TEXT_CONTRAST) harmonized else tokens.brandArgb
     return CoverTheme(
         washArgb = wash,
-        trackArgb = trackFor(swatches = swatches, source = source, brandHue = brandHue, appearance = appearance),
+        trackArgb =
+            trackFor(swatches = swatches, source = source, brandHue = brandHue, appearance = appearance, fill = action),
         actionArgb = action,
         onActionArgb = tokens.onBrandArgb,
     )
@@ -77,6 +77,7 @@ private fun trackFor(
     source: Hct,
     brandHue: Double,
     appearance: CoverAppearance,
+    fill: Int,
 ): Int {
     val floor = swatches.totalPopulation * ACCENT_MIN_SHARE
     val accent =
@@ -89,11 +90,52 @@ private fun trackFor(
                     hueDistance(hct.hue, brandHue) > CORAL_HUE_GUARD
             }.maxByOrNull { (cluster, hct) -> cluster.population * hct.chroma }
             ?.second
+    val tone = trackTone(appearance, fill)
     return if (accent != null) {
-        Hct.from(accent.hue, min(accent.chroma, TRACK_MAX_CHROMA), appearance.trackTone).toInt()
+        Hct.from(accent.hue, min(accent.chroma, TRACK_MAX_CHROMA), tone).toInt()
     } else {
-        Hct.from(source.hue, min(source.chroma, appearance.washChroma), appearance.trackTone).toInt()
+        Hct.from(source.hue, min(source.chroma, appearance.washChroma), tone).toInt()
     }
+}
+
+/**
+ * The appearance's track tone, moved away from the [fill] only as far as WCAG 1.4.11 needs for the bar to read (3:1):
+ * lighter in light, deeper in dark. Web's dark fill is Coral Fill, which sits too close to tone 30.
+ */
+private fun trackTone(
+    appearance: CoverAppearance,
+    fill: Int,
+): Double {
+    val fillTone = ColorUtils.lstarFromArgb(fill)
+    if (Contrast.ratioOfTones(fillTone, appearance.trackTone) >= MIN_GRAPHIC_CONTRAST) return appearance.trackTone
+    val moved =
+        when (appearance) {
+            CoverAppearance.Light -> Contrast.lighter(fillTone, MIN_GRAPHIC_CONTRAST)
+            CoverAppearance.Dark -> Contrast.darker(fillTone, MIN_GRAPHIC_CONTRAST)
+        }
+    return if (moved < 0) appearance.trackTone else moved
+}
+
+/** The share of the cover's pixels darker than tone 20: a cover that is nearly all black has no colour to give. */
+private fun darkShare(swatches: CoverSwatches): Double =
+    swatches.clusters
+        .filter { Hct.fromInt(it.argb).tone < NEAR_BLACK_TONE }
+        .sumOf { it.population }
+        .toDouble() / swatches.totalPopulation
+
+/**
+ * MCU's `Blend.harmonize` with a gentler cap (Q3): the coral turns half-way toward the cover's hue, at most
+ * [HARMONIZE_CAP_DEGREES], keeping its chroma and tone. The boards turned it a few degrees, never MCU's 15.
+ */
+private fun harmonize(
+    design: Int,
+    toward: Hct,
+): Int {
+    val from = Hct.fromInt(design)
+    val rotation = min(hueDistance(from.hue, toward.hue) * HALF, HARMONIZE_CAP_DEGREES)
+    val clockwise = ((toward.hue - from.hue) % FULL_TURN + FULL_TURN) % FULL_TURN <= HALF_TURN
+    val hue = ((from.hue + if (clockwise) rotation else -rotation) % FULL_TURN + FULL_TURN) % FULL_TURN
+    return Hct.from(hue, from.chroma, from.tone).toInt()
 }
 
 /** Web mixes the wash into its paper (C8): half and half in sRGB, then back to the wash's tone. */
@@ -131,6 +173,10 @@ internal fun hueDistance(
 }
 
 private const val NEAR_BLACK_TONE = 20.0
+private const val NEAR_BLACK_SHARE = 0.9
+private const val MIN_GRAPHIC_CONTRAST = 3.0
+private const val HALF = 0.5
+private const val HALF_TURN = 180.0
 private const val GREY_CHROMA = 4.0
 private const val CORAL_HUE_GUARD = 25.0
 private const val ACCENT_HUE_GAP = 45.0
@@ -142,3 +188,6 @@ private const val CHANNEL = 0xFF
 private const val RED_SHIFT = 16
 private const val GREEN_SHIFT = 8
 private const val BLUE_SHIFT = 0
+
+/** How far the action coral turns toward the cover, at most (Q3). */
+internal const val HARMONIZE_CAP_DEGREES = 5.0

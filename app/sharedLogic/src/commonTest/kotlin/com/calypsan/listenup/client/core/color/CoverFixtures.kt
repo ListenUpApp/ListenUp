@@ -33,6 +33,13 @@ internal val GREYSCALE = arrayOf("#202020" to 1400, "#808080" to 1400, "#C8C8C8"
 
 internal val NEAR_BLACK = arrayOf("#0A0A0F" to 2000, "#15121A" to 1500, "#1E1410" to 596)
 
+/** A near-black cover with a small red corner and a slate title (The Art of War on the rig): about 93% dark. */
+internal val ART_OF_WAR =
+    arrayOf("#0A0A0F" to 2000, "#15121A" to 1500, "#1E1410" to 300, "#B3261E" to 150, "#5A6470" to 146)
+
+/** `#RRGGBB`, for clues. */
+internal fun cssLike(argb: Int): String = "#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0').uppercase()
+
 /** iOS's tokens (asset catalog `BrandCoral` / `OnBrandCoral`, `.label`), as `CoverThemeStyle.listenUp` builds them. */
 internal val IOS_STYLE =
     CoverThemeStyle(

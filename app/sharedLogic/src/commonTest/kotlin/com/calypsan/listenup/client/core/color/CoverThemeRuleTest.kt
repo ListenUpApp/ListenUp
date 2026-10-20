@@ -39,7 +39,7 @@ class CoverThemeRuleTest :
 
             val brand = hct(hex("#D73812"))
             hct(light.actionArgb).tone shouldBe (brand.tone plusOrMinus 0.5)
-            hueDistance(hct(light.actionArgb).hue, brand.hue) shouldBe (15.0 plusOrMinus 1.0)
+            hueDistance(hct(light.actionArgb).hue, brand.hue) shouldBe (HARMONIZE_CAP_DEGREES plusOrMinus 0.5)
             light.onActionArgb shouldBe hex("#FFFFFF")
         }
 
@@ -65,6 +65,42 @@ class CoverThemeRuleTest :
         test("a greyscale cover is neutral") { themes(GREYSCALE, IOS_STYLE) shouldBe null }
 
         test("a near-black cover is neutral") { themes(NEAR_BLACK, IOS_STYLE) shouldBe null }
+
+        test("a near-black cover with a small bright corner is still neutral (The Art of War)") {
+            themes(ART_OF_WAR, IOS_STYLE) shouldBe null
+            themes(ART_OF_WAR, WEB_STYLE) shouldBe null
+        }
+
+        // The boards turn the coral a few degrees, not MCU's 15 (Q3). Both platforms harmonise #D73812 in light (D1),
+        // so both are held to the iPhone boards' actions. The Way of Kings' board turned it 5.8°; ΔE 4.5 holds the rule
+        // to it. The green board barely turned it at all (0.6°, and away from green), which no rule that turns toward
+        // the cover can reach: ΔE 9.5 holds it to "a few degrees toward green", nothing further.
+        test("the action lands where the boards put it: The Way of Kings within ΔE 4.5 of #D2342A") {
+            listOf(IOS_STYLE, WEB_STYLE).forEach { style ->
+                val action = themes(WAY_OF_KINGS, style).shouldNotBeNull().light.actionArgb
+                withClue("action ${cssLike(action)}") { deltaE(action, hex("#D2342A")) shouldBeLessThanOrEqual 4.5 }
+            }
+        }
+
+        test("the action lands where the boards put it: the green cover within ΔE 9.5 of #D63E1E") {
+            listOf(IOS_STYLE, WEB_STYLE).forEach { style ->
+                val action = themes(GREEN, style).shouldNotBeNull().light.actionArgb
+                withClue("action ${cssLike(action)}") { deltaE(action, hex("#D63E1E")) shouldBeLessThanOrEqual 9.5 }
+            }
+        }
+
+        test("the progress fill reads on its track at 3:1, on both platforms, in both appearances") {
+            listOf(WAY_OF_KINGS, GREEN).forEach { cover ->
+                mapOf("iOS" to IOS_STYLE, "web" to WEB_STYLE).forEach { (platform, style) ->
+                    val themes = themes(cover, style).shouldNotBeNull()
+                    mapOf("light" to themes.light, "dark" to themes.dark).forEach { (appearance, theme) ->
+                        withClue("$platform $appearance fill ${cssLike(theme.actionArgb)} on ${cssLike(theme.trackArgb)}") {
+                            contrastRatio(theme.actionArgb, theme.trackArgb) shouldBeGreaterThanOrEqual 3.0
+                        }
+                    }
+                }
+            }
+        }
 
         test("a one-pixel cover still gets a wash") {
             val pixels = intArrayOf(hex("#AEB5C2"))
