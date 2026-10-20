@@ -41,4 +41,16 @@ struct CoverStackLayoutTests {
         let layout = CoverStackLayout(coverCount: 3, size: 100, peek: 20)
         #expect(layout.zIndex(at: 0) > layout.zIndex(at: 2))
     }
+
+    @Test func aSeriesDeckDrawsThreeLayersAtMost() {
+        #expect(CoverStackLayout.layers(of: 7, max: 3) == 3)
+        #expect(CoverStackLayout.layers(of: 2, max: 3) == 2)
+        #expect(CoverStackLayout.layers(of: 0, max: 3) == 0)
+    }
+
+    @Test func theSeriesBadgeSaysTheCountAndIsAbsentForOneBook() {
+        #expect(SeriesCountBadge.text(7) == "7")
+        #expect(SeriesCountBadge.text(1) == nil)
+        #expect(SeriesCountBadge.accessibilityLabel(7) == "7 books")
+    }
 }

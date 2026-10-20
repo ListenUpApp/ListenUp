@@ -39,13 +39,23 @@ struct CoverStack: View {
     var peek: CGFloat
     var maxCovers: Int = 4
     var ring: Color = .luSurface2
+    /// A count drawn at the deck's bottom-trailing corner (spec c6: a series' book count); nil draws none.
+    var countBadge: Int?
 
-    init(covers: [CoverArt], size: CGFloat, peek: CGFloat, maxCovers: Int = 4, ring: Color = .luSurface2) {
+    init(
+        covers: [CoverArt],
+        size: CGFloat,
+        peek: CGFloat,
+        maxCovers: Int = 4,
+        ring: Color = .luSurface2,
+        countBadge: Int? = nil
+    ) {
         self.covers = covers
         self.size = size
         self.peek = peek
         self.maxCovers = maxCovers
         self.ring = ring
+        self.countBadge = countBadge
     }
 
     /// Convenience: build a deck from series/contributor books.
@@ -53,7 +63,7 @@ struct CoverStack: View {
         self.init(covers: books.map(CoverArt.init(book:)), size: size, peek: peek, maxCovers: maxCovers, ring: ring)
     }
 
-    private var visible: [CoverArt] { Array(covers.prefix(maxCovers)) }
+    private var visible: [CoverArt] { Array(covers.prefix(CoverStackLayout.layers(of: covers.count, max: maxCovers))) }
     private var layout: CoverStackLayout {
         CoverStackLayout(coverCount: visible.count, size: size, peek: peek)
     }
@@ -82,9 +92,35 @@ struct CoverStack: View {
         }
         .frame(width: layout.totalWidth, height: size, alignment: .leading)
         .shadow(color: .black.opacity(0.10), radius: 9, x: 0, y: 5)
+        .overlay(alignment: .bottomTrailing) {
+            if let countBadge, let text = SeriesCountBadge.text(countBadge) {
+                // Ink on paper (board `Library-WebPhone`): the label colour on the background colour, so it holds in
+                // dark mode too.
+                Text(text)
+                    .font(.caption.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color(.systemBackground))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(.primary))
+                    .offset(x: 4, y: 4)
+            }
+        }
         // Decorative: the enclosing row / hero (a labeled NavigationLink) owns the
         // accessibility label, so the deck stays hidden to avoid double-spoken covers.
         .accessibilityHidden(true)
+    }
+}
+
+/// A series deck's count badge: "7" on the covers. A one-book series has none — its meta line already says "1 book".
+enum SeriesCountBadge {
+    static func text(_ count: Int) -> String? {
+        count > 1 ? count.formatted() : nil
+    }
+
+    /// What the badge means, for the card's own accessibility value; the badge itself is hidden with the deck.
+    static func accessibilityLabel(_ count: Int) -> String {
+        String(format: String(localized: "library.series_count_badge_a11y"), count)
     }
 }
 
