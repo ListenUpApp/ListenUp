@@ -4,10 +4,9 @@ import SwiftUI
 /// the same reason `+OverflowMenu` is: that struct sits at SwiftLint's 400-line body cap.
 @MainActor
 extension BookDetailView {
-    /// The held section, drawing the layout's triage actions (Release, Match, Edit chapters); nothing
-    /// for an ordinary book. Match and Edit chapters open the same sheets the overflow menu's items
-    /// do. The Release alert rides the section that asks for it, so the main view's body carries
-    /// none of the triage.
+    /// The held card, drawing the layout's triage actions (Release, Edit Details, Match, Edit Chapters); nothing for an
+    /// ordinary book. Each opens the same sheet the More menu's item does. The Release alert rides the card that asks
+    /// for it, so the main view's body carries none of the triage.
     @ViewBuilder
     func heldSection(_ observer: BookDetailObserver) -> some View {
         if observer.layout.showsHeldSection {
