@@ -11,13 +11,13 @@ struct BookDetailRowsModelTests {
             == "\(BookDetailHero.durationText(ms: 163_800_000)) · 75 chapters")
         #expect(BookDetailRowValue.length(durationMs: 163_800_000, chapterCount: 1).cell.value
             == "\(BookDetailHero.durationText(ms: 163_800_000)) · 1 chapter")
-        #expect(BookDetailRowValue.filesAndAudio(container: "M4B", bitrate: "64 kbps").cell.value == "M4B · 64 kbps")
+        #expect(BookDetailRowValue.filesAndAudio(format: "AAC", bitrate: "64 kbps").cell.value == "AAC · 64 kbps")
         #expect(BookDetailRowValue.allCredits(count: 6).cell.value == "6")
     }
 
     @Test func theThreeLinkRowsAreLinksAndNothingElseIs() {
         #expect(BookDetailRowValue.allCredits(count: 6).cell.link == .credits)
-        #expect(BookDetailRowValue.filesAndAudio(container: nil, bitrate: nil).cell.link == .filesAndAudio)
+        #expect(BookDetailRowValue.filesAndAudio(format: nil, bitrate: nil).cell.link == .filesAndAudio)
         #expect(BookDetailRowValue.maps(count: 1, onlyDocumentId: "d1", format: "PDF", totalBytes: 1).cell.link
             == .document("d1"))
         #expect(BookDetailRowValue.maps(count: 2, onlyDocumentId: nil, format: nil, totalBytes: 1).cell.link
@@ -26,7 +26,7 @@ struct BookDetailRowsModelTests {
     }
 
     @Test func labelsAreTitleCaseOnIOS() {
-        #expect(BookDetailRowValue.filesAndAudio(container: nil, bitrate: nil).cell.label == "Files & Audio")
+        #expect(BookDetailRowValue.filesAndAudio(format: nil, bitrate: nil).cell.label == "Files & Audio")
         #expect(BookDetailRowValue.maps(count: 1, onlyDocumentId: "d", format: "PDF", totalBytes: 1).cell.label
             == "Maps & Illustrations")
     }

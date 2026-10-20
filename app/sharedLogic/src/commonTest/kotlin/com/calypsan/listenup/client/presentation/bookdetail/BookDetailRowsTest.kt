@@ -72,7 +72,7 @@ class BookDetailRowsTest :
                     BookDetailRow.Isbn("9781427209979"),
                     BookDetailRow.Asin("B003ZWFO7E"),
                     BookDetailRow.AllCredits(count = 6),
-                    BookDetailRow.FilesAndAudio(container = "M4B", bitrate = "64 kbps"),
+                    BookDetailRow.FilesAndAudio(format = "AAC", bitrate = "64 kbps"),
                     BookDetailRow.MapsAndIllustrations(
                         count = 1,
                         onlyDocumentId = "map",
@@ -116,6 +116,17 @@ class BookDetailRowsTest :
                     format = null,
                     totalBytes = 18L * 1024 * 1024 + 512L,
                 )
+        }
+
+        // The row and the Files & audio sheet say the same thing: the codec ("AAC"), never the container ("M4B").
+        // A bitrate that rounds to nothing is unknown, not "0 kbps" (the rig drive's "M4B · 0 kbps").
+        test("Files & audio names the codec the sheet names, and drops a bitrate that rounds to 0") {
+            val silent = file.copy(bitrate = 400, size = 0L)
+            bookDetailRows(full.copy(book = full.book.copy(audioFiles = listOf(silent))), emptyList())
+                .filterIsInstance<BookDetailRow.FilesAndAudio>()
+                .single() shouldBe BookDetailRow.FilesAndAudio(format = "AAC", bitrate = null)
+            audioFormatDisplay(listOf(silent)).bitrate shouldBe null
+            audioFormatDisplay(listOf(file.copy(bitrate = 0, size = 100L, duration = 3_600_000L))).bitrate shouldBe null
         }
 
         test("no audio files, no Files & audio row") {

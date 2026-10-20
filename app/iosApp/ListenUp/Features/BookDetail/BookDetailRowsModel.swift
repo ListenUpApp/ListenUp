@@ -32,7 +32,7 @@ enum BookDetailRowValue: Equatable {
     case isbn(String)
     case asin(String)
     case allCredits(count: Int)
-    case filesAndAudio(container: String?, bitrate: String?)
+    case filesAndAudio(format: String?, bitrate: String?)
     case maps(count: Int, onlyDocumentId: String?, format: String?, totalBytes: Int64)
 
     // Deliberately no `default`: a new Kotlin row must fail to compile here.
@@ -48,7 +48,7 @@ enum BookDetailRowValue: Equatable {
         case .isbn(let it): self = .isbn(it.value.isbn)
         case .asin(let it): self = .asin(it.value.asin)
         case .allCredits(let it): self = .allCredits(count: Int(it.value.count))
-        case .filesAndAudio(let it): self = .filesAndAudio(container: it.value.container, bitrate: it.value.bitrate)
+        case .filesAndAudio(let it): self = .filesAndAudio(format: it.value.format, bitrate: it.value.bitrate)
         case .mapsAndIllustrations(let it):
             let maps = it.value
             self = .maps(count: Int(maps.count), onlyDocumentId: maps.onlyDocumentId, format: maps.format,
@@ -94,10 +94,10 @@ enum BookDetailRowValue: Equatable {
             BookDetailCell(label: String(localized: "book.detail_asin"), value: asin, link: nil)
         case .allCredits(let count):
             BookDetailCell(label: String(localized: "book.detail_all_credits"), value: String(count), link: .credits)
-        case .filesAndAudio(let container, let bitrate):
+        case .filesAndAudio(let format, let bitrate):
             BookDetailCell(
                 label: String(localized: "book.detail_files_audio_ios"),
-                value: [container, bitrate].compactMap { $0 }.joined(separator: " · "),
+                value: [format, bitrate].compactMap { $0 }.joined(separator: " · "),
                 link: .filesAndAudio
             )
         case .maps(let count, let onlyDocumentId, let format, let totalBytes):

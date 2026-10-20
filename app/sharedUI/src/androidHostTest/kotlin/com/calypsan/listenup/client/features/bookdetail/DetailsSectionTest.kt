@@ -137,7 +137,7 @@ class DetailsSectionTest {
         composeRule.onNodeWithText("45h 30m · 75 chapters").assertExists()
         composeRule.onNodeWithText("9781427209979").assertExists()
         composeRule.onNodeWithText("B003ZWFO7E").assertExists()
-        composeRule.onNodeWithText("M4B · 64 kbps").assertExists()
+        composeRule.onNodeWithText("AAC · 64 kbps").assertExists()
         composeRule.onNodeWithText("PDF · 18.0 MB").assertExists()
     }
 

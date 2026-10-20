@@ -20,7 +20,7 @@ private val PREVIEW_ROWS =
         BookDetailRow.Isbn("9781427209979"),
         BookDetailRow.Asin("B003ZWFO7E"),
         BookDetailRow.AllCredits(6),
-        BookDetailRow.FilesAndAudio(container = "M4B", bitrate = "64 kbps"),
+        BookDetailRow.FilesAndAudio(format = "AAC", bitrate = "64 kbps"),
         BookDetailRow.MapsAndIllustrations(count = 1, onlyDocumentId = "d1", format = "PDF", totalBytes = 18_874_368L),
     )
 

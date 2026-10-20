@@ -69,7 +69,7 @@ fun audioFormatDisplay(files: List<AudioFile>): AudioFormatDisplay {
         format = primary?.let { audioFormatIdentity(it.codec, it.codecProfile, it.spatial) },
         bitrate =
             bitrateLabel(primary?.bitrate)
-                ?: audioFormatSummary(files)?.approxBitrateKbps?.let { "~$it kbps" },
+                ?: audioFormatSummary(files)?.approxBitrateKbps?.takeIf { it > 0 }?.let { "~$it kbps" },
         sampleRate = sampleRateLabel(primary?.sampleRate),
         channels = channelsLabel(primary?.channels),
     )
@@ -119,8 +119,9 @@ private fun aacProfileLabel(codecProfile: String?): String =
 
 /** Exact bitrate label — "320 kbps" from bits/sec; null when absent or non-positive. */
 fun bitrateLabel(bitrate: Int?): String? {
-    if (bitrate == null || bitrate <= 0) return null
-    return "${(bitrate / 1000.0).roundToInt()} kbps"
+    val kbps = bitrate?.let { (it / 1000.0).roundToInt() } ?: return null
+    // A bitrate that rounds to nothing is unknown: "0 kbps" would be a confident wrong answer.
+    return if (kbps > 0) "$kbps kbps" else null
 }
 
 /** Sample-rate label — "48 kHz" / "44.1 kHz" from hertz; null when absent or non-positive. */

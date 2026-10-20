@@ -52,9 +52,14 @@ sealed interface BookDetailRow {
         val count: Int,
     ) : BookDetailRow
 
-    /** "Files & audio (M4B · 64 kbps) ›". Opens the Files & audio sheet (Android, iOS) or the Files view (web). */
+    /**
+     * "Files & audio (AAC · 64 kbps) ›". Opens the Files & audio sheet (Android, iOS) or the Files view (web).
+     *
+     * @property format The audio format the sheet names too ([audioFormatDisplay]'s format: "AAC", "Dolby Atmos").
+     * @property bitrate "64 kbps"; null when unknown, never "0 kbps".
+     */
     data class FilesAndAudio(
-        val container: String?,
+        val format: String?,
         val bitrate: String?,
     ) : BookDetailRow
 
@@ -94,13 +99,8 @@ fun bookDetailRows(
         book.asin.trimmedOrNull()?.let { add(BookDetailRow.Asin(it)) }
         if (credits.isNotEmpty()) add(BookDetailRow.AllCredits(credits.size))
         if (book.audioFiles.isNotEmpty()) {
-            val container = book.audioFiles.first().format
-            add(
-                BookDetailRow.FilesAndAudio(
-                    container = container.trimmedOrNull()?.uppercase(),
-                    bitrate = audioFormatDisplay(book.audioFiles).bitrate,
-                ),
-            )
+            val audio = audioFormatDisplay(book.audioFiles)
+            add(BookDetailRow.FilesAndAudio(format = audio.format, bitrate = audio.bitrate))
         }
         if (documents.isNotEmpty()) {
             add(

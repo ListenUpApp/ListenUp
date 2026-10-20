@@ -932,7 +932,7 @@ private fun BookDetailRow.value(): String =
         }
 
         is BookDetailRow.FilesAndAudio -> {
-            listOfNotNull(container, bitrate).joinToString(" · ")
+            listOfNotNull(format, bitrate).joinToString(" · ")
         }
 
         is BookDetailRow.MapsAndIllustrations -> {

@@ -163,7 +163,7 @@ private fun BookDetailRow.cell(): DetailCell =
         is BookDetailRow.FilesAndAudio -> {
             DetailCell(
                 stringResource(Res.string.book_detail_files_audio),
-                listOfNotNull(container, bitrate).joinToString(" · "),
+                listOfNotNull(format, bitrate).joinToString(" · "),
             )
         }
 

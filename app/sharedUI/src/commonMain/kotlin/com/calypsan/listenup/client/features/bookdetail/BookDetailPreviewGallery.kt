@@ -362,7 +362,7 @@ private fun DetailsSectionGallery() {
                 BookDetailRow.Language("English"),
                 BookDetailRow.Added(MOCK_ADDED_AT_MS),
                 BookDetailRow.AllCredits(mockCredits.size),
-                BookDetailRow.FilesAndAudio(container = "M4B", bitrate = "64 kbps"),
+                BookDetailRow.FilesAndAudio(format = "AAC", bitrate = "64 kbps"),
             ),
         onAllCredits = {},
         onFilesAndAudio = {},
