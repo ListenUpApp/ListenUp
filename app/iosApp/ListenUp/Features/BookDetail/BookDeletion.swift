@@ -1,12 +1,10 @@
 import Foundation
 
-/// What Delete Book's confirmation says, and what it counts.
+/// What Delete from Server's alert says, and what it counts (spec §2.8, the iOS Confirms board's words).
 ///
-/// The copy is Android's `DeleteBookDialog`, string for string (`book.detail_delete_book_*`), for the
-/// same reasons: it names the book's **folder** rather than "the library", counts the files ListenUp
-/// *tracks* there (audio plus documents — a real library has folders carrying bonus PDFs the app never
-/// modelled, so a bare "5 files" could be checked against the folder and found wrong), and says every
-/// device loses the book. Understating what a permanent delete removes is the one thing it cannot do.
+/// The title names the book and the server; the message counts the files ListenUp *tracks* in its folder (audio plus
+/// documents) and what they weigh, says everything else in its folder goes too, for every member, and that it can't be
+/// undone. Understating what a permanent delete removes is the one thing it cannot do.
 enum BookDeletion {
     /// The files ListenUp knows are in the book's folder, and their combined size.
     struct Tracked: Equatable {
@@ -20,16 +18,21 @@ enum BookDeletion {
     }
 
     static func title(bookTitle: String) -> String {
-        String(format: String(localized: "book.detail_delete_book_title"), bookTitle)
+        String(format: String(localized: "book.detail_delete_server_title_ios"), bookTitle)
     }
 
     /// `formattedSize` arrives formatted so the sentence stays testable; `ByteCountFormatter`'s
     /// output depends on the device's locale.
     static func message(fileCount: Int, formattedSize: String) -> String {
-        String(
-            format: String(localized: "book.detail_delete_book_body"),
-            Int32(clamping: fileCount),
-            formattedSize
-        )
+        fileCount == 1
+            ? String(format: String(localized: "book.detail_delete_server_body_one_ios"), formattedSize)
+            : String(
+                format: String(localized: "book.detail_delete_server_body_ios"),
+                Int32(clamping: fileCount),
+                formattedSize
+            )
     }
+
+    /// The alert's destructive verb.
+    static var confirm: String { String(localized: "book.detail_delete_server_confirm_ios") }
 }

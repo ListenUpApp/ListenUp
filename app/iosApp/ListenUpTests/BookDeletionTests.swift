@@ -25,7 +25,7 @@ struct BookDetailNavReactionTests {
     }
 }
 
-/// The confirmation's copy — Android's `DeleteBookDialog`, string for string.
+/// The two confirms' copy: Delete from Server and Remove Download (spec §2.8).
 @Suite("BookDeletion")
 struct BookDeletionTests {
     @Test func tracksAudioAndDocumentsTogether() {
@@ -41,14 +41,26 @@ struct BookDeletionTests {
         #expect(tracked.bytes == 0)
     }
 
-    @Test func titleNamesTheBook() {
-        #expect(BookDeletion.title(bookTitle: "The Institute") == "Delete “The Institute”?")
+    @Test func theTitleNamesTheBookAndTheServer() {
+        #expect(BookDeletion.title(bookTitle: "The Way of Kings") == "Delete “The Way of Kings” from the server?")
     }
 
-    @Test func messageSaysTheFolderGoesWithACountAndASize() {
-        let message = BookDeletion.message(fileCount: 5, formattedSize: "514 MB")
-        #expect(message == "This permanently deletes the book’s folder from your server. ListenUp tracks 5 files "
-            + "in it (514 MB), and everything else in that folder goes too — PDFs, artwork, bonus material — "
-            + "whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone.")
+    @Test func theMessageSaysTheFilesTheFolderEveryMemberAndNoUndo() {
+        #expect(BookDeletion.message(fileCount: 76, formattedSize: "1.2 GB") ==
+            "76 files (1.2 GB) and everything else in its folder are removed for every member. This can’t be undone.")
+        #expect(BookDeletion.message(fileCount: 1, formattedSize: "1 KB") ==
+            "1 file (1 KB) and everything else in its folder are removed for every member. This can’t be undone.")
+    }
+
+    @Test func theVerbIsDeleteBook() {
+        #expect(BookDeletion.confirm == "Delete Book")
+    }
+
+    @Test func removeDownloadSaysWhatItFreesAndKeepsYourPlace() {
+        #expect(RemoveDownloadCopy.title == "Remove Download?")
+        #expect(RemoveDownloadCopy.message(formattedSize: "1.2 GB") ==
+            "Frees 1.2 GB on this device. The book stays in your library and keeps your place.")
+        #expect(RemoveDownloadCopy.keep == "Keep")
+        #expect(RemoveDownloadCopy.remove == "Remove")
     }
 }
