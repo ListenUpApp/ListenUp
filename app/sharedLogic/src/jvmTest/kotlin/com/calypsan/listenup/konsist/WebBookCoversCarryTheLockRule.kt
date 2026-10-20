@@ -58,6 +58,10 @@ internal val BARE_COVER_EXEMPTIONS: Map<String, BareCoverExemption> =
         "features/bookdetail/SeriesShelfSection.kt" to
             BareCoverExemption(1, "Book Detail's series shelf of 64 px thumbnails; the series page's rows carry the lock"),
         "features/bookedit/CoverField.kt" to BareCoverExemption(1, "the editor's cover picker, not a card"),
+        "features/serieslist/SeriesListPage.kt" to
+            BareCoverExemption(1, "a series card's aria-hidden stack of covers stands for the series, not a book card"),
+        "features/contributors/ContributorsPage.kt" to
+            BareCoverExemption(1, "a people row's aria-hidden preview covers, decoration beside the person's name"),
         "features/hardcover/HardcoverPage.kt" to BareCoverExemption(1, "a Hardcover matching-task row, not a browse card"),
         "features/hardcover/KeptOffBooksPage.kt" to BareCoverExemption(1, "a kept-off-Hardcover row, not a browse card"),
         "features/nowplaying/NowPlayingPanel.kt" to BareCoverExemption(1, "the player's art, for the book you are already playing"),
@@ -75,7 +79,8 @@ private fun webFeatureSources(): Map<String, String> =
 
 private val COVER_CALL = Regex("""(?<!\w)Cover\(""")
 
-private val OVERLAY_ARG = Regex("""\boverlay\s*=""")
+/** An `overlay =` that draws something: `{}` or `{ }` is no overlay, and does not pass the rule. */
+private val OVERLAY_ARG = Regex("""\boverlay\s*=(?!\s*\{\s*\})""")
 
 /**
  * 1-based lines of [source] where a `Cover(` call begins whose argument list never names `overlay =`.

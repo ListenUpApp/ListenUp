@@ -247,8 +247,6 @@ private fun ContributorRow(
                         size = PREVIEW_COVER_SIZE,
                         radius = PREVIEW_COVER_RADIUS,
                         decorative = true,
-                        // A person's preview, not a book card: no book's lock belongs on it.
-                        overlay = {},
                     )
                 }
             }

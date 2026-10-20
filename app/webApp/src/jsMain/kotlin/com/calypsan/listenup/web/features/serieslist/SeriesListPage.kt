@@ -207,8 +207,6 @@ private fun SeriesCard(
                         radius = STACK_COVER_RADIUS,
                         decorative = true,
                         attrs = { classes("srs-c", "srs-c-$index") },
-                        // The stack is decoration for the series, not a book card: no book's lock belongs on it.
-                        overlay = {},
                     )
                 }
                 if (entry.books.size > 1) {
@@ -292,3 +290,4 @@ private const val CARD_COVER_RUNG = 200
 private const val STACK_COVERS = 3
 private const val STACK_COVER_SIZE = 72
 private const val STACK_COVER_RADIUS = 6
+
