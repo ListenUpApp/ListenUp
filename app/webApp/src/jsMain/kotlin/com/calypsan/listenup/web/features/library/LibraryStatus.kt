@@ -36,34 +36,34 @@ internal fun LibraryStatus(
     when {
         words != null && (scan != null || isBuilding) -> {
             StatusStrip(placement) {
-                Span(attrs = { classes("lib-status-t") }) { Text(words.title) }
+                Span(attrs = { classes(STATUS_TITLE_CLASS) }) { Text(words.title) }
                 scan?.progressFraction?.let { fraction ->
-                    ProgressBar(value = fraction, label = words.title, attrs = { classes("lib-status-track") })
+                    ProgressBar(value = fraction, label = words.title, attrs = { classes(STATUS_TRACK_CLASS) })
                 }
-                Span(attrs = { classes("lib-status-sub") }) { Text(words.body) }
+                Span(attrs = { classes(STATUS_SUB_CLASS) }) { Text(words.body) }
             }
         }
 
         scan != null -> {
             StatusStrip(placement) {
-                Span(attrs = { classes("lib-status-t") }) { Text(scan.phaseDisplayName) }
+                Span(attrs = { classes(STATUS_TITLE_CLASS) }) { Text(scan.phaseDisplayName) }
                 scan.progressFraction?.let { fraction ->
                     ProgressBar(
                         value = fraction,
                         label = scan.phaseDisplayName,
-                        attrs = { classes("lib-status-track") },
+                        attrs = { classes(STATUS_TRACK_CLASS) },
                     )
                 }
                 scan.changesSummary?.let { summary ->
-                    Span(attrs = { classes("lib-status-sub") }) { Text(summary) }
+                    Span(attrs = { classes(STATUS_SUB_CLASS) }) { Text(summary) }
                 }
             }
         }
 
         isBuilding -> {
             StatusStrip(placement) {
-                Span(attrs = { classes("lib-status-t") }) { Text("Building your library…") }
-                Span(attrs = { classes("lib-status-sub") }) { Text("Books appear as they arrive.") }
+                Span(attrs = { classes(STATUS_TITLE_CLASS) }) { Text("Building your library…") }
+                Span(attrs = { classes(STATUS_SUB_CLASS) }) { Text("Books appear as they arrive.") }
             }
         }
 
@@ -92,17 +92,21 @@ internal fun LibraryStripStatus(
         is LibraryStatusStrip.Scanning -> {
             val scan = strip.progress
             StatusStrip(placement) {
-                Span(attrs = { classes("lib-status-t") }) { Text(SCANNING_TITLE) }
-                Span(attrs = { classes("lib-status-sub") }) { Text(scanDetail(scan)) }
-                ProgressBar(value = scan.progressFraction, label = SCANNING_TITLE, attrs = { classes("lib-status-track") })
+                Span(attrs = { classes(STATUS_TITLE_CLASS) }) { Text(SCANNING_TITLE) }
+                Span(attrs = { classes(STATUS_SUB_CLASS) }) { Text(scanDetail(scan)) }
+                ProgressBar(
+                    value = scan.progressFraction,
+                    label = SCANNING_TITLE,
+                    attrs = { classes(STATUS_TRACK_CLASS) },
+                )
             }
         }
 
         is LibraryStatusStrip.Arriving -> {
             StatusStrip(placement) {
-                Span(attrs = { classes("lib-status-t") }) { Text(ARRIVING_TITLE) }
-                Span(attrs = { classes("lib-status-sub") }) { Text(arrivingDetail(strip.booksSoFar)) }
-                ProgressBar(value = null, label = ARRIVING_TITLE, attrs = { classes("lib-status-track") })
+                Span(attrs = { classes(STATUS_TITLE_CLASS) }) { Text(ARRIVING_TITLE) }
+                Span(attrs = { classes(STATUS_SUB_CLASS) }) { Text(arrivingDetail(strip.booksSoFar)) }
+                ProgressBar(value = null, label = ARRIVING_TITLE, attrs = { classes(STATUS_TRACK_CLASS) })
             }
         }
     }
@@ -146,3 +150,7 @@ internal data class ArrivingWords(
     val title: String,
     val body: String,
 )
+
+private const val STATUS_TITLE_CLASS = "lib-status-t"
+private const val STATUS_SUB_CLASS = "lib-status-sub"
+private const val STATUS_TRACK_CLASS = "lib-status-track"

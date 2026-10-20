@@ -306,7 +306,13 @@ private fun PinnedStatusStrip(strip: LibraryStatusStrip) {
     if (strip is LibraryStatusStrip.Hidden) return
     LibraryStatusStripSlot(
         strip = strip,
-        modifier = Modifier.padding(start = Spacing.gridMargin, end = Spacing.gridMargin, top = Spacing.xs, bottom = Spacing.sm),
+        modifier =
+            Modifier.padding(
+                start = Spacing.gridMargin,
+                end = Spacing.gridMargin,
+                top = Spacing.xs,
+                bottom = Spacing.sm,
+            ),
     )
 }
 
@@ -467,7 +473,11 @@ private fun BookGrid(
                     }
                 }
             }
-            items(count = trailingPlaceholders, key = { "arriving-placeholder-$it" }, contentType = { "placeholder" }) { index ->
+            items(
+                count = trailingPlaceholders,
+                key = { "arriving-placeholder-$it" },
+                contentType = { "placeholder" },
+            ) { index ->
                 ArrivingPlaceholderCard(isNamed = index == 0)
             }
         }

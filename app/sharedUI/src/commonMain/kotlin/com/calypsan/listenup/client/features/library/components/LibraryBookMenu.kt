@@ -52,7 +52,7 @@ internal data class LibraryBookMenuActions(
 )
 
 /** How the Books grid builds a book's menu: what it leads with, and what each item does, by book id. */
-internal class LibraryBookMenuHost(
+internal data class LibraryBookMenuHost(
     val primaryFor: (String) -> BookMenuPrimary,
     val actionsFor: (String) -> LibraryBookMenuActions,
 )
@@ -81,13 +81,28 @@ internal fun LibraryBookMenu(
         val hasMiddle = actions.onAddToShelf != null || actions.onShare != null
         if (hasMiddle) HorizontalDivider()
         actions.onAddToShelf?.let { action ->
-            MenuItem(stringResource(Res.string.library_menu_add_to_shelf), Icons.AutoMirrored.Filled.PlaylistAdd, onDismiss = onDismiss, onClick = action)
+            MenuItem(
+                label = stringResource(Res.string.library_menu_add_to_shelf),
+                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                onDismiss = onDismiss,
+                onClick = action,
+            )
         }
         actions.onShare?.let { action ->
-            MenuItem(stringResource(Res.string.library_menu_share), Icons.Filled.Share, onDismiss = onDismiss, onClick = action)
+            MenuItem(
+                label = stringResource(Res.string.library_menu_share),
+                icon = Icons.Filled.Share,
+                onDismiss = onDismiss,
+                onClick = action,
+            )
         }
         HorizontalDivider()
-        MenuItem(stringResource(Res.string.common_select), Icons.Outlined.CheckCircle, onDismiss = onDismiss, onClick = actions.onSelect)
+        MenuItem(
+            label = stringResource(Res.string.common_select),
+            icon = Icons.Outlined.CheckCircle,
+            onDismiss = onDismiss,
+            onClick = actions.onSelect,
+        )
         if (actions.onAddToCollection != null || actions.onEditDetails != null) {
             HorizontalDivider()
             Text(
@@ -102,14 +117,19 @@ internal fun LibraryBookMenu(
             )
             actions.onAddToCollection?.let { action ->
                 MenuItem(
-                    stringResource(Res.string.library_menu_add_to_collection),
-                    Icons.Outlined.CollectionsBookmark,
+                    label = stringResource(Res.string.library_menu_add_to_collection),
+                    icon = Icons.Outlined.CollectionsBookmark,
                     onDismiss = onDismiss,
                     onClick = action,
                 )
             }
             actions.onEditDetails?.let { action ->
-                MenuItem(stringResource(Res.string.library_menu_edit_details), Icons.Filled.Edit, onDismiss = onDismiss, onClick = action)
+                MenuItem(
+                    label = stringResource(Res.string.library_menu_edit_details),
+                    icon = Icons.Filled.Edit,
+                    onDismiss = onDismiss,
+                    onClick = action,
+                )
             }
         }
     }

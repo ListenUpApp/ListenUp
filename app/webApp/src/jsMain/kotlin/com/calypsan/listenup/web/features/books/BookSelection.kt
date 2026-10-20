@@ -31,7 +31,7 @@ class BookSelection(
     val shelveOne: ((String) -> Unit)? get() = onShelveOne.takeUnless { isSelecting }
 
     /** [onCollectOne] for a book menu, or null while selecting ([shelveOne]'s rule) or for a member. */
-    val collectOne: ((String) -> Unit)? get() = onCollectOne.takeUnless { isSelecting || !isAdmin }
+    val collectOne: ((String) -> Unit)? get() = onCollectOne.takeIf { isAdmin && !isSelecting }
 
     /** Whether [bookId] is currently picked. */
     fun isSelected(bookId: String): Boolean = bookId in selectedIds

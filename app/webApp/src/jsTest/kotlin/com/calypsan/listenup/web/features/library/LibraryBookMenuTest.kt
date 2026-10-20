@@ -46,8 +46,7 @@ class LibraryBookMenuTest :
                 onEdit = { calls += "edit:$it" },
             )
 
-        fun menuLabels(): List<String?> =
-            document.querySelectorAll("[role=menu] .menu-i").asList().map { it.textContent?.trim() }
+        fun menuLabels(): List<String?> = document.querySelectorAll("[role=menu] .menu-i").asList().map { it.textContent?.trim() }
 
         test("a member's menu is the board's four, Resume first with its time left") {
             libraryBookMenuItems(primary = BookMenuPrimary.Resume(21_720_000L), isAdmin = false, actions = recordingActions())
@@ -106,7 +105,11 @@ class LibraryBookMenuTest :
                     )
                 }
 
-            (root.querySelector(".lib-card") as HTMLElement).dispatchEvent(MouseEvent("contextmenu", MouseEventInit(bubbles = true, cancelable = true)))
+            (
+                root.querySelector(
+                    ".lib-card",
+                ) as HTMLElement
+            ).dispatchEvent(MouseEvent("contextmenu", MouseEventInit(bubbles = true, cancelable = true)))
             awaitFrame()
             (document.querySelectorAll("[role=menu] .menu-i").asList().first { it.textContent?.trim() == "Select" } as HTMLElement).click()
 
@@ -137,7 +140,13 @@ class LibraryBookMenuTest :
             awaitFrame()
             card.dispatchEvent(MouseEvent("contextmenu", MouseEventInit(bubbles = true, cancelable = true)))
             awaitFrame()
-            (document.querySelectorAll("[role=menu] .menu-i").asList().first { it.textContent?.trim() == "Edit details" } as HTMLElement).click()
+            (
+                document
+                    .querySelectorAll(
+                        "[role=menu] .menu-i",
+                    ).asList()
+                    .first { it.textContent?.trim() == "Edit details" } as HTMLElement
+            ).click()
 
             calls shouldBe listOf("share:b1:Dune", "edit:b1")
         }

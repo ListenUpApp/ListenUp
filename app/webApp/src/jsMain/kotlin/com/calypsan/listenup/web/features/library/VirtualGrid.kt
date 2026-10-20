@@ -137,14 +137,15 @@ private fun ArrivingPlaceholderCard(isNamed: Boolean) {
     }) {
         Div(attrs = { classes("lib-cover-ph", "skel") })
         Div(attrs = { classes("lib-title") }) { Span(attrs = { classes("lib-ph-line", "skel") }) { Text(NBSP) } }
-        Div(attrs = { classes("lib-author") }) { Span(attrs = { classes("lib-ph-line", "is-short", "skel") }) { Text(NBSP) } }
+        Div(
+            attrs = { classes("lib-author") },
+        ) { Span(attrs = { classes("lib-ph-line", "is-short", "skel") }) { Text(NBSP) } }
         Div(attrs = { classes("lib-narrator") }) { Text(NBSP) }
         Div(attrs = { classes("lib-meta") }) { Text(NBSP) }
     }
 }
 
 private const val NBSP = "\u00A0"
-
 
 /**
  * The Library's Books grid with its A–Z jump rail beside it (spec §5.2): the rail's letters are the

@@ -52,7 +52,7 @@ internal fun LibraryStatusStripSlot(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val fraction = (strip as? LibraryStatusStrip.Scanning)?.progress?.progressFraction
+            val fraction = (strip as? LibraryStatusStrip.Scanning)?.run { progress.progressFraction }
             if (fraction != null) {
                 LinearProgressIndicator(
                     progress = { fraction },
@@ -69,7 +69,7 @@ internal fun LibraryStatusStripSlot(
     }
 }
 
-private class StripWords(
+private data class StripWords(
     val title: String,
     val detail: String,
 )
@@ -108,7 +108,11 @@ private fun scanDetail(scan: ScanProgressState): String =
         }
 
         else -> {
-            stringResource(Res.string.library_scan_strip_progress, groupedCount(scan.books), groupedCount(scan.booksTotal))
+            stringResource(
+                Res.string.library_scan_strip_progress,
+                groupedCount(scan.books),
+                groupedCount(scan.booksTotal),
+            )
         }
     }
 

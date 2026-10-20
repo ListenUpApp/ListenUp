@@ -239,13 +239,20 @@ class BookSelectionScaffoldState internal constructor(
     internal companion object {
         val Saver: Saver<BookSelectionScaffoldState, Any> =
             listSaver(
-                save = { listOf(it.showShelfPicker, it.shelvingOneBook, it.showCollectionPicker, it.collectingOneBook) },
-                restore = {
+                save = { state ->
+                    listOf(
+                        state.showShelfPicker,
+                        state.shelvingOneBook,
+                        state.showCollectionPicker,
+                        state.collectingOneBook,
+                    )
+                },
+                restore = { saved ->
                     BookSelectionScaffoldState(
-                        showShelfPicker = it[0],
-                        shelvingOneBook = it[1],
-                        showCollectionPicker = it[2],
-                        collectingOneBook = it[3],
+                        showShelfPicker = saved[0],
+                        shelvingOneBook = saved[1],
+                        showCollectionPicker = saved[2],
+                        collectingOneBook = saved[3],
                     )
                 },
             )

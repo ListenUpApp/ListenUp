@@ -164,11 +164,9 @@ internal fun RouteContent(
         LibraryRouteContent(
             librarySession = librarySession,
             inbox = inbox,
-            openMultiSelect = graph.openMultiSelect,
+            feeds = feeds,
             router = router,
             heroBookId = heroBookId,
-            onHeroBookIdChange = onHeroBookIdChange,
-            onToast = onToast,
             query = route.query,
             onPlayBook = { id -> playback.onPlayBook(BookId(id), null) },
         )

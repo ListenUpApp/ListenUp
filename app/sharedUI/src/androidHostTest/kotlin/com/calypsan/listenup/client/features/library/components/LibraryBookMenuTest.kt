@@ -39,10 +39,10 @@ class LibraryBookMenuTest {
                         LibraryBookMenuActions(
                             onPrimary = { calls += "play" },
                             onAddToShelf = { calls += "shelf" },
-                            onShare = if (canShare) ({ calls += "share" }) else null,
+                            onShare = { calls += "share" }.takeIf { canShare },
                             onSelect = { calls += "select" },
-                            onAddToCollection = if (isAdmin) ({ calls += "collection" }) else null,
-                            onEditDetails = if (isAdmin) ({ calls += "edit" }) else null,
+                            onAddToCollection = { calls += "collection" }.takeIf { isAdmin },
+                            onEditDetails = { calls += "edit" }.takeIf { isAdmin },
                         ),
                 )
             }

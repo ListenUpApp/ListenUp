@@ -78,11 +78,9 @@ internal fun SeriesListRoute(
 internal fun LibraryRouteContent(
     librarySession: LibrarySession,
     inbox: InboxBadgeState,
-    openMultiSelect: OpenMultiSelect,
+    feeds: FeedSelection,
     router: Router,
     heroBookId: String?,
-    onHeroBookIdChange: (String) -> Unit,
-    onToast: (String) -> Unit,
     /** The URL's query: a one-visit sort or status filter landing (spec §6.4). */
     query: Map<String, String> = emptyMap(),
     /** Plays a book from its menu: the shell's one play entry. */
@@ -95,17 +93,18 @@ internal fun LibraryRouteContent(
     LibraryStatusLanding(query[STATUS_QUERY_KEY], librarySession.onEvent) {
         router.replace(Route(listOf(LIBRARY_KEY), query - STATUS_QUERY_KEY))
     }
+    val onToast = feeds.onToast
     // Navigate away mid-share and the share is cancelled rather than toasting over a page the reader has left.
     val shareScope = rememberCoroutineScope()
     val libraryState = librarySession.state.collectAsState().value
     // Select all takes what the Books grid shows, as filtered (open question 8).
     val onScreen = (libraryState as? LibraryUiState.Loaded)?.books?.map { it.id.value }.orEmpty()
-    BookSelectionScaffold(openMultiSelect, router, onToast, selectAllOf = { onScreen }) { selection ->
+    BookSelectionScaffold(feeds.openMultiSelect, router, onToast, selectAllOf = { onScreen }) { selection ->
         LibraryPage(
             state = animatedLibrary(librarySession),
             onEvent = librarySession.onEvent,
             onOpenBook = { id ->
-                onHeroBookIdChange(id)
+                feeds.onHeroBookIdChange(id)
                 router.navigate(Routes.Book.detail(id))
             },
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
@@ -337,12 +336,12 @@ internal fun BookSelectionScaffold(
 }
 
 /**
- * What Home and Discover both need beyond their own session.
+ * What Home, Discover and the Library's grid all need beyond their own session.
  *
- * Three values that travel together to exactly two call sites, bundled so [RouteContent]'s chain
+ * Three values that travel together to exactly three call sites, bundled so [RouteContent]'s chain
  * stays one glance of routing — the same budget that pushed [ShelfRouteContent] and
- * [SearchRouteContent] out. ⛔ Not the start of a general opener bundle: it is scoped to the two
- * book feeds and grows only if a third feed appears.
+ * [SearchRouteContent] out. ⛔ Not the start of a general opener bundle: it is scoped to the book
+ * surfaces that select and fly a hero, and grows only if another such surface appears.
  */
 internal class FeedSelection(
     val openMultiSelect: OpenMultiSelect,

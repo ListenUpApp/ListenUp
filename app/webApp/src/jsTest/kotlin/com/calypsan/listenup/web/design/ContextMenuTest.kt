@@ -35,7 +35,16 @@ class ContextMenuTest :
             chosen.clear()
         }
 
-        fun mountTarget(items: List<MenuAction> = listOf(MenuAction("Play", WebIcon.Pencil, { chosen += "play" }), MenuAction("Select", null, { chosen += "select" }))): HTMLElement {
+        fun mountTarget(
+            items: List<MenuAction> =
+                listOf(
+                    MenuAction("Play", WebIcon.Pencil, { chosen += "play" }),
+                    MenuAction("Select", null, {
+                        chosen +=
+                            "select"
+                    }),
+                ),
+        ): HTMLElement {
             val root =
                 mounts.mount {
                     ContextMenuHost(items = items, label = "Actions for Dune") {
@@ -84,7 +93,9 @@ class ContextMenuTest :
         test("a 500ms touch press opens it, and the click after the long press is swallowed") {
             val target = mountTarget()
 
-            target.dispatchEvent(PointerEvent("pointerdown", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 10, bubbles = true)))
+            target.dispatchEvent(
+                PointerEvent("pointerdown", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 10, bubbles = true)),
+            )
             delay(LONG_PRESS_WAIT_MS)
             awaitFrame()
             openItems() shouldContainExactly listOf("Play", "Select")
@@ -97,8 +108,12 @@ class ContextMenuTest :
         test("a touch that moves 10px is a scroll, not a long press") {
             val target = mountTarget()
 
-            target.dispatchEvent(PointerEvent("pointerdown", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 10, bubbles = true)))
-            target.dispatchEvent(PointerEvent("pointermove", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 30, bubbles = true)))
+            target.dispatchEvent(
+                PointerEvent("pointerdown", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 10, bubbles = true)),
+            )
+            target.dispatchEvent(
+                PointerEvent("pointermove", PointerEventInit(pointerType = "touch", clientX = 10, clientY = 30, bubbles = true)),
+            )
             delay(LONG_PRESS_WAIT_MS)
             awaitFrame()
 

@@ -49,7 +49,11 @@ internal fun libraryBookMenuItems(
         actions.onShare?.let { add(MenuAction("Share…", WebIcon.Share, it)) }
         add(MenuAction("Select", WebIcon.Check, actions.onSelect))
         if (isAdmin) {
-            actions.onAddToCollection?.let { add(MenuAction("Add to collection…", WebIcon.Layers, it, group = ADMIN_GROUP)) }
+            actions.onAddToCollection?.let {
+                add(
+                    MenuAction("Add to collection…", WebIcon.Layers, it, group = ADMIN_GROUP),
+                )
+            }
             actions.onEditDetails?.let { add(MenuAction("Edit details", WebIcon.Pencil, it, group = ADMIN_GROUP)) }
         }
     }
