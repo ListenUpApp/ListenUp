@@ -38,9 +38,10 @@ struct AdminInboxView: View {
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
-    /// "Waiting for you to release" while books are held; nothing once the inbox is clear.
+    /// "Waiting for you to release" while books are held; nothing once the inbox is clear. A regular width draws its own
+    /// header with the inbox's subtitle (`padHeader`), so the system's would be the inbox named twice.
     private var waitingSubtitle: String {
-        guard case .ready(let ready) = observer?.phase, ready.hasBooks else { return "" }
+        guard !isRegularWidth, case .ready(let ready) = observer?.phase, ready.hasBooks else { return "" }
         return String(localized: "admin.inbox_entry_subtitle")
     }
 
