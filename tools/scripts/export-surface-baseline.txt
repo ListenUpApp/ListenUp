@@ -134,6 +134,8 @@ BookMatchEvent
 BookMatchEvent_SealedType
 BookMatchRecord
 BookMatchViewModel
+BookMenuPrimary
+BookMenuPrimary_SealedType
 BookMetadata
 BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
@@ -549,6 +551,8 @@ LibrarySetupNavAction_SealedType
 LibrarySetupUiState
 LibrarySetupViewModel
 LibraryShowcase
+LibraryStatusStrip
+LibraryStatusStrip_SealedType
 LibraryUiEvent
 LibraryUiEvent_SealedType
 LibraryUiState
