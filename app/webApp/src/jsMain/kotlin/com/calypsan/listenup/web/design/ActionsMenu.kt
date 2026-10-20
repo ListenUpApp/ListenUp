@@ -148,9 +148,7 @@ fun PopupMenu(
             }
             onClick { open = !open }
         }) {
-            if (!trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
-            triggerText?.let { Text(it) }
-            if (trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
+            TriggerContent(icon, triggerText, trailingIcon)
         }
 
         if (open) {
@@ -165,6 +163,18 @@ fun PopupMenu(
             )
         }
     }
+}
+
+/** A trigger's glyph and words: the glyph first, or after the words when [trailingIcon] ("More ▾"). */
+@Composable
+private fun TriggerContent(
+    icon: WebIcon,
+    triggerText: String?,
+    trailingIcon: Boolean,
+) {
+    if (!trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
+    triggerText?.let { Text(it) }
+    if (trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
 }
 
 /** Calls [onOutside] for a press anywhere outside [anchor], for as long as this is composed. */
@@ -478,4 +488,3 @@ private const val MENU_ICON_SIZE = 18
 
 /** A destructive run's accessible name: it draws no heading, but a group is still named for a screen reader. */
 private const val DESTRUCTIVE_GROUP_LABEL = "Delete"
-

@@ -42,11 +42,19 @@ class BookDetailMoreMenuTest {
     ) {
         val ready =
             BookDetailUiState.Ready(
-                book = BookDetail(
-                    id = BookId("b1"), libraryId = LibraryId("l"), folderId = FolderId("f"), title = "Circe",
-                    authors = emptyList(), narrators = emptyList(), duration = 1L, coverPath = null,
-                    addedAt = Timestamp(0L), updatedAt = Timestamp(0L),
-                ),
+                book =
+                    BookDetail(
+                        id = BookId("b1"),
+                        libraryId = LibraryId("l"),
+                        folderId = FolderId("f"),
+                        title = "Circe",
+                        authors = emptyList(),
+                        narrators = emptyList(),
+                        duration = 1L,
+                        coverPath = null,
+                        addedAt = Timestamp(0L),
+                        updatedAt = Timestamp(0L),
+                    ),
                 readingStage = stage,
                 isComplete = stage == ReadingStage.Finished,
                 isAdmin = isAdmin,

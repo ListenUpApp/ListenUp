@@ -12,6 +12,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
@@ -64,7 +65,7 @@ class BookDetailStatesTest :
                 )
             host.querySelector("h1")?.textContent?.trim() shouldBe "Couldn’t load this book"
             host.textContent.orEmpty() shouldNotContain "This browser hasn't synced"
-            (host.querySelector(".bd .empty")?.textContent.orEmpty().contains(BookError.NotFound().message)) shouldBe true
+            host.querySelector(".bd .empty")?.textContent.orEmpty() shouldContain BookError.NotFound().message
             button(host, "Retry").shouldNotBeNull().click()
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()

@@ -47,8 +47,16 @@ class FilesAndAudioSheetTest {
         composeRule.onNodeWithText("41.1 MB").assertExists()
         listOf("Format", "Bitrate", "Sample rate", "Channels").forEach { composeRule.onNodeWithText(it).assertExists() }
         composeRule.onNodeWithText("64 kbps").assertExists()
-        val file = composeRule.onNodeWithText("01.m4b").fetchSemanticsNode().boundsInRoot.top
-        val format = composeRule.onNodeWithText("Format").fetchSemanticsNode().boundsInRoot.top
+        val file =
+            composeRule
+                .onNodeWithText("01.m4b")
+                .fetchSemanticsNode()
+                .boundsInRoot.top
+        val format =
+            composeRule
+                .onNodeWithText("Format")
+                .fetchSemanticsNode()
+                .boundsInRoot.top
         (file < format) shouldBe true
     }
 }

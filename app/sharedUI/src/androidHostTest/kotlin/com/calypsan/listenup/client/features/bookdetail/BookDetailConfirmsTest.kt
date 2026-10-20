@@ -22,15 +22,23 @@ class BookDetailConfirmsTest {
     fun `Delete from the server says how many files, how big, the folder, every member and no undo`() {
         composeRule.setContent {
             MaterialTheme {
-                DeleteBookDialog(bookTitle = "The Way of Kings", trackedFileCount = 76,
-                    trackedBytes = 1_288_490_189L, error = null, isDeleting = false, onConfirm = {}, onDismiss = {})
+                DeleteBookDialog(
+                    bookTitle = "The Way of Kings",
+                    trackedFileCount = 76,
+                    trackedBytes = 1_288_490_189L,
+                    error = null,
+                    isDeleting = false,
+                    onConfirm = {},
+                    onDismiss = {},
+                )
             }
         }
         composeRule.onNodeWithText("Delete from the server?").assertExists()
-        composeRule.onNodeWithText(
-            "This deletes 76 files (1.2 GB) for “The Way of Kings”, and everything else in its folder, from your " +
-                "server. Every member loses it, and downloads are removed from their devices. This can’t be undone.",
-        ).assertExists()
+        composeRule
+            .onNodeWithText(
+                "This deletes 76 files (1.2 GB) for “The Way of Kings”, and everything else in its folder, from your " +
+                    "server. Every member loses it, and downloads are removed from their devices. This can’t be undone.",
+            ).assertExists()
         composeRule.onNodeWithText("Delete book").assertExists()
         // Spec §5.2: focus starts on Cancel, the safe way out.
         composeRule.onNodeWithText("Cancel").assertIsFocused()
@@ -40,8 +48,15 @@ class BookDetailConfirmsTest {
     fun `one file reads as one file`() {
         composeRule.setContent {
             MaterialTheme {
-                DeleteBookDialog("Circe", trackedFileCount = 1, trackedBytes = 1_024L, error = null,
-                    isDeleting = false, onConfirm = {}, onDismiss = {})
+                DeleteBookDialog(
+                    "Circe",
+                    trackedFileCount = 1,
+                    trackedBytes = 1_024L,
+                    error = null,
+                    isDeleting = false,
+                    onConfirm = {},
+                    onDismiss = {},
+                )
             }
         }
         composeRule.onNodeWithText("This deletes 1 file (1 KB) for “Circe”", substring = true).assertExists()
@@ -51,9 +66,15 @@ class BookDetailConfirmsTest {
     fun `a typed refusal stays in the dialog and names the blocking book`() {
         composeRule.setContent {
             MaterialTheme {
-                DeleteBookDialog("Circe", 3, 3_000L,
+                DeleteBookDialog(
+                    "Circe",
+                    3,
+                    3_000L,
                     error = BookError.FolderNotExclusive(otherBookId = "b2", otherBookTitle = "Joyland"),
-                    isDeleting = false, onConfirm = {}, onDismiss = {})
+                    isDeleting = false,
+                    onConfirm = {},
+                    onDismiss = {},
+                )
             }
         }
         composeRule.onNodeWithText("“Joyland” is in the same folder", substring = true).assertExists()
@@ -68,9 +89,10 @@ class BookDetailConfirmsTest {
             }
         }
         composeRule.onNodeWithText("Remove download?").assertExists()
-        composeRule.onNodeWithText(
-            "Frees 1.2 GB on this device. The book stays in your library, keeps your place, and streams when you’re online.",
-        ).assertExists()
+        composeRule
+            .onNodeWithText(
+                "Frees 1.2 GB on this device. The book stays in your library, keeps your place, and streams when you’re online.",
+            ).assertExists()
         composeRule.onNodeWithText("Keep").assertExists()
         composeRule.onNodeWithText("Remove").performClick()
         composeRule.runOnIdle { removed shouldBe 1 }

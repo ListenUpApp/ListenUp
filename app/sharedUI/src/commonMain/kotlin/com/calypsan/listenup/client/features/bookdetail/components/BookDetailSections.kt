@@ -1,12 +1,9 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection

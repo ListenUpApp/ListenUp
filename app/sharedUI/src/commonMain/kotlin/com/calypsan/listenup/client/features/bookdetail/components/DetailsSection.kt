@@ -81,9 +81,15 @@ fun DetailsSection(
             val onClick: (() -> Unit)? =
                 when (row) {
                     is BookDetailRow.AllCredits -> onAllCredits
+
                     is BookDetailRow.FilesAndAudio -> onFilesAndAudio
-                    is BookDetailRow.MapsAndIllustrations -> ({ onMaps(row) })
-                    else -> null
+
+                    is BookDetailRow.MapsAndIllustrations -> { -> onMaps(row) }
+
+                    is BookDetailRow.Publisher, is BookDetailRow.Released, is BookDetailRow.GenreLine,
+                    is BookDetailRow.Language, is BookDetailRow.Length, is BookDetailRow.Added,
+                    is BookDetailRow.Isbn, is BookDetailRow.Asin,
+                    -> null
                 }
             MetadataRow(value = cell.value, label = cell.label, onClick = onClick)
             if (index < rows.lastIndex) {
@@ -131,7 +137,10 @@ private fun BookDetailRow.cell(): DetailCell =
                 }
             DetailCell(
                 stringResource(Res.string.book_detail_length),
-                listOfNotNull(DurationFormatter.hoursMinutesAlways(durationMs.milliseconds), chapters).joinToString(" · "),
+                listOfNotNull(
+                    DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
+                    chapters,
+                ).joinToString(" · "),
             )
         }
 

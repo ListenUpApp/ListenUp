@@ -12,11 +12,29 @@ import io.kotest.matchers.shouldBe
 class BookDetailRowsTest :
     FunSpec({
         val file =
-            AudioFile(id = "a1", index = 0, filename = "disc1/01.m4b", format = "m4b", codec = "aac",
-                duration = 3_600_000L, size = 28_800_000L, bitrate = 64_000)
-        fun doc(id: String, format: String = "pdf", size: Long = 18L * 1024 * 1024) =
-            BookDocument(id = id, index = 0, filename = "extras/$id.$format", format = format, size = size,
-                hash = "h".repeat(64))
+            AudioFile(
+                id = "a1",
+                index = 0,
+                filename = "disc1/01.m4b",
+                format = "m4b",
+                codec = "aac",
+                duration = 3_600_000L,
+                size = 28_800_000L,
+                bitrate = 64_000,
+            )
+
+        fun doc(
+            id: String,
+            format: String = "pdf",
+            size: Long = 18L * 1024 * 1024,
+        ) = BookDocument(
+            id = id,
+            index = 0,
+            filename = "extras/$id.$format",
+            format = format,
+            size = size,
+            hash = "h".repeat(64),
+        )
 
         val full =
             BookDetailUiState.Ready(
@@ -29,10 +47,11 @@ class BookDetailRowsTest :
                         asin = "B003ZWFO7E",
                         abridged = false,
                         duration = 163_800_000L,
-                        genres = listOf(
-                            Genre(id = "g1", name = "Fantasy", slug = "fantasy", path = "/fiction/fantasy"),
-                            Genre(id = "g2", name = "Epic fantasy", slug = "epic", path = "/fiction/fantasy/epic"),
-                        ),
+                        genres =
+                            listOf(
+                                Genre(id = "g1", name = "Fantasy", slug = "fantasy", path = "/fiction/fantasy"),
+                                Genre(id = "g2", name = "Epic fantasy", slug = "epic", path = "/fiction/fantasy/epic"),
+                            ),
                         allContributors = List(6) { BookContributor(id = "c$it", name = "P$it") },
                         audioFiles = listOf(file),
                     ),
@@ -54,35 +73,49 @@ class BookDetailRowsTest :
                     BookDetailRow.Asin("B003ZWFO7E"),
                     BookDetailRow.AllCredits(count = 6),
                     BookDetailRow.FilesAndAudio(container = "M4B", bitrate = "64 kbps"),
-                    BookDetailRow.MapsAndIllustrations(count = 1, onlyDocumentId = "map", format = "PDF",
-                        totalBytes = 18L * 1024 * 1024),
+                    BookDetailRow.MapsAndIllustrations(
+                        count = 1,
+                        onlyDocumentId = "map",
+                        format = "PDF",
+                        totalBytes = 18L * 1024 * 1024,
+                    ),
                 )
         }
 
         test("a row whose datum is absent is not drawn") {
-            val bare = full.copy(
-                book = full.book.copy(publisher = " ", isbn = null, asin = "", genres = emptyList(), language = null),
-                year = null,
-            )
+            val bare =
+                full.copy(
+                    book = full.book.copy(publisher = " ", isbn = null, asin = "", genres = emptyList(), language = null),
+                    year = null,
+                )
             bookDetailRows(bare, emptyList()).map { it::class } shouldBe
-                listOf(BookDetailRow.Length::class, BookDetailRow.Added::class, BookDetailRow.AllCredits::class,
-                    BookDetailRow.FilesAndAudio::class)
+                listOf(
+                    BookDetailRow.Length::class,
+                    BookDetailRow.Added::class,
+                    BookDetailRow.AllCredits::class,
+                    BookDetailRow.FilesAndAudio::class,
+                )
         }
 
         test("credits fall back to the byline's people, each counted once") {
-            val book = full.book.copy(
-                allContributors = emptyList(),
-                authors = listOf(BookContributor(id = "a", name = "A")),
-                narrators = listOf(BookContributor(id = "a", name = "A"), BookContributor(id = "n", name = "N")),
-            )
+            val book =
+                full.book.copy(
+                    allContributors = emptyList(),
+                    authors = listOf(BookContributor(id = "a", name = "A")),
+                    narrators = listOf(BookContributor(id = "a", name = "A"), BookContributor(id = "n", name = "N")),
+                )
             bookDetailRows(full.copy(book = book), emptyList()) shouldContainRow BookDetailRow.AllCredits(2)
         }
 
         test("several documents open a list: no single id, and a format only when they share one") {
             val rows = bookDetailRows(full, listOf(doc("map"), doc("notes", "epub", 512L)))
             rows.last() shouldBe
-                BookDetailRow.MapsAndIllustrations(count = 2, onlyDocumentId = null, format = null,
-                    totalBytes = 18L * 1024 * 1024 + 512L)
+                BookDetailRow.MapsAndIllustrations(
+                    count = 2,
+                    onlyDocumentId = null,
+                    format = null,
+                    totalBytes = 18L * 1024 * 1024 + 512L,
+                )
         }
 
         test("no audio files, no Files & audio row") {

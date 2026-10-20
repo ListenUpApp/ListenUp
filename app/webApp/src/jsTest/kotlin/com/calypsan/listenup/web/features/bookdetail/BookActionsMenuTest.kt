@@ -171,7 +171,8 @@ class BookActionsMenuTest :
 
         test("Mark as not started asks first, in the natives' words, and only the confirm clears") {
             var discarded = 0
-            val host = open(rendered(readyBook(readingStage = ReadingStage.InProgress).copy(progress = 0.4f), onDiscardProgress = { discarded++ }))
+            val host =
+                open(rendered(readyBook(readingStage = ReadingStage.InProgress).copy(progress = 0.4f), onDiscardProgress = { discarded++ }))
             item(host, "Mark as not started…").shouldNotBeNull().click()
             awaitFrame()
             dialogTitle(host) shouldBe "Mark as not started"

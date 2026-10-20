@@ -844,7 +844,10 @@ private fun DetailsRows(
     }
     if (showingCredits) {
         CreditsDialog(
-            credits = state.book.allContributors.ifEmpty { (state.book.authors + state.book.narrators).distinctBy { it.id } },
+            credits =
+                state.book.allContributors.ifEmpty {
+                    (state.book.authors + state.book.narrators).distinctBy { it.id }
+                },
             onOpenContributor = panes.onOpenContributor,
             onDismiss = { showingCredits = false },
         )
@@ -889,22 +892,52 @@ private fun BookDetailRow.label(): String =
 /** A Details row's value, with its units. */
 private fun BookDetailRow.value(): String =
     when (this) {
-        is BookDetailRow.Publisher -> name
-        is BookDetailRow.Released -> year.toString()
-        is BookDetailRow.GenreLine -> "$genreName · ${if (abridged) "Abridged" else "Unabridged"}"
-        is BookDetailRow.Language -> displayName
-        is BookDetailRow.Length ->
+        is BookDetailRow.Publisher -> {
+            name
+        }
+
+        is BookDetailRow.Released -> {
+            year.toString()
+        }
+
+        is BookDetailRow.GenreLine -> {
+            "$genreName · ${if (abridged) "Abridged" else "Unabridged"}"
+        }
+
+        is BookDetailRow.Language -> {
+            displayName
+        }
+
+        is BookDetailRow.Length -> {
             listOfNotNull(
                 DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
                 chapterCount.takeIf { it > 0 }?.let { if (it == 1) "1 chapter" else "$it chapters" },
             ).joinToString(" · ")
-        is BookDetailRow.Added -> calendarDay(epochMs, withYear = true)
-        is BookDetailRow.Isbn -> isbn
-        is BookDetailRow.Asin -> asin
-        is BookDetailRow.AllCredits -> count.toString()
-        is BookDetailRow.FilesAndAudio -> listOfNotNull(container, bitrate).joinToString(" · ")
-        is BookDetailRow.MapsAndIllustrations ->
+        }
+
+        is BookDetailRow.Added -> {
+            calendarDay(epochMs, withYear = true)
+        }
+
+        is BookDetailRow.Isbn -> {
+            isbn
+        }
+
+        is BookDetailRow.Asin -> {
+            asin
+        }
+
+        is BookDetailRow.AllCredits -> {
+            count.toString()
+        }
+
+        is BookDetailRow.FilesAndAudio -> {
+            listOfNotNull(container, bitrate).joinToString(" · ")
+        }
+
+        is BookDetailRow.MapsAndIllustrations -> {
             "${format ?: if (count == 1) "1 document" else "$count documents"} · ${formatBytes(totalBytes)}"
+        }
     }
 
 /** Identifiers and years read in the monospace face, as the old Details list drew them. */
