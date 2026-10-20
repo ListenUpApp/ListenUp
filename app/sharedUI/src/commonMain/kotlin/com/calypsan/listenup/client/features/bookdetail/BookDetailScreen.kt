@@ -98,8 +98,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
-import com.calypsan.listenup.client.share.ShareLinkCodec
-import com.calypsan.listenup.client.share.ShareTarget
+import com.calypsan.listenup.client.share.bookShareUrl
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -422,23 +421,9 @@ private fun BookDetailReadyContent(
                 onAddToCollectionClick = { viewModel.showCollectionPicker() },
                 onShareClick = {
                     scope.launch {
-                        // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
-                        // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
-                        // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
-                        // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
-                        val result = instanceRepository.getServerInfo()
-                        if (result is AppResult.Success) {
-                            val info = result.data
-                            val url =
-                                ShareLinkCodec.encode(
-                                    ShareTarget.Book(
-                                        bookId = book.id,
-                                        serverInstanceId = info.instanceId,
-                                        serverUrl = info.remoteUrl?.trimEnd('/'),
-                                    ),
-                                )
-                            val text = "Check out ${book.title} on ListenUp!\n$url"
-                            platformActions.shareText(text, url)
+                        // The RPC-backed server identity, through the one builder every client shares.
+                        bookShareUrl(instanceRepository, book.id)?.let { url ->
+                            platformActions.shareText("Check out ${book.title} on ListenUp!\n$url", url)
                         }
                     }
                 },

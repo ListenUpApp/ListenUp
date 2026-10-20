@@ -2,8 +2,7 @@ package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.share.ShareTarget
-import com.calypsan.listenup.client.share.ShareLinkCodec
+import com.calypsan.listenup.client.share.bookShareUrl
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -270,7 +269,7 @@ fun fixedBookDetail(
  * already pointed at the same server, which is exactly the person who did not need a link.
  *
  * The sentence is the natives' sentence, character for character, and the URL comes from the shared
- * [ShareLinkCodec]: three clients producing three dialects of the same link would be three bugs
+ * `bookShareUrl` builder: three clients producing three dialects of the same link would be three bugs
  * waiting for someone to paste the wrong one.
  *
  * A server that cannot say who it is yields [ShareOutcome.FAILED] rather than a link missing its
@@ -281,14 +280,6 @@ private suspend fun shareBook(
     bookId: String,
     title: String,
 ): ShareOutcome {
-    val info = koin.get<InstanceRepository>().getServerInfoOrNull() ?: return ShareOutcome.FAILED
-    val url =
-        ShareLinkCodec.encode(
-            ShareTarget.Book(
-                bookId = BookId(bookId),
-                serverInstanceId = info.instanceId,
-                serverUrl = info.remoteUrl?.trimEnd('/'),
-            ),
-        )
+    val url = bookShareUrl(koin.get<InstanceRepository>(), BookId(bookId)) ?: return ShareOutcome.FAILED
     return shareBookLink(title = title, text = "Check out $title on ListenUp!\n$url", url = url)
 }
