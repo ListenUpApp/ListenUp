@@ -100,8 +100,15 @@ BookContributor
 BookContributorInput
 BookDetail
 BookDetailColumns
+BookDetailMenuGroup
+BookDetailMenuHeading
+BookDetailMenuHeading_SealedType
+BookDetailMenuItem
+BookDetailMenuItem_SealedType
 BookDetailNavAction
 BookDetailNavAction_SealedType
+BookDetailRow
+BookDetailRow_SealedType
 BookDetailSection
 BookDetailSection_SealedType
 BookDetailUiState
