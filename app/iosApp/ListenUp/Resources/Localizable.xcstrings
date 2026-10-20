@@ -15946,7 +15946,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d books so far. Books appear here as they arrive; you can start listening now."
+            "value": "%1$@ books so far. Books appear here as they arrive; you can start listening now."
           }
         }
       }
@@ -16561,22 +16561,22 @@
         }
       }
     },
-    "library.scan_strip_new": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d new"
-          }
-        }
-      }
-    },
     "library.scan_strip_progress": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$d of %2$d"
+            "value": "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "library.scan_strip_progress_new": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@ · %3$d new"
           }
         }
       }

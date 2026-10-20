@@ -1595,7 +1595,7 @@ One beautiful library.</string>
     <string name="library_add_audiobooks_to_your_server">Add audiobooks to your server to get started</string>
     <string name="library_arriving_none_yet">Books appear here as they arrive.</string>
     <string name="library_arriving_placeholder_a11y">More books arriving</string>
-    <string name="library_arriving_so_far">%1$d books so far. Books appear here as they arrive; you can start listening now.</string>
+    <string name="library_arriving_so_far">%1$s books so far. Books appear here as they arrive; you can start listening now.</string>
     <string name="library_arriving_so_far_one">1 book so far. Books appear here as they arrive; you can start listening now.</string>
     <string name="library_arriving_title_ios">Building Your Library</string>
     <string name="library_author_count">%1$d authors</string>
@@ -1657,8 +1657,8 @@ One beautiful library.</string>
     <string name="library_narrator_count">%1$d narrators</string>
     <string name="library_narrators">Narrators</string>
     <string name="library_restricted_a11y">In a collection, so only people it is shared with can see it.</string>
-    <string name="library_scan_strip_new">%1$d new</string>
-    <string name="library_scan_strip_progress">%1$d of %2$d</string>
+    <string name="library_scan_strip_progress">%1$s of %2$s</string>
+    <string name="library_scan_strip_progress_new">%1$s of %2$s · %3$d new</string>
     <string name="library_scan_strip_title">Scanning your server</string>
     <string name="library_scan_strip_title_ios">Scanning Your Server</string>
     <string name="library_section_index">Section index</string>

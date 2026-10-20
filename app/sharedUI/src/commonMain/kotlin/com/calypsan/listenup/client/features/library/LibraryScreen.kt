@@ -246,6 +246,7 @@ internal fun LibraryLoadedContent(
             isFilteredEmpty = state.isFilteredEmpty,
             statusFilter = state.statusFilter,
             onShowAllBooks = { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) },
+            statusStrip = state.statusStrip,
             // Books view only (canvas): Series, Authors and Narrators do not carry it,
             // and selecting books turns the grid into a picking surface the entry would clutter. A host
             // with no route to the inbox gets no entry: a tile that opens nothing reads as broken.

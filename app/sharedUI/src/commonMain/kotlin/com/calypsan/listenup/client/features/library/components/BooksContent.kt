@@ -1,6 +1,14 @@
 package com.calypsan.listenup.client.features.library.components
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.aspectRatio
+import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
+import listenup.composeapp.generated.resources.library_arriving_placeholder_a11y
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +33,6 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -67,14 +73,15 @@ import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.library_add_audiobooks_to_your_server
 import listenup.composeapp.generated.resources.library_failed_to_load_library
 import listenup.composeapp.generated.resources.library_loading_your_library
-import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
 import org.jetbrains.compose.resources.stringResource
-import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.foundation.shape.CircleShape
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 private const val INBOX_ENTRY_KEY = "library-inbox-entry"
+private const val ARRIVING_PLACEHOLDERS = 4
+private const val ARRIVING_PLACEHOLDER_TAG = "library-arriving-placeholder"
+private val PlaceholderLines = listOf(0.9f, 0.6f)
 
 /**
  * Section header: an Expressive coral "cookie" badge carrying the section [letter], trailed by a
@@ -146,6 +153,8 @@ internal fun SectionHeader(
  * @param onShowAllBooks Clears the status filter from the filtered-empty state
  * @param header Content drawn as the grid's first, full-width item — the Library's inbox entry. Scrolls
  *   with the books.
+ * @param statusStrip What the pinned status strip above the grid says. While the library is still arriving the grid
+ *   ends in placeholders, and an empty grid is never called empty.
  * @param modifier Optional modifier
  */
 @Suppress("LongParameterList")
@@ -173,13 +182,38 @@ fun BooksContent(
     statusFilter: BookStatusFilter = BookStatusFilter.ALL,
     onShowAllBooks: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
+    statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
     modifier: Modifier = Modifier,
 ) {
+    val isArriving = statusStrip is LibraryStatusStrip.Arriving
     Box(modifier = modifier.fillMaxSize()) {
         when {
             // Haven't loaded from database yet - show loading
             !hasLoadedBooks -> {
                 BooksLoadingState()
+            }
+
+            // Empty while the library is still arriving (a first sync, or this device's first catch-up): say so
+            // over placeholders. Never "empty": the socket is Connected for the whole seed, so the sync state
+            // cannot tell this apart from a library with nothing in it.
+            books.isEmpty() && !isFilteredEmpty && isArriving -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    PinnedStatusStrip(statusStrip)
+                    BookGrid(
+                        books = books,
+                        bookLetters = emptyList(),
+                        bookStatus = bookStatus,
+                        progressUnderTitle = progressUnderTitle,
+                        statusFilter = statusFilter,
+                        isInSelectionMode = isInSelectionMode,
+                        selectedBookIds = selectedBookIds,
+                        onBookClick = onBookClick,
+                        onBookLongPress = onBookLongPress,
+                        header = header,
+                        trailingPlaceholders = ARRIVING_PLACEHOLDERS,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
 
             // Loaded but empty AND syncing - show loading
@@ -229,9 +263,7 @@ fun BooksContent(
             // Loaded with books - show grid
             else -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    if (isServerScanning && scanProgress != null) {
-                        ScanProgressBanner(scanProgress = scanProgress)
-                    }
+                    PinnedStatusStrip(statusStrip)
                     LibrarySortCard(
                         state = sortState,
                         categories = SortCategory.booksCategories,
@@ -257,10 +289,55 @@ fun BooksContent(
                         onBookClick = onBookClick,
                         onBookLongPress = onBookLongPress,
                         header = header,
+                        trailingPlaceholders = if (isArriving) ARRIVING_PLACEHOLDERS else 0,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
+        }
+    }
+}
+
+/** The status strip, pinned above the grid at the grid's margins; nothing when there is nothing to say. */
+@Composable
+private fun PinnedStatusStrip(strip: LibraryStatusStrip) {
+    if (strip is LibraryStatusStrip.Hidden) return
+    LibraryStatusStripSlot(
+        strip = strip,
+        modifier = Modifier.padding(start = Spacing.gridMargin, end = Spacing.gridMargin, top = Spacing.xs, bottom = Spacing.sm),
+    )
+}
+
+/**
+ * A book card's shape with nothing in it yet: a cover-sized block and two lines. The first is named for TalkBack ("More
+ * books arriving"); the rest are hidden, so the reader hears the news once rather than four times.
+ */
+@Composable
+private fun ArrivingPlaceholderCard(
+    isNamed: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val label = stringResource(Res.string.library_arriving_placeholder_a11y)
+    Column(
+        modifier =
+            modifier
+                .testTag(ARRIVING_PLACEHOLDER_TAG)
+                .clearAndSetSemantics { if (isNamed) contentDescription = label else hideFromAccessibility() },
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest, ContentShapes.card),
+        )
+        PlaceholderLines.forEach { fraction ->
+            Box(
+                Modifier
+                    .fillMaxWidth(fraction)
+                    .height(Spacing.md)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest, ContentShapes.card),
+            )
         }
     }
 }
@@ -281,6 +358,7 @@ private fun BookGrid(
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)?,
     header: (@Composable () -> Unit)?,
+    trailingPlaceholders: Int,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
@@ -374,6 +452,9 @@ private fun BookGrid(
                     }
                 }
             }
+            items(count = trailingPlaceholders, key = { "arriving-placeholder-$it" }, contentType = { "placeholder" }) { index ->
+                ArrivingPlaceholderCard(isNamed = index == 0)
+            }
         }
 
         // Alphabet scrollbar (only for text-based sorts), anchored to the content's top-end.
@@ -415,56 +496,6 @@ private fun BooksLoadingState() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-/**
- * Compact banner showing scan progress when books are already loaded.
- */
-@Composable
-private fun ScanProgressBanner(scanProgress: ScanProgressState) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ListenUpLoadingIndicatorSmall()
-                Text(
-                    text =
-                        scanProgress.phaseDisplayName +
-                            if (scanProgress.total > 0) " ${scanProgress.current}/${scanProgress.total}" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                val summary = scanProgress.changesSummary
-                if (summary != null) {
-                    Text(
-                        text = stringResource(Res.string.library_summary, summary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
-                            HeroInk.muted(
-                                MaterialTheme.colorScheme.onSecondaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer,
-                            ),
-                    )
-                }
-            }
-            scanProgress.progressFraction?.let { fraction ->
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    trackColor =
-                        HeroInk.wash(
-                            MaterialTheme.colorScheme.onSecondaryContainer,
-                            MaterialTheme.colorScheme.secondaryContainer,
-                        ),
-                )
-            }
         }
     }
 }
