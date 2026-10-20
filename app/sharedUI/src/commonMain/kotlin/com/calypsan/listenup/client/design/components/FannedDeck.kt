@@ -4,6 +4,18 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_series_count_badge_a11y
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +74,7 @@ data class FannedDeckCover(
  * @param max maximum number of covers visible at once
  * @param animate cycle the covers with a shifting animation
  * @param cycleMillis dwell time between shifts when [animate] is true
+ * @param countBadge a count drawn at the deck's bottom-end (spec c6: a series' book count); null draws none
  */
 @Composable
 fun FannedDeck(
@@ -72,6 +85,7 @@ fun FannedDeck(
     max: Int = 4,
     animate: Boolean = false,
     cycleMillis: Long = 2800L,
+    countBadge: Int? = null,
 ) {
     if (covers.isEmpty()) return
     val count = covers.size
@@ -115,7 +129,9 @@ fun FannedDeck(
                         }.size(size)
                         .shadow(8.dp, RoundedCornerShape(CORNER))
                         .border(2.dp, MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(CORNER))
-                        .clip(RoundedCornerShape(CORNER)),
+                        .clip(RoundedCornerShape(CORNER))
+                        // A cover parked at the back is invisible, so it is not read either.
+                        .then(if (depth < visible) Modifier else Modifier.clearAndSetSemantics {}),
             ) {
                 BookCoverImage(
                     bookId = cover.bookId,
@@ -129,6 +145,32 @@ fun FannedDeck(
                 )
             }
         }
+        if (countBadge != null) DeckCountBadge(count = countBadge)
+    }
+}
+
+/**
+ * How many books the deck stands for, in ink on paper at its bottom-end (board `Library-WebPhone`; `inverseSurface`
+ * is that role). Read as "7 books".
+ */
+@Composable
+private fun BoxScope.DeckCountBadge(count: Int) {
+    val description = stringResource(Res.string.library_series_count_badge_a11y, count)
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.inverseSurface,
+        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        modifier =
+            Modifier
+                .align(Alignment.BottomEnd)
+                .zIndex(Float.MAX_VALUE)
+                .semantics { contentDescription = description },
+    ) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.clearAndSetSemantics {}.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
     }
 }
 
