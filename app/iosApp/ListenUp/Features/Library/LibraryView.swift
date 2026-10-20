@@ -203,7 +203,9 @@ struct LibraryView: View {
                 selection: selection,
                 picker: sectionPicker,
                 // Selecting turns the grid into a picking surface the entry would clutter.
-                inbox: isSelecting ? nil : inbox
+                inbox: isSelecting ? nil : inbox,
+                statusStrip: observer.statusStrip,
+                isArriving: observer.isLibraryArriving
             )
         case .series:
             SeriesContent(
