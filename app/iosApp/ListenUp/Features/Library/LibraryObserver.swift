@@ -58,6 +58,9 @@ final class LibraryObserver {
     /// reads this, never `isSyncing` (false for the whole seed): it is arriving, not empty.
     private(set) var isLibraryArriving: Bool = false
     private(set) var errorMessage: String?
+    /// How many entries each section holds, for the iPad sidebar. Its own observable, written once per content
+    /// revision and only on a real change, so the sidebar never re-renders on a position tick.
+    let sectionCounts = SectionCountsHolder()
 
     @ObservationIgnored private var contentRevision = ContentRevisionGate()
 
@@ -192,6 +195,7 @@ final class LibraryObserver {
         statusCounts = LibraryStatusCounts(loaded.statusCounts)
         totalDurationMs = loaded.totalDurationMs
         isFilteredEmpty = loaded.isFilteredEmpty
+        sectionCounts.assign(LibrarySectionCountsValue(loaded.sectionCounts))
     }
 
     /// Writes only a real change, so an equal value doesn't invalidate the views reading it.
