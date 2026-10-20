@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
-import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -65,6 +66,11 @@ data class SyncIndicatorUiState(
      * the next sync, so "Synced 2 min ago" does not blink while a refresh runs.
      */
     val lastSyncedAtMs: Long? = null,
+    /**
+     * The last "sync now" the person asked for failed. Cleared when they ask again. The failure itself went to the
+     * error bus; this is what the indicator keeps saying until then, so "Synced just now" never covers for it.
+     */
+    val refreshFailed: Boolean = false,
 )
 
 /**
@@ -116,7 +122,11 @@ sealed interface SyncIndicatorUiEvent {
 class SyncIndicatorViewModel(
     private val pendingOperationRepository: PendingOperationRepository,
     private val syncRepository: SyncRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
+    /** A "sync now" this indicator started: running, or how the last one ended. */
+    private val manualRefresh = MutableStateFlow(ManualRefresh())
+
     /** The last successful sync's time, remembered across the syncs that follow it. */
     private val lastSyncedAtMs: Flow<Long?> =
         syncRepository.syncState
@@ -134,8 +144,8 @@ class SyncIndicatorViewModel(
             flow2 = pendingOperationRepository.observeInProgressOperation(),
             flow3 = pendingOperationRepository.observeFailedOperations(),
             flow4 = syncRepository.syncState,
-            flow5 = lastSyncedAtMs,
-        ) { visibleOps, inProgress, failedOps, pullSyncState, lastSynced ->
+            flow5 = combine(lastSyncedAtMs, manualRefresh, ::Pair),
+        ) { visibleOps, inProgress, failedOps, pullSyncState, (lastSynced, refresh) ->
             val pendingCount =
                 visibleOps.count {
                     it.status == PendingOperationStatus.PENDING
@@ -172,7 +182,8 @@ class SyncIndicatorViewModel(
                 }
 
             SyncIndicatorUiState(
-                isSyncing = inProgress != null || isPullSyncing,
+                // A refresh the person asked for says so from the tap, whether or not the pull reports a state.
+                isSyncing = inProgress != null || isPullSyncing || refresh.running,
                 currentOperationDescription =
                     pullSyncDescription
                         ?: inProgress?.let { describeOperation(it) },
@@ -180,6 +191,7 @@ class SyncIndicatorViewModel(
                 failedOperations = failedUi,
                 hasErrors = failedOps.isNotEmpty(),
                 lastSyncedAtMs = lastSynced,
+                refreshFailed = refresh.failed,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -202,8 +214,17 @@ class SyncIndicatorViewModel(
     }
 
     private fun refresh() {
+        if (manualRefresh.value.running) return
+        manualRefresh.value = ManualRefresh(running = true)
         viewModelScope.launch {
-            syncRepository.sync().onFailure { logger.warn { "Refresh failed: ${it.message}" } }
+            when (val result = syncRepository.sync()) {
+                is AppResult.Success -> manualRefresh.value = ManualRefresh()
+                is AppResult.Failure -> {
+                    logger.warn { "Refresh failed: ${result.error.code} ${result.error.debugInfo}" }
+                    errorBus.emit(result.error)
+                    manualRefresh.value = ManualRefresh(failed = true)
+                }
+            }
         }
     }
 
@@ -243,6 +264,12 @@ class SyncIndicatorViewModel(
         return operation.operationType.describe(entityName)
     }
 }
+
+/** A "sync now" started from the indicator: whether it is running, and whether the last one failed. */
+private data class ManualRefresh(
+    val running: Boolean = false,
+    val failed: Boolean = false,
+)
 
 internal sealed interface OpDescription {
     /** Operation describes work on a specific entity; [template] is invoked with the entity name. */

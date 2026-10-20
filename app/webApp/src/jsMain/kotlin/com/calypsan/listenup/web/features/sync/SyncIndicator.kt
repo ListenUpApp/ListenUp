@@ -59,12 +59,14 @@ fun fixedSyncIndicator(
     onRefresh: () -> Unit = {},
 ): OpenSyncIndicator = { SyncIndicatorSession(state = MutableStateFlow(state), onRefresh = onRefresh, close = {}) }
 
-/** "Synced 2 min ago", "Syncing…", or "Not synced yet", measured against [now]. */
+/** "Synced 2 min ago", "Syncing…", "Couldn't sync", or "Not synced yet", measured against [now]. */
 internal fun syncedWords(
     state: SyncIndicatorUiState,
     now: Long,
 ): String {
     if (state.isSyncing) return "Syncing…"
+    // A failed "sync now" is said until the next one; the last good sync would otherwise cover for it.
+    if (state.refreshFailed) return "Couldn't sync"
     val last = state.lastSyncedAtMs ?: return "Not synced yet"
     val minutes = (now - last).coerceAtLeast(0L) / MS_PER_MINUTE
     return when {

@@ -8,6 +8,7 @@ import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 
@@ -27,6 +28,8 @@ class SyncIndicatorTest :
             syncedWords(SyncIndicatorUiState(lastSyncedAtMs = NOW - 3 * 1_440 * MINUTE), NOW) shouldBe "Synced 3 d ago"
             syncedWords(SyncIndicatorUiState(isSyncing = true, lastSyncedAtMs = NOW), NOW) shouldBe "Syncing…"
             syncedWords(SyncIndicatorUiState(), NOW) shouldBe "Not synced yet"
+            // A failed "sync now" is said until the next one, never covered by the last good sync.
+            syncedWords(SyncIndicatorUiState(lastSyncedAtMs = NOW - 20_000, refreshFailed = true), NOW) shouldBe "Couldn't sync"
         }
 
         test("the sync button says 'Synced 2 min ago' and Refresh calls the ViewModel") {
@@ -66,6 +69,14 @@ class SyncIndicatorTest :
             frame.isShown(line) shouldBe true
             line.textContent.orEmpty() shouldContain "Synced 2 min ago"
             line.textContent.orEmpty() shouldContain "Refresh now"
+            // "Refresh now" starts where "Synced 2 min ago" starts: one column, not a button nudged right by its padding.
+            val words = frame.rect(frame.find(".sync-ind-t")).left
+            val button = frame.find(".sync-ind-refresh")
+            // Where its words start: the box's left plus its own padding.
+            val refresh = frame.rect(button).left + frame.css(button, "padding-left").removeSuffix("px").toDouble() +
+                frame.css(button, "border-left-width").removeSuffix("px").toDouble()
+            (refresh - words) shouldBeLessThan 1.5
+            (words - refresh) shouldBeLessThan 1.5
             frame.find(".sync-ind-refresh").click()
             refreshes shouldBe 1
         }
