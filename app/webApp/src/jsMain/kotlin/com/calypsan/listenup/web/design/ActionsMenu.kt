@@ -15,6 +15,7 @@ import com.calypsan.listenup.web.motion.animateComposited
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
@@ -150,14 +151,19 @@ fun PopupMenu(
             // Choosing an item hands focus back to the trigger, as the WAI-ARIA menu button does:
             // left alone, a keyboard reader who picked a sort was dropped on <body>. An item that
             // opens a dialog still wins, since the dialog takes focus after this.
-            MenuItems(items = items, label = label, trigger = trigger, onChosen = { close(returnFocus = true) })
+            MenuPanel(
+                items = items,
+                label = label,
+                anchor = { trigger.element?.let { MenuAnchor.of(it) } },
+                onChosen = { close(returnFocus = true) },
+            )
         }
     }
 }
 
 /** Calls [onOutside] for a press anywhere outside [anchor], for as long as this is composed. */
 @Composable
-private fun CloseOnOutsidePress(
+internal fun CloseOnOutsidePress(
     anchor: NodeHolder,
     onOutside: () -> Unit,
 ) {
@@ -172,7 +178,8 @@ private fun CloseOnOutsidePress(
 }
 
 /**
- * The open menu: real menu-item buttons, focus on the first, the arrows walking the rest.
+ * The open menu: real menu-item buttons, focus on the first, the arrows walking the rest. Shared by [PopupMenu], which
+ * hangs it from its trigger, and [ContextMenuHost], which hangs it from a pointer or a card.
  *
  * ⛔ It opens in the TOP LAYER (`popover`), placed against [trigger]'s on-screen box — never as an
  * absolutely-positioned child of the row it belongs to. The admin inbox's row menu was exactly that,
@@ -181,7 +188,7 @@ private fun CloseOnOutsidePress(
  * escapes a clip, so the menu leaves them all instead. Its DOM stays inside the anchor, so the
  * outside-press test, Escape and Tab still find it there.
  *
- * It hangs below the trigger from its left edge — right for the account menu at the content's left —
+ * It hangs below its [anchor] from its left edge — right for the account menu at the content's left —
  * and measures itself as it opens: a menu that would cross the viewport's right edge (a trailing
  * "more actions" at the end of a row, on a phone) hangs from the trigger's right edge instead, and
  * one with no room below opens above. Measured rather than guessed from where the trigger sits,
@@ -189,18 +196,38 @@ private fun CloseOnOutsidePress(
  * anything scrolls, since a fixed box would otherwise stay put while the row moves away.
  */
 @Composable
-private fun MenuItems(
+internal fun MenuPanel(
     items: List<MenuAction>,
     label: String,
-    trigger: NodeHolder,
+    anchor: () -> MenuAnchor?,
     onChosen: () -> Unit,
+    /** Escape and Tab on the menu itself, for a host with no wrapping anchor to catch them ([ContextMenuHost]). */
+    onKeyClose: ((returnFocus: Boolean) -> Unit)? = null,
+    menuNode: NodeHolder = remember { NodeHolder() },
 ) {
-    val menuNode = remember { NodeHolder() }
     val lastFocused = remember { NodeHolder() }
     Div(attrs = {
         classes("menu")
         attr("role", "menu")
         attr("aria-label", label)
+        if (onKeyClose != null) {
+            onKeyDown { event ->
+                when (menuKeyAction(event.key)) {
+                    MenuKeyAction.CloseAndReturn -> {
+                        event.preventDefault()
+                        onKeyClose(true)
+                    }
+
+                    MenuKeyAction.CloseAndMoveOn -> {
+                        onKeyClose(false)
+                    }
+
+                    null -> {
+                        Unit
+                    }
+                }
+            }
+        }
         // Manual: the menu keeps its own outside-press and Escape handling (PopupMenu).
         attr("popover", "manual")
         onFocusIn { event -> lastFocused.element = event.target as? HTMLElement }
@@ -215,7 +242,7 @@ private fun MenuItems(
             )
 
             fun placeAgainstTrigger() {
-                trigger.element?.let { placeMenu(menu, it) }
+                anchor()?.let { placeMenu(menu, it) }
             }
             placeAgainstTrigger()
             val place: (Event) -> Unit = { placeAgainstTrigger() }
@@ -351,12 +378,11 @@ private fun HTMLElement.focusWithoutScrolling() {
  */
 private fun placeMenu(
     menu: HTMLElement,
-    trigger: HTMLElement,
+    anchor: MenuAnchor,
 ) {
     val viewport = menu.ownerDocument?.documentElement ?: return
     val viewportWidth = viewport.clientWidth.toDouble()
     val viewportHeight = viewport.clientHeight.toDouble()
-    val anchor = trigger.getBoundingClientRect()
 
     menu.style.removeProperty("max-height")
     val width = menu.offsetWidth.toDouble()
@@ -387,7 +413,7 @@ private const val VIEWPORT_GUTTER = 8.0
 private const val TRIGGER_GAP = 6.0
 
 /** What a key does to an open menu, beyond the arrows its items handle themselves. */
-private enum class MenuKeyAction {
+internal enum class MenuKeyAction {
     /** Escape: close, and hand focus back to the trigger. */
     CloseAndReturn,
 
@@ -395,16 +421,38 @@ private enum class MenuKeyAction {
     CloseAndMoveOn,
 }
 
-private fun menuKeyAction(key: String): MenuKeyAction? =
+internal fun menuKeyAction(key: String): MenuKeyAction? =
     when (key) {
         "Escape" -> MenuKeyAction.CloseAndReturn
         "Tab" -> MenuKeyAction.CloseAndMoveOn
         else -> null
     }
 
-/** A DOM node captured by `ref`, for the two places a menu has to reach past composition. */
-private class NodeHolder {
+/** A DOM node captured by `ref`, for the places a menu has to reach past composition. */
+internal class NodeHolder {
     var element: HTMLElement? = null
+}
+
+/** The on-screen box a menu hangs from: a trigger's, a card's, or a pointer's point (a box of no size). */
+internal data class MenuAnchor(
+    val left: Double,
+    val top: Double,
+    val right: Double,
+    val bottom: Double,
+) {
+    companion object {
+        /** [element]'s box as it stands on screen now. */
+        fun of(element: Element): MenuAnchor {
+            val rect = element.getBoundingClientRect()
+            return MenuAnchor(rect.left, rect.top, rect.right, rect.bottom)
+        }
+
+        /** The point a pointer pressed at. */
+        fun at(
+            x: Double,
+            y: Double,
+        ): MenuAnchor = MenuAnchor(x, y, x, y)
+    }
 }
 
 private const val MENU_ICON_SIZE = 18
