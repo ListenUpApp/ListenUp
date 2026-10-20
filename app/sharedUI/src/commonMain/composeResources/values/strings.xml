@@ -101,9 +101,6 @@
     <string name="admin_inbox_empty">Inbox empty</string>
     <string name="admin_inbox_entry_a11y">Inbox, %1$d book waiting for review</string>
     <string name="admin_inbox_entry_a11y_plural">Inbox, %1$d books waiting for review</string>
-    <string name="admin_inbox_entry_subtitle">Waiting for you to release</string>
-    <string name="admin_inbox_entry_title">Inbox · %1$d new book</string>
-    <string name="admin_inbox_entry_title_plural">Inbox · %1$d new books</string>
     <string name="admin_inbox_issue_dismiss">Dismiss</string>
     <string name="admin_inbox_issue_metadata">The tags couldn't be read</string>
     <string name="admin_inbox_issue_metadata_fix">The audio is there, but its metadata is unreadable. Re-tagging usually fixes it.</string>
