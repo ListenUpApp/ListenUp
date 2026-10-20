@@ -45,6 +45,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_edit
+import listenup.composeapp.generated.resources.library_deselect_all
 import listenup.composeapp.generated.resources.library_select_all
 import listenup.composeapp.generated.resources.selection_add_to_collection
 import listenup.composeapp.generated.resources.selection_add_to_shelf
@@ -91,10 +92,15 @@ private class BottomExtended(
     override fun calculateBottomPadding(): Dp = base.calculateBottomPadding() + extra
 }
 
-/** "Select all N" in the selection header: every book the screen shows, filtered as the reader sees it. */
+/**
+ * "Select all N" in the selection header: every book the screen shows, filtered as the reader sees it. Once all of them
+ * are picked it reads "Deselect all", the standard pairing, and clears the picks while staying in selection.
+ */
 data class SelectAllAction(
     val count: Int,
+    val isAllSelected: Boolean,
     val onSelectAll: () -> Unit,
+    val onDeselectAll: () -> Unit,
 )
 
 /**
@@ -229,12 +235,18 @@ private fun SelectionHeader(
                 TextButton(
                     onClick = {
                         haptics.press()
-                        selectAll.onSelectAll()
+                        if (selectAll.isAllSelected) selectAll.onDeselectAll() else selectAll.onSelectAll()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.heightIn(min = ActionMinHeight),
                 ) {
-                    Text(stringResource(Res.string.library_select_all, selectAll.count))
+                    Text(
+                        if (selectAll.isAllSelected) {
+                            stringResource(Res.string.library_deselect_all)
+                        } else {
+                            stringResource(Res.string.library_select_all, selectAll.count)
+                        },
+                    )
                 }
             }
         }

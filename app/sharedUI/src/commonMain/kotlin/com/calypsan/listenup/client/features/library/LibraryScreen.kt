@@ -383,7 +383,13 @@ internal fun LibraryLoadedContent(
             // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
             selectAll =
                 if (selectedSection == LibrarySection.Books && state.books.isNotEmpty()) {
-                    SelectAllAction(state.books.size) { multiSelect.selectAll(state.books.map { it.id.value }) }
+                    SelectAllAction(
+                        count = state.books.size,
+                        isAllSelected = state.books.all { it.id.value in selectedBookIds },
+                        onSelectAll = { multiSelect.selectAll(state.books.map { it.id.value }) },
+                        // Clears the picks and stays in selection (enterSelectionMode with none picked).
+                        onDeselectAll = { multiSelect.enterSelectionMode() },
+                    )
                 } else {
                     null
                 },

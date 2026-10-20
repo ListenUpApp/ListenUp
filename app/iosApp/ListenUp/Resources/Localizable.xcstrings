@@ -16131,6 +16131,26 @@
         }
       }
     },
+    "library.deselect_all": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselect all"
+          }
+        }
+      }
+    },
+    "library.deselect_all_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deselect All"
+          }
+        }
+      }
+    },
     "library.dir_a_to_z": {
       "localizations": {
         "en": {

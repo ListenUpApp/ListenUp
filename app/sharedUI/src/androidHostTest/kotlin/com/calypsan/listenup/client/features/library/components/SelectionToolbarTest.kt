@@ -208,10 +208,20 @@ class SelectionToolbarTest {
     @Test
     fun `with Select all the header offers every book on screen, by count, and calls it`() {
         var selectAlls = 0
-        render(selectAll = SelectAllAction(count = 248) { selectAlls++ })
+        render(selectAll = SelectAllAction(count = 248, isAllSelected = false, onSelectAll = { selectAlls++ }, onDeselectAll = {}))
 
         composeRule.onNodeWithText("Select all 248").assertHasClickAction().performClick()
         composeRule.runOnIdle { selectAlls shouldBe 1 }
+    }
+
+    @Test
+    fun `with everything already selected the header offers Deselect all instead`() {
+        var deselects = 0
+        render(selectAll = SelectAllAction(count = 3, isAllSelected = true, onSelectAll = {}, onDeselectAll = { deselects++ }))
+
+        composeRule.onNodeWithText("Select all", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Deselect all").assertHasClickAction().performClick()
+        composeRule.runOnIdle { deselects shouldBe 1 }
     }
 
     @Test

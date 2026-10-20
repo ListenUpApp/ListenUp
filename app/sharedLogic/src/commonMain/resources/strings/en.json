@@ -356,7 +356,9 @@
     "arriving_none_yet": "Books appear here as they arrive.",
     "arriving_placeholder_a11y": "More books arriving",
     "select_all": "Select all %1$d",
-    "select_all_ios": "Select All"
+    "select_all_ios": "Select All",
+    "deselect_all": "Deselect all",
+    "deselect_all_ios": "Deselect All"
   },
   "book": {
     "visibility_title": "Visibility",

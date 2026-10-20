@@ -1614,6 +1614,8 @@ One beautiful library.</string>
     <string name="library_create_add">Create &amp; add</string>
     <string name="library_create_new_collection">Create new collection</string>
     <string name="library_create_new_shelf">Create new shelf</string>
+    <string name="library_deselect_all">Deselect all</string>
+    <string name="library_deselect_all_ios">Deselect All</string>
     <string name="library_dir_a_to_z">A–Z</string>
     <string name="library_dir_fewest">Fewest</string>
     <string name="library_dir_first_added">Oldest first</string>
