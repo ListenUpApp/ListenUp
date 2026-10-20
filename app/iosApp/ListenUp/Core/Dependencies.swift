@@ -22,6 +22,8 @@ final class Dependencies: Sendable {
     // MARK: - Use cases
 
     var instanceRepository: InstanceRepository { resolve { KoinHelper.shared.getInstanceRepository() } }
+    /// Cover colours for heroes (Book Detail spec §2.3). A Koin `single`, so its in-memory cache is the app's.
+    var coverThemeRepository: any CoverThemeRepository { resolve { KoinHelper.shared.getCoverThemeRepository() } }
 
     // MARK: - Screen-scoped ViewModels (fresh per screen)
 
