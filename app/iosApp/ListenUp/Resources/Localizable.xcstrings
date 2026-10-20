@@ -891,16 +891,6 @@
         }
       }
     },
-    "admin.held_cannot_play": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "It can’t be played until you release it."
-          }
-        }
-      }
-    },
     "admin.held_collections_release": {
       "localizations": {
         "en": {
@@ -947,16 +937,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Held for Review"
-          }
-        }
-      }
-    },
-    "admin.held_hidden_from_members": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hidden from all members."
           }
         }
       }
@@ -4591,36 +4571,6 @@
         }
       }
     },
-    "book.detail_delete_book_body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This permanently deletes the book’s folder from your server. ListenUp tracks %1$d files in it (%2$@), and everything else in that folder goes too — PDFs, artwork, bonus material — whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone."
-          }
-        }
-      }
-    },
-    "book.detail_delete_book_confirm": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete forever"
-          }
-        }
-      }
-    },
-    "book.detail_delete_book_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete “%1$@”?"
-          }
-        }
-      }
-    },
     "book.detail_delete_server_body": {
       "localizations": {
         "en": {
@@ -5551,32 +5501,12 @@
         }
       }
     },
-    "book.detail_offline_body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Streaming is unavailable. Downloaded books still play."
-          }
-        }
-      }
-    },
     "book.detail_offline_reason": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Can’t reach your server. This book isn’t downloaded, so it can’t play right now."
-          }
-        }
-      }
-    },
-    "book.detail_offline_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Server offline"
           }
         }
       }
@@ -5647,16 +5577,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d percent listened"
-          }
-        }
-      }
-    },
-    "book.detail_published": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Published"
           }
         }
       }
@@ -6681,16 +6601,6 @@
         }
       }
     },
-    "book.detail_supplementary_materials": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Supplementary materials"
-          }
-        }
-      }
-    },
     "book.detail_tags": {
       "localizations": {
         "en": {
@@ -6727,16 +6637,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for WiFi"
-          }
-        }
-      }
-    },
-    "book.detail_written_by": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Written by"
           }
         }
       }

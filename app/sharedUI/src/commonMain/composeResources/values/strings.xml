@@ -89,13 +89,11 @@
     <string name="admin_hardcover_token_set">Set · belongs to @%1$s</string>
     <string name="admin_held">Held</string>
     <string name="admin_held_a11y">Held for review, hidden from all members</string>
-    <string name="admin_held_cannot_play">It can’t be played until you release it.</string>
     <string name="admin_held_collections_release">Choosing collections releases this book from the inbox.</string>
     <string name="admin_held_count_a11y">%1$d book waiting for review</string>
     <string name="admin_held_count_a11y_plural">%1$d books waiting for review</string>
     <string name="admin_held_for_review">Held for review</string>
     <string name="admin_held_for_review_ios">Held for Review</string>
-    <string name="admin_held_hidden_from_members">Hidden from all members.</string>
     <string name="admin_held_release_to_play">Release it to play</string>
     <string name="admin_inbox">Inbox</string>
     <string name="admin_inbox_deselect_all">Deselect all</string>
@@ -460,9 +458,6 @@ One beautiful library.</string>
     <string name="book_detail_credits_placeholder">Credits go here</string>
     <string name="book_detail_credits_subtitle">%1$d contributors · %2$s</string>
     <string name="book_detail_delete_book_blocked">“%1$s” is in the same folder, so deleting this book would take it too. Nothing was deleted.</string>
-    <string name="book_detail_delete_book_body">This permanently deletes the book’s folder from your server. ListenUp tracks %1$d files in it (%2$s), and everything else in that folder goes too — PDFs, artwork, bonus material — whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone.</string>
-    <string name="book_detail_delete_book_confirm">Delete forever</string>
-    <string name="book_detail_delete_book_title">Delete “%1$s”?</string>
     <string name="book_detail_delete_server_body">This deletes %1$d files (%2$s) for “%3$s”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
     <string name="book_detail_delete_server_body_ios">%1$d files (%2$s) and everything else in its folder are removed for every member. This can’t be undone.</string>
     <string name="book_detail_delete_server_body_one">This deletes 1 file (%1$s) for “%2$s”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
@@ -556,9 +551,7 @@ One beautiful library.</string>
     <string name="book_detail_no_collections">No collections yet</string>
     <string name="book_detail_now_playing">Now playing</string>
     <string name="book_detail_now_playing_in">Now playing · %1$s in</string>
-    <string name="book_detail_offline_body">Streaming is unavailable. Downloaded books still play.</string>
     <string name="book_detail_offline_reason">Can’t reach your server. This book isn’t downloaded, so it can’t play right now.</string>
-    <string name="book_detail_offline_title">Server offline</string>
     <string name="book_detail_other_authors">%1$s, %2$d other authors</string>
     <string name="book_detail_other_narrators">%1$s, %2$d other narrators</string>
     <string name="book_detail_play">Play</string>
@@ -566,7 +559,6 @@ One beautiful library.</string>
     <string name="book_detail_play_ios">Play</string>
     <string name="book_detail_preparing">Preparing…</string>
     <string name="book_detail_progress_a11y">%1$d percent listened</string>
-    <string name="book_detail_published">Published</string>
     <string name="book_detail_publisher">Publisher</string>
     <string name="book_detail_queued">Queued...</string>
     <string name="book_detail_rating_add_note">Add a note</string>
@@ -669,12 +661,10 @@ One beautiful library.</string>
     <string name="book_detail_social_listening_one">%1$s is listening</string>
     <string name="book_detail_social_listening_two">%1$s and %2$s are listening</string>
     <string name="book_detail_started">Started</string>
-    <string name="book_detail_supplementary_materials">Supplementary materials</string>
     <string name="book_detail_tags">Tags</string>
     <string name="book_detail_unabridged">Unabridged</string>
     <string name="book_detail_unavailable_offline">Unavailable offline</string>
     <string name="book_detail_waiting_for_wifi">Waiting for WiFi</string>
-    <string name="book_detail_written_by">Written by</string>
     <string name="book_detail_you_can_redownload_anytime_by">You can re-download anytime by playing the book.</string>
     <string name="book_detail_youre_here">You're here</string>
     <string name="book_detail_youre_here_in">You're here · %1$s in</string>
