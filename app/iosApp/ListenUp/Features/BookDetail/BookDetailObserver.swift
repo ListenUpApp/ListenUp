@@ -107,6 +107,12 @@ final class BookDetailObserver {
     // MARK: - Documents
 
     private(set) var documents: [DocumentRow] = []
+    /// The Details rows (`bookDetailRows`), recomputed when the book or its documents change.
+    private(set) var detailRows: [BookDetailRowValue] = []
+    /// The book's audio files, for the Files & Audio sheet.
+    private(set) var audioFiles: [FilesAndAudioFile] = []
+    private var lastReady: BookDetailUiStateReady?
+    private var kotlinDocuments: [BookDocument] = []
     private(set) var openingDocIds: Set<String> = []
     /// Set when a tapped PDF is ready; drives `.fullScreenCover`. Nil dismisses the reader.
     var documentToOpen: ReaderDocument?
@@ -197,6 +203,8 @@ final class BookDetailObserver {
         }
         bridge.bind(viewModel.documents) { [weak self] docs in
             self?.documents = docs.map { DocumentRow($0) }
+            self?.kotlinDocuments = docs
+            self?.recomputeDetailRows()
         }
         bridge.bind(viewModel.openingDocumentIds) { [weak self] ids in
             self?.openingDocIds = Set(ids)
@@ -206,6 +214,14 @@ final class BookDetailObserver {
         }
         bridge.bind(viewModel.lastMatch) { [weak self] in self?.lastMatch = $0.map(LastMatchMapping.row(from:)) }
         bridge.bind(viewModel.lastMatchEvents) { [weak self] in self?.lastMatchOutcome = LastMatchMapping.outcome($0) }
+    }
+
+    /// The Details rows for the last `Ready` and the latest documents, through the shared rule.
+    private func recomputeDetailRows() {
+        guard let lastReady else { return }
+        detailRows = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
+            .bookDetailRows(ready: lastReady, documents: kotlinDocuments)
+            .map(BookDetailRowValue.init)
     }
 
     /// Fold the latest `myShelves` + containing-book membership into `[ShelfRow]`.
@@ -394,6 +410,8 @@ final class BookDetailObserver {
             visibility = BookVisibilityModel.from(r.visibility)
             isRestoringToAllBooks = r.isRestoringToAllBooks
             reading = BookReadingState(r)
+            lastReady = r
+            recomputeDetailRows()
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }
@@ -427,6 +445,9 @@ final class BookDetailObserver {
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
             .audioFormatDisplay(files: book.audioFiles)
         audioFileSizes = book.audioFiles.map { $0.size }
+        audioFiles = book.audioFiles.map {
+            FilesAndAudioFile(id: $0.id, name: documentBasename($0.filename), durationMs: $0.duration, sizeBytes: $0.size)
+        }
         heroAuthors = book.authors.map { CastMember($0) }
         heroNarrators = book.narrators.map { CastMember($0) }
         castMembers = book.allContributors.map { CastMember($0) }

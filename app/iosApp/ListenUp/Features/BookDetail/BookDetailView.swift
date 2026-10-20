@@ -148,6 +148,7 @@ struct BookDetailView: View {
             }
         }
         .sheet(item: $hardcoverMatchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
+        .sheet(item: $detailsSheet) { detailsSheetContent($0) }
         .sheet(isPresented: $showCast) {
             if let observer {
                 CastCreditsSheet(
@@ -345,24 +346,6 @@ struct BookDetailView: View {
                 .id(Self.readersAnchor)
                 .accessibilityFocused($readersFocused)
         }
-    }
-
-    func detailsSection(_ observer: BookDetailObserver) -> some View {
-        let audioFormat = observer.audioFormat
-        return BookDetailsSection(
-            authors: observer.authors,
-            narrators: observer.narrators,
-            lengthLabel: observer.duration,
-            chapterCount: observer.chapters.count,
-            publisher: observer.publisher,
-            released: observer.year.map(String.init),
-            language: observer.language,
-            format: audioFormat.format,
-            bitrate: audioFormat.bitrate,
-            sampleRate: audioFormat.sampleRate,
-            channels: audioFormat.channels,
-            onOpenCast: { showCast = true }
-        )
     }
 
     /// The More menu's open question (mark not started, restart, delete from server), if any.
