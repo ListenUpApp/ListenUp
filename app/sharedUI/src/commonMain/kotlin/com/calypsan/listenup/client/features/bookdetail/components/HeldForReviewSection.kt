@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.theme.extendedColors
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_held_for_review
 import listenup.composeapp.generated.resources.book_detail_held_body
@@ -54,8 +55,8 @@ private val EditTileWidth = 96.dp
 
 /**
  * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be. Amber, not
- * coral: the M3 tertiary roles, the app's "waiting for you" colour (Library's inbox uses them), so the panel never
- * reads as Play. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
+ * coral: the fixed held roles ([com.calypsan.listenup.client.design.theme.ListenUpExtendedColors.held]), the app's
+ * "waiting for you" colour, which dynamic colour never turns into the wallpaper's tertiary. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
  * played until you release it."), then the only things a held book allows: **Release to members** (asks first), Edit
  * details, Match details and Edit chapters. One row each, short labels (the M3E ButtonGroup call).
  *
@@ -77,8 +78,8 @@ fun HeldForReviewSection(
 ) {
     Surface(
         shape = ContentShapes.card,
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        color = MaterialTheme.extendedColors.heldContainer,
+        contentColor = MaterialTheme.extendedColors.onHeldContainer,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
@@ -146,15 +147,15 @@ private fun ReleaseButton(
         enabled = !isReleasing,
         colors =
             ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.onTertiary,
-                disabledContainerColor = MaterialTheme.colorScheme.tertiary,
-                disabledContentColor = MaterialTheme.colorScheme.onTertiary,
+                containerColor = MaterialTheme.extendedColors.held,
+                contentColor = MaterialTheme.extendedColors.onHeld,
+                disabledContainerColor = MaterialTheme.extendedColors.held,
+                disabledContentColor = MaterialTheme.extendedColors.onHeld,
             ),
         modifier = modifier.testTag("heldRelease"),
     ) {
         if (isReleasing) {
-            ListenUpLoadingIndicatorSmall(color = MaterialTheme.colorScheme.onTertiary)
+            ListenUpLoadingIndicatorSmall(color = MaterialTheme.extendedColors.onHeld)
         } else {
             Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))

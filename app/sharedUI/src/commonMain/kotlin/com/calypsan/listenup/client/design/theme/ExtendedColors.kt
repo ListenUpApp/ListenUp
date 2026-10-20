@@ -12,8 +12,8 @@ import androidx.compose.ui.graphics.Color
  * a light and a dark value each, so a status colour follows the theme like every other role
  * instead of being a raw hex at the call site.
  *
- * The values are fixed greens rather than harmonised with a dynamic scheme: "active" and
- * "done" must stay recognisably green whatever the wallpaper, and every pair here clears
+ * The values are fixed rather than harmonised with a dynamic scheme: "active" and "done" must stay
+ * recognisably green, and "held" amber, whatever the wallpaper, and every pair here clears
  * WCAG AA on the fallback surfaces (pinned by `ExtendedColorsContrastTest`). [success] is also drawn as
  * text ("Up to date" on Book Detail's Hardcover card), so it clears 4.5:1 on every container a card sits on,
  * with room to spare for a dynamic scheme's slightly different surfaces.
@@ -23,6 +23,11 @@ import androidx.compose.ui.graphics.Color
  * @property onSuccess Text and icons on a [success] fill.
  * @property successContainer A quiet positive fill, such as a "done" chip.
  * @property onSuccessContainer Text and icons on a [successContainer] fill.
+ * @property held The held-for-review amber (spec §3.2.3): "waiting for you", fixed like [success] so dynamic colour never
+ *   turns a held book pink — Material's tertiary role follows the wallpaper. Release to members fills with it.
+ * @property onHeld Text and icons on a [held] fill.
+ * @property heldContainer The quiet held fill: the held panel, the Held pill, the Library's inbox strip.
+ * @property onHeldContainer Text and icons on a [heldContainer] fill.
  */
 @Immutable
 data class ListenUpExtendedColors(
@@ -30,6 +35,10 @@ data class ListenUpExtendedColors(
     val onSuccess: Color,
     val successContainer: Color,
     val onSuccessContainer: Color,
+    val held: Color,
+    val onHeld: Color,
+    val heldContainer: Color,
+    val onHeldContainer: Color,
 )
 
 internal val LightExtendedColors =
@@ -38,6 +47,10 @@ internal val LightExtendedColors =
         onSuccess = Color(0xFFFFFFFF),
         successContainer = Color(0xFFB7F1C8),
         onSuccessContainer = Color(0xFF00210F),
+        held = Color(0xFF785A00),
+        onHeld = Color(0xFFFFFFFF),
+        heldContainer = Color(0xFFFFE08A),
+        onHeldContainer = Color(0xFF251A00),
     )
 
 internal val DarkExtendedColors =
@@ -46,6 +59,10 @@ internal val DarkExtendedColors =
         onSuccess = Color(0xFF00391D),
         successContainer = Color(0xFF00522C),
         onSuccessContainer = Color(0xFF9AF7B8),
+        held = Color(0xFFECC248),
+        onHeld = Color(0xFF3F2E00),
+        heldContainer = Color(0xFF5B4400),
+        onHeldContainer = Color(0xFFFFE08A),
     )
 
 /** Provides the [ListenUpExtendedColors] for the current theme; set by [ListenUpTheme]. */

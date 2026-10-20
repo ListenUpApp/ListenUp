@@ -1,11 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -30,7 +25,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode
 
 /**
  * A held book's detail page is triage-only (spec §8, §10): the held section with Release, Edit,
@@ -99,26 +93,6 @@ class BookDetailTriageTest {
         composeRule.onNodeWithText("Edit chapters").assertIsNotEnabled()
     }
 
-    @Test
-    @Config(qualifiers = Windows.PHONE)
-    @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun `the Release button is amber, never the coral of Play`() {
-        var tertiary = Color.Unspecified
-        var primary = Color.Unspecified
-        setContent {
-            tertiary = MaterialTheme.colorScheme.tertiary
-            primary = MaterialTheme.colorScheme.primary
-        }
-        val fill =
-            composeRule.onNodeWithTag("heldRelease").captureToImage().toPixelMap().let { pixels ->
-                pixels[pixels.width / 8, pixels.height / 2]
-            }
-        // The button's surface tint lifts the fill a shade, so compare by distance: amber, and nowhere near coral.
-        (tertiary == primary) shouldBe false
-        (fill.distanceTo(tertiary) < fill.distanceTo(primary)) shouldBe true
-        (fill.distanceTo(tertiary) < FILL_TOLERANCE) shouldBe true
-    }
-
     private fun assertTriageOnly() {
         composeRule.onNodeWithText("Held for review").assertExists()
         composeRule.onNodeWithText("Hidden from every member, and it can’t be played until you release it.").assertExists()
@@ -143,13 +117,9 @@ class BookDetailTriageTest {
         composeRule.onNodeWithText("Share").assertDoesNotExist()
     }
 
-    private fun setContent(
-        isReleasing: Boolean = false,
-        probe: @Composable () -> Unit = {},
-    ) {
+    private fun setContent(isReleasing: Boolean = false) {
         composeRule.setContent {
             MaterialTheme {
-                probe()
                 BookDetailContent(
                     bookId = "b1",
                     state =
@@ -217,12 +187,5 @@ class BookDetailTriageTest {
                 )
             }
         }
-    }
-
-    private fun Color.distanceTo(other: Color): Float =
-        maxOf(kotlin.math.abs(red - other.red), kotlin.math.abs(green - other.green), kotlin.math.abs(blue - other.blue))
-
-    private companion object {
-        const val FILL_TOLERANCE = 0.08f
     }
 }

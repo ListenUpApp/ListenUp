@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.InboxGlyphTile
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.admin.inbox.inboxEntryDescription
 import listenup.composeapp.generated.resources.Res
@@ -36,7 +37,7 @@ private val GlyphSize = 18.dp
  * The phone Library's way into the admin inbox (spec a6): one line, "Inbox · 3 waiting", an amber glyph and a chevron.
  *
  * Absent at zero — no placeholder, no "Inbox · 0". One button for TalkBack, named "Inbox, 3 books waiting for
- * review". Amber (tertiary) is "waiting for you"; coral stays "act here". The grid's first scrolling item: the inbox
+ * review". Amber (the fixed held roles) is "waiting for you"; coral stays "act here". The grid's first scrolling item: the inbox
  * is a destination, not news about the list.
  *
  * @param heldCount books held for review; the strip renders nothing at 0
@@ -57,8 +58,8 @@ fun LibraryInboxStrip(
             onOpenInbox()
         },
         shape = ContentShapes.card,
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        color = MaterialTheme.extendedColors.heldContainer,
+        contentColor = MaterialTheme.extendedColors.onHeldContainer,
         modifier =
             modifier
                 .fillMaxWidth()
