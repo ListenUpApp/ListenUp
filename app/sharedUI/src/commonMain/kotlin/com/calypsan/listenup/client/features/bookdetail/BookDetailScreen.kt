@@ -464,7 +464,6 @@ private fun BookDetailReadyContent(
     when (dialog) {
         BookDetailDialog.RemoveDownload -> {
             DeleteDownloadDialog(
-                bookTitle = book.title,
                 downloadSize = state.downloadStatus.downloadedOrTotalBytes(),
                 onConfirm = {
                     scope.launch {
