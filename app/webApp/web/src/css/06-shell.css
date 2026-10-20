@@ -554,3 +554,11 @@ dialog.dlg.bd-credits { width:520px; }
 .cbx-in { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
 .cbx-in:focus-visible + .cbx { outline:2.5px solid var(--coral); outline-offset:2px; }
 
+
+/* Book Detail's states (spec §3.2.3). The offline reason sits in the hero directly above the actions; the scan warning
+   is the first thing in the hero, full width above the cover on a phone. */
+.bd-offline { display:flex; gap:var(--sp-12); align-items:center; padding:10px 12px; margin-top:var(--sp-8); border:1px solid var(--line); border-radius:var(--r-md); background:var(--surface); color:var(--ink); font-size:var(--fs-ui); }
+.bd-offline > span { flex:1; min-width:0; }
+.bd-head:has(> .bd-scan) { flex-wrap:wrap; }
+.bd-scan { flex-basis:100%; border:1px solid; border-radius:var(--r-md); align-self:stretch; }
+.bd-scan > span { flex:1; min-width:0; }

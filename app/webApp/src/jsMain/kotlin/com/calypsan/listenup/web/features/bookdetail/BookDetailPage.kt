@@ -13,8 +13,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
@@ -211,6 +209,8 @@ fun BookDetailPage(
             onDeleteBook = onDeleteBook,
             onClearDeleteError = onClearDeleteError,
             readers = readers,
+            onRetryConnection = onRetryConnection,
+            onOpenFiles = onOpenFiles,
         )
 
         when (state) {
@@ -221,20 +221,16 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Error -> {
-                PageHeader(title = crumb(state))
-                val (heading, body) = explain(state.error)
-                // A state that can't show what was asked for still owes the reader somewhere to
-                // go. Library is the only honest destination: web sync is unwritten, so a "sync
-                // this browser" button would be a control with nothing behind it.
-                EmptyState(title = heading, body = body, icon = WebIcon.Book) {
-                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
-                        Text("Back to Library")
-                    }
+                PageHeader(title = ERROR_TITLE)
+                // Spec §3.2.3 Error: what happened (the typed error's own message, true here since web sync landed),
+                // Retry (a reconnect runs catch-up; the page turns Ready when the book arrives), and the way back.
+                EmptyState(title = ERROR_TITLE, body = state.error.message, icon = WebIcon.Book) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetryConnection() }) { Text("Retry") }
+                    Button(kind = ButtonKind.Secondary, onClick = { onOpenLibrary() }) { Text("Back to Library") }
                 }
             }
 
             is BookDetailUiState.Ready -> {
-                ServerOfflineBanner(state.showServerWarning, onRetryConnection)
                 FocusHeadingWhenBlocksLeave(state, root)
 
                 // A held book is triage-only (spec §8). The panel stands above the sections; Release asks
@@ -326,6 +322,8 @@ private fun SharedHeader(
     onDeleteBook: () -> Unit,
     onClearDeleteError: () -> Unit,
     readers: BookReadersUiState,
+    onRetryConnection: () -> Unit,
+    onOpenFiles: () -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -343,6 +341,8 @@ private fun SharedHeader(
     }) {
         // Fluid inside a box CSS sizes (260px on a desktop, 210px on a phone): the size is the stylesheet's, so the
         // image rung requested, and the hero flight's destination node, stay the same at every width.
+        // The scanner's flag, for an admin (spec §3.2.3), at the top of the hero; Review opens the Files view.
+        if (ready?.showScanWarning == true) ScanWarning(onReview = onOpenFiles)
         Div(attrs = { classes("bd-cover") }) {
             Cover(
                 title = ready?.book?.title.orEmpty(),
@@ -375,6 +375,8 @@ private fun SharedHeader(
                 // the absence of Play. It is gated on `isHeld`: a held book's hero has no Play, no
                 // actions menu and no icon buttons — its only actions are the held panel's.
                 if (!ready.isHeld) {
+                    // Why the primary below is disabled, directly above the actions (spec §2.9).
+                    if (ready.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetryConnection)
                     HeroActions(
                         ready = ready,
                         isPreparing = isPreparing,
@@ -671,6 +673,7 @@ private fun BookSection(
                 onRefreshExternal = panes.onRefreshExternalRating,
                 nowMs = panes.nowMs,
                 starsFocusRequest = panes.ratingStarsFocusRequest,
+                isFinished = state.readingStage == ReadingStage.Finished,
             )
         }
 
@@ -889,24 +892,6 @@ private fun ContributorNameLink(
 
 private fun crumb(state: BookDetailUiState): String = if (state is BookDetailUiState.Ready) state.book.title else "Book"
 
-/**
- * What to say about a failed load, chosen from the typed error rather than from its text.
- *
- * Every subtype but one renders its own `message`, which is the rule. `BookError.NotFound` is the
- * exception, and deliberately: its message is "This book no longer exists.", which is true for a
- * synced client and false for this one. A web client has no sync at all until the auth arc lands,
- * so a book missing from the local store means an empty browser far more often than a deleted
- * book — and telling a reader their book is gone when it is sitting on their server is the kind
- * of confident lie this codebase exists to avoid. Revisit once web sync can tell the two apart.
- */
-private fun explain(error: AppError): Pair<String, String> =
-    if (error is BookError.NotFound) {
-        "Not in this browser's library" to
-            "This browser hasn't synced a library yet, so there's nothing to show here."
-    } else {
-        "This book can't be shown" to error.message
-    }
-
 @Composable
 internal fun PaneHint(text: String) {
     P(attrs = {
@@ -1008,39 +993,41 @@ private fun BookDetailUiState.Ready.hasFacets(): Boolean =
     genres.isNotEmpty() || tags.isNotEmpty() || moods.isNotEmpty()
 
 /**
- * Says the server is unreachable, and offers the one thing that might fix it.
+ * Why the primary is disabled (spec §2.9, §3.2.3 Offline): the server is unreachable and this book cannot stream. It
+ * sits in the hero directly above the actions, with Retry.
  *
- * ⛔ Web's library reads from OPFS, so a book page renders perfectly while the server is gone —
- * nothing looks wrong until Play fails with no explanation. That silence is the bug this ends;
- * `Ready.showServerWarning` has carried the fact all along and web drew nothing from it.
- *
- * **Not the shared copy verbatim.** Android's body promises "Downloaded books still play", and
- * this client has no downloads at all, so repeating it would comfort a reader with a fallback they
- * do not have — the same reason `SessionLapsedBanner` rewrote its own body.
+ * **Not the shared copy verbatim.** Android's says the book "isn’t downloaded"; this client has no downloads at all,
+ * so the web says what is true here: it can't stream.
  */
 @Composable
-private fun ServerOfflineBanner(
-    visible: Boolean,
-    onRetry: () -> Unit,
-) {
-    if (!visible) return
-
+private fun OfflineReason(onRetry: () -> Unit) {
     Div(attrs = {
-        classes("banner", "warn")
+        classes("bd-offline")
         attr("role", "status")
         attr("aria-live", "polite")
     }) {
-        Span { Text("Server offline — streaming is unavailable until it is back.") }
-        Button(
-            kind = ButtonKind.Secondary,
-            size = ButtonSize.Sm,
-            onClick = { onRetry() },
-            attrs = {
-                classes("bd-retry")
-            },
-        ) { Text("Retry") }
+        Icon(WebIcon.LinkOff, size = REASON_ICON_SIZE)
+        Span { Text("Can’t reach your server, so this book can’t stream right now.") }
+        Button(kind = ButtonKind.Primary, size = ButtonSize.Sm, onClick = { onRetry() }) { Text("Retry") }
     }
 }
+
+/** The scanner's flag on this book, for an admin: one sentence (the state has no per-file count, R8) and Review. */
+@Composable
+private fun ScanWarning(onReview: () -> Unit) {
+    Div(attrs = {
+        classes("banner", "err", "bd-scan")
+        attr("role", "status")
+    }) {
+        Span { Text("The scanner flagged this book’s files.") }
+        Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = { onReview() }) { Text("Review") }
+    }
+}
+
+private const val REASON_ICON_SIZE = 18
+
+/** Book Detail's error title, the natives' `book_detail_error_title`. */
+private const val ERROR_TITLE = "Couldn’t load this book"
 
 /** The held panel and the Release confirmation it opens. */
 @Composable

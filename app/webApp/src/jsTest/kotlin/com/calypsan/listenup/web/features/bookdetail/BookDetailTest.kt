@@ -364,7 +364,7 @@ class BookDetailTest :
             try {
                 (host.querySelector(".bd .empty") as HTMLElement)
                     .textContent
-                    .orEmpty() shouldContain "Not in this browser's library"
+                    .orEmpty() shouldContain "Couldn’t load this book"
                 (host.querySelector(".bd .crumb a") != null) shouldBe true
                 (host.querySelector(".bd-head") == null) shouldBe true
             } finally {
