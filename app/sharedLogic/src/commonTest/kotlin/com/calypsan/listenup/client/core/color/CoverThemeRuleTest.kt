@@ -99,13 +99,15 @@ class CoverThemeRuleTest :
         }
 
         test("the action guard trips: a coral too light for its label stays the unharmonised token") {
-            val weak = CoverThemeTokens(brandArgb = hex("#FF8A65"), onBrandArgb = hex("#FFFFFF"), inkArgb = hex("#000000"), paperArgb = null)
+            val weak =
+                CoverThemeTokens(brandArgb = hex("#FF8A65"), onBrandArgb = hex("#FFFFFF"), inkArgb = hex("#000000"), paperArgb = null)
             val theme = themes(WAY_OF_KINGS, CoverThemeStyle(weak, IOS_STYLE.dark)).shouldNotBeNull().light
             theme.actionArgb shouldBe hex("#FF8A65")
         }
 
         test("the wash guard trips: an ink that can't be read on the wash makes the cover neutral") {
-            val pale = CoverThemeTokens(brandArgb = hex("#D73812"), onBrandArgb = hex("#FFFFFF"), inkArgb = hex("#CCCCCC"), paperArgb = null)
+            val pale =
+                CoverThemeTokens(brandArgb = hex("#D73812"), onBrandArgb = hex("#FFFFFF"), inkArgb = hex("#CCCCCC"), paperArgb = null)
             themes(WAY_OF_KINGS, CoverThemeStyle(pale, IOS_STYLE.dark)) shouldBe null
         }
 
