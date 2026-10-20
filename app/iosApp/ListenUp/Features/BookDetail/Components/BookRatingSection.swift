@@ -18,6 +18,8 @@ struct BookRatingSection: View {
     let onRemove: () -> Void
     let onOpenSources: () -> Void
     let onRefreshExternal: () -> Void
+    /// The reader has finished the book: "How Was It?" leads, and the note is for their listeners (spec §3.2.3).
+    var isFinished = false
 
     /// The stars a drag is previewing, until the finger lifts.
     @State private var dragging: Int?
@@ -82,7 +84,7 @@ struct BookRatingSection: View {
     private var yourRating: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-                Text(String(localized: "book.detail_rating_yours"))
+                Text(Self.heading(isFinished: isFinished))
                     .font(.body.weight(.semibold))
                 Spacer(minLength: 8)
                 Text(Self.valueLabel(shownStars))
@@ -131,7 +133,7 @@ struct BookRatingSection: View {
     private func optionsMenu(_ mine: MyRating) -> some View {
         Menu {
             Button(action: onEditNote) {
-                Label(Self.noteActionTitle(mine), systemImage: "square.and.pencil")
+                Label(Self.noteActionTitle(mine, isFinished: isFinished), systemImage: "square.and.pencil")
             }
             Button(role: .destructive) {
                 if Self.removeNeedsConfirmation(mine) { isConfirmingRemove = true } else { onRemove() }
@@ -283,13 +285,9 @@ struct BookRatingSection: View {
         !(mine.note ?? "").isEmpty
     }
 
-    /// "Add a Note" or "Edit Note", title-styled for a menu (HIG, Menus).
-    nonisolated static func noteActionTitle(_ mine: MyRating) -> String {
-        // Literal keys, so `verifySwiftStringKeys` sees both.
-        let title = (mine.note ?? "").isEmpty
-            ? String(localized: "book.detail_rating_add_note")
-            : String(localized: "book.detail_rating_edit_note")
-        return title.titleStyled
+    /// "Add a Note", "Add a Note for Your Listeners" once finished, or "Edit Note", title-styled for a menu (HIG, Menus).
+    nonisolated static func noteActionTitle(_ mine: MyRating, isFinished: Bool = false) -> String {
+        addNoteTitle(isFinished: isFinished, hasNote: !(mine.note ?? "").isEmpty)
     }
 
     /// "4.5", or "Not rated" before a star is chosen.
