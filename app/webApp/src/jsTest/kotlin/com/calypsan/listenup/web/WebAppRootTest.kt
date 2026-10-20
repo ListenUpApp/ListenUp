@@ -944,7 +944,15 @@ class WebAppRootTest :
             val (host, router) = mountAt("/book/b-kings", openBookDetail = fixedBookDetail(readyBook()))
 
             try {
-                (host.querySelector("button[aria-label=\"Match details\"]") as HTMLElement).click()
+                // In the More menu now (spec §2.7), not a hero icon button.
+                (host.querySelector(".bd-actions .bd-menu") as HTMLElement).click()
+                awaitFrame()
+                host
+                    .querySelectorAll(".menu-i")
+                    .asList()
+                    .map { it as HTMLElement }
+                    .first { it.textContent?.trim() == "Match details…" }
+                    .click()
                 awaitFrame()
 
                 window.location.pathname shouldBe "/book/b-kings/match"

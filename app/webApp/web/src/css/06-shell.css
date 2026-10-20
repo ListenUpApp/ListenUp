@@ -317,6 +317,8 @@ dialog.dlg.bd-credits { width:520px; }
 .credit-roles { font-size:var(--fs-small); color:var(--ink-2); }
 /* No Download, deliberately: a browser cannot finish one, so the primary stands beside Add to shelf. */
 .bd-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:var(--sp-4); }
+/* "More ▾" (spec §2.7): a text button with its chevron after the word. */
+.bd-menu { gap:var(--sp-4); }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
    inline style on a single paragraph. */
 .bd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
@@ -526,8 +528,9 @@ dialog.dlg.bd-credits { width:520px; }
 @media (max-width: 759px) {
   .bd { padding:var(--sp-16) 14px 28px; gap:var(--sp-16); }
   .bd-head { gap:var(--sp-16); padding:var(--sp-16); }
-  /* A phone's two actions each take the full width: Resume, then Add to shelf under it. */
-  .bd-primary, .bd-shelf { flex:1 1 100%; }
+  /* A phone's primary takes the full width; Add to shelf and More share the row under it (spec §2.7, Q5). */
+  .bd-primary { flex:1 1 100%; }
+  .bd-shelf { flex:1 1 0; }
 
 }
 /* < 640: the cover stands above the title. Beside it, a 390px phone left the title 166px to wrap

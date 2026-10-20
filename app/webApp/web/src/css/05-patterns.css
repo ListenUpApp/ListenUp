@@ -94,6 +94,14 @@
 .menu [role=group][aria-label="Direction"] .menu-h { display:none; }
 .menu [role=group][aria-label="Direction"] .menu-i { justify-content:center; height:32px; border:1px solid var(--line); }
 .menu [role=group][aria-label="Direction"] .menu-i[aria-checked=true] { background:var(--coral-fill); color:var(--on-coral); border-color:transparent; }
+/* Grouped menus (Book Detail's More, spec §2.7): every group after the first is set off by a divider, and a
+   destructive group — no heading of its own — reads as danger. The sort menu's Direction draws its own line. */
+.menu > [role=group]:not(:first-child):not([aria-label="Direction"]), .menu > .menu-i + [role=group]:not([aria-label="Direction"]) { margin-top:4px; padding-top:4px; border-top:1px solid var(--line); }
+.menu-i.is-danger { color:var(--danger); }
+@media (hover: hover) { .menu-i.is-danger:hover { background:var(--danger-soft); } }
+.menu-i.is-danger:active { background:var(--danger-soft); }
+.menu-i:disabled { color:var(--ink-3); cursor:default; }
+.menu-g-danger { gap:0; }
 .menu-i[role=menuitemcheckbox] { font-weight:400; }
 .menu-i[role=menuitemcheckbox]::before { content:""; flex:none; width:14px; height:14px; border:1.5px solid var(--ink-2); border-radius:4px; }
 .menu-i[role=menuitemcheckbox][aria-checked=true]::before { background:var(--coral-fill); border-color:var(--coral-fill); box-shadow:inset 0 0 0 2px var(--surface); }

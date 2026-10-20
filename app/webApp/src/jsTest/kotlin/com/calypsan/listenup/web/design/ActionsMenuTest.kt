@@ -225,6 +225,66 @@ class ActionsMenuTest :
             val trigger = root.querySelector(".menu-anchor button") as HTMLElement
             trigger.hasAttribute("disabled") shouldBe true
         }
+
+        test("a destructive run is its own named group with no heading, its items in the danger colour") {
+            val root =
+                menu(
+                    listOf(
+                        MenuAction("Share", WebIcon.Share, onSelect = {}),
+                        MenuAction("Restart", WebIcon.ArrowUp, onSelect = {}, group = "Progress"),
+                        MenuAction("Delete", WebIcon.Trash, onSelect = {}, destructive = true),
+                    ),
+                )
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+
+            val groups = root.querySelectorAll(".menu [role=group]").asList().map { it as HTMLElement }
+            groups.map { it.getAttribute("aria-label") } shouldContainExactly listOf("Progress", "Delete")
+            groups[0].querySelectorAll(".menu-h").length shouldBe 1
+            groups[1].querySelectorAll(".menu-h").length shouldBe 0
+            groups[1].querySelector(".menu-i")!!.classList.contains("is-danger") shouldBe true
+            root.querySelectorAll(".menu-i.is-danger").length shouldBe 1
+            // Set off from the group before it by a divider.
+            window.getComputedStyle(groups[1]).borderTopStyle shouldBe "solid"
+        }
+
+        test("a disabled item emits disabled, does nothing when chosen, and never says disabled=false") {
+            var chosen = 0
+            val root =
+                menu(
+                    listOf(
+                        MenuAction("Restart", WebIcon.ArrowUp, onSelect = { chosen++ }, enabled = false),
+                        MenuAction("Share", WebIcon.Share, onSelect = {}),
+                    ),
+                )
+            (root.querySelector(".menu-anchor button") as HTMLElement).click()
+            awaitFrame()
+
+            val items = root.querySelectorAll(".menu-i").asList().map { it as HTMLElement }
+            items[0].hasAttribute("disabled") shouldBe true
+            items[1].hasAttribute("disabled") shouldBe false
+            root.querySelectorAll("[disabled='false']").length shouldBe 0
+            items[0].click()
+            awaitFrame()
+            chosen shouldBe 0
+        }
+
+        test("a trailing-icon trigger puts its words before the glyph") {
+            val root =
+                mounts.mount {
+                    PopupMenu(
+                        items = listOf(action("Edit")),
+                        label = "More actions",
+                        icon = WebIcon.ChevronDown,
+                        triggerClasses = arrayOf("t"),
+                        triggerText = "More",
+                        trailingIcon = true,
+                    )
+                }
+            val trigger = root.querySelector(".menu-anchor button") as HTMLElement
+            trigger.firstChild?.nodeType shouldBe org.w3c.dom.Node.TEXT_NODE
+            trigger.lastElementChild?.tagName?.lowercase() shouldBe "svg"
+        }
     })
 
 private fun HTMLElement.press(key: String) {

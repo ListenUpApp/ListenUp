@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
@@ -202,6 +203,7 @@ fun BookDetailPage(
             pickers = pickers,
             onPlay = onPlay,
             onEdit = onEdit,
+            onEditChapters = onEditChapters,
             onMatchMetadata = onMatchMetadata,
             onOpenContributor = onOpenContributor,
             onOpenSeries = onOpenSeries,
@@ -316,6 +318,7 @@ private fun SharedHeader(
     pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onEditChapters: () -> Unit,
     onMatchMetadata: () -> Unit,
     onOpenContributor: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
@@ -382,6 +385,7 @@ private fun SharedHeader(
                         pickers = pickers,
                         onPlay = onPlay,
                         onEdit = onEdit,
+                        onEditChapters = onEditChapters,
                         onMatchMetadata = onMatchMetadata,
                         documents = documents,
                         onDeleteBook = onDeleteBook,
@@ -396,8 +400,8 @@ private fun SharedHeader(
 }
 
 /**
- * The hero's action row for a book that is not held: Play, the actions menu (finish, shelf,
- * collection, share, progress, delete) and the Edit and Match icon buttons.
+ * The hero's action row for a book that is not held: Play, Add to shelf, and "More ▾" (spec §2.7) — Share, the
+ * progress actions, Edit details, Match details and Edit chapters, Add to collection, and Delete from server.
  */
 @Composable
 private fun HeroActions(
@@ -410,6 +414,7 @@ private fun HeroActions(
     pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onEditChapters: () -> Unit,
     onMatchMetadata: () -> Unit,
     documents: List<BookDocument>,
     onDeleteBook: () -> Unit,
@@ -448,17 +453,47 @@ private fun HeroActions(
             var askingFinishDates by remember { mutableStateOf(false) }
             BookActionsMenu(
                 ready = loaded,
-                onMarkComplete = { askingFinishDates = true },
+                onItem = { item ->
+                    when (item) {
+                        BookDetailMenuItem.Share -> {
+                            onShare()
+                        }
+
+                        BookDetailMenuItem.MarkFinished -> {
+                            askingFinishDates = true
+                        }
+
+                        BookDetailMenuItem.EditDetails -> {
+                            onEdit()
+                        }
+
+                        BookDetailMenuItem.MatchDetails -> {
+                            onMatchMetadata()
+                        }
+
+                        BookDetailMenuItem.EditChapters -> {
+                            onEditChapters()
+                        }
+
+                        BookDetailMenuItem.AddToCollection -> {
+                            pickers.onShowCollectionPicker()
+                        }
+
+                        BookDetailMenuItem.DeleteFromServer -> {
+                            // A refusal left over from a dialog dismissed mid-flight must not
+                            // greet the next attempt.
+                            onClearDeleteError()
+                            showDeleteDialog = true
+                        }
+
+                        // The menu asks first and confirms through onDiscardProgress / onRestart.
+                        BookDetailMenuItem.MarkNotStarted, BookDetailMenuItem.Restart -> {
+                            Unit
+                        }
+                    }
+                },
                 onDiscardProgress = onDiscardProgress,
                 onRestart = onRestart,
-                onAddToCollection = pickers.onShowCollectionPicker,
-                onShare = onShare,
-                onDeleteBook = {
-                    // A refusal left over from a dialog dismissed mid-flight must not
-                    // greet the next attempt.
-                    onClearDeleteError()
-                    showDeleteDialog = true
-                },
             )
             BookPickerDialogs(ready = loaded, pickers = pickers)
             // Gated on isAdmin as well as the flag, as the collection picker is: the
@@ -485,23 +520,6 @@ private fun HeroActions(
                 },
                 onDismiss = { askingFinishDates = false },
             )
-        }
-        // Only for a reader who may edit metadata: offering Edit and then refusing the save is
-        // worse than not offering it.
-        if (ready.canEditMetadata) {
-            // Icon-only, so the accessible name is the attribute, not the content —
-            // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-            Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
-                onEdit()
-            }, label = "Edit book") { Icon(WebIcon.Pencil) }
-            // Beside Edit, not inside it: matching is a different act. Edit changes what
-            // the reader believes; matching asks a catalogue and offers its answer.
-            Button(
-                kind = ButtonKind.Icon,
-                size = ButtonSize.Lg,
-                onClick = { onMatchMetadata() },
-                label = "Match details",
-            ) { Icon(WebIcon.Sparkles) }
         }
     }
 }

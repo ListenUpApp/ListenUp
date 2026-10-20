@@ -40,6 +40,10 @@ data class MenuAction(
     val checkbox: Boolean = false,
     /** Choosing it leaves the menu open, for a toggle whose effect the reader should watch. */
     val keepsOpen: Boolean = false,
+    /** Destroys something: drawn in the danger colour, in a group of its own with no visible heading. */
+    val destructive: Boolean = false,
+    /** False draws the item disabled (it emits `disabled`, never `disabled="false"`) and choosing it does nothing. */
+    val enabled: Boolean = true,
 )
 
 /**
@@ -88,7 +92,7 @@ fun ActionsMenu(
  *
  * [triggerText] draws words beside the trigger's glyph, for a menu whose trigger says what is chosen
  * now ("Audible store: United States"); [label] must then contain them, so the name a voice command
- * uses is the one on screen.
+ * uses is the one on screen. [trailingIcon] draws the glyph after the words instead ("More ▾").
  */
 @Composable
 fun PopupMenu(
@@ -99,6 +103,7 @@ fun PopupMenu(
     enabled: Boolean = true,
     tooltip: Boolean = false,
     triggerText: String? = null,
+    trailingIcon: Boolean = false,
 ) {
     var open by remember { mutableStateOf(false) }
     val anchor = remember { NodeHolder() }
@@ -143,8 +148,9 @@ fun PopupMenu(
             }
             onClick { open = !open }
         }) {
-            Icon(icon, size = MENU_ICON_SIZE)
+            if (!trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
             triggerText?.let { Text(it) }
+            if (trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
         }
 
         if (open) {
@@ -265,18 +271,23 @@ internal fun MenuPanel(
         val indexed = items.withIndex().toList()
         runsByGroup(indexed).forEach { run ->
             val group = run.first().value.group
-            if (group == null) {
+            val danger = run.all { it.value.destructive }
+            if (group == null && !danger) {
                 run.forEach { (index, item) -> MenuItem(item, index, items.size, menuNode, onChosen) }
             } else {
                 Div(attrs = {
                     attr("role", "group")
-                    attr("aria-label", group)
+                    attr("aria-label", group ?: DESTRUCTIVE_GROUP_LABEL)
+                    if (danger) classes("menu-g-danger")
                 }) {
-                    // The group's name is already its label; the heading is for the eye.
-                    Span(attrs = {
-                        classes("menu-h")
-                        attr("aria-hidden", "true")
-                    }) { Text(group) }
+                    // The group's name is already its label; the heading is for the eye. A destructive run needs none:
+                    // its divider and its colour say enough (spec §2.7).
+                    if (!danger && group != null) {
+                        Span(attrs = {
+                            classes("menu-h")
+                            attr("aria-hidden", "true")
+                        }) { Text(group) }
+                    }
                     run.forEach { (index, item) -> MenuItem(item, index, items.size, menuNode, onChosen) }
                 }
             }
@@ -290,13 +301,17 @@ internal fun MenuPanel(
     }
 }
 
-/** [items] cut into runs of consecutive items sharing a [MenuAction.group] (null is a run too). */
+/**
+ * [items] cut into runs of consecutive items sharing a [MenuAction.group] (null is a run too) and whether they are
+ * [MenuAction.destructive], so a destructive item never shares a run with one that is not.
+ */
 private fun runsByGroup(items: List<IndexedValue<MenuAction>>): List<List<IndexedValue<MenuAction>>> {
     val runs = mutableListOf<MutableList<IndexedValue<MenuAction>>>()
     items.forEach { entry ->
         val last = runs.lastOrNull()
         if (last != null &&
-            last.first().value.group == entry.value.group
+            last.first().value.group == entry.value.group &&
+            last.first().value.destructive == entry.value.destructive
         ) {
             last += entry
         } else {
@@ -319,6 +334,8 @@ private fun MenuItem(
     // announces nothing.
     Button(attrs = {
         classes("menu-i")
+        if (item.destructive) classes("is-danger")
+        if (!item.enabled) attr("disabled", "")
         attr("type", "button")
         attr(
             "role",
@@ -339,8 +356,10 @@ private fun MenuItem(
             }
         }
         onClick {
-            if (!item.keepsOpen) onChosen()
-            item.onSelect()
+            if (item.enabled) {
+                if (!item.keepsOpen) onChosen()
+                item.onSelect()
+            }
         }
     }) {
         item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
@@ -456,3 +475,7 @@ internal data class MenuAnchor(
 }
 
 private const val MENU_ICON_SIZE = 18
+
+/** A destructive run's accessible name: it draws no heading, but a group is still named for a screen reader. */
+private const val DESTRUCTIVE_GROUP_LABEL = "Delete"
+
