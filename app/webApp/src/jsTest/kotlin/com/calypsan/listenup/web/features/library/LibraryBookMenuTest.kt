@@ -108,7 +108,12 @@ class LibraryBookMenuTest :
 
             val without =
                 mounts.mount {
-                    LibraryPage(state = contractLibrary(listOf(contractBook("b1", "Dune"))), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                    LibraryPage(
+                        state = contractLibrary(listOf(contractBook("b1", "Dune"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
                 }
             (without.querySelector(".lib-card") as HTMLElement).getAttribute("aria-haspopup") shouldBe null
         }

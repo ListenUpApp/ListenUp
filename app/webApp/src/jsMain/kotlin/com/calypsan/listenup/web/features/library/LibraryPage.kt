@@ -108,7 +108,11 @@ fun LibraryPage(
             // Sort keeps the header.
             // Not while the library is still arriving: there is nothing to sort yet, and the first book would move Sort
             // from here to the chip row below the strip.
-            if (state is LibraryUiState.Loaded && state.isEmpty && !state.isLibraryArriving) BookSortControl(state, onEvent)
+            if (state is LibraryUiState.Loaded && state.isEmpty &&
+                !state.isLibraryArriving
+            ) {
+                BookSortControl(state, onEvent)
+            }
         }
     }
     FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)

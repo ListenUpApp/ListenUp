@@ -74,7 +74,11 @@ class LibraryBookMenuPlacementTest {
         // foot is its top plus its width.
         val card = composeRule.onNodeWithText("Book 3").fetchSemanticsNode()
         val coverFoot = card.positionOnScreen.y + card.size.width
-        val menuTop = composeRule.onNodeWithText("Play").fetchSemanticsNode().positionOnScreen.y
+        val menuTop =
+            composeRule
+                .onNodeWithText("Play")
+                .fetchSemanticsNode()
+                .positionOnScreen.y
         menuTop shouldBeGreaterThanOrEqual coverFoot - COVER_FOOT_SLACK
     }
 

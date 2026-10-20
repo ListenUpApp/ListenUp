@@ -473,7 +473,8 @@ private fun BookGrid(
                                         scope.launch {
                                             // Board: the menu hangs below the cover. Make room first, so it only
                                             // flips up when the grid cannot scroll any further.
-                                            val menuHeight = with(density) { estimatedMenuHeight(host.actionsFor(bookId)).toPx() }
+                                            val menuHeight =
+                                                estimatedMenuHeight(host.actionsFor(bookId)).value * density.density
                                             gridState.makeRoomBelowCover(gridItem.key, menuHeight)
                                             menuFor = bookId
                                         }

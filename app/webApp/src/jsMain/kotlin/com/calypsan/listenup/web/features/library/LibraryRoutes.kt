@@ -273,7 +273,13 @@ internal fun BookSelectionScaffold(
             label = booksSelectedLabel(selected.size),
             actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
             onClear = session.onExit,
-            selectAll = selectAllAction(everyBook, selected, onSelectAll = session.onSelectAll, onDeselectAll = session.onEnter),
+            selectAll =
+                selectAllAction(
+                    everyBook,
+                    selected,
+                    onSelectAll = session.onSelectAll,
+                    onDeselectAll = session.onEnter,
+                ),
         )
     }
 

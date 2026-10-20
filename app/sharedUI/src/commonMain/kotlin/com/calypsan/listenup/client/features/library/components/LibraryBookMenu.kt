@@ -192,7 +192,9 @@ private val MenuChromeHeight = 16.dp
 internal fun estimatedMenuHeight(actions: LibraryBookMenuActions): Dp {
     val middle = listOfNotNull(actions.onAddToShelf, actions.onShare).size
     val admin = listOfNotNull(actions.onAddToCollection, actions.onEditDetails).size
-    val rows = 2 + middle + admin + if (admin > 0) 1 else 0
-    val dividers = 1 + (if (middle > 0) 1 else 0) + (if (admin > 0) 1 else 0)
+    val adminLabel = if (admin > 0) 1 else 0
+    val middleDivider = if (middle > 0) 1 else 0
+    val rows = 2 + middle + admin + adminLabel
+    val dividers = 1 + middleDivider + adminLabel
     return MenuRowHeight * rows + MenuDividerHeight * dividers + MenuChromeHeight
 }

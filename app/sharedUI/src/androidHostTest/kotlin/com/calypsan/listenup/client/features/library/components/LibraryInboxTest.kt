@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -127,6 +128,7 @@ class LibraryInboxTest {
         // ⛔ The regression: the grid kept its first book anchored when the header slot was inserted at index 0
         // after a first sync, so the strip sat just above the viewport and an admin saw only the tab badge.
         var showHeader by mutableStateOf(false)
+        val headerSlot: @Composable () -> Unit = { Text(HEADER) }
         composeRule.setContent {
             MaterialTheme {
                 BooksContent(
@@ -141,7 +143,7 @@ class LibraryInboxTest {
                     onToggleIgnoreArticles = {},
                     onBookClick = {},
                     onRetry = {},
-                    header = if (showHeader) ({ Text(HEADER) }) else null,
+                    header = headerSlot.takeIf { showHeader },
                 )
             }
         }
