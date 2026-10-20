@@ -120,7 +120,9 @@ class SyncIndicatorViewModel(
     /** The last successful sync's time, remembered across the syncs that follow it. */
     private val lastSyncedAtMs: Flow<Long?> =
         syncRepository.syncState
-            .scan(null as Long?) { last, state -> (state as? SyncState.Success)?.timestamp?.epochMillis ?: last }
+            .scan(
+                null as Long?,
+            ) { last, state -> if (state is SyncState.Success) state.timestamp.epochMillis else last }
             .distinctUntilChanged()
 
     val expanded: StateFlow<Boolean>

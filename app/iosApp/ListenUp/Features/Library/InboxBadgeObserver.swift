@@ -18,6 +18,6 @@ final class InboxBadgeObserver {
         self.viewModel = viewModel
         bridge.own(viewModel)
         bridge.bind(viewModel.heldCount) { [weak self] in self?.heldCount = Int($0) }
-        bridge.bind(viewModel.isAdmin) { [weak self] in self?.isAdmin = $0 }
+        bridge.bind(viewModel.adminAccess) { [weak self] in self?.isAdmin = $0 }
     }
 }

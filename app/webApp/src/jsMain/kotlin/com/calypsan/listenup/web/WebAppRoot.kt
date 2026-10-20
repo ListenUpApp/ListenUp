@@ -140,26 +140,14 @@ fun WebAppRoot(
             },
             titled = phoneTitle != null,
             topBar = {
-                PhoneTopBar(
+                ShellPhoneTopBar(
+                    router = router,
                     title = phoneTitle,
-                    unread = unreadCount,
-                    onSearch = { router.navigate(Routes.search) },
-                    onNotifications = { router.navigate(Route(listOf(NOTIFICATIONS_KEY))) },
+                    unreadCount = unreadCount,
+                    isAdmin = isAdmin,
                     sync = { SyncIndicatorButton(state = syncState, now = now, onRefresh = sync.onRefresh) },
-                    account = {
-                        AccountMenu(
-                            onSignOut = onSignOut,
-                            onOpenProfile = openProfile,
-                            destinations =
-                                buildList {
-                                    if (isAdmin) {
-                                        add(MenuAction("Admin", WebIcon.Shield, { router.navigate(Route(listOf(ADMIN_KEY))) }))
-                                    }
-                                    add(MenuAction("Settings", WebIcon.Cog, { router.navigate(Route(listOf(SETTINGS_KEY))) }))
-                                },
-                            triggerClasses = arrayOf(*buttonClasses(ButtonKind.Icon, ButtonSize.Md), "ptb-b"),
-                        )
-                    },
+                    onSignOut = onSignOut,
+                    onOpenProfile = openProfile,
                 )
             },
             sidebarStatus = { SyncStatusLine(state = syncState, now = now, onRefresh = sync.onRefresh) },
@@ -230,3 +218,42 @@ fun WebAppRoot(
 
 /** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */
 internal const val SHELL_CONTENT_PROBE = "shell-content"
+
+/**
+ * The phone header, wired to the router: Search and Notifications navigate, and the account menu takes the sidebar
+ * footer's Admin (for an admin) and Settings, which have no tab of their own below 760px.
+ */
+@Composable
+private fun ShellPhoneTopBar(
+    router: Router,
+    title: String?,
+    unreadCount: Int,
+    isAdmin: Boolean,
+    sync: @Composable () -> Unit,
+    onSignOut: () -> Unit,
+    onOpenProfile: (() -> Unit)?,
+) {
+    PhoneTopBar(
+        title = title,
+        unread = unreadCount,
+        onSearch = { router.navigate(Routes.search) },
+        onNotifications = { router.navigate(Route(listOf(NOTIFICATIONS_KEY))) },
+        sync = sync,
+        account = {
+            AccountMenu(
+                onSignOut = onSignOut,
+                onOpenProfile = onOpenProfile,
+                destinations =
+                    buildList {
+                        if (isAdmin) {
+                            add(
+                                MenuAction("Admin", WebIcon.Shield, { router.navigate(Route(listOf(ADMIN_KEY))) }),
+                            )
+                        }
+                        add(MenuAction("Settings", WebIcon.Cog, { router.navigate(Route(listOf(SETTINGS_KEY))) }))
+                    },
+                triggerClasses = arrayOf(*buttonClasses(ButtonKind.Icon, ButtonSize.Md), "ptb-b"),
+            )
+        },
+    )
+}

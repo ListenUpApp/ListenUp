@@ -45,8 +45,8 @@ class SeriesCardTest :
             val covers = frame.findAll(".srs-card .srs-stack .cover")
             covers.size shouldBe 3
             val lefts = covers.map { frame.rect(it).left }
-            (lefts[1] - lefts[0]) shouldBe 20.0
-            (lefts[2] - lefts[1]) shouldBe 20.0
+            lefts[1] - lefts[0] shouldBe 20.0
+            lefts[2] - lefts[1] shouldBe 20.0
             val badge = frame.find(".srs-card .srs-badge")
             badge.textContent shouldBe "7"
             // The whole stack is decoration: the meta line says "7 books" in words.
@@ -94,7 +94,11 @@ class SeriesCardTest :
                     page(width, listOf(long, started), mapOf(started.series.id to SeriesProgress(2, 7)))
                 awaitFrame()
 
-                frame.findAll(".srs-card").map { frame.rect(it).height }.distinct().size shouldBe 1
+                frame
+                    .findAll(".srs-card")
+                    .map { frame.rect(it).height }
+                    .distinct()
+                    .size shouldBe 1
                 frames.disposeAll()
             }
         }
@@ -102,7 +106,11 @@ class SeriesCardTest :
         test("a phone lists series as one column of row cards; a desktop keeps the grid") {
             val phone = page(PHONE, listOf(dcc(7), seriesOf("b", "B", 2)))
             awaitFrame()
-            phone.findAll(".srs-card").map { phone.rect(it).left }.distinct().size shouldBe 1
+            phone
+                .findAll(".srs-card")
+                .map { phone.rect(it).left }
+                .distinct()
+                .size shouldBe 1
             val card = phone.rect(phone.find(".srs-card"))
             val stack = phone.rect(phone.find(".srs-stack"))
             val name = phone.rect(phone.find(".srs-name"))
@@ -112,7 +120,11 @@ class SeriesCardTest :
 
             val desktop = page(DESKTOP, listOf(dcc(7), seriesOf("b", "B", 2)))
             awaitFrame()
-            desktop.findAll(".srs-card").map { desktop.rect(it).top }.distinct().size shouldBe 1
+            desktop
+                .findAll(".srs-card")
+                .map { desktop.rect(it).top }
+                .distinct()
+                .size shouldBe 1
         }
     })
 

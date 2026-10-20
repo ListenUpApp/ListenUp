@@ -77,17 +77,17 @@ class InboxBadgeViewModelTest :
             }
         }
 
-        test("isAdmin follows the admin flag, whatever is held") {
+        test("adminAccess follows the admin flag, whatever is held") {
             runTest(dispatcher) {
                 val f = Fixture(isAdmin = true)
-                backgroundScope.launch { f.viewModel.isAdmin.collect { } }
+                backgroundScope.launch { f.viewModel.adminAccess.collect { } }
                 advanceUntilIdle()
-                f.viewModel.isAdmin.value shouldBe true
+                f.viewModel.adminAccess.value shouldBe true
                 f.viewModel.heldCount.value shouldBe 0
 
                 f.adminFlow.value = false
                 advanceUntilIdle()
-                f.viewModel.isAdmin.value shouldBe false
+                f.viewModel.adminAccess.value shouldBe false
             }
         }
 

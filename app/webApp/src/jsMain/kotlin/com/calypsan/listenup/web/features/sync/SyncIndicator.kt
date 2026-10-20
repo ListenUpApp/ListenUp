@@ -66,7 +66,7 @@ internal fun syncedWords(
 ): String {
     if (state.isSyncing) return "Syncing…"
     val last = state.lastSyncedAtMs ?: return "Not synced yet"
-    val minutes = ((now - last).coerceAtLeast(0L) / MS_PER_MINUTE)
+    val minutes = (now - last).coerceAtLeast(0L) / MS_PER_MINUTE
     return when {
         minutes < 1 -> "Synced just now"
         minutes < MINUTES_PER_HOUR -> "Synced $minutes min ago"

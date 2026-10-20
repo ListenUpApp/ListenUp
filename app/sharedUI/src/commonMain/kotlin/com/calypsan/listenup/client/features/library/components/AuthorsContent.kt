@@ -234,17 +234,7 @@ internal fun ContributorCard(
 
                     if (!imageLoaded) {
                         Text(
-                            text =
-                                contributor.name
-                                    .trim()
-                                    .split("\\s+".toRegex())
-                                    .let { parts ->
-                                        when {
-                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                            contributor.name.length >= 2 -> contributor.name.take(2)
-                                            else -> contributor.name.take(1)
-                                        }
-                                    }.uppercase(),
+                            text = initialsOf(contributor.name),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -296,6 +286,16 @@ internal fun ContributorCard(
             }
         }
     }
+}
+
+/** "Ann Leckie" → "AL"; a one-word name gives its first two letters. */
+private fun initialsOf(name: String): String {
+    val parts = name.trim().split("\\s+".toRegex())
+    return when {
+        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+        name.length >= 2 -> name.take(2)
+        else -> name.take(1)
+    }.uppercase()
 }
 
 /** Up to two square covers at a people row's end; decoration under the row's own name. */

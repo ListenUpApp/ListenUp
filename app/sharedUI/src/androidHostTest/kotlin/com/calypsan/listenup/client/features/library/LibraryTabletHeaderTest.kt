@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -74,7 +73,7 @@ class LibraryTabletHeaderTest {
             abs((top - title.top).value).dp shouldBeLessThanOrEqualTo 48.dp
         }
         val windowRight = composeRule.onRoot().getUnclippedBoundsInRoot().right
-        (windowRight - pill.right) shouldBeLessThanOrEqualTo Spacing.screenMargin + 1.dp
+        windowRight - pill.right shouldBeLessThanOrEqualTo Spacing.screenMargin + 1.dp
     }
 
     @Test
@@ -100,7 +99,7 @@ class LibraryTabletHeaderTest {
         val sort = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
         val all = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
         // The phone's sort is its own row under the chips, not beside them.
-        (all.bottom) shouldBeLessThanOrEqualTo sort.top
+        all.bottom shouldBeLessThanOrEqualTo sort.top
     }
 
     @Test

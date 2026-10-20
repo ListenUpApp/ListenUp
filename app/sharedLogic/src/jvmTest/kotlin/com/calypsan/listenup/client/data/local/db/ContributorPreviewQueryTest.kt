@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.longs.shouldBeLessThan
@@ -118,17 +119,19 @@ class ContributorPreviewQueryTest :
                             buildList { while (statement.step()) add(statement.getText(3)) }
                         }
                     }
-                println("ContributorPreviewQueryTest EXPLAIN QUERY PLAN:\n" + plan.joinToString("\n"))
+                logger.info { "EXPLAIN QUERY PLAN:\n" + plan.joinToString("\n") }
 
                 db.previews("author") // warm
                 val timings =
                     (1..RUNS).map { measureTime { db.previews("author") }.inWholeMilliseconds }.sorted()
                 val median = timings[RUNS / 2]
-                println("ContributorPreviewQueryTest median over $RUNS runs: ${median}ms (all: $timings)")
+                logger.info { "median over $RUNS runs: ${median}ms (all: $timings)" }
                 median shouldBeLessThan BUDGET_MS
             }
         }
     })
+
+private val logger = KotlinLogging.logger {}
 
 private const val BOOKS = 5_000
 private const val CONTRIBUTORS = 1_200

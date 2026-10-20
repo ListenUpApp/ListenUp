@@ -28,7 +28,7 @@ class InboxBadgeViewModel(
     inboxRepository: InboxRepository,
 ) : ViewModel() {
     /** Whether this viewer is an admin: the iPad sidebar's Inbox row shows for an admin even with nothing held. */
-    val isAdmin: StateFlow<Boolean> =
+    val adminAccess: StateFlow<Boolean> =
         userRepository.observeIsAdmin().stateIn(viewModelScope, WhileSubscribedForUi, initialValue = false)
 
     /**

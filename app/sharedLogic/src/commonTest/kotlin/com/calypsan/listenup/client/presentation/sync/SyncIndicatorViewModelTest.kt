@@ -169,7 +169,7 @@ class SyncIndicatorViewModelTest :
                 repo.retried shouldBe listOf("op1", "op2")
             }
         }
-    
+
         test("lastSyncedAtMs is the last successful sync, and stays through the next one") {
             runTest(testDispatcher) {
                 val syncState = MutableStateFlow<SyncState>(SyncState.Idle)
