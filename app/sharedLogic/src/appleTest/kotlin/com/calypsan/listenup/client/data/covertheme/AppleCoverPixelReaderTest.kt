@@ -44,6 +44,14 @@ class AppleCoverPixelReaderTest :
             decodeCoverThumbnail(NSTemporaryDirectory() + "missing.png", maxEdge = 64) shouldBe null
         }
 
+        test("a cover file still being written (empty) is skipped before ImageIO sees it") {
+            val empty = NSTemporaryDirectory() + "empty.png"
+            NSData().writeToFile(empty, atomically = true)
+            hasCoverBytes(empty) shouldBe false
+            hasCoverBytes(pngFile("green.png", GREEN_8X8)) shouldBe true
+            hasCoverBytes(NSTemporaryDirectory() + "missing.png") shouldBe false
+        }
+
         test("a book with no downloaded cover reads as null without touching the file system") {
             val storage = mock<ImageStorage>()
             every { storage.exists(any()) } returns false

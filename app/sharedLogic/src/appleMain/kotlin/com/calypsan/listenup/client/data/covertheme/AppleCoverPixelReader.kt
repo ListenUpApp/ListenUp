@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.covertheme
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
@@ -53,9 +55,15 @@ internal class AppleCoverPixelReader(
         maxEdge: Int,
     ): CoverPixels? {
         if (!imageStorage.exists(bookId)) return null
-        return decodeCoverThumbnail(imageStorage.getCoverPath(bookId), maxEdge)
+        val path = imageStorage.getCoverPath(bookId)
+        // Sync writes the file in place, so a first sync can catch it empty; ImageIO would log a decode failure for it.
+        if (!hasCoverBytes(path)) return null
+        return decodeCoverThumbnail(path, maxEdge)
     }
 }
+
+/** Whether [path] holds any bytes yet: a cover that sync has only just opened for writing is empty. */
+internal fun hasCoverBytes(path: String): Boolean = (SystemFileSystem.metadataOrNull(Path(path))?.size ?: 0L) > 0L
 
 /** [path] decoded to at most [maxEdge] pixels a side, as unpremultiplied sRGB ARGB; `null` if unreadable. */
 @OptIn(ExperimentalForeignApi::class)
