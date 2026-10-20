@@ -12,6 +12,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.HTMLElement
 
 /**
  * A selection survives a trip to the bulk editor and back, and an applied edit ends it — what
@@ -63,5 +64,42 @@ class SelectionHandOffTest :
             }
             awaitFrame()
             calls shouldBe listOf("enter", "toggle:b1", "toggle:b2")
+        }
+
+        test("a Library selection offers Select all over what the grid shows, and takes exactly those") {
+            val router = Router()
+            val picked = mutableListOf<List<String>>()
+            val root =
+                mounts.mount {
+                    BookSelectionScaffold(
+                        fixedMultiSelect(
+                            selectionMode = SelectionMode.Active(setOf("b1")),
+                            onSelectAll = { picked += it },
+                        ),
+                        router,
+                        onToast = {},
+                        selectAllOf = { listOf("b1", "b2", "b3") },
+                    ) { Text("page") }
+                }
+            awaitFrame()
+
+            val selectAll = root.querySelector(".bulk button[aria-label='Select all 3']") as HTMLElement
+            selectAll.click()
+
+            picked shouldBe listOf(listOf("b1", "b2", "b3"))
+        }
+
+        test("Home and Discover offer no Select all") {
+            val root =
+                mounts.mount {
+                    BookSelectionScaffold(
+                        fixedMultiSelect(selectionMode = SelectionMode.Active(setOf("b1"))),
+                        Router(),
+                        onToast = {},
+                    ) { Text("page") }
+                }
+            awaitFrame()
+
+            root.querySelectorAll(".bulk button[aria-label^='Select all']").length shouldBe 0
         }
     })

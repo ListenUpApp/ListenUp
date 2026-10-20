@@ -17,12 +17,21 @@ class BookSelection(
      * closes (plan C5). A row menu's "Add {book} to a shelf" — iOS's `addOneBookToShelf`.
      */
     val onShelveOne: (String) -> Unit = {},
+    /** Add one book to a collection, by the same rule as [onShelveOne] (an admin's book menu). */
+    val onCollectOne: (String) -> Unit = {},
+    /** Start selecting with [String] picked: a book menu's Select. */
+    val onStartWith: (String) -> Unit = {},
+    /** Whether the reader is an admin: collections and editing are theirs. */
+    val isAdmin: Boolean = false,
 ) {
     /**
      * [onShelveOne] for a row menu, or null while a selection is under way: shelving one book
      * replaces the selection and ends it when the picker closes, which would wipe the reader's picks.
      */
     val shelveOne: ((String) -> Unit)? get() = onShelveOne.takeUnless { isSelecting }
+
+    /** [onCollectOne] for a book menu, or null while selecting ([shelveOne]'s rule) or for a member. */
+    val collectOne: ((String) -> Unit)? get() = onCollectOne.takeUnless { isSelecting || !isAdmin }
 
     /** Whether [bookId] is currently picked. */
     fun isSelected(bookId: String): Boolean = bookId in selectedIds

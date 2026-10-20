@@ -36,9 +36,12 @@ fun BulkBar(
     label: String,
     actions: List<BulkAction> = emptyList(),
     onClear: () -> Unit,
+    /** "Select all N", before the actions and inside the roving toolbar; null offers none. */
+    selectAll: BulkAction? = null,
 ) {
     // A toolbar is one tab stop; the arrows move between its controls (roving tabindex, WAI-ARIA).
-    val controls = actions.size + 1
+    val allActions = listOfNotNull(selectAll) + actions
+    val controls = allActions.size + 1
     var current by remember { mutableIntStateOf(0) }
     if (current >= controls) current = 0
     var bar by remember { mutableStateOf<HTMLElement?>(null) }
@@ -71,10 +74,12 @@ fun BulkBar(
         }
         Span(attrs = { classes("bulk-n") }) { Text("$count selected") }
         Span(attrs = { classes("bulk-gap") }) {}
-        actions.forEachIndexed { index, action ->
+        allActions.forEachIndexed { index, action ->
             val position = index + 1
             Button(attrs = {
                 classes("bulk-b")
+                // Select all chooses books; the rest act on them.
+                if (action === selectAll) classes("bulk-all")
                 attr("type", "button")
                 // Named by its label in every layout: a phone shows the icon alone (05-patterns.css).
                 attr("aria-label", action.label)

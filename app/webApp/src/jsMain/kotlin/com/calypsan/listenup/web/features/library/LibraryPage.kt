@@ -25,6 +25,11 @@ import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.design.ContextMenuHost
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.client.presentation.library.bookMenuPrimary
+import org.jetbrains.compose.web.attributes.AttrsScope
+import org.w3c.dom.HTMLDivElement
 import com.calypsan.listenup.web.motion.CoverSurface
 import com.calypsan.listenup.web.motion.flyHeroInto
 import com.calypsan.listenup.web.motion.recordHeroOrigin
@@ -81,6 +86,8 @@ fun LibraryPage(
     /** The held-for-review count and cover fan for the inbox strip; nothing held draws nothing. */
     inbox: InboxBadgeState = InboxBadgeState(),
     onOpenInbox: () -> Unit = {},
+    /** Each book's menu on right-click, the Menu key or a long press; null offers none. */
+    bookMenu: LibraryBookMenuSource? = null,
 ) {
     // Header and facet row render in EVERY state, because they are navigation rather than data: a
     // first sync can run for minutes, and hiding the row until the books land would strand a reader
@@ -131,6 +138,7 @@ fun LibraryPage(
                 onStartSelecting = onStartSelecting,
                 inbox = inbox,
                 onOpenInbox = onOpenInbox,
+                bookMenu = bookMenu,
             )
         }
     }
@@ -149,6 +157,7 @@ private fun LoadedLibrary(
     onStartSelecting: (() -> Unit)?,
     inbox: InboxBadgeState,
     onOpenInbox: () -> Unit,
+    bookMenu: LibraryBookMenuSource?,
 ) {
     // The shared decision: a scan outranks a library still arriving, and a fresh device's first catch-up counts.
     LibraryStripStatus(strip = state.statusStrip, placement = "is-above-grid")
@@ -182,6 +191,30 @@ private fun LoadedLibrary(
         selecting = selecting,
         isSelected = { it in selectedIds },
         trailingPlaceholders = if (state.isLibraryArriving) ARRIVING_PLACEHOLDERS else 0,
+        // No menu while selecting: the card is a checkbox then, and a press picks it.
+        menuOf = bookMenu?.takeUnless { selecting }?.let { source -> { book -> menuFor(book, state, source) } },
+    )
+}
+
+/** [book]'s menu, leading with what its card says about it (the shared [bookMenuPrimary]). */
+private fun menuFor(
+    book: BookListItem,
+    state: LibraryUiState.Loaded,
+    source: LibraryBookMenuSource,
+): List<MenuAction> {
+    val id = book.id.value
+    return libraryBookMenuItems(
+        primary = bookMenuPrimary(state.bookStatus[book.id]),
+        isAdmin = source.isAdmin,
+        actions =
+            LibraryBookMenuActions(
+                onPrimary = { source.onPlay(id) },
+                onAddToShelf = source.onShelveOne?.let { shelve -> { shelve(id) } },
+                onShare = source.onShare?.let { share -> { share(id, book.title) } },
+                onSelect = { source.onSelectOne(id) },
+                onAddToCollection = source.onCollectOne?.let { collect -> { collect(id) } },
+                onEditDetails = source.onEdit?.let { edit -> { edit(id) } },
+            ),
     )
 }
 
@@ -220,8 +253,32 @@ internal fun BookCard(
     isHero: Boolean = false,
     selecting: Boolean = false,
     isSelected: Boolean = false,
+    /** The book's menu (right-click, the Menu key, a long press); null or empty, and while selecting, none. */
+    menu: List<MenuAction>? = null,
+) {
+    if (menu.isNullOrEmpty() || selecting) {
+        CardBody(book, status, onOpen, isHero, selecting, isSelected, menuTarget = null)
+    } else {
+        ContextMenuHost(items = menu, label = "Actions for ${book.title}", anchorSelector = ".lib-cover") {
+            CardBody(book, status, onOpen, isHero, selecting, isSelected, menuTarget = { contextMenuTarget() })
+        }
+    }
+}
+
+@Composable
+@Suppress("LongParameterList", "LongMethod")
+private fun CardBody(
+    book: BookListItem,
+    status: BookCardStatus?,
+    onOpen: () -> Unit,
+    isHero: Boolean,
+    selecting: Boolean,
+    isSelected: Boolean,
+    /** Makes the card its menu's target; first, so a long press's click is swallowed before the card opens. */
+    menuTarget: (AttrsScope<HTMLDivElement>.() -> Unit)?,
 ) {
     Div(attrs = {
+        menuTarget?.invoke(this)
         classes("lib-card")
         if (selecting && isSelected) classes("on")
         // The dense desktop grid drops the narrator line; the tooltip carries it (spec §2.6).

@@ -1070,7 +1070,9 @@ class WebAppRootTest :
 
             try {
                 host.querySelector(".bulk").shouldNotBeNull()
-                host.querySelectorAll(".bulk-b").asList().size shouldBe 0
+                // Select all chooses books rather than acting on them, so it is offered with nothing picked.
+                host.querySelectorAll(".bulk-b:not(.bulk-all)").asList().size shouldBe 0
+                host.querySelector(".bulk-all")!!.textContent shouldBe "Select all 1"
             } finally {
                 router.dispose()
             }
@@ -1088,7 +1090,7 @@ class WebAppRootTest :
                 )
             try {
                 member.first
-                    .querySelectorAll(".bulk-b")
+                    .querySelectorAll(".bulk-b:not(.bulk-all)")
                     .asList()
                     .map { it.textContent } shouldBe
                     listOf("Add to shelf")
@@ -1105,7 +1107,7 @@ class WebAppRootTest :
                 )
             try {
                 admin.first
-                    .querySelectorAll(".bulk-b")
+                    .querySelectorAll(".bulk-b:not(.bulk-all)")
                     .asList()
                     .map { it.textContent } shouldBe
                     listOf("Edit", "Add to shelf", "Add to collection")

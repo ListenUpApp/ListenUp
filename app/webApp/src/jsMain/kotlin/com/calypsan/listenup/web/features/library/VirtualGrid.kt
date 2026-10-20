@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.LetterSection
+import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.VirtualJump
 import com.calypsan.listenup.web.design.VirtualList
 import org.jetbrains.compose.web.dom.Div
@@ -42,6 +43,8 @@ internal fun VirtualBookGrid(
     isSelected: (String) -> Boolean = { false },
     jump: VirtualJump? = null,
     trailingPlaceholders: Int = 0,
+    /** Each book's menu, opened by right-click, the Menu key or a long press (the Library's only). */
+    menuOf: ((BookListItem) -> List<MenuAction>)? = null,
 ) {
     val entries =
         remember(books, trailingPlaceholders) {
@@ -95,6 +98,7 @@ internal fun VirtualBookGrid(
                     isHero = book.id.value == heroBookId,
                     selecting = selecting,
                     isSelected = isSelected(book.id.value),
+                    menu = menuOf?.invoke(book),
                 )
             }
 
@@ -157,6 +161,7 @@ internal fun BooksWithRail(
     selecting: Boolean = false,
     isSelected: (String) -> Boolean = { false },
     trailingPlaceholders: Int = 0,
+    menuOf: ((BookListItem) -> List<MenuAction>)? = null,
 ) {
     WithJumpRail(letters) { jump ->
         VirtualBookGrid(
@@ -169,6 +174,7 @@ internal fun BooksWithRail(
             isSelected = isSelected,
             jump = jump,
             trailingPlaceholders = trailingPlaceholders,
+            menuOf = menuOf,
         )
     }
 }

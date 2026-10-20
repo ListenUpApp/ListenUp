@@ -6,6 +6,8 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import kotlinx.coroutines.flow.StateFlow
+import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
+import com.calypsan.listenup.web.features.bookdetail.shareBook
 import org.koin.core.Koin
 
 /**
@@ -19,6 +21,8 @@ class LibrarySession(
     val state: StateFlow<LibraryUiState>,
     val onEvent: (LibraryUiEvent) -> Unit,
     override val close: () -> Unit,
+    /** Shares a book from its menu through the one share builder; a spec's session shares nothing. */
+    val onShareBook: suspend (bookId: String, title: String) -> ShareOutcome = { _, _ -> ShareOutcome.FAILED },
 ) : RouteSession
 
 /**
@@ -45,5 +49,6 @@ fun graphLibrary(koin: Koin): OpenLibrary =
             state = viewModel.uiState,
             onEvent = viewModel::onEvent,
             close = store::clear,
+            onShareBook = { bookId, title -> shareBook(koin, bookId, title) },
         )
     }

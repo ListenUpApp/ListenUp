@@ -438,6 +438,8 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { [data-theme="dark"] .bulk-b:hover { background:var(--surface); } }
 .bulk-n { font-weight:700; }
 .bulk-bl { white-space:nowrap; }
+/* Select all chooses books rather than acting on them: a quieter, text-only control (its label shows on a phone too). */
+.bulk-all { border-color:transparent; background:transparent; }
 .bulk-gap { flex:1; }
 /* < 760: the dark toolbar docks at the top of the viewport as a header (spec §3.5), and scrolls
    sideways rather than spilling past the screen's edge when its labels outgrow a phone. */

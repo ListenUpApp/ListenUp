@@ -275,7 +275,7 @@ fun fixedBookDetail(
  * A server that cannot say who it is yields [ShareOutcome.FAILED] rather than a link missing its
  * identity — a link that silently resolves nowhere is worse than an honest refusal.
  */
-private suspend fun shareBook(
+internal suspend fun shareBook(
     koin: Koin,
     bookId: String,
     title: String,

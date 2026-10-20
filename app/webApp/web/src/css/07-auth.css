@@ -94,6 +94,8 @@
    lazy covers never entered the viewport calculation to load at all. Don't reintroduce it on
    `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
 .lib-card {
+  /* A long press opens the book's menu (iOS Safari draws its own callout otherwise). */
+  -webkit-touch-callout: none;
   /* `relative` so the selection tick can sit on the cover. It changes nothing about the card's
      size, which the virtualised grid depends on. */
   position: relative;
