@@ -1,4 +1,5 @@
 import Observation
+import Synchronization
 import Shared
 import Testing
 @testable import ListenUp
@@ -17,11 +18,12 @@ struct LibrarySectionCountsTests {
     @MainActor @Test func anEqualValueDoesNotNotify() {
         let holder = SectionCountsHolder()
         holder.assign(LibrarySectionCountsValue(books: 1, series: 0, authors: 0, narrators: 0))
-        var notified = false
-        withObservationTracking { _ = holder.counts } onChange: { notified = true }
+        // onChange is @Sendable and fires on the mutating thread, so the flag is a Mutex, not a captured var.
+        let notified = Mutex(false)
+        withObservationTracking { _ = holder.counts } onChange: { notified.withLock { $0 = true } }
         holder.assign(LibrarySectionCountsValue(books: 1, series: 0, authors: 0, narrators: 0))
-        #expect(!notified)
+        #expect(!notified.withLock { $0 })
         holder.assign(LibrarySectionCountsValue(books: 2, series: 0, authors: 0, narrators: 0))
-        #expect(notified)
+        #expect(notified.withLock { $0 })
     }
 }
