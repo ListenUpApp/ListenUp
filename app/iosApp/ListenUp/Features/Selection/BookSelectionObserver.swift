@@ -46,6 +46,8 @@ final class BookSelectionObserver {
     var showShelfPicker = false
     var showCollectionPicker = false
     var showBulkEdit = false
+    /// The one book a context menu's Edit Details opened the editor for; nil when it is closed.
+    var editingBookId: String?
 
     /// The selection as an ordered list, for handing to the bulk editor.
     ///
@@ -163,6 +165,30 @@ final class BookSelectionObserver {
         isShelvingOneBook = false
         exit()
     }
+
+    /// True while the collection picker is open for one book from its context menu.
+    private(set) var isCollectingOneBook = false
+
+    /// A context menu's Add to Collection (admin): `addOneBookToShelf`'s rule over the collection picker.
+    func addOneBookToCollection(_ bookId: String) {
+        isCollectingOneBook = true
+        enter(bookId)
+        showCollectionPicker = true
+    }
+
+    /// The collection picker closed — after adding or not.
+    func collectionPickerClosed() {
+        guard isCollectingOneBook else { return }
+        isCollectingOneBook = false
+        exit()
+    }
+
+    /// A context menu's Edit Details (admin): opens this one book's editor, with no selection.
+    func editOneBook(_ bookId: String) { editingBookId = bookId }
+
+    /// Select exactly these books — what the screen shows, so a filtered Library selects what the reader
+    /// sees (open question 8). Nothing to select is a no-op.
+    func selectAll(_ bookIds: [String]) { viewModel.selectAll(bookIds: bookIds) }
 
     // MARK: - Bulk add actions
 

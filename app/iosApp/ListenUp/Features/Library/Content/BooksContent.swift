@@ -194,14 +194,18 @@ struct BooksContent: View {
                 .buttonStyle(.plain)
         } else {
             // A plain value-based NavigationLink: a tap opens the book. A long-press opens the book's
-            // context menu (Play, Add to Shelf, Share, Select), which iOS arbitrates against the
-            // link's own tap so the two never double-fire.
+            // context menu (Play/Resume/Listen Again, Add to Shelf, Share, Select, and an admin's group),
+            // which iOS arbitrates against the link's own tap so the two never double-fire.
             NavigationLink(value: BookDestination(id: book.id)) {
                 card.heroSource(bookCoverHeroID(book.id))
             }
                 .buttonStyle(.plain)
                 .draggableBookCover(book)
-                .bookContextMenu(bookId: book.id, selection: selection) { card }
+                .bookContextMenu(
+                    bookId: book.id,
+                    selection: selection,
+                    primary: BookMenuPrimaryValue(bookStatus[book.id])
+                ) { card }
         }
     }
 

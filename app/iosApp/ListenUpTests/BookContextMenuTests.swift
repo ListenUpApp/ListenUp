@@ -8,22 +8,48 @@ import Testing
 @MainActor
 @Suite("Book context menu")
 struct BookContextMenuTests {
-    @Test func aSelectableSharableBookOffersEverythingInOrder() {
-        #expect(BookContextMenuModel.sections(canShare: true, canSelect: true)
-            == [[.play], [.addToShelf, .share], [.select]])
+    @Test func memberMenuIsTheBoardsFourInThreeGroups() {
+        #expect(BookContextMenuModel.sections(canShare: true, canSelect: true, isAdmin: false)
+            == [[.primary], [.addToShelf, .share], [.select]])
+    }
+
+    /// Open question 2: the admin group on every platform, last and short.
+    @Test func adminMenuAddsTheAdminGroupLast() {
+        #expect(BookContextMenuModel.sections(canShare: true, canSelect: true, isAdmin: true).last
+            == [.addToCollection, .editDetails])
+    }
+
+    /// The collection picker and the editor ride the screen's selection; without one there is no admin group.
+    @Test func withoutASelectionAnAdminGetsNoAdminGroup() {
+        #expect(BookContextMenuModel.sections(canShare: true, canSelect: false, isAdmin: true)
+            == [[.primary], [.share]])
+    }
+
+    @Test func primaryLabelFollowsTheBook() {
+        #expect(BookMenuPrimaryValue.resume(timeLeftMs: 21_720_000).label == "Resume · 6h 2m")
+        #expect(BookMenuPrimaryValue.play.label == "Play")
+        #expect(BookMenuPrimaryValue.listenAgain.label == "Listen Again")
+    }
+
+    /// The shared `bookMenuPrimary` rule, read from the card's own state.
+    @Test func primaryFollowsTheCardState() {
+        #expect(BookMenuPrimaryValue(.inProgress(fraction: 0.1, timeLeftMs: 60_000)) == .resume(timeLeftMs: 60_000))
+        #expect(BookMenuPrimaryValue(.finished(durationMs: 1)) == .listenAgain)
+        #expect(BookMenuPrimaryValue(.notStarted(durationMs: 1)) == .play)
+        #expect(BookMenuPrimaryValue(nil) == .play)
     }
 
     /// Hide, don't dim (HIG, Context menus): a screen without a selection has no shelf picker and no
     /// selection mode to enter, so both go.
     @Test func withoutASelectionTheMenuIsPlayAndShare() {
-        #expect(BookContextMenuModel.sections(canShare: true, canSelect: false) == [[.play], [.share]])
+        #expect(BookContextMenuModel.sections(canShare: true, canSelect: false) == [[.primary], [.share]])
     }
 
     /// Offline with no server identity cached, there is no link to share.
     @Test func withoutAShareLinkShareIsLeftOut() {
         #expect(BookContextMenuModel.sections(canShare: false, canSelect: true)
-            == [[.play], [.addToShelf], [.select]])
-        #expect(BookContextMenuModel.sections(canShare: false, canSelect: false) == [[.play]])
+            == [[.primary], [.addToShelf], [.select]])
+        #expect(BookContextMenuModel.sections(canShare: false, canSelect: false) == [[.primary]])
     }
 
     /// The link decodes back to the same book on the same server, through the shared codec.
