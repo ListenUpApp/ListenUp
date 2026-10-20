@@ -28,6 +28,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -371,6 +374,7 @@ private fun BookGrid(
 ) {
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
     // The one book whose menu is open, by id, so it survives rotation and a recycled cell.
     var menuFor by rememberSaveable { mutableStateOf<String?>(null) }
     val longPressLabel = stringResource(Res.string.library_book_menu_long_press)
@@ -463,7 +467,18 @@ private fun BookGrid(
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,
-                            onLongPress = menu?.let { { menuFor = bookId } },
+                            onLongPress =
+                                menu?.let { host ->
+                                    {
+                                        scope.launch {
+                                            // Board: the menu hangs below the cover. Make room first, so it only
+                                            // flips up when the grid cannot scroll any further.
+                                            val menuHeight = with(density) { estimatedMenuHeight(host.actionsFor(bookId)).toPx() }
+                                            gridState.makeRoomBelowCover(gridItem.key, menuHeight)
+                                            menuFor = bookId
+                                        }
+                                    }
+                                },
                             longPressLabel = menu?.let { longPressLabel },
                             coverOverlay =
                                 menu?.takeIf { menuFor == bookId }?.let { host ->
@@ -655,4 +670,21 @@ private fun BooksErrorState(
             ListenUpButton(text = stringResource(Res.string.common_retry), onClick = onRetry)
         }
     }
+}
+
+/**
+ * Scrolls the grid just enough that [menuHeight] px fits between the foot of [key]'s cover (a square as wide as its
+ * cell) and the bottom of the viewport, never lifting the card's top out of view.
+ */
+private suspend fun LazyGridState.makeRoomBelowCover(
+    key: Any,
+    menuHeight: Float,
+) {
+    val info = layoutInfo.visibleItemsInfo.firstOrNull { it.key == key } ?: return
+    val coverBottom = info.offset.y + info.size.width
+    val room = layoutInfo.viewportEndOffset - coverBottom
+    val shortfall = menuHeight - room
+    val headroom = (info.offset.y - layoutInfo.viewportStartOffset).toFloat()
+    val scroll = minOf(shortfall, headroom)
+    if (scroll > 0f) animateScrollBy(scroll)
 }

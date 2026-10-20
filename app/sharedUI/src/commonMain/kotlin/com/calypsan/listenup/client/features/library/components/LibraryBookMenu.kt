@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -176,4 +178,21 @@ private fun MenuItem(
             onDismiss()
         },
     )
+}
+
+/** One menu row, and the space a divider and the menu's own padding take. */
+private val MenuRowHeight = 48.dp
+private val MenuDividerHeight = 17.dp
+private val MenuChromeHeight = 16.dp
+
+/**
+ * How tall [actions]' menu will be, for making room below the cover before it opens: its rows, the dividers between
+ * groups, and the Admin label.
+ */
+internal fun estimatedMenuHeight(actions: LibraryBookMenuActions): Dp {
+    val middle = listOfNotNull(actions.onAddToShelf, actions.onShare).size
+    val admin = listOfNotNull(actions.onAddToCollection, actions.onEditDetails).size
+    val rows = 2 + middle + admin + if (admin > 0) 1 else 0
+    val dividers = 1 + (if (middle > 0) 1 else 0) + (if (admin > 0) 1 else 0)
+    return MenuRowHeight * rows + MenuDividerHeight * dividers + MenuChromeHeight
 }
