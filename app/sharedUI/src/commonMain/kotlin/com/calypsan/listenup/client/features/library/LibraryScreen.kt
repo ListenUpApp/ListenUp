@@ -385,6 +385,7 @@ internal fun LibraryLoadedContent(
                             onCategorySelected = { onEvent(LibraryUiEvent.AuthorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.AuthorsDirectionToggled) },
                             onAuthorClick = onAuthorClick,
+                            showCovers = isExpanded,
                         )
 
                     LibrarySection.Narrators ->
@@ -395,6 +396,7 @@ internal fun LibraryLoadedContent(
                             onCategorySelected = { onEvent(LibraryUiEvent.NarratorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.NarratorsDirectionToggled) },
                             onNarratorClick = onNarratorClick,
+                            showCovers = isExpanded,
                         )
                 }
             }

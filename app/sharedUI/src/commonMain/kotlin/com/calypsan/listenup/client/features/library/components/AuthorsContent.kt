@@ -17,6 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
@@ -67,6 +72,7 @@ import listenup.composeapp.generated.resources.genre_books_count
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
  * @param onAuthorClick Callback when an author is clicked
+ * @param showCovers Whether each row shows its two newest covers (the wide Library, spec c7)
  * @param modifier Optional modifier
  */
 @Composable
@@ -77,6 +83,7 @@ fun AuthorsContent(
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
     onAuthorClick: (String) -> Unit,
+    showCovers: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -124,7 +131,7 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onAuthorClick)
+                        contributorRows(rows, onAuthorClick, showCovers)
                     }
 
                     // Alphabet scrollbar (only for name sort)
@@ -155,6 +162,7 @@ fun AuthorsContent(
 internal fun LazyListScope.contributorRows(
     rows: List<LetteredRow<ContributorWithBookCount>>,
     onClick: (String) -> Unit,
+    showCovers: Boolean = false,
 ) {
     items(
         items = rows,
@@ -170,6 +178,7 @@ internal fun LazyListScope.contributorRows(
                 ContributorCard(
                     contributorWithCount = row.value,
                     onClick = { onClick(row.value.contributor.id.value) },
+                    showCovers = showCovers,
                 )
             }
         }
@@ -179,12 +188,16 @@ internal fun LazyListScope.contributorRows(
 /**
  * Card displaying a contributor (author/narrator) with their book count.
  * Shows contributor image if available, otherwise displays initials.
+ *
+ * On a wide Library ([showCovers]) the row ends in the contributor's two newest covers (spec c7). They are decoration:
+ * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6).
  */
 @Composable
 internal fun ContributorCard(
     contributorWithCount: ContributorWithBookCount,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showCovers: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     val contributor = contributorWithCount.contributor
@@ -277,9 +290,40 @@ internal fun ContributorCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            if (showCovers && contributorWithCount.previewBookIds.isNotEmpty()) {
+                PreviewCovers(bookIds = contributorWithCount.previewBookIds.take(PREVIEW_COVERS))
+            }
         }
     }
 }
+
+/** Up to two square covers at a people row's end; decoration under the row's own name. */
+@Composable
+private fun PreviewCovers(bookIds: List<String>) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(start = Spacing.md).clearAndSetSemantics {},
+    ) {
+        bookIds.forEach { bookId ->
+            BookCoverImage(
+                bookId = bookId,
+                coverPath = null,
+                contentDescription = null,
+                modifier =
+                    Modifier
+                        .size(PREVIEW_COVER_SIZE)
+                        .clip(RoundedCornerShape(6.dp))
+                        .testTag(PREVIEW_COVER_TAG),
+            )
+        }
+    }
+}
+
+/** Test tag on each of a people row's preview covers. */
+internal const val PREVIEW_COVER_TAG = "contributor-preview-cover"
+private const val PREVIEW_COVERS = 2
+private val PREVIEW_COVER_SIZE = 40.dp
 
 /**
  * Empty state when no authors in library.
