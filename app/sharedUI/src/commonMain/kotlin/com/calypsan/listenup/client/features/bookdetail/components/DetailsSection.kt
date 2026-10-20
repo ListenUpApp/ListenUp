@@ -42,6 +42,7 @@ import listenup.composeapp.generated.resources.book_detail_genre_line
 import listenup.composeapp.generated.resources.book_detail_isbn
 import listenup.composeapp.generated.resources.book_detail_language
 import listenup.composeapp.generated.resources.book_detail_length
+import listenup.composeapp.generated.resources.book_detail_link_row
 import listenup.composeapp.generated.resources.book_detail_maps
 import listenup.composeapp.generated.resources.book_detail_maps_count
 import listenup.composeapp.generated.resources.book_detail_publisher
@@ -54,7 +55,8 @@ import org.jetbrains.compose.resources.stringResource
  * Language, Length, Added, ISBN, ASIN, then three links: **All credits** ([onAllCredits]), **Files & audio**
  * ([onFilesAndAudio]: the format rows live in its sheet) and **Maps & illustrations** ([onMaps], handed its row so the
  * caller can open one document at once or the list). A row whose datum is absent is not in [rows]; with no rows at
- * all the section draws nothing. Each row is value left, dim label right, with a divider between rows.
+ * all the section draws nothing. A fact is value left, dim label right; a link reads label first, "All credits (6) ›".
+ * A divider sits between rows.
  */
 @Composable
 fun DetailsSection(
@@ -91,7 +93,11 @@ fun DetailsSection(
                     is BookDetailRow.Isbn, is BookDetailRow.Asin,
                     -> null
                 }
-            MetadataRow(value = cell.value, label = cell.label, onClick = onClick)
+            if (onClick != null) {
+                LinkRow(text = stringResource(Res.string.book_detail_link_row, cell.label, cell.value), onClick = onClick)
+            } else {
+                MetadataRow(value = cell.value, label = cell.label)
+            }
             if (index < rows.lastIndex) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -173,25 +179,14 @@ private fun BookDetailRow.cell(): DetailCell =
         }
     }
 
-/** A Details row: emphasis value on the left, dim label on the right; a link row adds a chevron and is a button. */
+/** A Details fact: emphasis value on the left, dim label on the right. */
 @Composable
 private fun MetadataRow(
     value: String,
     label: String,
-    onClick: (() -> Unit)?,
 ) {
-    val haptics = LocalHaptics.current
-    val clickable =
-        if (onClick != null) {
-            Modifier.clickable(role = Role.Button) {
-                haptics.press()
-                onClick()
-            }
-        } else {
-            Modifier
-        }
     Row(
-        modifier = Modifier.fillMaxWidth().then(clickable).padding(vertical = Spacing.md),
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md),
         horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -206,13 +201,38 @@ private fun MetadataRow(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (onClick != null) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-        }
+    }
+}
+
+/** A Details link, label first as the spec writes it — "All credits (6) ›" — a button with a chevron. */
+@Composable
+private fun LinkRow(
+    text: String,
+    onClick: () -> Unit,
+) {
+    val haptics = LocalHaptics.current
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button) {
+                    haptics.press()
+                    onClick()
+                }.padding(vertical = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }

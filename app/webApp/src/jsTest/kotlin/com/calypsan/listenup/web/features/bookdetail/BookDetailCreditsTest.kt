@@ -80,7 +80,7 @@ class BookDetailCreditsTest :
                 .querySelectorAll(".bd-detail-link")
                 .asList()
                 .map { it as HTMLElement }
-                .first { it.getAttribute("aria-label") == "All credits (3)" }
+                .first { it.textContent.orEmpty().startsWith("All credits (3)") }
                 .click()
             awaitFrame()
             host.querySelector("dialog.bd-credits").shouldNotBeNull()

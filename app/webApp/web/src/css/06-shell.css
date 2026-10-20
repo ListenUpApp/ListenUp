@@ -561,6 +561,7 @@ dialog.dlg.bd-credits { width:520px; }
 
 /* The Details panel's three links (spec D31): All credits, Files & audio, Maps & illustrations. */
 .bd-details { margin:0; }
+.bd-detail-links { display:flex; flex-direction:column; align-items:flex-start; margin-top:var(--sp-4); }
 .bd-detail-link { display:inline-flex; align-items:center; gap:var(--sp-4); min-height:44px; padding:0; border:0; background:none; font:inherit; font-weight:600; color:var(--coral-text); text-decoration:underline; text-underline-offset:2px; cursor:pointer; border-radius:var(--r-xs); }
 .bd-detail-link > [aria-hidden] { text-decoration:none; }
 .bd-detail-link:focus { outline:none; }

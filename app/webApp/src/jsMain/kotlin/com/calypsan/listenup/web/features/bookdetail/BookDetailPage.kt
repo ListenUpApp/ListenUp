@@ -795,49 +795,38 @@ private fun DetailsRows(
 ) {
     var showingCredits by remember(state.book.id) { mutableStateOf(false) }
     val bookId = state.book.id.value
+    val (links, facts) = bookDetailRows(state, panes.documents).partition { it.isLink() }
     Dl(attrs = { classes("bd-details") }) {
-        bookDetailRows(state, panes.documents).forEach { row ->
+        facts.forEach { row ->
             Div(attrs = { classes("meta-r") }) {
                 Dt { Text(row.label()) }
-                Dd(attrs = { if (row.isMachine()) classes("mono") }) {
-                    when (row) {
-                        is BookDetailRow.AllCredits -> {
-                            Button(attrs = {
-                                classes("bd-detail-link")
-                                attr("type", BUTTON_VALUE)
-                                attr("aria-label", "All credits (${row.count})")
-                                onClick { showingCredits = true }
-                            }) {
-                                Text(row.count.toString())
-                                Span(attrs = { attr("aria-hidden", "true") }) { Text("›") }
-                            }
-                        }
-
-                        is BookDetailRow.FilesAndAudio -> {
-                            FilesLink(bookId, row.value(), panes.onOpenFiles)
-                        }
-
-                        is BookDetailRow.MapsAndIllustrations -> {
-                            val only = row.onlyDocumentId
-                            if (only == null) {
-                                FilesLink(bookId, row.value(), panes.onOpenFiles)
-                            } else {
-                                A(href = documentUrl(bookId, only), attrs = {
-                                    classes("bd-detail-link")
-                                    attr("target", "_blank")
-                                    attr("rel", "noopener")
-                                }) {
-                                    Text(row.value())
-                                    Span(attrs = { attr("aria-hidden", "true") }) { Text("↗") }
-                                    Span(attrs = { classes("sr-only") }) { Text(" (opens in a new tab)") }
-                                }
-                            }
-                        }
-
-                        else -> {
-                            Text(row.value())
-                        }
+                Dd(attrs = { if (row.isMachine()) classes("mono") }) { Text(row.value()) }
+            }
+        }
+    }
+    // Label first, as the spec writes them — "All credits (6) ›" — so each link's name says what it opens.
+    Div(attrs = { classes("bd-detail-links") }) {
+        links.forEach { row ->
+            val text = "${row.label()} (${row.value()})"
+            when (row) {
+                is BookDetailRow.AllCredits -> {
+                    Button(attrs = {
+                        classes("bd-detail-link")
+                        attr("type", BUTTON_VALUE)
+                        onClick { showingCredits = true }
+                    }) {
+                        Text(text)
+                        Span(attrs = { attr("aria-hidden", "true") }) { Text("›") }
                     }
+                }
+
+                is BookDetailRow.MapsAndIllustrations -> {
+                    val only = row.onlyDocumentId?.let { id -> panes.documents.firstOrNull { it.id == id } }
+                    if (only == null) FilesLink(bookId, text, panes.onOpenFiles) else DocumentLink(bookId, only, text)
+                }
+
+                else -> {
+                    FilesLink(bookId, text, panes.onOpenFiles)
                 }
             }
         }
@@ -851,6 +840,32 @@ private fun DetailsRows(
             onOpenContributor = panes.onOpenContributor,
             onDismiss = { showingCredits = false },
         )
+    }
+}
+
+/**
+ * Maps & illustrations' one document: a PDF opens in a new tab, where the browser renders it; anything else downloads,
+ * because a tab of raw epub bytes helps no one (the Files view's `DocumentsPanel` makes the same call).
+ */
+@Composable
+private fun DocumentLink(
+    bookId: String,
+    document: BookDocument,
+    text: String,
+) {
+    val viewable = document.format.lowercase() == "pdf"
+    A(href = documentUrl(bookId, document.id), attrs = {
+        classes("bd-detail-link")
+        if (viewable) {
+            attr("target", "_blank")
+            attr("rel", "noopener")
+        } else {
+            attr("download", documentBasename(document.filename))
+        }
+    }) {
+        Text(text)
+        Span(attrs = { attr("aria-hidden", "true") }) { Text(if (viewable) "↗" else "↓") }
+        Span(attrs = { classes("sr-only") }) { Text(if (viewable) " (opens in a new tab)" else " (downloads)") }
     }
 }
 
@@ -939,6 +954,10 @@ private fun BookDetailRow.value(): String =
             "${format ?: if (count == 1) "1 document" else "$count documents"} · ${formatBytes(totalBytes)}"
         }
     }
+
+/** The three Details rows that open something: All credits, Files & audio, Maps & illustrations. */
+private fun BookDetailRow.isLink(): Boolean =
+    this is BookDetailRow.AllCredits || this is BookDetailRow.FilesAndAudio || this is BookDetailRow.MapsAndIllustrations
 
 /** Identifiers and years read in the monospace face, as the old Details list drew them. */
 private fun BookDetailRow.isMachine(): Boolean =

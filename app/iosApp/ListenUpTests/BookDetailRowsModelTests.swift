@@ -25,6 +25,13 @@ struct BookDetailRowsModelTests {
         #expect(BookDetailRowValue.isbn("978").cell.link == nil)
     }
 
+    /// Spec D31: a link reads label first — "All Credits (6) ›" — never the value ahead of what it opens.
+    @Test func linkRowsReadLabelFirst() {
+        #expect(BookDetailRowValue.allCredits(count: 6).cell.linkTitle == "All Credits (6)")
+        #expect(BookDetailRowValue.filesAndAudio(format: "AAC", bitrate: "64 kbps").cell.linkTitle
+            == "Files & Audio (AAC · 64 kbps)")
+    }
+
     @Test func labelsAreTitleCaseOnIOS() {
         #expect(BookDetailRowValue.filesAndAudio(format: nil, bitrate: nil).cell.label == "Files & Audio")
         #expect(BookDetailRowValue.maps(count: 1, onlyDocumentId: "d", format: "PDF", totalBytes: 1).cell.label

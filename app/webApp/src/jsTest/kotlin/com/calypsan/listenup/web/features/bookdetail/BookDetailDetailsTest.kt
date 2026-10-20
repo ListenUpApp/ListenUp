@@ -66,56 +66,72 @@ class BookDetailDetailsTest :
                 .first { it.querySelector("dt")?.textContent == label }
                 .querySelector("dd") as HTMLElement
 
-        test("the rows read in the spec's order, and the old Duration, Chapters and Narrator rows are gone") {
+        fun links(host: HTMLElement): List<HTMLElement> =
+            host.querySelectorAll(".bd-detail-links .bd-detail-link").asList().map { it as HTMLElement }
+
+        fun link(
+            host: HTMLElement,
+            startsWith: String,
+        ): HTMLElement = links(host).first { it.textContent.orEmpty().startsWith(startsWith) }
+
+        test("the facts read in the spec's order, and the old Duration, Chapters and Narrator rows are gone") {
             val host = rendered()
             details(host).querySelectorAll("dt").asList().map { it.textContent } shouldBe
-                listOf(
-                    "Publisher",
-                    "Released",
-                    "Genre",
-                    "Language",
-                    "Length",
-                    "Added",
-                    "ISBN",
-                    "ASIN",
-                    "All credits",
-                    "Files & audio",
-                    "Maps & illustrations",
-                )
+                listOf("Publisher", "Released", "Genre", "Language", "Length", "Added", "ISBN", "ASIN")
             valueOf(host, "Genre").textContent shouldBe "Psychological horror · Unabridged"
             valueOf(host, "Length").textContent!!.endsWith(" chapters") shouldBe true
             valueOf(host, "Length").textContent!!.contains("h ") shouldBe true
         }
 
+        // Spec D31: a link reads label first — "All credits (N) ›" — so its accessible name says what it opens, not
+        // just "AAC · 64 kbps".
+        test("the three links read label first, and that is their accessible name") {
+            val host = rendered()
+            links(host).map { it.textContent.orEmpty().substringBefore(" (") } shouldBe
+                listOf("All credits", "Files & audio", "Maps & illustrations")
+            links(host).forEach { it.getAttribute("aria-label") shouldBe null }
+            link(host, "All credits").textContent shouldBe "All credits (2)›"
+            link(host, "Files & audio").textContent.orEmpty().startsWith("Files & audio (") shouldBe true
+        }
+
         test("All credits is a button") {
-            valueOf(rendered(), "All credits").querySelector("button.bd-detail-link").shouldNotBeNull()
+            link(rendered(), "All credits").tagName.lowercase() shouldBe "button"
         }
 
         test("Files & audio is a link to the Files view, followed in-app on a plain click") {
             var opened = 0
             val host = rendered(onOpenFiles = { opened++ })
-            val link = valueOf(host, "Files & audio").querySelector("a").shouldNotBeNull() as HTMLElement
-            link.getAttribute("href") shouldBe "/book/42/files"
-            link.click()
+            val files = link(host, "Files & audio")
+            files.getAttribute("href") shouldBe "/book/42/files"
+            files.click()
             awaitFrame()
             opened shouldBe 1
         }
 
         test("two documents go to the Files view") {
-            val link = valueOf(rendered(), "Maps & illustrations").querySelector("a").shouldNotBeNull() as HTMLElement
-            link.getAttribute("href") shouldBe "/book/42/files"
-            link.getAttribute("target") shouldBe null
+            val maps = link(rendered(), "Maps & illustrations")
+            maps.getAttribute("href") shouldBe "/book/42/files"
+            maps.getAttribute("target") shouldBe null
         }
 
-        test("one document opens in a new tab, and says so to a screen reader") {
+        test("one PDF opens in a new tab, and says so to a screen reader") {
             val one = sampleDocuments().take(1)
-            val link =
-                valueOf(rendered(documents = one), "Maps & illustrations").querySelector("a").shouldNotBeNull() as HTMLElement
-            link.getAttribute("href") shouldBe documentUrl("42", one.single().id)
-            link.getAttribute("target") shouldBe "_blank"
-            link.getAttribute("rel") shouldBe "noopener"
-            link.querySelector("[aria-hidden]")?.textContent shouldBe "↗"
-            link.querySelector(".sr-only")?.textContent shouldBe " (opens in a new tab)"
-            link.textContent!!.startsWith("PDF · 2 MB") shouldBe true
+            val maps = link(rendered(documents = one), "Maps & illustrations")
+            maps.getAttribute("href") shouldBe documentUrl("42", one.single().id)
+            maps.getAttribute("target") shouldBe "_blank"
+            maps.getAttribute("rel") shouldBe "noopener"
+            maps.querySelector("[aria-hidden]")?.textContent shouldBe "↗"
+            maps.querySelector(".sr-only")?.textContent shouldBe " (opens in a new tab)"
+            maps.textContent!!.startsWith("Maps & illustrations (PDF · 2 MB)") shouldBe true
+        }
+
+        // A browser tab shows an epub as raw bytes, so one that is not a PDF downloads, as the Files view's does.
+        test("one document a browser cannot show downloads instead of opening a tab of bytes") {
+            val epub = sampleDocuments().drop(1)
+            val maps = link(rendered(documents = epub), "Maps & illustrations")
+            maps.getAttribute("href") shouldBe documentUrl("42", epub.single().id)
+            maps.getAttribute("target") shouldBe null
+            maps.getAttribute("download") shouldBe "bonus-chapter.epub"
+            maps.querySelector(".sr-only")?.textContent shouldBe " (downloads)"
         }
     })

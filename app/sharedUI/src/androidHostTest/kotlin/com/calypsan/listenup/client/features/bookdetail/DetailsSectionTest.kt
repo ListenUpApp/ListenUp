@@ -124,9 +124,9 @@ class DetailsSectionTest {
                 "Added",
                 "ISBN",
                 "ASIN",
-                "All credits",
-                "Files & audio",
-                "Maps & illustrations",
+                "All credits (6)",
+                "Files & audio (AAC · 64 kbps)",
+                "Maps & illustrations (PDF · 18.0 MB)",
             )
         val tops = labels.map { composeRule.onNodeWithText(it, useUnmergedTree = true).getUnclippedBoundsInRoot().top }
         tops shouldBe tops.sorted()
@@ -137,8 +137,18 @@ class DetailsSectionTest {
         composeRule.onNodeWithText("45h 30m · 75 chapters").assertExists()
         composeRule.onNodeWithText("9781427209979").assertExists()
         composeRule.onNodeWithText("B003ZWFO7E").assertExists()
-        composeRule.onNodeWithText("AAC · 64 kbps").assertExists()
-        composeRule.onNodeWithText("PDF · 18.0 MB").assertExists()
+    }
+
+    // Spec D31: a link row reads label first, its count or format in brackets — "All credits (6) ›" — never the value
+    // ahead of what it is ("6 … All credits").
+    @Test
+    fun `the link rows read label first, as the spec writes them`() {
+        show(bookDetailRows(full, listOf(doc("map"))))
+        val button = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+        listOf("All credits (6)", "Files & audio (AAC · 64 kbps)", "Maps & illustrations (PDF · 18.0 MB)").forEach {
+            composeRule.onNode(button and hasText(it)).assertExists()
+        }
+        composeRule.onNodeWithText("6").assertDoesNotExist()
     }
 
     @Test
@@ -147,17 +157,16 @@ class DetailsSectionTest {
         listOf("Format", "Bitrate", "Sample rate", "Channels", "Narrators", "Authors").forEach {
             composeRule.onNodeWithText(it).assertDoesNotExist()
         }
-        composeRule.onNodeWithText("Maps & illustrations").assertDoesNotExist()
+        composeRule.onNodeWithText("Maps & illustrations", substring = true).assertDoesNotExist()
     }
 
     @Test
     fun `the three links are buttons and report their taps`() {
         show(bookDetailRows(full, listOf(doc("map"), doc("notes", "epub"))))
         val button = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
-        composeRule.onNode(button and hasText("All credits")).performScrollTo().performClick()
-        composeRule.onNode(button and hasText("Files & audio")).performScrollTo().performClick()
-        composeRule.onNode(button and hasText("Maps & illustrations")).performScrollTo().performClick()
-        composeRule.onNode(hasText("6") and button).assertExists()
+        composeRule.onNode(button and hasText("All credits", substring = true)).performScrollTo().performClick()
+        composeRule.onNode(button and hasText("Files & audio", substring = true)).performScrollTo().performClick()
+        composeRule.onNode(button and hasText("Maps & illustrations", substring = true)).performScrollTo().performClick()
         composeRule.onAllNodesWithText("Publisher").fetchSemanticsNodes().size shouldBe 1
         composeRule.onNode(button and hasText("Publisher")).assertDoesNotExist()
         composeRule.runOnIdle {

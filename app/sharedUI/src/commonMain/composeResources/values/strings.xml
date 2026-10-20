@@ -432,6 +432,7 @@ One beautiful library.</string>
     <string name="book_detail_all_chapters_ios">All %1$d Chapters</string>
     <string name="book_detail_all_credits">All credits</string>
     <string name="book_detail_all_credits_count">%1$d</string>
+    <string name="book_detail_all_credits_ios">All Credits</string>
     <string name="book_detail_asin">ASIN</string>
     <string name="book_detail_authors">Authors</string>
     <string name="book_detail_back_to_library">Back to Library</string>
@@ -518,6 +519,7 @@ One beautiful library.</string>
     <string name="book_detail_isbn">ISBN</string>
     <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
+    <string name="book_detail_link_row">%1$s (%2$s)</string>
     <string name="book_detail_listen_again">Listen again</string>
     <string name="book_detail_listen_again_ios">Listen Again</string>
     <string name="book_detail_maps">Maps &amp; illustrations</string>
