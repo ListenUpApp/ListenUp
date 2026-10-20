@@ -70,7 +70,7 @@ fun LibraryInboxStrip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            InboxGlyphTile(size = GlyphTile, corner = GlyphCorner, glyphSize = GlyphSize)
+            InboxGlyphTile(size = GlyphTile, corner = GlyphCorner, glyphSize = GlyphSize, onAmber = true)
             Text(
                 text = stringResource(Res.string.library_inbox_strip, heldCount),
                 style = MaterialTheme.typography.titleSmall,
