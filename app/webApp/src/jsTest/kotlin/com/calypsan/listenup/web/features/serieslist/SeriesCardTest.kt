@@ -41,7 +41,11 @@ class SeriesCardTest :
         test("at desktop width a series' three covers share one top") {
             val frame = page(DESKTOP, listOf(dcc(7)))
             awaitFrame()
-            frame.findAll(".srs-card .srs-stack .cover").map { frame.rect(it).top }.distinct().size shouldBe 1
+            frame
+                .findAll(".srs-card .srs-stack .cover")
+                .map { frame.rect(it).top }
+                .distinct()
+                .size shouldBe 1
             frames.disposeAll()
         }
 

@@ -218,9 +218,12 @@ class SyncIndicatorViewModel(
         manualRefresh.value = ManualRefresh(running = true)
         viewModelScope.launch {
             when (val result = syncRepository.sync()) {
-                is AppResult.Success -> manualRefresh.value = ManualRefresh()
+                is AppResult.Success -> {
+                    manualRefresh.value = ManualRefresh()
+                }
+
                 is AppResult.Failure -> {
-                    logger.warn { "Refresh failed: ${result.error.code} ${result.error.debugInfo}" }
+                    logger.warn { "Refresh failed: ${result.error.code} ${result.error.debugInfo.orEmpty()}" }
                     errorBus.emit(result.error)
                     manualRefresh.value = ManualRefresh(failed = true)
                 }

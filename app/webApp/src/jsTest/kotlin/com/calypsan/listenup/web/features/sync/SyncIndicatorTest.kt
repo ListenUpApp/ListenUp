@@ -73,8 +73,9 @@ class SyncIndicatorTest :
             val words = frame.rect(frame.find(".sync-ind-t")).left
             val button = frame.find(".sync-ind-refresh")
             // Where its words start: the box's left plus its own padding.
-            val refresh = frame.rect(button).left + frame.css(button, "padding-left").removeSuffix("px").toDouble() +
-                frame.css(button, "border-left-width").removeSuffix("px").toDouble()
+            val refresh =
+                frame.rect(button).left + frame.css(button, "padding-left").removeSuffix("px").toDouble() +
+                    frame.css(button, "border-left-width").removeSuffix("px").toDouble()
             (refresh - words) shouldBeLessThan 1.5
             (words - refresh) shouldBeLessThan 1.5
             frame.find(".sync-ind-refresh").click()

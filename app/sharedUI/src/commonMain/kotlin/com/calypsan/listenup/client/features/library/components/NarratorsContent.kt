@@ -106,7 +106,7 @@ fun NarratorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onNarratorClick, showCovers, reserveRail = alphabetIndex != null)
+                        contributorRows(rows = rows, onClick = onNarratorClick, showCovers = showCovers, reserveRail = alphabetIndex != null)
                     }
 
                     // Alphabet scrollbar (only for name sort)

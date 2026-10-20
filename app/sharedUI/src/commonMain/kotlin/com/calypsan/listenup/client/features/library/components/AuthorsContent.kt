@@ -132,7 +132,7 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onAuthorClick, showCovers, reserveRail = alphabetIndex != null)
+                        contributorRows(rows = rows, onClick = onAuthorClick, showCovers = showCovers, reserveRail = alphabetIndex != null)
                     }
 
                     // Alphabet scrollbar (only for name sort)

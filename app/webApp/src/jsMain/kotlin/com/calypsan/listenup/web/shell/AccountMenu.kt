@@ -51,7 +51,10 @@ fun AccountMenu(
         triggerClasses = triggerClasses,
         tooltip = true,
         // The person, as Android's and iOS's headers draw them: their picture, or their initials.
-        triggerContent = account?.let { who -> { UserAvatar(userId = who.userId, name = who.name, size = AVATAR_SIZE) } },
+        triggerContent =
+            account?.let { who ->
+                { UserAvatar(userId = who.userId, name = who.name, size = AVATAR_SIZE) }
+            },
     )
 }
 

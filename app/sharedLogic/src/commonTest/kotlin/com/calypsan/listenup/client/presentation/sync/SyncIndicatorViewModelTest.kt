@@ -212,7 +212,7 @@ class SyncIndicatorViewModelTest :
                 verifySuspend(exactly(1)) { syncRepository.sync() }
             }
         }
-    
+
         test("a refresh says it is syncing while it runs, and stops when it lands") {
             runTest(testDispatcher) {
                 val landing = CompletableDeferred<AppResult<Unit>>()

@@ -117,7 +117,10 @@ sealed interface CoverPlacement {
 
 private fun StyleScope.place(placement: CoverPlacement) {
     when (placement) {
-        CoverPlacement.InFlow -> property("position", "relative")
+        CoverPlacement.InFlow -> {
+            property("position", "relative")
+        }
+
         is CoverPlacement.Stacked -> {
             property("position", "absolute")
             property("left", "${placement.left}px")
