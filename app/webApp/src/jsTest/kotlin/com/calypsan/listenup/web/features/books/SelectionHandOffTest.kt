@@ -89,6 +89,29 @@ class SelectionHandOffTest :
             picked shouldBe listOf(listOf("b1", "b2", "b3"))
         }
 
+        test("once every book on screen is picked, Select all reads Deselect all and clears the picks") {
+            val calls = mutableListOf<String>()
+            val root =
+                mounts.mount {
+                    BookSelectionScaffold(
+                        fixedMultiSelect(
+                            selectionMode = SelectionMode.Active(setOf("b1", "b2")),
+                            onEnter = { calls += "enter" },
+                            onSelectAll = { calls += "all" },
+                        ),
+                        Router(),
+                        onToast = {},
+                        selectAllOf = { listOf("b1", "b2") },
+                    ) { Text("page") }
+                }
+            awaitFrame()
+
+            root.querySelectorAll(".bulk button[aria-label^='Select all']").length shouldBe 0
+            (root.querySelector(".bulk button[aria-label='Deselect all']") as HTMLElement).click()
+
+            calls shouldBe listOf("enter")
+        }
+
         test("Home and Discover offer no Select all") {
             val root =
                 mounts.mount {

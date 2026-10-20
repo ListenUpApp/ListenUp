@@ -273,10 +273,7 @@ internal fun BookSelectionScaffold(
             label = booksSelectedLabel(selected.size),
             actions = bulkActions(selected.isNotEmpty(), isAdmin) { picking = it },
             onClear = session.onExit,
-            selectAll =
-                everyBook.takeIf { it.isNotEmpty() }?.let { ids ->
-                    BulkAction("Select all ${groupedCount(ids.size)}") { session.onSelectAll(ids) }
-                },
+            selectAll = selectAllAction(everyBook, selected, onSelectAll = session.onSelectAll, onDeselectAll = session.onEnter),
         )
     }
 
@@ -348,6 +345,22 @@ internal class FeedSelection(
     val onHeroBookIdChange: (String) -> Unit,
     val onToast: (String) -> Unit,
 )
+
+/**
+ * "Select all N" over the books on screen, or "Deselect all" once every one of them is picked (the standard pairing),
+ * which clears the picks and stays in selection. None when the screen offers no books to take.
+ */
+private fun selectAllAction(
+    onScreen: List<String>,
+    selected: Set<String>,
+    onSelectAll: (List<String>) -> Unit,
+    onDeselectAll: () -> Unit,
+): BulkAction? =
+    when {
+        onScreen.isEmpty() -> null
+        selected.containsAll(onScreen) -> BulkAction("Deselect all", shortLabel = "None") { onDeselectAll() }
+        else -> BulkAction("Select all ${groupedCount(onScreen.size)}", shortLabel = "All") { onSelectAll(onScreen) }
+    }
 
 /** Where a selection can be sent. */
 private enum class SelectionDestination { Edit, Shelf, Collection }

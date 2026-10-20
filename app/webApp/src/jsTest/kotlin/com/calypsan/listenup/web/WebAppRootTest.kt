@@ -1072,7 +1072,7 @@ class WebAppRootTest :
                 host.querySelector(".bulk").shouldNotBeNull()
                 // Select all chooses books rather than acting on them, so it is offered with nothing picked.
                 host.querySelectorAll(".bulk-b:not(.bulk-all)").asList().size shouldBe 0
-                host.querySelector(".bulk-all")!!.textContent shouldBe "Select all 1"
+                host.querySelector(".bulk-all")!!.getAttribute("aria-label") shouldBe "Select all 1"
             } finally {
                 router.dispose()
             }
