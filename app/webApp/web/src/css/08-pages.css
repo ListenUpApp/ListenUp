@@ -1197,9 +1197,14 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .lib-controls .lib-filters { flex: 1 1 auto; min-width: 0; padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
 .lib-controls-end { display: flex; flex: none; align-items: center; gap: 10px; margin-left: auto; }
+.lib-count { display: none; }
 @media (max-width: 759px) {
   .lib-controls .lib-filters { flex-basis: 100%; padding-bottom: 8px; }
-  .lib-controls-end { order: -1; }
+  /* The count, then Select and Sort, on one row above the scrolling chips (spec §3.1.7). The header's count line
+     is the desktop's. */
+  .lib-controls-end { order: -1; flex-basis: 100%; }
+  .lib-count { display: block; margin-right: auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
+  .lib-header .page-sub { display: none; }
 }
 /* Home's section headers that carry two controls (Select + In Library, See all + New shelf) */
 .luw .home-section-actions { display: flex; align-items: center; gap: var(--sp-8); flex-wrap: wrap; justify-content: flex-end; }

@@ -431,6 +431,10 @@ private fun LibraryControls(
             )
         }
         Div(attrs = { classes("lib-controls-end") }) {
+            // A phone's count, beside Sort (spec §3.1.7); the desktop says it in the page header instead.
+            Span(attrs = { classes("lib-count") }) {
+                Text(if (state.statusCounts.all == 1) "1 book" else "${groupedCount(state.statusCounts.all)} books")
+            }
             // Offered only once there is something to select: arming selection over an empty grid
             // is an affordance whose only outcome is nothing.
             if (state.books.isNotEmpty() && !selecting && onStartSelecting != null) {
