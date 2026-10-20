@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.NoCoverThemes
 import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
@@ -197,6 +198,7 @@ class BookDetailTest :
                                 observeIsAdmin = { flowOf(false) },
                                 observeCurrentUserId = { flowOf(null) },
                                 observeAvatarFrame = { flowOf(null) },
+                                coverThemes = NoCoverThemes,
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },

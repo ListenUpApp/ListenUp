@@ -330,6 +330,7 @@ internal fun mountAt(
                             observeIsAdmin = { isAdmin },
                             observeCurrentUserId = { currentUserId },
                             observeAvatarFrame = { flowOf(null) },
+                            coverThemes = NoCoverThemes,
                         ),
                     onToast = onToast,
                     onActionToast = onActionToast,
