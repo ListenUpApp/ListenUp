@@ -68,10 +68,20 @@ internal class ClientSyncDomainRegistry : SynchronizedObject() {
          * to defend against; catching it up first means the reconcile usually has nothing to
          * correct.
          *
+         * `collections` and `collection_books` decide **which books are held** (a live membership in an
+         * INBOX collection). Alphabetically both sort after `books`, so a fresh device showed every held
+         * book in the Library grid and its count until the memberships landed: "held = triage-only"
+         * broken for the whole first catch-up. Ahead of `books`, the held set is known before any book is.
+         *
          * Keep this list short. A domain belongs here only if being stale makes the app *wrong*,
          * not merely out of date.
          */
-        private val CATCH_UP_PRIORITY = listOf(SyncDomains.PLAYBACK_POSITIONS.name)
+        private val CATCH_UP_PRIORITY =
+            listOf(
+                SyncDomains.PLAYBACK_POSITIONS.name,
+                SyncDomains.COLLECTIONS.name,
+                SyncDomains.COLLECTION_BOOKS.name,
+            )
     }
 
     /**
