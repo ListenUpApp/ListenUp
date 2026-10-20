@@ -35,11 +35,14 @@ import com.calypsan.listenup.web.features.sync.SyncIndicatorButton
 import com.calypsan.listenup.web.features.sync.SyncStatusLine
 import com.calypsan.listenup.web.features.sync.rememberMinuteClock
 import com.calypsan.listenup.web.nav.ADMIN_KEY
+import com.calypsan.listenup.web.nav.CONTRIBUTORS_KEY
 import com.calypsan.listenup.web.nav.DISCOVER_KEY
+import com.calypsan.listenup.web.nav.SERIES_KEY
 import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
 import com.calypsan.listenup.web.nav.SETTINGS_KEY
 import com.calypsan.listenup.web.shell.PhoneTopBar
 import org.jetbrains.compose.web.dom.Div
+import com.calypsan.listenup.web.shell.AccountIdentity
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
 import com.calypsan.listenup.web.shell.RouteContent
@@ -80,6 +83,8 @@ fun WebAppRoot(
     // Starts null so the account menu never flashes a "Your profile" entry whose destination is
     // not yet known — the same reason `isAdmin` starts false.
     val currentUserId by remember { graph.observeCurrentUserId() }.collectAsState(initial = null)
+    val currentUserName by remember { graph.observeCurrentUserName() }.collectAsState(initial = null)
+    val account = currentUserId?.let { id -> AccountIdentity(userId = id, name = currentUserName.orEmpty()) }
 
     // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
     // flight works in both directions: out to the detail hero, and back to the same tile on return.
@@ -112,12 +117,7 @@ fun WebAppRoot(
     val syncState by sync.state.collectAsState()
     val now = rememberMinuteClock()
     // The phone header names the top-level pages it heads; Home's greeting is its own title.
-    val phoneTitle =
-        when (route.segments) {
-            listOf(LIBRARY_KEY) -> "Library"
-            listOf(DISCOVER_KEY) -> "Discover"
-            else -> null
-        }
+    val phoneTitle = phoneTitleFor(route)
     val openProfile: (() -> Unit)? = currentUserId?.let { id -> { router.navigate(Routes.profile(id)) } }
 
     CompositionLocalProvider(
@@ -148,6 +148,7 @@ fun WebAppRoot(
                     sync = { SyncIndicatorButton(state = syncState, now = now, onRefresh = sync.onRefresh) },
                     onSignOut = onSignOut,
                     onOpenProfile = openProfile,
+                    account = account,
                 )
             },
             sidebarStatus = { SyncStatusLine(state = syncState, now = now, onRefresh = sync.onRefresh) },
@@ -155,7 +156,7 @@ fun WebAppRoot(
             LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
             // The desktop's account menu; a phone's lives in its header (see PhoneTopBar).
             Div(attrs = { classes("shell-account") }) {
-                AccountMenu(onSignOut = onSignOut, onOpenProfile = openProfile)
+                AccountMenu(onSignOut = onSignOut, onOpenProfile = openProfile, account = account)
             }
             // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
             // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
@@ -232,6 +233,7 @@ private fun ShellPhoneTopBar(
     sync: @Composable () -> Unit,
     onSignOut: () -> Unit,
     onOpenProfile: (() -> Unit)?,
+    account: AccountIdentity?,
 ) {
     PhoneTopBar(
         title = title,
@@ -243,6 +245,7 @@ private fun ShellPhoneTopBar(
             AccountMenu(
                 onSignOut = onSignOut,
                 onOpenProfile = onOpenProfile,
+                account = account,
                 destinations =
                     buildList {
                         if (isAdmin) {
@@ -257,3 +260,19 @@ private fun ShellPhoneTopBar(
         },
     )
 }
+
+/**
+ * What the phone header names for [route]: "Library" across all four Library sections, as Android's header does, and
+ * "Discover". Home's greeting is its own title, and a page deeper in has its own heading.
+ */
+internal fun phoneTitleFor(route: Route): String? =
+    when (route.segments) {
+        listOf(LIBRARY_KEY),
+        listOf(LIBRARY_KEY, SERIES_KEY),
+        listOf(LIBRARY_KEY, CONTRIBUTORS_KEY),
+        -> "Library"
+
+        listOf(DISCOVER_KEY) -> "Discover"
+
+        else -> null
+    }

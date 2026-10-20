@@ -247,6 +247,7 @@ private fun Gate(
                 openPlayback = fixedPlayback(),
                 observeIsAdmin = { flowOf(false) },
                 observeCurrentUserId = { flowOf(null) },
+                observeCurrentUserName = { flowOf(null) },
                 observeAvatarFrame = { flowOf(null) },
                 coverThemes = NoCoverThemes,
             ),

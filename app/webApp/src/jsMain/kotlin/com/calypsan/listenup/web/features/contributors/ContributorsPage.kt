@@ -67,7 +67,8 @@ fun ContributorsPage(
     letters: List<LetterSection> = emptyList(),
 ) {
     Div(attrs = { classes("lib-header") }) {
-        PageHeader(title = "Contributors") {
+        // Named for the section, as Android and iOS name it.
+        PageHeader(title = if (role == ContributorRole.NARRATOR) "Narrators" else "Authors") {
             // Withheld rather than shown as "0" while state is null — a count is a fact about the
             // answer, and there isn't one yet.
             state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }

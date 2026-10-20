@@ -208,9 +208,12 @@
     font-size:var(--fs-h1); font-weight:800; letter-spacing:-.03em; line-height:1.1; color:var(--ink);
   }
   .ptb-acts { display:flex; flex:none; align-items:center; gap:0; margin-left:auto; }
-  .ptb .ptb-b {
+  /* All four drawn one way, as the native headers draw their actions: a bare glyph on a 44px round target. The `.luw`
+     prefix outranks the design system's `.btn-icon.btn-md` ring on the two that are buttons. */
+  .luw .ptb .ptb-b {
     position:relative; width:44px; height:44px; min-width:44px; padding:0;
     display:inline-flex; align-items:center; justify-content:center;
+    border:0 solid transparent; background:transparent; box-shadow:none;
     border-radius:var(--r-pill); color:var(--ink); text-decoration:none;
   }
   .ptb-badge {
@@ -219,6 +222,11 @@
     font-size:.625rem; font-weight:700; background:var(--coral-fill); color:var(--on-coral);
   }
   .sync-ind-b.is-syncing svg { animation:ptb-spin 1s linear infinite; }
+  /* Under a titled header every Library section reads in one order: the sections, then the section's own header
+     (its count and Sort; its heading is for screen readers), then the rest. The page region is a flex column. */
+  .shell.ptb-titled .page-body > * { order:2; }
+  .shell.ptb-titled .page-body > .lib-seg { order:0; }
+  .shell.ptb-titled .page-body > .lib-header { order:1; }
   /* The header carries the page's name; the page's own heading stays for screen readers only. */
   .shell.ptb-titled .page-t {
     position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;

@@ -80,6 +80,7 @@ class PhoneTopBarTest :
                         account = {
                             AccountMenu(
                                 onSignOut = {},
+                                account = AccountIdentity(userId = "u1", name = "Simon Hull"),
                                 destinations =
                                     listOf(
                                         MenuAction("Admin", WebIcon.Shield, { taps.admin++ }),
@@ -111,6 +112,20 @@ class PhoneTopBarTest :
             val title = frame.rect(frame.find(".ptb-t"))
             title.top shouldBeLessThanOrEqual frame.rect(buttons.first()).bottom
             frame.horizontalOverflow() shouldBe 0
+        }
+
+        test("the four header buttons are drawn one way, and the account is the person, not a shield") {
+            val frame = shell(PHONE)
+            awaitFrame()
+
+            val buttons = frame.findAll(".ptb .ptb-b").filter(frame::isShown)
+            listOf("border-top-width", "background-color", "border-radius", "width", "height").forEach { property ->
+                buttons.map { frame.css(it, property) }.distinct().size shouldBe 1
+            }
+            val account = buttons.first { it.getAttribute("aria-label") == "Account" }
+            // Their picture, or their initials when they have none: the avatar either way, never the shield glyph.
+            (account.querySelector(".uav") != null) shouldBe true
+            account.querySelector(":scope > svg") shouldBe null
         }
 
         test("the phone tab bar is Home · Library · Discover") {

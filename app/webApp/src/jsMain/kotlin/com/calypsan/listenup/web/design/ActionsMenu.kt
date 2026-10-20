@@ -99,6 +99,8 @@ fun PopupMenu(
     enabled: Boolean = true,
     tooltip: Boolean = false,
     triggerText: String? = null,
+    /** Drawn in the trigger in place of [icon] — the account menu's avatar. [label] still names it. */
+    triggerContent: (@Composable () -> Unit)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     val anchor = remember { NodeHolder() }
@@ -143,7 +145,7 @@ fun PopupMenu(
             }
             onClick { open = !open }
         }) {
-            Icon(icon, size = MENU_ICON_SIZE)
+            if (triggerContent != null) triggerContent() else Icon(icon, size = MENU_ICON_SIZE)
             triggerText?.let { Text(it) }
         }
 

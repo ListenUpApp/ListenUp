@@ -333,6 +333,7 @@ internal fun mountAt(
                             openPlayback = openPlayback,
                             observeIsAdmin = { isAdmin },
                             observeCurrentUserId = { currentUserId },
+                            observeCurrentUserName = { flowOf(null) },
                             observeAvatarFrame = { flowOf(null) },
                             coverThemes = NoCoverThemes,
                         ),

@@ -6,6 +6,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.PopupMenu
+import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
 
 /**
@@ -31,6 +32,8 @@ fun AccountMenu(
      * (Admin, Settings), which have no tab of their own below 760px. Empty everywhere the sidebar shows them.
      */
     destinations: List<MenuAction> = emptyList(),
+    /** Who is signed in; null while not yet known. */
+    account: AccountIdentity? = null,
     /** The trigger's classes: the phone header draws it as one of its 44px buttons. */
     triggerClasses: Array<String> = buttonClasses(ButtonKind.Icon, ButtonSize.Sm),
 ) {
@@ -47,5 +50,16 @@ fun AccountMenu(
         icon = WebIcon.Shield,
         triggerClasses = triggerClasses,
         tooltip = true,
+        // The person, as Android's and iOS's headers draw them: their picture, or their initials.
+        triggerContent = account?.let { who -> { UserAvatar(userId = who.userId, name = who.name, size = AVATAR_SIZE) } },
     )
 }
+
+/** The signed-in person, as the account menu's trigger draws them. */
+data class AccountIdentity(
+    val userId: String,
+    val name: String,
+)
+
+/** The avatar inside the account trigger: inset within the 40px button, as on the native headers. */
+private const val AVATAR_SIZE = 30

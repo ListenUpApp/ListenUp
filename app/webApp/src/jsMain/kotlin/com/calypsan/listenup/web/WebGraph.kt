@@ -162,6 +162,8 @@ class WebGraph(
     val openPlayback: OpenPlayback,
     val observeIsAdmin: () -> Flow<Boolean>,
     val observeCurrentUserId: () -> Flow<String?>,
+    /** The signed-in person's display name, for the account menu's avatar; null while unknown. */
+    val observeCurrentUserName: () -> Flow<String?>,
     /**
      * Each user's avatar frame, from their `public_profiles` row; provided to every avatar as
      * [com.calypsan.listenup.web.design.LocalAvatarFrames]. A defaulted `flowOf(null)` would quietly
@@ -238,6 +240,7 @@ fun graphWeb(koin: Koin): WebGraph =
         openPlayback = graphPlayback(koin),
         observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
         observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
+        observeCurrentUserName = { koin.get<UserRepository>().observeCurrentUser().map { it?.displayName } },
         observeAvatarFrame = { userId ->
             koin.get<UserProfileRepository>().observeProfile(userId).map { it?.avatarFrame }
         },
