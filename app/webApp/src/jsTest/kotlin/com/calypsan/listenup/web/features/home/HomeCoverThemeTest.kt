@@ -32,7 +32,11 @@ class HomeCoverThemeTest :
                     CompositionLocalProvider(LocalCoverThemes provides source) {
                         ResumeHero(
                             resumeSlot("wok").let { it.copy(book = it.book.copy(coverHash = coverHash)) },
-                            isOnlyBook = false, nowMs = BOARD_NOW, onOpenBook = {}, onPlay = {})
+                            isOnlyBook = false,
+                            nowMs = BOARD_NOW,
+                            onOpenBook = {},
+                            onPlay = {},
+                        )
                     }
                 }.querySelector(".home-hero") as HTMLElement
 
@@ -42,7 +46,10 @@ class HomeCoverThemeTest :
                     CompositionLocalProvider(LocalCoverThemes provides source) {
                         HomeFinishedCard(
                             finishedSlot().card.let { it.copy(book = it.book.copy(coverHash = "h1")) },
-                            nowMs = BOARD_NOW, actions = HomeActions.None, zone = TimeZone.UTC)
+                            nowMs = BOARD_NOW,
+                            actions = HomeActions.None,
+                            zone = TimeZone.UTC,
+                        )
                     }
                 }.querySelector(".home-hero") as HTMLElement
 
