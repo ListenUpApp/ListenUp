@@ -22,7 +22,8 @@ internal fun primaryNav(heldCount: Int): NavSection =
                 NavEntry(HOME_KEY, "Home", WebIcon.Home, href = "/"),
                 NavEntry(LIBRARY_KEY, "Library", WebIcon.Book, badge = heldCount, badgeKind = NavBadgeKind.Held),
                 NavEntry(DISCOVER_KEY, "Discover", WebIcon.Compass),
-                NavEntry("search", "Search", WebIcon.Search),
+                // The phone's header carries Search, so its tab bar is Home · Library · Discover.
+                NavEntry("search", "Search", WebIcon.Search, onPhone = false),
             ),
     )
 

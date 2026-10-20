@@ -130,6 +130,7 @@ import com.calypsan.listenup.web.features.admin.fixedUpload
 import org.w3c.dom.asList
 import org.w3c.dom.HTMLDialogElement
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.sync.fixedSyncIndicator
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 private const val DESKTOP_WIDTH = 1440
@@ -242,6 +243,7 @@ private fun Gate(
                 openBookHardcover = fixedBookHardcover(),
                 openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
                 openDeadLetters = fixedDeadLetters(),
+                openSyncIndicator = fixedSyncIndicator(),
                 openPlayback = fixedPlayback(),
                 observeIsAdmin = { flowOf(false) },
                 observeCurrentUserId = { flowOf(null) },

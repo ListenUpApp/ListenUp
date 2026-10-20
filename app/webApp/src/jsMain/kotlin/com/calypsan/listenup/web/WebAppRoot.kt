@@ -26,6 +26,20 @@ import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.ScrollRestoration
 import com.calypsan.listenup.web.nav.rememberSession
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonSize
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.buttonClasses
+import com.calypsan.listenup.web.features.sync.SyncIndicatorButton
+import com.calypsan.listenup.web.features.sync.SyncStatusLine
+import com.calypsan.listenup.web.features.sync.rememberMinuteClock
+import com.calypsan.listenup.web.nav.ADMIN_KEY
+import com.calypsan.listenup.web.nav.DISCOVER_KEY
+import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
+import com.calypsan.listenup.web.nav.SETTINGS_KEY
+import com.calypsan.listenup.web.shell.PhoneTopBar
+import org.jetbrains.compose.web.dom.Div
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
 import com.calypsan.listenup.web.shell.RouteContent
@@ -93,6 +107,19 @@ fun WebAppRoot(
             else -> page
         }
 
+    // Shell-lifetime, like the unread count: the phone header and the sidebar both say it.
+    val sync = rememberSession { graph.openSyncIndicator() }
+    val syncState by sync.state.collectAsState()
+    val now = rememberMinuteClock()
+    // The phone header names the top-level pages it heads; Home's greeting is its own title.
+    val phoneTitle =
+        when (route.segments) {
+            listOf(LIBRARY_KEY) -> "Library"
+            listOf(DISCOVER_KEY) -> "Discover"
+            else -> null
+        }
+    val openProfile: (() -> Unit)? = currentUserId?.let { id -> { router.navigate(Routes.profile(id)) } }
+
     CompositionLocalProvider(
         LocalRestrictedBookIds provides restrictedBookIds,
         LocalAvatarFrames provides graph.observeAvatarFrame,
@@ -111,15 +138,37 @@ fun WebAppRoot(
                 val segments = if (key == HOME_KEY) emptyList() else listOf(key)
                 router.navigate(Route(segments))
             },
+            titled = phoneTitle != null,
+            topBar = {
+                PhoneTopBar(
+                    title = phoneTitle,
+                    unread = unreadCount,
+                    onSearch = { router.navigate(Routes.search) },
+                    onNotifications = { router.navigate(Route(listOf(NOTIFICATIONS_KEY))) },
+                    sync = { SyncIndicatorButton(state = syncState, now = now, onRefresh = sync.onRefresh) },
+                    account = {
+                        AccountMenu(
+                            onSignOut = onSignOut,
+                            onOpenProfile = openProfile,
+                            destinations =
+                                buildList {
+                                    if (isAdmin) {
+                                        add(MenuAction("Admin", WebIcon.Shield, { router.navigate(Route(listOf(ADMIN_KEY))) }))
+                                    }
+                                    add(MenuAction("Settings", WebIcon.Cog, { router.navigate(Route(listOf(SETTINGS_KEY))) }))
+                                },
+                            triggerClasses = arrayOf(*buttonClasses(ButtonKind.Icon, ButtonSize.Md), "ptb-b"),
+                        )
+                    },
+                )
+            },
+            sidebarStatus = { SyncStatusLine(state = syncState, now = now, onRefresh = sync.onRefresh) },
         ) {
             LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
-            AccountMenu(
-                onSignOut = onSignOut,
-                onOpenProfile =
-                    currentUserId?.let { id ->
-                        { router.navigate(Routes.profile(id)) }
-                    },
-            )
+            // The desktop's account menu; a phone's lives in its header (see PhoneTopBar).
+            Div(attrs = { classes("shell-account") }) {
+                AccountMenu(onSignOut = onSignOut, onOpenProfile = openProfile)
+            }
             // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
             // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
             // **478 ms** of "Loading…" every single time, for a list the reader had just been looking

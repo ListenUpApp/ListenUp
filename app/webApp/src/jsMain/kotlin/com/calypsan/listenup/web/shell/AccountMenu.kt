@@ -26,10 +26,18 @@ fun AccountMenu(
      * transition nobody needs to watch.
      */
     onOpenProfile: (() -> Unit)? = null,
+    /**
+     * Destinations the phone's header folds in here, between the profile and Sign out: the sidebar's footer entries
+     * (Admin, Settings), which have no tab of their own below 760px. Empty everywhere the sidebar shows them.
+     */
+    destinations: List<MenuAction> = emptyList(),
+    /** The trigger's classes: the phone header draws it as one of its 44px buttons. */
+    triggerClasses: Array<String> = buttonClasses(ButtonKind.Icon, ButtonSize.Sm),
 ) {
     val items =
         buildList {
             onOpenProfile?.let { openProfile -> add(MenuAction("Your profile", WebIcon.Person, openProfile)) }
+            addAll(destinations)
             add(MenuAction("Sign out", WebIcon.LogOut, onSignOut))
         }
 
@@ -37,7 +45,7 @@ fun AccountMenu(
         items = items,
         label = "Account",
         icon = WebIcon.Shield,
-        triggerClasses = buttonClasses(ButtonKind.Icon, ButtonSize.Sm),
+        triggerClasses = triggerClasses,
         tooltip = true,
     )
 }

@@ -99,6 +99,7 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
+import com.calypsan.listenup.web.features.sync.fixedSyncIndicator
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
 /**
@@ -189,6 +190,7 @@ class ChaptersPaneTest :
                                 openBookHardcover = fixedBookHardcover(),
                                 openSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
                                 openDeadLetters = fixedDeadLetters(),
+                                openSyncIndicator = fixedSyncIndicator(),
                                 openNotificationBell = fixedNotificationBell(),
                                 openPlayback = fixedPlayback(),
                                 observeIsAdmin = { flowOf(false) },

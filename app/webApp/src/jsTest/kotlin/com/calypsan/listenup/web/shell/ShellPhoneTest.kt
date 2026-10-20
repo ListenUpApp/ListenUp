@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.shell
 
 import com.calypsan.listenup.web.ViewportFrames
-import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebIcon
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
@@ -17,7 +16,7 @@ private val PRIMARY =
                 NavEntry("home", "Home", WebIcon.Home, href = "/"),
                 NavEntry("library", "Library", WebIcon.Book),
                 NavEntry("discover", "Discover", WebIcon.Compass),
-                NavEntry("search", "Search", WebIcon.Search),
+                NavEntry("search", "Search", WebIcon.Search, onPhone = false),
             ),
     )
 
@@ -41,7 +40,8 @@ private const val MIN_TARGET_PX = 44.0
 private const val RAIL_PX = 76.0
 
 /**
- * The shell on a phone: the sidebar becomes a bottom tab bar, and nothing it used to offer is lost.
+ * The shell on a phone: the sidebar becomes a bottom tab bar of Home · Library · Discover, and the phone header (see
+ * [PhoneTopBarTest]) carries Search, notifications and the account's destinations, so nothing is lost.
  *
  * Measured, not inferred — each spec renders into a frame of the stated width (see
  * [ViewportFrames]), so the media queries, the fixed positioning and the target sizes are the ones
@@ -74,13 +74,13 @@ class ShellPhoneTest :
             frame.isShown(frame.find(".sb-brand")) shouldBe false
         }
 
-        test("the tab bar carries the primary destinations as links, with the current one marked") {
+        test("the tab bar is Home · Library · Discover as links, with the current one marked") {
             val frame = phone(active = "library")
 
             val tabs = frame.findAll(".sidebar .sb-nav:not(.sb-foot) .nav-i").filter(frame::isShown)
-            tabs.map { it.tagName } shouldBe List(4) { "A" }
-            tabs.map { it.getAttribute("href") } shouldBe listOf("/", "/library", "/discover", "/search")
-            tabs.map { it.textContent.orEmpty().trim() } shouldBe listOf("Home", "Library", "Discover", "Search")
+            tabs.map { it.tagName } shouldBe List(3) { "A" }
+            tabs.map { it.getAttribute("href") } shouldBe listOf("/", "/library", "/discover")
+            tabs.map { it.textContent.orEmpty().trim() } shouldBe listOf("Home", "Library", "Discover")
             tabs.filter { it.hasAttribute("aria-current") }.map { it.textContent.orEmpty().trim() } shouldBe
                 listOf("Library")
         }
@@ -88,8 +88,8 @@ class ShellPhoneTest :
         test("every tab is a thumb-sized target, down to 320px") {
             val frame = phone()
 
-            val targets = frame.findAll(".sidebar .nav-i, .sidebar .sb-more").filter(frame::isShown)
-            targets.size shouldBe 5
+            val targets = frame.findAll(".sidebar .nav-i").filter(frame::isShown)
+            targets.size shouldBe 3
             targets.forEach { target ->
                 frame.rect(target).width shouldBeGreaterThanOrEqual MIN_TARGET_PX
                 frame.rect(target).height shouldBeGreaterThanOrEqual MIN_TARGET_PX
@@ -97,62 +97,11 @@ class ShellPhoneTest :
             frame.horizontalOverflow() shouldBe 0
         }
 
-        test("the rest of the destinations wait behind More, and More says when they are hiding news") {
+        test("the footer's destinations leave the tab bar on a phone: the header carries them") {
             val frame = phone()
-            val more = frame.find(".sb-more")
 
-            more.tagName shouldBe "BUTTON"
-            more.getAttribute("aria-expanded") shouldBe "false"
             frame.isShown(frame.find(".sb-foot")) shouldBe false
-            // The unread count must not vanish into a closed menu: More carries it.
-            frame.find(".sb-more .nav-badge").getAttribute("aria-label") shouldBe "4 unread"
-
-            more.click()
-            awaitFrame()
-
-            more.getAttribute("aria-expanded") shouldBe "true"
-            val entries = frame.findAll(".sb-foot .nav-i").filter(frame::isShown)
-            entries.map { it.tagName } shouldBe List(3) { "A" }
-            entries.map { it.getAttribute("href") } shouldBe listOf("/notifications", "/admin", "/settings")
-            entries.forEach { frame.rect(it).height shouldBeGreaterThanOrEqual MIN_TARGET_PX }
-        }
-
-        test("choosing a destination from More routes there and puts More away") {
-            var chosen: String? = null
-            val frame = phone(onNavigate = { chosen = it })
-            frame.find(".sb-more").click()
-            awaitFrame()
-
-            frame.findAll(".sb-foot .nav-i")[2].click()
-            awaitFrame()
-
-            chosen shouldBe "settings"
-            frame.find(".sb-more").getAttribute("aria-expanded") shouldBe "false"
-            frame.isShown(frame.find(".sb-foot")) shouldBe false
-        }
-
-        test("Escape puts More away") {
-            val frame = phone()
-            val more = frame.find(".sb-more")
-            more.click()
-            awaitFrame()
-
-            frame.find(".sb-foot .nav-i").dispatchEvent(
-                org.w3c.dom.events.KeyboardEvent(
-                    "keydown",
-                    org.w3c.dom.events
-                        .KeyboardEventInit(key = "Escape", bubbles = true, cancelable = true),
-                ),
-            )
-            awaitFrame()
-
-            more.getAttribute("aria-expanded") shouldBe "false"
-        }
-
-        test("on a More page, More is the lit tab") {
-            val frame = phone(active = "settings")
-
-            frame.find(".sb-more").classList.contains("on") shouldBe true
+            frame.findAll(".sb-more") shouldBe emptyList()
         }
 
         test("content never sits under the tab bar") {
@@ -171,13 +120,13 @@ class ShellPhoneTest :
             frame.findAll("nav").map { it.getAttribute("aria-label") } shouldBe listOf("Main", "Account")
         }
 
-        test("a tablet keeps the rail, and More is a phone-only affordance") {
+        test("a tablet keeps the rail, with its footer and Search") {
             val frame = phone(width = TABLET)
             val rail = frame.find(".sidebar")
 
             frame.css(rail, "position") shouldBe "static"
             frame.rect(rail).width shouldBe RAIL_PX
-            frame.isShown(frame.find(".sb-more")) shouldBe false
             frame.isShown(frame.find(".sb-foot")) shouldBe true
+            frame.findAll(".sidebar .nav-i").filter(frame::isShown).size shouldBe 7
         }
     })

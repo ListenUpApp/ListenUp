@@ -96,7 +96,9 @@ import com.calypsan.listenup.web.features.shelf.graphMyShelves
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
+import com.calypsan.listenup.web.features.sync.OpenSyncIndicator
 import com.calypsan.listenup.web.features.sync.graphDeadLetters
+import com.calypsan.listenup.web.features.sync.graphSyncIndicator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.Koin
@@ -154,6 +156,8 @@ class WebGraph(
     val openBookHardcover: OpenBookHardcover,
     val openSeeAll: OpenSeeAll,
     val openDeadLetters: OpenDeadLetters,
+    /** The phone header's and the sidebar's sync status, and Refresh now. */
+    val openSyncIndicator: OpenSyncIndicator,
     val openNotificationBell: OpenNotificationBell,
     val openPlayback: OpenPlayback,
     val observeIsAdmin: () -> Flow<Boolean>,
@@ -230,6 +234,7 @@ fun graphWeb(koin: Koin): WebGraph =
         openBookHardcover = graphBookHardcover(koin),
         openSeeAll = graphSeeAll(koin),
         openDeadLetters = graphDeadLetters(koin),
+        openSyncIndicator = graphSyncIndicator(koin),
         openPlayback = graphPlayback(koin),
         observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
         observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
