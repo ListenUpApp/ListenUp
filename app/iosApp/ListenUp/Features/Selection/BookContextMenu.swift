@@ -172,7 +172,8 @@ struct BookContextMenuItems: View {
         case .share:
             if let shareURL {
                 ShareLink(item: shareURL) {
-                    Label(String(localized: "common.share"), systemImage: "square.and.arrow.up")
+                    // "…": the share sheet asks where (HIG, Menus), as the board and the other platforms say.
+                    Label(String(localized: "library.menu_share"), systemImage: "square.and.arrow.up")
                 }
             }
         case .select:

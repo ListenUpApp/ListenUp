@@ -55,6 +55,13 @@ enum LibrarySubtitle {
         return [books, LibraryStatusOptions.label(filter), sortLabel].joined(separator: " · ")
     }
 
+    /// The Books subtitle, or nil while an empty library is still arriving: its status strip says so, and
+    /// "0 books" under the title would contradict it.
+    static func booksOrNil(count: Int, filter: BookStatusFilter, sortLabel: String, isArriving: Bool) -> String? {
+        guard count > 0 || !isArriving else { return nil }
+        return books(count: count, filter: filter, sortLabel: sortLabel)
+    }
+
     static func filteredEmpty(_ filter: BookStatusFilter) -> String {
         switch filter {
         case .inProgress: String(localized: "library.filtered_empty_in_progress")

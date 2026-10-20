@@ -62,6 +62,15 @@ struct LibraryChromeTests {
         #expect(subtitle == "248 books · All · Title")
     }
 
+    /// While the library is still arriving with nothing yet, the strip says so; "0 books · All · Title" would not.
+    @Test func noSubtitleWhileAnEmptyLibraryIsArriving() {
+        #expect(LibrarySubtitle.booksOrNil(count: 0, filter: .all, sortLabel: "Title", isArriving: true) == nil)
+        #expect(LibrarySubtitle.booksOrNil(count: 12, filter: .all, sortLabel: "Title", isArriving: true)
+            == "12 books · All · Title")
+        #expect(LibrarySubtitle.booksOrNil(count: 0, filter: .all, sortLabel: "Title", isArriving: false)
+            == "0 books · All · Title")
+    }
+
     @Test func booksSubtitleSaysOneBookInTheSingular() {
         #expect(LibrarySubtitle.books(count: 1, filter: .finished, sortLabel: "Title") == "1 book · Finished · Title")
     }

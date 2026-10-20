@@ -190,6 +190,9 @@ final class BookSelectionObserver {
     /// sees (open question 8). Nothing to select is a no-op.
     func selectAll(_ bookIds: [String]) { viewModel.selectAll(bookIds: bookIds) }
 
+    /// Clears every pick and stays in selection: Deselect All.
+    func deselectAll() { viewModel.enterSelectionMode() }
+
     // MARK: - Bulk add actions
 
     func addToShelf(shelfId: String) { viewModel.addSelectedToShelf(shelfId: shelfId) }

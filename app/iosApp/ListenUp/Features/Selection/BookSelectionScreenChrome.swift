@@ -47,17 +47,24 @@ struct BookSelectionScreenChrome: ViewModifier {
 /// principal count doesn't sit under a large title.
 struct BookSelectionToolbar: ToolbarContent {
     let selection: BookSelectionObserver
+    /// Whether every book the screen shows is already picked, so the button reads Deselect All.
+    var isAllSelected = false
     /// Selects every book the screen shows; nil offers no Select All (Home, Discover).
     var selectAll: (() -> Void)?
 
-    /// "Select All": the standard edit-mode title, with no count (HIG).
-    static var selectAllTitle: String { String(localized: "library.select_all_ios") }
+    /// "Select All", or "Deselect All" once everything is picked: the standard edit-mode pairing, with no count (HIG).
+    static func selectAllTitle(isAllSelected: Bool) -> String {
+        isAllSelected ? String(localized: "library.deselect_all_ios") : String(localized: "library.select_all_ios")
+    }
 
     var body: some ToolbarContent {
         if let selectAll {
             // HIG: in an editing context, Select All sits opposite Done.
             ToolbarItem(placement: .topBarLeading) {
-                Button(Self.selectAllTitle) { selectAll() }
+                Button(Self.selectAllTitle(isAllSelected: isAllSelected)) {
+                    // Deselect All clears the picks and stays in selection.
+                    if isAllSelected { selection.deselectAll() } else { selectAll() }
+                }
             }
         }
         ToolbarItem(placement: .principal) {

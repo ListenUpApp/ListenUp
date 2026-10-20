@@ -82,10 +82,11 @@ struct LibraryView: View {
         guard let observer, !observer.isLoading else { return nil }
         return switch selectedTab {
         case .books:
-            LibrarySubtitle.books(
+            LibrarySubtitle.booksOrNil(
                 count: observer.statusCounts.all,
                 filter: observer.statusFilter,
-                sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? ""
+                sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? "",
+                isArriving: observer.isLibraryArriving
             )
         case .series: String(format: String(localized: "library.series_count"), observer.series.count)
         case .authors: String(format: String(localized: "library.author_count"), observer.authors.count)
@@ -125,9 +126,13 @@ struct LibraryView: View {
             // The Books-tab selection surface reuses the same toolbar as the Home/Discover chrome
             // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
             // principal "N selected" count from sitting under the large "Library" title.
-            BookSelectionToolbar(selection: selection) {
+            let onScreen = observer?.books.map(\.id) ?? []
+            BookSelectionToolbar(
+                selection: selection,
+                isAllSelected: !onScreen.isEmpty && selection.selectedBookIds.isSuperset(of: onScreen)
+            ) {
                 // Every book the grid shows, as filtered (open question 8).
-                selection.selectAll(observer?.books.map(\.id) ?? [])
+                selection.selectAll(onScreen)
             }
         }
     }
