@@ -124,13 +124,13 @@ class BookDetailReleaseConfirmationTest {
             composeRule.onAllNodesWithText(HELD_FOR_REVIEW).fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithText(RELEASE).performClick()
+        composeRule.onNodeWithText(RELEASE_TO_MEMBERS).performClick()
 
         composeRule.onNodeWithText(CONFIRM_TITLE).assertExists()
         composeRule.runOnIdle { inbox.releases shouldBe 0 }
 
-        // The dialog's Release is the second "Release" on screen, after the held section's own.
-        composeRule.onAllNodesWithText(RELEASE)[1].performClick()
+        // The dialog's Release: the held panel's button says "Release to members".
+        composeRule.onNodeWithText(RELEASE).performClick()
 
         composeRule.waitUntil(TIMEOUT_MS) { inbox.releases == 1 }
         composeRule.onNodeWithText(CONFIRM_TITLE).assertDoesNotExist()
@@ -143,7 +143,7 @@ class BookDetailReleaseConfirmationTest {
             composeRule.onAllNodesWithText(HELD_FOR_REVIEW).fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithText(RELEASE).performClick()
+        composeRule.onNodeWithText(RELEASE_TO_MEMBERS).performClick()
         composeRule.onNodeWithText("Cancel").performClick()
 
         composeRule.onNodeWithText(CONFIRM_TITLE).assertDoesNotExist()
@@ -289,6 +289,7 @@ class BookDetailReleaseConfirmationTest {
         const val BOOK_ID = "b1"
         const val HELD_FOR_REVIEW = "Held for review"
         const val RELEASE = "Release"
+        const val RELEASE_TO_MEMBERS = "Release to members"
         const val CONFIRM_TITLE = "Release to everyone?"
     }
 }

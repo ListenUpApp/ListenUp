@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -13,46 +14,56 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.InboxGlyphTile
-import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.admin_held_cannot_play
 import listenup.composeapp.generated.resources.admin_held_for_review
-import listenup.composeapp.generated.resources.admin_held_hidden_from_members
-import listenup.composeapp.generated.resources.admin_release
+import listenup.composeapp.generated.resources.book_detail_held_body
+import listenup.composeapp.generated.resources.book_detail_held_release
 import listenup.composeapp.generated.resources.chapter_editor_title
-import listenup.composeapp.generated.resources.common_edit
+import listenup.composeapp.generated.resources.library_menu_edit_details
 import listenup.composeapp.generated.resources.match_menu_item
 import org.jetbrains.compose.resources.stringResource
 
+/** The Release button's height: the board's tall primary, beside the stacked Edit details tile. */
+private val ReleaseMinHeight = 72.dp
+
+/** The second row's buttons. */
+private val SecondaryMinHeight = 56.dp
+
+/** Edit details' tile width: the pencil above its label. */
+private val EditTileWidth = 96.dp
+
 /**
- * Book Detail's triage section for a book held for review: what it is ("Held for review · Hidden
- * from all members."), why there is no Play ("It can’t be played until you release it."), and the
- * only things a held book allows (spec §8, §10): Release (filled, primary: it finishes the triage),
- * Edit (outlined), and Match and Edit chapters (text buttons, secondary) — fixing a new book's
- * metadata is the point of triage. Canvas `A-Detail-Held`; the second row is §10's.
+ * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be. Amber, not
+ * coral: the M3 tertiary roles, the app's "waiting for you" colour (Library's inbox uses them), so the panel never
+ * reads as Play. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
+ * played until you release it."), then the only things a held book allows: **Release to members** (asks first), Edit
+ * details, Match details and Edit chapters. One row each, short labels (the M3E ButtonGroup call).
  *
  * @param isReleasing a release is in flight: Release shows its spinner, the rest wait
  * @param onReleaseClick asks first — the caller shows [com.calypsan.listenup.client.features.admin.inbox.ReleaseToEveryoneDialog]
  * @param onEditClick opens Book Edit, where choosing collections also releases the book
- * @param onMatchClick opens the metadata match — the overflow menu's "Match metadata" route
- * @param onEditChaptersClick opens the chapter editor — the overflow menu's "Edit chapters" route
+ * @param onMatchClick opens Match details
+ * @param onEditChaptersClick opens the chapter editor
  */
 @Suppress("LongParameterList")
 @Composable
@@ -66,97 +77,130 @@ fun HeldForReviewSection(
 ) {
     Surface(
         shape = ContentShapes.card,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                InboxGlyphTile(size = 40.dp, corner = 14.dp, glyphSize = 22.dp)
-                Column {
-                    Text(
-                        text = stringResource(Res.string.admin_held_for_review),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.semantics { heading() },
-                    )
-                    Text(
-                        text = stringResource(Res.string.admin_held_hidden_from_members),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             Text(
-                text = stringResource(Res.string.admin_held_cannot_play),
+                text = stringResource(Res.string.admin_held_for_review),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = stringResource(Res.string.book_detail_held_body),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ListenUpButton(
-                    text = stringResource(Res.string.admin_release),
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                ReleaseButton(
+                    isReleasing = isReleasing,
                     onClick = onReleaseClick,
-                    isLoading = isReleasing,
-                    leadingIcon = Icons.Filled.Check,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).heightIn(min = ReleaseMinHeight),
                 )
-                ListenUpButton(
-                    text = stringResource(Res.string.common_edit),
-                    onClick = onEditClick,
+                TriageTonalButton(
+                    text = stringResource(Res.string.library_menu_edit_details),
+                    icon = Icons.Outlined.Edit,
                     enabled = !isReleasing,
-                    filled = false,
-                    leadingIcon = Icons.Outlined.Edit,
-                    modifier = Modifier.weight(1f),
+                    stacked = true,
+                    onClick = onEditClick,
+                    modifier = Modifier.width(EditTileWidth).heightIn(min = ReleaseMinHeight),
                 )
             }
-            // Secondary (spec §10): the overflow menu's two metadata fixes, in its own words.
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryTriageAction(
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                TriageTonalButton(
                     text = stringResource(Res.string.match_menu_item),
                     icon = Icons.Outlined.Search,
                     enabled = !isReleasing,
                     onClick = onMatchClick,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).heightIn(min = SecondaryMinHeight),
                 )
-                SecondaryTriageAction(
+                TriageTonalButton(
                     text = stringResource(Res.string.chapter_editor_title),
                     icon = Icons.Outlined.FormatListNumbered,
                     enabled = !isReleasing,
                     onClick = onEditChaptersClick,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).heightIn(min = SecondaryMinHeight),
                 )
             }
         }
     }
 }
 
-/**
- * A secondary triage action: an M3 text button (the lowest emphasis, below Edit's outline), with the
- * same press haptic every [ListenUpButton] gives and the overflow menu's glyph.
- */
+/** Release to members, filled in the amber `tertiary`; its spinner replaces the label while a release is in flight. */
 @Composable
-private fun SecondaryTriageAction(
+private fun ReleaseButton(
+    isReleasing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHaptics.current
+    Button(
+        onClick = {
+            haptics.press()
+            onClick()
+        },
+        enabled = !isReleasing,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary,
+                disabledContainerColor = MaterialTheme.colorScheme.tertiary,
+                disabledContentColor = MaterialTheme.colorScheme.onTertiary,
+            ),
+        modifier = modifier.testTag("heldRelease"),
+    ) {
+        if (isReleasing) {
+            ListenUpLoadingIndicatorSmall(color = MaterialTheme.colorScheme.onTertiary)
+        } else {
+            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            Text(stringResource(Res.string.book_detail_held_release))
+        }
+    }
+}
+
+/** A tonal triage action on the panel's lowest surface, with the press haptic and the menu's glyph. */
+@Suppress("LongParameterList")
+@Composable
+private fun TriageTonalButton(
     text: String,
     icon: ImageVector,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    stacked: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
-    TextButton(
+    FilledTonalButton(
         onClick = {
             haptics.press()
             onClick()
         },
         enabled = enabled,
+        colors =
+            ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+        contentPadding = if (stacked) ButtonDefaults.SmallContentPadding else ButtonDefaults.ContentPadding,
         modifier = modifier,
     ) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Text(text = text)
+        if (stacked) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                Text(text = text, style = MaterialTheme.typography.labelMedium)
+            }
+        } else {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            Text(text = text)
+        }
     }
 }
