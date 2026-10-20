@@ -71,9 +71,14 @@ struct MainTabView: View {
     /// Books held for review — 0 for anyone who is not an admin, which hides every badge.
     private var heldCount: Int { inboxBadge?.heldCount ?? 0 }
 
-    /// The sidebar's badges: Books while the sections are listed, the collapsed Library item when not.
-    private var libraryBadges: LibraryBadges {
-        LibraryBadges.forPlacement(heldCount: heldCount, showingSections: isTabBarShowingSections)
+    /// The sidebar's badges: each section's count and the Inbox's while the sections are listed, the held count on
+    /// the collapsed Library item when not.
+    private var libraryBadges: LibrarySidebarBadges {
+        LibrarySidebarBadges.forPlacement(
+            counts: libraryObserver?.sectionCounts.counts ?? .zero,
+            heldCount: heldCount,
+            showingSections: isTabBarShowingSections
+        )
     }
 
     var body: some View {
@@ -250,13 +255,27 @@ struct MainTabView: View {
                         tabStack(.librarySection(section)) { libraryView(for: .librarySection(section)) }
                     }
                     .customizationID("listenup.library.\(section.rawValue)")
-                    // The held count rides Books, the section the entry heads (canvas sI1) —
-                    // while the sidebar shows; `LibraryBadges` says why it moves when it hides.
-                    .badge(section == .books ? libraryBadges.books : 0)
+                    // Each section's count, trailing its name (spec §3.1.5, Q7); `LibrarySidebarBadges` says
+                    // why they step aside when the sidebar hides.
+                    .badge(sectionBadge(libraryBadges.entry(section)))
                 }
             }
             .customizationID("listenup.librarySections")
             .badge(libraryBadges.section)
+
+            // An admin can always reach the inbox, even with nothing held (never stranded). The board's second line,
+            // "Waiting for you to release", is the inbox screen's own subtitle: a sidebar entry carries one line.
+            if inboxBadge?.isAdmin == true {
+                TabSection(String(localized: "common.server")) {
+                    SwiftUI.Tab(ShellTab.adminInbox.title, systemImage: "tray.full", value: ShellTab.adminInbox) {
+                        tabStack(.adminInbox) { AdminInboxView() }
+                    }
+                    .customizationID("listenup.inbox")
+                    .badge(libraryBadges.inbox)
+                    .tabPlacement(.sidebarOnly)
+                }
+                .customizationID("listenup.server")
+            }
         } else {
             SwiftUI.Tab(ShellTab.library.title, systemImage: "books.vertical.fill", value: ShellTab.library) {
                 tabStack(.library) { libraryView(for: .library) }
@@ -264,6 +283,11 @@ struct MainTabView: View {
             .customizationID("listenup.library")
             .badge(heldCount)
         }
+    }
+
+    /// A section entry's trailing count; nothing at zero, as an empty mailbox shows none.
+    private func sectionBadge(_ count: Int) -> Text? {
+        count > 0 ? Text(count.formatted()) : nil
     }
 
     /// A Library screen for `tab`, sharing this window's library projection. Its section switcher

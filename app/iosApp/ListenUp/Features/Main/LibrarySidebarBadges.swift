@@ -1,0 +1,47 @@
+import SwiftUI
+
+/// The iPad sidebar's badges: each Library section's count, and where the held-for-review count sits.
+///
+/// While the sidebar shows, every section entry carries its count as a trailing number (spec §3.1.5; HIG, Sidebars: a
+/// row can show a count, as Mail's mailboxes do — SwiftUI draws a sidebar tab's count through `.badge`), and the held
+/// count rides the Server › Inbox entry. Hide the sidebar and iPadOS collapses the Library `TabSection` into one item
+/// in the floating tab bar — it does NOT lift a child tab's badge onto that item (checked on the iPadOS 26.5
+/// simulator), and the Inbox entry is sidebar-only — so the held count moves to the section itself, and the section
+/// counts step aside. HIG, Tab bars: a badge on a tab tells people new information is waiting in that view — it has to
+/// sit on a tab they can actually see.
+struct LibrarySidebarBadges: Equatable {
+    /// The badge on the Library `TabSection` — what the collapsed tab bar shows.
+    let section: Int
+    /// Each section entry's count — what the shown sidebar shows.
+    let entries: LibrarySectionCountsValue
+    /// The badge on the Server › Inbox entry.
+    let inbox: Int
+
+    func entry(_ section: LibraryTab) -> Int { entries.count(for: section) }
+
+    /// The badges for these section `counts` and `heldCount` held books, given whether the tab bar is listing sections
+    /// (`EnvironmentValues.isTabBarShowingSections`, true while the sidebar is shown).
+    static func forPlacement(
+        counts: LibrarySectionCountsValue,
+        heldCount: Int,
+        showingSections: Bool
+    ) -> LibrarySidebarBadges {
+        showingSections
+            ? LibrarySidebarBadges(section: 0, entries: counts, inbox: heldCount)
+            : LibrarySidebarBadges(section: heldCount, entries: .zero, inbox: 0)
+    }
+}
+
+/// Reports `EnvironmentValues.isTabBarShowingSections` up to the shell. SwiftUI publishes it only
+/// inside a tab's content, while the badges are set on the `TabView` itself, so every tab's stack
+/// carries this and writes the value back — whichever tab is on screen keeps it current.
+struct TabBarSectionsProbe: ViewModifier {
+    @Binding var isShowingSections: Bool
+    @Environment(\.isTabBarShowingSections) private var isTabBarShowingSections
+
+    func body(content: Content) -> some View {
+        content.onChange(of: isTabBarShowingSections, initial: true) { _, showing in
+            isShowingSections = showing
+        }
+    }
+}

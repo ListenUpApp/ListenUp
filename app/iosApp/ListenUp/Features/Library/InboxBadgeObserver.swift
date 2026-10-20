@@ -8,6 +8,8 @@ import Shared
 @MainActor
 final class InboxBadgeObserver {
     private(set) var heldCount: Int = 0
+    /// Whether this viewer is an admin: the iPad sidebar's Server › Inbox entry shows for an admin even with nothing held.
+    private(set) var isAdmin = false
 
     private let viewModel: InboxBadgeViewModel
     private let bridge = FlowBridge()
@@ -16,5 +18,6 @@ final class InboxBadgeObserver {
         self.viewModel = viewModel
         bridge.own(viewModel)
         bridge.bind(viewModel.heldCount) { [weak self] in self?.heldCount = Int($0) }
+        bridge.bind(viewModel.isAdmin) { [weak self] in self?.isAdmin = $0 }
     }
 }

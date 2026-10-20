@@ -191,6 +191,21 @@ struct MainShellModelTests {
         #expect(downloads.path(for: .home).count == 1)
     }
 
+    @Test func adminInboxIsSidebarOnly() {
+        #expect(ShellTab.adminInbox.isSidebarOnly)
+        #expect(ShellTab.adminInbox.title == String(localized: "common.inbox"))
+    }
+
+    /// Narrowing the window while the inbox is open keeps the admin in it: it reopens on Home's stack, as Settings does.
+    @Test func narrowedInboxReopensOnHome() {
+        let shell = MainShellModel()
+        shell.adaptToLayout(usesSidebar: true)
+        shell.selectedTab = .adminInbox
+        shell.adaptToLayout(usesSidebar: false)
+        #expect(shell.selectedTab == .home)
+        #expect(shell.path(for: .home).count == 1)
+    }
+
     @Test func tabsThatExistInBothLayoutsStayPut() {
         let shell = MainShellModel()
         shell.selectedTab = .discover
