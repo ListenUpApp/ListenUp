@@ -7,7 +7,7 @@ import Shared
 /// - `.listRow` (default) — a `List` row: the list draws the insets, separator, highlight and
 ///   disclosure indicator.
 /// - `.card` — a cell in the wide-width grid: it draws its own padding, chevron and grouped surface,
-///   because a grid has no rows to do it.
+///   because a grid has no rows to do it, and the contributor's two newest covers.
 struct PersonRow: View {
     enum Style { case listRow, card }
 
@@ -39,6 +39,7 @@ struct PersonRow: View {
                 HStack(spacing: 8) {
                     content
                     Spacer(minLength: 8)
+                    previewCovers
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tertiary)
@@ -54,6 +55,19 @@ struct PersonRow: View {
             .accessibilityValue(bookCountLabel)
             .accessibilityHint(String(localized: "contributor.view_details_hint"))
         }
+    }
+
+    /// The card's two newest covers (spec c7, board `Library-iPad-Authors`): decoration, so the card is read exactly as
+    /// before. The list row (iPhone) has no room for them.
+    private var previewCovers: some View {
+        HStack(spacing: 4) {
+            ForEach(contributor.previewCoverIds, id: \.self) { bookId in
+                BookCoverImage(bookId: bookId, coverPath: nil, coverHash: nil)
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     private var content: some View {

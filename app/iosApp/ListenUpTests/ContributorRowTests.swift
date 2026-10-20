@@ -30,4 +30,13 @@ struct ContributorRowTests {
         #expect(centred.imageFrame == nil)
         #expect(centred != framed)
     }
+
+    @Test func aWideCardDrawsTheTwoNewestCoversAtMost() {
+        let row = ContributorRow(
+            id: "c-1", name: "Ann Leckie", bookCount: 5, imagePath: nil,
+            previewBookIds: ["new", "mid", "old"]
+        )
+        #expect(row.previewCoverIds == ["new", "mid"])
+        #expect(row != ContributorRow(id: "c-1", name: "Ann Leckie", bookCount: 5, imagePath: nil))
+    }
 }
