@@ -47,4 +47,9 @@ struct BookSelectionRowTests {
         ]
         #expect(Set(rows.map(\.id)).count == rows.count)
     }
+
+    /// Select All in the selection toolbar: the standard edit-mode title, with no count (HIG).
+    @Test @MainActor func selectAllUsesTheStandardTitle() {
+        #expect(BookSelectionToolbar.selectAllTitle == "Select All")
+    }
 }

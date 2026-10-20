@@ -125,7 +125,10 @@ struct LibraryView: View {
             // The Books-tab selection surface reuses the same toolbar as the Home/Discover chrome
             // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
             // principal "N selected" count from sitting under the large "Library" title.
-            BookSelectionToolbar(selection: selection)
+            BookSelectionToolbar(selection: selection) {
+                // Every book the grid shows, as filtered (open question 8).
+                selection.selectAll(observer?.books.map(\.id) ?? [])
+            }
         }
     }
 
