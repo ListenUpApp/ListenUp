@@ -188,6 +188,9 @@ struct MainTabView: View {
             }
             restoreNavigationOnce()
         }
+        .onChange(of: isTabBarShowingSections) { _, showing in
+            shell.adaptToSidebarSections(showing: showing)
+        }
         .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
             shell.adaptToLayout(usesSidebar: usesSidebar)
         }
@@ -265,7 +268,10 @@ struct MainTabView: View {
 
             // An admin can always reach the inbox, even with nothing held (never stranded). The board's second line,
             // "Waiting for you to release", is the inbox screen's own subtitle: a sidebar entry carries one line.
-            if inboxBadge?.isAdmin == true {
+            if InboxPlacement.showsServerSection(
+                isAdmin: inboxBadge?.isAdmin == true,
+                showingSections: isTabBarShowingSections
+            ) {
                 TabSection(String(localized: "common.server")) {
                     SwiftUI.Tab(ShellTab.adminInbox.title, systemImage: "tray.full", value: ShellTab.adminInbox) {
                         tabStack(.adminInbox) { AdminInboxView() }

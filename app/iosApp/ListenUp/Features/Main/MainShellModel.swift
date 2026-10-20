@@ -198,6 +198,15 @@ final class MainShellModel {
         }
     }
 
+    /// Re-homes the selection when the sidebar hides while the inbox is open: Server › Inbox leaves the tab bar with it
+    /// (`InboxPlacement.showsServerSection`), so the inbox reopens on Library's Books, the tab that now leads to it.
+    func adaptToSidebarSections(showing: Bool) {
+        guard !showing, selectedTab == .adminInbox else { return }
+        librarySection = .books
+        selectedTab = .librarySection(.books)
+        paths[.librarySection(.books), default: NavigationPath()].append(AdminInboxDestination())
+    }
+
     private func movePath(from source: ShellTab, to target: ShellTab) {
         guard let moving = paths[source], !moving.isEmpty else { return }
         paths[target] = moving

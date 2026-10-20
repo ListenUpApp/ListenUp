@@ -32,6 +32,28 @@ struct LibrarySidebarBadges: Equatable {
     }
 }
 
+/// Where the admin inbox is reached on iPad, so the held books are always one tap from a badge that says so.
+///
+/// HIG, Tab bars: "You can display a badge … on a tab to indicate that there's new or updated information in the
+/// section that warrants a person's attention" — the badge sits on the tab whose section leads to the held books. And
+/// "the tab bar's convertible sidebar-style appearance can provide access to content that people use less frequently":
+/// Server › Inbox is sidebar content, so it never becomes a tab of its own in the collapsed bar.
+/// https://developer.apple.com/design/human-interface-guidelines/tab-bars
+enum InboxPlacement {
+    /// Whether the sidebar's Server › Inbox entry exists: for an admin, while the sidebar lists sections. With the
+    /// sidebar hidden the whole `TabSection` would otherwise collapse into a stray "Server" tab.
+    static func showsServerSection(isAdmin: Bool, showingSections: Bool) -> Bool {
+        isAdmin && showingSections
+    }
+
+    /// Whether the Books grid carries its own inbox entry. The compact tab bar's Library has no sidebar, and a hidden
+    /// sidebar has no Server › Inbox, so the grid is the way in; while the sidebar lists Server › Inbox it is not.
+    /// Selecting books turns the grid into a picking surface, so never then.
+    static func showsGridEntry(showsSectionPicker: Bool, showingSections: Bool, isSelecting: Bool) -> Bool {
+        !isSelecting && (showsSectionPicker || !showingSections)
+    }
+}
+
 /// Reports `EnvironmentValues.isTabBarShowingSections` up to the shell. SwiftUI publishes it only
 /// inside a tab's content, while the badges are set on the `TabView` itself, so every tab's stack
 /// carries this and writes the value back — whichever tab is on screen keeps it current.

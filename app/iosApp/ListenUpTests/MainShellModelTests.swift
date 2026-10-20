@@ -206,6 +206,24 @@ struct MainShellModelTests {
         #expect(shell.path(for: .home).count == 1)
     }
 
+    /// Hiding the sidebar takes Server › Inbox with it, so an open inbox moves to Library's Books, the tab now badged.
+    @Test func hidingTheSidebarOnTheInboxKeepsTheInboxOpenUnderLibrary() {
+        let shell = MainShellModel()
+        shell.adaptToLayout(usesSidebar: true)
+        shell.selectedTab = .adminInbox
+        shell.adaptToSidebarSections(showing: false)
+        #expect(shell.selectedTab == .librarySection(.books))
+        #expect(shell.path(for: .librarySection(.books)).count == 1)
+    }
+
+    @Test func hidingTheSidebarElsewhereLeavesTheSelectionAlone() {
+        let shell = MainShellModel()
+        shell.adaptToLayout(usesSidebar: true)
+        shell.selectedTab = .discover
+        shell.adaptToSidebarSections(showing: false)
+        #expect(shell.selectedTab == .discover)
+    }
+
     @Test func tabsThatExistInBothLayoutsStayPut() {
         let shell = MainShellModel()
         shell.selectedTab = .discover

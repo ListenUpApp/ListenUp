@@ -29,3 +29,34 @@ struct LibrarySidebarBadgesTests {
         #expect(badges.inbox == 0)
     }
 }
+
+/// Where an admin reaches the inbox on iPad (HIG, Tab bars: a badge sits on the tab whose section holds the news; the
+/// sidebar carries what the tab bar has no room for — https://developer.apple.com/design/human-interface-guidelines/tab-bars).
+@Suite("Inbox placement")
+struct InboxPlacementTests {
+    @Test func theServerSectionIsSidebarContentForAnAdmin() {
+        #expect(InboxPlacement.showsServerSection(isAdmin: true, showingSections: true))
+        // A hidden sidebar collapses the section into the floating tab bar: no stray "Server" tab there.
+        #expect(!InboxPlacement.showsServerSection(isAdmin: true, showingSections: false))
+        #expect(!InboxPlacement.showsServerSection(isAdmin: false, showingSections: true))
+    }
+
+    @Test func theBooksGridLeadsToTheInboxWheneverTheSidebarDoesNot() {
+        // The compact Library tab.
+        #expect(InboxPlacement.showsGridEntry(showsSectionPicker: true, showingSections: false, isSelecting: false))
+        // An iPad section entry with the sidebar hidden: the Library tab (badged) must still reach the inbox.
+        #expect(InboxPlacement.showsGridEntry(showsSectionPicker: false, showingSections: false, isSelecting: false))
+        // The sidebar shows Server › Inbox: one way in, not two.
+        #expect(!InboxPlacement.showsGridEntry(showsSectionPicker: false, showingSections: true, isSelecting: false))
+        #expect(!InboxPlacement.showsGridEntry(showsSectionPicker: true, showingSections: false, isSelecting: true))
+    }
+
+    @Test func theBadgeIsOnlyOnTheTabThatLeadsToTheHeldBooks() {
+        let counts = LibrarySectionCountsValue(books: 15, series: 1, authors: 14, narrators: 15)
+        let collapsed = LibrarySidebarBadges.forPlacement(counts: counts, heldCount: 3, showingSections: false)
+        #expect(collapsed.section == 3 && collapsed.inbox == 0)
+        let shown = LibrarySidebarBadges.forPlacement(counts: counts, heldCount: 3, showingSections: true)
+        #expect(shown.section == 0 && shown.inbox == 3)
+    }
+}
+
