@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.CoverPlacement
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.SortDropdown
@@ -207,6 +208,7 @@ private fun SeriesCard(
                         radius = STACK_COVER_RADIUS,
                         decorative = true,
                         attrs = { classes("srs-c", "srs-c-$index") },
+                        placement = CoverPlacement.Stacked(left = index * STACK_STEP, top = STACK_TOP),
                     )
                 }
                 if (entry.books.size > 1) {
@@ -290,4 +292,7 @@ private const val CARD_COVER_RUNG = 200
 private const val STACK_COVERS = 3
 private const val STACK_COVER_SIZE = 72
 private const val STACK_COVER_RADIUS = 6
+private const val STACK_STEP = 20
 
+/** The covers centre in the 84px-tall stack. */
+private const val STACK_TOP = 6

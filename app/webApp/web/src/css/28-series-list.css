@@ -19,10 +19,11 @@
 /* Up to three 72px covers, 20px apart, the first in front, in a 112×84 box (spec c6, board `Library-WebPhone`); the
    series' book count in ink on paper at the box's foot. */
 .srs-stack { position: relative; flex: none; width: 112px; height: 84px; }
-.srs-stack .srs-c { position: absolute; top: 6px; box-shadow: 0 1px 3px rgba(28,23,20,.18); }
-.srs-stack .srs-c-0 { left: 0; z-index: 3; }
-.srs-stack .srs-c-1 { left: 20px; z-index: 2; }
-.srs-stack .srs-c-2 { left: 40px; z-index: 1; }
+/* Each cover's offset is its own inline style (Cover's `CoverPlacement.Stacked`); only the layering is here. */
+.srs-stack .srs-c { box-shadow: 0 1px 3px rgba(28,23,20,.18); }
+.srs-stack .srs-c-0 { z-index: 3; }
+.srs-stack .srs-c-1 { z-index: 2; }
+.srs-stack .srs-c-2 { z-index: 1; }
 .srs-badge {
   position: absolute; right: 0; bottom: 0; z-index: 4; min-width: 1.4rem; height: 1.4rem; padding: 0 6px;
   display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-pill);

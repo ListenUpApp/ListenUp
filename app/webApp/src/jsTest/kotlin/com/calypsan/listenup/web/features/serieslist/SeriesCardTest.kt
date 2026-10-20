@@ -38,7 +38,14 @@ class SeriesCardTest :
             }
         }
 
-        test("a seven-book series draws three overlapping covers and a '7' badge, hidden from screen readers") {
+        test("at desktop width a series' three covers share one top") {
+            val frame = page(DESKTOP, listOf(dcc(7)))
+            awaitFrame()
+            frame.findAll(".srs-card .srs-stack .cover").map { frame.rect(it).top }.distinct().size shouldBe 1
+            frames.disposeAll()
+        }
+
+        test("on a phone the three covers overlap in a row inside the card, with the '7' badge, hidden from screen readers") {
             val frame = page(PHONE, listOf(dcc(7)))
             awaitFrame()
 
@@ -47,6 +54,15 @@ class SeriesCardTest :
             val lefts = covers.map { frame.rect(it).left }
             lefts[1] - lefts[0] shouldBe 20.0
             lefts[2] - lefts[1] shouldBe 20.0
+            // Overlapping side by side, not stacked down the card: one top for all three.
+            covers.map { frame.rect(it).top }.distinct().size shouldBe 1
+            // And the stack stays inside its card, whatever the width.
+            val card = frame.rect(frame.find(".srs-card"))
+            covers.forEach { cover ->
+                val box = frame.rect(cover)
+                (box.left >= card.left && box.right <= card.right) shouldBe true
+                (box.top >= card.top && box.bottom <= card.bottom) shouldBe true
+            }
             val badge = frame.find(".srs-card .srs-badge")
             badge.textContent shouldBe "7"
             // The whole stack is decoration: the meta line says "7 books" in words.
