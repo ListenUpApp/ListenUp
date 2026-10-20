@@ -29,8 +29,20 @@ val LocalCoverThemes = staticCompositionLocalOf<CoverThemeRepository?> { null }
  */
 val WebCoverThemeStyle =
     CoverThemeStyle(
-        light = CoverThemeTokens(brandArgb = 0xFFD73812.toInt(), onBrandArgb = 0xFFFFFFFF.toInt(), inkArgb = 0xFF1C1714.toInt(), paperArgb = 0xFFF5F0E8.toInt()),
-        dark = CoverThemeTokens(brandArgb = 0xFFD73812.toInt(), onBrandArgb = 0xFFFFFFFF.toInt(), inkArgb = 0xFFF3EEE8.toInt(), paperArgb = 0xFF13110F.toInt()),
+        light =
+            CoverThemeTokens(
+                brandArgb = 0xFFD73812.toInt(),
+                onBrandArgb = 0xFFFFFFFF.toInt(),
+                inkArgb = 0xFF1C1714.toInt(),
+                paperArgb = 0xFFF5F0E8.toInt(),
+            ),
+        dark =
+            CoverThemeTokens(
+                brandArgb = 0xFFD73812.toInt(),
+                onBrandArgb = 0xFFFFFFFF.toInt(),
+                inkArgb = 0xFFF3EEE8.toInt(),
+                paperArgb = 0xFF13110F.toInt(),
+            ),
     )
 
 /** A cover's colours as a hero shows them: [themes] `null` is neutral; [fadesIn] when they arrived after a cache miss. */
@@ -50,11 +62,16 @@ fun rememberCoverThemes(
 ): CoverThemeArrival {
     val source = LocalCoverThemes.current
     var arrival by remember(source, bookId, coverHash) {
-        mutableStateOf(CoverThemeArrival(source?.cached(BookId(bookId), coverHash, WebCoverThemeStyle), fadesIn = false))
+        mutableStateOf(
+            CoverThemeArrival(source?.cached(BookId(bookId), coverHash, WebCoverThemeStyle), fadesIn = false),
+        )
     }
     LaunchedEffect(source, bookId, coverHash) {
         if (source == null || arrival.themes != null) return@LaunchedEffect
-        source.observe(BookId(bookId), coverHash, WebCoverThemeStyle).collect { arrival = CoverThemeArrival(it, fadesIn = true) }
+        source.observe(BookId(bookId), coverHash, WebCoverThemeStyle).collect {
+            arrival =
+                CoverThemeArrival(it, fadesIn = true)
+        }
     }
     return arrival
 }
@@ -85,9 +102,13 @@ private fun org.jetbrains.compose.web.css.StyleScope.coverVars(
 }
 
 /** `#RRGGBB` for an ARGB colour (alpha dropped: every cover colour is opaque). */
-internal fun cssHex(argb: Int): String = "#" + (argb and 0xFFFFFF).toString(16).padStart(6, '0').uppercase()
+internal fun cssHex(argb: Int): String =
+    "#" + (argb and RGB_MASK).toString(HEX_RADIX).padStart(RGB_DIGITS, '0').uppercase()
 
 private const val COVER_THEMED = "cover-themed"
 private const val COVER_FADE = "cover-fade"
 private const val LIGHT = "l"
 private const val DARK = "d"
+private const val RGB_MASK = 0xFFFFFF
+private const val HEX_RADIX = 16
+private const val RGB_DIGITS = 6

@@ -127,12 +127,22 @@ private fun unpremultiplied(
     rgba: ByteArray,
     at: Int,
 ): Int {
-    val alpha = rgba[at + 3].toInt() and 0xFF
+    val alpha = rgba[at + ALPHA_OFFSET].toInt() and CHANNEL_MAX
     if (alpha == 0) return 0
 
-    fun channel(offset: Int) = ((rgba[at + offset].toInt() and 0xFF) * 0xFF / alpha).coerceAtMost(0xFF)
-    return (alpha shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
+    fun channel(offset: Int) =
+        ((rgba[at + offset].toInt() and CHANNEL_MAX) * CHANNEL_MAX / alpha).coerceAtMost(CHANNEL_MAX)
+    return (alpha shl ALPHA_SHIFT) or (channel(RED_OFFSET) shl RED_SHIFT) or (channel(GREEN_OFFSET) shl GREEN_SHIFT) or
+        channel(BLUE_OFFSET)
 }
 
 private const val BYTES_PER_PIXEL = 4
+private const val CHANNEL_MAX = 0xFF
+private const val RED_OFFSET = 0
+private const val GREEN_OFFSET = 1
+private const val BLUE_OFFSET = 2
+private const val ALPHA_OFFSET = 3
+private const val ALPHA_SHIFT = 24
+private const val RED_SHIFT = 16
+private const val GREEN_SHIFT = 8
 private const val BITS_PER_CHANNEL = 8uL

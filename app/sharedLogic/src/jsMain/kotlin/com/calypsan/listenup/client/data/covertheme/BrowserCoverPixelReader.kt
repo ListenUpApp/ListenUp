@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.covertheme
 import com.calypsan.listenup.client.data.repository.CoverThemeRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
 import com.calypsan.listenup.core.BookId
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.await
@@ -15,8 +14,6 @@ import org.w3c.dom.MEDIUM
 import org.w3c.dom.ResizeQuality
 import org.w3c.files.Blob
 import kotlin.coroutines.cancellation.CancellationException
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * The browser's cover colour source (Book Detail spec §4.4): the shared rule over a reader that fetches [coverUrl].
@@ -43,8 +40,8 @@ internal class BrowserCoverPixelReader(
             if (response.ok) pixelsOf(response.blob().await(), maxEdge) else null
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (failure: Throwable) {
-            logger.debug { "No cover pixels for ${bookId.value}: $failure" }
+        } catch (_: Throwable) {
+            // A 401, offline, or a body the browser cannot decode: no cover, so the hero stays neutral.
             null
         }
 
@@ -54,19 +51,37 @@ internal class BrowserCoverPixelReader(
     ): CoverPixels {
         val bitmap =
             window
-                .createImageBitmap(blob, ImageBitmapOptions(resizeWidth = edge, resizeHeight = edge, resizeQuality = ResizeQuality.MEDIUM))
-                .await()
-        val canvas = (document.createElement("canvas") as HTMLCanvasElement).apply {
-            width = edge
-            height = edge
-        }
+                .createImageBitmap(
+                    blob,
+                    ImageBitmapOptions(resizeWidth = edge, resizeHeight = edge, resizeQuality = ResizeQuality.MEDIUM),
+                ).await()
+        val canvas =
+            (document.createElement("canvas") as HTMLCanvasElement).apply {
+                width = edge
+                height = edge
+            }
         val context = canvas.getContext("2d") as CanvasRenderingContext2D
         context.drawImage(bitmap, 0.0, 0.0)
         bitmap.close()
         val rgba = context.getImageData(0.0, 0.0, edge.toDouble(), edge.toDouble()).data
-        return CoverPixels(edge, edge, IntArray(edge * edge) { i ->
-            fun channel(offset: Int) = rgba[i * 4 + offset].toInt() and 0xFF
-            (channel(3) shl 24) or (channel(0) shl 16) or (channel(1) shl 8) or channel(2)
-        })
+        return CoverPixels(
+            edge,
+            edge,
+            IntArray(edge * edge) { i ->
+                fun channel(offset: Int) = rgba[i * BYTES_PER_PIXEL + offset].toInt() and CHANNEL_MAX
+                (channel(ALPHA_OFFSET) shl ALPHA_SHIFT) or (channel(RED_OFFSET) shl RED_SHIFT) or
+                    (channel(GREEN_OFFSET) shl GREEN_SHIFT) or channel(BLUE_OFFSET)
+            },
+        )
     }
 }
+
+private const val BYTES_PER_PIXEL = 4
+private const val CHANNEL_MAX = 0xFF
+private const val RED_OFFSET = 0
+private const val GREEN_OFFSET = 1
+private const val BLUE_OFFSET = 2
+private const val ALPHA_OFFSET = 3
+private const val ALPHA_SHIFT = 24
+private const val RED_SHIFT = 16
+private const val GREEN_SHIFT = 8

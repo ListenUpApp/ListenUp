@@ -56,7 +56,7 @@ class CoverSwatchesTest :
         }
 
         test("a cover with more colours than the budget is quantized down to it") {
-            val gradient = IntArray(4096) { i -> (0xFF shl 24) or ((i % 64 * 4) shl 16) or ((i / 64 * 4) shl 8) or 0x80 }
+            val gradient = IntArray(4096) { i -> (0xFF shl 24) or (i % 64 * 4 shl 16) or (i / 64 * 4 shl 8) or 0x80 }
             val swatches = extractSwatches(gradient, width = 64, height = 64).shouldNotBeNull()
             swatches.clusters.size shouldBeLessThanOrEqual 16
             swatches.totalPopulation shouldBe 4096

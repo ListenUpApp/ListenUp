@@ -88,7 +88,10 @@ class BookDetailCoverThemeTest :
                 val primary = frame.find(".bd-primary")
                 computedContrast(frame.css(primary, "color"), frame.css(primary, "background-color")) shouldBeGreaterThanOrEqual 4.5
                 val head = frame.find(".bd-head")
-                computedContrast(frame.css(frame.find(".bd-head h1"), "color"), frame.css(head, "background-color")) shouldBeGreaterThanOrEqual
+                computedContrast(
+                    frame.css(frame.find(".bd-head h1"), "color"),
+                    frame.css(head, "background-color"),
+                ) shouldBeGreaterThanOrEqual
                     4.5
                 frame.css(frame.find(".bd-head .progress-fill"), "background-color") shouldBe frame.css(primary, "background-color")
             }
@@ -101,7 +104,7 @@ class BookDetailCoverThemeTest :
                     .filterIsInstance<CSSStyleSheet>()
                     .flatMap { it.cssRules.asList() }
             val fadeRules = rules.filterIsInstance<CSSStyleRule>().filter { ".cover-fade" in it.selectorText }
-            fadeRules.none { it.style.getPropertyValue("transition").isNotEmpty() } shouldBe true
+            fadeRules.all { it.style.getPropertyValue("transition").isEmpty() } shouldBe true
             val gated =
                 rules
                     .filterIsInstance<CSSMediaRule>()

@@ -62,7 +62,7 @@ internal fun deriveCoverTheme(
         if (contrastRatio(tokens.onBrandArgb, harmonized) >= MIN_TEXT_CONTRAST) harmonized else tokens.brandArgb
     return CoverTheme(
         washArgb = wash,
-        trackArgb = trackFor(swatches, source, brandHue, appearance),
+        trackArgb = trackFor(swatches = swatches, source = source, brandHue = brandHue, appearance = appearance),
         actionArgb = action,
         onActionArgb = tokens.onBrandArgb,
     )
@@ -111,8 +111,8 @@ private fun mix(
     a: Int,
     b: Int,
 ): Int {
-    fun channel(shift: Int) = ((((a shr shift) and 0xFF) + ((b shr shift) and 0xFF)) / 2.0).roundToInt()
-    return ColorUtils.argbFromRgb(channel(16), channel(8), channel(0))
+    fun channel(shift: Int) = ((((a shr shift) and CHANNEL) + ((b shr shift) and CHANNEL)) / 2.0).roundToInt()
+    return ColorUtils.argbFromRgb(channel(RED_SHIFT), channel(GREEN_SHIFT), channel(BLUE_SHIFT))
 }
 
 /** WCAG contrast ratio between two colours. */
@@ -138,3 +138,7 @@ private const val ACCENT_MIN_SHARE = 0.05
 private const val TRACK_MAX_CHROMA = 16.0
 private const val MIN_TEXT_CONTRAST = 4.5
 private const val FULL_TURN = 360.0
+private const val CHANNEL = 0xFF
+private const val RED_SHIFT = 16
+private const val GREEN_SHIFT = 8
+private const val BLUE_SHIFT = 0

@@ -24,12 +24,17 @@ class BrowserCoverThemeRepositoryTest :
 
         test("a transparent cover is neutral") {
             browserCoverThemeRepository { _, _ -> dataUrl(CLEAR_8X8) }
-                .observe(BookId("b1"), "h1", WebCoverThemeStyle).first() shouldBe null
+                .observe(BookId("b1"), "h1", WebCoverThemeStyle)
+                .first() shouldBe null
         }
 
         test("a URL that is not an image is neutral, not an error, and is fetched again next time") {
             var fetches = 0
-            val repository = browserCoverThemeRepository { _, _ -> fetches++; "data:text/plain,not-an-image" }
+            val repository =
+                browserCoverThemeRepository { _, _ ->
+                    fetches++
+                    "data:text/plain,not-an-image"
+                }
             repository.observe(BookId("b1"), "h1", WebCoverThemeStyle).first() shouldBe null
             repository.observe(BookId("b1"), "h1", WebCoverThemeStyle).first() shouldBe null
             fetches shouldBe 2
@@ -37,7 +42,11 @@ class BrowserCoverThemeRepositoryTest :
 
         test("a revisit is answered from memory with no second fetch") {
             var fetches = 0
-            val repository = browserCoverThemeRepository { _, _ -> fetches++; dataUrl(GREEN_8X8) }
+            val repository =
+                browserCoverThemeRepository { _, _ ->
+                    fetches++
+                    dataUrl(GREEN_8X8)
+                }
             val first = repository.observe(BookId("b1"), "h1", WebCoverThemeStyle).first()
             repository.cached(BookId("b1"), "h1", WebCoverThemeStyle) shouldBe first
             fetches shouldBe 1

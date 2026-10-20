@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.core.color.CoverSwatches
 import com.calypsan.listenup.client.core.color.coverThemesOf
-import com.calypsan.listenup.client.core.color.extractSwatches
 import com.calypsan.listenup.client.data.covertheme.CoverPixelReader
 import com.calypsan.listenup.client.domain.model.CoverThemeStyle
 import com.calypsan.listenup.client.domain.model.CoverThemes
@@ -43,7 +42,8 @@ internal class CoverThemeRepositoryImpl(
     ): Flow<CoverThemes?> =
         flow {
             val known = coverHash?.let(::recall)
-            val swatches = known ?: decode(bookId, coverHash)?.also { found -> coverHash?.let { keep(it, found) } }
+            val swatches = known ?: decode(bookId, coverHash)
+            if (known == null && swatches != null && coverHash != null) keep(coverHash, swatches)
             emit(swatches?.let { coverThemesOf(it, style) })
         }
 
@@ -52,18 +52,18 @@ internal class CoverThemeRepositoryImpl(
         coverHash: String?,
     ): CoverSwatches? =
         withContext(decodeDispatcher) {
-            reader.read(bookId, coverHash, SAMPLE_EDGE)?.let { extractSwatches(it.argb, it.width, it.height) }
+            reader.read(bookId, coverHash, SAMPLE_EDGE)?.swatches()
         }
 
     /** A hit moves to the newest end, so the LRU evicts what nobody has opened for longest. */
     private fun recall(hash: String): CoverSwatches? =
-        swatchesByHash.value[hash]?.also { found -> swatchesByHash.update { (it - hash) + (hash to found) } }
+        swatchesByHash.value[hash]?.also { found -> swatchesByHash.update { it - hash + (hash to found) } }
 
     private fun keep(
         hash: String,
         found: CoverSwatches,
     ) = swatchesByHash.update { current ->
-        val next = (current - hash) + (hash to found)
+        val next = current - hash + (hash to found)
         if (next.size > capacity) next - next.keys.first() else next
     }
 }

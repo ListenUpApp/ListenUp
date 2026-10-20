@@ -36,7 +36,7 @@ internal fun extractSwatches(
     height: Int,
 ): CoverSwatches? {
     require(argb.size == width * height) { "expected ${width * height} pixels, got ${argb.size}" }
-    val opaque = argb.filter { (it ushr ALPHA_SHIFT) >= MIN_OPAQUE_ALPHA }.map { it or OPAQUE }.toIntArray()
+    val opaque = argb.filter { it ushr ALPHA_SHIFT >= MIN_OPAQUE_ALPHA }.map { it or OPAQUE }.toIntArray()
     if (opaque.isEmpty()) return null
     val clusters =
         quantize(opaque)
@@ -88,15 +88,16 @@ private fun assignRoles(clusters: List<CoverCluster>): Map<SwatchRole, CoverClus
     val taken = mutableSetOf<CoverCluster>()
     return buildMap {
         SwatchRole.entries.forEach { role ->
-            clusters
-                .filterNot { it in taken }
-                .mapNotNull { cluster -> role.score(cluster, maxPopulation)?.let { cluster to it } }
-                .maxByOrNull { it.second }
-                ?.first
-                ?.let { best ->
-                    put(role, best)
-                    taken += best
-                }
+            val best =
+                clusters
+                    .filterNot { it in taken }
+                    .mapNotNull { cluster -> role.score(cluster, maxPopulation)?.let { cluster to it } }
+                    .maxByOrNull { it.second }
+                    ?.first
+            if (best != null) {
+                put(role, best)
+                taken += best
+            }
         }
     }
 }

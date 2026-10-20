@@ -37,7 +37,7 @@ class AppleCoverPixelReaderTest :
 
         test("a transparent cover keeps its alpha at zero, so the extractor ignores it") {
             val pixels = decodeCoverThumbnail(pngFile("clear.png", CLEAR_8X8), maxEdge = 64).shouldNotBeNull()
-            pixels.argb.all { (it ushr 24) == 0 } shouldBe true
+            pixels.argb.all { it ushr 24 == 0 } shouldBe true
         }
 
         test("a missing file is no cover, not a crash") {
