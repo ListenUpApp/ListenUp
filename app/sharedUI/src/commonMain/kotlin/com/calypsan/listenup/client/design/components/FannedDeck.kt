@@ -11,11 +11,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.library_series_count_badge_a11y
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -151,11 +146,10 @@ fun FannedDeck(
 
 /**
  * How many books the deck stands for, in ink on paper at its bottom-end (board `Library-WebPhone`; `inverseSurface`
- * is that role). Read as "7 books".
+ * is that role). Decoration, as on iOS and web: the card's own words already say "7 books", so TalkBack reads it once.
  */
 @Composable
 private fun BoxScope.DeckCountBadge(count: Int) {
-    val description = stringResource(Res.string.library_series_count_badge_a11y, count)
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.inverseSurface,
@@ -164,12 +158,12 @@ private fun BoxScope.DeckCountBadge(count: Int) {
             Modifier
                 .align(Alignment.BottomEnd)
                 .zIndex(Float.MAX_VALUE)
-                .semantics { contentDescription = description },
+                .clearAndSetSemantics {},
     ) {
         Text(
             text = count.toString(),
             style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.clearAndSetSemantics {}.padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
     }
 }

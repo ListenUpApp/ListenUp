@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.library.components
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesProgress
@@ -41,14 +42,15 @@ class SeriesCardCountBadgeTest {
     }
 
     @Test
-    fun `a seven-book series draws at most three covers and a 7 badge, read as 7 books`() {
+    fun `a seven-book series draws at most three covers and a 7 badge that TalkBack does not read twice`() {
         card(bookCount = 7)
 
         // What TalkBack reads: covers parked at the back of the deck are not on screen, so they are not read.
         val covers = (1..7).sumOf { composeRule.onAllNodesWithContentDescription("Book $it").fetchSemanticsNodes().size }
         covers shouldBe 3
-        // The numeral is drawn under the badge's one name.
-        composeRule.onNodeWithContentDescription("7 books", useUnmergedTree = true).assertExists()
+        // The meta line already says "7 books": the badge is decoration, so TalkBack reads the count once.
+        composeRule.onAllNodesWithContentDescription("7 books").fetchSemanticsNodes().size shouldBe 0
+        composeRule.onAllNodesWithText("7").fetchSemanticsNodes().size shouldBe 0
     }
 
     @Test
