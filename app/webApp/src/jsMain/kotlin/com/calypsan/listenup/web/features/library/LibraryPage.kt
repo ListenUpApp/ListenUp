@@ -115,7 +115,7 @@ fun LibraryPage(
             }
         }
     }
-    FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
+    FacetRow(active = LibraryFacet.Books, hrefFor = { routeFor(it).toUrl() }, onSelect = onSelectFacet)
 
     when (state) {
         is LibraryUiState.Loading -> {

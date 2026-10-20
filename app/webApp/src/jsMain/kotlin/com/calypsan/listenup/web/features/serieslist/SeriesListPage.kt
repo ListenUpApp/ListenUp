@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.routeFor
 import com.calypsan.listenup.web.features.library.WithJumpRail
 import com.calypsan.listenup.web.features.library.groupedCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesAndBookCount
@@ -66,7 +67,7 @@ fun SeriesListPage(
             if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
         }
     }
-    FacetRow(active = LibraryFacet.Series, onSelect = onSelectFacet)
+    FacetRow(active = LibraryFacet.Series, hrefFor = { routeFor(it).toUrl() }, onSelect = onSelectFacet)
 
     when (state) {
         is LibraryUiState.Loading -> {

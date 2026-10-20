@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.routeFor
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
@@ -78,6 +79,7 @@ fun ContributorsPage(
     // the row carries all three the same way Library's own row does.
     FacetRow(
         active = if (role == ContributorRole.NARRATOR) LibraryFacet.Narrators else LibraryFacet.Authors,
+        hrefFor = { routeFor(it).toUrl() },
         onSelect = onSelectFacet,
     )
 

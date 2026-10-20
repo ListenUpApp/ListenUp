@@ -1,6 +1,6 @@
 /* ── Series list ──────────────────────────────────────────────────────────────
    The Library's Series tab. Sort and facet chrome is shared with the Books tab
-   (`.lib-header`, `.lib-sort-trigger`, `.facet-row`), so only the grid lives here. */
+   (`.lib-header`, `.lib-sort-trigger`, `.lib-seg`), so only the grid lives here. */
 
 .srs-grid {
   display: grid;
