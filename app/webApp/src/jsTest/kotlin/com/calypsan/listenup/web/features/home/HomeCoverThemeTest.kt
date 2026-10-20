@@ -1,7 +1,13 @@
 package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.CompositionLocalProvider
+import com.calypsan.listenup.client.domain.model.CoverThemeStyle
+import com.calypsan.listenup.client.domain.model.CoverThemes
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.web.awaitFrame
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import com.calypsan.listenup.web.FakeCoverThemes
 import com.calypsan.listenup.web.KINGS_THEMES
 import com.calypsan.listenup.web.MountRegistry
@@ -17,11 +23,16 @@ class HomeCoverThemeTest :
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
-        fun resume(source: CoverThemeRepository?): HTMLElement =
+        fun resume(
+            source: CoverThemeRepository?,
+            coverHash: String? = "h1",
+        ): HTMLElement =
             mounts
                 .mount {
                     CompositionLocalProvider(LocalCoverThemes provides source) {
-                        ResumeHero(resumeSlot("wok"), isOnlyBook = false, nowMs = BOARD_NOW, onOpenBook = {}, onPlay = {})
+                        ResumeHero(
+                            resumeSlot("wok").let { it.copy(book = it.book.copy(coverHash = coverHash)) },
+                            isOnlyBook = false, nowMs = BOARD_NOW, onOpenBook = {}, onPlay = {})
                     }
                 }.querySelector(".home-hero") as HTMLElement
 
@@ -29,7 +40,9 @@ class HomeCoverThemeTest :
             mounts
                 .mount {
                     CompositionLocalProvider(LocalCoverThemes provides source) {
-                        HomeFinishedCard(finishedSlot().card, nowMs = BOARD_NOW, actions = HomeActions.None, zone = TimeZone.UTC)
+                        HomeFinishedCard(
+                            finishedSlot().card.let { it.copy(book = it.book.copy(coverHash = "h1")) },
+                            nowMs = BOARD_NOW, actions = HomeActions.None, zone = TimeZone.UTC)
                     }
                 }.querySelector(".home-hero") as HTMLElement
 
@@ -49,6 +62,30 @@ class HomeCoverThemeTest :
             val card = finished(FakeCoverThemes(known = KINGS_THEMES))
             card.classList.contains("cover-themed") shouldBe true
             card.style.getPropertyValue("--cover-wash-l") shouldBe "#E4E4E6"
+        }
+
+        test("a card whose book has no cover is never fetched") {
+            val requested = mutableListOf<String?>()
+            val source =
+                object : CoverThemeRepository {
+                    override fun cached(
+                        bookId: BookId,
+                        coverHash: String?,
+                        style: CoverThemeStyle,
+                    ): CoverThemes? = null
+
+                    override fun observe(
+                        bookId: BookId,
+                        coverHash: String?,
+                        style: CoverThemeStyle,
+                    ): Flow<CoverThemes?> {
+                        requested += coverHash
+                        return flowOf(null)
+                    }
+                }
+            resume(source, coverHash = null)
+            awaitFrame()
+            requested shouldBe emptyList()
         }
 
         test("the just-finished card with no source is untouched") {

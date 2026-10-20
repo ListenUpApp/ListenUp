@@ -331,8 +331,9 @@ private fun SharedHeader(
     val ready = state as? BookDetailUiState.Ready
     val id = ready?.book?.id?.value ?: bookId ?: return
 
-    // The hero takes its colour from the cover (spec §2.3): neutral until the cover is known, at once on a revisit.
-    val coverTheme = rememberCoverThemes(id, ready?.book?.coverHash)
+    // The hero takes its colour from the cover (spec §2.3): fetched only once the book's cover hash is known, and
+    // painted from memory in the first frame on a revisit, even while the book is still loading.
+    val coverTheme = rememberCoverThemes(id, ready?.book?.coverHash, isKnown = ready != null)
     Div(attrs = {
         classes("bd-head")
         coverThemed(coverTheme)

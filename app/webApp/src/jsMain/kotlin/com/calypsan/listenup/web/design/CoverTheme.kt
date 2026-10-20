@@ -52,29 +52,39 @@ class CoverThemeArrival(
 )
 
 /**
- * The cover's colours for [bookId] at [coverHash]: from memory in the first composition when known (no transition), else
- * neutral until the source answers, then the colours with [CoverThemeArrival.fadesIn] (C10).
+ * The cover's colours for [bookId] at [coverHash] (C10).
+ *
+ * - [isKnown] says whether [coverHash] is the book's real hash. While a page is still loading it is not, and nothing is
+ *   fetched; a book this tab has already shown paints from memory in the first frame instead.
+ * - A known book with no cover hash has no cover: neutral, and nothing is fetched (no unversioned URL, no 404).
+ * - A known hash is answered from memory at once with no transition, else neutral until the source answers, then the
+ *   colours with [CoverThemeArrival.fadesIn].
  */
 @Composable
 fun rememberCoverThemes(
     bookId: String,
     coverHash: String?,
+    isKnown: Boolean = true,
 ): CoverThemeArrival {
     val source = LocalCoverThemes.current
-    var arrival by remember(source, bookId, coverHash) {
+    if (isKnown && coverHash != null) coverHashesSeen[bookId] = coverHash
+    val hash = if (isKnown) coverHash else coverHashesSeen[bookId]
+    var arrival by remember(source, bookId, hash) {
         mutableStateOf(
-            CoverThemeArrival(source?.cached(BookId(bookId), coverHash, WebCoverThemeStyle), fadesIn = false),
+            CoverThemeArrival(hash?.let { source?.cached(BookId(bookId), it, WebCoverThemeStyle) }, fadesIn = false),
         )
     }
-    LaunchedEffect(source, bookId, coverHash) {
-        if (source == null || arrival.themes != null) return@LaunchedEffect
-        source.observe(BookId(bookId), coverHash, WebCoverThemeStyle).collect {
-            arrival =
-                CoverThemeArrival(it, fadesIn = true)
+    LaunchedEffect(source, bookId, hash, isKnown) {
+        if (source == null || hash == null || !isKnown || arrival.themes != null) return@LaunchedEffect
+        source.observe(BookId(bookId), hash, WebCoverThemeStyle).collect {
+            arrival = CoverThemeArrival(it, fadesIn = true)
         }
     }
     return arrival
 }
+
+/** Each book's last known cover hash in this tab, so a revisit can paint from memory before the book has loaded. */
+private val coverHashesSeen = mutableMapOf<String, String>()
 
 /**
  * Themes this element from its cover (C14): the `cover-themed` class and the eight custom properties `06-shell.css`

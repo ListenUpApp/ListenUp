@@ -1,7 +1,13 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.CompositionLocalProvider
+import com.calypsan.listenup.client.domain.model.CoverThemeStyle
+import com.calypsan.listenup.client.domain.model.CoverThemes
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.web.FakeCoverThemes
@@ -33,6 +39,7 @@ class BookDetailCoverThemeTest :
 
         val ready =
             readyBook(readingStage = ReadingStage.InProgress)
+                .let { it.copy(book = it.book.copy(coverHash = "h0")) }
                 .copy(primaryAction = PrimaryAction.Resume, progress = 0.3f)
 
         fun hero(source: CoverThemeRepository?): HTMLElement =
@@ -95,6 +102,79 @@ class BookDetailCoverThemeTest :
                     4.5
                 frame.css(frame.find(".bd-head .progress-fill"), "background-color") shouldBe frame.css(primary, "background-color")
             }
+        }
+
+        /** Knows [knownHash] from an earlier visit; records every decode request. */
+        class HashedThemes(
+            private val knownHash: String?,
+        ) : CoverThemeRepository {
+            val observed = mutableListOf<String?>()
+
+            override fun cached(
+                bookId: BookId,
+                coverHash: String?,
+                style: CoverThemeStyle,
+            ): CoverThemes? = KINGS_THEMES.takeIf { coverHash != null && coverHash == knownHash }
+
+            override fun observe(
+                bookId: BookId,
+                coverHash: String?,
+                style: CoverThemeStyle,
+            ): Flow<CoverThemes?> {
+                observed += coverHash
+                return flowOf(KINGS_THEMES)
+            }
+        }
+
+        fun page(
+            source: CoverThemeRepository,
+            state: BookDetailUiState,
+        ): HTMLElement =
+            mounts
+                .mount {
+                    CompositionLocalProvider(LocalCoverThemes provides source) {
+                        BookDetailPage(
+                            state = state,
+                            bookId = "42",
+                            onPlayFromChapter = {},
+                            onOpenLibrary = {},
+                            onPlay = {},
+                            onRetryConnection = {},
+                        )
+                    }
+                }.querySelector(".bd-head") as HTMLElement
+
+        test("while the book loads nothing is fetched and the hero stays neutral") {
+            val source = HashedThemes(knownHash = null)
+            val head = page(source, BookDetailUiState.Loading)
+            awaitFrame()
+            source.observed shouldBe emptyList()
+            head.classList.contains("cover-themed") shouldBe false
+        }
+
+        test("a book with no cover is never fetched") {
+            val source = HashedThemes(knownHash = null)
+            val head = page(source, ready.copy(book = ready.book.copy(coverHash = null)))
+            awaitFrame()
+            source.observed shouldBe emptyList()
+            head.classList.contains("cover-themed") shouldBe false
+        }
+
+        test("a first visit fetches once, by the cover's hash") {
+            val source = HashedThemes(knownHash = null)
+            page(source, ready.copy(book = ready.book.copy(coverHash = "h1")))
+            awaitFrame()
+            source.observed shouldBe listOf("h1")
+        }
+
+        test("a revisit paints in its first frame, even while the book is still loading, with no fetch and no fade") {
+            val source = HashedThemes(knownHash = "h1")
+            page(source, ready.copy(book = ready.book.copy(coverHash = "h1")))
+            mounts.disposeAll()
+            val head = page(source, BookDetailUiState.Loading)
+            head.classList.contains("cover-themed") shouldBe true
+            head.classList.contains("cover-fade") shouldBe false
+            source.observed shouldBe emptyList()
         }
 
         test("the crossfade lives only under prefers-reduced-motion: no-preference") {
