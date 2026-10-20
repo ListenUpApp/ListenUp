@@ -1011,6 +1011,16 @@
         }
       }
     },
+    "admin.inbox_entry_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for you to release"
+          }
+        }
+      }
+    },
     "admin.inbox_issue_dismiss": {
       "localizations": {
         "en": {
@@ -16081,6 +16091,16 @@
         }
       }
     },
+    "library.count_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "library.count_unit": {
       "localizations": {
         "en": {
@@ -16391,6 +16411,16 @@
         }
       }
     },
+    "library.inbox_pill_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inbox, %1$d waiting for review"
+          }
+        }
+      }
+    },
     "library.inbox_strip": {
       "localizations": {
         "en": {
@@ -16411,12 +16441,82 @@
         }
       }
     },
+    "library.ipad_books_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · sorted by %2$@"
+          }
+        }
+      }
+    },
     "library.jump_index_label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Jump to letter"
+          }
+        }
+      }
+    },
+    "library.length_days": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d days of listening"
+          }
+        }
+      }
+    },
+    "library.length_days_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 day of listening"
+          }
+        }
+      }
+    },
+    "library.length_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d hours of listening"
+          }
+        }
+      }
+    },
+    "library.length_hours_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hour of listening"
+          }
+        }
+      }
+    },
+    "library.length_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d minutes of listening"
+          }
+        }
+      }
+    },
+    "library.length_minutes_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 minute of listening"
           }
         }
       }
@@ -16647,6 +16747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d series"
+          }
+        }
+      }
+    },
+    "library.series_count_badge_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
           }
         }
       }
