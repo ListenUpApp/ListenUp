@@ -13,6 +13,8 @@ import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.library.routeFor
 import com.calypsan.listenup.web.design.PageHeader
@@ -232,6 +234,26 @@ private fun ContributorRow(
             }
         }
 
+        // Their two newest books (spec c7), at ≥ 1024px only (CSS). Decoration: the row is named by its words.
+        if (entry.previewBookIds.isNotEmpty()) {
+            Div(attrs = {
+                classes("contrib-covers")
+                attr("aria-hidden", "true")
+            }) {
+                entry.previewBookIds.take(PREVIEW_COVERS).forEach { bookId ->
+                    Cover(
+                        title = "",
+                        imageUrl = coverUrl(bookId, null, PREVIEW_COVER_RUNG),
+                        size = PREVIEW_COVER_SIZE,
+                        radius = PREVIEW_COVER_RADIUS,
+                        decorative = true,
+                        // A person's preview, not a book card: no book's lock belongs on it.
+                        overlay = {},
+                    )
+                }
+            }
+        }
+
         Div(attrs = { classes("contrib-chevron") }) {
             Icon(WebIcon.ChevronRight, size = CHEVRON_SIZE)
         }
@@ -269,3 +291,8 @@ private fun roleLabel(role: ContributorRole): String = if (role == ContributorRo
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
 
 private const val CHEVRON_SIZE = 20
+
+private const val PREVIEW_COVERS = 2
+private const val PREVIEW_COVER_SIZE = 40
+private const val PREVIEW_COVER_RADIUS = 6
+private const val PREVIEW_COVER_RUNG = 200

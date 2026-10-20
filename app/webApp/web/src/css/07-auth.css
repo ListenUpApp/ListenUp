@@ -313,6 +313,9 @@
 .contrib-role-chip.is-narrator { background: var(--surface-3); color: var(--ink-2); }
 .contrib-book-count { font-size: var(--fs-small); color: var(--ink-2); font-weight: 500; }
 .contrib-chevron { color: var(--ink-3); display: flex; }
+/* A wide row's two newest covers (spec c7): desktop only, decoration beside the words. */
+.contrib-covers { display: none; flex: none; gap: 4px; }
+@media (min-width: 1024px) { .contrib-covers { display: flex; } }
 
 /* Contributor Detail — the person behind the books. Values pulled from the approved artboard;
    `.cd` itself mirrors `.bd`'s page-container shape (width, max-width, gap). */
