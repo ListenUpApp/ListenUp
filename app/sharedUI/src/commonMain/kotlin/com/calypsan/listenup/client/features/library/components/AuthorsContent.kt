@@ -44,6 +44,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
+import com.calypsan.listenup.client.design.components.AlphabetRailWidth
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -131,7 +132,7 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onAuthorClick, showCovers)
+                        contributorRows(rows, onAuthorClick, showCovers, reserveRail = alphabetIndex != null)
                     }
 
                     // Alphabet scrollbar (only for name sort)
@@ -163,6 +164,7 @@ internal fun LazyListScope.contributorRows(
     rows: List<LetteredRow<ContributorWithBookCount>>,
     onClick: (String) -> Unit,
     showCovers: Boolean = false,
+    reserveRail: Boolean = false,
 ) {
     items(
         items = rows,
@@ -179,6 +181,7 @@ internal fun LazyListScope.contributorRows(
                     contributorWithCount = row.value,
                     onClick = { onClick(row.value.contributor.id.value) },
                     showCovers = showCovers,
+                    reserveRail = reserveRail,
                 )
             }
         }
@@ -190,7 +193,8 @@ internal fun LazyListScope.contributorRows(
  * Shows contributor image if available, otherwise displays initials.
  *
  * On a wide Library ([showCovers]) the row ends in the contributor's two newest covers (spec c7). They are decoration:
- * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6).
+ * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6). Beside the letter index
+ * ([reserveRail]) they stop short of it, so the index never sits over a cover.
  */
 @Composable
 internal fun ContributorCard(
@@ -198,6 +202,7 @@ internal fun ContributorCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showCovers: Boolean = false,
+    reserveRail: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     val contributor = contributorWithCount.contributor
@@ -282,7 +287,10 @@ internal fun ContributorCard(
             }
 
             if (showCovers && contributorWithCount.previewBookIds.isNotEmpty()) {
-                PreviewCovers(bookIds = contributorWithCount.previewBookIds.take(PREVIEW_COVERS))
+                PreviewCovers(
+                    bookIds = contributorWithCount.previewBookIds.take(PREVIEW_COVERS),
+                    modifier = if (reserveRail) Modifier.padding(end = AlphabetRailWidth) else Modifier,
+                )
             }
         }
     }
@@ -298,12 +306,18 @@ private fun initialsOf(name: String): String {
     }.uppercase()
 }
 
-/** Up to two square covers at a people row's end; decoration under the row's own name. */
+/**
+ * Up to two square covers at a people row's end; decoration under the row's own name. Each sits on a quiet tile, so a
+ * book with no cover is a tile rather than a gap — web's waiting tile.
+ */
 @Composable
-private fun PreviewCovers(bookIds: List<String>) {
+private fun PreviewCovers(
+    bookIds: List<String>,
+    modifier: Modifier = Modifier,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.padding(start = Spacing.md).clearAndSetSemantics {},
+        modifier = modifier.padding(start = Spacing.md).clearAndSetSemantics {},
     ) {
         bookIds.forEach { bookId ->
             BookCoverImage(
@@ -314,6 +328,7 @@ private fun PreviewCovers(bookIds: List<String>) {
                     Modifier
                         .size(PREVIEW_COVER_SIZE)
                         .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                         .testTag(PREVIEW_COVER_TAG),
             )
         }
