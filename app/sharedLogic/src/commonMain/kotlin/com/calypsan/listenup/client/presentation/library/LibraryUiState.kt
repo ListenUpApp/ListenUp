@@ -88,7 +88,8 @@ sealed interface LibraryUiState {
          * How many entries each section holds (the iPad sidebar's counts). Moves with [contentRevision], never on a
          * position tick.
          */
-        val sectionCounts: LibrarySectionCounts = LibrarySectionCounts(books = 0, series = 0, authors = 0, narrators = 0),
+        val sectionCounts: LibrarySectionCounts =
+            LibrarySectionCounts(books = 0, series = 0, authors = 0, narrators = 0),
         /**
          * What each book's card says, for EVERY book in the library (not only the filtered [books]).
          * Moves on a position tick without advancing [contentRevision]: a consumer that gates on the
