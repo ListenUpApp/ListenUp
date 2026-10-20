@@ -269,7 +269,7 @@ internal interface BookDao {
      * When a sync event echoes the client's own write, the visible fields are already
      * correct locally — repainting them would flicker the UI. This advances
      * [BookEntity.revision] and [BookEntity.updatedAt] only, leaving everything else
-     * (title, cover, palette) untouched.
+     * (title, cover) untouched.
      *
      * @param id Type-safe book ID
      * @param revision New server revision
