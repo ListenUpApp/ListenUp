@@ -1197,7 +1197,15 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .lib-controls .lib-filters { flex: 1 1 auto; min-width: 0; padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
 .lib-controls-end { display: flex; flex: none; align-items: center; gap: 10px; margin-left: auto; }
-.lib-count { display: none; }
+.lib-count { display: none; white-space: nowrap; }
+/* "Sort: Title, A–Z" is one control, never broken across lines. */
+.lib-sort-trigger { white-space: nowrap; }
+/* A strip narrower than a phone's (320px screens) gives its words the room the cover fan took. A container query, not
+   a breakpoint: it is the strip's own width that runs out. */
+.luw .lib-inbox { container-type: inline-size; }
+@container (max-width: 319px) {
+  .luw .lib-inbox-fan { display: none; }
+}
 @media (max-width: 759px) {
   .lib-controls .lib-filters { flex-basis: 100%; padding-bottom: 8px; }
   /* The count, then Select and Sort, on one row above the scrolling chips (spec §3.1.7). The header's count line

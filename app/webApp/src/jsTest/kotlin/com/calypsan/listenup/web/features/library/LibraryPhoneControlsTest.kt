@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.library
 
 import com.calypsan.listenup.web.InShell
+import com.calypsan.listenup.web.SMALL_PHONE
+import com.calypsan.listenup.web.contentOverflow
+import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -46,6 +49,34 @@ class LibraryPhoneControlsTest :
             chips.map { frame.rect(it).top }.distinct().size shouldBe 1
             frame.css(frame.find(".lib-filters"), "overflow-x") shouldBe "auto"
             frame.css(frame.find(".lib-filters"), "flex-wrap") shouldBe "nowrap"
+        }
+
+        test("at 320px the count, Sort and the inbox each keep to their lines, and nothing runs past the edge") {
+            val frame =
+                frames.mount(SMALL_PHONE) {
+                    val books = (1..15).map { contractBook("b$it", "Book number $it") }
+                    InShell {
+                        LibraryPage(
+                            state = contractLibrary(books),
+                            onEvent = {},
+                            onOpenBook = {},
+                            onSelectFacet = {},
+                            onStartSelecting = {},
+                            inbox = InboxBadgeState(heldCount = 3, previewBookIds = listOf("h1", "h2", "h3")),
+                        )
+                    }
+                }
+            awaitFrame()
+
+            val count = frame.find(".lib-count")
+            count.textContent shouldBe "15 books"
+            // One line: shorter than two lines of its own type.
+            frame.rect(count).height shouldBeLessThan 2 * frame.css(count, "font-size").removeSuffix("px").toDouble()
+            val sort = frame.find(".lib-controls .lib-sort-trigger")
+            frame.rect(sort).height shouldBeLessThan 48.0
+            // "Inbox · 3 new books" and its line, never a five-line column squeezed by the cover fan.
+            frame.rect(frame.find(".lib-inbox")).height shouldBeLessThan 96.0
+            frame.contentOverflow() shouldBe 0
         }
 
         test("at desktop width the count stays in the page header and the controls row has none") {
