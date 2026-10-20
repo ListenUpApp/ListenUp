@@ -8,7 +8,7 @@ import Shared
 /// §2.4): chapters first while listening, the synopsis first while deciding, ratings first once finished. A narrow
 /// width stacks everything; a wide one splits into a left rail (hero, listen unit, social line), sized from the width,
 /// beside a main column of the sections — see `DetailColumns` and `BookDetailIPadRows`. All state comes from
-/// `BookDetailObserver`; the overflow menu offers Mark as Finished, the progress resets and, for an admin, Delete Book.
+/// `BookDetailObserver`; the More menu (`+OverflowMenu`) is the shared rule's groups, Delete from Server last.
 struct BookDetailView: View {
     let bookId: String
     /// Where the screen lands, if not at its top: Home's finishers line opens it on Readers (spec §6.4).
@@ -374,9 +374,8 @@ struct BookDetailView: View {
         )
     }
 
-    @State var showDiscardConfirmation = false
-    @State var showRestartConfirmation = false
-    @State var showDeleteBookConfirmation = false
+    /// The More menu's open question (mark not started, restart, delete from server), if any.
+    @State var menuConfirmation: BookDetailMenuConfirmation?
     @State var showEdit = false
     @State var showChapterEditor = false
     /// Match details, open for this book. `nil` when closed; Match details clears it after Apply.

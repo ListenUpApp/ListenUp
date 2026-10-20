@@ -37,8 +37,9 @@ struct BookDetailTriageTests {
         #expect(BookDetailLayout.toolbar(for: nil) == .none)
     }
 
-    @Test func aHeldBookOffersEditAloneInTheToolbar() {
-        #expect(BookDetailLayout.toolbar(for: .triage) == .edit)
+    /// A held book has no More menu: the toolbar shows the Held pill, and its actions are the held card's.
+    @Test func aHeldBookShowsTheHeldPillInTheToolbar() {
+        #expect(BookDetailLayout.toolbar(for: .triage) == .heldPill)
     }
 
     @Test func anOrdinaryBookOffersTheFullMenu() {

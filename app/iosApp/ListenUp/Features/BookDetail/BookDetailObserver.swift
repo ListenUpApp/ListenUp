@@ -130,6 +130,10 @@ final class BookDetailObserver {
     private(set) var isMarkingComplete: Bool = false
     private(set) var isDiscardingProgress: Bool = false
     private(set) var isRestarting: Bool = false
+    /// A progress write is in flight: the More menu's three progress commands wait.
+    private(set) var isChangingProgress = false
+    /// The More menu's groups from the shared rule (`bookDetailMoreMenu`); `menu` drops Share without a link.
+    private(set) var menuGroups: [BookDetailMenuSection] = []
 
     // MARK: - Delete book (admin)
 
@@ -378,6 +382,9 @@ final class BookDetailObserver {
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
+            isChangingProgress = r.isChangingProgress
+            menuGroups = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
+                .bookDetailMoreMenu(ready: r).map(BookDetailMenuSection.init)
             isDeletingBook = r.isDeletingBook
             canPlay = r.canPlay
             canDownload = r.canDownload
