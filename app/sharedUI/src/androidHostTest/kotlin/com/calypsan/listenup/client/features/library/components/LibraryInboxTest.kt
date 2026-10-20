@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
@@ -116,6 +119,36 @@ class LibraryInboxTest {
         }
 
         // An admin whose every new book is held has an empty grid; the strip is how they find them.
+        composeRule.onNodeWithText(HEADER).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a strip that arrives after the books, with the grid at the top, is in view`() {
+        // ⛔ The regression: the grid kept its first book anchored when the header slot was inserted at index 0
+        // after a first sync, so the strip sat just above the viewport and an admin saw only the tab badge.
+        var showHeader by mutableStateOf(false)
+        composeRule.setContent {
+            MaterialTheme {
+                BooksContent(
+                    books = (1..12).map { book("b$it", "Book $it") },
+                    hasLoadedBooks = true,
+                    syncState = SyncState.Idle,
+                    isServerScanning = false,
+                    sortState = SortState(SortCategory.ADDED, SortDirection.DESCENDING),
+                    ignoreTitleArticles = true,
+                    onCategorySelected = {},
+                    onDirectionToggle = {},
+                    onToggleIgnoreArticles = {},
+                    onBookClick = {},
+                    onRetry = {},
+                    header = if (showHeader) ({ Text(HEADER) }) else null,
+                )
+            }
+        }
+        composeRule.onNodeWithText("Book 1").assertIsDisplayed()
+
+        showHeader = true
+
         composeRule.onNodeWithText(HEADER).assertIsDisplayed()
     }
 

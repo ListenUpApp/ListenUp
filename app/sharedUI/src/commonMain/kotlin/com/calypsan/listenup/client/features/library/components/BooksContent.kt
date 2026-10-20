@@ -391,6 +391,14 @@ private fun BookGrid(
     val gridItems = remember(books, bookLetters) { bookGridItems(books, bookLetters) }
 
     val hasHeader = header != null
+    // The header slot (the inbox strip) can arrive after the books, as a first sync settles. The grid keeps its first
+    // book anchored when an item is inserted above it, which would leave the strip just above the viewport. A reader
+    // who was at the top stays at the top, so the strip is seen.
+    LaunchedEffect(hasHeader) {
+        if (hasHeader && gridState.firstVisibleItemIndex == 1 && gridState.firstVisibleItemScrollOffset == 0) {
+            gridState.scrollToItem(0)
+        }
+    }
     val alphabetIndex =
         remember(bookLetters, hasHeader) {
             libraryAlphabetIndex(bookLetters, withHeaders = true, leadingItems = if (hasHeader) 1 else 0)
