@@ -26,7 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +39,9 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_held_for_review
+import listenup.composeapp.generated.resources.book_detail_chapters
+import listenup.composeapp.generated.resources.book_detail_held_match
+import listenup.composeapp.generated.resources.common_edit
 import listenup.composeapp.generated.resources.book_detail_held_body
 import listenup.composeapp.generated.resources.book_detail_held_release
 import listenup.composeapp.generated.resources.chapter_editor_title
@@ -44,21 +49,19 @@ import listenup.composeapp.generated.resources.library_menu_edit_details
 import listenup.composeapp.generated.resources.match_menu_item
 import org.jetbrains.compose.resources.stringResource
 
-/** The Release button's height: the board's tall primary, beside the stacked Edit details tile. */
+/** The Release button's height: the board's tall primary, the panel's one full-width action. */
 private val ReleaseMinHeight = 72.dp
 
-/** The second row's buttons. */
-private val SecondaryMinHeight = 56.dp
-
-/** Edit details' tile width: the pencil above its label. */
-private val EditTileWidth = 96.dp
+/** The second row's buttons: a glyph over one word. */
+private val SecondaryMinHeight = 64.dp
 
 /**
  * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be. Amber, not
  * coral: the fixed held roles ([com.calypsan.listenup.client.design.theme.ListenUpExtendedColors.held]), the app's
  * "waiting for you" colour, which dynamic colour never turns into the wallpaper's tertiary. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
- * played until you release it."), then the only things a held book allows: **Release to members** (asks first), Edit
- * details, Match details and Edit chapters. One row each, short labels (the M3E ButtonGroup call).
+ * played until you release it."), then the only things a held book allows: **Release to members** (asks first) across
+ * the panel, then Edit details, Match details and Edit chapters in one row with short labels ("Edit", "Match",
+ * "Chapters"), each named in full for TalkBack (the M3E ButtonGroup call: one row, shorter labels, never a wrap).
  *
  * @param isReleasing a release is in flight: Release shows its spinner, the rest wait
  * @param onReleaseClick asks first — the caller shows [com.calypsan.listenup.client.features.admin.inbox.ReleaseToEveryoneDialog]
@@ -96,35 +99,36 @@ fun HeldForReviewSection(
                 text = stringResource(Res.string.book_detail_held_body),
                 style = MaterialTheme.typography.bodyLarge,
             )
+            ReleaseButton(
+                isReleasing = isReleasing,
+                onClick = onReleaseClick,
+                modifier = Modifier.fillMaxWidth().heightIn(min = ReleaseMinHeight),
+            )
+            // One row, short labels (the M3E ButtonGroup rule): each a glyph over one word, named in full for TalkBack.
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                ReleaseButton(
-                    isReleasing = isReleasing,
-                    onClick = onReleaseClick,
-                    modifier = Modifier.weight(1f).heightIn(min = ReleaseMinHeight),
-                )
                 TriageTonalButton(
-                    text = stringResource(Res.string.library_menu_edit_details),
+                    label = stringResource(Res.string.common_edit),
+                    description = stringResource(Res.string.library_menu_edit_details),
                     icon = Icons.Outlined.Edit,
                     enabled = !isReleasing,
-                    stacked = true,
                     onClick = onEditClick,
-                    modifier = Modifier.width(EditTileWidth).heightIn(min = ReleaseMinHeight),
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 TriageTonalButton(
-                    text = stringResource(Res.string.match_menu_item),
+                    label = stringResource(Res.string.book_detail_held_match),
+                    description = stringResource(Res.string.match_menu_item),
                     icon = Icons.Outlined.Search,
                     enabled = !isReleasing,
                     onClick = onMatchClick,
-                    modifier = Modifier.weight(1f).heightIn(min = SecondaryMinHeight),
+                    modifier = Modifier.weight(1f),
                 )
                 TriageTonalButton(
-                    text = stringResource(Res.string.chapter_editor_title),
+                    label = stringResource(Res.string.book_detail_chapters),
+                    description = stringResource(Res.string.chapter_editor_title),
                     icon = Icons.Outlined.FormatListNumbered,
                     enabled = !isReleasing,
                     onClick = onEditChaptersClick,
-                    modifier = Modifier.weight(1f).heightIn(min = SecondaryMinHeight),
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -164,16 +168,16 @@ private fun ReleaseButton(
     }
 }
 
-/** A tonal triage action on the panel's lowest surface, with the press haptic and the menu's glyph. */
+/** A tonal triage action on the panel's lowest surface: its glyph over one short word, with the press haptic. */
 @Suppress("LongParameterList")
 @Composable
 private fun TriageTonalButton(
-    text: String,
+    label: String,
+    description: String,
     icon: ImageVector,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    stacked: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     FilledTonalButton(
@@ -187,21 +191,22 @@ private fun TriageTonalButton(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
-        contentPadding = if (stacked) ButtonDefaults.SmallContentPadding else ButtonDefaults.ContentPadding,
-        modifier = modifier,
+        contentPadding = ButtonDefaults.SmallContentPadding,
+        modifier = modifier.heightIn(min = SecondaryMinHeight).semantics { contentDescription = description },
     ) {
-        if (stacked) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-            ) {
-                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                Text(text = text, style = MaterialTheme.typography.labelMedium)
-            }
-        } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(text = text)
+            // The button's own description names it in full; the short word is for the eye.
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.semantics { hideFromAccessibility() },
+            )
         }
     }
 }

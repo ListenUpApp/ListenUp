@@ -5101,6 +5101,16 @@
         }
       }
     },
+    "book.detail_held_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Match"
+          }
+        }
+      }
+    },
     "book.detail_held_release": {
       "localizations": {
         "en": {

@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -71,9 +74,9 @@ class BookDetailTriageTest {
         setContent()
 
         composeRule.onNodeWithText("Release to members").performClick()
-        composeRule.onNodeWithText("Edit details").performClick()
-        composeRule.onNodeWithText("Match details").performClick()
-        composeRule.onNodeWithText("Edit chapters").performClick()
+        composeRule.onNodeWithContentDescription("Edit details").performClick()
+        composeRule.onNodeWithContentDescription("Match details").performClick()
+        composeRule.onNodeWithContentDescription("Edit chapters").performClick()
         composeRule.runOnIdle {
             releases shouldBe 1
             edits shouldBe 1
@@ -88,9 +91,29 @@ class BookDetailTriageTest {
         setContent(isReleasing = true)
 
         composeRule.onNodeWithText("Release to members").assertDoesNotExist()
-        composeRule.onNodeWithText("Edit details").assertIsNotEnabled()
-        composeRule.onNodeWithText("Match details").assertIsNotEnabled()
-        composeRule.onNodeWithText("Edit chapters").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Edit details").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Match details").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Edit chapters").assertIsNotEnabled()
+    }
+
+    // One row, short labels (the M3E ButtonGroup rule): Edit, Match and Chapters side by side, none wrapping, each
+    // still named in full for TalkBack.
+    @Test
+    @Config(qualifiers = Windows.PHONE)
+    fun `on a phone the three fixes share one row, with short labels that never wrap`() {
+        setContent()
+        val tops =
+            listOf("Edit details", "Match details", "Edit chapters").map {
+                composeRule.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot.top
+            }
+        tops.distinct().size shouldBe 1
+        listOf("Edit", "Match", "Chapters").forEach { label ->
+            val results = mutableListOf<TextLayoutResult>()
+            composeRule
+                .onNodeWithText(label, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
+            results.single().lineCount shouldBe 1
+        }
     }
 
     private fun assertTriageOnly() {
@@ -100,9 +123,9 @@ class BookDetailTriageTest {
         composeRule.onNodeWithContentDescription("Held for review, hidden from all members").assertExists()
         // Present: the four triage actions (spec §8, §10).
         composeRule.onNodeWithText("Release to members").assertExists()
-        composeRule.onNodeWithText("Edit details").assertExists()
-        composeRule.onNodeWithText("Match details").assertExists()
-        composeRule.onNodeWithText("Edit chapters").assertExists()
+        composeRule.onNodeWithContentDescription("Edit details").assertExists()
+        composeRule.onNodeWithContentDescription("Match details").assertExists()
+        composeRule.onNodeWithContentDescription("Edit chapters").assertExists()
         // Absent: play, download, Add to shelf, and the overflow menu that carries collection and share.
         // Rating, readers and Hardcover are absent too: see the class KDoc (no Koin is started).
         composeRule.onNodeWithText("Play").assertDoesNotExist()
