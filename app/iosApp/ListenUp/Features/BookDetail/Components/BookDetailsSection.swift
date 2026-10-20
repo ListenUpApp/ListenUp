@@ -69,7 +69,7 @@ struct BookDetailsSection: View {
             .isbn("9781427209979"),
             .allCredits(count: 6),
             .filesAndAudio(container: "M4B", bitrate: "64 kbps"),
-            .maps(count: 1, onlyDocumentId: "d1", format: "PDF", totalBytes: 18_874_368),
+            .maps(count: 1, onlyDocumentId: "d1", format: "PDF", totalBytes: 18_874_368)
         ],
         onLink: { _ in }
     )

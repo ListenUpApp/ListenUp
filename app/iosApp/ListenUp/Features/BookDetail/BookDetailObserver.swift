@@ -446,7 +446,8 @@ final class BookDetailObserver {
             .audioFormatDisplay(files: book.audioFiles)
         audioFileSizes = book.audioFiles.map { $0.size }
         audioFiles = book.audioFiles.map {
-            FilesAndAudioFile(id: $0.id, name: documentBasename($0.filename), durationMs: $0.duration, sizeBytes: $0.size)
+            FilesAndAudioFile(id: $0.id, name: documentBasename($0.filename), durationMs: $0.duration,
+                              sizeBytes: $0.size)
         }
         heroAuthors = book.authors.map { CastMember($0) }
         heroNarrators = book.narrators.map { CastMember($0) }

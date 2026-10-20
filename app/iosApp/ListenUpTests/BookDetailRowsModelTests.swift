@@ -5,7 +5,8 @@ import Testing
 @Suite("Book Detail rows")
 struct BookDetailRowsModelTests {
     @Test func valuesReadAsTheBoardWritesThem() {
-        #expect(BookDetailRowValue.genre(name: "Epic fantasy", abridged: false).cell.value == "Epic fantasy · Unabridged")
+        #expect(BookDetailRowValue.genre(name: "Epic fantasy", abridged: false).cell.value
+            == "Epic fantasy · Unabridged")
         #expect(BookDetailRowValue.length(durationMs: 163_800_000, chapterCount: 75).cell.value
             == "\(BookDetailHero.durationText(ms: 163_800_000)) · 75 chapters")
         #expect(BookDetailRowValue.length(durationMs: 163_800_000, chapterCount: 1).cell.value
@@ -19,7 +20,8 @@ struct BookDetailRowsModelTests {
         #expect(BookDetailRowValue.filesAndAudio(container: nil, bitrate: nil).cell.link == .filesAndAudio)
         #expect(BookDetailRowValue.maps(count: 1, onlyDocumentId: "d1", format: "PDF", totalBytes: 1).cell.link
             == .document("d1"))
-        #expect(BookDetailRowValue.maps(count: 2, onlyDocumentId: nil, format: nil, totalBytes: 1).cell.link == .documents)
+        #expect(BookDetailRowValue.maps(count: 2, onlyDocumentId: nil, format: nil, totalBytes: 1).cell.link
+            == .documents)
         #expect(BookDetailRowValue.isbn("978").cell.link == nil)
     }
 

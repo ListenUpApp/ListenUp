@@ -9,7 +9,7 @@ struct BookDetailMenuModelTests {
         .init(heading: .progress, commands: [.markFinished, .restart, .markNotStarted], isDestructive: false),
         .init(heading: .edit, commands: [.editDetails, .matchDetails, .editChapters], isDestructive: false),
         .init(heading: .admin, commands: [.addToCollection], isDestructive: false),
-        .init(heading: nil, commands: [.deleteFromServer], isDestructive: true),
+        .init(heading: nil, commands: [.deleteFromServer], isDestructive: true)
     ]
 
     @Test func shareLeadsAndDeleteClosesAlone() {

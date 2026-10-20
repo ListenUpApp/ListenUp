@@ -26,7 +26,8 @@ struct BookDetailTriageTests {
     }
 
     @Test func theHeldWordsAreTheBoards() {
-        #expect(BookDetailHeldSection.message == "Hidden from every member, and it can’t be played until you release it.")
+        #expect(BookDetailHeldSection.message
+            == "Hidden from every member, and it can’t be played until you release it.")
         #expect(BookDetailHeldSection.title(of: .release) == "Release to Members")
         #expect(BookDetailHeldSection.title(of: .edit) == "Edit Details")
         #expect(BookDetailHeldSection.title(of: .match) == "Match Details…")

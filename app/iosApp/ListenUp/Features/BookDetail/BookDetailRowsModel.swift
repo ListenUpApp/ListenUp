@@ -84,7 +84,8 @@ enum BookDetailRowValue: Equatable {
         case .added(let epochMs):
             BookDetailCell(
                 label: String(localized: "book.detail_added"),
-                value: Date(timeIntervalSince1970: Double(epochMs) / 1000).formatted(date: .abbreviated, time: .omitted),
+                value: Date(timeIntervalSince1970: Double(epochMs) / 1000)
+                    .formatted(date: .abbreviated, time: .omitted),
                 link: nil
             )
         case .isbn(let isbn):
