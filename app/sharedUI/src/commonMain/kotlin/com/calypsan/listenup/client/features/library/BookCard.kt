@@ -8,7 +8,8 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import listenup.composeapp.generated.resources.selection_select
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -255,13 +256,20 @@ fun BookCard(
                         )
                     },
                 ).then(
-                    // In multi-select a tap toggles the book, so its selection is state, not just a border.
-                    if (isInSelectionMode) Modifier.semantics { selected = isSelected } else Modifier,
+                    // In multi-select a tap toggles the book: a checkbox, checked or not (spec §5.2), not just a border.
+                    if (isInSelectionMode) {
+                        Modifier.semantics {
+                            role = Role.Checkbox
+                            toggleableState = ToggleableState(isSelected)
+                        }
+                    } else {
+                        Modifier
+                    },
                 ).then(
                     if (accessibilityLabel != null) {
                         Modifier.clearAndSetSemantics {
                             contentDescription = accessibilityLabel
-                            role = Role.Button
+                            role = if (isInSelectionMode) Role.Checkbox else Role.Button
                             onClick {
                                 onClick()
                                 true
@@ -272,7 +280,7 @@ fun BookCard(
                                     true
                                 }
                             }
-                            if (isInSelectionMode) selected = isSelected
+                            if (isInSelectionMode) toggleableState = ToggleableState(isSelected)
                         }
                     } else {
                         Modifier
