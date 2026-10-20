@@ -109,7 +109,7 @@ class BookDetailTriageTest {
         // Download and Add to shelf are icon buttons on a phone: their names are their content descriptions
         // ("Download, 1.2 GB" carries the size, spec N2). Neither is drawn, labelled or not.
         composeRule.onNodeWithContentDescription("Download,", substring = true).assertDoesNotExist()
-        composeRule.onNodeWithContentDescription("More options").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("More actions").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Add to shelf").assertDoesNotExist()
         composeRule.onNodeWithText("Add to shelf").assertDoesNotExist()
         composeRule.onNodeWithText("Add to collection").assertDoesNotExist()

@@ -92,6 +92,7 @@ import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -285,24 +286,13 @@ private fun BookDetailLoadingFrame(
     onBackClick: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        // Nothing is offered until the book is known, as on iOS: no ⋮ at all.
         BookDetailTopBar(
-            isComplete = false,
-            hasProgress = false,
-            isAdmin = false,
-            canEditMetadata = false,
             onBackClick = onBackClick,
-            onEditClick = {},
-            onFindMetadataClick = {},
-            onEditChaptersClick = {},
-            onMarkCompleteClick = {},
-            onMarkNotStartedClick = {},
-            onRestartClick = {},
-            onAddToCollectionClick = {},
-            onShareClick = {},
-            onDeleteClick = {},
-            // Every callback above is a stub while the book loads; disable the rows so none
-            // of them confirms a tap that does nothing.
-            actionsEnabled = false,
+            menu = emptyList(),
+            progressBusy = false,
+            onMenuItem = {},
+            isHeld = false,
         )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
@@ -839,22 +829,13 @@ private fun ImmersiveBookDetail(
     val description = DescriptionExpansion(isDescriptionExpanded) { isDescriptionExpanded = !isDescriptionExpanded }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        val menu = remember(state) { bookDetailMoreMenu(state) }
         BookDetailTopBar(
-            isComplete = state.isComplete,
-            hasProgress = state.progress != null,
-            isAdmin = state.isAdmin,
-            canEditMetadata = state.canEditMetadata,
             onBackClick = actions.onBackClick,
-            onEditClick = actions.onEditClick,
-            onFindMetadataClick = actions.onFindMetadataClick,
-            onEditChaptersClick = actions.onEditChaptersClick,
-            onMarkCompleteClick = actions.onMarkCompleteClick,
-            onMarkNotStartedClick = actions.onMarkNotStartedClick,
-            onRestartClick = actions.onRestartClick,
-            onAddToCollectionClick = actions.onAddToCollectionClick,
-            onShareClick = actions.onShareClick,
-            onDeleteClick = actions.onDeleteBookClick,
-            showActions = !state.isHeld,
+            menu = menu,
+            progressBusy = state.isChangingProgress,
+            onMenuItem = actions::perform,
+            isHeld = state.isHeld,
         )
 
         val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()

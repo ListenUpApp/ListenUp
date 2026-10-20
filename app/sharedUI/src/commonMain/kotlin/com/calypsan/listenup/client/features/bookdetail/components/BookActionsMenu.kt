@@ -1,15 +1,16 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -18,191 +19,129 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import com.calypsan.listenup.client.design.components.MenuGroupLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuGroup
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuHeading
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_add_to_collection
-import listenup.composeapp.generated.resources.book_detail_edit_book
-import listenup.composeapp.generated.resources.chapter_editor_title
-import listenup.composeapp.generated.resources.book_detail_mark_as_finished
-import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
-import listenup.composeapp.generated.resources.book_detail_restart_book
-import listenup.composeapp.generated.resources.common_book
-import listenup.composeapp.generated.resources.common_delete_name
-import listenup.composeapp.generated.resources.common_share
-import listenup.composeapp.generated.resources.match_menu_item
+import listenup.composeapp.generated.resources.book_detail_menu_delete
+import listenup.composeapp.generated.resources.book_detail_menu_edit
+import listenup.composeapp.generated.resources.book_detail_menu_edit_chapters
+import listenup.composeapp.generated.resources.book_detail_menu_mark_finished
+import listenup.composeapp.generated.resources.book_detail_menu_mark_not_started
+import listenup.composeapp.generated.resources.book_detail_menu_match_details
+import listenup.composeapp.generated.resources.book_detail_menu_progress
+import listenup.composeapp.generated.resources.book_detail_menu_restart
+import listenup.composeapp.generated.resources.library_menu_add_to_collection
+import listenup.composeapp.generated.resources.library_menu_admin
+import listenup.composeapp.generated.resources.library_menu_edit_details
+import listenup.composeapp.generated.resources.library_menu_share
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Dropdown menu for book actions.
- * Shows Edit, Find Metadata, Mark as Complete, Mark as Not Started, Add to Shelf.
- * Delete is shown only for admin users.
- *
- * @param expanded Whether the menu is currently showing
- * @param onDismiss Called when the menu should be dismissed
- * @param isComplete Whether the book is marked as complete
- * @param hasProgress Whether the book has any playback progress
- * @param isAdmin Whether the current user is an admin
- * @param canEditMetadata Whether the user may edit this book's metadata — Edit book, Find Metadata and Edit chapters
- * @param onEditClick Called when Edit Book is clicked
- * @param onFindMetadataClick Called when Find Metadata is clicked
- * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
- * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
- * @param onRestartClick Called when Restart Book is clicked (shown when there is progress or it is complete)
- * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
- * @param onDeleteClick Called when Delete Book is clicked (admin only) — the caller is expected to
- *   confirm before anything is destroyed; this row only opens that conversation.
+ * Book Detail's ⋮ menu (spec §2.7), drawn from [groups] ([bookDetailMoreMenu]): Share; Progress; Edit; Admin; then
+ * Delete from server… alone, in the error colour. `DropdownMenu` has no native sections, so each group after the first
+ * opens with a `HorizontalDivider`, and a named group with a [MenuGroupLabel] (m3.material.io/components/menus). While
+ * [progressBusy], the three progress items wait. Choosing an item closes the menu first.
  */
-@Suppress("LongParameterList")
 @Composable
 fun BookActionsMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    isComplete: Boolean,
-    hasProgress: Boolean,
-    isAdmin: Boolean,
-    canEditMetadata: Boolean,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onMarkCompleteClick: () -> Unit,
-    onMarkNotStartedClick: () -> Unit,
-    onRestartClick: () -> Unit,
-    onAddToCollectionClick: () -> Unit,
-    onShareClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    actionsEnabled: Boolean = true,
+    groups: List<BookDetailMenuGroup>,
+    progressBusy: Boolean,
+    onItem: (BookDetailMenuItem) -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-    ) {
-        if (canEditMetadata) {
-            // Edit Book
-            ActionMenuItem(
-                label = stringResource(Res.string.book_detail_edit_book),
-                icon = Icons.Outlined.Edit,
-                onClick = onEditClick,
-                enabled = actionsEnabled,
-            )
-
-            // Find Metadata
-            ActionMenuItem(
-                label = stringResource(Res.string.match_menu_item),
-                icon = Icons.Outlined.Search,
-                onClick = onFindMetadataClick,
-                enabled = actionsEnabled,
-            )
-
-            // Edit chapters — Edit metadata's, like Edit book and Match.
-            ActionMenuItem(
-                label = stringResource(Res.string.chapter_editor_title),
-                icon = Icons.Outlined.FormatListNumbered,
-                onClick = onEditChaptersClick,
-                enabled = actionsEnabled,
-            )
-
-            HorizontalDivider()
-        }
-
-        // Mark as Complete (only when not already complete)
-        if (!isComplete) {
-            ActionMenuItem(
-                label = stringResource(Res.string.book_detail_mark_as_finished),
-                icon = Icons.Outlined.CheckCircle,
-                onClick = onMarkCompleteClick,
-                enabled = actionsEnabled,
-            )
-        }
-
-        // Mark as Not Started (whenever there is progress or it is complete — i.e. something to clear)
-        if (hasProgress || isComplete) {
-            ActionMenuItem(
-                label = stringResource(Res.string.book_detail_mark_as_not_started),
-                icon = Icons.Outlined.RadioButtonUnchecked,
-                onClick = onMarkNotStartedClick,
-                enabled = actionsEnabled,
-            )
-        }
-
-        // Restart Book — resets the position to the start (shown when there is something to restart)
-        if (hasProgress || isComplete) {
-            ActionMenuItem(
-                label = stringResource(Res.string.book_detail_restart_book),
-                icon = Icons.Outlined.RestartAlt,
-                onClick = onRestartClick,
-                enabled = actionsEnabled,
-            )
-        }
-
-        // Add to Collection (admin only)
-        if (isAdmin) {
-            ActionMenuItem(
-                label = stringResource(Res.string.book_detail_add_to_collection),
-                icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
-                onClick = onAddToCollectionClick,
-                enabled = actionsEnabled,
-            )
-        }
-
-        // Share
-        ActionMenuItem(
-            label = stringResource(Res.string.common_share),
-            icon = Icons.Outlined.Share,
-            onClick = onShareClick,
-            enabled = actionsEnabled,
-        )
-
-        // Delete Book (admin only) — destroys the book's folder on the server. Set apart by a
-        // divider and painted in the error colour: everything above it is reversible and this is
-        // not. The confirmation dialog is where the consequences get spelled out.
-        if (isAdmin) {
-            HorizontalDivider()
-
-            val haptics = LocalHaptics.current
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = stringResource(Res.string.common_delete_name, stringResource(Res.string.common_book)),
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        groups.forEachIndexed { index, group ->
+            if (index > 0) HorizontalDivider()
+            Column(Modifier.testTag("bookMenuGroup:${group.key()}")) {
+                group.heading?.let { MenuGroupLabel(stringResource(it.label())) }
+                group.items.forEach { item ->
+                    BookMenuItem(
+                        item = item,
+                        destructive = group.isDestructive,
+                        enabled = !(progressBusy && item.isProgress()),
+                        onClick = {
+                            onDismiss()
+                            onItem(item)
+                        },
                     )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = null,
-                    )
-                },
-                colors =
-                    MenuDefaults.itemColors(
-                        textColor = MaterialTheme.colorScheme.error,
-                        leadingIconColor = MaterialTheme.colorScheme.error,
-                    ),
-                onClick = {
-                    haptics.press()
-                    onDeleteClick()
-                },
-                enabled = actionsEnabled,
-            )
+                }
+            }
         }
     }
 }
 
-/** A dropdown row with a leading icon — the shape every non-destructive book action shares. */
 @Composable
-private fun ActionMenuItem(
-    label: String,
-    icon: ImageVector,
+private fun BookMenuItem(
+    item: BookDetailMenuItem,
+    destructive: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
-    enabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
+    val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     DropdownMenuItem(
-        text = { Text(label) },
-        leadingIcon = { Icon(imageVector = icon, contentDescription = null) },
+        text = { Text(stringResource(item.label())) },
+        leadingIcon = { Icon(item.icon(), contentDescription = null) },
+        colors = MenuDefaults.itemColors(textColor = tint, leadingIconColor = tint),
+        enabled = enabled,
         onClick = {
             haptics.press()
             onClick()
         },
-        enabled = enabled,
     )
 }
+
+private fun BookDetailMenuGroup.key(): String =
+    when {
+        isDestructive -> "delete"
+        heading == BookDetailMenuHeading.Progress -> "progress"
+        heading == BookDetailMenuHeading.Edit -> "edit"
+        heading == BookDetailMenuHeading.Admin -> "admin"
+        else -> "share"
+    }
+
+private fun BookDetailMenuItem.isProgress(): Boolean =
+    this == BookDetailMenuItem.MarkFinished || this == BookDetailMenuItem.Restart ||
+        this == BookDetailMenuItem.MarkNotStarted
+
+private fun BookDetailMenuHeading.label(): StringResource =
+    when (this) {
+        BookDetailMenuHeading.Progress -> Res.string.book_detail_menu_progress
+        BookDetailMenuHeading.Edit -> Res.string.book_detail_menu_edit
+        BookDetailMenuHeading.Admin -> Res.string.library_menu_admin
+    }
+
+private fun BookDetailMenuItem.label(): StringResource =
+    when (this) {
+        BookDetailMenuItem.Share -> Res.string.library_menu_share
+        BookDetailMenuItem.MarkFinished -> Res.string.book_detail_menu_mark_finished
+        BookDetailMenuItem.Restart -> Res.string.book_detail_menu_restart
+        BookDetailMenuItem.MarkNotStarted -> Res.string.book_detail_menu_mark_not_started
+        BookDetailMenuItem.EditDetails -> Res.string.library_menu_edit_details
+        BookDetailMenuItem.MatchDetails -> Res.string.book_detail_menu_match_details
+        BookDetailMenuItem.EditChapters -> Res.string.book_detail_menu_edit_chapters
+        BookDetailMenuItem.AddToCollection -> Res.string.library_menu_add_to_collection
+        BookDetailMenuItem.DeleteFromServer -> Res.string.book_detail_menu_delete
+    }
+
+private fun BookDetailMenuItem.icon(): ImageVector =
+    when (this) {
+        BookDetailMenuItem.Share -> Icons.Outlined.Share
+        BookDetailMenuItem.MarkFinished -> Icons.Outlined.CheckCircle
+        BookDetailMenuItem.Restart -> Icons.Outlined.RestartAlt
+        BookDetailMenuItem.MarkNotStarted -> Icons.Outlined.RadioButtonUnchecked
+        BookDetailMenuItem.EditDetails -> Icons.Outlined.Edit
+        BookDetailMenuItem.MatchDetails -> Icons.Outlined.Search
+        BookDetailMenuItem.EditChapters -> Icons.Outlined.FormatListNumbered
+        BookDetailMenuItem.AddToCollection -> Icons.AutoMirrored.Outlined.PlaylistAdd
+        BookDetailMenuItem.DeleteFromServer -> Icons.Outlined.Delete
+    }

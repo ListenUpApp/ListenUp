@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.runtime.Stable
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
 
 /**
  * Everything a reader can do from Book Detail, in one stable value both layouts take.
@@ -45,3 +46,17 @@ data class BookDetailActions(
     /** Opens another book: a cover on the series shelf. */
     val onBookClick: (bookId: String) -> Unit = {},
 )
+
+/** Runs the action behind a More menu [item]. */
+internal fun BookDetailActions.perform(item: BookDetailMenuItem) =
+    when (item) {
+        BookDetailMenuItem.Share -> onShareClick()
+        BookDetailMenuItem.MarkFinished -> onMarkCompleteClick()
+        BookDetailMenuItem.Restart -> onRestartClick()
+        BookDetailMenuItem.MarkNotStarted -> onMarkNotStartedClick()
+        BookDetailMenuItem.EditDetails -> onEditClick()
+        BookDetailMenuItem.MatchDetails -> onFindMetadataClick()
+        BookDetailMenuItem.EditChapters -> onEditChaptersClick()
+        BookDetailMenuItem.AddToCollection -> onAddToCollectionClick()
+        BookDetailMenuItem.DeleteFromServer -> onDeleteBookClick()
+    }

@@ -31,12 +31,14 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
+import com.calypsan.listenup.client.features.bookdetail.perform
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
 import kotlinx.coroutines.launch
 
 /** The side column's width (spec §3.2.4 "Side (360 px)"; the Android tablet board's side column is the same). */
@@ -95,22 +97,13 @@ fun WideBookDetail(
     val playerInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        val menu = remember(state) { bookDetailMoreMenu(state) }
         BookDetailTopBar(
-            isComplete = state.isComplete,
-            hasProgress = state.progress != null,
-            isAdmin = state.isAdmin,
-            canEditMetadata = state.canEditMetadata,
             onBackClick = actions.onBackClick,
-            onEditClick = actions.onEditClick,
-            onFindMetadataClick = actions.onFindMetadataClick,
-            onEditChaptersClick = actions.onEditChaptersClick,
-            onMarkCompleteClick = actions.onMarkCompleteClick,
-            onMarkNotStartedClick = actions.onMarkNotStartedClick,
-            onRestartClick = actions.onRestartClick,
-            onAddToCollectionClick = actions.onAddToCollectionClick,
-            onShareClick = actions.onShareClick,
-            onDeleteClick = actions.onDeleteBookClick,
-            showActions = !state.isHeld,
+            menu = menu,
+            progressBusy = state.isChangingProgress,
+            onMenuItem = actions::perform,
+            isHeld = state.isHeld,
         )
 
         Column(
