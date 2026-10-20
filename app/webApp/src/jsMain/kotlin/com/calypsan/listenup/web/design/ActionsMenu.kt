@@ -145,8 +145,7 @@ fun PopupMenu(
             }
             onClick { open = !open }
         }) {
-            if (triggerContent != null) triggerContent() else Icon(icon, size = MENU_ICON_SIZE)
-            triggerText?.let { Text(it) }
+            MenuTriggerFace(icon = icon, text = triggerText, content = triggerContent)
         }
 
         if (open) {
@@ -161,6 +160,17 @@ fun PopupMenu(
             )
         }
     }
+}
+
+/** What a menu's trigger shows: [content] when given (an avatar), else [icon]; then [text] if any. */
+@Composable
+private fun MenuTriggerFace(
+    icon: WebIcon,
+    text: String?,
+    content: (@Composable () -> Unit)?,
+) {
+    if (content != null) content() else Icon(icon, size = MENU_ICON_SIZE)
+    text?.let { Text(it) }
 }
 
 /** Calls [onOutside] for a press anywhere outside [anchor], for as long as this is composed. */
