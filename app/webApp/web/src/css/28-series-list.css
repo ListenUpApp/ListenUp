@@ -4,24 +4,37 @@
 
 .srs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 18px;
   /* Virtualised — see `.lib-grid` on why the browser must not anchor the scroll. */
   overflow-anchor: none;
 }
 
 .srs-card {
-  display: flex; flex-direction: column; gap: var(--sp-8);
-  padding: 0; border: none; background: none; cursor: pointer;
-  font-family: inherit; text-align: left; color: var(--ink);
+  display: flex; flex-direction: column; gap: var(--sp-12);
+  padding: var(--sp-12); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
+  cursor: pointer; font-family: inherit; text-align: left; color: var(--ink);
 }
 
-.srs-cover { width: 100%; }
+/* Up to three 72px covers, 20px apart, the first in front, in a 112×84 box (spec c6, board `Library-WebPhone`); the
+   series' book count in ink on paper at the box's foot. */
+.srs-stack { position: relative; flex: none; width: 112px; height: 84px; }
+.srs-stack .srs-c { position: absolute; top: 6px; box-shadow: 0 1px 3px rgba(28,23,20,.18); }
+.srs-stack .srs-c-0 { left: 0; z-index: 3; }
+.srs-stack .srs-c-1 { left: 20px; z-index: 2; }
+.srs-stack .srs-c-2 { left: 40px; z-index: 1; }
+.srs-badge {
+  position: absolute; right: 0; bottom: 0; z-index: 4; min-width: 1.4rem; height: 1.4rem; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-pill);
+  background: var(--ink); color: var(--paper); font-size: var(--fs-caption); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ⛔ A fixed height, whatever the name's length and whether or not there is progress to show: the
    grid is virtualised and counts rows rather than measuring each one, so every card must be the
    same height. Two lines of name, one of count, one of progress, and the gaps between them. */
-.srs-meta { display: flex; flex-direction: column; gap: 2px; height: calc(2.25rem + 1.9rem + 4px); overflow: hidden; }
+.srs-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; height: calc(2.25rem + 1.9rem + 14px); overflow: hidden; }
+.srs-bar { flex: none; margin: 4px 0 2px; }
 .srs-name {
   font-size: 0.9rem; font-weight: 650; line-height: 1.25;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
@@ -30,7 +43,15 @@
 .srs-count { font-size: 0.76rem; line-height: 1.25; color: var(--ink-3); }
 /* The accent once a series is begun; an untouched one says "Not started" in muted ink, as iOS does. */
 .srs-progress { font-size: 0.76rem; line-height: 1.25; font-weight: 600; color: var(--coral-text); }
-.srs-progress-idle { font-weight: 400; color: var(--ink-3); }
+.srs-progress-idle { font-weight: 400; color: var(--ink-2); }
+.srs-progress.is-complete { color: var(--success); }
+
+/* A phone lists series as one column of row cards: the covers, then the words beside them (board `Library-WebPhone`). */
+@media (max-width: 759px) {
+  .srs-grid { grid-template-columns: 1fr; gap: var(--sp-8); }
+  .srs-card { flex-direction: row; align-items: center; gap: 14px; }
+  .srs-meta { flex: 1 1 auto; }
+}
 
 /* A parent series: two paper edges peek out behind the cover, so the card reads as a stack of
    series rather than one. Drawn behind the cover, never over it. */
