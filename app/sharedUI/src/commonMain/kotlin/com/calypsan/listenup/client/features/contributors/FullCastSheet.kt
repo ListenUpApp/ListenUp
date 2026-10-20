@@ -30,6 +30,9 @@ import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -103,8 +106,26 @@ fun FullCastSheetFor(
         contributors = contributors,
         onContributorClick = onContributorClick,
         onDismiss = onDismiss,
+        byRole = role == CastRole.All,
     )
 }
+
+/** One headed run of the roster: a role and its people, or (with no [heading]) the whole list. */
+private data class CastSection(
+    val heading: String?,
+    val contributors: List<BookContributor>,
+)
+
+/** The roster's sections: by role ("Author", "Narrators" — `groupContributorsByRole`) or one unheaded run. */
+private fun castSections(
+    contributors: List<BookContributor>,
+    byRole: Boolean,
+): List<CastSection> =
+    if (byRole) {
+        groupContributorsByRole(contributors).map { CastSection(it.roleLabel, it.contributors) }
+    } else {
+        listOf(CastSection(heading = null, contributors = contributors))
+    }
 
 /**
  * The full roster overlay opened from a folded hero contributor line (e.g. "Roy Dotrice, 13 other
@@ -120,6 +141,8 @@ fun FullCastSheetFor(
  * @param contributors  The full roster; the caller guarantees a non-empty list.
  * @param onContributorClick Invoked with a contributor id when a row is tapped (also dismisses).
  * @param onDismiss     Invoked when the overlay is dismissed without a selection.
+ * @param byRole        Head the roster by role, each role's people under it (Book Detail's All credits, spec D8); a
+ *   person in two roles is listed under both.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,7 +152,9 @@ fun FullCastSheet(
     contributors: List<BookContributor>,
     onContributorClick: (String) -> Unit,
     onDismiss: () -> Unit,
+    byRole: Boolean = false,
 ) {
+    val sections = castSections(contributors, byRole)
     val expanded =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
@@ -144,7 +169,7 @@ fun FullCastSheet(
         FullCastDialog(
             title = title,
             countText = countText,
-            contributors = contributors,
+            sections = sections,
             onSelect = onSelect,
             onDismiss = onDismiss,
         )
@@ -152,7 +177,7 @@ fun FullCastSheet(
         FullCastBottomSheet(
             title = title,
             countText = countText,
-            contributors = contributors,
+            sections = sections,
             onSelect = onSelect,
             onDismiss = onDismiss,
         )
@@ -165,7 +190,7 @@ fun FullCastSheet(
 private fun FullCastBottomSheet(
     title: String,
     countText: String,
-    contributors: List<BookContributor>,
+    sections: List<CastSection>,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -187,12 +212,20 @@ private fun FullCastBottomSheet(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            itemsIndexed(items = contributors, key = { _, c -> c.id }) { index, contributor ->
-                CastRow(
-                    contributor = contributor,
-                    index = index,
-                    onClick = { onSelect(contributor.id) },
-                )
+            sections.forEach { section ->
+                section.heading?.let { heading ->
+                    item(key = "role:$heading") { RoleHeading(heading, Modifier.padding(horizontal = 8.dp)) }
+                }
+                itemsIndexed(
+                    items = section.contributors,
+                    key = { _, c -> "${section.heading}:${c.id}" },
+                ) { index, contributor ->
+                    CastRow(
+                        contributor = contributor,
+                        index = index,
+                        onClick = { onSelect(contributor.id) },
+                    )
+                }
             }
         }
     }
@@ -203,7 +236,7 @@ private fun FullCastBottomSheet(
 private fun FullCastDialog(
     title: String,
     countText: String,
-    contributors: List<BookContributor>,
+    sections: List<CastSection>,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -228,18 +261,9 @@ private fun FullCastDialog(
                             .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    contributors.chunked(2).forEachIndexed { rowIndex, pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pair.forEachIndexed { colIndex, contributor ->
-                                CastRow(
-                                    contributor = contributor,
-                                    index = rowIndex * 2 + colIndex,
-                                    onClick = { onSelect(contributor.id) },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
-                        }
+                    sections.forEach { section ->
+                        section.heading?.let { RoleHeading(it, Modifier.padding(horizontal = 8.dp)) }
+                        CastPairs(section.contributors, onSelect)
                     }
                 }
                 Row(
@@ -262,6 +286,41 @@ private fun FullCastDialog(
             }
         }
     }
+}
+
+/** The dialog's two-column roster for one section. */
+@Composable
+private fun CastPairs(
+    contributors: List<BookContributor>,
+    onSelect: (String) -> Unit,
+) {
+    contributors.chunked(2).forEachIndexed { rowIndex, pair ->
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            pair.forEachIndexed { colIndex, contributor ->
+                CastRow(
+                    contributor = contributor,
+                    index = rowIndex * 2 + colIndex,
+                    onClick = { onSelect(contributor.id) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+/** A role's heading over its people ("Author", "Narrators"); a heading for TalkBack. */
+@Composable
+private fun RoleHeading(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(top = Spacing.md, bottom = Spacing.xs).semantics { heading() },
+    )
 }
 
 /** Shared title + supporting count line for both overlay variants. */
