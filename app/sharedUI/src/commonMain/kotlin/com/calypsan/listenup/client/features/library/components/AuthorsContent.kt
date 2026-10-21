@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +18,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +46,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
+import com.calypsan.listenup.client.design.components.AlphabetRailWidth
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -67,6 +75,7 @@ import listenup.composeapp.generated.resources.genre_books_count
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
  * @param onAuthorClick Callback when an author is clicked
+ * @param showCovers Whether each row shows its two newest covers (the wide Library, spec c7)
  * @param modifier Optional modifier
  */
 @Composable
@@ -77,6 +86,7 @@ fun AuthorsContent(
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
     onAuthorClick: (String) -> Unit,
+    showCovers: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -124,7 +134,13 @@ fun AuthorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onAuthorClick)
+                        contributorRows(
+                            rows = rows,
+                            onClick = onAuthorClick,
+                            showCovers = showCovers,
+                            reserveRail =
+                                alphabetIndex != null,
+                        )
                     }
 
                     // Alphabet scrollbar (only for name sort)
@@ -155,6 +171,8 @@ fun AuthorsContent(
 internal fun LazyListScope.contributorRows(
     rows: List<LetteredRow<ContributorWithBookCount>>,
     onClick: (String) -> Unit,
+    showCovers: Boolean = false,
+    reserveRail: Boolean = false,
 ) {
     items(
         items = rows,
@@ -170,6 +188,8 @@ internal fun LazyListScope.contributorRows(
                 ContributorCard(
                     contributorWithCount = row.value,
                     onClick = { onClick(row.value.contributor.id.value) },
+                    showCovers = showCovers,
+                    reserveRail = reserveRail,
                 )
             }
         }
@@ -179,12 +199,18 @@ internal fun LazyListScope.contributorRows(
 /**
  * Card displaying a contributor (author/narrator) with their book count.
  * Shows contributor image if available, otherwise displays initials.
+ *
+ * On a wide Library ([showCovers]) the row ends in the contributor's two newest covers (spec c7). They are decoration:
+ * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6). Beside the letter index
+ * ([reserveRail]) they stop short of it, so the index never sits over a cover.
  */
 @Composable
 internal fun ContributorCard(
     contributorWithCount: ContributorWithBookCount,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showCovers: Boolean = false,
+    reserveRail: Boolean = false,
 ) {
     val haptics = LocalHaptics.current
     val contributor = contributorWithCount.contributor
@@ -221,17 +247,7 @@ internal fun ContributorCard(
 
                     if (!imageLoaded) {
                         Text(
-                            text =
-                                contributor.name
-                                    .trim()
-                                    .split("\\s+".toRegex())
-                                    .let { parts ->
-                                        when {
-                                            parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                            contributor.name.length >= 2 -> contributor.name.take(2)
-                                            else -> contributor.name.take(1)
-                                        }
-                                    }.uppercase(),
+                            text = initialsOf(contributor.name),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -277,9 +293,76 @@ internal fun ContributorCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            if (showCovers && contributorWithCount.previewBookIds.isNotEmpty()) {
+                PreviewCovers(
+                    bookIds = contributorWithCount.previewBookIds.take(PREVIEW_COVERS),
+                    modifier = if (reserveRail) Modifier.padding(end = AlphabetRailWidth) else Modifier,
+                )
+            }
         }
     }
 }
+
+/** "Ann Leckie" → "AL"; a one-word name gives its first two letters. */
+private fun initialsOf(name: String): String {
+    val parts = name.trim().split("\\s+".toRegex())
+    return when {
+        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
+        name.length >= 2 -> name.take(2)
+        else -> name.take(1)
+    }.uppercase()
+}
+
+/**
+ * Up to two square covers at a people row's end; decoration under the row's own name. Each sits on a quiet tile, so a
+ * book with no cover is a tile rather than a gap — web's waiting tile.
+ */
+@Composable
+private fun PreviewCovers(
+    bookIds: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier.padding(start = Spacing.md).clearAndSetSemantics {},
+    ) {
+        bookIds.forEach { bookId ->
+            // The tile under the cover: an `outline` edge (3:1 on the card, WCAG 1.4.11) and a book glyph, so a book
+            // with no cover reads as a cover-shaped placeholder, as on web and iOS. A loaded cover draws over both.
+            val shape = RoundedCornerShape(6.dp)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier =
+                    Modifier
+                        .size(PREVIEW_COVER_SIZE)
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+                        .testTag(PREVIEW_COVER_TAG),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Book,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(PREVIEW_GLYPH_SIZE),
+                )
+                BookCoverImage(
+                    bookId = bookId,
+                    coverPath = null,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
+}
+
+/** Test tag on each of a people row's preview covers. */
+internal const val PREVIEW_COVER_TAG = "contributor-preview-cover"
+private const val PREVIEW_COVERS = 2
+private val PREVIEW_COVER_SIZE = 40.dp
+private val PREVIEW_GLYPH_SIZE = 20.dp
 
 /**
  * Empty state when no authors in library.

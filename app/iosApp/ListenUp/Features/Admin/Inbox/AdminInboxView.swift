@@ -38,6 +38,13 @@ struct AdminInboxView: View {
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
+    /// "Waiting for you to release" while books are held; nothing once the inbox is clear. A regular width draws its own
+    /// header with the inbox's subtitle (`padHeader`), so the system's would be the inbox named twice.
+    private var waitingSubtitle: String {
+        guard !isRegularWidth, case .ready(let ready) = observer?.phase, ready.hasBooks else { return "" }
+        return String(localized: "admin.inbox_entry_subtitle")
+    }
+
     var body: some View {
         Group {
             if let observer {
@@ -48,6 +55,8 @@ struct AdminInboxView: View {
         }
         .background(Color.luSurface)
         .navigationTitle(String(localized: "common.inbox"))
+        // The iPad sidebar's Inbox entry carries one line; the board's second, "Waiting for you to release", is here.
+        .navigationSubtitle(waitingSubtitle)
         .navigationBarTitleDisplayMode(.large)
         .toolbar { selectToolbarItems }
         // Selecting replaces Back with Select all, as Done is the way out (HIG, Lists and tables).

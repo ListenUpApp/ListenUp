@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
@@ -147,11 +148,16 @@ internal class ContributorRepositoryImpl(
     // ========== Library View Methods ==========
 
     override fun observeContributorsByRole(role: String): Flow<List<ContributorWithBookCount>> =
-        contributorDao.observeByRoleWithCount(role).map { entities ->
+        combine(
+            contributorDao.observeByRoleWithCount(role),
+            contributorDao.observePreviewBookIdsByRole(role),
+        ) { entities, previews ->
+            val byContributor = previews.groupBy({ it.contributorId }, { it.bookId })
             entities.map { entity ->
                 ContributorWithBookCount(
                     contributor = entity.contributor.toDomain(),
                     bookCount = entity.bookCount,
+                    previewBookIds = byContributor[entity.contributor.id.value].orEmpty(),
                 )
             }
         }

@@ -161,6 +161,12 @@ internal data class ContributorWithBookCount(
     val bookCount: Int,
 )
 
+/** One preview cover for a contributor's Library row: the contributor and one of their books, newest first. */
+internal data class ContributorPreviewRow(
+    val contributorId: String,
+    val bookId: String,
+)
+
 /**
  * Relation POJO for loading a series with all its books in a single query.
  *

@@ -15,14 +15,27 @@ struct ContributorRow: Identifiable, Equatable, Hashable {
     let imagePath: String?
     /// How the photo sits in its circle; nil is the centre crop.
     let imageFrame: ImageFrameValue?
+    /// Their newest books in this role, newest added first — the covers a wide card shows (spec c7).
+    let previewBookIds: [String]
 
-    init(id: String, name: String, bookCount: Int, imagePath: String?, imageFrame: ImageFrameValue? = nil) {
+    init(
+        id: String,
+        name: String,
+        bookCount: Int,
+        imagePath: String?,
+        imageFrame: ImageFrameValue? = nil,
+        previewBookIds: [String] = []
+    ) {
         self.id = id
         self.name = name
         self.bookCount = bookCount
         self.imagePath = imagePath
         self.imageFrame = imageFrame
+        self.previewBookIds = previewBookIds
     }
+
+    /// The covers a wide card draws: two at most.
+    var previewCoverIds: [String] { Array(previewBookIds.prefix(2)) }
 
     /// Snapshot a Kotlin `ContributorWithBookCount` into native values. Reads each bridged property once.
     init(_ contributor: ContributorWithBookCount) {
@@ -31,5 +44,6 @@ struct ContributorRow: Identifiable, Equatable, Hashable {
         self.bookCount = Int(contributor.bookCount)
         self.imagePath = contributor.contributor.imagePath
         self.imageFrame = ImageFrameValue(contributor.contributor.imageFrame)
+        self.previewBookIds = Array(contributor.previewBookIds)
     }
 }

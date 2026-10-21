@@ -134,11 +134,12 @@ fun LibrarySortCard(
 }
 
 /**
- * The tonal capsule trigger + the unified sort menu it opens.
+ * The tonal capsule trigger + the unified sort menu it opens. The Android tablet's second header band draws this one
+ * trigger beside the status chips, rather than a second sort control.
  */
 @Suppress("LongParameterList")
 @Composable
-private fun SortTrigger(
+internal fun SortTrigger(
     state: SortState,
     categories: List<SortCategory>,
     ignoreArticles: Boolean,

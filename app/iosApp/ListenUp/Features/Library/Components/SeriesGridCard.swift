@@ -1,7 +1,8 @@
 import SwiftUI
 import Shared
 
-/// Series grid card for the iPad Series list: a centered cover stack over name + meta
+/// Series grid card for the iPad Series list: a centered stack of up to three covers with the series' book count
+/// on it (spec c6), over name + meta
 /// + progress, on its own rounded surface.
 struct SeriesGridCard: View {
     let series: SeriesRow
@@ -10,7 +11,7 @@ struct SeriesGridCard: View {
     var body: some View {
         NavigationLink(value: SeriesDestination(id: series.id)) {
             VStack(alignment: .leading, spacing: 16) {
-                CoverStack(covers: series.covers, size: 112, peek: 26, maxCovers: 5)
+                CoverStack(covers: series.covers, size: 112, peek: 26, maxCovers: 3, countBadge: series.bookCount)
                     .heroSource(seriesHeroID(series.id))
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {

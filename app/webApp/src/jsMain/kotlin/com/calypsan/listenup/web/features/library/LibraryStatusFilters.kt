@@ -6,7 +6,9 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
+import com.calypsan.listenup.client.presentation.library.LibraryLength
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
+import com.calypsan.listenup.client.presentation.library.libraryLengthOf
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
@@ -14,10 +16,6 @@ import org.jetbrains.compose.web.dom.Button as DomButton
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
-
-private const val MS_PER_DAY = 86_400_000L
-private const val MS_PER_HOUR = 3_600_000L
-private const val MS_PER_MINUTE = 60_000L
 
 /** Status filters with whole-library counts (board `Library-WebDesktop`): one row, scrolling on a phone. */
 @Composable
@@ -108,14 +106,19 @@ internal fun libraryCountLine(
 ): String {
     val books = if (all == 1) "1 book" else "${groupedCount(all)} books"
     val span =
-        listOf(MS_PER_DAY to "day", MS_PER_HOUR to "hour", MS_PER_MINUTE to "minute")
-            .firstOrNull { (unit, _) -> totalDurationMs >= unit }
-            ?.let { (unit, name) ->
-                val count = totalDurationMs / unit
-                if (count == 1L) "1 $name of listening" else "$count ${name}s of listening"
-            }
+        when (val length = libraryLengthOf(totalDurationMs)) {
+            LibraryLength.None -> null
+            is LibraryLength.Days -> listening(length.count, "day")
+            is LibraryLength.Hours -> listening(length.count, "hour")
+            is LibraryLength.Minutes -> listening(length.count, "minute")
+        }
     return if (span == null) books else "$books · $span"
 }
+
+private fun listening(
+    count: Long,
+    unit: String,
+): String = if (count == 1L) "1 $unit of listening" else "$count ${unit}s of listening"
 
 /** Thousands separators, English only — the web's copy is English throughout. */
 internal fun groupedCount(n: Int): String =

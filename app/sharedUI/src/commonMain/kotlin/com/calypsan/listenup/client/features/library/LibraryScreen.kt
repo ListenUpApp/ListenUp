@@ -113,6 +113,7 @@ fun LibraryScreen(
 
     // Shell-scoped like the nav badge: the same ViewModelStore resolves the same InboxBadgeViewModel.
     val heldCount by inboxBadge.heldCount.collectAsStateWithLifecycle()
+    val previewBookIds by inboxBadge.previewBookIds.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is LibraryUiState.Loading -> {
@@ -141,6 +142,7 @@ fun LibraryScreen(
                 onShareBook = onShareBook,
                 onEditBook = onEditBook,
                 heldCount = heldCount,
+                previewBookIds = previewBookIds,
                 onOpenInbox = onOpenInbox,
                 onEvent = viewModel::onEvent,
                 modifier = modifier,
@@ -211,6 +213,7 @@ internal fun LibraryLoadedContent(
     onPlayBook: (String) -> Unit = {},
     onShareBook: ((bookId: String, title: String) -> Unit)? = null,
     onEditBook: ((String) -> Unit)? = null,
+    previewBookIds: List<String> = emptyList(),
 ) {
     val haptics = LocalHaptics.current
     val selectionState = rememberBookSelectionScaffoldState()
@@ -236,6 +239,11 @@ internal fun LibraryLoadedContent(
     val isWide =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    // The tablet layout (spec §3.1.3, ≥ 840dp): two header bands. Medium widths keep the phone header.
+    val isExpanded =
+        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
     // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only, open question 1:
@@ -285,11 +293,13 @@ internal fun LibraryLoadedContent(
             statusFilter = state.statusFilter,
             onShowAllBooks = { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) },
             statusStrip = state.statusStrip,
+            showSortControl = !isExpanded,
             // Books view only (canvas): Series, Authors and Narrators do not carry it,
             // and selecting books turns the grid into a picking surface the entry would clutter. A host
             // with no route to the inbox gets no entry: a tile that opens nothing reads as broken.
+            // The tablet carries the inbox as a pill in its first header band instead.
             header =
-                if (heldCount > 0 && !isInSelectionMode && onOpenInbox != null) {
+                if (heldCount > 0 && !isInSelectionMode && onOpenInbox != null && !isExpanded) {
                     {
                         LibraryInboxStrip(heldCount = heldCount, onOpenInbox = onOpenInbox)
                     }
@@ -302,30 +312,45 @@ internal fun LibraryLoadedContent(
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Custom shell header (search/sync/avatar). The Library title is a big Expressive hero.
-            appHeader {
-                Text(
-                    text = ShellDestination.Library.title,
-                    style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+            if (isExpanded) {
+                // The shell's trailing actions only: the first band carries the title.
+                appHeader {}
+                LibraryTabletHeader(
+                    state = state,
+                    selectedSection = selectedSection,
+                    onSelectSection = { selectedSection = it },
+                    heldCount = heldCount,
+                    previewBookIds = previewBookIds,
+                    onOpenInbox = onOpenInbox,
+                    onEvent = onEvent,
+                    isInSelectionMode = isInSelectionMode,
                 )
-            }
+            } else {
+                appHeader {
+                    Text(
+                        text = ShellDestination.Library.title,
+                        style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
 
-            // The four sections as one connected group. Wider chrome gets more air below the big header.
-            LibrarySectionGroup(
-                selected = selectedSection,
-                onSelect = { selectedSection = it },
-                modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
-            )
-
-            // Status filters belong to Books, and step aside while books are being picked.
-            if (selectedSection == LibrarySection.Books && !isInSelectionMode) {
-                LibraryStatusChips(
-                    selected = state.statusFilter,
-                    counts = state.statusCounts,
-                    onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-                    modifier = Modifier.padding(bottom = 6.dp),
+                // The four sections as one connected group. Wider chrome gets more air below the big header.
+                LibrarySectionGroup(
+                    selected = selectedSection,
+                    onSelect = { selectedSection = it },
+                    modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
                 )
+
+                // Status filters belong to Books, and step aside while books are being picked.
+                if (selectedSection == LibrarySection.Books && !isInSelectionMode) {
+                    LibraryStatusChips(
+                        selected = state.statusFilter,
+                        counts = state.statusCounts,
+                        onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
             }
 
             // Pull-to-refresh wraps the active filter's content (syncs all data).
@@ -360,6 +385,7 @@ internal fun LibraryLoadedContent(
                             onCategorySelected = { onEvent(LibraryUiEvent.AuthorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.AuthorsDirectionToggled) },
                             onAuthorClick = onAuthorClick,
+                            showCovers = isExpanded,
                         )
 
                     LibrarySection.Narrators ->
@@ -370,6 +396,7 @@ internal fun LibraryLoadedContent(
                             onCategorySelected = { onEvent(LibraryUiEvent.NarratorsCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.NarratorsDirectionToggled) },
                             onNarratorClick = onNarratorClick,
+                            showCovers = isExpanded,
                         )
                 }
             }

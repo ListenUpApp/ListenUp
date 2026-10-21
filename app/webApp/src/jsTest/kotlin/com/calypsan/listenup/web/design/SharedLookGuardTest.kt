@@ -53,6 +53,9 @@ private val TITLE_SIZED_ALLOWED =
     setOf(
         ".page-t",
         ".page-h.is-display .page-t",
+        // The phone header's page name: the page's own `.page-t` drawn where a phone shows it, the h1 kept for screen
+        // readers (shell/PhoneTopBar.kt). Still one title.
+        ".ptb-t",
         // Numerals read from arm's length, not headings: the speed and boost readouts, the sleep
         // countdown, and Home's week total.
         ".speed-read",

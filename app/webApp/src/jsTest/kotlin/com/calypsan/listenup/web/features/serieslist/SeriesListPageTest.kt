@@ -239,7 +239,7 @@ class SeriesListPageTest :
         test("the Series chip is the active one, so the reader knows which tab they are on") {
             val root = seriesPage(contractLibrary())
 
-            (root.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
+            (root.querySelector(".lib-seg-i.is-active") as HTMLElement).textContent shouldBe "Series"
         }
 
         // ⛔ Zero series mid-scan is not an empty library, and saying the wrong one is worse than
@@ -256,8 +256,8 @@ class SeriesListPageTest :
             val root = seriesPage(LibraryUiState.Loading)
 
             (root.querySelector(".loading") as HTMLElement).textContent shouldBe "Loading…"
-            root.querySelector(".facet-row") shouldNotBe null
-            (root.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
+            root.querySelector("nav.lib-seg") shouldNotBe null
+            (root.querySelector(".lib-seg-i.is-active") as HTMLElement).textContent shouldBe "Series"
             // Sorting stays with the loaded branch: offering to reorder nothing does nothing.
             root.querySelector(".lib-sort-trigger") shouldBe null
         }

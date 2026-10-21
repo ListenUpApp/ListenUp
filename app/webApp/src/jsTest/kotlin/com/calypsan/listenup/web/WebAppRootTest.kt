@@ -179,7 +179,7 @@ class WebAppRootTest :
             host: HTMLElement,
             label: String,
         ): HTMLElement {
-            val chips = host.querySelectorAll(".facet-chip")
+            val chips = host.querySelectorAll(".lib-seg-i")
             return (0 until chips.length)
                 .map { chips.item(it) as HTMLElement }
                 .first { it.textContent == label }
@@ -369,7 +369,7 @@ class WebAppRootTest :
             try {
                 (host.querySelector(".srs-name") as HTMLElement).textContent shouldBe "The Dark Tower"
                 host.querySelector(".lib-grid") shouldBe null
-                (host.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Series"
+                (host.querySelector(".lib-seg-i.is-active") as HTMLElement).textContent shouldBe "Series"
             } finally {
                 composition.dispose()
                 router.dispose()
@@ -399,7 +399,7 @@ class WebAppRootTest :
 
             try {
                 host.querySelector(".srs-grid") shouldBe null
-                (host.querySelector(".facet-chip.is-active") as HTMLElement).textContent shouldBe "Books"
+                (host.querySelector(".lib-seg-i.is-active") as HTMLElement).textContent shouldBe "Books"
             } finally {
                 composition.dispose()
                 router.dispose()
@@ -412,7 +412,7 @@ class WebAppRootTest :
             val (host, router, composition) = mountAt("/library", openLibrary = fakeLibrary(contractLibrary()))
 
             try {
-                val chips = host.querySelectorAll(".facet-chip")
+                val chips = host.querySelectorAll(".lib-seg-i")
                 val labels = (0 until chips.length).map { (chips.item(it) as HTMLElement).textContent }
                 labels shouldBe listOf("Books", "Series", "Authors", "Narrators")
             } finally {

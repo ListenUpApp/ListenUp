@@ -34,9 +34,23 @@ class WebBookCoversCarryTheLockRuleSelfTest :
                 |    title: String,
                 |)
                 |CardCover(book, flyBack, selecting)
-                |design.Cover(title = t, overlay = { })
+                |design.Cover(title = t, overlay = { RestrictedMarker(id) })
                 """.trimMargin()
 
             bareCoverLines(source).shouldBeEmpty()
+        }
+
+        test("an empty overlay is no overlay: passing {} cannot sidestep the lock") {
+            val source =
+                """
+                |Cover(title = t, overlay = {})
+                |Cover(
+                |    title = t,
+                |    overlay = { },
+                |)
+                |Cover(title = t, overlay = { RestrictedMarker(id) })
+                """.trimMargin()
+
+            bareCoverLines(source) shouldBe listOf(1, 2)
         }
     })

@@ -13,6 +13,8 @@ import Shared
 /// - The section's sort lives in the toolbar's Sort menu; its count is the navigation subtitle.
 /// - Pull-to-refresh syncs all content.
 struct LibraryView: View {
+    /// Whether the iPad sidebar is listing its sections (and with them Server › Inbox).
+    @Environment(\.isTabBarShowingSections) private var isTabBarShowingSections
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
 
@@ -81,6 +83,14 @@ struct LibraryView: View {
     private var sectionCount: String? {
         guard let observer, !observer.isLoading else { return nil }
         return switch selectedTab {
+        case .books where !chrome.showsSectionPicker:
+            // The sidebar names the section; its subtitle says how many and how they are sorted (board `Library-iPad`).
+            observer.statusCounts.all > 0 || !observer.isLibraryArriving
+                ? LibrarySubtitle.ipadBooks(
+                    count: observer.statusCounts.all,
+                    sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? ""
+                )
+                : nil
         case .books:
             LibrarySubtitle.booksOrNil(
                 count: observer.statusCounts.all,
@@ -210,8 +220,12 @@ struct LibraryView: View {
                 onRefresh: { observer.refresh() },
                 selection: selection,
                 picker: sectionPicker,
-                // Selecting turns the grid into a picking surface the entry would clutter.
-                inbox: isSelecting ? nil : inbox,
+                // While the sidebar lists Server › Inbox that is the way in; otherwise the grid's entry is.
+                inbox: InboxPlacement.showsGridEntry(
+                    showsSectionPicker: chrome.showsSectionPicker,
+                    showingSections: isTabBarShowingSections,
+                    isSelecting: isSelecting
+                ) ? inbox : nil,
                 statusStrip: observer.statusStrip,
                 isArriving: observer.isLibraryArriving
             )

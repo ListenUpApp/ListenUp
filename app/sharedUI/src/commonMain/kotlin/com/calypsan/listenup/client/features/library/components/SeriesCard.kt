@@ -44,7 +44,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Series card with the signature M3 Expressive fanned cover deck.
  *
- * The deck of square covers is the hero; below it sit the series name and a
+ * The deck of up to three square covers is the hero, with the series' book count on it; below it sit the series name and a
  * "*N* books · *Author*" line, then how far through the series the listener is
  * ([SeriesProgressBadge]). Press uses a subtle scale for tactile feedback.
  *
@@ -133,8 +133,10 @@ fun SeriesCard(
                 covers = deckCovers,
                 size = 104.dp,
                 peek = 24.dp,
-                max = 5,
+                // Up to three covers, and the count for the rest (spec c6, open question 10).
+                max = 3,
                 animate = true,
+                countBadge = bookCount.takeIf { it > 1 },
             )
         }
 

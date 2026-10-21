@@ -47,6 +47,7 @@ import listenup.composeapp.generated.resources.common_no_items_yet
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
  * @param onNarratorClick Callback when a narrator is clicked
+ * @param showCovers Whether each row shows its two newest covers (the wide Library, spec c7)
  * @param modifier Optional modifier
  */
 @Composable
@@ -57,6 +58,7 @@ fun NarratorsContent(
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
     onNarratorClick: (String) -> Unit,
+    showCovers: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -104,7 +106,13 @@ fun NarratorsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        contributorRows(rows, onNarratorClick)
+                        contributorRows(
+                            rows = rows,
+                            onClick = onNarratorClick,
+                            showCovers = showCovers,
+                            reserveRail =
+                                alphabetIndex != null,
+                        )
                     }
 
                     // Alphabet scrollbar (only for name sort)

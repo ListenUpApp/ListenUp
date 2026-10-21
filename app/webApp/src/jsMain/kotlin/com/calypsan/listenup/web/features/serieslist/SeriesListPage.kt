@@ -10,12 +10,15 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.CoverPlacement
 import com.calypsan.listenup.web.design.PageHeader
+import com.calypsan.listenup.web.design.ProgressBar
 import com.calypsan.listenup.web.design.SortDropdown
 import com.calypsan.listenup.web.design.VirtualList
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.library.routeFor
 import com.calypsan.listenup.web.features.library.WithJumpRail
 import com.calypsan.listenup.web.features.library.groupedCount
 import com.calypsan.listenup.web.features.seriesdetail.seriesAndBookCount
@@ -66,7 +69,7 @@ fun SeriesListPage(
             if (state is LibraryUiState.Loaded) SeriesSortControl(state, onEvent)
         }
     }
-    FacetRow(active = LibraryFacet.Series, onSelect = onSelectFacet)
+    FacetRow(active = LibraryFacet.Series, hrefFor = { routeFor(it).toUrl() }, onSelect = onSelectFacet)
 
     when (state) {
         is LibraryUiState.Loading -> {
@@ -164,10 +167,11 @@ private fun LoadedSeries(
 }
 
 /**
- * One series: its first book's cover, its name, and how far through it the reader is.
+ * One series (spec c6, board `Library-WebPhone`): up to three of its covers overlapping, its book count in ink on
+ * them, its name, "7 books · Matt Dinniman", and how far through it the reader is, as a bar and in words.
  *
- * A `<button>` rather than a div with a click handler — it goes somewhere, so it has to be
- * keyboard-reachable and announce itself, the same contract the rest of web's cards carry.
+ * A `<button>` rather than a div with a click handler — it goes somewhere, so it has to be keyboard-reachable and
+ * announce itself. Its name is its text: the covers and the badge are decoration, the count is in the meta line.
  */
 @Composable
 private fun SeriesCard(
@@ -179,29 +183,43 @@ private fun SeriesCard(
         classes("srs-card")
         attr("type", "button")
         onClick { event ->
-            // Where the cover is NOW, before its page goes away — the series hero flies in from here.
+            // Where the covers are NOW, before its page goes away — the series hero flies in from here.
             (event.currentTarget as? Element)?.querySelector(".srs-cover")?.let {
                 recordHeroOrigin(seriesHeroKey(entry.series.id.value), CoverSurface.GRID, it)
             }
             onOpen()
         }
     }) {
-        // The first book stands for the series, the way a shelf shows its first spine. Absent when
-        // the series somehow holds no books — a blank frame beats a broken image request.
-        entry.books.firstOrNull()?.let { first ->
+        // Absent when the series somehow holds no books — a blank frame beats a broken image request.
+        if (entry.books.isNotEmpty()) {
             // A parent series wears a stacked edge: the card stands for more than one series.
             Div(attrs = {
-                classes("srs-cover")
+                classes("srs-cover", "srs-stack")
                 if (entry.subSeriesCount > 0) classes("is-stack")
-                // The return leg: Back from the series flies its hero home into this cover.
+                attr("aria-hidden", "true")
+                // The return leg: Back from the series flies its hero home into these covers.
                 heroTile(seriesHeroKey(entry.series.id.value))
             }) {
-                Cover(title = first.title, imageUrl = coverUrl(first.id.value, first.coverHash, CARD_COVER_RUNG))
+                entry.books.take(STACK_COVERS).forEachIndexed { index, book ->
+                    Cover(
+                        title = book.title,
+                        imageUrl = coverUrl(book.id.value, book.coverHash, CARD_COVER_RUNG),
+                        size = STACK_COVER_SIZE,
+                        radius = STACK_COVER_RADIUS,
+                        decorative = true,
+                        attrs = { classes("srs-c", "srs-c-$index") },
+                        placement = CoverPlacement.Stacked(left = index * STACK_STEP, top = STACK_TOP),
+                    )
+                }
+                if (entry.books.size > 1) {
+                    Span(attrs = { classes("srs-badge") }) { Text(entry.books.size.toString()) }
+                }
             }
         }
         Div(attrs = { classes("srs-meta") }) {
             Span(attrs = { classes("srs-name") }) { Text(entry.series.name) }
-            Span(attrs = { classes("srs-count") }) { Text(countLine(entry)) }
+            Span(attrs = { classes("srs-count") }) { Text(metaLine(entry)) }
+            ProgressBar(value = progress.fraction, label = "Series progress", attrs = { classes("srs-bar") })
             ProgressLine(progress)
         }
     }
@@ -215,7 +233,10 @@ private fun SeriesCard(
 private fun ProgressLine(progress: SeriesProgress) {
     Span(attrs = {
         classes("srs-progress")
-        if (progress.isNotStarted && !progress.isComplete) classes("srs-progress-idle")
+        when {
+            progress.isComplete -> classes("is-complete")
+            progress.isNotStarted -> classes("srs-progress-idle")
+        }
     }) {
         Text(
             when {
@@ -245,15 +266,33 @@ private fun SeriesSortControl(
 }
 
 /**
- * "6 books", or for a parent series "4 series · 23 books" — the Library shows top-level series only,
- * so a parent's card is the one place its sub-series are counted from here.
+ * "6 books · Matt Dinniman", or for a parent series "4 series · 23 books" — the Library shows top-level series only,
+ * so a parent's card is the one place its sub-series are counted from here. The author is the first book's first.
  */
-private fun countLine(entry: SeriesWithBooks): String =
-    if (entry.subSeriesCount > 0) {
-        seriesAndBookCount(entry.subSeriesCount, entry.books.size)
-    } else {
-        seriesBookCount(entry.books.size)
-    }
+private fun metaLine(entry: SeriesWithBooks): String {
+    val count =
+        if (entry.subSeriesCount > 0) {
+            seriesAndBookCount(entry.subSeriesCount, entry.books.size)
+        } else {
+            seriesBookCount(entry.books.size)
+        }
+    val author =
+        entry.books
+            .firstOrNull()
+            ?.authors
+            ?.firstOrNull()
+            ?.name
+    return if (author != null) "$count · $author" else count
+}
 
 /** Series cards are small; the smallest server rung covers this cell comfortably. */
 private const val CARD_COVER_RUNG = 200
+
+/** Three covers at most (spec c6, open question 10), 72px each, 20px apart (board `Library-WebPhone`). */
+private const val STACK_COVERS = 3
+private const val STACK_COVER_SIZE = 72
+private const val STACK_COVER_RADIUS = 6
+private const val STACK_STEP = 20
+
+/** The covers centre in the 84px-tall stack. */
+private const val STACK_TOP = 6

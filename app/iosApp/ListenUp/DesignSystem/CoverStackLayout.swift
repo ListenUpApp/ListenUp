@@ -7,6 +7,9 @@ import CoreGraphics
 /// front-cover `size` and the `peek` indent; these helpers place each layer.
 /// (Mirrors the `PlayerLayoutMode` pure-helper precedent.)
 struct CoverStackLayout {
+    /// How many of `total` covers a deck of at most `max` layers draws.
+    static func layers(of total: Int, max: Int) -> Int { Swift.max(0, Swift.min(total, max)) }
+
     /// Number of covers actually drawn (already clamped to the deck's max).
     let coverCount: Int
     /// Edge length of the front (largest, index 0) cover.

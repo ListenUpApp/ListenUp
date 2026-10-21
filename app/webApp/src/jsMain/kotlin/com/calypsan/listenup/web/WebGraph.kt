@@ -96,7 +96,9 @@ import com.calypsan.listenup.web.features.shelf.graphMyShelves
 import com.calypsan.listenup.web.features.shelf.graphShelfDetail
 import com.calypsan.listenup.web.features.shelf.graphShelfEdit
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
+import com.calypsan.listenup.web.features.sync.OpenSyncIndicator
 import com.calypsan.listenup.web.features.sync.graphDeadLetters
+import com.calypsan.listenup.web.features.sync.graphSyncIndicator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.Koin
@@ -154,10 +156,14 @@ class WebGraph(
     val openBookHardcover: OpenBookHardcover,
     val openSeeAll: OpenSeeAll,
     val openDeadLetters: OpenDeadLetters,
+    /** The phone header's and the sidebar's sync status, and Refresh now. */
+    val openSyncIndicator: OpenSyncIndicator,
     val openNotificationBell: OpenNotificationBell,
     val openPlayback: OpenPlayback,
     val observeIsAdmin: () -> Flow<Boolean>,
     val observeCurrentUserId: () -> Flow<String?>,
+    /** The signed-in person's display name, for the account menu's avatar; null while unknown. */
+    val observeCurrentUserName: () -> Flow<String?>,
     /**
      * Each user's avatar frame, from their `public_profiles` row; provided to every avatar as
      * [com.calypsan.listenup.web.design.LocalAvatarFrames]. A defaulted `flowOf(null)` would quietly
@@ -230,9 +236,11 @@ fun graphWeb(koin: Koin): WebGraph =
         openBookHardcover = graphBookHardcover(koin),
         openSeeAll = graphSeeAll(koin),
         openDeadLetters = graphDeadLetters(koin),
+        openSyncIndicator = graphSyncIndicator(koin),
         openPlayback = graphPlayback(koin),
         observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
         observeCurrentUserId = { koin.get<UserRepository>().observeCurrentUser().map { it?.id?.value } },
+        observeCurrentUserName = { koin.get<UserRepository>().observeCurrentUser().map { it?.displayName } },
         observeAvatarFrame = { userId ->
             koin.get<UserProfileRepository>().observeProfile(userId).map { it?.avatarFrame }
         },

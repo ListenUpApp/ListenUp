@@ -62,6 +62,15 @@ enum LibrarySubtitle {
         return books(count: count, filter: filter, sortLabel: sortLabel)
     }
 
+    /// The iPad sidebar's Books subtitle, "248 books · sorted by title" (board `Library-iPad`): the sidebar already says
+    /// which section this is, and the filter is the toolbar menu's to show.
+    static func ipadBooks(count: Int, sortLabel: String) -> String {
+        let books = count == 1
+            ? String(format: String(localized: "library.book_count"), count)
+            : String(format: String(localized: "library.book_count_plural"), count)
+        return String(format: String(localized: "library.ipad_books_subtitle"), books, sortLabel.lowercased())
+    }
+
     static func filteredEmpty(_ filter: BookStatusFilter) -> String {
         switch filter {
         case .inProgress: String(localized: "library.filtered_empty_in_progress")

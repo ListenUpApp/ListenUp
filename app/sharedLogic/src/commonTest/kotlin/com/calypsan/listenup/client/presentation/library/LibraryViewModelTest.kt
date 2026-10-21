@@ -1736,6 +1736,43 @@ class LibraryViewModelTest :
                 }
             }
 
+            test("section counts are the whole library and the visible lists, and a position tick re-emits an equal value") {
+                runTest {
+                    val positions = MutableStateFlow(mixedPositions)
+                    val fixture = createFixture().apply { withMixedLibrary(positions) }
+                    val viewModel = fixture.build()
+
+                    turbineScope {
+                        val states = viewModel.uiState.testIn(backgroundScope)
+                        advanceUntilIdle()
+                        val before = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        before.sectionCounts shouldBe LibrarySectionCounts(books = 4, series = 0, authors = 0, narrators = 0)
+
+                        positions.value = mixedPositions + at("b1", 6_000L)
+                        advanceUntilIdle()
+
+                        val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
+                        after.sectionCounts shouldBeSameInstanceAs before.sectionCounts
+                        after.contentRevision shouldBe before.contentRevision
+                        states.cancel()
+                    }
+                }
+            }
+
+            test("a status filter changes Books' list but not its section count") {
+                runTest {
+                    val fixture = createFixture().apply { withMixedLibrary(MutableStateFlow(mixedPositions)) }
+                    val viewModel = fixture.build()
+                    backgroundScope.launch { viewModel.uiState.collect { } }
+                    viewModel.onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.NOT_STARTED))
+                    advanceUntilIdle()
+
+                    val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
+                    loaded.books.size shouldBe 2
+                    loaded.sectionCounts.books shouldBe 4
+                }
+            }
+
             test("a book crossing to Finished leaves In progress and bumps the revision") {
                 runTest {
                     val positions = MutableStateFlow(mixedPositions)

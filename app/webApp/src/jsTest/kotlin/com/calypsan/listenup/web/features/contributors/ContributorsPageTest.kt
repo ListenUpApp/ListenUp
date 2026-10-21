@@ -117,7 +117,7 @@ class ContributorsPageTest :
                     onSelectFacet = { selected += it },
                 )
 
-            root.querySelectorAll(".facet-chip").let { chips ->
+            root.querySelectorAll(".lib-seg-i").let { chips ->
                 (0 until chips.length)
                     .map { chips.item(it) as HTMLElement }
                     .first { it.textContent == "Narrators" }
@@ -172,17 +172,17 @@ class ContributorsPageTest :
             root.querySelectorAll(".contrib-letter").asList().map { it.textContent } shouldBe listOf("Z", "A", "#")
         }
 
-        test("the active facet chip carries aria-pressed=true and the others false") {
+        test("the active section is aria-current=page and the others are not") {
             val root = contributorsPage(state = emptyList(), role = ContributorRole.AUTHOR)
 
-            val chips = root.querySelectorAll(".facet-chip")
+            val chips = root.querySelectorAll(".lib-seg-i")
             val authors = (0 until chips.length).map { chips.item(it) as HTMLElement }.first { it.textContent == "Authors" }
             val narrators =
                 (0 until chips.length).map { chips.item(it) as HTMLElement }.first { it.textContent == "Narrators" }
 
-            authors.getAttribute("aria-pressed") shouldBe "true"
+            authors.getAttribute("aria-current") shouldBe "page"
             authors.classList.contains("is-active") shouldBe true
-            narrators.getAttribute("aria-pressed") shouldBe "false"
+            narrators.getAttribute("aria-current") shouldBe null
             narrators.classList.contains("is-active") shouldBe false
         }
 
@@ -233,54 +233,13 @@ class ContributorsPageTest :
             opened shouldBe emptyList()
         }
 
-        test("a facet chip is reachable by keyboard and announces itself as a control") {
+        test("a section is a real link to its page, so the keyboard and a new tab both reach it") {
             val root = contributorsPage(state = emptyList())
 
-            val chip = root.querySelector(".facet-chip") as HTMLElement
-            chip.getAttribute("tabindex") shouldBe "0"
-            chip.getAttribute("role") shouldBe "button"
-        }
-
-        test("Enter activates a facet chip") {
-            val selected = mutableListOf<LibraryFacet>()
-            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
-
-            root.querySelectorAll(".facet-chip").let { chips ->
-                (0 until chips.length)
-                    .map { chips.item(it) as HTMLElement }
-                    .first { it.textContent == "Narrators" }
-                    .press("Enter")
-            }
-
-            selected shouldBe listOf(LibraryFacet.Narrators)
-        }
-
-        test("Space activates a facet chip too") {
-            val selected = mutableListOf<LibraryFacet>()
-            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
-
-            root.querySelectorAll(".facet-chip").let { chips ->
-                (0 until chips.length)
-                    .map { chips.item(it) as HTMLElement }
-                    .first { it.textContent == "Narrators" }
-                    .press(" ")
-            }
-
-            selected shouldBe listOf(LibraryFacet.Narrators)
-        }
-
-        test("a key that is not an activation leaves the facet chip alone") {
-            val selected = mutableListOf<LibraryFacet>()
-            val root = contributorsPage(state = emptyList(), onSelectFacet = { selected += it })
-
-            root.querySelectorAll(".facet-chip").let { chips ->
-                (0 until chips.length)
-                    .map { chips.item(it) as HTMLElement }
-                    .first { it.textContent == "Narrators" }
-                    .press("ArrowDown")
-            }
-
-            selected shouldBe emptyList()
+            val links = root.querySelectorAll(".lib-seg-i").let { nodes -> (0 until nodes.length).map { nodes.item(it) as HTMLElement } }
+            links.map { it.tagName.lowercase() }.distinct() shouldBe listOf("a")
+            links.first { it.textContent == "Narrators" }.getAttribute("href") shouldBe "/library/contributors?role=narrator"
+            links.first { it.textContent == "Authors" }.getAttribute("href") shouldBe "/library/contributors"
         }
 
         test("the avatar is decorative and hidden from the row's accessible name") {
