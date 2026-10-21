@@ -508,8 +508,6 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-series-open { font-size:0.875rem; font-weight:600; color:var(--coral-text); }
 /* The chapter map and the files: Book Detail's own sub-pages, the same column rhythm as the page. */
 .bd-map, .bd-files { gap:var(--gap); }
-/* Details ends with the way to the files (Decision 9). */
-/* Retry sits at the end of the offline banner's single flex row: a small Button, placed here. */
 /* A document row's open/download link: a small secondary ButtonLink, its glyph tucked close. */
 .bd .doc-open { gap:var(--sp-4); }
 /* the chapter map — the book as a strip; segment width is proportional to duration */

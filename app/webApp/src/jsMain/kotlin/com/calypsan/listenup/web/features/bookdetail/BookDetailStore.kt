@@ -89,8 +89,8 @@ class BookDetailSession(
      *
      * ⛔ `Ready.showServerWarning` has been in the shared state all along and web rendered it
      * nowhere, so a reader whose server had gone away saw an ordinary book page — the library
-     * reads from OPFS, so nothing looks wrong until Play quietly fails. Both natives show an
-     * offline banner here and back its Retry with this call, which tears the sync firehose down
+     * reads from OPFS, so nothing looks wrong until Play quietly fails. Every platform shows the
+     * offline reason in the hero and backs its Retry with this call, which tears the sync firehose down
      * and re-opens it rather than waiting out the automatic backoff.
      */
     val onRetryConnection: () -> Unit,

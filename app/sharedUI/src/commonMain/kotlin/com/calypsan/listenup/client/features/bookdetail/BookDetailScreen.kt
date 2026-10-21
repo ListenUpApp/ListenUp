@@ -793,7 +793,7 @@ internal fun readersItemIndex(items: List<PhoneDetailItem>): Int? =
  * Compact (phone) Book Detail column.
  *
  * A plain, untitled [BookDetailTopBar] (Back to Library, More) is hoisted above the scroll; the [LazyColumn] then
- * carries [phoneDetailItems]: the advisories, the [BookDetailHeroBand], the [ResumeUnit] over the [ListenActionGroup]
+ * carries [phoneDetailItems]: the admin's scan warning, the [BookDetailHeroBand], the [ResumeUnit] over the [ListenActionGroup]
  * (or the held triage panel), the [HeroSocialLine], the Visibility card, the last match, then the sections in the
  * visit's stage order. The social line scrolls the column to Readers.
  */

@@ -438,7 +438,7 @@ class BookDetailViewModel(
     }
 
     /**
-     * Force a fresh server-reachability check, backing the offline banner's "Retry"
+     * Force a fresh server-reachability check, backing Book Detail's offline reason and error "Retry"
      * action. Tears down and re-opens the sync firehose so the reachability indicator
      * recovers without waiting on the automatic backoff loop.
      */

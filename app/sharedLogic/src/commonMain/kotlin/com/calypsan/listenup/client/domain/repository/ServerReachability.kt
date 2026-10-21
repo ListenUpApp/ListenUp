@@ -20,7 +20,7 @@ interface ServerReachability {
 
     /**
      * Force a fresh reachability check by tearing down and re-establishing the sync
-     * firehose. Backs the "Retry" action on the offline banner — a manual, never-stranded
+     * firehose. Backs the "Retry" action on Book Detail's offline reason — a manual, never-stranded
      * fallback for when the automatic reconnect backoff hasn't yet recovered.
      */
     suspend fun retry()
