@@ -964,7 +964,8 @@ private fun BookDetailRow.value(): String =
 
 /** The three Details rows that open something: All credits, Files & audio, Maps & illustrations. */
 private fun BookDetailRow.isLink(): Boolean =
-    this is BookDetailRow.AllCredits || this is BookDetailRow.FilesAndAudio || this is BookDetailRow.MapsAndIllustrations
+    this is BookDetailRow.AllCredits || this is BookDetailRow.FilesAndAudio ||
+        this is BookDetailRow.MapsAndIllustrations
 
 /** Identifiers and years read in the monospace face, as the old Details list drew them. */
 private fun BookDetailRow.isMachine(): Boolean =

@@ -94,7 +94,10 @@ fun DetailsSection(
                     -> null
                 }
             if (onClick != null) {
-                LinkRow(text = stringResource(Res.string.book_detail_link_row, cell.label, cell.value), onClick = onClick)
+                LinkRow(
+                    text = stringResource(Res.string.book_detail_link_row, cell.label, cell.value),
+                    onClick = onClick,
+                )
             } else {
                 MetadataRow(value = cell.value, label = cell.label)
             }

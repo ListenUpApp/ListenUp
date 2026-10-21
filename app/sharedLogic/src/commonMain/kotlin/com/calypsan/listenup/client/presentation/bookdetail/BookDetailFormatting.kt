@@ -197,8 +197,9 @@ private fun tenthsLabel(
     name: String,
 ): String {
     val tenths = (bytes * TENTHS + unit / 2) / unit
-    return when {
-        tenths >= WHOLE_ABOVE_TENTHS || tenths % TENTHS == 0L -> "${(tenths + TENTHS / 2) / TENTHS} $name"
-        else -> "${tenths / TENTHS}.${tenths % TENTHS} $name"
+    return if (tenths >= WHOLE_ABOVE_TENTHS || tenths % TENTHS == 0L) {
+        "${(tenths + TENTHS / 2) / TENTHS} $name"
+    } else {
+        "${tenths / TENTHS}.${tenths % TENTHS} $name"
     }
 }

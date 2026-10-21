@@ -102,7 +102,6 @@ private fun codecLabel(file: AudioFile): String {
     return "$codec ${kbps}k"
 }
 
-
 @Composable
 internal fun MachineNote(text: String) {
     Span(attrs = {

@@ -218,7 +218,7 @@ private fun FullCastBottomSheet(
                 }
                 itemsIndexed(
                     items = section.contributors,
-                    key = { _, c -> "${section.heading}:${c.id}" },
+                    key = { _, c -> "${section.heading.orEmpty()}:${c.id}" },
                 ) { index, contributor ->
                     CastRow(
                         contributor = contributor,

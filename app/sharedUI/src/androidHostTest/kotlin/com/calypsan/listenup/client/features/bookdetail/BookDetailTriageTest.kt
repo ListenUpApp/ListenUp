@@ -103,8 +103,11 @@ class BookDetailTriageTest {
     fun `on a phone the three fixes share one row, with short labels that never wrap`() {
         setContent()
         val tops =
-            listOf("Edit details", "Match details", "Edit chapters").map {
-                composeRule.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot.top
+            listOf("Edit details", "Match details", "Edit chapters").map { name ->
+                composeRule
+                    .onNodeWithContentDescription(name)
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top
             }
         tops.distinct().size shouldBe 1
         listOf("Edit", "Match", "Chapters").forEach { label ->

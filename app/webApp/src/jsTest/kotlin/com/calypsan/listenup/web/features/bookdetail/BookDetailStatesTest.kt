@@ -67,7 +67,10 @@ class BookDetailStatesTest :
             host.querySelector("h1")?.textContent?.trim() shouldBe "Couldn’t load this book"
             host.textContent.orEmpty() shouldNotContain "This browser hasn't synced"
             // The title is said once: the page heading, not again inside the empty state.
-            host.textContent.orEmpty().split("Couldn’t load this book").size shouldBe 2
+            host.textContent
+                .orEmpty()
+                .split("Couldn’t load this book")
+                .size shouldBe 2
             host.querySelector(".bd .empty")?.textContent.orEmpty() shouldContain TransportError.NetworkUnavailable().message
             button(host, "Retry").shouldNotBeNull().click()
             button(host, "Back to Library").shouldNotBeNull().click()
