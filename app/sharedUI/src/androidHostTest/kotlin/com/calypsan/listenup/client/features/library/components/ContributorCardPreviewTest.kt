@@ -1,11 +1,16 @@
 package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
+import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -81,9 +86,10 @@ class ContributorCardPreviewTest {
     private fun render(
         showCovers: Boolean,
         reserveRail: Boolean = false,
+        dark: Boolean = false,
     ) {
         composeRule.setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
                 ContributorCard(contributorWithCount = ann, onClick = {}, showCovers = showCovers, reserveRail = reserveRail)
             }
         }
@@ -101,15 +107,23 @@ class ContributorCardPreviewTest {
     }
 
     @Test
-    fun `a book with no cover still shows a tile, as web's waiting tile does`() {
-        render(showCovers = true)
+    fun `a book with no cover still shows a tile, as web's waiting tile does`() = assertTileStandsOffTheCard(dark = false)
+
+    @Test
+    fun `in dark mode the missing-cover tile stands off the card too`() = assertTileStandsOffTheCard(dark = true)
+
+    private fun assertTileStandsOffTheCard(dark: Boolean) {
+        render(showCovers = true, dark = dark)
         composeRule.waitForIdle()
 
         val tile = composeRule.onAllNodesWithTag(PREVIEW_COVER_TAG, useUnmergedTree = true)[0].captureToImage().toPixelMap()
-        // The middle of a missing cover is the placeholder's colour, not the card showing through a hole.
-        val middle = tile[tile.width / 2, tile.height / 2]
         val card = composeRule.onNode(hasClickAction()).captureToImage().toPixelMap()
-        (middle != card[2, card.height / 2]) shouldBe true
+        val cardColor = card[2, card.height / 2]
+        // Reads as a cover-shaped tile, not a gap: something on it (its edge, its glyph) stands 3:1 off the card,
+        // the WCAG 1.4.11 bar for a non-text boundary. A tile one shade off the card (1.05:1) read as a hole.
+        val strongest =
+            (0 until tile.width).maxOf { x -> (0 until tile.height).maxOf { y -> contrast(tile[x, y], cardColor) } }
+        strongest shouldBeGreaterThanOrEqual 3.0
     }
 
     @Test
@@ -137,5 +151,14 @@ class ContributorCardPreviewTest {
         render(showCovers = false)
 
         composeRule.onAllNodesWithTag(PREVIEW_COVER_TAG, useUnmergedTree = true).fetchSemanticsNodes().size shouldBe 0
+    }
+
+    private fun contrast(
+        a: Color,
+        b: Color,
+    ): Double {
+        val la = a.luminance() + 0.05
+        val lb = b.luminance() + 0.05
+        return (maxOf(la, lb) / minOf(la, lb)).toDouble()
     }
 }

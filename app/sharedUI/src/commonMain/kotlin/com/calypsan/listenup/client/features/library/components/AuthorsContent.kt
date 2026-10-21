@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.library.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -326,17 +328,32 @@ private fun PreviewCovers(
         modifier = modifier.padding(start = Spacing.md).clearAndSetSemantics {},
     ) {
         bookIds.forEach { bookId ->
-            BookCoverImage(
-                bookId = bookId,
-                coverPath = null,
-                contentDescription = null,
+            // The tile under the cover: an `outline` edge (3:1 on the card, WCAG 1.4.11) and a book glyph, so a book
+            // with no cover reads as a cover-shaped placeholder, as on web and iOS. A loaded cover draws over both.
+            val shape = RoundedCornerShape(6.dp)
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
                         .size(PREVIEW_COVER_SIZE)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(shape)
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, shape)
                         .testTag(PREVIEW_COVER_TAG),
-            )
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Book,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(PREVIEW_GLYPH_SIZE),
+                )
+                BookCoverImage(
+                    bookId = bookId,
+                    coverPath = null,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
@@ -345,6 +362,7 @@ private fun PreviewCovers(
 internal const val PREVIEW_COVER_TAG = "contributor-preview-cover"
 private const val PREVIEW_COVERS = 2
 private val PREVIEW_COVER_SIZE = 40.dp
+private val PREVIEW_GLYPH_SIZE = 20.dp
 
 /**
  * Empty state when no authors in library.
