@@ -62,7 +62,8 @@ struct BookDeletionTests {
     @Test func removeDownloadSaysWhatItFreesAndKeepsYourPlace() {
         #expect(RemoveDownloadCopy.title == "Remove Download?")
         #expect(RemoveDownloadCopy.message(formattedSize: "1.2 GB") ==
-            "Frees 1.2 GB on this device. The book stays in your library, keeps your place, and streams when you’re online.")
+            "Frees 1.2 GB on this device. The book stays in your library, keeps your place, "
+            + "and streams when you’re online.")
     }
 
     @Test func sizesReadAsAndroidAndWebReadThem() {

@@ -104,7 +104,8 @@ enum BookDetailRowValue: Equatable {
         case .asin(let asin):
             BookDetailCell(label: String(localized: "book.detail_asin"), value: asin, link: nil)
         case .allCredits(let count):
-            BookDetailCell(label: String(localized: "book.detail_all_credits_ios"), value: String(count), link: .credits)
+            BookDetailCell(label: String(localized: "book.detail_all_credits_ios"), value: String(count),
+                           link: .credits)
         case .filesAndAudio(let format, let bitrate):
             BookDetailCell(
                 label: String(localized: "book.detail_files_audio_ios"),
