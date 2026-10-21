@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -65,11 +66,14 @@ class BookDetailStatesTest {
     fun `an error says what happened and offers Retry and Back to Library`() {
         composeRule.setContent {
             MaterialTheme {
-                BookDetailErrorState(error = BookError.NotFound(), onRetry = { retries++ }, onBack = { backs++ })
+                BookDetailErrorState(
+                    error = TransportError.NetworkUnavailable(),
+                    onRetry = { retries++ },
+                    onBack = { backs++ },
+                )
             }
         }
         composeRule.onNodeWithText("Couldn’t load this book").assertExists()
-        composeRule.onNodeWithText(BookError.NotFound().message).assertExists()
         composeRule.onNodeWithText("Retry").performClick()
         composeRule.onNodeWithText("Back to Library").performClick()
         composeRule.runOnIdle {
@@ -78,19 +82,32 @@ class BookDetailStatesTest {
         }
     }
 
+    // isRetryable is false for a book that no longer exists: asking again cannot bring it back.
+    @Test
+    fun `a book that no longer exists offers only the way back`() {
+        composeRule.setContent {
+            MaterialTheme { BookDetailErrorState(error = BookError.NotFound(), onRetry = { retries++ }, onBack = {}) }
+        }
+        composeRule.onNodeWithText(BookError.NotFound().message).assertExists()
+        composeRule.onNodeWithText("Retry").assertDoesNotExist()
+        composeRule.onNodeWithText("Back to Library").assertExists()
+    }
+
     @Test
     @Config(qualifiers = Windows.PHONE)
     fun `an admin sees the scan warning with Review, which opens Files and audio`() {
-        setContent(ready(isAdmin = true, hasScanWarning = true))
+        setContent(ready(isAdmin = true, hasScanWarning = true, showScanWarning = true))
         composeRule.onNodeWithText("The scanner flagged this book’s files.").assertExists()
         composeRule.onNodeWithText("Review").performClick()
         composeRule.runOnIdle { reviews shouldBe 1 }
     }
 
+    // The state a member's ViewModel produces for a flagged book (BookDetailStateTest pins it): the flag is set, the
+    // admin-only show is not. The page must read the show, never the raw flag — the old Android page read the flag.
     @Test
     @Config(qualifiers = Windows.PHONE)
-    fun `a member never sees the scan warning`() {
-        setContent(ready(isAdmin = false, hasScanWarning = true))
+    fun `a member never sees the scan warning, even with the scanner's flag on the book`() {
+        setContent(ready(isAdmin = false, hasScanWarning = true, showScanWarning = false))
         composeRule.onNodeWithText("The scanner flagged this book’s files.").assertDoesNotExist()
     }
 
@@ -120,6 +137,7 @@ class BookDetailStatesTest {
     private fun ready(
         isAdmin: Boolean = false,
         hasScanWarning: Boolean = false,
+        showScanWarning: Boolean = false,
         showServerWarning: Boolean = false,
         canPlay: Boolean = true,
     ) = BookDetailUiState.Ready(
@@ -139,8 +157,7 @@ class BookDetailStatesTest {
             ),
         isAdmin = isAdmin,
         hasScanWarning = hasScanWarning,
-        // As toReady derives it: members are never shown the scanner's flag.
-        showScanWarning = isAdmin && hasScanWarning,
+        showScanWarning = showScanWarning,
         showServerWarning = showServerWarning,
         canPlay = canPlay,
         primaryAction = if (showServerWarning && !canPlay) PrimaryAction.UnavailableOffline else PrimaryAction.Play,

@@ -27,8 +27,8 @@ import listenup.composeapp.generated.resources.book_detail_retry
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book Detail when the book cannot be shown (spec §3.2.3 Error, gap 24): what happened, Retry (ask the server again;
- * the page turns Ready by itself when the book arrives) and the way back to the Library.
+ * Book Detail when the book cannot be shown (spec §3.2.3 Error, gap 24): what happened, Retry when asking again could
+ * help ([AppError.isRetryable]; the page turns Ready by itself when the book arrives) and the way back to the Library.
  */
 @Composable
 fun BookDetailErrorState(
@@ -55,12 +55,15 @@ fun BookDetailErrorState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        ListenUpButton(
-            text = stringResource(Res.string.book_detail_retry),
-            onClick = onRetry,
-            fillMaxWidth = false,
-            leadingIcon = Icons.Default.Refresh,
-        )
+        // Retry only when asking again could help: a book that no longer exists offers the way back alone.
+        if (error.isRetryable) {
+            ListenUpButton(
+                text = stringResource(Res.string.book_detail_retry),
+                onClick = onRetry,
+                fillMaxWidth = false,
+                leadingIcon = Icons.Default.Refresh,
+            )
+        }
         TextButton(
             onClick = {
                 haptics.press()

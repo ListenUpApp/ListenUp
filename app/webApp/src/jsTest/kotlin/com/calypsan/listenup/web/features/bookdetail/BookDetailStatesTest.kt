@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
@@ -54,23 +55,33 @@ class BookDetailStatesTest :
                 it.textContent?.trim() == label
             }
 
-        test("an error says what happened and offers Retry and Back to Library") {
+        test("an error says what happened once, and offers Retry when asking again could help") {
             var retries = 0
             var backs = 0
             val host =
                 rendered(
-                    BookDetailUiState.Error(BookError.NotFound()),
+                    BookDetailUiState.Error(TransportError.NetworkUnavailable()),
                     onRetryConnection = { retries++ },
                     onOpenLibrary = { backs++ },
                 )
             host.querySelector("h1")?.textContent?.trim() shouldBe "Couldn’t load this book"
             host.textContent.orEmpty() shouldNotContain "This browser hasn't synced"
-            host.querySelector(".bd .empty")?.textContent.orEmpty() shouldContain BookError.NotFound().message
+            // The title is said once: the page heading, not again inside the empty state.
+            host.textContent.orEmpty().split("Couldn’t load this book").size shouldBe 2
+            host.querySelector(".bd .empty")?.textContent.orEmpty() shouldContain TransportError.NetworkUnavailable().message
             button(host, "Retry").shouldNotBeNull().click()
             button(host, "Back to Library").shouldNotBeNull().click()
             awaitFrame()
             retries shouldBe 1
             backs shouldBe 1
+        }
+
+        // isRetryable is false for a book that no longer exists: asking again cannot bring it back.
+        test("a book that no longer exists offers only the way back") {
+            val host = rendered(BookDetailUiState.Error(BookError.NotFound()))
+            host.querySelector(".bd .empty")?.textContent.orEmpty() shouldContain BookError.NotFound().message
+            button(host, "Retry").shouldBeNull()
+            button(host, "Back to Library").shouldNotBeNull()
         }
 
         test("an admin sees the scan warning at the top of the hero, and Review opens the Files view") {

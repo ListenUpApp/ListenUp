@@ -123,7 +123,7 @@ fun BookDetailPage(
     documents: List<BookDocument> = emptyList(),
     /**
      * Ask the server again. No default: a defaulted no-op renders a real, enabled Retry that does
-     * nothing, which is worse than the silence this banner exists to end.
+     * nothing, which is worse than the silence the offline reason exists to end.
      */
     onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
@@ -226,11 +226,17 @@ fun BookDetailPage(
 
             is BookDetailUiState.Error -> {
                 PageHeader(title = ERROR_TITLE)
-                // Spec §3.2.3 Error: what happened (the typed error's own message, true here since web sync landed),
-                // Retry (a reconnect runs catch-up; the page turns Ready when the book arrives), and the way back.
-                EmptyState(title = ERROR_TITLE, body = state.error.message, icon = WebIcon.Book) {
-                    Button(kind = ButtonKind.Primary, onClick = { onRetryConnection() }) { Text("Retry") }
-                    Button(kind = ButtonKind.Secondary, onClick = { onOpenLibrary() }) { Text("Back to Library") }
+                // Spec §3.2.3 Error: what happened (the typed error's own message, said once under the page heading),
+                // Retry only when asking again could help (`isRetryable`: a reconnect runs catch-up, and the page turns
+                // Ready when the book arrives), and always the way back.
+                EmptyState(title = state.error.message, icon = WebIcon.Book) {
+                    if (state.error.isRetryable) {
+                        Button(kind = ButtonKind.Primary, onClick = { onRetryConnection() }) { Text("Retry") }
+                    }
+                    Button(
+                        kind = if (state.error.isRetryable) ButtonKind.Secondary else ButtonKind.Primary,
+                        onClick = { onOpenLibrary() },
+                    ) { Text("Back to Library") }
                 }
             }
 

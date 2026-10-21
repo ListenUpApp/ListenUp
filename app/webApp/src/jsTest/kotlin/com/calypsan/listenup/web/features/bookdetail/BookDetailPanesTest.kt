@@ -410,7 +410,7 @@ class BookDetailPanesTest :
             try {
                 val empty = host.querySelector(".bd .empty") as HTMLElement
                 (empty.querySelector(".ico") != null) shouldBe true
-                empty.textContent.orEmpty() shouldContain "Couldn’t load this book"
+                empty.textContent.orEmpty() shouldContain BookError.NotFound().message
                 ("Back to Library" in empty.querySelectorAll("button").asList().map { it.textContent.orEmpty().trim() }) shouldBe
                     true
             } finally {
