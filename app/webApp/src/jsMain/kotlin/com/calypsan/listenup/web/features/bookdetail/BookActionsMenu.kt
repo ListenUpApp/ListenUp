@@ -62,7 +62,8 @@ fun BookActionsMenu(
     if (items.isNotEmpty()) {
         PopupMenu(
             items = items,
-            label = "More actions",
+            // Its own name, not just "More": on a phone the tab bar has a More too (WCAG 2.4.6).
+            label = "More actions for ${ready.book.title}",
             icon = WebIcon.ChevronDown,
             triggerClasses = buttonClasses(ButtonKind.Secondary, ButtonSize.Lg) + MORE_TRIGGER_CLASS,
             triggerText = "More",

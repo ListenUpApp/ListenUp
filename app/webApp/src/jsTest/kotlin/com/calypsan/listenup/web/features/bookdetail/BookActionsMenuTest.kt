@@ -75,7 +75,8 @@ class BookActionsMenuTest :
         suspend fun open(host: HTMLElement): HTMLElement {
             val button = trigger(host).shouldNotBeNull()
             button.textContent?.trim() shouldBe "More"
-            button.getAttribute("aria-label") shouldBe "More actions"
+            // Unambiguous beside the phone tab bar's own "More": the book's name says whose actions these are.
+            button.getAttribute("aria-label") shouldBe "More actions for The Institute"
             button.click()
             awaitFrame()
             return host
