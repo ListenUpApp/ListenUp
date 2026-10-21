@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
@@ -35,9 +36,10 @@ internal fun DeleteBookDialog(
     ConfirmDialog(
         open = true,
         title = "Delete “${ready.book.title}” from the server?",
+        // The natives' words (`book_detail_delete_server_body`), character for character.
         body =
-            "This removes $files (${formatBytes(trackedBytes)}) and everything else in its folder for every " +
-                "member. It can’t be undone.",
+            "This deletes $files (${byteSizeLabel(trackedBytes)}) and everything else in its folder from your " +
+                "server. Every member loses it, and downloads are removed from their devices. This can’t be undone.",
         confirmLabel = "Delete book",
         onConfirm = onConfirm,
         onDismiss = onDismiss,

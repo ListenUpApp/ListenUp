@@ -25,9 +25,9 @@ enum BookDeletion {
     /// output depends on the device's locale.
     static func message(fileCount: Int, formattedSize: String) -> String {
         fileCount == 1
-            ? String(format: String(localized: "book.detail_delete_server_body_one_ios"), formattedSize)
+            ? String(format: String(localized: "book.detail_delete_server_body_one"), formattedSize)
             : String(
-                format: String(localized: "book.detail_delete_server_body_ios"),
+                format: String(localized: "book.detail_delete_server_body"),
                 Int32(clamping: fileCount),
                 formattedSize
             )

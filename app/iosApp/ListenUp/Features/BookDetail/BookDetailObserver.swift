@@ -11,6 +11,8 @@ final class BookDetailObserver {
 
     private(set) var isLoading: Bool = true
     private(set) var error: String?
+    /// Whether asking again could help (`AppError.isRetryable`): the error offers Retry only then.
+    private(set) var errorIsRetryable = false
     private(set) var book: BookDetail?
     private(set) var subtitle: String?
     /// The book's series as paths — one line per series, "Cosmere › Mistborn #1", every part a link.
@@ -83,9 +85,6 @@ final class BookDetailObserver {
     /// Download is possible — playback platform present AND the server is reachable per the same
     /// evidence-based signal as `canPlay`.
     private(set) var canDownload: Bool = true
-    /// The server is genuinely unreachable AND the book isn't downloaded — drives the
-    /// point-of-need banner that explains why Play/Download are disabled.
-    private(set) var showServerWarning: Bool = false
 
     // MARK: - Held for review (admin inbox)
 
@@ -252,7 +251,7 @@ final class BookDetailObserver {
         playerObserver.play(bookId: book.idString, startAtMs: startMs)
     }
 
-    /// Retry the server connection (re-opens the SSE firehose) — the offline banner's Retry.
+    /// Retry the server connection (a reconnect that runs catch-up) — the offline reason's and the error's Retry.
     /// The shared `retryConnection` folds failures itself; reachability recovers via the firehose.
     func retryConnection() {
         viewModel.retryConnection()
@@ -404,7 +403,6 @@ final class BookDetailObserver {
             isDeletingBook = r.isDeletingBook
             canPlay = r.canPlay
             canDownload = r.canDownload
-            showServerWarning = r.showServerWarning
             isHeld = r.isHeld
             isReleasingFromInbox = r.isReleasingFromInbox
             visibility = BookVisibilityModel.from(r.visibility)
@@ -420,6 +418,12 @@ final class BookDetailObserver {
             let e = eType.value
             isLoading = false
             error = e.error.message
+            errorIsRetryable = e.error.isRetryable
+            // Nothing of the last book may linger behind an error: its menu and rows describe a book not on screen.
+            menuGroups = []
+            isChangingProgress = false
+            lastReady = nil
+            detailRows = []
         }
     }
 

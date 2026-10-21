@@ -2336,7 +2336,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Release to everyone?"
+            "value": "Release to members?"
           }
         }
       }
@@ -4301,16 +4301,6 @@
         }
       }
     },
-    "book.detail_all_credits_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d"
-          }
-        }
-      }
-    },
     "book.detail_all_credits_ios": {
       "localizations": {
         "en": {
@@ -4586,17 +4576,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This deletes %1$d files (%2$@) for “%3$@”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
-          }
-        }
-      }
-    },
-    "book.detail_delete_server_body_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d files (%2$@) and everything else in its folder are removed for every member. This can’t be undone."
+            "value": "This deletes %1$d files (%2$@) and everything else in its folder from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
           }
         }
       }
@@ -4606,17 +4586,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This deletes 1 file (%1$@) for “%2$@”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
-          }
-        }
-      }
-    },
-    "book.detail_delete_server_body_one_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1 file (%1$@) and everything else in its folder are removed for every member. This can’t be undone."
+            "value": "This deletes 1 file (%1$@) and everything else in its folder from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone."
           }
         }
       }
@@ -4646,7 +4616,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete from the server?"
+            "value": "Delete “%1$@” from the server?"
           }
         }
       }
@@ -5261,12 +5231,22 @@
         }
       }
     },
-    "book.detail_mark_not_started_prompt": {
+    "book.detail_mark_not_started_body": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clear your progress and mark this as not started?"
+            "value": "Your progress on this book is cleared."
+          }
+        }
+      }
+    },
+    "book.detail_mark_not_started_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as not started?"
           }
         }
       }
@@ -5406,7 +5386,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start Over…"
+            "value": "Restart from the Beginning…"
           }
         }
       }
@@ -6251,16 +6231,6 @@
         }
       }
     },
-    "book.detail_remove_download_body_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Frees %1$@ on this device. The book stays in your library and keeps your place."
-          }
-        }
-      }
-    },
     "book.detail_remove_download_confirm": {
       "localizations": {
         "en": {
@@ -6331,22 +6301,22 @@
         }
       }
     },
-    "book.detail_restart_book": {
+    "book.detail_restart_body": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restart book"
+            "value": "Your place goes back to the start of the book."
           }
         }
       }
     },
-    "book.detail_restart_prompt": {
+    "book.detail_restart_title": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Start over from the beginning? This resets your position to the start of the book."
+            "value": "Restart from the beginning?"
           }
         }
       }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -951,7 +952,7 @@ private fun BookDetailRow.value(): String =
         }
 
         is BookDetailRow.MapsAndIllustrations -> {
-            "${format ?: if (count == 1) "1 document" else "$count documents"} · ${formatBytes(totalBytes)}"
+            "${format ?: if (count == 1) "1 document" else "$count documents"} · ${byteSizeLabel(totalBytes)}"
         }
     }
 

@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.features.bookdetail.components.MarkNotStartedDialog
+import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDialog
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -33,11 +36,12 @@ class BookDetailConfirmsTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Delete from the server?").assertExists()
+        // One wording on every platform (the rig drive found the title without the book on Android).
+        composeRule.onNodeWithText("Delete “The Way of Kings” from the server?").assertExists()
         composeRule
             .onNodeWithText(
-                "This deletes 76 files (1.2 GB) for “The Way of Kings”, and everything else in its folder, from your " +
-                    "server. Every member loses it, and downloads are removed from their devices. This can’t be undone.",
+                "This deletes 76 files (1.2 GB) and everything else in its folder from your server. Every member " +
+                    "loses it, and downloads are removed from their devices. This can’t be undone.",
             ).assertExists()
         composeRule.onNodeWithText("Delete book").assertExists()
         // Spec §5.2: focus starts on Cancel, the safe way out.
@@ -59,7 +63,7 @@ class BookDetailConfirmsTest {
                 )
             }
         }
-        composeRule.onNodeWithText("This deletes 1 file (1 KB) for “Circe”", substring = true).assertExists()
+        composeRule.onNodeWithText("This deletes 1 file (1 KB) and everything else", substring = true).assertExists()
     }
 
     @Test
@@ -78,6 +82,27 @@ class BookDetailConfirmsTest {
             }
         }
         composeRule.onNodeWithText("“Joyland” is in the same folder", substring = true).assertExists()
+    }
+
+    @Test
+    fun `Restart and Mark as not started ask in the menu's own words`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    RestartBookDialog(onConfirm = {}, onDismiss = {})
+                }
+            }
+        }
+        composeRule.onNodeWithText("Restart from the beginning?").assertExists()
+        composeRule.onNodeWithText("Your place goes back to the start of the book.").assertExists()
+        composeRule.onNodeWithText("Restart").assertExists()
+    }
+
+    @Test
+    fun `Mark as not started asks in the menu's own words`() {
+        composeRule.setContent { MaterialTheme { MarkNotStartedDialog(onConfirm = {}, onDismiss = {}) } }
+        composeRule.onNodeWithText("Mark as not started?").assertExists()
+        composeRule.onNodeWithText("Your progress on this book is cleared.").assertExists()
     }
 
     @Test

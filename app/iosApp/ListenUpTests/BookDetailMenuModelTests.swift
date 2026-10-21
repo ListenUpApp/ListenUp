@@ -28,7 +28,7 @@ struct BookDetailMenuModelTests {
 
     @Test func theWordsAreTitleCase() {
         #expect(BookDetailMenuCommand.markFinished.title == "Mark as Finished…")
-        #expect(BookDetailMenuCommand.restart.title == "Start Over…")
+        #expect(BookDetailMenuCommand.restart.title == "Restart from the Beginning…")
         #expect(BookDetailMenuCommand.markNotStarted.title == "Mark as Not Started…")
         #expect(BookDetailMenuCommand.editDetails.title == "Edit Details")
         #expect(BookDetailMenuCommand.matchDetails.title == "Match Details…")

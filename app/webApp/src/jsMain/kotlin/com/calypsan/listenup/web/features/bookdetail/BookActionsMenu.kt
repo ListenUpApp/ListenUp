@@ -73,8 +73,8 @@ fun BookActionsMenu(
     pending?.let { confirmation ->
         ConfirmDialog(
             open = true,
-            title = confirmation.verb,
-            body = confirmation.prompt,
+            title = confirmation.title,
+            body = confirmation.body,
             confirmLabel = confirmation.verb,
             onConfirm = {
                 pending = null
@@ -92,18 +92,16 @@ fun BookActionsMenu(
 internal const val MORE_TRIGGER_CLASS = "bd-menu"
 
 /**
- * The two progress actions that cannot be undone, and what each asks — the natives' strings
- * (`book_detail_mark_not_started_prompt`, `book_detail_restart_prompt`) character for character.
+ * The two progress actions that cannot be undone, and what each asks — in the menu's own words, and the natives'
+ * strings (`book_detail_mark_not_started_*`, `book_detail_restart_*`) character for character.
  */
 private enum class ProgressConfirmation(
+    val title: String,
+    val body: String,
     val verb: String,
-    val prompt: String,
 ) {
-    MarkNotStarted("Mark as not started", "Clear your progress and mark this as not started?"),
-    Restart(
-        "Restart book",
-        "Start over from the beginning? This resets your position to the start of the book.",
-    ),
+    MarkNotStarted("Mark as not started?", "Your progress on this book is cleared.", "Mark as not started"),
+    Restart("Restart from the beginning?", "Your place goes back to the start of the book.", "Restart"),
 }
 
 /** The item's words on the web; an ellipsis where choosing it asks or opens something first. */

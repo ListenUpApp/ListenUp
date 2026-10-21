@@ -1,6 +1,14 @@
 import Foundation
 import Shared
 
+/// A size as every platform says it ("2.7 MB", "1.2 GB"): the shared `byteSizeLabel`, so a confirm, a Details row and
+/// the Files & Audio sheet agree with Android and web.
+enum BookSize {
+    static func label(_ bytes: Int64) -> String {
+        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel(bytes: bytes)
+    }
+}
+
 /// Where a Details row leads, when it is a link.
 enum BookDetailRowLink: Equatable {
     /// Cast & Credits.
@@ -107,7 +115,7 @@ enum BookDetailRowValue: Equatable {
             BookDetailCell(
                 label: String(localized: "book.detail_maps_ios"),
                 value: "\(format ?? String(format: String(localized: "book.detail_maps_count"), count))"
-                    + " · \(StorageFormat.byteSize(totalBytes))",
+                    + " · \(BookSize.label(totalBytes))",
                 link: onlyDocumentId.map(BookDetailRowLink.document) ?? .documents
             )
         }

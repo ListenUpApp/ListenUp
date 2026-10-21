@@ -13,7 +13,7 @@ import listenup.composeapp.generated.resources.common_cancel
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * "Release to everyone?" — the one question asked before a held book goes out, from Book Detail
+ * "Release to members?" — the one question asked before a held book goes out, from Book Detail
  * (one book) and from the inbox page (the selection). Spec §7's copy, in place of the old "These
  * books will become visible to ALL users."
  *

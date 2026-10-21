@@ -7,7 +7,7 @@ enum BookDetailLayout: Equatable {
 
     nonisolated static func forBook(isHeld: Bool) -> BookDetailLayout { isHeld ? .triage : .full }
 
-    /// The resume bar (Play), the server banner, and the action pills (shelf, mark finished).
+    /// The listen unit: the Resume unit, the offline reason, and the actions (Play, Download, Add to Shelf).
     var showsPlayback: Bool { self == .full }
     /// Rating, readers and Hardcover — hidden for a held book (spec §9: hidden, not refused).
     var showsSocial: Bool { self == .full }
@@ -20,6 +20,13 @@ enum BookDetailLayout: Equatable {
     /// otherwise live in the More menu — all four in the held card (`BookDetailHeldSection.arrange`). Empty for an
     /// ordinary book, whose actions are the menu's.
     var triageActions: [TriageAction] { self == .triage ? [.release, .edit, .match, .editChapters] : [] }
+
+    /// The layout once the book is on screen: `nil` while it loads, and after an error, when there is no book — so a
+    /// menu built for a book that is gone never stays in the toolbar.
+    nonisolated static func loaded(isLoading: Bool, hasError: Bool, isHeld: Bool) -> BookDetailLayout? {
+        guard !isLoading, !hasError else { return nil }
+        return forBook(isHeld: isHeld)
+    }
 
     /// The page's one trailing toolbar item, for the layout once the book has loaded — `nil` while it
     /// is still loading. Nothing is offered until it is known whether the book is held: the full menu

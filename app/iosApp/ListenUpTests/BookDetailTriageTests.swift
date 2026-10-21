@@ -62,6 +62,15 @@ struct BookDetailTriageTests {
         #expect(BookDetailLayout.toolbar(for: .triage) == .heldPill)
     }
 
+    /// Ready then Error: the book is gone, so the menu built for it must go too — no toolbar item at all.
+    @Test func anErrorOffersNoToolbarItem() {
+        #expect(BookDetailLayout.loaded(isLoading: false, hasError: true, isHeld: false) == nil)
+        #expect(BookDetailLayout.toolbar(for: BookDetailLayout.loaded(isLoading: false, hasError: true, isHeld: false))
+            == BookDetailLayout.Toolbar.none)
+        #expect(BookDetailLayout.loaded(isLoading: true, hasError: false, isHeld: false) == nil)
+        #expect(BookDetailLayout.loaded(isLoading: false, hasError: false, isHeld: true) == .triage)
+    }
+
     @Test func anOrdinaryBookOffersTheFullMenu() {
         #expect(BookDetailLayout.toolbar(for: .full) == .overflowMenu)
     }
@@ -77,7 +86,7 @@ struct BookDetailTriageTests {
     }
 
     @Test func releaseAsksInTheCalmWords() {
-        #expect(ReleaseToEveryone.title == "Release to everyone?")
+        #expect(ReleaseToEveryone.title == "Release to members?")
         #expect(ReleaseToEveryone.confirm == "Release")
         #expect(ReleaseToEveryone.message(count: 1) == "Every member will be able to find and play it.")
         #expect(ReleaseToEveryone.message(count: 3) == "Every member will be able to find and play them.")

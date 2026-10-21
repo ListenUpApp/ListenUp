@@ -12,8 +12,8 @@ extension BookDetailView {
         }
     }
 
-    /// The book cannot be shown: what happened, Retry (ask the server again — a reconnect runs catch-up, and the page
-    /// turns Ready by itself when the book arrives) and the way back to the Library. HIG, Navigation: the back button
+    /// The book cannot be shown: what happened, Retry when asking again could help (a reconnect runs catch-up, and the
+    /// page turns Ready by itself when the book arrives) and the way back to the Library. HIG, Navigation: the back button
     /// is there too; a visible Back is the board's.
     func errorView(message: String) -> some View {
         ContentUnavailableView {
@@ -21,11 +21,14 @@ extension BookDetailView {
         } description: {
             Text(message)
         } actions: {
-            Button(action: { observer?.retryConnection() }) {
-                ActionLabel(title: String(localized: "common.retry"), systemImage: "arrow.clockwise")
+            // Retry only when asking again could help (`isRetryable`); a book that no longer exists offers the way back.
+            if observer?.errorIsRetryable == true {
+                Button(action: { observer?.retryConnection() }) {
+                    ActionLabel(title: String(localized: "common.retry"), systemImage: "arrow.clockwise")
+                }
+                .prominentAction()
+                .frame(maxWidth: 240)
             }
-            .prominentAction()
-            .frame(maxWidth: 240)
             Button(String(localized: "book.detail_back_to_library")) { dismiss() }
                 .buttonStyle(.bordered)
                 .controlSize(.large)

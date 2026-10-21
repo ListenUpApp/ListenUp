@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -51,7 +52,6 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.storage.DeleteConfirmation
 import com.calypsan.listenup.client.presentation.storage.StorageUiState
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
@@ -104,7 +104,7 @@ fun StorageScreen(
                     title = stringResource(Res.string.book_delete_download),
                     text =
                         "Remove the downloaded files for \"${confirmation.book.title}\"? " +
-                            "This will free up ${formatFileSize(confirmation.book.sizeBytes)}. " +
+                            "This will free up ${byteSizeLabel(confirmation.book.sizeBytes)}. " +
                             stringResource(Res.string.book_detail_you_can_redownload_anytime_by),
                     confirmText = stringResource(Res.string.common_delete),
                     onConfirm = viewModel::executeDelete,
@@ -119,7 +119,7 @@ fun StorageScreen(
                     title = stringResource(Res.string.settings_clear_all_downloads),
                     text =
                         "Remove all ${state.downloadedBooks.size} downloaded books? " +
-                            "This will free up ${formatFileSize(state.totalStorageUsed)}. " +
+                            "This will free up ${byteSizeLabel(state.totalStorageUsed)}. " +
                             stringResource(Res.string.settings_you_can_redownload_books_anytime),
                     confirmText = stringResource(Res.string.settings_clear_all),
                     onConfirm = viewModel::executeDelete,
@@ -391,7 +391,7 @@ private fun StorageSummaryCard(
             ) {
                 Column {
                     Text(
-                        text = formatFileSize(totalUsed),
+                        text = byteSizeLabel(totalUsed),
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Text(
@@ -411,7 +411,7 @@ private fun StorageSummaryCard(
                     )
                 }
                 Text(
-                    text = stringResource(Res.string.settings_storage_available, formatFileSize(available)),
+                    text = stringResource(Res.string.settings_storage_available, byteSizeLabel(available)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -526,7 +526,7 @@ private fun DownloadedBookItem(
                     text =
                         stringResource(
                             Res.string.settings_storage_size_files,
-                            formatFileSize(book.sizeBytes),
+                            byteSizeLabel(book.sizeBytes),
                             book.fileCount,
                         ),
                     style = MaterialTheme.typography.bodySmall,

@@ -24,7 +24,7 @@ struct FilesAndAudioSheet: View {
                         HStack(spacing: Spacing.s) {
                             Text(file.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                             Text(BookDetailHero.durationText(ms: file.durationMs)).foregroundStyle(.secondary)
-                            Text(StorageFormat.byteSize(file.sizeBytes)).foregroundStyle(.secondary)
+                            Text(BookSize.label(file.sizeBytes)).foregroundStyle(.secondary)
                         }
                         .font(.subheadline)
                         .accessibilityElement(children: .combine)

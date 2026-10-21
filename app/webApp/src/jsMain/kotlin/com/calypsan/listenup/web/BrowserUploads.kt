@@ -1,9 +1,9 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
-import com.calypsan.listenup.web.features.bookdetail.formatBytes
 import org.w3c.dom.HTMLInputElement
 import org.w3c.files.File
 
@@ -29,13 +29,13 @@ internal fun uploadRefusalSentence(refusal: UploadSelectionRefusal): String =
         }
 
         is UploadSelectionRefusal.TooLarge -> {
-            "One upload can carry ${formatBytes(refusal.limitBytes)}. That selection is " +
-                "${formatBytes(refusal.bytes)}, so try it in smaller batches."
+            "One upload can carry ${byteSizeLabel(refusal.limitBytes)}. That selection is " +
+                "${byteSizeLabel(refusal.bytes)}, so try it in smaller batches."
         }
 
         is UploadSelectionRefusal.FileTooLarge -> {
-            "\u201c${refusal.filename}\u201d is ${formatBytes(refusal.bytes)}, and a single file can be at most " +
-                "${formatBytes(refusal.limitBytes)}."
+            "\u201c${refusal.filename}\u201d is ${byteSizeLabel(refusal.bytes)}, and a single file can be at most " +
+                "${byteSizeLabel(refusal.limitBytes)}."
         }
     }
 

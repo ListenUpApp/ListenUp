@@ -257,9 +257,9 @@ class UploadTest :
                 "One upload can carry 1000 files. That selection has 1200, so try it in smaller batches."
             uploadRefusalSentence(
                 UploadSelectionRefusal.FileTooLarge(filename = "big.m4b", bytes = 3 * GIB, limitBytes = 2 * GIB),
-            ) shouldBe "\u201cbig.m4b\u201d is 3.0 GB, and a single file can be at most 2.0 GB."
+            ) shouldBe "\u201cbig.m4b\u201d is 3 GB, and a single file can be at most 2 GB."
             uploadRefusalSentence(UploadSelectionRefusal.TooLarge(bytes = 5 * GIB, limitBytes = 4 * GIB)) shouldBe
-                "One upload can carry 4.0 GB. That selection is 5.0 GB, so try it in smaller batches."
+                "One upload can carry 4 GB. That selection is 5 GB, so try it in smaller batches."
         }
 
         test("a failed session says why and offers to start over") {

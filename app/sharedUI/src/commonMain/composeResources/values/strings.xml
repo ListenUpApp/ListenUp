@@ -233,7 +233,7 @@
     <string name="admin_registration_policy_closed">Closed</string>
     <string name="admin_registration_policy_open">Open</string>
     <string name="admin_release">Release</string>
-    <string name="admin_release_to_everyone">Release to everyone?</string>
+    <string name="admin_release_to_everyone">Release to members?</string>
     <string name="admin_release_to_everyone_body">Every member will be able to find and play it.</string>
     <string name="admin_release_to_everyone_body_plural">Every member will be able to find and play them.</string>
     <string name="admin_remote_url">Remote URL</string>
@@ -431,7 +431,6 @@ One beautiful library.</string>
     <string name="book_detail_all_chapters">All %1$d chapters</string>
     <string name="book_detail_all_chapters_ios">All %1$d Chapters</string>
     <string name="book_detail_all_credits">All credits</string>
-    <string name="book_detail_all_credits_count">%1$d</string>
     <string name="book_detail_all_credits_ios">All Credits</string>
     <string name="book_detail_asin">ASIN</string>
     <string name="book_detail_authors">Authors</string>
@@ -459,13 +458,11 @@ One beautiful library.</string>
     <string name="book_detail_credits_placeholder">Credits go here</string>
     <string name="book_detail_credits_subtitle">%1$d contributors · %2$s</string>
     <string name="book_detail_delete_book_blocked">“%1$s” is in the same folder, so deleting this book would take it too. Nothing was deleted.</string>
-    <string name="book_detail_delete_server_body">This deletes %1$d files (%2$s) for “%3$s”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
-    <string name="book_detail_delete_server_body_ios">%1$d files (%2$s) and everything else in its folder are removed for every member. This can’t be undone.</string>
-    <string name="book_detail_delete_server_body_one">This deletes 1 file (%1$s) for “%2$s”, and everything else in its folder, from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
-    <string name="book_detail_delete_server_body_one_ios">1 file (%1$s) and everything else in its folder are removed for every member. This can’t be undone.</string>
+    <string name="book_detail_delete_server_body">This deletes %1$d files (%2$s) and everything else in its folder from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
+    <string name="book_detail_delete_server_body_one">This deletes 1 file (%1$s) and everything else in its folder from your server. Every member loses it, and downloads are removed from their devices. This can’t be undone.</string>
     <string name="book_detail_delete_server_confirm">Delete book</string>
     <string name="book_detail_delete_server_confirm_ios">Delete Book</string>
-    <string name="book_detail_delete_server_title">Delete from the server?</string>
+    <string name="book_detail_delete_server_title">Delete “%1$s” from the server?</string>
     <string name="book_detail_delete_server_title_ios">Delete “%1$s” from the server?</string>
     <string name="book_detail_details">Details</string>
     <string name="book_detail_document_meta">%1$s · %2$s</string>
@@ -527,7 +524,8 @@ One beautiful library.</string>
     <string name="book_detail_maps_ios">Maps &amp; Illustrations</string>
     <string name="book_detail_mark_as_finished">Mark as finished</string>
     <string name="book_detail_mark_as_not_started">Mark as not started</string>
-    <string name="book_detail_mark_not_started_prompt">Clear your progress and mark this as not started?</string>
+    <string name="book_detail_mark_not_started_body">Your progress on this book is cleared.</string>
+    <string name="book_detail_mark_not_started_title">Mark as not started?</string>
     <string name="book_detail_menu_delete">Delete from server…</string>
     <string name="book_detail_menu_delete_ios">Delete from Server…</string>
     <string name="book_detail_menu_edit">Edit</string>
@@ -541,7 +539,7 @@ One beautiful library.</string>
     <string name="book_detail_menu_match_details_ios">Match Details…</string>
     <string name="book_detail_menu_progress">Progress</string>
     <string name="book_detail_menu_restart">Restart from the beginning…</string>
-    <string name="book_detail_menu_restart_ios">Start Over…</string>
+    <string name="book_detail_menu_restart_ios">Restart from the Beginning…</string>
     <string name="book_detail_menu_share_ios">Share</string>
     <string name="book_detail_mood">Moods</string>
     <string name="book_detail_more_actions">More actions</string>
@@ -626,7 +624,6 @@ One beautiful library.</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
     <string name="book_detail_remove_download_body">Frees %1$s on this device. The book stays in your library, keeps your place, and streams when you’re online.</string>
-    <string name="book_detail_remove_download_body_ios">Frees %1$s on this device. The book stays in your library and keeps your place.</string>
     <string name="book_detail_remove_download_confirm">Remove</string>
     <string name="book_detail_remove_download_keep">Keep</string>
     <string name="book_detail_remove_download_short">Remove</string>
@@ -634,8 +631,8 @@ One beautiful library.</string>
     <string name="book_detail_remove_download_title_ios">Remove Download?</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
     <string name="book_detail_restart">Restart</string>
-    <string name="book_detail_restart_book">Restart book</string>
-    <string name="book_detail_restart_prompt">Start over from the beginning? This resets your position to the start of the book.</string>
+    <string name="book_detail_restart_body">Your place goes back to the start of the book.</string>
+    <string name="book_detail_restart_title">Restart from the beginning?</string>
     <string name="book_detail_resume">Resume</string>
     <string name="book_detail_resume_ios">Resume</string>
     <string name="book_detail_resume_progress_a11y">Resume, %1$d percent</string>

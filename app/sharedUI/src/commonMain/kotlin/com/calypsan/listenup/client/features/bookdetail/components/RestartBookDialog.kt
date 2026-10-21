@@ -3,8 +3,9 @@ package com.calypsan.listenup.client.features.bookdetail.components
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.runtime.Composable
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_restart_book
-import listenup.composeapp.generated.resources.book_detail_restart_prompt
+import listenup.composeapp.generated.resources.book_detail_restart
+import listenup.composeapp.generated.resources.book_detail_restart_body
+import listenup.composeapp.generated.resources.book_detail_restart_title
 import listenup.composeapp.generated.resources.common_cancel
 import org.jetbrains.compose.resources.stringResource
 
@@ -22,9 +23,9 @@ fun RestartBookDialog(
 ) {
     ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(Res.string.book_detail_restart_book),
-        text = stringResource(Res.string.book_detail_restart_prompt),
-        confirmText = stringResource(Res.string.book_detail_restart_book),
+        title = stringResource(Res.string.book_detail_restart_title),
+        text = stringResource(Res.string.book_detail_restart_body),
+        confirmText = stringResource(Res.string.book_detail_restart),
         onConfirm = onConfirm,
         dismissText = stringResource(Res.string.common_cancel),
     )

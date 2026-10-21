@@ -175,8 +175,8 @@ class BookActionsMenuTest :
                 open(rendered(readyBook(readingStage = ReadingStage.InProgress).copy(progress = 0.4f), onDiscardProgress = { discarded++ }))
             item(host, "Mark as not started…").shouldNotBeNull().click()
             awaitFrame()
-            dialogTitle(host) shouldBe "Mark as not started"
-            dialogBody(host) shouldBe "Clear your progress and mark this as not started?"
+            dialogTitle(host) shouldBe "Mark as not started?"
+            dialogBody(host) shouldBe "Your progress on this book is cleared."
             discarded shouldBe 0
             dialogButton(host, CONFIRM).click()
             awaitFrame()
@@ -188,8 +188,8 @@ class BookActionsMenuTest :
             val host = open(rendered(readyBook(readingStage = ReadingStage.InProgress).copy(progress = 0.4f), onRestart = { restarted++ }))
             item(host, "Restart from the beginning…").shouldNotBeNull().click()
             awaitFrame()
-            dialogTitle(host) shouldBe "Restart book"
-            dialogBody(host) shouldBe "Start over from the beginning? This resets your position to the start of the book."
+            dialogTitle(host) shouldBe "Restart from the beginning?"
+            dialogBody(host) shouldBe "Your place goes back to the start of the book."
             dialogButton(host, CANCEL).click()
             awaitFrame()
             restarted shouldBe 0

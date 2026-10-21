@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,7 +26,6 @@ import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
@@ -175,7 +175,7 @@ private fun BookDetailRow.cell(): DetailCell =
 
         is BookDetailRow.MapsAndIllustrations -> {
             val kind = format ?: stringResource(Res.string.book_detail_maps_count, count)
-            DetailCell(stringResource(Res.string.book_detail_maps), "$kind · ${formatFileSize(totalBytes)}")
+            DetailCell(stringResource(Res.string.book_detail_maps), "$kind · ${byteSizeLabel(totalBytes)}")
         }
     }
 

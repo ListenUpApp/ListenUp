@@ -126,7 +126,7 @@ class DetailsSectionTest {
                 "ASIN",
                 "All credits (6)",
                 "Files & audio (AAC · 64 kbps)",
-                "Maps & illustrations (PDF · 18.0 MB)",
+                "Maps & illustrations (PDF · 18 MB)",
             )
         val tops = labels.map { composeRule.onNodeWithText(it, useUnmergedTree = true).getUnclippedBoundsInRoot().top }
         tops shouldBe tops.sorted()
@@ -145,7 +145,7 @@ class DetailsSectionTest {
     fun `the link rows read label first, as the spec writes them`() {
         show(bookDetailRows(full, listOf(doc("map"))))
         val button = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
-        listOf("All credits (6)", "Files & audio (AAC · 64 kbps)", "Maps & illustrations (PDF · 18.0 MB)").forEach {
+        listOf("All credits (6)", "Files & audio (AAC · 64 kbps)", "Maps & illustrations (PDF · 18 MB)").forEach {
             composeRule.onNode(button and hasText(it)).assertExists()
         }
         composeRule.onNodeWithText("6").assertDoesNotExist()

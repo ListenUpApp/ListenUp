@@ -135,7 +135,7 @@ class BookDetailHeldTest :
             awaitFrame()
 
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
-            dialog.querySelector(".dlg-t")?.textContent shouldBe "Release to everyone?"
+            dialog.querySelector(".dlg-t")?.textContent shouldBe "Release to members?"
             dialog.querySelector(".dlg-p")?.textContent shouldBe "Every member will be able to find and play it."
             host.querySelectorAll("dialog.dlg .dlg-actions button").asList().map { it.textContent } shouldBe
                 listOf("Cancel", "Release")

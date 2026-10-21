@@ -290,6 +290,6 @@ class BookDetailReleaseConfirmationTest {
         const val HELD_FOR_REVIEW = "Held for review"
         const val RELEASE = "Release"
         const val RELEASE_TO_MEMBERS = "Release to members"
-        const val CONFIRM_TITLE = "Release to everyone?"
+        const val CONFIRM_TITLE = "Release to members?"
     }
 }

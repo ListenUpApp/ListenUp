@@ -44,7 +44,7 @@ class FilesAndAudioSheetTest {
         composeRule.onNodeWithText("01.m4b").assertExists()
         composeRule.onNodeWithText("disc1/01.m4b").assertDoesNotExist()
         composeRule.onNodeWithText("1h 30m").assertExists()
-        composeRule.onNodeWithText("41.1 MB").assertExists()
+        composeRule.onNodeWithText("41.2 MB").assertExists()
         listOf("Format", "Bitrate", "Sample rate", "Channels").forEach { composeRule.onNodeWithText(it).assertExists() }
         composeRule.onNodeWithText("64 kbps").assertExists()
         val file =

@@ -46,10 +46,13 @@ struct BookDeletionTests {
     }
 
     @Test func theMessageSaysTheFilesTheFolderEveryMemberAndNoUndo() {
+        // The same words as Android and web, downloads included.
         #expect(BookDeletion.message(fileCount: 76, formattedSize: "1.2 GB") ==
-            "76 files (1.2 GB) and everything else in its folder are removed for every member. This can’t be undone.")
+            "This deletes 76 files (1.2 GB) and everything else in its folder from your server. Every member loses "
+            + "it, and downloads are removed from their devices. This can’t be undone.")
         #expect(BookDeletion.message(fileCount: 1, formattedSize: "1 KB") ==
-            "1 file (1 KB) and everything else in its folder are removed for every member. This can’t be undone.")
+            "This deletes 1 file (1 KB) and everything else in its folder from your server. Every member loses it, "
+            + "and downloads are removed from their devices. This can’t be undone.")
     }
 
     @Test func theVerbIsDeleteBook() {
@@ -59,7 +62,12 @@ struct BookDeletionTests {
     @Test func removeDownloadSaysWhatItFreesAndKeepsYourPlace() {
         #expect(RemoveDownloadCopy.title == "Remove Download?")
         #expect(RemoveDownloadCopy.message(formattedSize: "1.2 GB") ==
-            "Frees 1.2 GB on this device. The book stays in your library and keeps your place.")
+            "Frees 1.2 GB on this device. The book stays in your library, keeps your place, and streams when you’re online.")
+    }
+
+    @Test func sizesReadAsAndroidAndWebReadThem() {
+        #expect(BookSize.label(2_831_155) == "2.7 MB")
+        #expect(BookSize.label(1_288_490_189) == "1.2 GB")
         #expect(RemoveDownloadCopy.keep == "Keep")
         #expect(RemoveDownloadCopy.remove == "Remove")
     }

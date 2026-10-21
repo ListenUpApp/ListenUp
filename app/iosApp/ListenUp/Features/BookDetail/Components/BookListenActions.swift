@@ -50,9 +50,10 @@ struct BookListenActions: View {
         // default.
         .alert(RemoveDownloadCopy.title, isPresented: $confirmingDelete) {
             Button(RemoveDownloadCopy.keep, role: .cancel) {}
-            Button(RemoveDownloadCopy.remove, role: .destructive, action: onDeleteDownload)
+            // Not destructive: downloading again undoes it (HIG, Alerts — the destructive role is for what can't be).
+            Button(RemoveDownloadCopy.remove, action: onDeleteDownload)
         } message: {
-            Text(RemoveDownloadCopy.message(formattedSize: StorageFormat.byteSize(downloadSizeBytes)))
+            Text(RemoveDownloadCopy.message(formattedSize: BookSize.label(downloadSizeBytes)))
         }
     }
 
@@ -142,7 +143,7 @@ enum RemoveDownloadCopy {
 
     /// `formattedSize` arrives formatted so the sentence stays testable.
     static func message(formattedSize: String) -> String {
-        String(format: String(localized: "book.detail_remove_download_body_ios"), formattedSize)
+        String(format: String(localized: "book.detail_remove_download_body"), formattedSize)
     }
 }
 

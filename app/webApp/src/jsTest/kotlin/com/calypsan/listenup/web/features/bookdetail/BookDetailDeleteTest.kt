@@ -73,8 +73,8 @@ class BookDetailDeleteTest :
             // Three audio parts (178 + 182 + 152 MB) plus two documents (2 MB + 512 KB): five
             // tracked files. Documents count because they sit in the same folder and go with it.
             open.querySelector(".dlg-p")?.textContent shouldBe
-                "This removes 5 files (514 MB) and everything else in its folder for every member. " +
-                "It can’t be undone."
+                "This deletes 5 files (515 MB) and everything else in its folder from your server. Every member " +
+                "loses it, and downloads are removed from their devices. This can’t be undone."
             actions(host).map { it.textContent } shouldBe listOf("Cancel", "Delete book")
         }
 

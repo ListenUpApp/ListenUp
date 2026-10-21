@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_meta
 import listenup.composeapp.generated.resources.book_detail_documents_sheet_title
@@ -119,7 +119,7 @@ internal fun DocumentCard(
                         stringResource(
                             Res.string.book_detail_document_meta,
                             doc.format.uppercase(),
-                            formatFileSize(doc.size),
+                            byteSizeLabel(doc.size),
                         ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

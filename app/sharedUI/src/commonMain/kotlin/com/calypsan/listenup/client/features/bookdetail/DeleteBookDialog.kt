@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.runtime.Composable
@@ -43,12 +44,12 @@ fun DeleteBookDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val size = formatFileSize(trackedBytes)
+    val size = byteSizeLabel(trackedBytes)
     val body =
         if (trackedFileCount == 1) {
-            stringResource(Res.string.book_detail_delete_server_body_one, size, bookTitle)
+            stringResource(Res.string.book_detail_delete_server_body_one, size)
         } else {
-            stringResource(Res.string.book_detail_delete_server_body, trackedFileCount, size, bookTitle)
+            stringResource(Res.string.book_detail_delete_server_body, trackedFileCount, size)
         }
     val refusal =
         when (error) {
@@ -66,7 +67,7 @@ fun DeleteBookDialog(
         }
     ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(Res.string.book_detail_delete_server_title),
+        title = stringResource(Res.string.book_detail_delete_server_title, bookTitle),
         text = body + refusal,
         confirmText = stringResource(Res.string.book_detail_delete_server_confirm),
         onConfirm = { if (!isDeleting) onConfirm() },

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.web.design.ButtonLink
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
@@ -41,7 +42,7 @@ internal fun DocumentsPanel(
     Panel(
         title = "Documents",
         flush = true,
-        trailing = { MachineNote(formatBytes(documents.sumOf { it.size })) },
+        trailing = { MachineNote(byteSizeLabel(documents.sumOf { it.size })) },
     ) {
         DataTable(columns = documentColumns(bookId), rows = documents, rowKey = { it.id })
     }
@@ -60,7 +61,7 @@ private fun documentColumns(bookId: String): List<TableColumn<BookDocument>> =
             Text(doc.format.uppercase())
         },
         TableColumn("size", "Size", width = 88, align = ColumnAlign.End, mono = true) { doc ->
-            Text(formatBytes(doc.size))
+            Text(byteSizeLabel(doc.size))
         },
         TableColumn("open", "", width = 104, align = ColumnAlign.End) { doc ->
             DocumentLink(bookId, doc)

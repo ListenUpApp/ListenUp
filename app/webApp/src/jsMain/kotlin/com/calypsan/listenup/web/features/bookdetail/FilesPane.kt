@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -49,7 +50,7 @@ internal fun FilesPane(
             Panel(
                 title = "Audio files",
                 flush = true,
-                trailing = { MachineNote(formatBytes(files.sumOf { it.size })) },
+                trailing = { MachineNote(byteSizeLabel(files.sumOf { it.size })) },
             ) {
                 DataTable(columns = FILE_COLUMNS, rows = files, rowKey = { it.id })
             }
@@ -75,7 +76,7 @@ private fun audioEntries(files: List<AudioFile>): List<MetaEntry> {
         display.bitrate?.let { add(MetaEntry("Bitrate", it, machine = true)) }
         display.sampleRate?.let { add(MetaEntry("Sample rate", it, machine = true)) }
         display.channels?.let { add(MetaEntry("Channels", it, machine = true)) }
-        add(MetaEntry("Size", formatBytes(files.sumOf { it.size }), machine = true))
+        add(MetaEntry("Size", byteSizeLabel(files.sumOf { it.size }), machine = true))
         add(MetaEntry("Files", files.size.toString(), machine = true))
     }
 }
@@ -87,7 +88,7 @@ private val FILE_COLUMNS =
             Text(formatClock((it.duration / MILLIS_PER_SECOND).toInt()))
         },
         TableColumn("size", "Size", width = 88, align = ColumnAlign.End, mono = true) {
-            Text(formatBytes(it.size))
+            Text(byteSizeLabel(it.size))
         },
         TableColumn("codec", "Codec", width = 108, align = ColumnAlign.End, mono = true) {
             Text(codecLabel(it))
@@ -101,18 +102,6 @@ private fun codecLabel(file: AudioFile): String {
     return "$codec ${kbps}k"
 }
 
-/**
- * Binary megabytes, no decimals: these sit in a scannable column, and a self-hoster comparing
- * "178 MB" against their filesystem wants the number their file manager shows.
- */
-internal fun formatBytes(bytes: Long): String {
-    if (bytes < BYTES_PER_MEGABYTE) return "${bytes / BYTES_PER_KILOBYTE} KB"
-    if (bytes < BYTES_PER_GIGABYTE) return "${bytes / BYTES_PER_MEGABYTE} MB"
-    // Integer tenths rather than floating point: one decimal is all a size column can use, and
-    // this cannot render "1.0000000000000002 GB".
-    val tenths = bytes * TENTHS / BYTES_PER_GIGABYTE
-    return "${tenths / TENTHS}.${tenths % TENTHS} GB"
-}
 
 @Composable
 internal fun MachineNote(text: String) {
@@ -130,11 +119,3 @@ internal fun MachineNote(text: String) {
 private const val MILLIS_PER_SECOND = 1000L
 
 private const val BITS_PER_KILOBIT = 1000
-
-private const val BYTES_PER_KILOBYTE = 1024L
-
-private const val BYTES_PER_MEGABYTE = 1024L * 1024
-
-private const val BYTES_PER_GIGABYTE = 1024L * 1024 * 1024
-
-private const val TENTHS = 10L

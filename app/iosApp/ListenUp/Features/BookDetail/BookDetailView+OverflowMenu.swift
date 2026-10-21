@@ -31,10 +31,11 @@ extension BookDetailView {
         }
     }
 
-    /// The layout of the book on screen, or `nil` until it has loaded.
+    /// The layout of the book on screen, or `nil` until it has loaded — and after an error, when there is no book.
     private var loadedLayout: BookDetailLayout? {
-        guard let observer, !observer.isLoading else { return nil }
-        return observer.layout
+        guard let observer else { return nil }
+        return BookDetailLayout.loaded(isLoading: observer.isLoading, hasError: observer.error != nil,
+                                       isHeld: observer.isHeld)
     }
 
     @ToolbarContentBuilder
@@ -117,7 +118,7 @@ private extension View {
     ) -> some View {
         self
             .confirmationDialog(
-                String(localized: "book.detail_mark_not_started_prompt"),
+                String(localized: "book.detail_mark_not_started_title"),
                 isPresented: confirmation.isPresenting(.markNotStarted),
                 titleVisibility: .visible
             ) {
@@ -126,14 +127,18 @@ private extension View {
                     observer.discardProgress()
                 }
                 Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "book.detail_mark_not_started_body"))
             }
             .confirmationDialog(
-                String(localized: "book.detail_restart_prompt"),
+                String(localized: "book.detail_restart_title"),
                 isPresented: confirmation.isPresenting(.restart),
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "book.detail_restart"), role: .destructive) { observer.restartBook() }
                 Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "book.detail_restart_body"))
             }
             .alert(
                 BookDeletion.title(bookTitle: observer.title),
@@ -145,7 +150,7 @@ private extension View {
                 let tracked = observer.trackedForDeletion
                 Text(BookDeletion.message(
                     fileCount: tracked.fileCount,
-                    formattedSize: StorageFormat.byteSize(tracked.bytes)
+                    formattedSize: BookSize.label(tracked.bytes)
                 ))
             }
     }

@@ -169,3 +169,36 @@ private val LANGUAGE_NAMES: Map<String, String> =
         "ar" to "Arabic",
         "hi" to "Hindi",
     )
+
+private const val BYTES_PER_KIB = 1024L
+private const val BYTES_PER_MIB = BYTES_PER_KIB * 1024
+private const val BYTES_PER_GIB = BYTES_PER_MIB * 1024
+private const val TENTHS = 10L
+private const val WHOLE_ABOVE_TENTHS = 1000L
+
+/**
+ * A size as every platform says it — "512 KB", "2.7 MB", "514 MB", "1.2 GB" — so a confirm, a Details row and the Files
+ * & audio sheet agree on Android, iOS and web. Binary units; one decimal, dropped when it is .0 or the number passes
+ * 100. Integer arithmetic, so a browser never prints "1.0000000000000002 GB".
+ */
+fun byteSizeLabel(bytes: Long): String {
+    val size = bytes.coerceAtLeast(0L)
+    return when {
+        size < BYTES_PER_KIB -> "$size B"
+        size < BYTES_PER_MIB -> "${size / BYTES_PER_KIB} KB"
+        size < BYTES_PER_GIB -> tenthsLabel(size, BYTES_PER_MIB, "MB")
+        else -> tenthsLabel(size, BYTES_PER_GIB, "GB")
+    }
+}
+
+private fun tenthsLabel(
+    bytes: Long,
+    unit: Long,
+    name: String,
+): String {
+    val tenths = (bytes * TENTHS + unit / 2) / unit
+    return when {
+        tenths >= WHOLE_ABOVE_TENTHS || tenths % TENTHS == 0L -> "${(tenths + TENTHS / 2) / TENTHS} $name"
+        else -> "${tenths / TENTHS}.${tenths % TENTHS} $name"
+    }
+}

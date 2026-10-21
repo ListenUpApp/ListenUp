@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AudioFile
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
@@ -83,7 +83,7 @@ internal fun FilesAndAudioContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = formatFileSize(file.size),
+                    text = byteSizeLabel(file.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

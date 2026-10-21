@@ -24,7 +24,7 @@ class ReleaseToEveryoneDialogTest {
     fun `one book is asked about in the singular`() {
         setContent(bookCount = 1)
 
-        composeRule.onNodeWithText("Release to everyone?").assertIsDisplayed()
+        composeRule.onNodeWithText("Release to members?").assertIsDisplayed()
         composeRule.onNodeWithText("Every member will be able to find and play it.").assertIsDisplayed()
         composeRule.onNodeWithText("Cancel").assertIsDisplayed()
         composeRule.onNodeWithText("Release").assertIsDisplayed()
