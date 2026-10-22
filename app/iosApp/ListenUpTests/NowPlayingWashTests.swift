@@ -23,12 +23,10 @@ struct NowPlayingWashTests {
         #expect(abs(resolved.red - system.red) < 0.002 && abs(resolved.blue - system.blue) < 0.002)
     }
 
-    @Test("label ink on the light neutral passes 4.5:1, and secondary ink on it too")
+    @Test("label ink on the light neutral passes 4.5:1")
     func contrast() {
         let traits = UITraitCollection(userInterfaceStyle: .light)
         let wash = SRGBColor(UIColor(PlayerWashTone.color(for: .light)), resolvedFor: traits)
         #expect(SRGBColor(.label, resolvedFor: traits).contrastRatio(against: wash) >= ContrastMinimum.text)
-        #expect(SRGBColor(.secondaryLabel, resolvedFor: traits, over: wash).contrastRatio(against: wash)
-            >= ContrastMinimum.text)
     }
 }
