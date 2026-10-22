@@ -349,8 +349,7 @@ private fun WideControls(
     // Scrubber: wavy seek bar + elapsed / remaining labels.
     PlayerScrubber(
         progress = progress,
-        isPlaying = state.isAudible,
-        isBuffering = state.isBusy,
+        isBusy = state.isBusy,
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -359,16 +358,13 @@ private fun WideControls(
 
     // Transport row with the 96 dp FAB from the design reference (64 dp when short).
     PlayerTransport(
-        primary = state.primary,
+        state = state,
         onPrimary = onPrimary,
         onSkipBack = onSkipBack,
         onSkipForward = onSkipForward,
         onPreviousChapter = onPreviousChapter,
         onNextChapter = onNextChapter,
-        skipBackwardSec = skipBackwardSec,
-        skipForwardSec = skipForwardSec,
-        fabSize = if (isShort) 64.dp else 96.dp,
-        ctrlSize = if (isShort) 48.dp else 60.dp,
+        playSize = if (isShort) 64.dp else 96.dp,
         modifier = Modifier.fillMaxWidth(),
     )
 }

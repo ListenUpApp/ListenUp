@@ -233,8 +233,7 @@ fun CompactNowPlaying(
             // Scrubber + time labels — fills column width (horizontal padding from the column).
             PlayerScrubber(
                 progress = progress,
-                isPlaying = state.isAudible,
-                isBuffering = state.isBusy,
+                isBusy = state.isBusy,
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -243,15 +242,13 @@ fun CompactNowPlaying(
 
             // Transport — slightly smaller FAB (88 dp).
             PlayerTransport(
-                primary = state.primary,
+                state = state,
                 onPrimary = onPrimary,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
                 onPreviousChapter = onPreviousChapter,
                 onNextChapter = onNextChapter,
-                skipBackwardSec = skipBackwardSec,
-                skipForwardSec = skipForwardSec,
-                fabSize = 88.dp,
+                playSize = 88.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
 

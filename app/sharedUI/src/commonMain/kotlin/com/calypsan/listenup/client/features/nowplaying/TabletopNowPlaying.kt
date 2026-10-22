@@ -184,21 +184,18 @@ internal fun TabletopNowPlaying(
             val controlsWidth = Modifier.widthIn(max = CONTROLS_MAX_WIDTH).fillMaxWidth()
             PlayerScrubber(
                 progress = progress,
-                isPlaying = state.isAudible,
-                isBuffering = state.isBusy,
+                isBusy = state.isBusy,
                 onSeek = onSeek,
                 modifier = controlsWidth,
             )
             PlayerTransport(
-                primary = state.primary,
+                state = state,
                 onPrimary = onPrimary,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
                 onPreviousChapter = onPreviousChapter,
                 onNextChapter = onNextChapter,
-                skipBackwardSec = skipBackwardSec,
-                skipForwardSec = skipForwardSec,
-                fabSize = 80.dp,
+                playSize = 80.dp,
                 modifier = controlsWidth,
             )
             PlayerSecondaryActions(
