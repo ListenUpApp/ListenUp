@@ -610,6 +610,8 @@ internal fun Playhead(
     onSeek: (Long) -> Unit,
     /** Drawn between the range and the trailing time: the Now Playing page's book sentence. */
     center: (@Composable () -> Unit)? = null,
+    /** False under a problem card: there is nothing to seek in a book that cannot play. */
+    enabled: Boolean = true,
 ) {
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: positionMs
@@ -626,6 +628,7 @@ internal fun Playhead(
         // Without this the range keeps its default step of 1 — one MILLISECOND per arrow key,
         // so a keyboard listener would need thirty thousand presses to skip half a minute.
         attr("step", STEP_MS.toString())
+        if (!enabled) disabled()
         attr(ATTR_ARIA_LABEL, label)
         // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
         // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.

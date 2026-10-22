@@ -1,8 +1,10 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.web.NoCoverThemes
 import com.calypsan.listenup.web.PHONE
 import com.calypsan.listenup.web.ViewportFrame
@@ -128,6 +130,22 @@ class NowPlayingPagePhoneTest :
             awaitFrame()
             frame.host.ownerDocument!!.querySelector("dialog.speed-dlg[open]") shouldBe null
             frame.find(".np-page").shouldNotBeNull()
+        }
+
+        test("a problem card takes the transport's place, and the scrubber is disabled under it; the settings stay") {
+            val frame =
+                phonePage(
+                    wayOfKings(
+                        phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()),
+                        primary = PrimaryControl.Retry,
+                        chapters = chapterRows(3),
+                        currentChapterIndex = 0,
+                    ),
+                )
+            frame.find(".np-mob .np-card[role=alert]").shouldNotBeNull()
+            frame.host.querySelector(".np-mob .np-transport") shouldBe null
+            (frame.find(".np-mob input[type=range]") as HTMLInputElement).disabled shouldBe true
+            frame.findAll(".np-mob .np-pill").size shouldBe 3
         }
 
         test("at phone width an immersive shell hides the tabs, the header and the bar") {

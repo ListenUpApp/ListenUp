@@ -677,6 +677,28 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-back-current:focus { outline:none; }
 .np-back-current:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 
+/* The state card (P32): a problem on the error container, Book Detail's held amber, or a plain container; or the
+   finished book. It takes the transport's place on a phone and sits at the foot of the book column wider. */
+.np-card {
+  display:flex; flex-direction:column; gap:var(--sp-8); width:100%; padding:var(--sp-16) var(--sp-16) var(--sp-16);
+  border-radius:var(--r-lg); text-align:left; background:var(--surface-2); color:var(--ink);
+}
+.np-card.error { background:var(--player-err-container); color:var(--player-err-ink); }
+.np-card.held { background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
+.np-card.finished { background:color-mix(in srgb, var(--surface) 80%, transparent); }
+.np-card-t { font-size:var(--fs-title); font-weight:800; letter-spacing:-.01em; }
+.np-card-c, .np-card-saved { font-size:var(--fs-ui); line-height:1.45; }
+.np-card.neutral .np-card-c, .np-card.held .np-card-c, .np-card.finished .np-card-c { color:var(--ink-2); }
+.np-card-ref { font-size:var(--fs-small); opacity:.8; }
+.np-card-next { display:flex; align-items:center; gap:var(--sp-12); }
+.np-card-next-text { display:flex; flex-direction:column; min-width:0; }
+.np-card-next-k { font-size:var(--fs-caption); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+.np-card-next-t { font-size:var(--fs-ui); font-weight:700; }
+.np-card-next-n { font-size:var(--fs-small); color:var(--ink-2); }
+.np-card-actions { display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-8); margin-top:var(--sp-4); }
+.np-card-actions .btn { min-height:44px; }
+.np-cardslot { margin-top:var(--sp-8); }
+
 /* Below 760px: the whole screen, its own transport; from 760px the bar is the transport (C8). */
 .np-mob { display:none; }
 @media (max-width: 759px) {

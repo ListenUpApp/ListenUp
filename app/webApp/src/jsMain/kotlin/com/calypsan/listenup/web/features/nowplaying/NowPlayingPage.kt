@@ -12,7 +12,9 @@ import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerBook
+import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
+import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
@@ -149,6 +151,7 @@ fun NowPlayingPage(
     val book = state.book
     val arrival = rememberCoverThemes(book.id, book.coverHash)
     val pickers = remember { PagePickers() }
+    val card = PlayerCards.of(state)
     PagePickerDialogs(state, pickers, actions, boostUnavailable)
     Div(attrs = {
         classes("np-page")
@@ -159,7 +162,9 @@ fun NowPlayingPage(
             Section(attrs = { classes("np-bookcol") }) {
                 BookIdentity(book, actions)
                 BookCard(state, progress)
-                PhoneControls(state, progress, actions, pickers)
+                PhoneControls(state, progress, actions, pickers, card)
+                // Wider, the bar is the transport; the card sits at the foot of the book column (§5.6).
+                card?.let { Div(attrs = { classes("np-desk", "np-cardslot") }) { StateCard(it, book.id, actions) } }
             }
             // A chapterless book has no list; the book column then takes the width.
             if (state.chapters.isNotEmpty()) {
@@ -417,6 +422,7 @@ private fun PhoneControls(
     progress: PlayerProgress,
     actions: NowPlayingActions,
     pickers: PagePickers,
+    card: PlayerCard?,
 ) {
     Div(attrs = { classes("np-phone", "np-mob") }) {
         P(attrs = { classes("np-ch") }) { Text(NowPlayingWords.chapterLine(state.chapter)) }
@@ -431,11 +437,22 @@ private fun PhoneControls(
                 showsRemaining = true,
                 onSeek = actions.onSeek,
                 center = { Span(attrs = { classes("np-sentence") }) { Text(NowPlayingWords.bookSentence(progress)) } },
+                enabled = card !is PlayerCard.Problem,
             )
         }
-        PhoneTransport(state, actions)
+        // The card takes the transport's place, and only the transport's (C5): the book and the settings stay.
+        if (card != null) StateCard(card, state.book.id, actions) else PhoneTransport(state, actions)
         SettingsPills(state, pickers)
     }
+}
+
+@Composable
+private fun StateCard(
+    card: PlayerCard,
+    bookId: String,
+    actions: NowPlayingActions,
+) {
+    PlayerStateCard(card = card, onAction = actions.onCardAction, onRate = actions.onRate, bookId = bookId)
 }
 
 /**
