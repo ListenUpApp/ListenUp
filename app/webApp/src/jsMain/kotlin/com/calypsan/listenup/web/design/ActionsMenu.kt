@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.browser.document
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import com.calypsan.listenup.web.motion.Keyframe
 import com.calypsan.listenup.web.motion.MotionToken
@@ -44,6 +45,13 @@ data class MenuAction(
     val destructive: Boolean = false,
     /** False draws the item disabled (it emits `disabled`, never `disabled="false"`) and choosing it does nothing. */
     val enabled: Boolean = true,
+    /**
+     * Non-null makes the item a real link to this URL: a person or a page the reader could open in a new tab, or a
+     * document. A plain click is routed in-app through [onSelect]; a modified one keeps the browser's default.
+     */
+    val href: String? = null,
+    /** With [href], the link opens in a new tab (`target=_blank`, `rel=noopener`) and [onSelect] only closes the menu. */
+    val opensNewTab: Boolean = false,
 )
 
 /**
@@ -347,6 +355,10 @@ private fun MenuItem(
     menu: NodeHolder,
     onChosen: () -> Unit,
 ) {
+    if (item.href != null) {
+        MenuLinkItem(item, item.href, index, count, menu, onChosen)
+        return
+    }
     // ⛔ A real <button role="menuitem">: a clickable <div> is unreachable by keyboard and
     // announces nothing.
     Button(attrs = {
@@ -375,6 +387,49 @@ private fun MenuItem(
         onClick {
             if (item.enabled) {
                 if (!item.keepsOpen) onChosen()
+                item.onSelect()
+            }
+        }
+    }) {
+        item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
+        Text(item.label)
+    }
+}
+
+/**
+ * A menu item that is a link ([MenuAction.href]): a real `<a role="menuitem">`, so a new tab and a document's own
+ * tab work, and a plain click is routed in-app the way [AppLink] routes one.
+ */
+@Composable
+private fun MenuLinkItem(
+    item: MenuAction,
+    href: String,
+    index: Int,
+    count: Int,
+    menu: NodeHolder,
+    onChosen: () -> Unit,
+) {
+    A(href = href, attrs = {
+        classes("menu-i")
+        if (item.destructive) classes("is-danger")
+        attr("role", "menuitem")
+        attr("tabindex", if (index == 0) "0" else "-1")
+        if (item.opensNewTab) {
+            attr("target", "_blank")
+            attr("rel", "noopener")
+        }
+        onKeyDown { event ->
+            rovingTarget(event.key, index, count, RovingAxis.Vertical)?.let { next ->
+                event.preventDefault()
+                (menu.element?.querySelectorAll("[role^=menuitem]")?.item(next) as? HTMLElement)?.focus()
+            }
+        }
+        onClick { event ->
+            if (item.opensNewTab) {
+                onChosen()
+            } else if (event.isPlainPrimaryClick()) {
+                event.preventDefault()
+                onChosen()
                 item.onSelect()
             }
         }

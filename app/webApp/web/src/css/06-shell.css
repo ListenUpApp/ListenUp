@@ -304,6 +304,12 @@
   --shadow-glow: 0 6px 18px rgba(0,0,0,0.45);
   --shadow-glow-hover: 0 8px 22px rgba(0,0,0,0.55);
 }
+/* Now Playing's page sits on the same cover wash; with none, the player's own neutral (C12): the spec's paper tone in
+   light, Book Detail's inset surface at night. */
+:root { --np-wash: #F5EFE9; }
+[data-theme="dark"] { --np-wash: var(--surface-2); }
+.cover-themed { --np-wash: var(--cover-wash-l); }
+[data-theme="dark"] .cover-themed { --np-wash: var(--cover-wash-d); }
 .cover-themed .progress { background: var(--cover-track); }
 .cover-themed .progress-fill { background: var(--coral-fill); }
 /* The crossfade from neutral, for colours that arrived after a miss (C10); none for a reader who asked for less motion. */

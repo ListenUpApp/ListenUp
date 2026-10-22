@@ -544,3 +544,84 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .luw .mosaic-tile { border-radius:6px; overflow:hidden; background:var(--surface-2); aspect-ratio:1; }
 .luw .mosaic-tile img { display:block; inline-size:100%; block-size:100%; object-fit:cover; }
 .luw .mosaic-tile.is-empty { background:var(--paper-2); }
+
+/* ============================================================
+   NOW PLAYING — the page (/playing, S4, spec §5.4).
+   One structure, laid out per width: below 760px the whole screen with its own transport (.np-mob); from 760px a
+   page in the shell whose transport is the bar (.np-desk), the chapter list under the book, and from 1024px beside
+   it. Everything sits on the cover's wash (--np-wash, 06-shell.css).
+   ============================================================ */
+.np-page {
+  width:100%; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-24);
+  padding:var(--sp-24) var(--sp-32) var(--sp-32); border-radius:var(--r-xl); background:var(--np-wash);
+}
+.np-head { display:flex; align-items:center; gap:var(--sp-12); min-height:44px; }
+.np-collapse {
+  width:44px; height:44px; flex:none; padding:0; display:inline-flex; align-items:center; justify-content:center;
+  border:none; border-radius:var(--r-pill); background:transparent; color:var(--ink); cursor:pointer;
+}
+@media (hover: hover) { .np-collapse:hover { background:color-mix(in srgb, var(--ink) 8%, transparent); } }
+.np-collapse:focus { outline:none; }
+.np-collapse:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-h1 { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; color:var(--ink); }
+.np-page .np-status {
+  min-height:32px; padding:0 var(--sp-12); display:inline-flex; align-items:center; white-space:nowrap;
+  font-size:var(--fs-small); font-weight:600; color:var(--ink-2);
+  border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
+}
+.np-head .np-more { margin-left:auto; }
+.np-cols { display:grid; gap:var(--sp-32); align-items:start; }
+@media (min-width: 1024px) { .np-cols { grid-template-columns:380px minmax(0, 1fr); } }
+.np-bookcol { display:flex; flex-direction:column; gap:var(--sp-12); min-width:0; }
+.np-cover { display:block; width:380px; max-width:100%; }
+.np-page p { margin:0; }
+.np-page .np-series { display:block; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); }
+.np-page .np-sep { color:var(--ink-3); }
+.np-title { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; }
+.np-page a { color:inherit; text-decoration:none; border-radius:var(--r-xs); }
+.np-page .np-title a, .np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a {
+  display:inline-flex; align-items:center; gap:2px; min-height:44px; color:var(--ink);
+}
+.np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a { color:inherit; }
+@media (hover: hover) {
+  .np-page .np-title a:hover, .np-page .np-series a:hover, .np-page .np-by a:hover, .np-page .np-read-by a:hover {
+    color:var(--coral-text); text-decoration:underline;
+  }
+}
+.np-page a:focus { outline:none; }
+.np-page a:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-page .np-by, .np-page .np-read-by { display:block; font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); line-height:1.3; }
+.np-by-k { font-weight:500; color:var(--ink-3); }
+.np-read-by .menu-anchor { display:inline-block; }
+.np-fold {
+  min-height:44px; padding:0; display:inline-flex; align-items:center; gap:2px; border:none; background:none;
+  font:inherit; color:inherit; cursor:pointer; border-radius:var(--r-xs);
+}
+@media (hover: hover) { .np-fold:hover { color:var(--coral-text); } }
+.np-fold:focus { outline:none; }
+.np-fold:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-bookcard {
+  display:flex; flex-direction:column; gap:var(--sp-8); margin-top:var(--sp-8); padding:var(--sp-16);
+  border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.np-page .np-ch { display:block; font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
+.np-left, .np-sentence { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-bookbar { height:4px; border-radius:var(--r-pill); background:var(--cover-track, var(--line)); overflow:hidden; }
+.np-bookbar-fill { height:100%; border-radius:inherit; background:var(--coral-fill); }
+
+/* Below 760px: the whole screen, its own transport; from 760px the bar is the transport (C8). */
+.np-mob { display:none; }
+@media (max-width: 759px) {
+  .np-desk { display:none; }
+  .np-mob { display:flex; }
+  .np-page { min-height:100dvh; border-radius:0; padding:var(--sp-8) var(--sp-16) calc(var(--sp-24) + env(safe-area-inset-bottom)); gap:var(--sp-12); }
+  .np-h1 {
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+  }
+  .np-head { justify-content:space-between; }
+  .np-head .np-more { margin-left:0; }
+  .np-bookcol { align-items:center; text-align:center; gap:var(--sp-8); }
+  .np-cover { width:300px; margin-bottom:var(--sp-8); }
+
+}

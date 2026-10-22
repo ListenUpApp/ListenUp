@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.FinishedInfo
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
@@ -44,6 +45,10 @@ internal fun loadedPlayerState(
     sleepTimer: SleepTimerState = SleepTimerState.Inactive,
     showsSkipBack: Boolean =
         phase == PlayerPhase.Playing || phase == PlayerPhase.Paused || phase == PlayerPhase.Restored,
+    firstPdfDocId: String? = null,
+    finished: FinishedInfo? = null,
+    genericTitles: Boolean = false,
+    source: AudioSource = AudioSource.Streaming,
 ): PlayerUiState.Loaded {
     val rows = chapters.map { it.copy(isCurrent = it.index == currentChapterIndex) }
     val current = rows.firstOrNull { it.isCurrent }
@@ -54,7 +59,7 @@ internal fun loadedPlayerState(
                 number = it.number,
                 total = rows.size,
                 title = it.title,
-                isGenericTitle = false,
+                isGenericTitle = genericTitles,
                 isWholeBook = false,
                 startMs = it.startMs,
                 durationMs = it.durationMs,
@@ -71,18 +76,18 @@ internal fun loadedPlayerState(
                 coverHash = coverHash,
                 series = series,
                 durationMs = durationMs,
-                firstPdfDocId = null,
+                firstPdfDocId = firstPdfDocId,
             ),
         phase = phase,
         chapter = chapter,
         chapters = rows,
-        source = AudioSource.Streaming,
+        source = source,
         settings = PlayerSettings(speed, defaultSpeed, boostDb, defaultBoostDb, skipBackSec, skipForwardSec),
         sleepTimer = sleepTimer,
         primary = primary,
         showsSkipBack = showsSkipBack,
         canSkipToNextChapter = !chapter.isWholeBook && chapter.number < chapter.total,
-        finished = null,
+        finished = finished,
     )
 }
 
