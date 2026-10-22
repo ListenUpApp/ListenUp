@@ -7,10 +7,14 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +27,9 @@ import org.robolectric.annotation.Config
 class CompactNowPlayingTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private var chaptersOpened = 0
+    private val cardActions = mutableListOf<PlayerCardAction>()
 
     private fun screen(state: PlayerUiState.Loaded) {
         composeRule.setContent {
@@ -38,13 +45,13 @@ class CompactNowPlayingTest {
                     onPreviousChapter = {},
                     onNextChapter = {},
                     onSpeedClick = {},
-                    onChaptersClick = {},
+                    onChaptersClick = { chaptersOpened++ },
                     onSleepTimerClick = {},
                     onGoToContributor = {},
                     onShowAuthorPicker = {},
                     onShowNarratorPicker = {},
                     onMenuItem = {},
-                    onCardAction = {},
+                    onCardAction = { cardActions += it },
                     onRate = {},
                 )
             }
@@ -81,5 +88,21 @@ class CompactNowPlayingTest {
     fun `reconnecting draws as buffering`() {
         screen(loadedPlayerState(coverPath = NO_COVER, phase = PlayerPhase.Reconnecting, primary = PrimaryControl.Busy))
         composeRule.onNodeWithContentDescription("Loading. Pause").assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h800dp", fontScale = 2f)
+    fun `at twice the text size the screen scrolls, so the card's buttons and the settings row are reachable`() {
+        screen(
+            loadedPlayerState(
+                coverPath = NO_COVER,
+                phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()),
+                primary = PrimaryControl.Retry,
+            ),
+        )
+        composeRule.onNodeWithText("Dismiss").performScrollTo().performClick()
+        composeRule.onNodeWithContentDescription("Chapters").performScrollTo().performClick()
+        cardActions shouldBe listOf(PlayerCardAction.Dismiss)
+        chaptersOpened shouldBe 1
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,19 +38,14 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 // Horizontal screen margin, matching the rest of the player surfaces.
 private val SCREEN_MARGIN = 24.dp
 
-// Below this available height the fixed controls can't all fit, so the layout scrolls rather than
-// clipping the transport off screen (e.g. compact landscape phones). Above it, the layout fits and
-// stays scroll-free.
-private val COMPACT_FIT_MIN_HEIGHT = 640.dp
-
 /**
  * Compact (phone portrait) full-screen Now Playing (spec §5.2, board `NP-AndroidPhone`), top to bottom: the top bar
  * (Collapse · status · More), the book ([PlayerBookBlock]), the chapter scrubber with the book sentence between its
  * times, **the transport, or the state card in its place** (P32, C5), and the settings row.
  *
- * [BoxWithConstraints] scales the cover by both width and available height, and weighted gaps distribute slack so the
- * transport and settings always stay on screen. A non-scrolling layout also leaves the parent's swipe-down-to-collapse
- * gesture (in [NowPlayingScreen]) free to fire. While a problem card shows the scrubber holds still; on a finished
+ * [BoxWithConstraints] scales the cover by both width and available height, and weighted gaps distribute slack. When
+ * the content is taller than the screen (large text, a card) it scrolls; when it fits the scroll is off, which leaves
+ * the parent's swipe-down-to-collapse gesture (in [NowPlayingScreen]) free to fire. While a problem card shows the scrubber holds still; on a finished
  * book it stays live (§4.5: a seek there is Listen again from that point).
  */
 @Suppress("LongParameterList", "LongMethod")
@@ -82,17 +78,21 @@ fun CompactNowPlaying(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
-        val fits = maxHeight >= COMPACT_FIT_MIN_HEIGHT
-        // Capped by available height as well as width, so the controls below fit without scrolling.
+        // Capped by available height as well as width, so the controls below fit without scrolling where they can.
         val coverSize = min(min(maxWidth * 0.82f, PlayerCoverSide), maxHeight * 0.40f)
         val card = PlayerCards.of(state)
+        val scroll = rememberScrollState()
 
+        // At least the screen's height, so the weighted gaps share any slack; taller content (large text, a card) scrolls.
+        // The scroll is enabled only when there is somewhere to go, so a screen that fits leaves the swipe down to
+        // collapse to the parent.
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = SCREEN_MARGIN)
-                    .then(if (fits) Modifier else Modifier.verticalScroll(rememberScrollState())),
+                    .verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                    .heightIn(min = maxHeight)
+                    .padding(horizontal = SCREEN_MARGIN),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             PlayerTopBar(
@@ -101,7 +101,7 @@ fun CompactNowPlaying(
                 onMenuItem = onMenuItem,
                 modifier = Modifier.fillMaxWidth(),
             )
-            FlexibleGap(weight = 1f, fallback = 16.dp, fits = fits)
+            FlexibleGap(weight = 1f, fallback = 16.dp)
             PlayerBookBlock(
                 state = state,
                 coverSide = coverSize,
@@ -109,7 +109,7 @@ fun CompactNowPlaying(
                 onShowAuthors = onShowAuthorPicker,
                 onShowNarrators = onShowNarratorPicker,
             )
-            FlexibleGap(weight = 1.4f, fallback = 24.dp, fits = fits)
+            FlexibleGap(weight = 1.4f, fallback = 24.dp)
             PlayerScrubber(
                 progress = progress,
                 isBusy = state.isBusy || card is PlayerCard.Problem,
@@ -151,19 +151,15 @@ fun CompactNowPlaying(
 }
 
 /**
- * A vertical gap that expands to fill slack when the layout [fits] (weighted), or collapses to a
- * [fallback] fixed height in the scrolling fallback — where `weight` modifiers aren't valid because
- * a `verticalScroll` parent measures children with unbounded height.
+ * A vertical gap of at least [fallback] that grows by [weight] to share slack. Inside the scroll a Column measures its
+ * weights against its minimum height — the screen's — so on a tall screen the gaps spread the content, and when the
+ * content is taller they are just [fallback] and the screen scrolls.
  */
 @Composable
 private fun ColumnScope.FlexibleGap(
     weight: Float,
     fallback: Dp,
-    fits: Boolean,
 ) {
-    if (fits) {
-        Spacer(Modifier.weight(weight))
-    } else {
-        Spacer(Modifier.height(fallback))
-    }
+    Spacer(Modifier.height(fallback))
+    Spacer(Modifier.weight(weight))
 }

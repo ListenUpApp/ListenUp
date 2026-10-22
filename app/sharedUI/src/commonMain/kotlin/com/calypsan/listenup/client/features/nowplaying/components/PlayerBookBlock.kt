@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.design.theme.primaryInk
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -114,7 +115,7 @@ internal fun PlayerTitleBlock(
             Text(
                 text = counter,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primaryInk,
                 textAlign = textAlign,
             )
         }
