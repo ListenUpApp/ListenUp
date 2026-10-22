@@ -51,8 +51,9 @@ struct PlayerStateCardView: View {
 
     // MARK: - Problem
 
-    private func problem(title: String, cause: String?, placeSaved: Bool, reference: String?, tone: PlayerCardModel.Tone)
-        -> some View {
+    private func problem(
+        title: String, cause: String?, placeSaved: Bool, reference: String?, tone: PlayerCardModel.Tone
+    ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
                 Image(systemName: Self.glyph(for: tone))

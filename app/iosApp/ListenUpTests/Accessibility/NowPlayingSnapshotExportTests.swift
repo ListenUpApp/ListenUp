@@ -41,8 +41,9 @@ struct NowPlayingSnapshotExportTests {
                 phase: PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: "a1b2c3", debugInfo: nil)),
                 currentIndex: 5, primary: PrimaryControlRetry.shared, chapterTitle: Self.title, showsSkipBack: false)
         case .offline:
+            let offline = PlaybackErrorOfflineNotDownloaded(correlationId: nil, debugInfo: nil)
             return .fixture(
-                phase: PlayerPhaseUnavailable(reason: PlaybackErrorOfflineNotDownloaded(correlationId: nil, debugInfo: nil)),
+                phase: PlayerPhaseUnavailable(reason: offline),
                 currentIndex: 5, primary: PrimaryControlRetry.shared, chapterTitle: Self.title,
                 source: AudioSourceOffline.shared, showsSkipBack: false)
         case .signedOut:

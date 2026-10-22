@@ -14,7 +14,8 @@ struct NowPlayingWashTests {
 
     @Test("the light neutral is the spec's #F5EFE9, and the dark one the system's secondary background")
     func decidedValues() {
-        let light = SRGBColor(UIColor(PlayerWashTone.color(for: .light)), resolvedFor: .init(userInterfaceStyle: .light))
+        let lightTraits = UITraitCollection(userInterfaceStyle: .light)
+        let light = SRGBColor(UIColor(PlayerWashTone.color(for: .light)), resolvedFor: lightTraits)
         let channels = [light.red, light.green, light.blue].map { Int(($0 * 255).rounded()) }
         #expect(channels == [0xF5, 0xEF, 0xE9])
         let dark = UITraitCollection(userInterfaceStyle: .dark)

@@ -23,7 +23,8 @@ struct PlayerMenuModelTests {
 
     @Test("the boost row reads its value")
     func boostTitle() {
+        let off = String(localized: "player.boost_off")
         #expect(PlayerMenuModel.Row.volumeBoost(0).title
-            == String(format: String(localized: "player.np_volume_boost_row_ios"), String(localized: "player.boost_off")))
+            == String(format: String(localized: "player.np_volume_boost_row_ios"), off))
     }
 }

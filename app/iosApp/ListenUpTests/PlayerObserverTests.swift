@@ -188,7 +188,8 @@ extension PlayerUiStateLoaded {
             chapters: rows,
             source: source,
             settings: PlayerSettings(
-                speed: 1.5, defaultSpeed: 1.0, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10, skipForwardSec: 30),
+                speed: 1.5, defaultSpeed: 1.0, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
+                skipForwardSec: 30),
             sleepTimer: sleepTimer,
             primary: primary,
             showsSkipBack: showsSkipBack,
