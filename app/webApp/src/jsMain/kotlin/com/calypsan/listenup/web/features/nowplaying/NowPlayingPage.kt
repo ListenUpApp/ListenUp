@@ -200,10 +200,14 @@ fun NowPlayingPage(
         PageHeader(state, actions) { item ->
             when (item) {
                 PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
+
                 is PlayerMenuItem.GoToSeries -> actions.onOpenSeries(item.seriesId)
+
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
+
                 is PlayerMenuItem.VolumeBoost -> pickers.boost = true
+
                 PlayerMenuItem.CloseBook -> actions.onCloseBookAndLeave()
             }
         }

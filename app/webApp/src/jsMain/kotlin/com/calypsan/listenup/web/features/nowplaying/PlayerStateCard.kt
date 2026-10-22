@@ -60,7 +60,9 @@ private fun ProblemCard(
         P(attrs = { classes("np-card-t") }) { Text(error.playerTitle()) }
         error.playerCause()?.let { cause -> P(attrs = { classes("np-card-c") }) { Text(cause) } }
         if (card.placeSaved) P(attrs = { classes("np-card-saved") }) { Text(NowPlayingWords.PLACE_SAVED) }
-        error.correlationId?.let { id -> P(attrs = { classes("np-card-ref", "mono") }) { Text(NowPlayingWords.reference(id)) } }
+        error.correlationId?.let { id ->
+            P(attrs = { classes("np-card-ref", "mono") }) { Text(NowPlayingWords.reference(id)) }
+        }
         CardActions(card.primaryAction, card.secondaryAction, onAction)
     }
 }
@@ -111,7 +113,11 @@ private fun NextBook(next: NextInSeries) {
         Span(attrs = { classes("np-card-next-text") }) {
             Span(attrs = { classes("np-card-next-k") }) { Text(NowPlayingWords.NEXT_IN_SERIES) }
             Span(attrs = { classes("np-card-next-t") }) { Text(next.title) }
-            next.sequenceLabel?.let { Span(attrs = { classes("np-card-next-n") }) { Text(NowPlayingWords.nextBook(it)) } }
+            next.sequenceLabel?.let {
+                Span(
+                    attrs = { classes("np-card-next-n") },
+                ) { Text(NowPlayingWords.nextBook(it)) }
+            }
         }
     }
 }

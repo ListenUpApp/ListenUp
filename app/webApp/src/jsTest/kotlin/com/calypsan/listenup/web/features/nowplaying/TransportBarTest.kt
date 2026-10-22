@@ -431,6 +431,7 @@ class TransportBarTest :
         test("Open is a chevron that says whether Now Playing is open, and on the page it closes it") {
             val opened = mutableListOf<HTMLElement?>()
             var closes = 0
+
             fun chevronBar(isOpen: Boolean): HTMLElement =
                 mounts.mount {
                     TransportBar(

@@ -159,7 +159,15 @@ fun TransportBar(
                 sleepTimer = state.sleepTimer,
                 onOpenSpeed = { speedOpen = true },
                 // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
-                onOpenChapters = { if (isNowPlayingOpen && onFocusChapters != null) onFocusChapters() else chaptersOpen = true },
+                onOpenChapters = {
+                    if (isNowPlayingOpen &&
+                        onFocusChapters != null
+                    ) {
+                        onFocusChapters()
+                    } else {
+                        chaptersOpen = true
+                    }
+                },
                 onOpenSleep = { sleepOpen = true },
             )
         }

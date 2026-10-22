@@ -72,7 +72,7 @@ class NowPlayingRouteTest :
                 router.dispose()
             }
         }
-    
+
         test("the bar's Open goes to /playing, and Close comes back with focus on Open") {
             val (host, router, composition) = mountAt("/library", openPlayback = fixedPlayback(state = loadedPlayerState()))
             try {
