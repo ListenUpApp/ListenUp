@@ -30,11 +30,16 @@ enum ScrubberAccessibility {
     }
 }
 
-/// The chapter slider + elapsed/remaining labels. Its own view so the per-frame position reads
-/// that drive the moving thumb re-evaluate only this small view, not the whole player.
+/// The chapter slider over elapsed · the book sentence · −remaining ("12:04 · Book 11% · 40h 31m left · −8:31"; player
+/// spec §3.2: everything that moves is chapter-scoped, the book is a sentence). Its own view so the per-frame position
+/// reads that drive the moving thumb re-evaluate only this small view, not the whole player.
 struct ChapterScrubberSection: View {
     let observer: PlayerObserver
-    let tint: Color
+
+    /// "Book 11% · 40h 31m left": the shared, floored percent and the time left in the book.
+    static func bookSentence(percent: Int, remainingMs: Int64) -> String {
+        String(format: String(localized: "player.np_book_sentence"), percent, DurationFormatting.hoursMinutes(ms: remainingMs))
+    }
 
     @State private var sliderPosition: Double = 0
     @State private var isDraggingSlider: Bool = false
@@ -51,7 +56,7 @@ struct ChapterScrubberSection: View {
                     }
                 }
             )
-            .tint(tint)
+            .tint(Color.luTint)
             .accessibilityLabel(String(localized: "player.scrubber_a11y"))
             .accessibilityValue(ScrubberAccessibility.value(
                 elapsedMs: observer.displayChapterPositionMs,
@@ -68,7 +73,11 @@ struct ChapterScrubberSection: View {
             HStack {
                 let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
                 Text(DurationFormatting.clock(ms: elapsed))
-                Spacer()
+                Spacer(minLength: Spacing.xs)
+                Text(Self.bookSentence(percent: observer.bookPercent, remainingMs: observer.displayBookRemainingMs))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: Spacing.xs)
                 Text("-" + DurationFormatting.clock(ms: observer.chapterDurationMs - elapsed))
             }
             .font(.caption)

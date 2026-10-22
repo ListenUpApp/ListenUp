@@ -5,10 +5,9 @@ import SwiftUI
 /// devices — the chapter list is always visible as a second pane instead of a
 /// modal. A "Chapters" heading, a "{N} chapters · {total length}" summary, and a
 /// scrolling list of `ChapterRow` over the live chapter list; the current chapter
-/// is tint-highlighted and tapping any row seeks to it.
+/// is coral-highlighted and tapping any row seeks to it.
 struct NowPlayingUpNextPanel: View {
     let observer: PlayerObserver
-    let tint: Color
 
     /// The pane's fixed width; the player column takes the rest.
     static let width: CGFloat = 360
@@ -34,7 +33,7 @@ struct NowPlayingUpNextPanel: View {
                             durationMs: chapter.durationMs,
                             isCurrent: index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
-                            tint: tint,
+                            tint: .luTint,
                             onTap: { observer.selectChapter(index: index) }
                         )
                         .padding(.vertical, Spacing.xs)
