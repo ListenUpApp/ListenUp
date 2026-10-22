@@ -147,7 +147,7 @@ private fun spokenTrailing(
     sleepRemainingMs?.let { "sleep timer, ${spokenDuration(it)} left" }
         ?: "${spokenDuration(progress.chapterRemainingMs)} left in the chapter"
 
-private fun shortDuration(ms: Long): String =
+internal fun shortDuration(ms: Long): String =
     DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
 
 private fun counted(

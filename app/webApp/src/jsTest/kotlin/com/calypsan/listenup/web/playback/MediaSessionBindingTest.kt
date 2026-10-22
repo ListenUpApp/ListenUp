@@ -163,6 +163,8 @@ private fun session(
         onRetry = {},
         onDismissError = {},
         onCloseBook = {},
+        onCardAction = {},
+        onRate = {},
         close = {},
     )
 

@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -75,6 +76,10 @@ class PlaybackSession(
     val onDismissError: () -> Unit,
     /** Finish with the loaded book: stop it and put the bar away. The session stays open. */
     val onCloseBook: () -> Unit,
+    /** A state card's button (shared `PlayerCards`): the view model carries out the action it names. */
+    val onCardAction: (PlayerCardAction) -> Unit,
+    /** Rate the finished book, in half stars (2..10). */
+    val onRate: (Int) -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -140,6 +145,8 @@ fun fixedPlayback(
             onRetry = {},
             onDismissError = {},
             onCloseBook = {},
+            onCardAction = {},
+            onRate = {},
             close = {},
         )
     }
@@ -234,6 +241,8 @@ internal class LivePlayback(
             onRetry = viewModel::retry,
             onDismissError = viewModel::dismissError,
             onCloseBook = viewModel::closeBook,
+            onCardAction = viewModel::onCardAction,
+            onRate = viewModel::rate,
             close = ::close,
         )
 }
