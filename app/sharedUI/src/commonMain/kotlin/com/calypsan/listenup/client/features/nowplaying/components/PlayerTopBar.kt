@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,22 +8,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,164 +33,123 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.components.StatusChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
+import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
+import com.calypsan.listenup.client.presentation.player.PlayerMenus
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_boost_db
+import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
-import listenup.composeapp.generated.resources.player_go_to_author
-import listenup.composeapp.generated.resources.player_go_to_author_multiple
 import listenup.composeapp.generated.resources.player_go_to_book
-import listenup.composeapp.generated.resources.player_go_to_narrator
-import listenup.composeapp.generated.resources.player_go_to_narrator_multiple
 import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_more_options
-import listenup.composeapp.generated.resources.player_now_playing_overline
-import listenup.composeapp.generated.resources.player_now_playing_wide
+import listenup.composeapp.generated.resources.player_now_playing
+import listenup.composeapp.generated.resources.player_np_volume_boost_row
 import listenup.composeapp.generated.resources.player_open_pdf
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
+
+/** The More menu's corners (m3.material.io/components/menus). */
+private val MenuShape = RoundedCornerShape(16.dp)
+
+/** Clears the collapse and More buttons, so the centred status never runs under them. */
+private val StatusSideClearance = 56.dp
 
 /**
- * Top bar for the Now Playing screen.
+ * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
  *
- * **Compact layout** (`wide = false`): a [keyboard_arrow_down] collapse button on the left, a
- * centred "NOW PLAYING" overline label, and a [more_vert] overflow menu on the right.
+ * **Compact** (`wide = false`): Collapse on the left, the [StatusChip] centred, More on the right.
+ * **Wide** (`wide = true`): a tonal collapse, the "Now playing" overline over the first series (or the title), the
+ * status chip and More.
  *
- * **Wide layout** (`wide = true`): a 52 dp [keyboard_arrow_down] tonal collapse button on the
- * left, a two-line "Now playing" overline + book/series title column that fills remaining width,
- * a tonal cast [IconButton], and a [more_vert] overflow menu. Matches the [NowPlayingDesktop]
- * design reference header.
- *
- * The overflow menu mirrors the items from the existing private [NowPlayingTopBar] in
- * [NowPlayingScreen]: go to book, series (conditional), author(s), narrator(s), and close book.
- *
- * @param state The loaded book, used to gate series/author/narrator menu items.
- *   In wide mode, the book's first series name is used as the subtitle when present;
- *   otherwise the book's title is used.
- * @param onCollapse Called when the collapse (chevron-down) button is tapped.
- * @param onGoToBook Called when "Go to Book" is selected.
- * @param onGoToSeries Called with the series id when "Go to Series" is selected.
- * @param onGoToContributor Called with a contributor id when a single-contributor item is selected.
- * @param onShowAuthorPicker Called when "Go to Author…" is selected and there are multiple authors.
- * @param onShowNarratorPicker Called when "Go to Narrator…" is selected and there are multiple narrators.
- * @param onCloseBook Called when "Close Book" is selected.
- * @param hasPdf When true, shows the "Open PDF" menu item in the overflow menu.
- * @param onOpenPdf Called when "Open PDF" is selected from the overflow menu.
- * @param wide When true, renders the desktop-style header with overline + title column and cast
- *   button instead of the compact centred label. Default false.
- * @param modifier Optional layout modifier.
+ * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Open PDF and Volume boost,
+ * then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the series as the
+ * subtitle, so their menu leaves Go to series out.
  */
-@Suppress("LongParameterList", "CognitiveComplexMethod")
 @Composable
 fun PlayerTopBar(
     state: PlayerUiState.Loaded,
     onCollapse: () -> Unit,
-    onGoToBook: () -> Unit,
-    onGoToSeries: (String) -> Unit,
-    onGoToContributor: (String) -> Unit,
-    onShowAuthorPicker: () -> Unit,
-    onShowNarratorPicker: () -> Unit,
-    onCloseBook: () -> Unit,
-    hasPdf: Boolean = false,
-    onOpenPdf: () -> Unit = {},
-    wide: Boolean = false,
+    onMenuItem: (PlayerMenuItem) -> Unit,
     modifier: Modifier = Modifier,
+    wide: Boolean = false,
 ) {
-    val haptics = LocalHaptics.current
-    var showMenu by remember { mutableStateOf(false) }
-
-    val overflowAnchor: @Composable () -> Unit = {
-        Box {
-            IconButton(
-                onClick = {
-                    haptics.press()
-                    showMenu = true
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(Res.string.player_more_options),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            OverflowMenu(
-                state = state,
-                expanded = showMenu,
-                onDismiss = { showMenu = false },
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
-            )
-        }
+    val status: @Composable () -> Unit = {
+        StatusChip(text = state.source.statusText(), emphasized = state.source is AudioSource.Casting)
     }
-
+    val more: @Composable () -> Unit = { MoreMenu(state = state, includesSeries = !wide, onMenuItem = onMenuItem) }
     if (wide) {
-        WideTopBar(
-            state = state,
-            onCollapse = onCollapse,
-            overflowAnchor = overflowAnchor,
-            modifier = modifier,
-        )
+        WideTopBar(state, onCollapse, status, more, modifier)
     } else {
-        CompactTopBar(
-            onCollapse = onCollapse,
-            overflowAnchor = overflowAnchor,
-            modifier = modifier,
-        )
+        CompactTopBar(onCollapse, status, more, modifier)
     }
 }
 
-/** Desktop-style header: tonal collapse · "Now playing"/title column · cast · overflow. */
+/** Compact (phone) bar: collapse left, the status centred, More right. */
 @Composable
-private fun WideTopBar(
-    state: PlayerUiState.Loaded,
+private fun CompactTopBar(
     onCollapse: () -> Unit,
-    overflowAnchor: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
+    status: @Composable () -> Unit,
+    more: @Composable () -> Unit,
+    modifier: Modifier,
 ) {
     val haptics = LocalHaptics.current
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(84.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        // Collapse button — leading edge, 52 dp tonal square.
-        Surface(
+    Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        IconButton(
             onClick = {
                 haptics.press()
                 onCollapse()
             },
-            modifier = Modifier.size(52.dp).semantics { role = Role.Button },
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.align(Alignment.CenterStart),
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = stringResource(Res.string.player_collapse),
-                    modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
         }
+        Box(Modifier.padding(horizontal = StatusSideClearance)) { status() }
+        Box(Modifier.align(Alignment.CenterEnd)) { more() }
+    }
+}
 
-        // "Now playing" overline + book/series subtitle.
+/** Wide header: tonal collapse · "Now playing" over the series or title · status · More. */
+@Composable
+private fun WideTopBar(
+    state: PlayerUiState.Loaded,
+    onCollapse: () -> Unit,
+    status: @Composable () -> Unit,
+    more: @Composable () -> Unit,
+    modifier: Modifier,
+) {
+    val haptics = LocalHaptics.current
+    Row(
+        modifier = modifier.fillMaxWidth().height(84.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        FilledTonalIconButton(
+            onClick = {
+                haptics.press()
+                onCollapse()
+            },
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.size(52.dp),
+        ) {
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = stringResource(Res.string.player_collapse),
+                modifier = Modifier.size(28.dp),
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(Res.string.player_now_playing_wide),
+                text = stringResource(Res.string.player_now_playing),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -208,197 +165,96 @@ private fun WideTopBar(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-
-        // Cast / route-picker button — framework MediaRouteButton (auto-hides when no devices).
-        CastButton(modifier = Modifier.size(48.dp))
-
-        overflowAnchor()
+        status()
+        more()
     }
 }
 
-/** Compact (phone) bar: collapse left, centred "NOW PLAYING" label, overflow right. */
+/** The ⋮ anchor and the shared More menu, its groups split by gap dividers. */
 @Composable
-private fun CompactTopBar(
-    onCollapse: () -> Unit,
-    overflowAnchor: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
+private fun MoreMenu(
+    state: PlayerUiState.Loaded,
+    includesSeries: Boolean,
+    onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
     val haptics = LocalHaptics.current
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+    var expanded by remember { mutableStateOf(false) }
+    val colors = MaterialTheme.colorScheme
+    Box {
         IconButton(
             onClick = {
                 haptics.press()
-                onCollapse()
+                expanded = true
             },
-            modifier = Modifier.align(Alignment.CenterStart),
         ) {
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = stringResource(Res.string.player_collapse),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.player_more_options))
         }
-
-        Text(
-            text = stringResource(Res.string.player_now_playing_overline),
-            style =
-                MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.4.sp,
-                ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-
-        Row(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            verticalAlignment = Alignment.CenterVertically,
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = MenuShape,
+            containerColor = colors.surfaceContainer,
         ) {
-            CastButton(modifier = Modifier.size(48.dp))
-            overflowAnchor()
+            PlayerMenus.moreMenu(state, includesSeries).forEachIndexed { index, group ->
+                if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                val itemColors =
+                    if (group.isDestructive) {
+                        MenuDefaults.itemColors(textColor = colors.error, leadingIconColor = colors.error)
+                    } else {
+                        MenuDefaults.itemColors()
+                    }
+                group.items.forEach { item ->
+                    DropdownMenuItem(
+                        text = { Text(item.label()) },
+                        leadingIcon = { Icon(item.icon(), contentDescription = null) },
+                        colors = itemColors,
+                        onClick = {
+                            haptics.press()
+                            expanded = false
+                            onMenuItem(item)
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
-/** Shared overflow [DropdownMenu] content for both compact and wide [PlayerTopBar] variants. */
-@Suppress("LongParameterList", "CognitiveComplexMethod")
 @Composable
-private fun OverflowMenu(
-    state: PlayerUiState.Loaded,
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onGoToBook: () -> Unit,
-    onGoToSeries: (String) -> Unit,
-    onGoToContributor: (String) -> Unit,
-    onShowAuthorPicker: () -> Unit,
-    onShowNarratorPicker: () -> Unit,
-    onCloseBook: () -> Unit,
-    hasPdf: Boolean = false,
-    onOpenPdf: () -> Unit = {},
-) {
-    val haptics = LocalHaptics.current
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-    ) {
-        // Go to Book — always present.
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.player_go_to_book)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onGoToBook()
-            },
-            leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
-        )
-
-        // Open PDF — only when the current book has a PDF document.
-        if (hasPdf) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.player_open_pdf)) },
-                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
-                onClick = {
-                    haptics.press()
-                    onOpenPdf()
-                    onDismiss()
-                },
-            )
+private fun PlayerMenuItem.label(): String =
+    when (this) {
+        PlayerMenuItem.GoToBook -> {
+            stringResource(Res.string.player_go_to_book)
         }
 
-        // Go to Series — only when the book belongs to a series.
-        val seriesId =
-            state.book.series
-                .firstOrNull()
-                ?.id
-        if (seriesId != null) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.player_go_to_series)) },
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                    onGoToSeries(seriesId)
-                },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null) },
-            )
+        is PlayerMenuItem.GoToSeries -> {
+            stringResource(Res.string.player_go_to_series)
         }
 
-        // Go to Author(s) — shows picker label when multiple authors exist.
-        if (state.book.authors.isNotEmpty()) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(
-                            if (state.book.authors.size >
-                                1
-                            ) {
-                                Res.string.player_go_to_author_multiple
-                            } else {
-                                Res.string.player_go_to_author
-                            },
-                        ),
-                    )
-                },
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                    if (state.book.authors.size > 1) {
-                        onShowAuthorPicker()
-                    } else {
-                        state.book.authors
-                            .firstOrNull()
-                            ?.let { onGoToContributor(it.id) }
-                    }
-                },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-            )
+        is PlayerMenuItem.OpenPdf -> {
+            stringResource(Res.string.player_open_pdf)
         }
 
-        // Go to Narrator(s) — shows picker label when multiple narrators exist.
-        if (state.book.narrators.isNotEmpty()) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        stringResource(
-                            if (state.book.narrators.size > 1) {
-                                Res.string.player_go_to_narrator_multiple
-                            } else {
-                                Res.string.player_go_to_narrator
-                            },
-                        ),
-                    )
-                },
-                onClick = {
-                    haptics.press()
-                    onDismiss()
-                    if (state.book.narrators.size > 1) {
-                        onShowNarratorPicker()
-                    } else {
-                        state.book.narrators
-                            .firstOrNull()
-                            ?.let { onGoToContributor(it.id) }
-                    }
-                },
-                leadingIcon = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null) },
-            )
+        is PlayerMenuItem.VolumeBoost -> {
+            val value =
+                VolumeBoostPresets.format(
+                    db = boostDb,
+                    offLabel = stringResource(Res.string.player_boost_off),
+                    dbLabel = stringResource(Res.string.player_boost_db, boostDb.roundToInt()),
+                )
+            stringResource(Res.string.player_np_volume_boost_row, value)
         }
 
-        HorizontalDivider()
-
-        // Close Book — ends the playback session.
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.player_close_book)) },
-            onClick = {
-                haptics.press()
-                onDismiss()
-                onCloseBook()
-            },
-            leadingIcon = { Icon(Icons.Default.Close, contentDescription = null) },
-        )
+        PlayerMenuItem.CloseBook -> {
+            stringResource(Res.string.player_close_book)
+        }
     }
-}
+
+private fun PlayerMenuItem.icon(): ImageVector =
+    when (this) {
+        PlayerMenuItem.GoToBook -> Icons.Default.Book
+        is PlayerMenuItem.GoToSeries -> Icons.AutoMirrored.Filled.LibraryBooks
+        is PlayerMenuItem.OpenPdf -> Icons.Default.Description
+        is PlayerMenuItem.VolumeBoost -> Icons.AutoMirrored.Filled.VolumeUp
+        PlayerMenuItem.CloseBook -> Icons.Default.Close
+    }

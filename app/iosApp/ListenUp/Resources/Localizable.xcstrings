@@ -21841,26 +21841,6 @@
         }
       }
     },
-    "player.now_playing_overline": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "NOW PLAYING"
-          }
-        }
-      }
-    },
-    "player.now_playing_wide": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Now playing"
-          }
-        }
-      }
-    },
     "player.np_book_sentence": {
       "localizations": {
         "en": {

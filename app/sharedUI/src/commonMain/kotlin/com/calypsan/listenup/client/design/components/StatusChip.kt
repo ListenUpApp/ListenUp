@@ -33,7 +33,7 @@ fun StatusChip(
         modifier =
             modifier
                 .heightIn(min = 32.dp)
-                .border(width = 1.dp, color = outline, shape = MaterialTheme.shapes.small)
+                .border(width = 1.dp, color = outline, shape = MaterialTheme.shapes.extraSmall)
                 .padding(horizontal = 12.dp)
                 .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         contentAlignment = Alignment.Center,
