@@ -163,13 +163,16 @@ extension PlayerUiStateLoaded {
         firstPdfDocId: String? = nil,
         boostDb: Float = 0,
         isGenericTitle: Bool = false,
-        narrators: [PlayerContributor] = [PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 2)]
+        narrators: [PlayerContributor] = [PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 2)],
+        chapterCount: Int = 8,
+        chapterDurationMs: Int64 = 60_000
     ) -> PlayerUiStateLoaded {
-        let total = wholeBook ? 1 : 8
+        let total = wholeBook ? 1 : chapterCount
+        let bookMs = Int64(chapterCount) * chapterDurationMs
         let rows = wholeBook ? [] : (0..<total).map { index in
             PlayerChapterRow(
                 index: Int32(index), number: Int32(index + 1), title: "Chapter \(index + 1)",
-                startMs: Int64(index) * 60_000, durationMs: 60_000, isCurrent: index == currentIndex)
+                startMs: Int64(index) * chapterDurationMs, durationMs: chapterDurationMs, isCurrent: index == currentIndex)
         }
         return PlayerUiStateLoaded(
             book: PlayerBook(
@@ -178,13 +181,14 @@ extension PlayerUiStateLoaded {
                 narrators: narrators,
                 coverPath: nil, coverHash: nil,
                 series: [PlayerSeriesRef(id: "series-1", name: "The Stormlight Archive", sequenceLabel: "1")],
-                durationMs: 480_000, firstPdfDocId: firstPdfDocId),
+                durationMs: bookMs, firstPdfDocId: firstPdfDocId),
             phase: phase,
             chapter: PlayerChapter(
                 index: Int32(wholeBook ? 0 : currentIndex), number: Int32((wholeBook ? 0 : currentIndex) + 1),
                 total: Int32(total), title: wholeBook ? "" : (chapterTitle ?? "Chapter \(currentIndex + 1)"),
                 isGenericTitle: wholeBook || isGenericTitle, isWholeBook: wholeBook,
-                startMs: wholeBook ? 0 : Int64(currentIndex) * 60_000, durationMs: wholeBook ? 480_000 : 60_000),
+                startMs: wholeBook ? 0 : Int64(currentIndex) * chapterDurationMs,
+                durationMs: wholeBook ? bookMs : chapterDurationMs),
             chapters: rows,
             source: source,
             settings: PlayerSettings(

@@ -77,4 +77,13 @@ struct PlayerLayoutTests {
         #expect(PlayerLayoutMode.scrollingCoverSide(columnWidth: 200) == 200 - 2 * PlayerLayoutMode.horizontalMargin)
         #expect(PlayerLayoutMode.scrollingCoverSide(columnWidth: 150) == PlayerLayoutMode.coverRange.lowerBound)
     }
+
+    /// At accessibility sizes the column never fits its cover to a measured height: it scrolls, so the settings row
+    /// is always reachable (an iPad at AX2 clipped it).
+    @Test func accessibilitySizesAlwaysScroll() {
+        #expect(PlayerLayoutMode.stackedCoverSide(
+            columnWidth: 620, availableHeight: 776, controlsHeight: 300, isAccessibilitySize: true) == nil)
+        #expect(PlayerLayoutMode.stackedCoverSide(
+            columnWidth: 620, availableHeight: 776, controlsHeight: 300, isAccessibilitySize: false) != nil)
+    }
 }

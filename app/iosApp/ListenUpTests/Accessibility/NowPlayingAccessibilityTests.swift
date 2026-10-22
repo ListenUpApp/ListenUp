@@ -32,6 +32,24 @@ struct NowPlayingAccessibilityTests {
         ], "\(hosted.tree)")
     }
 
+    @Test func collapseAndMoreHaveAFullTapTarget() async throws {
+        let hosted = await host(Self.playing)
+        defer { hosted.close() }
+        for label in [String(localized: "player.collapse"), String(localized: "player.more_options")] {
+            let stop = try #require(hosted.stop(labelled: label), "\(hosted.tree)")
+            #expect(stop.frame.width >= 44 && stop.frame.height >= 44, "\(label): \(stop.frame)")
+        }
+    }
+
+    @Test func onAnIPadAtAccessibilitySizesTheSettingsRowIsThere() async throws {
+        let hosted = await HostedView(
+            FullScreenPlayerView(observer: .detached(Self.playing)), size: CGSize(width: 1180, height: 820),
+            dynamicTypeSize: .accessibility2)
+        defer { hosted.close() }
+        #expect(hosted.stop(labelled: String(localized: "player.speed")) != nil, "\(hosted.tree)")
+        #expect(hosted.stop(labelled: String(localized: "player.sleep_timer")) != nil)
+    }
+
     @Test func previousChapterCarriesItsHintAndWorksInChapterOne() async throws {
         let hosted = await host(.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 0))
         defer { hosted.close() }
