@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitc
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.features.nowplaying.components.SleepSettingButton
 import com.calypsan.listenup.client.features.shell.components.NavigationRailWidth
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
@@ -237,7 +238,7 @@ private fun RowScope.ToolbarContent(
     if (fullSet) {
         ToolbarScrubber(progress = progress, onSeek = actions.onSeek, modifier = Modifier.weight(1f))
         SpeedButton(speed = state.settings.speed, onClick = actions.onSpeedClick)
-        SleepButton(timer = state.sleepTimer, onClick = actions.onSleepClick)
+        SleepSettingButton(timer = state.sleepTimer, onClick = actions.onSleepClick, tonalWhenIdle = false)
         Ctrl(
             icon = Icons.AutoMirrored.Filled.List,
             contentDescription = stringResource(Res.string.player_chapters),
@@ -331,37 +332,4 @@ private fun SpeedButton(
                 stateDescription = rate
             },
     ) { Text(rate) }
-}
-
-/** Sleep: a moon; armed, the countdown on `tertiaryContainer` (§3.9, §5.1 M16). */
-@Composable
-private fun SleepButton(
-    timer: SleepTimerState,
-    onClick: () -> Unit,
-) {
-    if (timer is SleepTimerState.Active) {
-        val left = timer.formatRemaining()
-        val armedLabel = stringResource(Res.string.player_mini_sleep_left, left)
-        FilledTonalButton(
-            onClick = onClick,
-            colors =
-                ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                ),
-            modifier = Modifier.heightIn(min = MinTouchTarget).semantics { contentDescription = armedLabel },
-        ) {
-            Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(left)
-        }
-    } else {
-        Ctrl(
-            icon = Icons.Default.Bedtime,
-            contentDescription = stringResource(Res.string.player_sleep_timer),
-            onClick = onClick,
-            size = MinTouchTarget,
-            iconSize = MiniPlayerGlyphSize,
-            tint = LocalContentColor.current,
-        )
-    }
 }
