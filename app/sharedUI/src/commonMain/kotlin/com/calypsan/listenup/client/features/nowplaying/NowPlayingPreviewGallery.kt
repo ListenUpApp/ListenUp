@@ -18,16 +18,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.FinishedInfo
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
@@ -47,6 +55,8 @@ import org.jetbrains.compose.resources.stringResource
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
 private val WIDE_PREVIEW_WIDTH = 1100.dp
+
+private const val LARGE_FONT_SCALE = 1.5f
 
 private const val MOCK_BOOK_ID = "the-way-of-kings"
 private const val MOCK_TITLE = "The Way of Kings"
@@ -165,6 +175,75 @@ private val mockBufferingProgress =
         chapterDurationMs = 2_469_000L,
     )
 
+// The cases Now Playing's states take on a phone: the transport, or the card in its place (P32).
+private val mockFinished =
+    FinishedInfo(
+        finishedAtMs = 1_791_651_600_000L,
+        startedAtMs = 1_788_652_800_000L,
+        durationMs = 46_800_000L,
+        yourHalfStars = 8,
+        nextBook =
+            NextInSeries(
+                bookId = "words-of-radiance",
+                title = "Words of Radiance",
+                coverPath = null,
+                coverHash = null,
+                narratorNames = null,
+                seriesName = "The Stormlight Archive",
+                sequenceLabel = "2",
+                durationMs = 172_800_000L,
+            ),
+    )
+
+private val compactCases: List<Pair<String, PlayerUiState.Loaded>> =
+    listOf(
+        "Compact — playing, 4 narrators (fold shows)" to mockActiveState,
+        "Compact — paused, sleep armed" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Paused,
+                primary = PrimaryControl.Play,
+                sleepTimer = SleepTimerState.Active(SleepTimerMode.Duration(30), 1_421_000, 1_800_000, 0),
+            ),
+        "Compact — buffering (contained loading indicator)" to mockBufferingState,
+        "Compact — a failure (error card)" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Failed(PlaybackError.ConnectionLost(correlationId = "req-7f3a")),
+                primary = PrimaryControl.Retry,
+                showsSkipBack = false,
+            ),
+        "Compact — offline, not downloaded (neutral card)" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded()),
+                primary = PrimaryControl.Retry,
+                source = AudioSource.Offline,
+                showsSkipBack = false,
+            ),
+        "Compact — held, admin (held card)" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Unavailable(BookError.HeldForReview()),
+                primary = PrimaryControl.OpenInbox,
+                source = AudioSource.NotPlayable,
+                showsSkipBack = false,
+            ),
+        "Compact — finished, next in series" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Finished,
+                primary = PrimaryControl.ListenAgain,
+                finished = mockFinished,
+            ),
+        "Compact — finished, no next book" to
+            mockActiveState.copy(
+                phase = PlayerPhase.Finished,
+                primary = PrimaryControl.ListenAgain,
+                finished = mockFinished.copy(nextBook = null),
+            ),
+        "Compact — chapterless (Whole book)" to
+            mockActiveState.copy(
+                chapter = mockChapter(0).copy(title = "", isGenericTitle = true, isWholeBook = true),
+            ),
+        "Compact — casting" to mockActiveState.copy(source = AudioSource.Casting("Living Room")),
+    )
+
 // ── Gallery ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -173,8 +252,9 @@ private val mockBufferingProgress =
  * by the debug [PreviewGalleryActivity] via `--es gallery nowplaying`; not part of the
  * navigation graph.
  *
- * Cover art renders as a grey placeholder (coverPath = null); the ambient glow, scrubber
- * animation, transport controls, and Up Next queue are what this gallery verifies.
+ * Cover art renders as a grey placeholder (coverPath = null). Every phone state is here: playing, paused with the
+ * sleep countdown, buffering, each card tone, finished with and without a next book, chapterless, casting and a
+ * large font, then the wide layout, the mini players and the panels.
  */
 @Composable
 fun NowPlayingPreviewGallery() {
@@ -183,36 +263,12 @@ fun NowPlayingPreviewGallery() {
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
-            CompactSection()
-
-            HorizontalDivider()
-
-            GalleryLabel("Compact — buffering spinner")
-            Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
-                CompactNowPlaying(
-                    state = mockBufferingState,
-                    progress = { mockBufferingProgress },
-                    onCollapse = {},
-                    onPrimary = {},
-                    onSeek = {},
-                    onSkipBack = {},
-                    onSkipForward = {},
-                    onPreviousChapter = {},
-                    onNextChapter = {},
-                    onSpeedClick = {},
-                    onBoostClick = {},
-                    onSleepClick = {},
-                    onChaptersClick = {},
-                    onGoToBook = {},
-                    onGoToSeries = {},
-                    onGoToContributor = {},
-                    onShowAuthorPicker = {},
-                    onShowNarratorPicker = {},
-                    onCloseBook = {},
-                    skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-                    skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
-                )
+            compactCases.forEach { (label, state) ->
+                CompactCase(label, state)
+                HorizontalDivider()
             }
+
+            CompactCase("Compact — large font (settings row wraps)", mockActiveState, fontScale = LARGE_FONT_SCALE)
 
             HorizontalDivider()
 
@@ -236,32 +292,36 @@ fun NowPlayingPreviewGallery() {
 }
 
 @Composable
-private fun CompactSection() {
-    GalleryLabel("Compact — playing, 4 narrators (fold shows), chapter scrubber")
-    Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
-        CompactNowPlaying(
-            state = mockActiveState,
-            progress = { mockProgress },
-            onCollapse = {},
-            onPrimary = {},
-            onSeek = {},
-            onSkipBack = {},
-            onSkipForward = {},
-            onPreviousChapter = {},
-            onNextChapter = {},
-            onSpeedClick = {},
-            onBoostClick = {},
-            onSleepClick = {},
-            onChaptersClick = {},
-            onGoToBook = {},
-            onGoToSeries = {},
-            onGoToContributor = {},
-            onShowAuthorPicker = {},
-            onShowNarratorPicker = {},
-            onCloseBook = {},
-            skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-            skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
-        )
+private fun CompactCase(
+    label: String,
+    state: PlayerUiState.Loaded,
+    fontScale: Float? = null,
+) {
+    GalleryLabel(label)
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale ?: density.fontScale)) {
+        Box(modifier = Modifier.fillMaxWidth().height(860.dp)) {
+            CompactNowPlaying(
+                state = state,
+                progress = { if (state.phase == PlayerPhase.Buffering) mockBufferingProgress else mockProgress },
+                onCollapse = {},
+                onPrimary = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onPreviousChapter = {},
+                onNextChapter = {},
+                onSpeedClick = {},
+                onSleepClick = {},
+                onChaptersClick = {},
+                onGoToContributor = {},
+                onShowAuthorPicker = {},
+                onShowNarratorPicker = {},
+                onMenuItem = {},
+                onCardAction = {},
+                onRate = {},
+            )
+        }
     }
 }
 
@@ -280,17 +340,14 @@ private fun WideSection() {
             onPreviousChapter = {},
             onNextChapter = {},
             onSpeedClick = {},
-            onBoostClick = {},
             onSleepClick = {},
             onChaptersClick = {},
-            onGoToBook = {},
-            onGoToSeries = {},
             onGoToContributor = {},
             onShowAuthorPicker = {},
             onShowNarratorPicker = {},
-            onCloseBook = {},
-            skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
-            skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
+            onMenuItem = {},
+            onCardAction = {},
+            onRate = {},
         )
     }
 }
