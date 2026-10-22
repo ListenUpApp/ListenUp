@@ -3,11 +3,13 @@ package com.calypsan.listenup.client.features.nowplaying
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.FinishedInfo
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerSettings
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -31,23 +33,30 @@ internal fun loadedPlayerState(
             phase == PlayerPhase.Paused ||
             phase == PlayerPhase.Restored ||
             phase == PlayerPhase.SleepFading,
+    series: List<PlayerSeriesRef> = emptyList(),
+    firstPdfDocId: String? = null,
+    boostDb: Float = 0f,
+    canSkipToNextChapter: Boolean = true,
+    finished: FinishedInfo? = null,
+    authors: List<PlayerContributor> = listOf(PlayerContributor("a1", "Brandon Sanderson", 14)),
+    narrators: List<PlayerContributor> =
+        listOf(
+            PlayerContributor("n1", "Michael Kramer", 120),
+            PlayerContributor("n2", "Kate Reading", 98),
+        ),
 ): PlayerUiState.Loaded =
     PlayerUiState.Loaded(
         book =
             PlayerBook(
                 id = "book-1",
                 title = title,
-                authors = listOf(PlayerContributor("a1", "Brandon Sanderson", 14)),
-                narrators =
-                    listOf(
-                        PlayerContributor("n1", "Michael Kramer", 120),
-                        PlayerContributor("n2", "Kate Reading", 98),
-                    ),
+                authors = authors,
+                narrators = narrators,
                 coverPath = coverPath,
                 coverHash = null,
-                series = emptyList(),
+                series = series,
                 durationMs = 163_800_000,
-                firstPdfDocId = null,
+                firstPdfDocId = firstPdfDocId,
             ),
         phase = phase,
         chapter =
@@ -79,12 +88,12 @@ internal fun loadedPlayerState(
                 PlayerChapterRow(it, it + 1, "Chapter ${it + 1}", it * 1_000L, 1_000L, isCurrent = it == 5)
             },
         source = source,
-        settings = PlayerSettings(1.0f, 1.0f, 0f, 0f, skipBackSec, skipForwardSec),
+        settings = PlayerSettings(1.0f, 1.0f, boostDb, 0f, skipBackSec, skipForwardSec),
         sleepTimer = sleepTimer,
         primary = primary,
         showsSkipBack = showsSkipBack,
-        canSkipToNextChapter = true,
-        finished = null,
+        canSkipToNextChapter = canSkipToNextChapter,
+        finished = finished,
     )
 
 /** A position partway through chapter 6. */
