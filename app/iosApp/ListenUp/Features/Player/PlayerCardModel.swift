@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 @preconcurrency import Shared
 
 /// The shared state card (`PlayerCards`) as native values (rule 8): the problem's words, or the finished book, and its

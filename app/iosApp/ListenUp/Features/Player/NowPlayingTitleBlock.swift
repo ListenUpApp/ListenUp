@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Now Playing's title block (player spec §5.2, iOS): the chapter line, the book's title, and a byline whose names are
-/// links. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
+/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` board): the book's title, the author and "Read by"
+/// line whose names are links, then the chapter line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
 /// Pull-down buttons: a menu for a navigation choice). Titles wrap rather than truncate as text grows (HIG,
 /// Typography: "aim to display as much useful text at the largest accessibility font size as you do at the largest
 /// standard size").
@@ -33,6 +33,15 @@ struct NowPlayingTitleBlock: View {
     var body: some View {
         let isLarge = dynamicTypeSize.isAccessibilitySize
         VStack(alignment: .leading, spacing: 3) {
+            Text(observer.bookTitle)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .lineLimit(isLarge ? 3 : 2)
+                .accessibilityAddTraits(.isHeader)
+
+            byline(lead: nil, observer.authors)
+            byline(lead: String(localized: "player.np_read_by"), observer.narrators)
+
             Text(Self.chapterLine(
                 number: observer.chapterIndex + 1,
                 total: observer.totalChapters,
@@ -40,47 +49,41 @@ struct NowPlayingTitleBlock: View {
                 showsCounter: observer.showsChapterCounter,
                 isWholeBook: observer.isWholeBook
             ))
-            .font(.callout)
-            .foregroundStyle(.secondary)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
             .lineLimit(isLarge ? 3 : 1)
-
-            Text(observer.bookTitle)
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .lineLimit(isLarge ? 3 : 2)
-                .accessibilityAddTraits(.isHeader)
-
-            byline(String(localized: "player.np_by"), observer.authors)
-            byline(String(localized: "player.np_read_by"), observer.narrators)
+            .padding(.top, Spacing.xs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder
-    private func byline(_ lead: String, _ people: [ContributorNavRef]) -> some View {
+    private func byline(lead: String?, _ people: [ContributorNavRef]) -> some View {
         if !people.isEmpty {
             FlowLayout(spacing: 4) {
-                Text(lead)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
+                if let lead {
+                    Text(lead)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
                 if let folded = Self.folded(people) {
                     Menu {
                         ForEach(people) { person in
                             Button(person.name) { onViewContributor(person.id) }
                         }
                     } label: {
-                        link(folded)
+                        link(folded, isAuthor: lead == nil)
                     }
-                    .accessibilityLabel(lead + " " + folded)
+                    .accessibilityLabel(spoken(lead, folded))
                 } else {
                     ForEach(Array(people.enumerated()), id: \.element.id) { offset, person in
                         Button { onViewContributor(person.id) } label: {
-                            link(person.name + (offset < people.count - 1 ? "," : ""))
+                            link(person.name + Self.separator(after: offset, of: people.count), isAuthor: lead == nil)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(lead + " " + person.name)
+                        .accessibilityLabel(spoken(lead, person.name))
                         .accessibilityAddTraits(.isLink)
                     }
                 }
@@ -88,10 +91,22 @@ struct NowPlayingTitleBlock: View {
         }
     }
 
-    private func link(_ text: String) -> some View {
+    /// "Michael Kramer &", "Kate Reading": commas between names, an ampersand before the last.
+    static func separator(after offset: Int, of count: Int) -> String {
+        if offset == count - 2 { return " &" }
+        return offset < count - 2 ? "," : ""
+    }
+
+    private func spoken(_ lead: String?, _ name: String) -> String {
+        lead.map { "\($0) \(name)" } ?? name
+    }
+
+    /// The author reads at body size in the label colour, the narrators a step down in secondary (the board); both are
+    /// buttons to VoiceOver and to the pointer.
+    private func link(_ text: String, isAuthor: Bool) -> some View {
         Text(text)
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(Color.luTintInk)
+            .font(isAuthor ? .body : .subheadline)
+            .foregroundStyle(isAuthor ? Color.primary : Color.secondary)
             // A 44pt hit area around a text-sized link, without spacing the byline out (HIG, Accessibility).
             .minimumTapTarget(visualSize: 20)
     }

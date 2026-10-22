@@ -36,9 +36,9 @@ enum ScrubberAccessibility {
 struct ChapterScrubberSection: View {
     let observer: PlayerObserver
 
-    /// "Book 11% · 40h 31m left": the shared, floored percent and the time left in the book.
+    /// "Book 11% · 40 hr, 31 min left": the shared, floored percent and the time left in the book.
     static func bookSentence(percent: Int, remainingMs: Int64) -> String {
-        String(format: String(localized: "player.np_book_sentence"), percent, DurationFormatting.hoursMinutes(ms: remainingMs))
+        String(format: String(localized: "player.np_book_sentence"), percent, DurationFormatting.abbreviated(ms: remainingMs))
     }
 
     @State private var sliderPosition: Double = 0
