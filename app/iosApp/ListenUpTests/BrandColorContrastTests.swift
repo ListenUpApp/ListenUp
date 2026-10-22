@@ -151,6 +151,26 @@ struct BrandColorContrastTests {
         }
     }
 
+    /// Now Playing's armed sleep timer: the countdown in the sleep gold's ink on its container (player spec §3.9).
+    @Test("the sleep gold's ink reads as text on its container, in every appearance")
+    func sleepGold() {
+        let container = UIColor(named: "SleepGoldContainer")
+        let ink = UIColor(named: "SleepGoldInk")
+        #expect(container != nil && ink != nil)
+        guard let container, let ink else { return }
+        for traits in Traits.colorAppearances {
+            let ratio = SRGBColor(ink, resolvedFor: traits).contrastRatio(against: SRGBColor(container, resolvedFor: traits))
+            #expect(ratio >= ContrastMinimum.text, "sleep gold \(ratio) in \(traits.userInterfaceStyle.rawValue)")
+        }
+        func hex(_ color: UIColor) -> String {
+            let srgb = SRGBColor(color, resolvedFor: lightDefault)
+            let channels = [srgb.red, srgb.green, srgb.blue].map { Int(($0 * 255).rounded()) }
+            return String(format: "%02lX%02lX%02lX", channels[0], channels[1], channels[2])
+        }
+        #expect(hex(container) == "F6E1C4")
+        #expect(hex(ink) == "4A2E00")
+    }
+
     @Test("the warning amber is visibly not the brand coral")
     func warningIsNotCoral() {
         func hue(_ color: UIColor) -> Double {
