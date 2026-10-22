@@ -10,11 +10,14 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
+import kotlin.time.Duration.Companion.milliseconds
 
 /** S4: `/playing` is a page; with nothing loaded it goes Home, but never while the loaded book is still restoring. */
 class NowPlayingRouteTest :
@@ -44,7 +47,7 @@ class NowPlayingRouteTest :
             }
         }
 
-        test("while the loaded book is still restoring, it waits rather than bouncing Home") {
+        test("while the loaded book is still restoring, it waits with its header and a way back, rather than bouncing Home") {
             val loaded = MutableStateFlow<LoadedBook>(LoadedBook.Restoring)
             val (host, router, composition) =
                 mountAt(
@@ -55,7 +58,32 @@ class NowPlayingRouteTest :
                 awaitFrame()
                 awaitFrame()
                 window.location.pathname shouldBe "/playing"
-                host.querySelector(".np-page") shouldBe null
+                // Never a blank screen: on a phone the shell has stepped aside, so the page's own Collapse is the way out.
+                host.querySelector(".np-page h1")?.textContent shouldBe "Now playing"
+                host.querySelector(".np-page [aria-label='Collapse player']").shouldNotBeNull()
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("when the store says a book is loaded but the player never loads it, the header waits, then it goes Home") {
+            val (host, router, composition) =
+                mountAt(
+                    "/playing",
+                    openPlayback =
+                        fixedPlayback(
+                            state = PlayerUiState.NothingLoaded,
+                            loadedBook = flowOf(LoadedBook.Loaded(bookId = "b1", isPlaying = false, isFinished = false)),
+                        ),
+                )
+            try {
+                awaitFrame()
+                window.location.pathname shouldBe "/playing"
+                host.querySelector(".np-page [aria-label='Collapse player']").shouldNotBeNull()
+                delay(RESTORE_GRACE + 500.milliseconds)
+                awaitFrame()
+                window.location.pathname shouldBe "/"
             } finally {
                 composition.dispose()
                 router.dispose()

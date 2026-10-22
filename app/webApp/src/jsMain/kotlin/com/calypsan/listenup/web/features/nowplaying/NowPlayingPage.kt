@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -90,8 +92,23 @@ fun NowPlayingRoute(
         window.addEventListener("keydown", onKey)
         onDispose { window.removeEventListener("keydown", onKey) }
     }
+    // The store has answered that a book is loaded, but the player has not loaded it: give the restore a moment, then
+    // go Home rather than wait on a page with nothing to play.
+    val isLoaded = state is PlayerUiState.Loaded
+    LaunchedEffect(loadedBook, isLoaded) {
+        if (loadedBook is LoadedBook.Loaded && !isLoaded) {
+            delay(RESTORE_GRACE)
+            if (!playingReturn.isClosing) router.replace(Routes.home)
+        }
+    }
     PageTitle(NowPlayingWords.NOW_PLAYING)
-    val loaded = state as? PlayerUiState.Loaded ?: return
+    val loaded =
+        state as? PlayerUiState.Loaded ?: run {
+            // Never a blank screen while the book is read back: on a phone the shell has stepped aside, so the page's
+            // own heading and Collapse are the way out.
+            WaitingPage(onCollapse = { playingReturn.close(router) })
+            return
+        }
     NowPlayingPage(
         state = loaded,
         progress = playback.progress.collectAsState().value,
@@ -99,6 +116,12 @@ fun NowPlayingRoute(
         boostUnavailable = playback.boostUnavailable.collectAsState().value,
     )
 }
+
+/**
+ * How long `/playing` waits, once the store has answered that a book is loaded, for the player to load it before going
+ * Home: long enough for the restore's Room read, short enough that a stale entry never strands the reader.
+ */
+internal val RESTORE_GRACE = 2.seconds
 
 /** A field the reader is typing in: Esc there is the field's, not the page's. */
 private fun isEditable(target: EventTarget?): Boolean {
@@ -233,6 +256,20 @@ fun NowPlayingPage(
                 }
             }
         }
+    }
+}
+
+/** The page before its book is loaded: the heading and Collapse / Back, on the wash. */
+@Composable
+private fun WaitingPage(onCollapse: () -> Unit) {
+    Div(attrs = { classes("np-page") }) {
+        PageHeader(
+            title = NowPlayingWords.NOW_PLAYING,
+            leading = {
+                HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, MOB, onCollapse)
+                HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, onCollapse)
+            },
+        )
     }
 }
 

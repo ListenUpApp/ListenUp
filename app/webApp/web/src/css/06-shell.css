@@ -310,6 +310,11 @@
 [data-theme="dark"] { --np-wash: var(--surface-2); }
 .cover-themed { --np-wash: var(--cover-wash-l); }
 [data-theme="dark"] .cover-themed { --np-wash: var(--cover-wash-d); }
+/* The page's quieter ink sits on the wash, not on paper: a cover's tone-91 wash (light) or tone-20 wash (dark) takes
+   the stock --ink-3 to about 4:1. On the page, both quiet tiers deepen so each reads at 4.5:1 on the neutral and on
+   every wash the shared rule gives, still in order (NowPlayingWashContrastTest). */
+.np-page { --ink-2: #554E48; --ink-3: #5F5751; }
+[data-theme="dark"] .np-page { --ink-2: #B3AEA9; --ink-3: #A8A39E; }
 .cover-themed .progress { background: var(--cover-track); }
 .cover-themed .progress-fill { background: var(--coral-fill); }
 /* The crossfade from neutral, for colours that arrived after a miss (C10); none for a reader who asked for less motion. */
