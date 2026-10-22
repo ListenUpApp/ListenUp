@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
+import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -61,7 +62,12 @@ fun NowPlayingRoute(
     val loadedBook by remember(playback) { playback.loadedBook }.collectAsState(initial = LoadedBook.Restoring)
     val state by playback.state.collectAsState()
     LaunchedEffect(loadedBook) {
-        if (loadedBook == LoadedBook.NothingLoaded) router.replace(Routes.home)
+        if (loadedBook == LoadedBook.NothingLoaded && !playingReturn.isClosing) router.replace(Routes.home)
+    }
+    // A revoked book closes Now Playing (§5.6, C11): the shared rule, this host's way of closing.
+    val closes = PlayerCards.closesNowPlaying(state) && state is PlayerUiState.Loaded
+    LaunchedEffect(closes) {
+        if (closes) playingReturn.close(router)
     }
     PageTitle(NowPlayingWords.NOW_PLAYING)
     val loaded = state as? PlayerUiState.Loaded ?: return
@@ -93,6 +99,10 @@ private fun PlaybackSession.pageActions(
         onCardAction = onCardAction,
         onRate = onRate,
         onCloseBook = onCloseBook,
+        onCloseBookAndLeave = {
+            playingReturn.close(router)
+            onCloseBook()
+        },
         onSetSpeed = onSetSpeed,
         onResetSpeed = onResetSpeed,
         onSetSleepTimer = onSetSleepTimer,
@@ -121,6 +131,8 @@ class NowPlayingActions(
     val onCardAction: (PlayerCardAction) -> Unit = {},
     val onRate: (Int) -> Unit = {},
     val onCloseBook: () -> Unit = {},
+    /** Close book from More: unload, and leave the page for wherever it was opened from. */
+    val onCloseBookAndLeave: () -> Unit = {},
     val onSetSpeed: (Float) -> Unit = {},
     val onResetSpeed: () -> Unit = {},
     val onSetSleepTimer: (SleepTimerMode) -> Unit = {},
@@ -157,7 +169,16 @@ fun NowPlayingPage(
         classes("np-page")
         coverThemed(arrival)
     }) {
-        PageHeader(state, actions)
+        PageHeader(state, actions) { item ->
+            when (item) {
+                PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
+                is PlayerMenuItem.GoToSeries -> actions.onOpenSeries(item.seriesId)
+                // The row is the link itself: a new tab opens the document, and nothing else happens here.
+                is PlayerMenuItem.OpenPdf -> Unit
+                is PlayerMenuItem.VolumeBoost -> pickers.boost = true
+                PlayerMenuItem.CloseBook -> actions.onCloseBookAndLeave()
+            }
+        }
         Div(attrs = { classes("np-cols") }) {
             Section(attrs = { classes("np-bookcol") }) {
                 BookIdentity(book, actions)
@@ -189,6 +210,7 @@ fun NowPlayingPage(
 private fun PageHeader(
     state: PlayerUiState.Loaded,
     actions: NowPlayingActions,
+    onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
     Header(attrs = { classes("np-head") }) {
         HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, "np-mob", actions.onCollapse)
@@ -199,6 +221,7 @@ private fun PageHeader(
             classes("np-status")
             attr("role", "status")
         }) { Text(NowPlayingWords.status(state.source)) }
+        PlayerMoreMenu(state = state, onItem = onMenuItem)
     }
 }
 

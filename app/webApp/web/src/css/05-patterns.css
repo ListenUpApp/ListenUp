@@ -570,6 +570,7 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
 }
 .np-head .np-more { margin-left:auto; }
+.np-more .btn { min-height:44px; }
 .np-cols { display:grid; gap:var(--sp-32); align-items:start; }
 @media (min-width: 1024px) { .np-cols { grid-template-columns:380px minmax(0, 1fr); } }
 .np-bookcol { display:flex; flex-direction:column; gap:var(--sp-12); min-width:0; }

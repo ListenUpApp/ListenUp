@@ -16,6 +16,13 @@ class PlayingReturn {
     private var opener: HTMLElement? = null
     private var openedInApp = false
 
+    /**
+     * True from a close until the history step it took has landed. While it is, `/playing` must not redirect on its
+     * own (Close book empties the player in the same moment it goes back).
+     */
+    var isClosing = false
+        private set
+
     /** Go to `/playing` from [from], remembering it for focus return. */
     fun open(
         router: Router,
@@ -23,6 +30,7 @@ class PlayingReturn {
     ) {
         opener = from
         openedInApp = true
+        isClosing = false
         router.navigate(Routes.playing)
     }
 
@@ -32,8 +40,10 @@ class PlayingReturn {
         opener = null
         if (openedInApp) {
             openedInApp = false
+            isClosing = true
             lateinit var onPop: (Event) -> Unit
             onPop = {
+                isClosing = false
                 window.removeEventListener("popstate", onPop)
                 window.requestAnimationFrame { returnTo?.takeIf { it.isConnected }?.focus() }
             }
