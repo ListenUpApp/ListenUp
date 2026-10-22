@@ -17,6 +17,8 @@ enum ShellTab: Hashable, Codable {
     case downloads
     /// Sidebar only: Settings.
     case settings
+    /// Sidebar only, admins only: the inbox, under Server (spec §3.1.5).
+    case adminInbox
 
     var title: String {
         switch self {
@@ -27,13 +29,14 @@ enum ShellTab: Hashable, Codable {
         case .search: String(localized: "common.search")
         case .downloads: String(localized: "settings.downloads")
         case .settings: String(localized: "common.settings")
+        case .adminInbox: String(localized: "common.inbox")
         }
     }
 
     /// Whether the tab exists only in the sidebar; a compact tab bar has no place for it.
     var isSidebarOnly: Bool {
         switch self {
-        case .librarySection, .downloads, .settings: true
+        case .librarySection, .downloads, .settings, .adminInbox: true
         case .home, .library, .discover, .search: false
         }
     }
@@ -187,9 +190,21 @@ final class MainShellModel {
         case .settings:
             selectedTab = .home
             paths[.home, default: NavigationPath()].append(SettingsDestination())
+        case .adminInbox:
+            selectedTab = .home
+            paths[.home, default: NavigationPath()].append(AdminInboxDestination())
         case .home, .library, .discover, .search:
             break
         }
+    }
+
+    /// Re-homes the selection when the sidebar hides while the inbox is open: Server › Inbox leaves the tab bar with it
+    /// (`InboxPlacement.showsServerSection`), so the inbox reopens on Library's Books, the tab that now leads to it.
+    func adaptToSidebarSections(showing: Bool) {
+        guard !showing, selectedTab == .adminInbox else { return }
+        librarySection = .books
+        selectedTab = .librarySection(.books)
+        paths[.librarySection(.books), default: NavigationPath()].append(AdminInboxDestination())
     }
 
     private func movePath(from source: ShellTab, to target: ShellTab) {

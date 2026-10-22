@@ -57,6 +57,23 @@ class ContributorAndSessionHeldExclusionTest :
             }
         }
 
+        test("observePreviewBookIdsByRole — a held-only author has no preview row, and gains it on release") {
+            withHeldBookDb { db ->
+                seedAuthors(db)
+                db
+                    .contributorDao()
+                    .observePreviewBookIdsByRole("author")
+                    .map { rows -> rows.groupBy({ it.contributorId }, { it.bookId }).mapValues { it.value.toSet() } }
+                    .test {
+                        awaitItem() shouldBe mapOf("ann" to setOf("visible"))
+                        HeldBookFixture.applyReleaseEcho(db, "held")
+                        awaitItemMatching { "hal" in it } shouldBe
+                            mapOf("ann" to setOf("visible", "held"), "hal" to setOf("held"))
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
         test("observeRolesWithCountForContributor — contributor detail counts") {
             withHeldBookDb { db ->
                 seedAuthors(db)

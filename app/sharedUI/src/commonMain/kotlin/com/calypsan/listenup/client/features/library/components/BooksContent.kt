@@ -160,6 +160,8 @@ internal fun SectionHeader(
  *   with the books.
  * @param statusStrip What the pinned status strip above the grid says. While the library is still arriving the grid
  *   ends in placeholders, and an empty grid is never called empty.
+ * @param showSortControl Whether the sort sits above the grid; false where a header band already carries it (the
+ *   Android tablet)
  * @param modifier Optional modifier
  */
 @Suppress("LongParameterList")
@@ -188,6 +190,7 @@ internal fun BooksContent(
     onShowAllBooks: () -> Unit = {},
     header: (@Composable () -> Unit)? = null,
     statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
+    showSortControl: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val isArriving = statusStrip is LibraryStatusStrip.Arriving
@@ -269,20 +272,23 @@ internal fun BooksContent(
             else -> {
                 Column(modifier = Modifier.fillMaxSize()) {
                     PinnedStatusStrip(statusStrip)
-                    LibrarySortCard(
-                        state = sortState,
-                        categories = SortCategory.booksCategories,
-                        // The status chips above already carry the counts (board `Main`).
-                        count = null,
-                        unit = "",
-                        ignoreArticles = ignoreTitleArticles,
-                        showArticleToggle = sortState.category == SortCategory.TITLE,
-                        onCategorySelected = onCategorySelected,
-                        onDirectionToggle = onDirectionToggle,
-                        onToggleArticles = onToggleIgnoreArticles,
-                        visible = true,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-                    )
+                    // The Android tablet draws the sort in its second header band instead.
+                    if (showSortControl) {
+                        LibrarySortCard(
+                            state = sortState,
+                            categories = SortCategory.booksCategories,
+                            // The status chips above already carry the counts (board `Main`).
+                            count = null,
+                            unit = "",
+                            ignoreArticles = ignoreTitleArticles,
+                            showArticleToggle = sortState.category == SortCategory.TITLE,
+                            onCategorySelected = onCategorySelected,
+                            onDirectionToggle = onDirectionToggle,
+                            onToggleArticles = onToggleIgnoreArticles,
+                            visible = true,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                        )
+                    }
                     BookGrid(
                         books = books,
                         bookLetters = bookLetters,

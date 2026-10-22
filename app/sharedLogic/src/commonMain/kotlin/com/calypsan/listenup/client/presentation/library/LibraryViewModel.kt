@@ -103,6 +103,7 @@ private data class SortedContent(
     val authors: List<ContributorWithBookCount>,
     val narrators: List<ContributorWithBookCount>,
     val statusCounts: BookStatusCounts,
+    val sectionCounts: LibrarySectionCounts,
     val totalDurationMs: Long,
     val bookLetters: List<LetterSection>,
     val seriesLetters: List<LetterSection>,
@@ -291,13 +292,21 @@ class LibraryViewModel(
             val sortedSeries = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles)
             val sortedAuthors = sortContributors(content.authors, intentValue.authorsSortState)
             val sortedNarrators = sortContributors(content.narrators, intentValue.narratorsSortState)
+            val statusCounts = countsOf(states.values)
             SortedContent(
                 intent = intentValue,
                 books = filteredBooks,
                 series = sortedSeries,
                 authors = sortedAuthors,
                 narrators = sortedNarrators,
-                statusCounts = countsOf(states.values),
+                statusCounts = statusCounts,
+                sectionCounts =
+                    LibrarySectionCounts(
+                        books = statusCounts.all,
+                        series = sortedSeries.size,
+                        authors = sortedAuthors.size,
+                        narrators = sortedNarrators.size,
+                    ),
                 totalDurationMs = content.books.sumOf { it.duration },
                 // Letters are derived here, once per sorted snapshot, so they move with the revision
                 // and never on a position tick.
@@ -604,6 +613,7 @@ class LibraryViewModel(
                 ),
             statusFilter = sorted.intent.statusFilter,
             statusCounts = sorted.statusCounts,
+            sectionCounts = sorted.sectionCounts,
             bookStatus = progress.cardStatus,
             totalDurationMs = sorted.totalDurationMs,
             bookLetters = sorted.bookLetters,

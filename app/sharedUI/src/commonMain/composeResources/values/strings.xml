@@ -100,6 +100,7 @@
     <string name="admin_inbox_empty">Inbox empty</string>
     <string name="admin_inbox_entry_a11y">Inbox, %1$d book waiting for review</string>
     <string name="admin_inbox_entry_a11y_plural">Inbox, %1$d books waiting for review</string>
+    <string name="admin_inbox_entry_subtitle">Waiting for you to release</string>
     <string name="admin_inbox_issue_dismiss">Dismiss</string>
     <string name="admin_inbox_issue_metadata">The tags couldn't be read</string>
     <string name="admin_inbox_issue_metadata_fix">The audio is there, but its metadata is unreadable. Re-tagging usually fixes it.</string>
@@ -1653,6 +1654,7 @@ One beautiful library.</string>
     <string name="library_collection">Collection</string>
     <string name="library_collection_name">Collection name</string>
     <string name="library_contributors_empty">No contributors yet</string>
+    <string name="library_count_line">%1$s · %2$s</string>
     <string name="library_count_unit">%1$d %2$s</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; add</string>
@@ -1686,7 +1688,14 @@ One beautiful library.</string>
     <string name="library_ignore_articles_quoted">Ignore “A”, “An”, “The”</string>
     <string name="library_inbox_strip">Inbox · %1$d waiting</string>
     <string name="library_index_jump">Jump to %1$s</string>
+    <string name="library_ipad_books_subtitle">%1$s · sorted by %2$s</string>
     <string name="library_jump_index_label">Jump to letter</string>
+    <string name="library_length_days">%1$d days of listening</string>
+    <string name="library_length_days_one">1 day of listening</string>
+    <string name="library_length_hours">%1$d hours of listening</string>
+    <string name="library_length_hours_one">1 hour of listening</string>
+    <string name="library_length_minutes">%1$d minutes of listening</string>
+    <string name="library_length_minutes_one">1 minute of listening</string>
     <string name="library_loading_your_library">Loading your library...</string>
     <string name="library_menu_add_to_collection">Add to collection…</string>
     <string name="library_menu_add_to_collection_ios">Add to Collection…</string>
@@ -1710,6 +1719,7 @@ One beautiful library.</string>
     <string name="library_select_all_ios">Select All</string>
     <string name="library_series">Series</string>
     <string name="library_series_count">%1$d series</string>
+    <string name="library_series_count_badge_a11y">%1$d books</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_show_all_books">Show all books</string>
     <string name="library_sort">Sort</string>

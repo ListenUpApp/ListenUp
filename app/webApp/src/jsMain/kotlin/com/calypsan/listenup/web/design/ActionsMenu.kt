@@ -104,6 +104,8 @@ fun PopupMenu(
     tooltip: Boolean = false,
     triggerText: String? = null,
     trailingIcon: Boolean = false,
+    /** Drawn in the trigger in place of [icon] — the account menu's avatar. [label] still names it. */
+    triggerContent: (@Composable () -> Unit)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     val anchor = remember { NodeHolder() }
@@ -148,7 +150,7 @@ fun PopupMenu(
             }
             onClick { open = !open }
         }) {
-            TriggerContent(icon, triggerText, trailingIcon)
+            MenuTriggerFace(icon = icon, text = triggerText, content = triggerContent, trailingIcon = trailingIcon)
         }
 
         if (open) {
@@ -165,16 +167,21 @@ fun PopupMenu(
     }
 }
 
-/** A trigger's glyph and words: the glyph first, or after the words when [trailingIcon] ("More ▾"). */
+/**
+ * What a menu's trigger shows: [content] when given (an avatar), else [icon]; and [text] if any. The glyph comes first,
+ * or after the words when [trailingIcon] ("More ▾").
+ */
 @Composable
-private fun TriggerContent(
+private fun MenuTriggerFace(
     icon: WebIcon,
-    triggerText: String?,
+    text: String?,
+    content: (@Composable () -> Unit)?,
     trailingIcon: Boolean,
 ) {
-    if (!trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
-    triggerText?.let { Text(it) }
-    if (trailingIcon) Icon(icon, size = MENU_ICON_SIZE)
+    val glyph: @Composable () -> Unit = { if (content != null) content() else Icon(icon, size = MENU_ICON_SIZE) }
+    if (!trailingIcon) glyph()
+    text?.let { Text(it) }
+    if (trailingIcon) glyph()
 }
 
 /** Calls [onOutside] for a press anywhere outside [anchor], for as long as this is composed. */

@@ -72,6 +72,8 @@ fun Cover(
      * row arithmetic). The collection lock is the one user.
      */
     overlay: (@Composable () -> Unit)? = null,
+    /** Where the box sits: in the flow, or at an offset inside a stack of covers (a series card's). */
+    placement: CoverPlacement = CoverPlacement.InFlow,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -81,7 +83,10 @@ fun Cover(
         // [heroTarget] — and [com.calypsan.listenup.web.motion.flyHeroInto] for why it is a FLIP.
         heroKey?.let { heroTarget(it) }
         classes("cover")
-        style { coverBox(size, radius, heroName, if (showImage) null else title) }
+        style {
+            coverBox(size, radius, heroName, if (showImage) null else title)
+            place(placement)
+        }
         attrs?.invoke(this)
     }) {
         if (showImage) {
@@ -92,6 +97,35 @@ fun Cover(
             FallbackTitle(title, size, radius, decorative)
         }
         overlay?.invoke()
+    }
+}
+
+/**
+ * Where a [Cover]'s box sits. Part of the box's own inline style, because that style is what positions it: a stylesheet
+ * rule cannot override it, so a stacked cover is asked for here rather than by a class.
+ */
+sealed interface CoverPlacement {
+    /** In the flow, positioned only so its overlay can sit on it. */
+    data object InFlow : CoverPlacement
+
+    /** At [left], [top] (px) inside a positioned stack of covers. */
+    data class Stacked(
+        val left: Int,
+        val top: Int,
+    ) : CoverPlacement
+}
+
+private fun StyleScope.place(placement: CoverPlacement) {
+    when (placement) {
+        CoverPlacement.InFlow -> {
+            property("position", "relative")
+        }
+
+        is CoverPlacement.Stacked -> {
+            property("position", "absolute")
+            property("left", "${placement.left}px")
+            property("top", "${placement.top}px")
+        }
     }
 }
 
@@ -118,7 +152,6 @@ private fun StyleScope.coverBox(
     property("border-radius", "${radius}px")
     property("overflow", "hidden")
     property("flex-shrink", "0")
-    property("position", "relative")
     // The shared-element handle. When the grid tile the reader tapped carries the same name, the
     // browser interpolates between the two boxes instead of crossfading the pages — the cover
     // appears to fly from the grid into this hero, Flutter-Hero style.

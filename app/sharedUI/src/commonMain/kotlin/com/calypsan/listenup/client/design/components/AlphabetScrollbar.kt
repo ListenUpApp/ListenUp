@@ -118,6 +118,9 @@ internal fun calculateWeight(
     }
 }
 
+/** The letter index's width at rest: its 48dp touch target. A list beside it keeps this clear at its end. */
+val AlphabetRailWidth = 48.dp
+
 /**
  * Google Contacts-style alphabet scrollbar with adaptive sizing.
  *
@@ -317,7 +320,7 @@ fun AlphabetScrollbar(
                     // Enforce 48dp min-width so the touch target meets the a11y minimum
                     // even on short letter lists. Visual appearance unchanged — the
                     // letters are centred inside the wider clip area.
-                    .defaultMinSize(minWidth = 48.dp)
+                    .defaultMinSize(minWidth = AlphabetRailWidth)
                     // Sized to the letter column's own geometry, like the scrubber's text.
                     .clip(RoundedCornerShape(16.dp))
                     .background(

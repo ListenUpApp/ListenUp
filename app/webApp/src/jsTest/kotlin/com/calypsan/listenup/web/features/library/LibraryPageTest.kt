@@ -52,7 +52,7 @@ class LibraryPageTest :
             listOf(LibraryUiState.Loading, LibraryUiState.Error("nope")).forEach { state ->
                 val root = render(state)
 
-                root.querySelectorAll(".facet-chip").length shouldBe LibraryFacet.entries.size
+                root.querySelectorAll(".lib-seg-i").length shouldBe LibraryFacet.entries.size
             }
         }
 

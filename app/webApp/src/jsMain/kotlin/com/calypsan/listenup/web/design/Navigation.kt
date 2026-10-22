@@ -2,8 +2,10 @@ package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.motion.TabIndicator
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Nav
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
@@ -188,54 +190,47 @@ enum class LibraryFacet(
 }
 
 /**
- * The facet row that sits under a page title and does the navigating between the book grid, the
- * series list and the two Contributors lists — [com.calypsan.listenup.web.features.library.LibraryPage],
+ * The Library's sections as one segmented control (spec §3.1.6–§3.1.7, board `Library-WebPhone`), under a page title
+ * on [com.calypsan.listenup.web.features.library.LibraryPage],
  * [com.calypsan.listenup.web.features.serieslist.SeriesListPage] and
- * [com.calypsan.listenup.web.features.contributors.ContributorsPage] all render it, so a reader
- * gets to the library's people from any side of that boundary the same way.
+ * [com.calypsan.listenup.web.features.contributors.ContributorsPage], so a reader moves between the books, the series
+ * and the people behind them the same way from any of them.
  *
- * Renders exactly the [LibraryFacet] entries, and still no "In progress" chip: that facet has no
- * destination behind it, and a chip whose only outcome is nothing is a lie. Series carried the same
- * note until it had a page to lead to — the bar is a real destination, not a place in a comp. This
- * replaces the
- * bespoke two-chip role toggle Contributors shipped with first: a facet row and a role toggle are
- * the same idiom wearing two names, and [SegmentedControl] already covers the "narrow what's
- * already shown" case a step down in weight from this one.
+ * A `nav` named "Library sections" of real links ([hrefFor] each facet's page): reachable by Tab, openable in a new
+ * tab, announced as links, the current one `aria-current="page"`. A plain primary click is routed in-app ([onSelect]),
+ * like the sidebar's links. Full width with 44px segments on a phone.
+ *
+ * Renders exactly the [LibraryFacet] entries, and no "In progress" segment: that facet has no destination behind it,
+ * and a control whose only outcome is nothing is a lie. [SegmentedControl] is the button-group cousin for narrowing
+ * what one page already shows; this one navigates.
  */
 @Composable
 fun FacetRow(
     active: LibraryFacet,
+    hrefFor: (LibraryFacet) -> String,
     onSelect: (LibraryFacet) -> Unit,
 ) {
-    Div(attrs = { classes("facet-row") }) {
+    Nav(attrs = {
+        classes("lib-seg")
+        attr("aria-label", "Library sections")
+    }) {
         LibraryFacet.entries.forEach { facet ->
-            FacetChip(facet = facet, active = active, onSelect = onSelect)
+            val isActive = facet == active
+            A(href = hrefFor(facet), attrs = {
+                classes("lib-seg-i")
+                if (isActive) {
+                    classes("is-active")
+                    attr("aria-current", "page")
+                }
+                onClick { event ->
+                    if (event.isPlainPrimaryClick()) {
+                        event.preventDefault()
+                        onSelect(facet)
+                    }
+                }
+            }) { Text(facet.label) }
         }
     }
-}
-
-@Composable
-private fun FacetChip(
-    facet: LibraryFacet,
-    active: LibraryFacet,
-    onSelect: (LibraryFacet) -> Unit,
-) {
-    val isActive = facet == active
-    Span(attrs = {
-        classes("facet-chip")
-        if (isActive) classes("is-active")
-        attr("role", BUTTON)
-        // A visual class alone doesn't tell a screen reader which facet is selected.
-        attr("aria-pressed", isActive.toString())
-        tabIndex(0)
-        onClick { onSelect(facet) }
-        onKeyDown { event ->
-            if (event.key == "Enter" || event.key == " ") {
-                event.preventDefault()
-                onSelect(facet)
-            }
-        }
-    }) { Text(facet.label) }
 }
 
 /**
@@ -246,7 +241,7 @@ private fun FacetChip(
  * Horror".
  *
  * A non-null [onClick] makes the pill a real control, not just a styled label — it picks up the
- * same keyboard contract [FacetChip] does (focusable, `role=BUTTON`, Enter/Space activation),
+ * same keyboard contract a button does (focusable, `role=BUTTON`, Enter/Space activation),
  * so a chip that toggles something is reachable without a mouse.
  *
  * [selected] non-null makes it a toggle: the `on` look, and `aria-pressed` so the state is said

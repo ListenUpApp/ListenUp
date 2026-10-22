@@ -548,11 +548,14 @@ LibraryError_SealedType
 LibraryFolder
 LibraryFolderRef
 LibraryId
+LibraryLength
+LibraryLength_SealedType
 LibraryPreferences
 LibraryReadiness
 LibraryReadiness_SealedType
 LibraryRepository
 LibraryResetHelper
+LibrarySectionCounts
 LibrarySettingsEvent
 LibrarySettingsEvent_SealedType
 LibrarySettingsUiState

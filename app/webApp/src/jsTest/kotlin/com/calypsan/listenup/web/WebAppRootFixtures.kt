@@ -173,6 +173,8 @@ import com.calypsan.listenup.web.features.admin.fixedOrganize
 import com.calypsan.listenup.web.features.admin.fixedUpload
 import com.calypsan.listenup.web.features.sync.fixedDeadLetters
 import com.calypsan.listenup.web.features.sync.OpenDeadLetters
+import com.calypsan.listenup.web.features.sync.OpenSyncIndicator
+import com.calypsan.listenup.web.features.sync.fixedSyncIndicator
 import com.calypsan.listenup.web.features.shelf.OpenMyShelves
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
@@ -237,6 +239,7 @@ internal fun mountAt(
     openBookHardcover: OpenBookHardcover = fixedBookHardcover(),
     openSeeAll: OpenSeeAll = fixedSeeAll(SeeAllSearchUiState.Idle),
     openDeadLetters: OpenDeadLetters = fixedDeadLetters(),
+    openSyncIndicator: OpenSyncIndicator = fixedSyncIndicator(),
     openCreateInvite: OpenCreateInvite = fixedCreateInvite(CreateInviteUiState.Ready()),
     openUserDetail: OpenUserDetail = fixedUserDetail(UserDetailUiState.Loading),
     openUpload: OpenUpload = fixedUpload(UploadBooksUiState.Idle),
@@ -325,10 +328,12 @@ internal fun mountAt(
                             openBookHardcover = openBookHardcover,
                             openSeeAll = openSeeAll,
                             openDeadLetters = openDeadLetters,
+                            openSyncIndicator = openSyncIndicator,
                             openNotificationBell = openNotificationBell,
                             openPlayback = openPlayback,
                             observeIsAdmin = { isAdmin },
                             observeCurrentUserId = { currentUserId },
+                            observeCurrentUserName = { flowOf(null) },
                             observeAvatarFrame = { flowOf(null) },
                             coverThemes = NoCoverThemes,
                         ),

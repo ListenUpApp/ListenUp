@@ -9,6 +9,11 @@ import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.everySuspend
+import dev.mokkery.verify.VerifyMode.Companion.exactly
+import dev.mokkery.verifySuspend
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -17,6 +22,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import dev.mokkery.answering.calls
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.api.error.TransportError
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -90,7 +100,7 @@ class SyncIndicatorViewModelTest :
                 mock<SyncRepository> {
                     every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
                 }
-            return SyncIndicatorViewModel(pendingOperationRepository = repo, syncRepository = syncRepository)
+            return SyncIndicatorViewModel(pendingOperationRepository = repo, syncRepository = syncRepository, errorBus = ErrorBus())
         }
 
         test("state derives pendingCount from visible PENDING operations") {
@@ -162,6 +172,89 @@ class SyncIndicatorViewModelTest :
                 }
 
                 repo.retried shouldBe listOf("op1", "op2")
+            }
+        }
+
+        test("lastSyncedAtMs is the last successful sync, and stays through the next one") {
+            runTest(testDispatcher) {
+                val syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+                val syncRepository = mock<SyncRepository> { every { this@mock.syncState } returns syncState }
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+
+                vm.state.test {
+                    awaitItem().lastSyncedAtMs shouldBe null
+                    syncState.value = SyncState.Success(Timestamp(1_000L))
+                    var item = awaitItem()
+                    while (item.lastSyncedAtMs == null) item = awaitItem()
+                    item.lastSyncedAtMs shouldBe 1_000L
+
+                    syncState.value = SyncState.Syncing
+                    item = awaitItem()
+                    while (!item.isSyncing) item = awaitItem()
+                    item.lastSyncedAtMs shouldBe 1_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("RefreshRequested asks the sync repository for a sync") {
+            runTest(testDispatcher) {
+                val syncRepository =
+                    mock<SyncRepository> {
+                        every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
+                        everySuspend { sync() } returns AppResult.Success(Unit)
+                    }
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+
+                vm.onEvent(SyncIndicatorUiEvent.RefreshRequested)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                verifySuspend(exactly(1)) { syncRepository.sync() }
+            }
+        }
+
+        test("a refresh says it is syncing while it runs, and stops when it lands") {
+            runTest(testDispatcher) {
+                val landing = CompletableDeferred<AppResult<Unit>>()
+                val syncRepository =
+                    mock<SyncRepository> {
+                        every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
+                        everySuspend { sync() } calls { landing.await() }
+                    }
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+                backgroundScope.launch { vm.state.collect { } }
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                vm.onEvent(SyncIndicatorUiEvent.RefreshRequested)
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.isSyncing shouldBe true
+
+                landing.complete(AppResult.Success(Unit))
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.state.value.isSyncing shouldBe false
+            }
+        }
+
+        test("a failed refresh reaches the error bus and the indicator says it could not sync") {
+            runTest(testDispatcher) {
+                val failure = TransportError.NetworkUnavailable(debugInfo = "socket closed")
+                val syncRepository =
+                    mock<SyncRepository> {
+                        every { syncState } returns MutableStateFlow<SyncState>(SyncState.Success(Timestamp(1_000L)))
+                        everySuspend { sync() } returns AppResult.Failure(failure)
+                    }
+                val errorBus = ErrorBus()
+                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, errorBus)
+                backgroundScope.launch { vm.state.collect { } }
+
+                errorBus.errors.test {
+                    vm.onEvent(SyncIndicatorUiEvent.RefreshRequested)
+                    testDispatcher.scheduler.advanceUntilIdle()
+                    awaitItem() shouldBe failure
+                    cancelAndIgnoreRemainingEvents()
+                }
+                vm.state.value.refreshFailed shouldBe true
+                vm.state.value.isSyncing shouldBe false
             }
         }
     })

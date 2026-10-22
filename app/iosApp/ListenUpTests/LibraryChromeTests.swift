@@ -22,6 +22,11 @@ struct LibraryChromeTests {
         #expect(chrome.title(section: .narrators) == LibraryTab.narrators.title)
     }
 
+    @Test func inTheSidebarBooksSubtitleSaysHowManyAndHowSorted() {
+        #expect(LibrarySubtitle.ipadBooks(count: 248, sortLabel: "Title") == "248 books · sorted by title")
+        #expect(LibrarySubtitle.ipadBooks(count: 1, sortLabel: "Added") == "1 book · sorted by added")
+    }
+
     @Test func thePickerAndTheSidebarDriveTheSameSection() {
         let shell = MainShellModel()
         shell.adaptToLayout(usesSidebar: false)

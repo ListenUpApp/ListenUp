@@ -27,6 +27,10 @@ class InboxBadgeViewModel(
     userRepository: UserRepository,
     inboxRepository: InboxRepository,
 ) : ViewModel() {
+    /** Whether this viewer is an admin: the iPad sidebar's Inbox row shows for an admin even with nothing held. */
+    val adminAccess: StateFlow<Boolean> =
+        userRepository.observeIsAdmin().stateIn(viewModelScope, WhileSubscribedForUi, initialValue = false)
+
     /**
      * The held set as this viewer sees it, oldest hold first: everything held for an admin, nothing
      * for anyone else. One subscription to Room and to the admin flag, shared by [heldCount] and

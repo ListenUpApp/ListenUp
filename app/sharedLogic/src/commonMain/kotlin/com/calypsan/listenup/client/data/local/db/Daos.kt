@@ -12,6 +12,19 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import kotlinx.coroutines.flow.Flow
 
+/** [ContributorDao.observePreviewBookIdsByRole]'s SQL, named so a test can read its query plan. */
+internal const val CONTRIBUTOR_PREVIEWS_BY_ROLE_SQL = """
+    SELECT contributorId, bookId FROM (
+        SELECT bc.contributorId AS contributorId, bc.bookId AS bookId,
+               ROW_NUMBER() OVER (PARTITION BY bc.contributorId ORDER BY b.createdAt DESC, b.id ASC) AS rn
+          FROM book_contributors bc
+          INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
+         WHERE bc.role = :role
+    )
+     WHERE rn <= 2
+     ORDER BY contributorId ASC, rn ASC
+"""
+
 @Dao
 internal interface SeriesDao {
     @Query("SELECT * FROM series WHERE deletedAt IS NULL ORDER BY name ASC")
@@ -239,6 +252,15 @@ internal interface ContributorDao {
     """,
     )
     fun observeByRoleWithCount(role: String): Flow<List<ContributorWithBookCount>>
+
+    /**
+     * Each contributor's two most recently added books in [role], newest first, for the wide Library's people rows
+     * (spec §3.1.8 c7). Held ([HELD_BOOK_IDS_SQL]) and deleted books never front a row. One query for the whole list,
+     * a window per contributor; `book_contributors(bookId, contributorId, role)` is the primary key, so a (book,
+     * contributor) pair appears once per role.
+     */
+    @Query(CONTRIBUTOR_PREVIEWS_BY_ROLE_SQL)
+    fun observePreviewBookIdsByRole(role: String): Flow<List<ContributorPreviewRow>>
 
     /**
      * Observe a single contributor by ID.
