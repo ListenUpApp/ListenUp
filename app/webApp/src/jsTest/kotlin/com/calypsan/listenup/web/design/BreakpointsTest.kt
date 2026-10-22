@@ -58,11 +58,11 @@ class BreakpointsTest :
             at(1280, "display", ".ched-body", editor) shouldBe "grid"
         }
 
-        test("the full player stacks its cover above the controls below 640") {
-            val player = @Composable { Div(attrs = { classes("np-body") }) }
+        test("Now Playing puts the chapter list beside the book from 1024, under it below") {
+            val page = @Composable { Div(attrs = { classes("np-cols") }) }
 
-            at(639, "flex-direction", ".np-body", player) shouldBe "column"
-            at(640, "flex-direction", ".np-body", player) shouldBe "row"
+            at(1023, "grid-template-columns", ".np-cols", page).split(" ").size shouldBe 1
+            at(1024, "grid-template-columns", ".np-cols", page).split(" ").size shouldBe 2
         }
     })
 

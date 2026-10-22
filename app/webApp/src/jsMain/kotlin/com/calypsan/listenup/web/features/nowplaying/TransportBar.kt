@@ -19,10 +19,13 @@ import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.isPlainPrimaryClick
+import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.disabled
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
@@ -54,7 +57,7 @@ import kotlin.math.roundToInt
  * a seek per pointer sample, which on the HLS path means
  * [com.calypsan.listenup.web.playback.HtmlAudioPlayer] re-running `attach` per sample, destroying
  * and rebuilding an hls.js instance and re-fetching its playlists tens of times a second.
- * Committing once, on release, fixes both. On the bar it spans the chapter (M10); the panel's spans the book.
+ * Committing once, on release, fixes both. On the bar and the phone Now Playing page it spans the chapter (M10, gap 8).
  */
 @Composable
 fun TransportBar(
@@ -75,18 +78,15 @@ fun TransportBar(
     boostUnavailable: Boolean = false,
     onSetBoost: (Float) -> Unit = {},
     onResetBoost: () -> Unit = {},
-    onOpenBook: (String) -> Unit = {},
-    onOpenSeries: (String) -> Unit = {},
-    onOpenContributor: (String) -> Unit = {},
-    onCloseBook: () -> Unit = {},
-    onRetry: () -> Unit = {},
-    onDismissError: () -> Unit = {},
+    isNowPlayingOpen: Boolean = false,
+    onOpenNowPlaying: (opener: HTMLElement?) -> Unit = {},
+    onCloseNowPlaying: () -> Unit = {},
+    onFocusChapters: (() -> Unit)? = null,
 ) {
     var chaptersOpen by remember { mutableStateOf(false) }
     var sleepOpen by remember { mutableStateOf(false) }
     var speedOpen by remember { mutableStateOf(false) }
     var boostOpen by remember { mutableStateOf(false) }
-    var expandedOpen by remember { mutableStateOf(false) }
     val bookSwitch = remember { BookSwitch() }
     val settings = state.settings
     val hasChapters = state.chapters.isNotEmpty()
@@ -129,32 +129,6 @@ fun TransportBar(
         onDismiss = { boostOpen = false },
     )
 
-    NowPlayingPanel(
-        open = expandedOpen,
-        state = state,
-        progress = progress,
-        onPrimary = onPrimary,
-        onSeek = onSeek,
-        onSkipBack = onSkipBack,
-        onSkipForward = onSkipForward,
-        onPreviousChapter = onPreviousChapter,
-        onNextChapter = onNextChapter,
-        onOpenSpeed = { speedOpen = true },
-        onOpenChapters = { chaptersOpen = true },
-        onOpenBoost = { boostOpen = true },
-        onOpenSleep = { sleepOpen = true },
-        onOpenBook = onOpenBook,
-        onOpenSeries = onOpenSeries,
-        onOpenContributor = onOpenContributor,
-        onCloseBook = {
-            expandedOpen = false
-            onCloseBook()
-        },
-        onDismiss = { expandedOpen = false },
-        onRetry = onRetry,
-        onDismissError = onDismissError,
-    )
-
     val line = MiniPlayerLines.of(state)
     val tinted = line is MiniPlayerLine.Problem && line.isTinted
     Div(attrs = {
@@ -165,10 +139,7 @@ fun TransportBar(
         attr(ATTR_ROLE, "region")
         attr(ATTR_ARIA_LABEL, "Player")
     }) {
-        BarBook(book = state.book, line = line, progress = progress, bookSwitch = bookSwitch, onOpen = {
-            expandedOpen =
-                true
-        })
+        BarBook(book = state.book, line = line, progress = progress, bookSwitch = bookSwitch, onOpen = onOpenNowPlaying)
 
         BarTransport(
             state = state,
@@ -187,19 +158,24 @@ fun TransportBar(
                 hasChapters = hasChapters,
                 sleepTimer = state.sleepTimer,
                 onOpenSpeed = { speedOpen = true },
-                onOpenChapters = { chaptersOpen = true },
+                // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
+                onOpenChapters = { if (isNowPlayingOpen && onFocusChapters != null) onFocusChapters() else chaptersOpen = true },
                 onOpenSleep = { sleepOpen = true },
             )
         }
 
+        // Open ↔ Close: on the page it is the way back (§5.1), and says so.
+        val expandLabel = if (isNowPlayingOpen) "Close Now Playing" else "Open Now Playing"
         Button(attrs = {
             classes("tport-expand")
             attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, "Open Now Playing")
-            attr(ATTR_TITLE, "Open Now Playing")
-            attr("aria-expanded", expandedOpen.toString())
-            onClick { expandedOpen = true }
-        }) { Icon(WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+            attr(ATTR_ARIA_LABEL, expandLabel)
+            attr(ATTR_TITLE, expandLabel)
+            attr("aria-expanded", isNowPlayingOpen.toString())
+            onClick { event ->
+                if (isNowPlayingOpen) onCloseNowPlaying() else onOpenNowPlaying(event.currentTarget as? HTMLElement)
+            }
+        }) { Icon(if (isNowPlayingOpen) WebIcon.ChevronDown else WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
     }
 
     // In the same apply that swaps the book in, so its first painted frame is already the motion's first.
@@ -211,7 +187,7 @@ fun TransportBar(
 
 /**
  * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
- * line — which is one button into Now Playing (M1). A `<button>` until PR 3 gives Now Playing a route to link to.
+ * line — which is one link to Now Playing, `/playing` (M1): a plain click opens it in-app, a modified one in a new tab.
  */
 @Composable
 private fun BarBook(
@@ -219,7 +195,7 @@ private fun BarBook(
     line: MiniPlayerLine,
     progress: PlayerProgress,
     bookSwitch: BookSwitch,
-    onOpen: () -> Unit,
+    onOpen: (HTMLElement?) -> Unit,
 ) {
     val authorLine = book.authors.joinToString(", ") { it.name }
     // Phone only (CSS): the chapter line along the bar's top edge. Passive; the body's line says the time.
@@ -240,11 +216,15 @@ private fun BarBook(
     }) { if (line == MiniPlayerLine.Reconnecting) Text("Reconnecting…") }
 
     // Named for the book and where it is in it.
-    Button(attrs = {
+    A(href = PLAYING_HREF, attrs = {
         classes("tport-body")
-        attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress)}")
-        onClick { onOpen() }
+        onClick { event ->
+            if (event.isPlainPrimaryClick()) {
+                event.preventDefault()
+                onOpen(event.currentTarget as? HTMLElement)
+            }
+        }
         ref { element ->
             bookSwitch.body = element
             onDispose { bookSwitch.body = null }
@@ -589,13 +569,13 @@ private fun twoDigits(value: Long): String = value.toString().padStart(2, '0')
 /**
  * Elapsed time, the seek range, and total time — the three things that always move together.
  *
- * One implementation, used by the docked bar and the expanded panel. The drag position lives HERE
+ * One implementation, used by the docked bar and the phone Now Playing page. The drag position lives HERE
  * rather than in either caller, because it is the reason this is a component at all: a fully
  * controlled range re-renders from the *player's* position on every tick, so mid-drag the thumb
  * snaps back under the finger. Two copies of that fix would be two chances to get it wrong, and
  * the elapsed label has to read the same held value the thumb does or they disagree while dragging.
  *
- * [timeClass] and [scrubClass] are the caller's, because the bar and the panel size these very
+ * [timeClass] and [scrubClass] are the caller's, because the bar and the page size these very
  * differently and the geometry is the only thing that differs between them.
  */
 @Composable
@@ -618,7 +598,7 @@ internal fun Playhead(
 
     Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(shownPositionMs)) }
 
-    // A place in the story, never in a file: the panel's range spans the whole book, the bar's the chapter
+    // A place in the story, never in a file: both ranges span the chapter
     // ([startMs] is where that span begins in the book, so a release seeks book-relative either way).
     Input(type = InputType.Range) {
         classes(scrubClass)
@@ -644,7 +624,7 @@ internal fun Playhead(
     }
     center?.invoke()
 
-    // The bar counts down what is left of the chapter; the panel shows the book's length.
+    // The chapter's remaining, counted down; otherwise its length.
     val trailing =
         if (showsRemaining) {
             "\u2212" +
@@ -688,6 +668,9 @@ private const val CHAPTER_ICON_SIZE = 18
 private const val SLEEP_ICON_SIZE = 17
 
 private const val VALUE_BUTTON = "button"
+
+/** Now Playing's route, the bar body's link. */
+private const val PLAYING_HREF = "/playing"
 
 /** 2× the bar's 56px cover. */
 private const val BAR_COVER_RUNG = 112

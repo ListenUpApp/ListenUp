@@ -181,77 +181,70 @@ class BoostPickerTest :
         }
     })
 
+/**
+ * Where the boost lives now (C15): not on the bar, and not as a chip, but in Now Playing's More menu, whose row reads
+ * the boost in force and opens the same picker. Ports the guarantees the old Now Playing chip pinned.
+ */
 class BoostBarTest :
     FunSpec({
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
-        fun mount(content: @Composable () -> Unit): HTMLElement = mounts.mount { WebAppSurface { content() } }
+        fun page(
+            volumeBoostDb: Float = OFF,
+            onSetBoost: (Float) -> Unit = {},
+            chapters: Boolean = true,
+        ): HTMLElement =
+            mounts.mount {
+                WebAppSurface {
+                    NowPlayingPage(
+                        state =
+                            loadedPlayerState(
+                                durationMs = BOOK_MS,
+                                boostDb = volumeBoostDb,
+                                chapters = if (chapters) chapterRows(3) else emptyList(),
+                                currentChapterIndex = if (chapters) 0 else null,
+                            ),
+                        progress = playerProgress(durationMs = BOOK_MS),
+                        actions = NowPlayingActions(onSetBoost = onSetBoost),
+                    )
+                }
+            }
 
-        test("the boost control is offered for any book, chapters or not") {
-            val host = mount { boostBar() }
-            host.openNowPlaying()
-
-            host
-                .boostChip()
-                .textContent
-                .orEmpty()
-                .trim() shouldBe "Boost"
-
-            host.closeDialogs()
+        suspend fun HTMLElement.boostRow(): HTMLButtonElement {
+            (querySelector(".np-more button[aria-haspopup=menu]") as HTMLButtonElement).click()
+            awaitFrame()
+            return querySelectorAll(".menu-i")
+                .asList()
+                .map { it as HTMLElement }
+                .single { it.textContent.orEmpty().startsWith("Volume boost") } as HTMLButtonElement
         }
 
-        // The bar carried a boost control until the mini player redesign (spec §5.1); boost now lives in Now
-        // Playing, one tap from the bar, until PR 4 moves it into More. These three pin the same guarantees there.
-        test("a boost in force is visible in Now Playing, not only inside the dialog") {
-            // ⛔ A boost changes how the book sounds. "Why is this one so loud" has to have an
-            // answer you can see without opening the boost picker to ask.
-            val host = mount { boostBar(volumeBoostDb = BOOSTED) }
-            host.openNowPlaying()
+        test("the boost control is offered for any book, chapters or not") {
+            page(chapters = false).boostRow().textContent shouldBe "Volume boost · Off"
+        }
 
-            val on = host.boostChip()
-            on.textContent.orEmpty().trim() shouldBe "+6 dB"
-            on.classList.contains("on") shouldBe true
-
-            host.closeDialogs()
+        test("a boost in force is visible in Now Playing's More, not only inside the dialog") {
+            // ⛔ A boost changes how the book sounds. "Why is this one so loud" has to have an answer short of opening
+            // the boost picker to ask.
+            page(volumeBoostDb = BOOSTED).boostRow().textContent shouldBe "Volume boost · +6 dB"
         }
 
         test("the bar carries no boost control any more, so none can wear a skip's phone behaviour") {
-            // ⛔ The skips have their own phone behaviour, and a control wearing `.tport-skip` gets
-            // it whether it meant to or not. Boost is reached through Now Playing on every width.
-            val host = mount { boostBar(volumeBoostDb = BOOSTED) }
-
+            val host = mounts.mount { WebAppSurface { boostBar(volumeBoostDb = BOOSTED) } }
             host.querySelector(".tport-boost") shouldBe null
-            host.openNowPlaying()
-            host.boostChip().classList.contains("tport-skip") shouldBe false
-
-            host.closeDialogs()
+            host.querySelectorAll(".tport-skip").asList().none { it.textContent.orEmpty().contains("dB") } shouldBe true
         }
 
-        test("the boost chip opens the picker rather than stepping the boost under you") {
+        test("the boost row opens the picker rather than stepping the boost under you") {
             var set = 0
-            val host = mount { boostBar(onSetBoost = { set++ }) }
-            host.openNowPlaying()
-
-            host.boostChip().click()
+            val host = page(onSetBoost = { set++ })
+            host.boostRow().click()
             awaitFrame()
 
             set shouldBe 0
-            host.querySelectorAll(".boost-dlg").length shouldBe 1
+            host.querySelectorAll("dialog.boost-dlg[open]").length shouldBe 1
 
             host.closeDialogs()
         }
     })
-
-/** Opens Now Playing from the bar, the way a listener would. */
-private suspend fun HTMLElement.openNowPlaying() {
-    (querySelector(".tport-expand") as HTMLButtonElement).click()
-    awaitFrame()
-}
-
-/** The Now Playing chip that opens the boost picker: "Boost", or the boost in force. */
-private fun HTMLElement.boostChip(): HTMLButtonElement =
-    querySelectorAll(".np-chip")
-        .asList()
-        .map { it as HTMLButtonElement }
-        .single { it.textContent.orEmpty().let { text -> "Boost" in text || "dB" in text } }

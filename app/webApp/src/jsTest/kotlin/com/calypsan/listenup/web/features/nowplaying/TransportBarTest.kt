@@ -23,6 +23,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
@@ -253,7 +254,7 @@ class TransportBarTest :
 
         test("with no book loaded the bar renders nothing at all") {
             // An empty transport bar is chrome that lies about there being something to play.
-            val host = mounts.mount { TransportBarHost(fixedPlayback()(), {}, {}, {}) }
+            val host = mounts.mount { TransportBarHost(fixedPlayback()(), onOpenBook = {}) }
 
             host.querySelector(".tport") shouldBe null
             host.textContent.orEmpty() shouldBe ""
@@ -337,15 +338,26 @@ class TransportBarTest :
                 "${formatElapsed(SEEK_TARGET_MS)} of ${formatElapsed(SHORT_BOOK_MS)}"
         }
 
-        test("the body is one button that opens Now Playing, named for the book and its line") {
-            val host = bar(chaptered(), CHAPTER_PROGRESS)
-            val body = host.querySelector(".tport-body") as HTMLButtonElement
+        test("the body is one link to /playing, named for the book and its line") {
+            val opened = mutableListOf<HTMLElement?>()
+            val host =
+                mounts.mount {
+                    TransportBar(
+                        state = chaptered(),
+                        progress = CHAPTER_PROGRESS,
+                        onPrimary = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSetSpeed = {},
+                        onOpenNowPlaying = { opened += it },
+                    )
+                }
+            val body = host.querySelector("a.tport-body[href='/playing']") as HTMLAnchorElement
             body.getAttribute("aria-label") shouldBe KINGS_BODY_LABEL
             host.querySelector(".tport-sub.desk")!!.textContent shouldBe "Bridge Four · Brandon Sanderson"
             body.click()
-            awaitFrame()
-            host.querySelector("dialog.np-dlg[open]").shouldNotBeNull()
-            host.closeDialogs()
+            opened shouldBe listOf<HTMLElement?>(body)
         }
 
         test("the bar's focus order is pinned: body, back, play, forward, scrubber, speed, sleep, chapters, open") {
@@ -355,7 +367,7 @@ class TransportBarTest :
             val bar = host.querySelector(".tport") as HTMLElement
             val order =
                 bar
-                    .querySelectorAll("button, input")
+                    .querySelectorAll("a, button, input")
                     .asList()
                     .map { it as HTMLElement }
                     .filter { it.tabIndex >= 0 }
@@ -416,15 +428,57 @@ class TransportBarTest :
             sleep.getAttribute("aria-label") shouldBe "Sleep timer, 23:00 left"
         }
 
-        test("Open is a chevron that says whether Now Playing is open") {
-            val host = bar(chaptered(), CHAPTER_PROGRESS)
-            val open = host.querySelector(".tport-expand") as HTMLButtonElement
+        test("Open is a chevron that says whether Now Playing is open, and on the page it closes it") {
+            val opened = mutableListOf<HTMLElement?>()
+            var closes = 0
+            fun chevronBar(isOpen: Boolean): HTMLElement =
+                mounts.mount {
+                    TransportBar(
+                        state = chaptered(),
+                        progress = CHAPTER_PROGRESS,
+                        onPrimary = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSetSpeed = {},
+                        isNowPlayingOpen = isOpen,
+                        onOpenNowPlaying = { opened += it },
+                        onCloseNowPlaying = { closes++ },
+                    )
+                }
+            val open = chevronBar(isOpen = false).querySelector(".tport-expand") as HTMLButtonElement
             open.getAttribute("aria-label") shouldBe "Open Now Playing"
             open.getAttribute("aria-expanded") shouldBe "false"
             open.click()
+            opened shouldBe listOf<HTMLElement?>(open)
+
+            val close = chevronBar(isOpen = true).querySelector(".tport-expand") as HTMLButtonElement
+            close.getAttribute("aria-label") shouldBe "Close Now Playing"
+            close.getAttribute("aria-expanded") shouldBe "true"
+            close.click()
+            closes shouldBe 1
+        }
+
+        test("on the page, Chapters moves focus to the page's list instead of opening the picker") {
+            var focused = 0
+            val host =
+                mounts.mount {
+                    TransportBar(
+                        state = chaptered(),
+                        progress = CHAPTER_PROGRESS,
+                        onPrimary = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSetSpeed = {},
+                        isNowPlayingOpen = true,
+                        onFocusChapters = { focused++ },
+                    )
+                }
+            (host.querySelector(".tport-ch") as HTMLElement).click()
             awaitFrame()
-            open.getAttribute("aria-expanded") shouldBe "true"
-            host.closeDialogs()
+            focused shouldBe 1
+            host.querySelector("dialog.chap-dlg[open]") shouldBe null
         }
 
         test("during the sleep fade the main button is Keep listening, which cancels the timer; back N stays") {

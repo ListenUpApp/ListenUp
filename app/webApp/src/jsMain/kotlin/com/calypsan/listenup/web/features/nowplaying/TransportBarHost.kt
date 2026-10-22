@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import org.w3c.dom.HTMLElement
 
 /**
  * The [TransportBar], collecting its own flows from [playback], and carrying out the navigation the
@@ -24,9 +25,11 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 fun TransportBarHost(
     playback: PlaybackSession,
     onOpenBook: (String) -> Unit,
-    onOpenSeries: (String) -> Unit,
-    onOpenContributor: (String) -> Unit,
     onOpenInbox: () -> Unit = {},
+    isNowPlayingOpen: Boolean = false,
+    onOpenNowPlaying: (opener: HTMLElement?) -> Unit = {},
+    onCloseNowPlaying: () -> Unit = {},
+    onFocusChapters: (() -> Unit)? = null,
 ) {
     val openBook by rememberUpdatedState(onOpenBook)
     val openInbox by rememberUpdatedState(onOpenInbox)
@@ -59,11 +62,9 @@ fun TransportBarHost(
         boostUnavailable = playback.boostUnavailable.collectAsState().value,
         onSetBoost = playback.onSetBoost,
         onResetBoost = playback.onResetBoost,
-        onOpenBook = onOpenBook,
-        onOpenSeries = onOpenSeries,
-        onOpenContributor = onOpenContributor,
-        onCloseBook = playback.onCloseBook,
-        onRetry = playback.onRetry,
-        onDismissError = playback.onDismissError,
+        isNowPlayingOpen = isNowPlayingOpen,
+        onOpenNowPlaying = onOpenNowPlaying,
+        onCloseNowPlaying = onCloseNowPlaying,
+        onFocusChapters = onFocusChapters,
     )
 }

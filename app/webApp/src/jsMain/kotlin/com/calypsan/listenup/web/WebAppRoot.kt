@@ -43,7 +43,9 @@ import com.calypsan.listenup.web.nav.SERIES_KEY
 import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
 import com.calypsan.listenup.web.nav.SETTINGS_KEY
 import com.calypsan.listenup.web.shell.PhoneTopBar
+import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Div
+import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.shell.AccountIdentity
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
@@ -209,18 +211,25 @@ fun WebAppRoot(
             // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
             TransportBarHost(
                 playback = playback,
-                // The expanded player's three destinations. `navigate`, not `replace`: leaving the
-                // player for a book is a page change, and Back should return to where you were.
+                // `navigate`, not `replace`: leaving the player for a book is a page change, and Back returns.
                 onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
-                onOpenSeries = { id -> router.navigate(Routes.series(id)) },
-                onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
                 onOpenInbox = { router.navigate(Routes.Admin.inbox) },
+                // Now Playing is a page (S4): the bar opens it, and on it the bar's chevron is the way back.
+                isNowPlayingOpen = page == PLAYING_KEY,
+                onOpenNowPlaying = { opener -> playingReturn.open(router, opener) },
+                onCloseNowPlaying = { playingReturn.close(router) },
+                onFocusChapters = ::focusNowPlayingChapters,
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.
             CommandPaletteHost(router = router, openSearch = graph.openSearch)
         }
     }
+}
+
+/** On `/playing` the chapter list is already on the page: the bar's Chapters takes focus to its current row. */
+private fun focusNowPlayingChapters() {
+    (document.querySelector(".np-list .np-row.on") as? HTMLElement)?.focus()
 }
 
 /** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */
