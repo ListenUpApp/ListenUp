@@ -22,8 +22,8 @@ struct NowPlayingSnapshotExportTests {
     private static let title = "Bridge Four"
 
     /// The Way of Kings' shape: 75 chapters of 20:35, so the scrubber, the times and the book sentence agree.
-    static let chapters = 75
-    static let chapterMs: Int64 = 1_235_000
+    nonisolated static let chapters = 75
+    nonisolated static let chapterMs: Int64 = 1_235_000
 
     private func state(_ shot: Case) -> PlayerUiStateLoaded {
         switch shot {
