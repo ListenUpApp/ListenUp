@@ -180,7 +180,8 @@ struct FullScreenPlayerView: View {
         let fittedSide = PlayerLayoutMode.stackedCoverSide(
             columnWidth: width,
             availableHeight: height,
-            controlsHeight: controlsHeight
+            controlsHeight: controlsHeight,
+            isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
         )
         ScrollView {
             VStack(spacing: 0) {
@@ -258,6 +259,7 @@ struct FullScreenPlayerView: View {
                 headerGlyph("chevron.down")
             }
             .buttonStyle(.plain)
+            .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
             .accessibilityLabel(String(localized: "player.collapse"))
 
             Spacer()
@@ -266,7 +268,7 @@ struct FullScreenPlayerView: View {
             // in the tint's text ink.
             Text(observer.statusText)
                 .font(.footnote)
-                .foregroundStyle(observer.isCasting ? Color.luTintInk : Color.secondary)
+                .foregroundStyle(observer.isCasting ? Color.luTintInk : Color.luOnWashSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(1)
 
@@ -308,6 +310,8 @@ struct FullScreenPlayerView: View {
         } label: {
             headerGlyph("ellipsis")
         }
+        .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
+        .contentShape(Rectangle())
         .accessibilityLabel(String(localized: "player.more_options"))
     }
 

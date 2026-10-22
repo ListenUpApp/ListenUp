@@ -41,6 +41,14 @@ extension Color {
     /// The countdown's ink on `luSleepGold` — the `SleepGoldInk` Color Set: `#4A2E00` light, `#FFDDB0` dark.
     static let luOnSleepGold = Color(ColorResource.sleepGoldInk)
 
+    /// Secondary text on Now Playing's wash — the `OnWashSecondary` Color Set: `#57514D` light, `#ABA6A2` dark
+    /// (`#3F3A37` / `#CFCAC6` under Increase Contrast). The system's secondary label is ~3.2:1 on the warm neutral and
+    /// on a cover's tone-91 wash; this holds 4.5:1 on the neutral and every wash the shared cover rule can give
+    /// (`NowPlayingWashTests`). For the status, the narrators, the times and the book sentence.
+    static let luOnWashSecondary = Color(ColorResource.onWashSecondary)
+    /// Disabled glyphs on Now Playing's wash — the `OnWashTertiary` Color Set, 3:1 or more on every wash.
+    static let luOnWashTertiary = Color(ColorResource.onWashTertiary)
+
     /// Grouped screen background (`--sys-bg`).
     static let luSurface = Color(.systemGroupedBackground)
     /// Inset-list / card surface (`--sys-bg-2`).
@@ -74,6 +82,7 @@ extension Color {
         ("luTint", .luTint), ("luOnTint", .luOnTint), ("luTintInk", .luTintInk),
         ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
         ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold),
+        ("luOnWashSecondary", .luOnWashSecondary), ("luOnWashTertiary", .luOnWashTertiary),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel3", .luLabel3)

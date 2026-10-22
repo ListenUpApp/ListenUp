@@ -65,7 +65,7 @@ struct NowPlayingTitleBlock: View {
                 if let lead {
                     Text(lead)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.luOnWashSecondary)
                         .accessibilityHidden(true)
                 }
                 if let folded = Self.folded(people) {
@@ -101,12 +101,13 @@ struct NowPlayingTitleBlock: View {
         lead.map { "\($0) \(name)" } ?? name
     }
 
-    /// The author reads at body size in the label colour, the narrators a step down in secondary (the board); both are
+    /// The author reads at body size in the label colour, the narrators a step down in the wash's secondary ink (the
+    /// board; 4.5:1 on any wash); both are
     /// buttons to VoiceOver and to the pointer.
     private func link(_ text: String, isAuthor: Bool) -> some View {
         Text(text)
             .font(isAuthor ? .body : .subheadline)
-            .foregroundStyle(isAuthor ? Color.primary : Color.secondary)
+            .foregroundStyle(isAuthor ? Color.primary : Color.luOnWashSecondary)
             // A 44pt hit area around a text-sized link, without spacing the byline out (HIG, Accessibility).
             .minimumTapTarget(visualSize: 20)
     }

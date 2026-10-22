@@ -91,7 +91,7 @@ struct PlayerTransportControls: View {
         } label: {
             Image(systemName: systemImage)
                 .font(font)
-                .foregroundStyle(isEnabled ? .primary : .tertiary)
+                .foregroundStyle(isEnabled ? Color.primary : Color.luOnWashTertiary)
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
@@ -200,7 +200,7 @@ struct PlayerSecondaryControls: View {
             control()
             Text(caption)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.luOnWashSecondary)
                 .accessibilityHidden(!captionIsSpoken)
         }
         .frame(maxWidth: isStacked ? nil : .infinity, alignment: isStacked ? .leading : .center)

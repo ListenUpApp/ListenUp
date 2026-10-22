@@ -53,7 +53,8 @@ struct NowPlayingAccessibilityTests {
     @Test func previousChapterCarriesItsHintAndWorksInChapterOne() async throws {
         let hosted = await host(.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 0))
         defer { hosted.close() }
-        let previous = try #require(hosted.stop(labelled: String(localized: "player.previous_chapter")), "\(hosted.tree)")
+        let previousLabel = String(localized: "player.previous_chapter")
+        let previous = try #require(hosted.stop(labelled: previousLabel), "\(hosted.tree)")
         #expect(previous.hint == String(localized: "player.np_previous_chapter_hint"))
         #expect(!previous.traits.contains(.notEnabled))
     }
@@ -63,7 +64,8 @@ struct NowPlayingAccessibilityTests {
             phase: PlayerPhaseBuffering.shared, currentIndex: 3, primary: PrimaryControlBusy.shared,
             showsSkipBack: false))
         defer { hosted.close() }
-        let previous = try #require(hosted.stop(labelled: String(localized: "player.previous_chapter")), "\(hosted.tree)")
+        let previousLabel = String(localized: "player.previous_chapter")
+        let previous = try #require(hosted.stop(labelled: previousLabel), "\(hosted.tree)")
         #expect(!previous.traits.contains(.notEnabled))
         let back = try #require(hosted.stop(labelled: String(format: String(localized: "player.skip_backward"), "10")))
         #expect(back.traits.contains(.notEnabled))

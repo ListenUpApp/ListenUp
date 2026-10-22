@@ -172,7 +172,8 @@ extension PlayerUiStateLoaded {
         let rows = wholeBook ? [] : (0..<total).map { index in
             PlayerChapterRow(
                 index: Int32(index), number: Int32(index + 1), title: "Chapter \(index + 1)",
-                startMs: Int64(index) * chapterDurationMs, durationMs: chapterDurationMs, isCurrent: index == currentIndex)
+                startMs: Int64(index) * chapterDurationMs, durationMs: chapterDurationMs,
+                isCurrent: index == currentIndex)
         }
         return PlayerUiStateLoaded(
             book: PlayerBook(

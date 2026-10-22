@@ -39,7 +39,9 @@ struct ChapterScrubberSection: View {
     /// "Book 11% · 40 hr, 31 min left": the shared, floored percent and the time left in the book.
     static func bookSentence(percent: Int, remainingMs: Int64) -> String {
         String(
-            format: String(localized: "player.np_book_sentence"), percent, DurationFormatting.abbreviated(ms: remainingMs)
+            format: String(localized: "player.np_book_sentence"),
+            percent,
+            DurationFormatting.abbreviated(ms: remainingMs)
         )
     }
 
@@ -83,7 +85,7 @@ struct ChapterScrubberSection: View {
                 Text("-" + DurationFormatting.clock(ms: observer.chapterDurationMs - elapsed))
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.luOnWashSecondary)
             .monospacedDigit()
             // The slider's value already speaks elapsed-of-duration.
             .accessibilityHidden(true)

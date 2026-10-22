@@ -58,7 +58,12 @@ enum PlayerLayoutMode: Equatable {
     ///   - columnWidth: the column's width.
     ///   - availableHeight: the height below the header.
     ///   - controlsHeight: the measured natural height of titles, scrubber, transport and the rest.
-    static func stackedCoverSide(columnWidth: CGFloat, availableHeight: CGFloat, controlsHeight: CGFloat) -> CGFloat? {
+    ///   - isAccessibilitySize: text at an accessibility size: the column always scrolls, so nothing is fitted to a
+    ///     measurement that the larger text outgrows (an iPad at AX2 clipped the settings row).
+    static func stackedCoverSide(
+        columnWidth: CGFloat, availableHeight: CGFloat, controlsHeight: CGFloat, isAccessibilitySize: Bool = false
+    ) -> CGFloat? {
+        if isAccessibilitySize { return nil }
         let fitted = min(
             columnWidth - 2 * horizontalMargin,
             availableHeight - controlsHeight - stackedCoverSpacing,

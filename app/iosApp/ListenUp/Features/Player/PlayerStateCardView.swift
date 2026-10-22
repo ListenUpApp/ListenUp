@@ -1,9 +1,10 @@
 import SwiftUI
+import UIKit
 
 /// The card that takes the transport's place on Now Playing (player spec P32, §3.7): a problem with its ways out, or the
 /// finished book with its rating and what comes next. The actions are the shared `PlayerCards` ones.
 ///
-/// Content, not glass (HIG, Materials: "Don't use Liquid Glass in the content layer"): a secondary-background card with
+/// Content, not glass (HIG, Materials: "Don't use Liquid Glass in the content layer"): a card a layer above the wash, with
 /// no shadow. Its tone is in a leading glyph and the title's colour rather than a coloured slab, the decision the mini
 /// player's failed line already took (red glyph and text, no tint; plan C13), so the meaning never rests on colour
 /// alone (HIG, Accessibility).
@@ -14,6 +15,12 @@ struct PlayerStateCardView: View {
 
     /// The rating while a drag previews it; nil shows the saved one.
     @State private var dragging: Int?
+
+    /// The card's fill: the system background on the light wash, the secondary background on the dark one, so the card
+    /// always reads as a layer above the wash, with the separator as its edge (HIG, Color).
+    static let fill = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? .secondarySystemBackground : .systemBackground
+    })
 
     static func glyph(for tone: PlayerCardModel.Tone) -> String {
         switch tone {
@@ -43,7 +50,8 @@ struct PlayerStateCardView: View {
         }
         .padding(Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+        .background(Self.fill, in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.xl, style: .continuous).stroke(Color.luSeparator))
         .accessibilityElement(children: .contain)
         .onAppear { announce() }
         .onChange(of: card) { announce() }
