@@ -22,7 +22,7 @@ private val inProgressOrder =
     )
 
 private fun ready(
-    showServerWarning: Boolean = false,
+    showScanWarning: Boolean = false,
     isHeld: Boolean = false,
     isPlaybackAvailable: Boolean = true,
     visibility: BookVisibility? = null,
@@ -41,7 +41,8 @@ private fun ready(
             addedAt = Timestamp(0L),
             updatedAt = Timestamp(0L),
         ),
-    showServerWarning = showServerWarning,
+    hasScanWarning = showScanWarning,
+    showScanWarning = showScanWarning,
     isHeld = isHeld,
     isPlaybackAvailable = isPlaybackAvailable,
     visibility = visibility,
@@ -56,11 +57,10 @@ private fun section(section: BookDetailSection) = PhoneDetailItem.Section(sectio
  */
 class BookDetailReadersLandingTest :
     FunSpec({
-        test("an ordinary book: advisory, hero, actions, social line and last match, then the sections in stage order") {
+        test("an ordinary book: hero, actions, social line and last match, then the sections in stage order") {
             val items = phoneDetailItems(ready(), hasSocialLine = true)
             items shouldBe
                 listOf(
-                    PhoneDetailItem.ScanWarning,
                     PhoneDetailItem.Hero,
                     PhoneDetailItem.Listen,
                     PhoneDetailItem.Social,
@@ -72,17 +72,18 @@ class BookDetailReadersLandingTest :
                     section(BookDetailSection.Hardcover),
                     section(BookDetailSection.Details),
                 )
-            readersItemIndex(items) shouldBe 7
+            readersItemIndex(items) shouldBe 6
         }
 
-        test("the offline banner and the admins' visibility card each push Readers one further down") {
+        // The offline reason sits inside the action unit now (spec §2.9), so it moves nothing.
+        test("the admins' scan warning and visibility card each push Readers one further down") {
             readersItemIndex(
-                phoneDetailItems(ready(showServerWarning = true, visibility = BookVisibility.Stranded), hasSocialLine = true),
-            ) shouldBe 9
+                phoneDetailItems(ready(showScanWarning = true, visibility = BookVisibility.Stranded), hasSocialLine = true),
+            ) shouldBe 8
         }
 
         test("a book that cannot play has no action unit above Readers") {
-            readersItemIndex(phoneDetailItems(ready(isPlaybackAvailable = false), hasSocialLine = true)) shouldBe 6
+            readersItemIndex(phoneDetailItems(ready(isPlaybackAvailable = false), hasSocialLine = true)) shouldBe 5
         }
 
         test("the stage order moves Readers: not started, it follows About, Ratings and Hardcover") {
@@ -95,7 +96,7 @@ class BookDetailReadersLandingTest :
                     BookDetailSection.Chapters,
                     BookDetailSection.Details,
                 )
-            readersItemIndex(phoneDetailItems(ready(order = notStarted), hasSocialLine = false)) shouldBe 7
+            readersItemIndex(phoneDetailItems(ready(order = notStarted), hasSocialLine = false)) shouldBe 6
         }
 
         test("a held book is triage-only: no social line, rating, Readers or Hardcover, so there is nowhere to land") {
@@ -103,7 +104,6 @@ class BookDetailReadersLandingTest :
                 phoneDetailItems(ready(isHeld = true, visibility = BookVisibility.Stranded), hasSocialLine = true)
             items shouldBe
                 listOf(
-                    PhoneDetailItem.ScanWarning,
                     PhoneDetailItem.Hero,
                     PhoneDetailItem.Held,
                     PhoneDetailItem.LastMatch,
@@ -115,7 +115,7 @@ class BookDetailReadersLandingTest :
         }
 
         test("every item has its own key, and Readers is keyed readers, the landing's anchor") {
-            val items = phoneDetailItems(ready(showServerWarning = true, visibility = BookVisibility.Stranded), true)
+            val items = phoneDetailItems(ready(showScanWarning = true, visibility = BookVisibility.Stranded), true)
             items.map { it.key }.toSet().size shouldBe items.size
             section(BookDetailSection.Readers).key shouldBe "readers"
         }

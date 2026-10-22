@@ -1,123 +1,72 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
-import com.calypsan.listenup.client.domain.model.AudioFile
-import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.presentation.bookdetail.CreditRoleGroup
-import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
-import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
-import com.calypsan.listenup.client.presentation.bookdetail.languageDisplayName
+import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
+import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_abridged
 import listenup.composeapp.generated.resources.book_detail_added
-import listenup.composeapp.generated.resources.book_detail_bitrate
-import listenup.composeapp.generated.resources.book_detail_channels
+import listenup.composeapp.generated.resources.book_detail_all_credits
+import listenup.composeapp.generated.resources.book_detail_asin
+import listenup.composeapp.generated.resources.book_detail_chapter_count
+import listenup.composeapp.generated.resources.book_detail_chapter_count_one
 import listenup.composeapp.generated.resources.book_detail_details
-import listenup.composeapp.generated.resources.book_detail_format
+import listenup.composeapp.generated.resources.book_detail_files_audio
+import listenup.composeapp.generated.resources.book_detail_genre
+import listenup.composeapp.generated.resources.book_detail_genre_line
+import listenup.composeapp.generated.resources.book_detail_isbn
 import listenup.composeapp.generated.resources.book_detail_language
-import listenup.composeapp.generated.resources.book_detail_published
+import listenup.composeapp.generated.resources.book_detail_length
+import listenup.composeapp.generated.resources.book_detail_link_row
+import listenup.composeapp.generated.resources.book_detail_maps
+import listenup.composeapp.generated.resources.book_detail_maps_count
 import listenup.composeapp.generated.resources.book_detail_publisher
-import listenup.composeapp.generated.resources.book_detail_sample_rate
+import listenup.composeapp.generated.resources.book_detail_released
+import listenup.composeapp.generated.resources.book_detail_unabridged
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.semantics.heading
 
 /**
- * Book "Details" section: the contributor credits grouped by role, followed by the formal metadata
- * rows (publisher, published year, language, then the audio-format breakdown — format identity,
- * bitrate, sample rate, channels — read from the primary audio file). Renders nothing when there is
- * neither credits nor metadata, and omits each row whose datum is absent. A divider sits between
- * every consecutive row. Each metadata row mirrors the credit-row style: value on the left, dim
- * label on the right.
+ * Book Detail's "Details" section (spec §3.2.1 D31), drawn from [rows] (`bookDetailRows`): Publisher, Released, Genre,
+ * Language, Length, Added, ISBN, ASIN, then three links: **All credits** ([onAllCredits]), **Files & audio**
+ * ([onFilesAndAudio]: the format rows live in its sheet) and **Maps & illustrations** ([onMaps], handed its row so the
+ * caller can open one document at once or the list). A row whose datum is absent is not in [rows]; with no rows at
+ * all the section draws nothing. A fact is value left, dim label right; a link reads label first, "All credits (6) ›".
+ * A divider sits between rows.
  */
 @Composable
 fun DetailsSection(
-    publisher: String?,
-    publishYear: Int?,
-    language: String?,
-    audioFiles: List<AudioFile>,
-    credits: List<BookContributor>,
-    onContributorClick: (String) -> Unit,
+    rows: List<BookDetailRow>,
+    onAllCredits: () -> Unit,
+    onFilesAndAudio: () -> Unit,
+    onMaps: (BookDetailRow.MapsAndIllustrations) -> Unit,
     modifier: Modifier = Modifier,
-    addedAt: Long? = null,
 ) {
-    val audioFormat = audioFormatDisplay(audioFiles)
-    val format = audioFormat.format
-    val bitrate = audioFormat.bitrate
-    val sampleRate = audioFormat.sampleRate
-    val channels = audioFormat.channels
-    val rows: List<@Composable () -> Unit> =
-        buildList {
-            // Contributors first (role-grouped), then the formal metadata rows.
-            groupContributorsByRole(credits).forEach { group ->
-                add { CreditRow(group = group, onContributorClick = onContributorClick) }
-            }
-            if (!publisher.isNullOrBlank()) {
-                add {
-                    MetadataRow(value = publisher, label = stringResource(Res.string.book_detail_publisher))
-                }
-            }
-            if (publishYear != null) {
-                add {
-                    MetadataRow(
-                        value = publishYear.toString(),
-                        label = stringResource(Res.string.book_detail_published),
-                    )
-                }
-            }
-            if (!language.isNullOrBlank()) {
-                add {
-                    MetadataRow(
-                        value = languageDisplayName(language),
-                        label = stringResource(Res.string.book_detail_language),
-                    )
-                }
-            }
-            // When it joined the library: moved here from the hero's chips (the hero keeps length · year · abridgement).
-            if (addedAt != null) {
-                add {
-                    MetadataRow(value = formatBookDay(addedAt), label = stringResource(Res.string.book_detail_added))
-                }
-            }
-            if (format != null) {
-                add {
-                    MetadataRow(value = format, label = stringResource(Res.string.book_detail_format))
-                }
-            }
-            if (bitrate != null) {
-                add {
-                    MetadataRow(value = bitrate, label = stringResource(Res.string.book_detail_bitrate))
-                }
-            }
-            if (sampleRate != null) {
-                add {
-                    MetadataRow(value = sampleRate, label = stringResource(Res.string.book_detail_sample_rate))
-                }
-            }
-            if (channels != null) {
-                add {
-                    MetadataRow(value = channels, label = stringResource(Res.string.book_detail_channels))
-                }
-            }
-        }
     if (rows.isEmpty()) return
-
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.book_detail_details),
@@ -130,7 +79,28 @@ fun DetailsSection(
             modifier = Modifier.semantics { heading() }.padding(bottom = 12.dp),
         )
         rows.forEachIndexed { index, row ->
-            row()
+            val cell = row.cell()
+            val onClick: (() -> Unit)? =
+                when (row) {
+                    is BookDetailRow.AllCredits -> onAllCredits
+
+                    is BookDetailRow.FilesAndAudio -> onFilesAndAudio
+
+                    is BookDetailRow.MapsAndIllustrations -> { -> onMaps(row) }
+
+                    is BookDetailRow.Publisher, is BookDetailRow.Released, is BookDetailRow.GenreLine,
+                    is BookDetailRow.Language, is BookDetailRow.Length, is BookDetailRow.Added,
+                    is BookDetailRow.Isbn, is BookDetailRow.Asin,
+                    -> null
+                }
+            if (onClick != null) {
+                LinkRow(
+                    text = stringResource(Res.string.book_detail_link_row, cell.label, cell.value),
+                    onClick = onClick,
+                )
+            } else {
+                MetadataRow(value = cell.value, label = cell.label)
+            }
             if (index < rows.lastIndex) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -138,16 +108,90 @@ fun DetailsSection(
     }
 }
 
-/** A metadata row: emphasis value on the left, dim label on the right — matching [CreditRow]. */
+/** One Details row as words: its dim [label] and its [value]. */
+private data class DetailCell(
+    val label: String,
+    val value: String,
+)
+
+@Composable
+private fun BookDetailRow.cell(): DetailCell =
+    when (this) {
+        is BookDetailRow.Publisher -> {
+            DetailCell(stringResource(Res.string.book_detail_publisher), name)
+        }
+
+        is BookDetailRow.Released -> {
+            DetailCell(stringResource(Res.string.book_detail_released), year.toString())
+        }
+
+        is BookDetailRow.GenreLine -> {
+            val edition = if (abridged) Res.string.book_detail_abridged else Res.string.book_detail_unabridged
+            DetailCell(
+                stringResource(Res.string.book_detail_genre),
+                stringResource(Res.string.book_detail_genre_line, genreName, stringResource(edition)),
+            )
+        }
+
+        is BookDetailRow.Language -> {
+            DetailCell(stringResource(Res.string.book_detail_language), displayName)
+        }
+
+        is BookDetailRow.Length -> {
+            val chapters =
+                when (chapterCount) {
+                    0 -> null
+                    1 -> stringResource(Res.string.book_detail_chapter_count_one)
+                    else -> stringResource(Res.string.book_detail_chapter_count, chapterCount)
+                }
+            DetailCell(
+                stringResource(Res.string.book_detail_length),
+                listOfNotNull(
+                    DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
+                    chapters,
+                ).joinToString(" · "),
+            )
+        }
+
+        is BookDetailRow.Added -> {
+            DetailCell(stringResource(Res.string.book_detail_added), formatBookDay(epochMs))
+        }
+
+        is BookDetailRow.Isbn -> {
+            DetailCell(stringResource(Res.string.book_detail_isbn), isbn)
+        }
+
+        is BookDetailRow.Asin -> {
+            DetailCell(stringResource(Res.string.book_detail_asin), asin)
+        }
+
+        is BookDetailRow.AllCredits -> {
+            DetailCell(stringResource(Res.string.book_detail_all_credits), count.toString())
+        }
+
+        is BookDetailRow.FilesAndAudio -> {
+            DetailCell(
+                stringResource(Res.string.book_detail_files_audio),
+                listOfNotNull(format, bitrate).joinToString(" · "),
+            )
+        }
+
+        is BookDetailRow.MapsAndIllustrations -> {
+            val kind = format ?: stringResource(Res.string.book_detail_maps_count, count)
+            DetailCell(stringResource(Res.string.book_detail_maps), "$kind · ${byteSizeLabel(totalBytes)}")
+        }
+    }
+
+/** A Details fact: emphasis value on the left, dim label on the right. */
 @Composable
 private fun MetadataRow(
     value: String,
     label: String,
-    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = value,
@@ -163,48 +207,35 @@ private fun MetadataRow(
     }
 }
 
-/**
- * A single credits row: the role's contributor names on the left (each tappable, wrapping across
- * lines when there are many), and the role label on the right.
- */
+/** A Details link, label first as the spec writes it — "All credits (6) ›" — a button with a chevron. */
 @Composable
-private fun CreditRow(
-    group: CreditRoleGroup,
-    onContributorClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
+private fun LinkRow(
+    text: String,
+    onClick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button) {
+                    haptics.press()
+                    onClick()
+                }.padding(vertical = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        FlowRow(modifier = Modifier.weight(1f)) {
-            group.contributors.forEachIndexed { index, contributor ->
-                Text(
-                    text = contributor.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier =
-                        Modifier
-                            .semantics { this.role = Role.Button }
-                            .clickable {
-                                haptics.press()
-                                onContributorClick(contributor.id)
-                            },
-                )
-                if (index < group.contributors.lastIndex) {
-                    Text(
-                        text = ", ",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
         Text(
-            text = group.roleLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
         )
     }
 }

@@ -308,7 +308,7 @@ class BookDetailTest :
 
             try {
                 awaitFrame()
-                (host.querySelector("a.bd-files-link") as HTMLElement).click()
+                (host.querySelector("a.bd-detail-link[href='/book/42/files']") as HTMLElement).click()
                 awaitFrame()
                 window.location.pathname shouldBe "/book/42/files"
             } finally {
@@ -367,7 +367,7 @@ class BookDetailTest :
             try {
                 (host.querySelector(".bd .empty") as HTMLElement)
                     .textContent
-                    .orEmpty() shouldContain "Not in this browser's library"
+                    .orEmpty() shouldContain BookError.NotFound().message
                 (host.querySelector(".bd .crumb a") != null) shouldBe true
                 (host.querySelector(".bd-head") == null) shouldBe true
             } finally {

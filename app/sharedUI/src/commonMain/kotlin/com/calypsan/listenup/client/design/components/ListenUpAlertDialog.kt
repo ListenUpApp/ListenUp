@@ -10,7 +10,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.DialogProperties
@@ -31,6 +35,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
  * @param onDismiss Called when dismiss button is clicked.
  * @param icon Optional icon displayed above the title.
  * @param confirmColor Color for the confirm button text. Defaults to primary.
+ * @param focusDismissFirst Start focus on the dismiss button, the safe way out of an undoable-never action.
  */
 @Composable
 fun ListenUpAlertDialog(
@@ -43,6 +48,7 @@ fun ListenUpAlertDialog(
     onDismiss: (() -> Unit)? = null,
     icon: ImageVector? = null,
     confirmColor: Color = MaterialTheme.colorScheme.primary,
+    focusDismissFirst: Boolean = false,
 ) {
     ListenUpAlertDialog(
         onDismissRequest = onDismissRequest,
@@ -53,6 +59,7 @@ fun ListenUpAlertDialog(
         onDismiss = onDismiss,
         icon = icon,
         confirmColor = confirmColor,
+        focusDismissFirst = focusDismissFirst,
     ) {
         Text(text)
     }
@@ -77,6 +84,7 @@ fun ListenUpAlertDialog(
  * @param dismissEnabled Whether the dismiss button is available.
  * @param dismissIcon Optional leading icon for the dismiss button.
  * @param properties Platform dialog behaviour, e.g. refusing back-press and outside-tap dismissal.
+ * @param focusDismissFirst Start focus on the dismiss button (spec §5.2: a destructive confirm opens on Cancel).
  * @param content The dialog body.
  */
 @Composable
@@ -94,9 +102,12 @@ fun ListenUpAlertDialog(
     dismissEnabled: Boolean = true,
     dismissIcon: ImageVector? = null,
     properties: DialogProperties = DialogProperties(),
+    focusDismissFirst: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    val dismissFocus = remember { FocusRequester() }
+    if (focusDismissFirst) LaunchedEffect(Unit) { dismissFocus.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         properties = properties,
@@ -131,6 +142,7 @@ fun ListenUpAlertDialog(
                             onDismiss()
                         },
                         enabled = dismissEnabled,
+                        modifier = Modifier.focusRequester(dismissFocus),
                     ) {
                         if (dismissIcon != null) {
                             Icon(
@@ -152,7 +164,7 @@ fun ListenUpAlertDialog(
 /**
  * Convenience dialog for destructive actions (delete, revoke, discard).
  *
- * Pre-configured with error color for confirm button to indicate danger.
+ * Pre-configured with error color for confirm button to indicate danger. [focusDismissFirst] starts focus on Cancel.
  */
 @Composable
 fun ListenUpDestructiveDialog(
@@ -164,6 +176,7 @@ fun ListenUpDestructiveDialog(
     dismissText: String = "Cancel",
     onDismiss: () -> Unit = onDismissRequest,
     icon: ImageVector? = null,
+    focusDismissFirst: Boolean = false,
 ) {
     ListenUpAlertDialog(
         onDismissRequest = onDismissRequest,
@@ -175,5 +188,6 @@ fun ListenUpDestructiveDialog(
         onDismiss = onDismiss,
         icon = icon,
         confirmColor = MaterialTheme.colorScheme.error,
+        focusDismissFirst = focusDismissFirst,
     )
 }

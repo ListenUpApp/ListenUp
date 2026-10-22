@@ -12,6 +12,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 
 /**
@@ -46,13 +47,13 @@ class BookDetailDeleteTest :
             }
 
         suspend fun openDeleteDialog(host: HTMLElement) {
-            (host.querySelector(".bd-actions .btn-icon[aria-haspopup='menu']") as HTMLElement).click()
+            (host.querySelector(".bd-actions .bd-menu") as HTMLElement).click()
             awaitFrame()
             host
                 .querySelectorAll(".menu-i")
                 .asList()
                 .filterIsInstance<HTMLButtonElement>()
-                .first { it.textContent?.trim() == "Delete book…" }
+                .first { it.textContent?.trim() == "Delete from server…" }
                 .click()
             awaitFrame()
         }
@@ -62,31 +63,49 @@ class BookDetailDeleteTest :
         fun actions(host: HTMLElement): List<HTMLButtonElement> =
             host.querySelectorAll("dialog.dlg .dlg-actions button").asList().filterIsInstance<HTMLButtonElement>()
 
-        test("the dialog names the book, the folder, what ListenUp tracks in it, and every device") {
+        fun box(host: HTMLElement): HTMLInputElement = host.querySelector("dialog.dlg input[type=checkbox]") as HTMLInputElement
+
+        test("the dialog names the book, the files, the folder and every member") {
             val host = rendered({ readyBook().copy(isAdmin = true) })
-
             openDeleteDialog(host)
-
             val open = dialog(host).shouldNotBeNull()
-            open.querySelector(".dlg-t")?.textContent shouldBe "Delete “The Institute”?"
+            open.querySelector(".dlg-t")?.textContent shouldBe "Delete “The Institute” from the server?"
             // Three audio parts (178 + 182 + 152 MB) plus two documents (2 MB + 512 KB): five
             // tracked files. Documents count because they sit in the same folder and go with it.
             open.querySelector(".dlg-p")?.textContent shouldBe
-                "This permanently deletes the book’s folder from your server. ListenUp tracks 5 files in it " +
-                "(514 MB), and everything else in that folder goes too — PDFs, artwork, bonus material — " +
-                "whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone."
-            actions(host).map { it.textContent } shouldBe listOf("Cancel", "Delete forever")
+                "This deletes 5 files (515 MB) and everything else in its folder from your server. Every member " +
+                "loses it, and downloads are removed from their devices. This can’t be undone."
+            actions(host).map { it.textContent } shouldBe listOf("Cancel", "Delete book")
         }
 
-        test("confirming asks the ViewModel to delete") {
+        test("Delete book waits for the checkbox, every time the dialog opens") {
             var deletes = 0
             val host = rendered({ readyBook().copy(isAdmin = true) }, onDeleteBook = { deletes++ })
-
             openDeleteDialog(host)
+            box(host).closest("label")?.textContent?.trim() shouldBe "I understand the folder is deleted too"
+            actions(host)[1].disabled shouldBe true
             actions(host)[1].click()
             awaitFrame()
+            deletes shouldBe 0
 
+            box(host).click()
+            awaitFrame()
+            actions(host)[1].disabled shouldBe false
+            actions(host)[1].classList.contains("btn-danger") shouldBe true
+            actions(host)[1].click()
+            awaitFrame()
             deletes shouldBe 1
+        }
+
+        test("closing and reopening starts with the box clear") {
+            val host = rendered({ readyBook().copy(isAdmin = true) })
+            openDeleteDialog(host)
+            box(host).click()
+            awaitFrame()
+            actions(host)[0].click()
+            awaitFrame()
+            openDeleteDialog(host)
+            box(host).checked shouldBe false
         }
 
         test("a delete in flight holds the confirm button, so a second press cannot race the first") {
@@ -97,11 +116,13 @@ class BookDetailDeleteTest :
             actions(host)[1].disabled shouldBe true
         }
 
-        test("a refusal stays in the open dialog, naming the book that blocked it") {
+        test("a refusal keeps the dialog open, the box still ticked, and names the book that blocked it") {
             val state = mutableStateOf<BookDetailUiState>(readyBook().copy(isAdmin = true))
             val host = rendered({ state.value })
 
             openDeleteDialog(host)
+            box(host).click()
+            awaitFrame()
             state.value =
                 readyBook().copy(
                     isAdmin = true,
@@ -112,6 +133,7 @@ class BookDetailDeleteTest :
             dialog(host).shouldNotBeNull()
             host.querySelector("dialog.dlg .dlg-err")?.textContent shouldBe
                 "“Joyland” is in the same folder, so deleting this book would take it too. Nothing was deleted."
+            box(host).checked shouldBe true
         }
 
         test("any other refusal renders its own message") {

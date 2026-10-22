@@ -132,7 +132,11 @@ sealed interface BookDetailUiState {
         val seriesShelf: SeriesShelf? = null,
         /** [hasScanWarning], for an admin only: members are never shown the scanner's flag. */
         val showScanWarning: Boolean = false,
-    ) : BookDetailUiState
+    ) : BookDetailUiState {
+        /** A progress write (mark finished, mark not started, restart) is in flight: the three progress items wait. */
+        val isChangingProgress: Boolean
+            get() = isMarkingComplete || isDiscardingProgress || isRestarting
+    }
 
     /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
     data class Error(

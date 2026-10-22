@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
@@ -13,13 +14,14 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailRow
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailRows
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
@@ -39,8 +41,6 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.Icon
-import com.calypsan.listenup.web.design.MetaEntry
-import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UnderHeading
 import com.calypsan.listenup.web.design.Pill
@@ -51,7 +51,10 @@ import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.design.Dd
 import org.jetbrains.compose.web.dom.Div
+import com.calypsan.listenup.web.design.Dl
+import com.calypsan.listenup.web.design.Dt
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Section
@@ -120,7 +123,7 @@ fun BookDetailPage(
     documents: List<BookDocument> = emptyList(),
     /**
      * Ask the server again. No default: a defaulted no-op renders a real, enabled Retry that does
-     * nothing, which is worse than the silence this banner exists to end.
+     * nothing, which is worse than the silence the offline reason exists to end.
      */
     onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
@@ -202,6 +205,7 @@ fun BookDetailPage(
             pickers = pickers,
             onPlay = onPlay,
             onEdit = onEdit,
+            onEditChapters = onEditChapters,
             onMatchMetadata = onMatchMetadata,
             onOpenContributor = onOpenContributor,
             onOpenSeries = onOpenSeries,
@@ -209,6 +213,8 @@ fun BookDetailPage(
             onDeleteBook = onDeleteBook,
             onClearDeleteError = onClearDeleteError,
             readers = readers,
+            onRetryConnection = onRetryConnection,
+            onOpenFiles = onOpenFiles,
         )
 
         when (state) {
@@ -219,20 +225,22 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Error -> {
-                PageHeader(title = crumb(state))
-                val (heading, body) = explain(state.error)
-                // A state that can't show what was asked for still owes the reader somewhere to
-                // go. Library is the only honest destination: web sync is unwritten, so a "sync
-                // this browser" button would be a control with nothing behind it.
-                EmptyState(title = heading, body = body, icon = WebIcon.Book) {
-                    Button(kind = ButtonKind.Primary, onClick = { onOpenLibrary() }) {
-                        Text("Back to Library")
+                PageHeader(title = ERROR_TITLE)
+                // Spec §3.2.3 Error: what happened (the typed error's own message, said once under the page heading),
+                // Retry only when asking again could help (`isRetryable`: a reconnect runs catch-up, and the page turns
+                // Ready when the book arrives), and always the way back.
+                EmptyState(title = state.error.message, icon = WebIcon.Book) {
+                    if (state.error.isRetryable) {
+                        Button(kind = ButtonKind.Primary, onClick = { onRetryConnection() }) { Text("Retry") }
                     }
+                    Button(
+                        kind = if (state.error.isRetryable) ButtonKind.Secondary else ButtonKind.Primary,
+                        onClick = { onOpenLibrary() },
+                    ) { Text("Back to Library") }
                 }
             }
 
             is BookDetailUiState.Ready -> {
-                ServerOfflineBanner(state.showServerWarning, onRetryConnection)
                 FocusHeadingWhenBlocksLeave(state, root)
 
                 // A held book is triage-only (spec §8). The panel stands above the sections; Release asks
@@ -279,6 +287,8 @@ fun BookDetailPage(
                             onOpenFiles = onOpenFiles,
                             onOpenBook = onOpenBook,
                             onOpenSeries = onOpenSeries,
+                            documents = documents,
+                            onOpenContributor = onOpenContributor,
                         ),
                 )
             }
@@ -316,6 +326,7 @@ private fun SharedHeader(
     pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onEditChapters: () -> Unit,
     onMatchMetadata: () -> Unit,
     onOpenContributor: (String) -> Unit,
     onOpenSeries: (String) -> Unit,
@@ -323,6 +334,8 @@ private fun SharedHeader(
     onDeleteBook: () -> Unit,
     onClearDeleteError: () -> Unit,
     readers: BookReadersUiState,
+    onRetryConnection: () -> Unit,
+    onOpenFiles: () -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -340,6 +353,8 @@ private fun SharedHeader(
     }) {
         // Fluid inside a box CSS sizes (260px on a desktop, 210px on a phone): the size is the stylesheet's, so the
         // image rung requested, and the hero flight's destination node, stay the same at every width.
+        // The scanner's flag, for an admin (spec §3.2.3), at the top of the hero; Review opens the Files view.
+        if (ready?.showScanWarning == true) ScanWarning(onReview = onOpenFiles)
         Div(attrs = { classes("bd-cover") }) {
             Cover(
                 title = ready?.book?.title.orEmpty(),
@@ -372,6 +387,8 @@ private fun SharedHeader(
                 // the absence of Play. It is gated on `isHeld`: a held book's hero has no Play, no
                 // actions menu and no icon buttons — its only actions are the held panel's.
                 if (!ready.isHeld) {
+                    // Why the primary below is disabled, directly above the actions (spec §2.9).
+                    if (ready.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetryConnection)
                     HeroActions(
                         ready = ready,
                         isPreparing = isPreparing,
@@ -382,6 +399,7 @@ private fun SharedHeader(
                         pickers = pickers,
                         onPlay = onPlay,
                         onEdit = onEdit,
+                        onEditChapters = onEditChapters,
                         onMatchMetadata = onMatchMetadata,
                         documents = documents,
                         onDeleteBook = onDeleteBook,
@@ -396,8 +414,8 @@ private fun SharedHeader(
 }
 
 /**
- * The hero's action row for a book that is not held: Play, the actions menu (finish, shelf,
- * collection, share, progress, delete) and the Edit and Match icon buttons.
+ * The hero's action row for a book that is not held: Play, Add to shelf, and "More ▾" (spec §2.7) — Share, the
+ * progress actions, Edit details, Match details and Edit chapters, Add to collection, and Delete from server.
  */
 @Composable
 private fun HeroActions(
@@ -410,6 +428,7 @@ private fun HeroActions(
     pickers: BookPickers,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onEditChapters: () -> Unit,
     onMatchMetadata: () -> Unit,
     documents: List<BookDocument>,
     onDeleteBook: () -> Unit,
@@ -448,17 +467,47 @@ private fun HeroActions(
             var askingFinishDates by remember { mutableStateOf(false) }
             BookActionsMenu(
                 ready = loaded,
-                onMarkComplete = { askingFinishDates = true },
+                onItem = { item ->
+                    when (item) {
+                        BookDetailMenuItem.Share -> {
+                            onShare()
+                        }
+
+                        BookDetailMenuItem.MarkFinished -> {
+                            askingFinishDates = true
+                        }
+
+                        BookDetailMenuItem.EditDetails -> {
+                            onEdit()
+                        }
+
+                        BookDetailMenuItem.MatchDetails -> {
+                            onMatchMetadata()
+                        }
+
+                        BookDetailMenuItem.EditChapters -> {
+                            onEditChapters()
+                        }
+
+                        BookDetailMenuItem.AddToCollection -> {
+                            pickers.onShowCollectionPicker()
+                        }
+
+                        BookDetailMenuItem.DeleteFromServer -> {
+                            // A refusal left over from a dialog dismissed mid-flight must not
+                            // greet the next attempt.
+                            onClearDeleteError()
+                            showDeleteDialog = true
+                        }
+
+                        // The menu asks first and confirms through onDiscardProgress / onRestart.
+                        BookDetailMenuItem.MarkNotStarted, BookDetailMenuItem.Restart -> {
+                            Unit
+                        }
+                    }
+                },
                 onDiscardProgress = onDiscardProgress,
                 onRestart = onRestart,
-                onAddToCollection = pickers.onShowCollectionPicker,
-                onShare = onShare,
-                onDeleteBook = {
-                    // A refusal left over from a dialog dismissed mid-flight must not
-                    // greet the next attempt.
-                    onClearDeleteError()
-                    showDeleteDialog = true
-                },
             )
             BookPickerDialogs(ready = loaded, pickers = pickers)
             // Gated on isAdmin as well as the flag, as the collection picker is: the
@@ -485,23 +534,6 @@ private fun HeroActions(
                 },
                 onDismiss = { askingFinishDates = false },
             )
-        }
-        // Only for a reader who may edit metadata: offering Edit and then refusing the save is
-        // worse than not offering it.
-        if (ready.canEditMetadata) {
-            // Icon-only, so the accessible name is the attribute, not the content —
-            // BookDetailEditButtonTest pins both the label and that it matches Play's height.
-            Button(kind = ButtonKind.Icon, size = ButtonSize.Lg, onClick = {
-                onEdit()
-            }, label = "Edit book") { Icon(WebIcon.Pencil) }
-            // Beside Edit, not inside it: matching is a different act. Edit changes what
-            // the reader believes; matching asks a catalogue and offers its answer.
-            Button(
-                kind = ButtonKind.Icon,
-                size = ButtonSize.Lg,
-                onClick = { onMatchMetadata() },
-                label = "Match details",
-            ) { Icon(WebIcon.Sparkles) }
         }
     }
 }
@@ -536,6 +568,10 @@ internal class SectionPanes(
     val onOpenFiles: () -> Unit,
     val onOpenBook: (String) -> Unit,
     val onOpenSeries: (String) -> Unit,
+    /** The book's documents, for the Details panel's Maps & illustrations row. */
+    val documents: List<BookDocument> = emptyList(),
+    /** A person's page, from the Details panel's All credits. */
+    val onOpenContributor: (String) -> Unit = {},
 )
 
 /**
@@ -653,6 +689,7 @@ private fun BookSection(
                 onRefreshExternal = panes.onRefreshExternalRating,
                 nowMs = panes.nowMs,
                 starsFocusRequest = panes.ratingStarsFocusRequest,
+                isFinished = state.readingStage == ReadingStage.Finished,
             )
         }
 
@@ -666,21 +703,7 @@ private fun BookSection(
         }
 
         BookDetailSection.Details -> {
-            Panel(title = "Details") {
-                MetaList(details(state))
-                // The files and the book's documents, a page of their own now the tabs are gone (Decision 9).
-                A(href = "/book/${state.book.id.value}/files", attrs = {
-                    classes("bd-files-link")
-                    onClick {
-                        it.preventDefault()
-                        panes.onOpenFiles()
-                    }
-                }) {
-                    // Only the words are underlined; the arrow rides beside them (board).
-                    Span(attrs = { classes("bd-files-label") }) { Text("Files & audio") }
-                    Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
-                }
-            }
+            Panel(title = "Details") { DetailsRows(state, panes) }
         }
     }
 }
@@ -767,18 +790,186 @@ private const val ABOUT_LINES = 2
 private const val ABOUT_HEADING_LEVEL = 2
 
 /**
- * The Details panel, built only from fields the book actually carries. A row that would read
- * "Unknown" is a row that shouldn't be drawn.
+ * The Details panel (spec §3.2.1 D31): the shared rule's rows ([bookDetailRows]) as a description list — Publisher,
+ * Released, Genre, Language, Length, Added, ISBN, ASIN — then three links: **All credits** (the credits dialog, by
+ * role), **Files & audio** (the Files view) and **Maps & illustrations** (one document opens in a new tab; more go to
+ * the Files view). A row whose datum is absent is not drawn, never "Unknown".
  */
-private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
-    buildList {
-        add(MetaEntry("Duration", state.book.formatDuration(), machine = true))
-        if (state.chapters.isNotEmpty()) add(MetaEntry("Chapters", state.chapters.size.toString()))
-        state.year?.let { add(MetaEntry("Published", it.toString(), machine = true)) }
-        state.book.publisher?.let { add(MetaEntry("Publisher", it)) }
-        state.book.language?.let { add(MetaEntry("Language", it)) }
-        if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
+@Composable
+private fun DetailsRows(
+    state: BookDetailUiState.Ready,
+    panes: SectionPanes,
+) {
+    var showingCredits by remember(state.book.id) { mutableStateOf(false) }
+    val bookId = state.book.id.value
+    val (links, facts) = bookDetailRows(state, panes.documents).partition { it.isLink() }
+    Dl(attrs = { classes("bd-details") }) {
+        facts.forEach { row ->
+            Div(attrs = { classes("meta-r") }) {
+                Dt { Text(row.label()) }
+                Dd(attrs = { if (row.isMachine()) classes("mono") }) { Text(row.value()) }
+            }
+        }
     }
+    // Label first, as the spec writes them — "All credits (6) ›" — so each link's name says what it opens.
+    Div(attrs = { classes("bd-detail-links") }) {
+        links.forEach { row ->
+            val text = "${row.label()} (${row.value()})"
+            when (row) {
+                is BookDetailRow.AllCredits -> {
+                    Button(attrs = {
+                        classes("bd-detail-link")
+                        attr("type", BUTTON_VALUE)
+                        onClick { showingCredits = true }
+                    }) {
+                        Text(text)
+                        Span(attrs = { attr("aria-hidden", "true") }) { Text("›") }
+                    }
+                }
+
+                is BookDetailRow.MapsAndIllustrations -> {
+                    val only = row.onlyDocumentId?.let { id -> panes.documents.firstOrNull { it.id == id } }
+                    if (only == null) FilesLink(bookId, text, panes.onOpenFiles) else DocumentLink(bookId, only, text)
+                }
+
+                else -> {
+                    FilesLink(bookId, text, panes.onOpenFiles)
+                }
+            }
+        }
+    }
+    if (showingCredits) {
+        CreditsDialog(
+            credits =
+                state.book.allContributors.ifEmpty {
+                    (state.book.authors + state.book.narrators).distinctBy { it.id }
+                },
+            onOpenContributor = panes.onOpenContributor,
+            onDismiss = { showingCredits = false },
+        )
+    }
+}
+
+/**
+ * Maps & illustrations' one document: a PDF opens in a new tab, where the browser renders it; anything else downloads,
+ * because a tab of raw epub bytes helps no one (the Files view's `DocumentsPanel` makes the same call).
+ */
+@Composable
+private fun DocumentLink(
+    bookId: String,
+    document: BookDocument,
+    text: String,
+) {
+    val viewable = document.format.lowercase() == "pdf"
+    A(href = documentUrl(bookId, document.id), attrs = {
+        classes("bd-detail-link")
+        if (viewable) {
+            attr("target", "_blank")
+            attr("rel", "noopener")
+        } else {
+            attr("download", documentBasename(document.filename))
+        }
+    }) {
+        Text(text)
+        Span(attrs = { attr("aria-hidden", "true") }) { Text(if (viewable) "↗" else "↓") }
+        Span(attrs = { classes("sr-only") }) { Text(if (viewable) " (opens in a new tab)" else " (downloads)") }
+    }
+}
+
+/** A Details link to the Files view (`/book/{id}/files`): a real link, followed in-app on a plain click. */
+@Composable
+private fun FilesLink(
+    bookId: String,
+    text: String,
+    onOpenFiles: () -> Unit,
+) {
+    A(href = "/book/$bookId/files", attrs = {
+        classes("bd-detail-link")
+        onClick {
+            it.preventDefault()
+            onOpenFiles()
+        }
+    }) {
+        Text(text)
+        Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
+    }
+}
+
+/** A Details row's label, in the web's words. */
+private fun BookDetailRow.label(): String =
+    when (this) {
+        is BookDetailRow.Publisher -> "Publisher"
+        is BookDetailRow.Released -> "Released"
+        is BookDetailRow.GenreLine -> "Genre"
+        is BookDetailRow.Language -> "Language"
+        is BookDetailRow.Length -> "Length"
+        is BookDetailRow.Added -> "Added"
+        is BookDetailRow.Isbn -> "ISBN"
+        is BookDetailRow.Asin -> "ASIN"
+        is BookDetailRow.AllCredits -> "All credits"
+        is BookDetailRow.FilesAndAudio -> "Files & audio"
+        is BookDetailRow.MapsAndIllustrations -> "Maps & illustrations"
+    }
+
+/** A Details row's value, with its units. */
+private fun BookDetailRow.value(): String =
+    when (this) {
+        is BookDetailRow.Publisher -> {
+            name
+        }
+
+        is BookDetailRow.Released -> {
+            year.toString()
+        }
+
+        is BookDetailRow.GenreLine -> {
+            "$genreName · ${if (abridged) "Abridged" else "Unabridged"}"
+        }
+
+        is BookDetailRow.Language -> {
+            displayName
+        }
+
+        is BookDetailRow.Length -> {
+            listOfNotNull(
+                DurationFormatter.hoursMinutesAlways(durationMs.milliseconds),
+                chapterCount.takeIf { it > 0 }?.let { if (it == 1) "1 chapter" else "$it chapters" },
+            ).joinToString(" · ")
+        }
+
+        is BookDetailRow.Added -> {
+            calendarDay(epochMs, withYear = true)
+        }
+
+        is BookDetailRow.Isbn -> {
+            isbn
+        }
+
+        is BookDetailRow.Asin -> {
+            asin
+        }
+
+        is BookDetailRow.AllCredits -> {
+            count.toString()
+        }
+
+        is BookDetailRow.FilesAndAudio -> {
+            listOfNotNull(format, bitrate).joinToString(" · ")
+        }
+
+        is BookDetailRow.MapsAndIllustrations -> {
+            "${format ?: if (count == 1) "1 document" else "$count documents"} · ${byteSizeLabel(totalBytes)}"
+        }
+    }
+
+/** The three Details rows that open something: All credits, Files & audio, Maps & illustrations. */
+private fun BookDetailRow.isLink(): Boolean =
+    this is BookDetailRow.AllCredits || this is BookDetailRow.FilesAndAudio ||
+        this is BookDetailRow.MapsAndIllustrations
+
+/** Identifiers and years read in the monospace face, as the old Details list drew them. */
+private fun BookDetailRow.isMachine(): Boolean =
+    this is BookDetailRow.Released || this is BookDetailRow.Isbn || this is BookDetailRow.Asin
 
 /**
  * "Author · read by Narrator", dropping either half when the book doesn't name it — same sentence
@@ -870,24 +1061,6 @@ private fun ContributorNameLink(
 }
 
 private fun crumb(state: BookDetailUiState): String = if (state is BookDetailUiState.Ready) state.book.title else "Book"
-
-/**
- * What to say about a failed load, chosen from the typed error rather than from its text.
- *
- * Every subtype but one renders its own `message`, which is the rule. `BookError.NotFound` is the
- * exception, and deliberately: its message is "This book no longer exists.", which is true for a
- * synced client and false for this one. A web client has no sync at all until the auth arc lands,
- * so a book missing from the local store means an empty browser far more often than a deleted
- * book — and telling a reader their book is gone when it is sitting on their server is the kind
- * of confident lie this codebase exists to avoid. Revisit once web sync can tell the two apart.
- */
-private fun explain(error: AppError): Pair<String, String> =
-    if (error is BookError.NotFound) {
-        "Not in this browser's library" to
-            "This browser hasn't synced a library yet, so there's nothing to show here."
-    } else {
-        "This book can't be shown" to error.message
-    }
 
 @Composable
 internal fun PaneHint(text: String) {
@@ -990,39 +1163,41 @@ private fun BookDetailUiState.Ready.hasFacets(): Boolean =
     genres.isNotEmpty() || tags.isNotEmpty() || moods.isNotEmpty()
 
 /**
- * Says the server is unreachable, and offers the one thing that might fix it.
+ * Why the primary is disabled (spec §2.9, §3.2.3 Offline): the server is unreachable and this book cannot stream. It
+ * sits in the hero directly above the actions, with Retry.
  *
- * ⛔ Web's library reads from OPFS, so a book page renders perfectly while the server is gone —
- * nothing looks wrong until Play fails with no explanation. That silence is the bug this ends;
- * `Ready.showServerWarning` has carried the fact all along and web drew nothing from it.
- *
- * **Not the shared copy verbatim.** Android's body promises "Downloaded books still play", and
- * this client has no downloads at all, so repeating it would comfort a reader with a fallback they
- * do not have — the same reason `SessionLapsedBanner` rewrote its own body.
+ * **Not the shared copy verbatim.** Android's says the book "isn’t downloaded"; this client has no downloads at all,
+ * so the web says what is true here: it can't stream.
  */
 @Composable
-private fun ServerOfflineBanner(
-    visible: Boolean,
-    onRetry: () -> Unit,
-) {
-    if (!visible) return
-
+private fun OfflineReason(onRetry: () -> Unit) {
     Div(attrs = {
-        classes("banner", "warn")
+        classes("bd-offline")
         attr("role", "status")
         attr("aria-live", "polite")
     }) {
-        Span { Text("Server offline — streaming is unavailable until it is back.") }
-        Button(
-            kind = ButtonKind.Secondary,
-            size = ButtonSize.Sm,
-            onClick = { onRetry() },
-            attrs = {
-                classes("bd-retry")
-            },
-        ) { Text("Retry") }
+        Icon(WebIcon.LinkOff, size = REASON_ICON_SIZE)
+        Span { Text("Can’t reach your server, so this book can’t stream right now.") }
+        Button(kind = ButtonKind.Primary, size = ButtonSize.Sm, onClick = { onRetry() }) { Text("Retry") }
     }
 }
+
+/** The scanner's flag on this book, for an admin: one sentence (the state has no per-file count, R8) and Review. */
+@Composable
+private fun ScanWarning(onReview: () -> Unit) {
+    Div(attrs = {
+        classes("banner", "err", "bd-scan")
+        attr("role", "status")
+    }) {
+        Span { Text("The scanner flagged this book’s files.") }
+        Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = { onReview() }) { Text("Review") }
+    }
+}
+
+private const val REASON_ICON_SIZE = 18
+
+/** Book Detail's error title, the natives' `book_detail_error_title`. */
+private const val ERROR_TITLE = "Couldn’t load this book"
 
 /** The held panel and the Release confirmation it opens. */
 @Composable

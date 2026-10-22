@@ -11,6 +11,8 @@ final class BookDetailObserver {
 
     private(set) var isLoading: Bool = true
     private(set) var error: String?
+    /// Whether asking again could help (`AppError.isRetryable`): the error offers Retry only then.
+    private(set) var errorIsRetryable = false
     private(set) var book: BookDetail?
     private(set) var subtitle: String?
     /// The book's series as paths — one line per series, "Cosmere › Mistborn #1", every part a link.
@@ -83,9 +85,6 @@ final class BookDetailObserver {
     /// Download is possible — playback platform present AND the server is reachable per the same
     /// evidence-based signal as `canPlay`.
     private(set) var canDownload: Bool = true
-    /// The server is genuinely unreachable AND the book isn't downloaded — drives the
-    /// point-of-need banner that explains why Play/Download are disabled.
-    private(set) var showServerWarning: Bool = false
 
     // MARK: - Held for review (admin inbox)
 
@@ -107,6 +106,12 @@ final class BookDetailObserver {
     // MARK: - Documents
 
     private(set) var documents: [DocumentRow] = []
+    /// The Details rows (`bookDetailRows`), recomputed when the book or its documents change.
+    private(set) var detailRows: [BookDetailRowValue] = []
+    /// The book's audio files, for the Files & Audio sheet.
+    private(set) var audioFiles: [FilesAndAudioFile] = []
+    private var lastReady: BookDetailUiStateReady?
+    private var kotlinDocuments: [BookDocument] = []
     private(set) var openingDocIds: Set<String> = []
     /// Set when a tapped PDF is ready; drives `.fullScreenCover`. Nil dismisses the reader.
     var documentToOpen: ReaderDocument?
@@ -130,6 +135,10 @@ final class BookDetailObserver {
     private(set) var isMarkingComplete: Bool = false
     private(set) var isDiscardingProgress: Bool = false
     private(set) var isRestarting: Bool = false
+    /// A progress write is in flight: the More menu's three progress commands wait.
+    private(set) var isChangingProgress = false
+    /// The More menu's groups from the shared rule (`bookDetailMoreMenu`); `menu` drops Share without a link.
+    private(set) var menuGroups: [BookDetailMenuSection] = []
 
     // MARK: - Delete book (admin)
 
@@ -193,6 +202,8 @@ final class BookDetailObserver {
         }
         bridge.bind(viewModel.documents) { [weak self] docs in
             self?.documents = docs.map { DocumentRow($0) }
+            self?.kotlinDocuments = docs
+            self?.recomputeDetailRows()
         }
         bridge.bind(viewModel.openingDocumentIds) { [weak self] ids in
             self?.openingDocIds = Set(ids)
@@ -202,6 +213,14 @@ final class BookDetailObserver {
         }
         bridge.bind(viewModel.lastMatch) { [weak self] in self?.lastMatch = $0.map(LastMatchMapping.row(from:)) }
         bridge.bind(viewModel.lastMatchEvents) { [weak self] in self?.lastMatchOutcome = LastMatchMapping.outcome($0) }
+    }
+
+    /// The Details rows for the last `Ready` and the latest documents, through the shared rule.
+    private func recomputeDetailRows() {
+        guard let lastReady else { return }
+        detailRows = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
+            .bookDetailRows(ready: lastReady, documents: kotlinDocuments)
+            .map(BookDetailRowValue.init)
     }
 
     /// Fold the latest `myShelves` + containing-book membership into `[ShelfRow]`.
@@ -232,7 +251,7 @@ final class BookDetailObserver {
         playerObserver.play(bookId: book.idString, startAtMs: startMs)
     }
 
-    /// Retry the server connection (re-opens the SSE firehose) — the offline banner's Retry.
+    /// Retry the server connection (a reconnect that runs catch-up) — the offline reason's and the error's Retry.
     /// The shared `retryConnection` folds failures itself; reachability recovers via the firehose.
     func retryConnection() {
         viewModel.retryConnection()
@@ -378,15 +397,19 @@ final class BookDetailObserver {
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
+            isChangingProgress = r.isChangingProgress
+            menuGroups = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
+                .bookDetailMoreMenu(ready: r).map(BookDetailMenuSection.init)
             isDeletingBook = r.isDeletingBook
             canPlay = r.canPlay
             canDownload = r.canDownload
-            showServerWarning = r.showServerWarning
             isHeld = r.isHeld
             isReleasingFromInbox = r.isReleasingFromInbox
             visibility = BookVisibilityModel.from(r.visibility)
             isRestoringToAllBooks = r.isRestoringToAllBooks
             reading = BookReadingState(r)
+            lastReady = r
+            recomputeDetailRows()
             if isWaitingForWifi != r.isWaitingForWifi {
                 isWaitingForWifi = r.isWaitingForWifi
                 latestDownloadStatus.map { applyDownloadStatus($0) }
@@ -395,6 +418,12 @@ final class BookDetailObserver {
             let e = eType.value
             isLoading = false
             error = e.error.message
+            errorIsRetryable = e.error.isRetryable
+            // Nothing of the last book may linger behind an error: its menu and rows describe a book not on screen.
+            menuGroups = []
+            isChangingProgress = false
+            lastReady = nil
+            detailRows = []
         }
     }
 
@@ -420,6 +449,10 @@ final class BookDetailObserver {
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
             .audioFormatDisplay(files: book.audioFiles)
         audioFileSizes = book.audioFiles.map { $0.size }
+        audioFiles = book.audioFiles.map {
+            FilesAndAudioFile(id: $0.id, name: documentBasename($0.filename), durationMs: $0.duration,
+                              sizeBytes: $0.size)
+        }
         heroAuthors = book.authors.map { CastMember($0) }
         heroNarrators = book.narrators.map { CastMember($0) }
         castMembers = book.allContributors.map { CastMember($0) }

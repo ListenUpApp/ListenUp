@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material.icons.outlined.Close
@@ -48,7 +49,6 @@ import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
 import com.calypsan.listenup.client.presentation.admin.upload.UploadSelectionRefusal
 import com.calypsan.listenup.client.presentation.admin.upload.uploadSelectionRefusal
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.util.rememberUploadFilePicker
 import com.calypsan.listenup.client.util.rememberUploadFolderPicker
@@ -211,8 +211,8 @@ private fun UploadSelectionRefusal.body(): String =
         is UploadSelectionRefusal.TooLarge -> {
             stringResource(
                 Res.string.admin_upload_books_too_large_body,
-                formatFileSize(limitBytes),
-                formatFileSize(bytes),
+                byteSizeLabel(limitBytes),
+                byteSizeLabel(bytes),
             )
         }
 
@@ -220,8 +220,8 @@ private fun UploadSelectionRefusal.body(): String =
             stringResource(
                 Res.string.admin_upload_books_file_too_large_body,
                 filename,
-                formatFileSize(bytes),
-                formatFileSize(limitBytes),
+                byteSizeLabel(bytes),
+                byteSizeLabel(limitBytes),
             )
         }
     }

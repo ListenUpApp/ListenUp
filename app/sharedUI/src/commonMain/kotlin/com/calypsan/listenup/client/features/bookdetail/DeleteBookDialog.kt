@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
@@ -9,25 +10,25 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.presentation.error.localized
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_delete_book_blocked
-import listenup.composeapp.generated.resources.book_detail_delete_book_body
-import listenup.composeapp.generated.resources.book_detail_delete_book_confirm
-import listenup.composeapp.generated.resources.book_detail_delete_book_title
+import listenup.composeapp.generated.resources.book_detail_delete_server_body
+import listenup.composeapp.generated.resources.book_detail_delete_server_body_one
+import listenup.composeapp.generated.resources.book_detail_delete_server_confirm
+import listenup.composeapp.generated.resources.book_detail_delete_server_title
 import listenup.composeapp.generated.resources.common_cancel
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Confirmation for **deleting a book from the server's disk** — the folder and everything in it.
+ * Confirmation for **deleting a book from the server** — the folder and everything in it (spec §2.8).
  *
- * The body names all four things that go: the book, how many files ListenUp tracks there, what they
- * weigh, and — said out loud rather than implied — that everything else in the folder goes with
- * them. The tracked count is deliberately framed as *tracked*: 66 folders in a real library carry
- * bonus PDFs the app never modelled, and a bare "3 files" would be a number the user could check
- * against the folder and find wrong. Understating what a permanent delete removes is the one thing
- * this dialog cannot do.
+ * The body names everything that goes: how many files ListenUp tracks there, what they weigh, the book, and — said
+ * out loud rather than implied — everything else in its folder; then who loses it (every member, and their devices'
+ * downloads) and that it cannot be undone. The tracked count stays framed as what ListenUp knows: 66 folders in a real
+ * library carry bonus PDFs the app never modelled, which is why "everything else in its folder" is in the sentence.
  *
- * [error] is the typed refusal from a previous attempt, rendered underneath. A
- * [BookError.FolderNotExclusive] names the book that blocked the delete, because "another book
- * shares this folder" without saying which one leaves the admin nothing to act on.
+ * [error] is the typed refusal from a previous attempt, rendered underneath. A [BookError.FolderNotExclusive] names the
+ * book that blocked the delete, because "another book shares this folder" without saying which one leaves the admin
+ * nothing to act on. Focus opens on Cancel (spec §5.2). The confirm is the error-coloured text button every other
+ * destructive confirm uses (m3.material.io/components/dialogs/guidelines: dialog actions are text buttons).
  *
  * @param trackedFileCount audio files plus documents ListenUp knows about in this book's folder.
  * @param trackedBytes their combined size.
@@ -43,7 +44,13 @@ fun DeleteBookDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val body = stringResource(Res.string.book_detail_delete_book_body, trackedFileCount, formatFileSize(trackedBytes))
+    val size = byteSizeLabel(trackedBytes)
+    val body =
+        if (trackedFileCount == 1) {
+            stringResource(Res.string.book_detail_delete_server_body_one, size)
+        } else {
+            stringResource(Res.string.book_detail_delete_server_body, trackedFileCount, size)
+        }
     val refusal =
         when (error) {
             null -> {
@@ -60,14 +67,15 @@ fun DeleteBookDialog(
         }
     ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(Res.string.book_detail_delete_book_title, bookTitle),
+        title = stringResource(Res.string.book_detail_delete_server_title, bookTitle),
         text = body + refusal,
-        confirmText = stringResource(Res.string.book_detail_delete_book_confirm),
+        confirmText = stringResource(Res.string.book_detail_delete_server_confirm),
         onConfirm = { if (!isDeleting) onConfirm() },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
-        // A warning triangle, not the bin the "delete download" dialog wears: the two are one menu
-        // apart and only one of them destroys the user's files.
-        icon = Icons.Default.Warning,
+        // The board's trash: the remove-download confirm wears no icon now, so the two no longer need telling apart
+        // by glyph, and this is the one that deletes files.
+        icon = Icons.Outlined.Delete,
+        focusDismissFirst = true,
     )
 }

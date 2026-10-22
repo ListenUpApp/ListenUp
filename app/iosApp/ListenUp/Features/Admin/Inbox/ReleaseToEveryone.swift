@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Release to everyone?" — the one question asked before a held book goes out, from Book Detail
+/// "Release to members?" — the one question asked before a held book goes out, from Book Detail
 /// (one book) and from the inbox page (the selection). Spec §7's copy.
 enum ReleaseToEveryone {
     static var title: String { String(localized: "admin.release_to_everyone") }

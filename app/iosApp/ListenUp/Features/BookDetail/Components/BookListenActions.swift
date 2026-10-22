@@ -46,22 +46,21 @@ struct BookListenActions: View {
                 }
             }
         }
-        .confirmationDialog(
-            String(localized: "book.delete_download"),
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "book.delete_download"), role: .destructive, action: onDeleteDownload)
-            Button(String(localized: "common.cancel"), role: .cancel) {}
+        // An alert (HIG, Alerts): what it frees and that your place is kept; Keep, with the cancel role, is the safe
+        // default.
+        .alert(RemoveDownloadCopy.title, isPresented: $confirmingDelete) {
+            Button(RemoveDownloadCopy.keep, role: .cancel) {}
+            // Not destructive: downloading again undoes it (HIG, Alerts — the destructive role is for what can't be).
+            Button(RemoveDownloadCopy.remove, action: onDeleteDownload)
         } message: {
-            Text(String(localized: "book.detail_you_can_redownload_anytime_by"))
+            Text(RemoveDownloadCopy.message(formattedSize: BookSize.label(downloadSizeBytes)))
         }
     }
 
     // MARK: - Download
 
-    /// Once saved, the capsule is Delete download with a trash bin (Simon, 2026-10-11). Removal is destructive, so the
-    /// tap only asks; the confirmation's own button deletes (HIG, Alerts).
+    /// Once saved, the capsule is Delete download with a trash bin (Simon, 2026-10-11). The tap only asks; the alert's
+    /// own Remove deletes (HIG, Alerts).
     @ViewBuilder
     private var downloadCapsule: some View {
         Group {
@@ -133,6 +132,18 @@ struct BookListenActions: View {
         case .completed: "trash"
         case .partial, .failed: "arrow.clockwise.circle"
         }
+    }
+}
+
+/// Remove Download's alert (spec §2.8, the iOS Confirms board): what it frees on this device and that the book stays.
+enum RemoveDownloadCopy {
+    static var title: String { String(localized: "book.detail_remove_download_title_ios") }
+    static var keep: String { String(localized: "book.detail_remove_download_keep") }
+    static var remove: String { String(localized: "book.detail_remove_download_confirm") }
+
+    /// `formattedSize` arrives formatted so the sentence stays testable.
+    static func message(formattedSize: String) -> String {
+        String(format: String(localized: "book.detail_remove_download_body"), formattedSize)
     }
 }
 

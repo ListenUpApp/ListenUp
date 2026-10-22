@@ -57,6 +57,8 @@ fun RatingsPanel(
     onRefreshExternal: () -> Unit = {},
     nowMs: Long = 0L,
     starsFocusRequest: Int = 0,
+    /** The reader has finished the book: "How was it?" leads, and the note is for their listeners (spec §3.2.3). */
+    isFinished: Boolean = false,
 ) {
     val ready = state as? BookRatingsUiState.Ready ?: return
     var isNoteDialogOpen by remember { mutableStateOf(false) }
@@ -76,6 +78,7 @@ fun RatingsPanel(
                     onSetStars = onSetStars,
                     onEditNote = { isNoteDialogOpen = true },
                     onRemove = onClear,
+                    isFinished = isFinished,
                 )
                 Everyone(ready = ready, onOpenSources = { isSourcesOpen = true }, onRefreshExternal = onRefreshExternal)
             }
@@ -115,6 +118,7 @@ private fun YourRating(
     onSetStars: (Int) -> Unit,
     onEditNote: () -> Unit,
     onRemove: () -> Unit,
+    isFinished: Boolean,
 ) {
     var dragging by remember { mutableStateOf<Int?>(null) }
     val shown = dragging ?: mine?.halfStars ?: 0
@@ -128,7 +132,7 @@ private fun YourRating(
         }
     }) {
         Div(attrs = { classes("rt-you-top") }) {
-            Span(attrs = { classes("rt-you-l") }) { Text("Your rating") }
+            Span(attrs = { classes("rt-you-l") }) { Text(if (isFinished) "How was it?" else "Your rating") }
             // The slider says its own value; this is for the eye.
             Span(attrs = {
                 classes("rt-you-v")
@@ -161,6 +165,7 @@ private fun YourRating(
             }
             NoteAndActions(
                 mine = mine,
+                isFinished = isFinished,
                 onEditNote = onEditNote,
                 onRemove = {
                     // The button is about to go: hand focus to the stars first, or it falls to the page.
@@ -182,13 +187,20 @@ private fun KeyCap(label: String) {
 @Composable
 private fun NoteAndActions(
     mine: ListenerRating,
+    isFinished: Boolean,
     onEditNote: () -> Unit,
     onRemove: () -> Unit,
 ) {
     mine.note?.let { note -> P(attrs = { classes("rt-note") }) { Text("“$note”") } }
     Div(attrs = { classes("rt-you-acts") }) {
         Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = onEditNote) {
-            Text(if (mine.note == null) "Add a note" else "Edit note")
+            Text(
+                when {
+                    mine.note != null -> "Edit note"
+                    isFinished -> "Add a note for your listeners"
+                    else -> "Add a note"
+                },
+            )
         }
         Button(kind = ButtonKind.Ghost, size = ButtonSize.Sm, onClick = onRemove, attrs = { classes("rt-quiet") }) {
             Text("Remove")

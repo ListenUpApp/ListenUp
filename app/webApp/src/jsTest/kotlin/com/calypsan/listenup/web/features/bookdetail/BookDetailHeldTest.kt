@@ -19,6 +19,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
@@ -83,7 +84,7 @@ class BookDetailHeldTest :
             host.querySelector(".bd-held").shouldNotBeNull()
             host.querySelector(".bd-held-t")?.textContent shouldBe "Held for review"
             host.querySelector(".bd-held-sub")?.textContent shouldBe
-                "Hidden from all members. It can’t be played until you release it."
+                "Hidden from every member, and it can’t be played until you release it."
             // The hero row goes: Play, and the actions menu carrying shelf, collection and share.
             host.querySelector(".bd-actions").shouldBeNull()
             host.querySelector("[aria-haspopup='menu']").shouldBeNull()
@@ -96,7 +97,7 @@ class BookDetailHeldTest :
             val host = rendered(held)
 
             host.querySelectorAll(".bd-held-actions button").asList().map { it.textContent?.trim() } shouldBe
-                listOf("Edit", "Release", "Match details", "Edit chapters")
+                listOf("Release to members", "Edit details", "Match details", "Edit chapters")
         }
 
         test("Match and Edit chapters take the routes the hero row and the Chapters tab use") {
@@ -116,7 +117,7 @@ class BookDetailHeldTest :
         test("Edit chapters has a glyph of its own, not Edit's pencil") {
             val host = rendered(held)
 
-            val edit = button(host, "Edit").shouldNotBeNull().querySelector("svg")?.innerHTML
+            val edit = button(host, "Edit details").shouldNotBeNull().querySelector("svg")?.innerHTML
             val chapters = button(host, "Edit chapters").shouldNotBeNull().querySelector("svg")?.innerHTML
             chapters.shouldNotBeNull() shouldNotBe edit
         }
@@ -130,11 +131,11 @@ class BookDetailHeldTest :
         test("Release asks first, in the calm words, with Cancel first") {
             val host = rendered(held)
 
-            button(host, "Release").shouldNotBeNull().click()
+            button(host, "Release to members").shouldNotBeNull().click()
             awaitFrame()
 
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
-            dialog.querySelector(".dlg-t")?.textContent shouldBe "Release to everyone?"
+            dialog.querySelector(".dlg-t")?.textContent shouldBe "Release to members?"
             dialog.querySelector(".dlg-p")?.textContent shouldBe "Every member will be able to find and play it."
             host.querySelectorAll("dialog.dlg .dlg-actions button").asList().map { it.textContent } shouldBe
                 listOf("Cancel", "Release")
@@ -144,13 +145,13 @@ class BookDetailHeldTest :
             var releases = 0
             val host = rendered(held, onRelease = { releases++ })
 
-            button(host, "Release").shouldNotBeNull().click()
+            button(host, "Release to members").shouldNotBeNull().click()
             awaitFrame()
             (host.querySelectorAll("dialog.dlg .dlg-actions button").item(0) as HTMLElement).click()
             awaitFrame()
             releases shouldBe 0
 
-            button(host, "Release").shouldNotBeNull().click()
+            button(host, "Release to members").shouldNotBeNull().click()
             awaitFrame()
             (host.querySelectorAll("dialog.dlg .dlg-actions button").item(1) as HTMLElement).click()
             awaitFrame()
@@ -161,7 +162,7 @@ class BookDetailHeldTest :
             var edits = 0
             val host = rendered(held, onEdit = { edits++ })
 
-            button(host, "Edit").shouldNotBeNull().click()
+            button(host, "Edit details").shouldNotBeNull().click()
 
             edits shouldBe 1
         }
@@ -170,7 +171,7 @@ class BookDetailHeldTest :
             val host = rendered(held.copy(isReleasingFromInbox = true))
 
             button(host, "Releasing…").shouldNotBeNull().disabled shouldBe true
-            button(host, "Edit").shouldNotBeNull().disabled shouldBe true
+            button(host, "Edit details").shouldNotBeNull().disabled shouldBe true
             button(host, "Match details").shouldNotBeNull().disabled shouldBe true
             button(host, "Edit chapters").shouldNotBeNull().disabled shouldBe true
         }
@@ -218,8 +219,8 @@ class BookDetailHeldTest :
                     )
                 }
 
-            button(host, "Release").shouldNotBeNull().focus()
-            button(host, "Release").shouldNotBeNull().click()
+            button(host, "Release to members").shouldNotBeNull().focus()
+            button(host, "Release to members").shouldNotBeNull().click()
             awaitFrame()
             (host.querySelectorAll("dialog.dlg .dlg-actions button").item(1) as HTMLElement).click()
             awaitFrame()
@@ -229,6 +230,17 @@ class BookDetailHeldTest :
             document.activeElement shouldBe host.querySelector(".bd-head h1")
         }
 
+        test("Release to members is amber on an amber panel, never the coral of Play") {
+            val host = rendered(held)
+            // The app's own root class, which the panel's rules hang from.
+            host.className = "luw"
+            val root = window.getComputedStyle(document.documentElement!!)
+            val release = host.querySelector(".bd-held .bd-release") as HTMLElement
+            val panel = host.querySelector(".bd-held") as HTMLElement
+            window.getComputedStyle(release).backgroundColor shouldBe colourOf(root.getPropertyValue("--warn"))
+            window.getComputedStyle(panel).backgroundColor shouldBe colourOf(root.getPropertyValue("--warn-soft"))
+        }
+
         test("an ordinary book has no held panel and keeps its actions") {
             val host = rendered(readyBook())
 
@@ -236,3 +248,13 @@ class BookDetailHeldTest :
             host.querySelector(".bd-actions").shouldNotBeNull()
         }
     })
+
+/** [token]'s value as the browser computes a colour, so a hex token compares with a computed `rgb(...)`. */
+private fun colourOf(token: String): String {
+    val probe = document.createElement("span") as HTMLElement
+    probe.style.color = token.trim()
+    document.body!!.appendChild(probe)
+    val computed = window.getComputedStyle(probe).color
+    probe.remove()
+    return computed
+}

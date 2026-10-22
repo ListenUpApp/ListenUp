@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 
 /** What the Download control shows, independent of how it is drawn (icon-only on phones, labelled on tablets). */
 internal sealed interface DownloadActionKind {
@@ -42,7 +42,7 @@ internal fun downloadActionFor(
     isWaitingForWifi: Boolean,
     sizeBytes: Long,
 ): DownloadAction {
-    val size = formatFileSize(sizeBytes)
+    val size = byteSizeLabel(sizeBytes)
     return when (status) {
         is BookDownloadStatus.NotDownloaded -> {
             DownloadAction(DownloadActionKind.Download, size, DownloadTap.Start)

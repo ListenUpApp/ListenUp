@@ -95,6 +95,7 @@ class BookRatingSectionTest {
         onRefreshExternal: () -> Unit = {},
         width: Int = 360,
         isCard: Boolean = false,
+        isFinished: Boolean = false,
     ) {
         composeRule.setContent {
             Box(Modifier.width(width.dp)) {
@@ -106,6 +107,7 @@ class BookRatingSectionTest {
                     onOpenSources = onOpenSources,
                     onRefreshExternal = onRefreshExternal,
                     isCard = isCard,
+                    isFinished = isFinished,
                 )
             }
         }
@@ -178,6 +180,15 @@ class BookRatingSectionTest {
 
         composeRule.onNodeWithText("Add a note").assertIsDisplayed()
         composeRule.onNodeWithText("Edit note").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a finished reader is asked how it was, and to leave a note for their listeners`() {
+        show(ready(mine = mine(note = null)), isFinished = true)
+
+        composeRule.onNodeWithText("How was it?").assertIsDisplayed()
+        composeRule.onNodeWithText("Your rating").assertDoesNotExist()
+        composeRule.onNodeWithText("Add a note for your listeners").assertIsDisplayed()
     }
 
     @Test

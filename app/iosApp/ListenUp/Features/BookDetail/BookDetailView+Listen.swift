@@ -37,6 +37,10 @@ extension BookDetailView {
                 finishedSpan: observer.reading.finishedSpan,
                 cover: coverTheme.colors
             )
+            // Why the primary below is disabled, directly above it (spec §2.9).
+            if observer.reading.primaryAction == .unavailableOffline {
+                OfflineReasonView { observer.retryConnection() }
+            }
             BookListenActions(
                 label: BookPrimaryActionLabel(kind: observer.reading.primaryAction,
                                               isPreparing: observer.isPlayPending),

@@ -1,7 +1,9 @@
+import SwiftUI
 import Testing
+import UIKit
 @testable import ListenUp
 
-/// A held book's detail page is triage-only (spec §8): the held section and Edit, nothing else.
+/// A held book's detail page is triage-only (spec §8): the held card and the toolbar's Held pill, nothing else.
 @Suite("Book detail triage layout")
 struct BookDetailTriageTests {
     @Test func aHeldBookGetsTheTriageLayout() {
@@ -15,12 +17,30 @@ struct BookDetailTriageTests {
         #expect(layout.showsOverflowMenu == false)
     }
 
-    /// Spec §8 and §10, as the held section draws them: Release prominent, Match and Edit chapters
-    /// secondary — and nothing else. Edit is not here: it is the toolbar's (HIG, Toolbars).
-    @Test func theHeldSectionDrawsReleaseProminentAndTheTwoMetadataFixes() {
+    /// Spec §3.2.3, as the held card draws it: Release prominent, then Edit Details, Match Details and Edit Chapters —
+    /// the held book's actions all in one place (Edit left the toolbar for the card).
+    @Test func theHeldSectionDrawsReleaseProminentAndTheThreeFixes() {
         let arrangement = BookDetailHeldSection.arrange(BookDetailLayout.forBook(isHeld: true).triageActions)
         #expect(arrangement.prominent == .release)
-        #expect(arrangement.secondary == [.match, .editChapters])
+        #expect(arrangement.secondary == [.edit, .match, .editChapters])
+    }
+
+    @Test func theHeldWordsAreTheBoards() {
+        #expect(BookDetailHeldSection.message
+            == "Hidden from every member, and it can’t be played until you release it.")
+        #expect(BookDetailHeldSection.title(of: .release) == "Release to Members")
+        #expect(BookDetailHeldSection.title(of: .edit) == "Edit Details")
+        #expect(BookDetailHeldSection.title(of: .match) == "Match Details…")
+        #expect(BookDetailHeldSection.title(of: .editChapters) == "Edit Chapters")
+    }
+
+    /// Release to Members is amber on the card in every appearance, at body-text contrast.
+    @Test func releaseToMembersReadsOnTheCard() {
+        for traits in UITraitCollection.colorAppearances {
+            let amber = SRGBColor(UIColor(Color.luWarning), resolvedFor: traits)
+            let card = SRGBColor(UIColor.secondarySystemBackground, resolvedFor: traits)
+            #expect(amber.contrastRatio(against: card) >= ContrastMinimum.text, "\(traits)")
+        }
     }
 
     @Test func anOrdinaryBookDrawsNoHeldActions() {
@@ -37,8 +57,18 @@ struct BookDetailTriageTests {
         #expect(BookDetailLayout.toolbar(for: nil) == .none)
     }
 
-    @Test func aHeldBookOffersEditAloneInTheToolbar() {
-        #expect(BookDetailLayout.toolbar(for: .triage) == .edit)
+    /// A held book has no More menu: the toolbar shows the Held pill, and its actions are the held card's.
+    @Test func aHeldBookShowsTheHeldPillInTheToolbar() {
+        #expect(BookDetailLayout.toolbar(for: .triage) == .heldPill)
+    }
+
+    /// Ready then Error: the book is gone, so the menu built for it must go too — no toolbar item at all.
+    @Test func anErrorOffersNoToolbarItem() {
+        #expect(BookDetailLayout.loaded(isLoading: false, hasError: true, isHeld: false) == nil)
+        #expect(BookDetailLayout.toolbar(for: BookDetailLayout.loaded(isLoading: false, hasError: true, isHeld: false))
+            == BookDetailLayout.Toolbar.none)
+        #expect(BookDetailLayout.loaded(isLoading: true, hasError: false, isHeld: false) == nil)
+        #expect(BookDetailLayout.loaded(isLoading: false, hasError: false, isHeld: true) == .triage)
     }
 
     @Test func anOrdinaryBookOffersTheFullMenu() {
@@ -56,7 +86,7 @@ struct BookDetailTriageTests {
     }
 
     @Test func releaseAsksInTheCalmWords() {
-        #expect(ReleaseToEveryone.title == "Release to everyone?")
+        #expect(ReleaseToEveryone.title == "Release to members?")
         #expect(ReleaseToEveryone.confirm == "Release")
         #expect(ReleaseToEveryone.message(count: 1) == "Every member will be able to find and play it.")
         #expect(ReleaseToEveryone.message(count: 3) == "Every member will be able to find and play them.")

@@ -27,6 +27,15 @@ class ExtendedColorsContrastTest :
                 }
             }
 
+            test("$name: text on the held amber fills clears AA") {
+                withClue("onHeld on held (Release to members)") {
+                    contrastRatio(extended.onHeld, extended.held) shouldBeGreaterThanOrEqual AA_TEXT
+                }
+                withClue("onHeldContainer on heldContainer (the held panel, the Held pill)") {
+                    contrastRatio(extended.onHeldContainer, extended.heldContainer) shouldBeGreaterThanOrEqual AA_TEXT
+                }
+            }
+
             test("$name: success text clears AA on every container a card sits on") {
                 mapOf(
                     "surface" to scheme.surface,

@@ -346,9 +346,12 @@ dialog.dlg.bd-credits { width:520px; }
 .credit-photo { width:48px; height:48px; flex:none; border-radius:var(--r-pill); overflow:hidden; display:flex; align-items:center; justify-content:center; color:#FFFFFF; font-weight:800; font-size:1rem; }
 .credit-info { display:flex; flex-direction:column; min-width:0; }
 .credit-name { font-size:var(--fs-body); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.credit-roles { font-size:var(--fs-small); color:var(--ink-2); }
+.credit-role-h { margin:var(--sp-12) var(--sp-8) var(--sp-4); font-size:var(--fs-caption); font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-2); }
+.credit-role-h:first-child { margin-top:0; }
 /* No Download, deliberately: a browser cannot finish one, so the primary stands beside Add to shelf. */
 .bd-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:var(--sp-4); }
+/* "More ▾" (spec §2.7): a text button with its chevron after the word. */
+.bd-menu { gap:var(--sp-4); }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
    inline style on a single paragraph. */
 .bd-desc { font-size:0.90625rem; line-height:1.6; color:var(--ink-2); }
@@ -537,13 +540,6 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-series-open { font-size:0.875rem; font-weight:600; color:var(--coral-text); }
 /* The chapter map and the files: Book Detail's own sub-pages, the same column rhythm as the page. */
 .bd-map, .bd-files { gap:var(--gap); }
-/* Details ends with the way to the files (Decision 9). */
-.bd-files-link { display:inline-flex; align-items:center; gap:var(--sp-4); min-height:44px; margin-top:var(--sp-8); font-size:0.875rem; font-weight:600; color:var(--coral-text); text-decoration:none; border-radius:var(--r-xs); }
-.bd-files-label { text-decoration:underline; }
-.bd-files-link:focus { outline:none; }
-.bd-files-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-/* Retry sits at the end of the offline banner's single flex row: a small Button, placed here. */
-.luw .bd-retry { margin-left:auto; }
 /* A document row's open/download link: a small secondary ButtonLink, its glyph tucked close. */
 .bd .doc-open { gap:var(--sp-4); }
 /* the chapter map — the book as a strip; segment width is proportional to duration */
@@ -558,8 +554,9 @@ dialog.dlg.bd-credits { width:520px; }
 @media (max-width: 759px) {
   .bd { padding:var(--sp-16) 14px 28px; gap:var(--sp-16); }
   .bd-head { gap:var(--sp-16); padding:var(--sp-16); }
-  /* A phone's two actions each take the full width: Resume, then Add to shelf under it. */
-  .bd-primary, .bd-shelf { flex:1 1 100%; }
+  /* A phone's primary takes the full width; Add to shelf and More share the row under it (spec §2.7, Q5). */
+  .bd-primary { flex:1 1 100%; }
+  .bd-shelf { flex:1 1 0; }
 
 }
 /* < 640: the cover stands above the title. Beside it, a 390px phone left the title 166px to wrap
@@ -583,6 +580,22 @@ dialog.dlg.bd-credits { width:520px; }
 .cbx-in { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
 .cbx-in:focus-visible + .cbx { outline:2.5px solid var(--coral); outline-offset:2px; }
 
+
+/* Book Detail's states (spec §3.2.3). The offline reason sits in the hero directly above the actions; the scan warning
+   is the first thing in the hero, full width above the cover on a phone. */
+.bd-offline { display:flex; gap:var(--sp-12); align-items:center; padding:10px 12px; margin-top:var(--sp-8); border:1px solid var(--line); border-radius:var(--r-md); background:var(--surface); color:var(--ink); font-size:var(--fs-ui); }
+.bd-offline > span { flex:1; min-width:0; }
+.bd-head:has(> .bd-scan) { flex-wrap:wrap; }
+.bd-scan { flex-basis:100%; border:1px solid; border-radius:var(--r-md); align-self:stretch; }
+.bd-scan > span { flex:1; min-width:0; }
+
+/* The Details panel's three links (spec D31): All credits, Files & audio, Maps & illustrations. */
+.bd-details { margin:0; }
+.bd-detail-links { display:flex; flex-direction:column; align-items:flex-start; margin-top:var(--sp-4); }
+.bd-detail-link { display:inline-flex; align-items:center; gap:var(--sp-4); min-height:44px; padding:0; border:0; background:none; font:inherit; font-weight:600; color:var(--coral-text); text-decoration:underline; text-underline-offset:2px; cursor:pointer; border-radius:var(--r-xs); }
+.bd-detail-link > [aria-hidden] { text-decoration:none; }
+.bd-detail-link:focus { outline:none; }
+.bd-detail-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 
 @keyframes ptb-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .sync-ind-b.is-syncing svg { animation:none; } }

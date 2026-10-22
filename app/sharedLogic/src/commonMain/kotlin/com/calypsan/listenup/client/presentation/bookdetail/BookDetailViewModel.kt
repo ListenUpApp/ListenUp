@@ -438,7 +438,7 @@ class BookDetailViewModel(
     }
 
     /**
-     * Force a fresh server-reachability check, backing the offline banner's "Retry"
+     * Force a fresh server-reachability check, backing Book Detail's offline reason and error "Retry"
      * action. Tears down and re-opens the sync firehose so the reachability indicator
      * recovers without waiting on the automatic backoff loop.
      */
@@ -626,7 +626,7 @@ class BookDetailViewModel(
 
     /**
      * Releases this held book to everyone — `releaseBooks` with an empty target list moves it into
-     * ALL_BOOKS. The UI confirms first ("Release to everyone?"); this is what its Release button calls.
+     * ALL_BOOKS. The UI confirms first ("Release to members?"); this is what its Release button calls.
      *
      * Only meaningful when [BookDetailUiState.Ready.isHeld], which is never true on a member's device.
      * On success there is nothing to emit: the INBOX membership leaves Room at once (the repository

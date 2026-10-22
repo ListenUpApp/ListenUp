@@ -49,7 +49,7 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
  * **[ConnectionHealthUi.SessionExpired] is not dismissible** — it is the only sign-in affordance in
  * the authenticated shell, so hiding it strands the user in a session they cannot repair. Only
  * [ConnectionHealthUi.Outdated] can be dismissed, through the persisted dismissal [onDismiss].
- * Visual language follows the book-detail OfflineBanner (color-container pill).
+ * A colour-container pill.
  */
 @Composable
 fun ConnectionHealthBanner(

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -16,10 +15,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.theme.ListenUpExtendedColors
+import com.calypsan.listenup.client.design.theme.extendedColors
 
 /**
- * The admin inbox's glyph on an amber tile: the inbox icon in onTertiaryContainer on a rounded
- * tertiaryContainer square. Amber is "waiting for you" across the app; coral stays "act here".
+ * The admin inbox's glyph on an amber tile: the inbox icon in the fixed held amber
+ * ([ListenUpExtendedColors.heldContainer]), which no wallpaper changes. Amber is "waiting for you" across the app; coral stays "act here".
  *
  * Decoration only — the glyph carries no content description, so the row or section it heads
  * names itself. One recipe for the Library's inbox entry and Book Detail's held section.
@@ -27,7 +28,7 @@ import androidx.compose.ui.unit.dp
  * @param size the tile's width and height
  * @param corner the tile's corner radius
  * @param glyphSize the inbox icon's size inside the tile
- * @param onAmber the tile sits on an amber (tertiaryContainer) surface, so it takes the stronger amber role to stay
+ * @param onAmber the tile sits on an amber (heldContainer) surface, so it takes the stronger amber role to stay
  *   visible (spec a6's amber glyph on the Library's inbox strip)
  */
 @Composable
@@ -38,7 +39,7 @@ fun InboxGlyphTile(
     glyphSize: Dp = 24.dp,
     onAmber: Boolean = false,
 ) {
-    val colors = inboxGlyphColors(MaterialTheme.colorScheme, onAmber)
+    val colors = inboxGlyphColors(MaterialTheme.extendedColors, onAmber)
     Box(
         modifier =
             modifier
@@ -62,13 +63,13 @@ internal data class InboxGlyphColors(
     val glyph: Color,
 )
 
-/** Amber on a plain surface; the stronger amber role on an amber one, where a tertiaryContainer tile would vanish. */
+/** Amber on a plain surface; the stronger amber role on an amber one, where a heldContainer tile would vanish. */
 internal fun inboxGlyphColors(
-    scheme: ColorScheme,
+    held: ListenUpExtendedColors,
     onAmber: Boolean,
 ): InboxGlyphColors =
     if (onAmber) {
-        InboxGlyphColors(tile = scheme.tertiary, glyph = scheme.onTertiary)
+        InboxGlyphColors(tile = held.held, glyph = held.onHeld)
     } else {
-        InboxGlyphColors(tile = scheme.tertiaryContainer, glyph = scheme.onTertiaryContainer)
+        InboxGlyphColors(tile = held.heldContainer, glyph = held.onHeldContainer)
     }

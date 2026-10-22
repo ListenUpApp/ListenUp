@@ -55,12 +55,13 @@ internal fun ResumeUnit(ready: BookDetailUiState.Ready) {
 
 /** "Finished · 12 Feb – 3 Mar 2026", or "Finished · 3 Mar 2026" when the start was never recorded. */
 internal fun finishedSpanText(span: FinishedSpan): String {
-    val finished = day(span.finishedAtMs, withYear = true)
-    return span.startedAtMs?.let { "Finished · ${day(it, withYear = false)} – $finished" } ?: "Finished · $finished"
+    val finished = calendarDay(span.finishedAtMs, withYear = true)
+    return span.startedAtMs?.let { "Finished · ${calendarDay(it, withYear = false)} – $finished" }
+        ?: "Finished · $finished"
 }
 
 /** A calendar day in the reader's own locale ("12 Feb 2026", or "Feb 12, 2026" in the US). */
-private fun day(
+internal fun calendarDay(
     epochMs: Long,
     withYear: Boolean,
 ): String =

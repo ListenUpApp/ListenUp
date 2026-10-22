@@ -116,7 +116,7 @@ class BookDetailVisibilityPlacementTest {
     @Config(qualifiers = TALL_PHONE)
     fun `a held book's triage layout has no Visibility card — the held section says it`() {
         show(ready(BookVisibility.Stranded).copy(isHeld = true, canPlay = false))
-        composeRule.onNodeWithText("Release").assertExists()
+        composeRule.onNodeWithText("Release to members").assertExists()
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
 
@@ -127,7 +127,7 @@ class BookDetailVisibilityPlacementTest {
     fun `even for a frame where held and visibility disagree, triage shows no card`() {
         val restricted = BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
         show(ready(restricted).copy(isHeld = true, canPlay = false))
-        composeRule.onNodeWithText("Release").assertExists()
+        composeRule.onNodeWithText("Release to members").assertExists()
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
 
@@ -136,7 +136,7 @@ class BookDetailVisibilityPlacementTest {
     fun `the wide triage layout shows no card either, even mid-disagreement`() {
         val restricted = BookVisibility.Restricted(listOf(CollectionRef("c1", "Kids")), HiddenFrom.Everyone)
         show(ready(restricted).copy(isHeld = true, canPlay = false))
-        composeRule.onNodeWithText("Release").assertExists()
+        composeRule.onNodeWithText("Release to members").assertExists()
         composeRule.onNodeWithText("Visibility").assertDoesNotExist()
     }
 

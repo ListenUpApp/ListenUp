@@ -5,33 +5,35 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuHeading
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
-import com.calypsan.listenup.web.design.ActionsMenu
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
+import com.calypsan.listenup.web.design.ButtonKind
+import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ConfirmDialog
 import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.buttonClasses
 
 /**
- * What a reader can do about their own relationship to this book.
+ * Book Detail's More menu (spec §2.7): a "More ▾" text button after Resume and Add to shelf, opening the shared rule's
+ * groups ([bookDetailMoreMenu]) — Share…; Progress; Edit; Admin; then Delete from server… alone, in the danger colour,
+ * with no heading. The same rule Android and iOS draw, so the three cannot disagree about who gets what.
  *
- * ⛔ Until this existed, web's Book Detail was **read-only**: the page consumed `state` and offered
- * no action at all, so the twenty-odd finished functions on `BookDetailViewModel` had no entry
- * point. A reader could see that they were 40% through a book and had no way to say they had
- * finished it, abandoned it, or wanted to start again.
+ * [onItem] runs every item but the two that erase a listening position: Restart and Mark as not started ask first
+ * here, in the natives' words, and only a confirm calls [onRestart] or [onDiscardProgress]. While a progress write is
+ * in flight the three progress items wait; the rest stay live. A held book has no menu at all.
  *
- * Which items appear is the same rule both natives apply, and it is about what there is *to* do:
- * finishing is offered only when the book is not already finished, and clearing or restarting only
- * when there is something to clear.
+ * The trigger's accessible name "More actions" contains its visible word "More" (WCAG 2.5.3, Label in Name).
  */
 @Composable
 fun BookActionsMenu(
     ready: BookDetailUiState.Ready,
-    onMarkComplete: () -> Unit,
+    onItem: (BookDetailMenuItem) -> Unit,
     onDiscardProgress: () -> Unit,
     onRestart: () -> Unit,
-    onAddToCollection: () -> Unit,
-    onShare: () -> Unit,
-    onDeleteBook: () -> Unit,
 ) {
     // ⛔ The two actions that erase a listening position ask first, as both natives do. Web fired
     // them on the click, so one stray press on a menu item threw away where a reader was in a
@@ -39,29 +41,41 @@ fun BookActionsMenu(
     var pending by remember { mutableStateOf<ProgressConfirmation?>(null) }
 
     val items =
-        progressActions(
-            ready = ready,
-            onMarkComplete = onMarkComplete,
-            onDiscardProgress = { pending = ProgressConfirmation.MarkNotStarted },
-            onRestart = { pending = ProgressConfirmation.Restart },
-        ) +
-            filingActions(ready, onAddToCollection) +
-            // Always offered, unlike the progress actions: sharing says nothing about your own
-            // relationship to the book, so there is no state in which it would do nothing.
-            MenuAction("Share", WebIcon.Share, onShare) +
-            deleteActions(ready, onDeleteBook)
-
-    // ⛔ One flag for all three: they are the same round-trip through the same repository, and a
-    // second request while one is in flight would race it to the same position record.
-    val busy = ready.isMarkingComplete || ready.isDiscardingProgress || ready.isRestarting
-
-    ActionsMenu(items = items, enabled = !busy)
+        bookDetailMoreMenu(ready).flatMap { group ->
+            group.items.map { item ->
+                MenuAction(
+                    label = item.webLabel(),
+                    icon = item.webIcon(),
+                    onSelect = {
+                        when (item) {
+                            BookDetailMenuItem.MarkNotStarted -> pending = ProgressConfirmation.MarkNotStarted
+                            BookDetailMenuItem.Restart -> pending = ProgressConfirmation.Restart
+                            else -> onItem(item)
+                        }
+                    },
+                    group = group.heading?.webLabel(),
+                    destructive = group.isDestructive,
+                    enabled = !(ready.isChangingProgress && item.isProgress()),
+                )
+            }
+        }
+    if (items.isNotEmpty()) {
+        PopupMenu(
+            items = items,
+            // Its own name, not just "More": on a phone the tab bar has a More too (WCAG 2.4.6).
+            label = "More actions for ${ready.book.title}",
+            icon = WebIcon.ChevronDown,
+            triggerClasses = buttonClasses(ButtonKind.Secondary, ButtonSize.Lg) + MORE_TRIGGER_CLASS,
+            triggerText = "More",
+            trailingIcon = true,
+        )
+    }
 
     pending?.let { confirmation ->
         ConfirmDialog(
             open = true,
-            title = confirmation.verb,
-            body = confirmation.prompt,
+            title = confirmation.title,
+            body = confirmation.body,
             confirmLabel = confirmation.verb,
             onConfirm = {
                 pending = null
@@ -75,78 +89,56 @@ fun BookActionsMenu(
     }
 }
 
+/** The More trigger's own class: `.bd-more` is already the synopsis's "Read more". */
+internal const val MORE_TRIGGER_CLASS = "bd-menu"
+
 /**
- * The two progress actions that cannot be undone, and what each asks — the natives' strings
- * (`book_detail_mark_not_started_prompt`, `book_detail_restart_prompt`) character for character.
+ * The two progress actions that cannot be undone, and what each asks — in the menu's own words, and the natives'
+ * strings (`book_detail_mark_not_started_*`, `book_detail_restart_*`) character for character.
  */
 private enum class ProgressConfirmation(
+    val title: String,
+    val body: String,
     val verb: String,
-    val prompt: String,
 ) {
-    MarkNotStarted("Mark as not started", "Clear your progress and mark this as not started?"),
-    Restart(
-        "Restart book",
-        "Start over from the beginning? This resets your position to the start of the book.",
-    ),
+    MarkNotStarted("Mark as not started?", "Your progress on this book is cleared.", "Mark as not started"),
+    Restart("Restart from the beginning?", "Your place goes back to the start of the book.", "Restart"),
 }
 
-/**
- * The three progress actions, filtered to the ones that would do something.
- *
- * ⛔ Both "clear" actions key on `progress != null || isComplete`, not on progress alone: a finished
- * book has no in-progress position, so keying on progress would leave a reader who marked a book
- * finished by mistake with no way to undo it.
- */
-internal fun progressActions(
-    ready: BookDetailUiState.Ready,
-    onMarkComplete: () -> Unit,
-    onDiscardProgress: () -> Unit,
-    onRestart: () -> Unit,
-): List<MenuAction> {
-    val hasSomethingToClear = ready.progress != null || ready.isComplete
-    return buildList {
-        if (!ready.isComplete) {
-            add(MenuAction("Mark as finished", WebIcon.Check, onMarkComplete))
-        }
-        if (hasSomethingToClear) {
-            add(MenuAction("Mark as not started", WebIcon.Minus, onDiscardProgress))
-            add(MenuAction("Restart book", WebIcon.ArrowUp, onRestart))
-        }
+/** The item's words on the web; an ellipsis where choosing it asks or opens something first. */
+internal fun BookDetailMenuItem.webLabel(): String =
+    when (this) {
+        BookDetailMenuItem.Share -> "Share…"
+        BookDetailMenuItem.MarkFinished -> "Mark as finished…"
+        BookDetailMenuItem.Restart -> "Restart from the beginning…"
+        BookDetailMenuItem.MarkNotStarted -> "Mark as not started…"
+        BookDetailMenuItem.EditDetails -> "Edit details"
+        BookDetailMenuItem.MatchDetails -> "Match details…"
+        BookDetailMenuItem.EditChapters -> "Edit chapters"
+        BookDetailMenuItem.AddToCollection -> "Add to collection…"
+        BookDetailMenuItem.DeleteFromServer -> "Delete from server…"
     }
-}
 
-/**
- * Where this book can be filed.
- *
- * ⛔ Collections are admin-managed, and the entry is gated on `isAdmin` here as well as being
- * refused server-side. Android gates its own picker the same way and says why: defence in depth, so
- * the picker cannot render for a non-admin even if the flag behind it leaks true.
- *
- * Add to shelf is not here: it is a visible button beside the primary (spec §2.7), and a second copy in the
- * menu would be one too many.
- */
-internal fun filingActions(
-    ready: BookDetailUiState.Ready,
-    onAddToCollection: () -> Unit,
-): List<MenuAction> =
-    if (ready.isAdmin) listOf(MenuAction("Add to collection", WebIcon.Layers, onAddToCollection)) else emptyList()
+private fun BookDetailMenuItem.webIcon(): WebIcon =
+    when (this) {
+        BookDetailMenuItem.Share -> WebIcon.Share
+        BookDetailMenuItem.MarkFinished -> WebIcon.Check
+        BookDetailMenuItem.Restart -> WebIcon.ArrowUp
+        BookDetailMenuItem.MarkNotStarted -> WebIcon.Minus
+        BookDetailMenuItem.EditDetails -> WebIcon.Pencil
+        BookDetailMenuItem.MatchDetails -> WebIcon.Sparkles
+        BookDetailMenuItem.EditChapters -> WebIcon.ListOrdered
+        BookDetailMenuItem.AddToCollection -> WebIcon.Layers
+        BookDetailMenuItem.DeleteFromServer -> WebIcon.Trash
+    }
 
-/**
- * Deleting the book — its folder and everything in it — from the server's disk.
- *
- * ⛔ Admin-only, like collections and for a stronger reason: removing files from a self-hosted
- * library is not a member's call. The server refuses it too; this keeps a member from being offered
- * a control that can only fail. Last in the menu, after everything that can be undone, and with an
- * ellipsis because choosing it opens the dialog that spells out what goes — it deletes nothing.
- */
-internal fun deleteActions(
-    ready: BookDetailUiState.Ready,
-    onDeleteBook: () -> Unit,
-): List<MenuAction> =
-    if (ready.isAdmin) listOf(MenuAction("Delete book…", WebIcon.Trash, onDeleteBook)) else emptyList()
+private fun BookDetailMenuHeading.webLabel(): String =
+    when (this) {
+        BookDetailMenuHeading.Progress -> "Progress"
+        BookDetailMenuHeading.Edit -> "Edit"
+        BookDetailMenuHeading.Admin -> "Admin"
+    }
 
-private const val ICON_SIZE = 18
-
-private const val ATTR_TYPE = "type"
-
-private const val VALUE_BUTTON = "button"
+private fun BookDetailMenuItem.isProgress(): Boolean =
+    this == BookDetailMenuItem.MarkFinished || this == BookDetailMenuItem.Restart ||
+        this == BookDetailMenuItem.MarkNotStarted

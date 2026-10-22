@@ -63,6 +63,7 @@ fun BookRatingBlock(
     bookId: String,
     modifier: Modifier = Modifier,
     isCard: Boolean = false,
+    isFinished: Boolean = false,
     viewModel: BookRatingsViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +97,7 @@ fun BookRatingBlock(
         onOpenSources = { isBreakdownOpen = true },
         onRefreshExternal = viewModel::refreshExternal,
         isCard = isCard,
+        isFinished = isFinished,
         modifier = modifier,
     )
 
@@ -140,6 +142,7 @@ fun BookRatingBlock(
  * @param onOpenSources Opens the sources sheet; the score's row invokes it.
  * @param onRefreshExternal Re-fetches every enabled outside source now (admin).
  * @param isCard When true, wraps the section in a `surfaceContainerLow` card, like the Readers card.
+ * @param isFinished The reader has finished the book: "You" asks "How was it?" (spec §3.2.3 Finished).
  */
 @Composable
 fun BookRatingSection(
@@ -151,6 +154,7 @@ fun BookRatingSection(
     onOpenSources: () -> Unit = {},
     onRefreshExternal: () -> Unit = {},
     isCard: Boolean = false,
+    isFinished: Boolean = false,
 ) {
     val ready = state as? BookRatingsUiState.Ready ?: return
     val innerPadding = if (isCard) Spacing.screenMargin else 0.dp
@@ -179,6 +183,7 @@ fun BookRatingSection(
                         onRemove = onRemove,
                         modifier = cardModifier,
                         isContained = !isCard,
+                        isFinished = isFinished,
                     )
                 }
                 val everyone: @Composable (Modifier) -> Unit = { rowsModifier ->

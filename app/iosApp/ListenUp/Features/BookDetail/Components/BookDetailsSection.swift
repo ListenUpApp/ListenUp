@@ -1,177 +1,86 @@
 import SwiftUI
 
-/// The "Details" block on the redesigned Book Detail screen: a heading over a set
-/// of key/value rows — Narrated by, Length, Publisher, Released, Language.
-///
-/// Every row is conditional: a row is omitted entirely when its datum is absent
-/// (no "Publisher: —" placeholders). The length row folds the chapter count in
-/// when there is one. Keys sit left in secondary text, values right in medium
-/// weight, with hairline dividers between rows.
-///
-/// Pure/presentational: the assembly screen supplies each already-formatted value
-/// from the observer / `BookDetail`. Fields `BookDetail` doesn't expose simply
-/// aren't passed.
+/// Book Detail's "Details" (spec §3.2.1 D31): a heading over the shared rule's rows — Publisher, Released, Genre,
+/// Language, Length, Added, ISBN, ASIN — then three links: All Credits (Cast & Credits), Files & Audio (its sheet) and
+/// Maps & Illustrations (one document opens at once, more open a list). A row whose datum is absent is not in `rows`.
+/// Keys sit left in secondary text, values right in medium weight, with hairline dividers between rows; a link row reads
+/// label first ("All Credits (6) ›") and is a button with a chevron.
 struct BookDetailsSection: View {
-    /// Comma-joined author names; empty when none.
-    let authors: String
-    /// Comma-joined narrator names; empty when none.
-    let narrators: String
-    /// Pre-formatted total length (e.g. "33h 50m"); empty when unknown.
-    let lengthLabel: String
-    /// Chapter count; folded into the length row when > 0.
-    let chapterCount: Int
-    let publisher: String?
-    /// Pre-formatted release label (e.g. a year or date); `nil` when unknown.
-    let released: String?
-    let language: String?
-    let format: String?
-    let bitrate: String?
-    let sampleRate: String?
-    let channels: String?
-    /// Opens the Cast & Credits sheet (from the "Credits" header link and the "Narrated by" row).
-    let onOpenCast: () -> Void
+    let rows: [BookDetailRowValue]
+    let onLink: (BookDetailRowLink) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
+        if !rows.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(String(localized: "book.detail_details"))
                     .font(.headline)
-                Spacer()
-                Button(String(localized: "book.detail_credits"), action: onOpenCast)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.tint)
-                    .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
-            }
-            .padding(.bottom, Spacing.xs)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.bottom, Spacing.xs)
 
-            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                if index > 0 { Divider() }
-                if row.isCast {
-                    Button(action: onOpenCast) {
-                        detailRow(key: row.key, value: row.value, isLink: true)
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                    if index > 0 { Divider() }
+                    let cell = row.cell
+                    if let link = cell.link {
+                        Button { onLink(link) } label: { linkRow(cell) }
+                            .buttonStyle(.plain)
+                    } else {
+                        detailRow(cell)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
-                } else {
-                    detailRow(key: row.key, value: row.value, isLink: false)
                 }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Rows
-
-    /// The present rows, in display order. Absent data is dropped here so the
-    /// body never has to reason about empty values.
-    private var rows: [(key: String, value: String, isCast: Bool)] {
-        var result: [(String, String, Bool)] = []
-        if !authors.isEmpty {
-            result.append((String(localized: "book.detail_written_by"), authors, false))
-        }
-        if !narrators.isEmpty {
-            result.append((String(localized: "book.detail_narrated_by"), narrators, true))
-        }
-        if let length = lengthValue {
-            result.append((String(localized: "book.detail_length"), length, false))
-        }
-        if let publisher, !publisher.isEmpty {
-            result.append((String(localized: "book.detail_publisher"), publisher, false))
-        }
-        if let released, !released.isEmpty {
-            result.append((String(localized: "book.detail_released"), released, false))
-        }
-        if let language, !language.isEmpty {
-            result.append((String(localized: "common.language"), language, false))
-        }
-        if let format, !format.isEmpty {
-            result.append((String(localized: "book.detail_format"), format, false))
-        }
-        if let bitrate, !bitrate.isEmpty {
-            result.append((String(localized: "book.detail_bitrate"), bitrate, false))
-        }
-        if let sampleRate, !sampleRate.isEmpty {
-            result.append((String(localized: "book.detail_sample_rate"), sampleRate, false))
-        }
-        if let channels, !channels.isEmpty {
-            result.append((String(localized: "book.detail_channels"), channels, false))
-        }
-        return result
-    }
-
-    /// "{length} · {N} chapters" when both present; either alone otherwise; `nil` when neither.
-    private var lengthValue: String? {
-        let hasLength = !lengthLabel.isEmpty
-        let hasChapters = chapterCount > 0
-        switch (hasLength, hasChapters) {
-        case (true, true):
-            let chapters = String(format: String(localized: "book.detail_chapter_count"), chapterCount)
-            return "\(lengthLabel) · \(chapters)"
-        case (true, false):
-            return lengthLabel
-        case (false, true):
-            return String(format: String(localized: "book.detail_chapter_count"), chapterCount)
-        case (false, false):
-            return nil
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func detailRow(key: String, value: String, isLink: Bool) -> some View {
+    private func detailRow(_ cell: BookDetailCell) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(key)
+            Text(cell.label)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 12)
-            Text(value)
+            Text(cell.value)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(isLink ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                 .multilineTextAlignment(.trailing)
-            if isLink {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
-            }
         }
         .padding(.vertical, Spacing.s)
+        .frame(minHeight: 44)
         .accessibilityElement(children: .combine)
+    }
+
+    /// A link row, label first as the spec writes it — "All Credits (6) ›" — in the tint, with a chevron.
+    private func linkRow(_ cell: BookDetailCell) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(cell.linkTitle)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.tint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, Spacing.s)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 }
 
 // MARK: - Preview
 
-#Preview("Details — full") {
+#Preview("Details") {
     BookDetailsSection(
-        authors: "George R. R. Martin",
-        narrators: "Roy Dotrice",
-        lengthLabel: "33h 50m",
-        chapterCount: 23,
-        publisher: "Random House Audio",
-        released: "2003",
-        language: "English",
-        format: "Dolby Atmos",
-        bitrate: "320 kbps",
-        sampleRate: "48 kHz",
-        channels: "5.1",
-        onOpenCast: {}
-    )
-    .padding()
-}
-
-#Preview("Details — sparse (rows omitted)") {
-    BookDetailsSection(
-        authors: "Brandon Sanderson",
-        narrators: "Kate Reading, Michael Kramer",
-        lengthLabel: "45h 30m",
-        chapterCount: 0,
-        publisher: nil,
-        released: nil,
-        language: nil,
-        format: nil,
-        bitrate: nil,
-        sampleRate: nil,
-        channels: nil,
-        onOpenCast: {}
+        rows: [
+            .publisher("Macmillan Audio"),
+            .released(2010),
+            .genre(name: "Epic fantasy", abridged: false),
+            .language("English"),
+            .length(durationMs: 163_800_000, chapterCount: 75),
+            .isbn("9781427209979"),
+            .allCredits(count: 6),
+            .filesAndAudio(format: "AAC", bitrate: "64 kbps"),
+            .maps(count: 1, onlyDocumentId: "d1", format: "PDF", totalBytes: 18_874_368)
+        ],
+        onLink: { _ in }
     )
     .padding()
 }

@@ -1,17 +1,15 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.features.bookdetail.BookDetailActions
-import com.calypsan.listenup.client.features.bookdetail.SupplementaryMaterialsSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
+import com.calypsan.listenup.client.presentation.bookdetail.bookDetailRows
 
 /** Description lines on a phone before "Read more": four while deciding, two otherwise (spec §3.2.1 D29, §3.2.2). */
 private const val ABOUT_LINES_NOT_STARTED = 4
@@ -55,6 +53,7 @@ internal data class ReadersLanding(
  * Chapters are already dropped from the order by the ViewModel when absent.
  *
  * @param isWide True in the wide columns, where the synopsis shows in full.
+ * @param onShowAllCredits Opens the full cast: the Details row "All credits".
  */
 @Suppress("LongParameterList")
 @Composable
@@ -68,6 +67,7 @@ internal fun BookDetailSectionContent(
     description: DescriptionExpansion,
     modifier: Modifier = Modifier,
     readersLanding: ReadersLanding = ReadersLanding(),
+    onShowAllCredits: () -> Unit = {},
 ) {
     when (section) {
         BookDetailSection.Chapters -> {
@@ -129,7 +129,12 @@ internal fun BookDetailSectionContent(
         }
 
         BookDetailSection.Ratings -> {
-            BookRatingBlock(bookId = bookId, isCard = true, modifier = modifier.fillMaxWidth())
+            BookRatingBlock(
+                bookId = bookId,
+                isCard = true,
+                isFinished = state.readingStage == ReadingStage.Finished,
+                modifier = modifier.fillMaxWidth(),
+            )
         }
 
         BookDetailSection.Hardcover -> {
@@ -140,22 +145,15 @@ internal fun BookDetailSectionContent(
             )
         }
 
-        // Documents sit with Details until the "Maps & illustrations" row replaces them.
+        // The Details rows, ending in All credits, Files & audio and Maps & illustrations (spec D31, D32, D36).
         BookDetailSection.Details -> {
-            Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-                if (documents.isNotEmpty()) {
-                    SupplementaryMaterialsSection(documents = documents, onOpenDocument = actions.onOpenDocument)
-                }
-                DetailsSection(
-                    publisher = state.book.publisher,
-                    publishYear = state.book.publishYear,
-                    language = state.book.language,
-                    audioFiles = state.book.audioFiles,
-                    credits = state.book.allContributors,
-                    onContributorClick = actions.onContributorClick,
-                    addedAt = state.addedAt,
-                )
-            }
+            DetailsSection(
+                rows = remember(state, documents) { bookDetailRows(state, documents) },
+                onAllCredits = onShowAllCredits,
+                onFilesAndAudio = actions.onOpenFilesAndAudio,
+                onMaps = { row -> row.onlyDocumentId?.let(actions.onOpenDocument) ?: actions.onOpenDocuments() },
+                modifier = modifier,
+            )
         }
     }
 }

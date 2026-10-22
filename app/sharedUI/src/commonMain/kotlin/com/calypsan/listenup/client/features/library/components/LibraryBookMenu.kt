@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Edit
@@ -13,18 +12,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.components.MenuGroupLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.library.BookMenuPrimary
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
@@ -107,16 +102,7 @@ internal fun LibraryBookMenu(
         )
         if (actions.onAddToCollection != null || actions.onEditDetails != null) {
             HorizontalDivider()
-            Text(
-                text = stringResource(Res.string.library_menu_admin),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier =
-                    Modifier
-                        .padding(MenuDefaults.DropdownMenuItemContentPadding)
-                        .padding(vertical = Spacing.xs)
-                        .semantics { heading() },
-            )
+            MenuGroupLabel(stringResource(Res.string.library_menu_admin))
             actions.onAddToCollection?.let { action ->
                 MenuItem(
                     label = stringResource(Res.string.library_menu_add_to_collection),

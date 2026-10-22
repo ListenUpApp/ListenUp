@@ -55,17 +55,42 @@ extension BookDetailView {
         case .hardcover:
             hardcoverSection
         case .details:
-            // Documents sit with Details until the "Maps & Illustrations" row replaces them.
-            VStack(alignment: .leading, spacing: 26) {
-                if !observer.documents.isEmpty {
-                    SupplementaryMaterialsSection(
+            detailsSection(observer)
+        }
+    }
+
+    /// The Details rows; All Credits opens Cast & Credits, Files & Audio its sheet, and Maps & Illustrations the one
+    /// document at once or the list of several (spec D31, D32, D36).
+    func detailsSection(_ observer: BookDetailObserver) -> some View {
+        BookDetailsSection(rows: observer.detailRows) { link in
+            switch link {
+            case .credits: showCast = true
+            case .filesAndAudio: detailsSheet = .filesAndAudio
+            case .document(let id): observer.openDocument(docId: id)
+            case .documents: detailsSheet = .documents
+            }
+        }
+    }
+
+    /// Files & Audio or Maps & Illustrations, at a medium detent that can grow (HIG, Sheets).
+    @ViewBuilder
+    func detailsSheetContent(_ sheet: BookDetailsSheet) -> some View {
+        if let observer {
+            Group {
+                switch sheet {
+                case .filesAndAudio:
+                    FilesAndAudioSheet(files: observer.audioFiles, format: observer.audioFormat) { detailsSheet = nil }
+                case .documents:
+                    DocumentsSheet(
                         documents: observer.documents,
                         openingDocIds: observer.openingDocIds,
-                        onOpen: { observer.openDocument(docId: $0) }
+                        onOpen: { observer.openDocument(docId: $0) },
+                        onDone: { detailsSheet = nil }
                     )
                 }
-                detailsSection(observer)
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 

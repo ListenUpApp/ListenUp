@@ -4,7 +4,8 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import androidx.compose.runtime.Composable
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
-import listenup.composeapp.generated.resources.book_detail_mark_not_started_prompt
+import listenup.composeapp.generated.resources.book_detail_mark_not_started_body
+import listenup.composeapp.generated.resources.book_detail_mark_not_started_title
 import listenup.composeapp.generated.resources.common_cancel
 import org.jetbrains.compose.resources.stringResource
 
@@ -23,8 +24,8 @@ fun MarkNotStartedDialog(
 ) {
     ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
-        title = stringResource(Res.string.book_detail_mark_as_not_started),
-        text = stringResource(Res.string.book_detail_mark_not_started_prompt),
+        title = stringResource(Res.string.book_detail_mark_not_started_title),
+        text = stringResource(Res.string.book_detail_mark_not_started_body),
         confirmText = stringResource(Res.string.book_detail_mark_as_not_started),
         onConfirm = onConfirm,
         dismissText = stringResource(Res.string.common_cancel),

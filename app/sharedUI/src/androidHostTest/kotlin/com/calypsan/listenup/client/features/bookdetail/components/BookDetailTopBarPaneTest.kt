@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.design.LocalInDetailPane
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuGroup
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -59,20 +61,11 @@ class BookDetailTopBarPaneTest {
             MaterialTheme {
                 CompositionLocalProvider(LocalInDetailPane provides inDetailPane) {
                     BookDetailTopBar(
-                        isComplete = false,
-                        hasProgress = false,
-                        isAdmin = false,
-                        canEditMetadata = true,
                         onBackClick = onBack,
-                        onEditClick = {},
-                        onFindMetadataClick = {},
-                        onEditChaptersClick = {},
-                        onMarkCompleteClick = {},
-                        onMarkNotStartedClick = {},
-                        onRestartClick = {},
-                        onAddToCollectionClick = {},
-                        onShareClick = {},
-                        onDeleteClick = {},
+                        menu = listOf(BookDetailMenuGroup(heading = null, items = listOf(BookDetailMenuItem.Share))),
+                        progressBusy = false,
+                        onMenuItem = {},
+                        isHeld = false,
                     )
                 }
             }

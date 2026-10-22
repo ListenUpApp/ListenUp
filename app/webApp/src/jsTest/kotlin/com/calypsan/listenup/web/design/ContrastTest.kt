@@ -106,6 +106,10 @@ class ContrastTest :
                 palette(theme).assertContrast("--warn", "--warn-soft", AA_TEXT)
             }
 
+            test("$theme: the held panel's Release to members label reads at 4.5:1 on its amber fill") {
+                palette(theme).assertContrast("--on-warn", "--warn", AA_TEXT)
+            }
+
             test("$theme: Match details' You edited this flag reads at 4.5:1 on its own wash") {
                 palette(theme).assertContrast("--edited", "--edited-soft", AA_TEXT)
             }

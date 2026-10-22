@@ -220,7 +220,8 @@ class BookDetailPanesTest :
             try {
                 host.querySelectorAll(".tab").length shouldBe 0
                 (host.querySelector("a.bd-chmap-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/map"
-                (host.querySelector("a.bd-files-link") as HTMLElement).getAttribute("href") shouldBe "/book/42/files"
+                (host.querySelector("a.bd-detail-link[href='/book/42/files']") as HTMLElement).getAttribute("href") shouldBe
+                    "/book/42/files"
             } finally {
                 router.dispose()
             }
@@ -282,11 +283,11 @@ class BookDetailPanesTest :
             // perfectly while the server is gone — nothing looks wrong until Play fails with no
             // explanation. `showServerWarning` has carried the fact all along; web drew nothing.
             val (host, router) =
-                mountAt("/book/42", fixedBookDetail(readyBook(showServerWarning = true)))
+                mountAt("/book/42", fixedBookDetail(offlineBook()))
 
             try {
-                val banner = (host.querySelector(".banner.warn") as? HTMLElement).shouldNotBeNull()
-                banner.textContent.orEmpty() shouldContain "Server offline"
+                val banner = (host.querySelector(".bd-head .bd-offline") as? HTMLElement).shouldNotBeNull()
+                banner.textContent.orEmpty() shouldContain "Can’t reach your server, so this book can’t stream right now."
                 // ⛔ NOT the shared copy: Android promises "Downloaded books still play", and this
                 // client has no downloads at all.
                 banner.textContent.orEmpty() shouldNotContain "Downloaded"
@@ -301,11 +302,11 @@ class BookDetailPanesTest :
             val (host, router) =
                 mountAt(
                     "/book/42",
-                    fixedBookDetail(readyBook(showServerWarning = true), onRetryConnection = { retried++ }),
+                    fixedBookDetail(offlineBook(), onRetryConnection = { retried++ }),
                 )
 
             try {
-                (host.querySelector(".bd-retry") as HTMLElement).click()
+                (host.querySelector(".bd-offline button") as HTMLElement).click()
                 awaitFrame()
                 retried shouldBe 1
             } finally {
@@ -317,7 +318,7 @@ class BookDetailPanesTest :
             val (host, router) = mountAt("/book/42")
 
             try {
-                host.querySelector(".banner.warn") shouldBe null
+                host.querySelector(".bd-offline") shouldBe null
             } finally {
                 router.dispose()
             }
@@ -412,10 +413,9 @@ class BookDetailPanesTest :
             try {
                 val empty = host.querySelector(".bd .empty") as HTMLElement
                 (empty.querySelector(".ico") != null) shouldBe true
-                empty.textContent.orEmpty() shouldContain "Not in this browser's library"
-                (empty.querySelector("button") as HTMLElement)
-                    .textContent
-                    .orEmpty() shouldContain "Back to Library"
+                empty.textContent.orEmpty() shouldContain BookError.NotFound().message
+                ("Back to Library" in empty.querySelectorAll("button").asList().map { it.textContent.orEmpty().trim() }) shouldBe
+                    true
             } finally {
                 router.dispose()
             }
@@ -426,7 +426,13 @@ class BookDetailPanesTest :
                 mountAt("/book/99", fixedBookDetail(BookDetailUiState.Error(BookError.NotFound())))
 
             try {
-                (host.querySelector(".bd .empty button") as HTMLElement).click()
+                // Retry comes first; Back to Library is the second button.
+                host
+                    .querySelectorAll(".bd .empty button")
+                    .asList()
+                    .map { it as HTMLElement }
+                    .first { it.textContent?.trim() == "Back to Library" }
+                    .click()
 
                 window.location.pathname shouldBe "/library"
             } finally {
@@ -446,3 +452,10 @@ class BookDetailPanesTest :
             }
         }
     })
+
+/** A book this client cannot play: the server is unreachable and nothing of it is on the device. */
+private fun offlineBook() =
+    readyBook(showServerWarning = true).copy(
+        canPlay = false,
+        primaryAction = com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction.UnavailableOffline,
+    )

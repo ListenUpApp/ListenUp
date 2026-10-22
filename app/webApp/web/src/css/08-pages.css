@@ -1136,8 +1136,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   }
 }
 
-/* Book Detail's held panel (triage only): the main column's first block, on --warn-soft with a
-   --warn tile — amber is "waiting for you"; Release keeps the coral primary ("act here"). */
+/* Book Detail's held panel (triage only, spec §3.2.3): the main column's first block, on --warn-soft with a
+   --warn tile and an amber Release to members — amber is "waiting for you", and the panel never reads as Play. */
 .luw .bd-held {
   display: flex; align-items: center; gap: 16px; padding: 18px; margin-bottom: var(--sp-16);
   border-radius: 14px; background: var(--warn-soft);
@@ -1151,6 +1151,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .bd-held-t { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
 .luw .bd-held-sub { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2); }
 .luw .bd-held-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; max-width: 22rem; justify-content: flex-end; }
+.luw .bd-held .bd-release { background: var(--warn); color: var(--on-warn); border-color: transparent; }
+@media (hover: hover) { .luw .bd-held .bd-release:hover { background: color-mix(in srgb, var(--warn) 88%, var(--ink)); } }
+.luw .bd-held .bd-release:active { background: color-mix(in srgb, var(--warn) 80%, var(--ink)); }
 /* On a phone the panel stacks: the words, then the four actions — Edit and Release, Match and
    Edit chapters — sharing the width and wrapping as they need to. */
 @media (max-width: 759px) {

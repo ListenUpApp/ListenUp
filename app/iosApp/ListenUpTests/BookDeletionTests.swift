@@ -25,7 +25,7 @@ struct BookDetailNavReactionTests {
     }
 }
 
-/// The confirmation's copy — Android's `DeleteBookDialog`, string for string.
+/// The two confirms' copy: Delete from Server and Remove Download (spec §2.8).
 @Suite("BookDeletion")
 struct BookDeletionTests {
     @Test func tracksAudioAndDocumentsTogether() {
@@ -41,14 +41,35 @@ struct BookDeletionTests {
         #expect(tracked.bytes == 0)
     }
 
-    @Test func titleNamesTheBook() {
-        #expect(BookDeletion.title(bookTitle: "The Institute") == "Delete “The Institute”?")
+    @Test func theTitleNamesTheBookAndTheServer() {
+        #expect(BookDeletion.title(bookTitle: "The Way of Kings") == "Delete “The Way of Kings” from the server?")
     }
 
-    @Test func messageSaysTheFolderGoesWithACountAndASize() {
-        let message = BookDeletion.message(fileCount: 5, formattedSize: "514 MB")
-        #expect(message == "This permanently deletes the book’s folder from your server. ListenUp tracks 5 files "
-            + "in it (514 MB), and everything else in that folder goes too — PDFs, artwork, bonus material — "
-            + "whether ListenUp shows it or not. The book disappears from every device, and this can’t be undone.")
+    @Test func theMessageSaysTheFilesTheFolderEveryMemberAndNoUndo() {
+        // The same words as Android and web, downloads included.
+        #expect(BookDeletion.message(fileCount: 76, formattedSize: "1.2 GB") ==
+            "This deletes 76 files (1.2 GB) and everything else in its folder from your server. Every member loses "
+            + "it, and downloads are removed from their devices. This can’t be undone.")
+        #expect(BookDeletion.message(fileCount: 1, formattedSize: "1 KB") ==
+            "This deletes 1 file (1 KB) and everything else in its folder from your server. Every member loses it, "
+            + "and downloads are removed from their devices. This can’t be undone.")
+    }
+
+    @Test func theVerbIsDeleteBook() {
+        #expect(BookDeletion.confirm == "Delete Book")
+    }
+
+    @Test func removeDownloadSaysWhatItFreesAndKeepsYourPlace() {
+        #expect(RemoveDownloadCopy.title == "Remove Download?")
+        #expect(RemoveDownloadCopy.message(formattedSize: "1.2 GB") ==
+            "Frees 1.2 GB on this device. The book stays in your library, keeps your place, "
+            + "and streams when you’re online.")
+    }
+
+    @Test func sizesReadAsAndroidAndWebReadThem() {
+        #expect(BookSize.label(2_831_155) == "2.7 MB")
+        #expect(BookSize.label(1_288_490_189) == "1.2 GB")
+        #expect(RemoveDownloadCopy.keep == "Keep")
+        #expect(RemoveDownloadCopy.remove == "Remove")
     }
 }

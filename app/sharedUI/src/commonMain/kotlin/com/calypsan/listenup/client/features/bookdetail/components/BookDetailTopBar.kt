@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
-import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,43 +18,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.calypsan.listenup.client.design.LocalInDetailPane
+import com.calypsan.listenup.client.design.components.HeldLabel
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuGroup
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_back_to_library
 import listenup.composeapp.generated.resources.book_detail_close
-import listenup.composeapp.generated.resources.book_detail_more_options
+import listenup.composeapp.generated.resources.book_detail_more_actions
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Plain (non-collapsing) top app bar for the Book Detail screen.
  *
- * Back ("Back to Library") and a three-dot overflow that delegates to [BookActionsMenu]; no title, because the hero
- * names the book right under it (spec D1: the duplicate title goes). Beside a list (see [LocalInDetailPane]) the back
- * arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface], the surface the hero sits on, so the
- * two read as one. For a book held for review, [showActions] is false and the bar is Back alone — the triage layout
- * has no overflow (spec §8).
+ * Back ("Back to Library") and the ⋮ "More actions" menu ([BookActionsMenu], drawn from [menu]); no title, because the
+ * hero names the book right under it (spec D1: the duplicate title goes). Beside a list (see [LocalInDetailPane]) the
+ * back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface], the surface the hero sits on, so
+ * the two read as one. The ⋮ stays in the bar on every width (m3.material.io/components/top-app-bar: actions live in
+ * the bar, which never scrolls away). An empty [menu] draws no ⋮ (the loading frame, the error state). A book held for
+ * review ([isHeld]) has no menu: the bar shows the Held pill instead (spec §3.2.3).
  */
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("LongParameterList") // Compose state-hoisting over BookActionsMenu requires one callback per action item
 @Composable
 fun BookDetailTopBar(
-    isComplete: Boolean,
-    hasProgress: Boolean,
-    isAdmin: Boolean,
-    canEditMetadata: Boolean,
     onBackClick: () -> Unit,
-    onEditClick: () -> Unit,
-    onFindMetadataClick: () -> Unit,
-    onEditChaptersClick: () -> Unit,
-    onMarkCompleteClick: () -> Unit,
-    onMarkNotStartedClick: () -> Unit,
-    onRestartClick: () -> Unit,
-    onAddToCollectionClick: () -> Unit,
-    onShareClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    menu: List<BookDetailMenuGroup>,
+    progressBusy: Boolean,
+    onMenuItem: (BookDetailMenuItem) -> Unit,
+    isHeld: Boolean,
     modifier: Modifier = Modifier,
-    actionsEnabled: Boolean = true,
-    showActions: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
@@ -68,64 +62,32 @@ fun BookDetailTopBar(
         navigationContentDescription =
             stringResource(if (inDetailPane) Res.string.book_detail_close else Res.string.book_detail_back_to_library),
         actions = {
-            if (showActions) {
-                Box {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            showMenu = true
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.MoreVert,
-                            contentDescription = stringResource(Res.string.book_detail_more_options),
+            when {
+                isHeld -> {
+                    HeldLabel(modifier = Modifier.padding(end = Spacing.md))
+                }
+
+                menu.isNotEmpty() -> {
+                    Box {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                showMenu = true
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = stringResource(Res.string.book_detail_more_actions),
+                            )
+                        }
+                        BookActionsMenu(
+                            expanded = showMenu,
+                            onDismiss = { showMenu = false },
+                            groups = menu,
+                            progressBusy = progressBusy,
+                            onItem = onMenuItem,
                         )
                     }
-                    BookActionsMenu(
-                        expanded = showMenu,
-                        onDismiss = { showMenu = false },
-                        isComplete = isComplete,
-                        hasProgress = hasProgress,
-                        isAdmin = isAdmin,
-                        canEditMetadata = canEditMetadata,
-                        actionsEnabled = actionsEnabled,
-                        onEditClick = {
-                            showMenu = false
-                            onEditClick()
-                        },
-                        onFindMetadataClick = {
-                            showMenu = false
-                            onFindMetadataClick()
-                        },
-                        onEditChaptersClick = {
-                            showMenu = false
-                            onEditChaptersClick()
-                        },
-                        onMarkCompleteClick = {
-                            showMenu = false
-                            onMarkCompleteClick()
-                        },
-                        onMarkNotStartedClick = {
-                            showMenu = false
-                            onMarkNotStartedClick()
-                        },
-                        onRestartClick = {
-                            showMenu = false
-                            onRestartClick()
-                        },
-                        onAddToCollectionClick = {
-                            showMenu = false
-                            onAddToCollectionClick()
-                        },
-                        onShareClick = {
-                            showMenu = false
-                            onShareClick()
-                        },
-                        onDeleteClick = {
-                            showMenu = false
-                            onDeleteClick()
-                        },
-                    )
                 }
             }
         },

@@ -130,11 +130,12 @@ fun DialogActions(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     confirmEnabled: Boolean = true,
+    confirmKind: ButtonKind = ButtonKind.Primary,
 ) {
     Div(attrs = { classes("dlg-actions") }) {
         Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         Button(
-            kind = ButtonKind.Primary,
+            kind = confirmKind,
             onClick = { if (confirmEnabled) onConfirm() },
             enabled = confirmEnabled,
         ) { Text(confirmLabel) }

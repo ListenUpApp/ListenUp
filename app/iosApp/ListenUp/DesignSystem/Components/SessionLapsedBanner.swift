@@ -3,7 +3,7 @@ import SwiftUI
 /// Non-blocking "Signed out — sign in to sync" banner shown while the session is lapsed.
 /// Never modal: browsing and downloaded playback stay fully usable underneath (M2/M3). The only
 /// navigation is the user tapping Sign in; it is dismissable for the session (Never Stranded — the
-/// app is never walled). A Liquid-Glass card matching `ServerUnreachableBanner`.
+/// app is never walled). A Liquid-Glass card.
 struct SessionLapsedBanner: View {
     var onSignIn: () -> Void
     @State private var dismissed = false

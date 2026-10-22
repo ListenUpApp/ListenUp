@@ -457,7 +457,7 @@ class AdminInboxPageTest :
             button(host, "Release 1").shouldNotBeNull().click()
             awaitFrame()
 
-            host.querySelector("dialog.dlg .dlg-t")?.textContent shouldBe "Release to everyone?"
+            host.querySelector("dialog.dlg .dlg-t")?.textContent shouldBe "Release to members?"
             host.querySelector("dialog.dlg .dlg-p")?.textContent shouldBe "Every member will be able to find and play it."
             host.querySelectorAll("dialog.dlg .dlg-actions button").asList().map { it.textContent } shouldBe
                 listOf("Cancel", "Release")
