@@ -1,30 +1,23 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// A pending multi-contributor picker: the choices and the dialog title.
-private struct ContributorPickerRequest: Identifiable {
-    let id = UUID()
-    let title: String
-    let choices: [ContributorNavRef]
-}
-
 /// The full-screen audiobook player, presented by `MainTabView` as a `fullScreenCover` that zooms
 /// out of the mini player's cover.
 ///
-/// Surface: opaque `systemBackground` under a soft cover-tint wash — the player is content, and
-/// HIG, Materials: "Don't use Liquid Glass in the content layer". Glass is kept for the floating
-/// header controls. The system presentation supplies what the old overlay hand-rolled: VoiceOver
-/// modality, the swipe-down dismiss, and the zoom back into the mini player.
+/// Surface: the cover's wash (player spec §3.9, the same `CoverThemeObserver` Book Detail and Home use), or the
+/// player's warm neutral until it resolves or when the cover gives none — the player is content, and HIG, Materials:
+/// "Don't use Liquid Glass in the content layer". Glass is kept for the floating header controls. The system
+/// presentation supplies VoiceOver modality, the swipe-down dismiss, and the zoom back into the mini player.
 ///
 /// Layout (`PlayerLayoutMode`, from the space actually available):
-/// - stacked: header · cover · titles · scrubber · transport · volume · secondary row
+/// - stacked: header · cover · titles · scrubber · transport (or the state card) · volume · settings row
 /// - compact height: the cover beside that column (a phone in landscape)
 /// - regular: the column beside the always-visible "Up Next" chapter pane (iPad)
 /// The cover takes the height the controls leave; when even the smallest cover would not fit
 /// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
-/// The accent is a legibility-clamped tint derived from the cover (coral until it
-/// resolves; coral on any failure — never stranded).
+/// The header reads Collapse · where the audio is · More. When the book can't play, or has finished, the shared state
+/// card takes the transport's place; everything else stays, so the reader's place stays in view (plan C5).
 struct FullScreenPlayerView: View {
     let observer: PlayerObserver
     /// Dismiss the player and navigate to the current book's detail screen.
@@ -36,9 +29,8 @@ struct FullScreenPlayerView: View {
 
     @State private var showChapterList: Bool = false
     @State private var showBoostPicker: Bool = false
-    /// Non-nil while the multi-contributor picker is shown; carries the choices + the title.
-    @State private var contributorPicker: ContributorPickerRequest?
-    @State private var tint: Color = .listenUpOrange
+    /// The cover's colours for the wash: neutral until known, at once on a revisit.
+    @State private var coverTheme = CoverThemeObserver()
     /// The global default boost — the boost sheet needs it passed in for its "Use default" row
     /// (read from `PlaybackPreferences` each time the sheet opens, so it is never stale). `nil` means "not known yet", which is NOT the same as 0 dB: the
     /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
@@ -48,6 +40,7 @@ struct FullScreenPlayerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dependencies) private var deps
 
@@ -63,13 +56,21 @@ struct FullScreenPlayerView: View {
             )
             layout(mode, in: proxy.size)
         }
-        // Only the background runs edge to edge; the controls keep clear of the home indicator.
-        .background(tintedBackground)
-        // Never stranded: if a load fails while the full player is open, show an inline
-        // error + Retry over the (now empty) transport rather than a dead screen.
-        .overlay { if observer.isErrored { errorOverlay } }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
-        .task(id: observer.currentBookId) { resolveTint() }
+        // Only the background runs edge to edge; the controls keep clear of the home indicator. The wash is opaque, so
+        // Reduce Transparency changes nothing here.
+        .background(Self.wash(coverTheme.colors, scheme: colorScheme).ignoresSafeArea())
+        .task(id: "\(observer.currentBookId ?? "")#\(observer.coverHash ?? "")") {
+            if let bookId = observer.currentBookId { coverTheme.load(bookId: bookId, coverHash: observer.coverHash) }
+        }
+        .animation(CoverThemeMotion.animation(fadesIn: coverTheme.fadesIn, reduceMotion: reduceMotion),
+                   value: coverTheme.colors)
+        // A revoked book closes Now Playing (§5.6); the mini player then says why.
+        .onChange(of: observer.closesNowPlaying) { _, closes in
+            if closes { dismiss() }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "player.np_now_playing_ios"))
+        .accessibilityAddTraits(.isModal)
         // Keyed on the sheet so the default is re-read every time the boost picker opens: a
         // one-shot read races the first open (the row would offer 0 dB) and goes stale the moment
         // Settings changes the default while the player is up.
@@ -112,53 +113,9 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Background
 
-    /// Opaque and cover-tinted: `systemBackground` (light/dark adaptive) under a wash of the cover
-    /// accent that fades out by mid-screen.
-    private var tintedBackground: some View {
-        ZStack {
-            Color(.systemBackground)
-            LinearGradient(
-                colors: [tint.opacity(0.30), tint.opacity(0)],
-                startPoint: .top,
-                endPoint: .center
-            )
-        }
-        .ignoresSafeArea()
-    }
-
-    /// Inline failure surface for the full player — a centered card with the failure message and a
-    /// Retry that re-drives the errored book, so a failed load never leaves a dead screen.
-    private var errorOverlay: some View {
-        ZStack {
-            Color(.systemBackground).opacity(0.85).ignoresSafeArea()
-            VStack(spacing: 16) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(tint)
-                    .accessibilityHidden(true)
-                Text(observer.errorMessage ?? String(localized: "common.something_went_wrong"))
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.primary)
-                Button { observer.primaryAction() } label: {
-                    Text(observer.primary.errorActionTitle)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Color.luOnTint)
-                        .padding(.horizontal, Spacing.xxl)
-                        .frame(minHeight: 44)
-                        .background(Capsule().fill(tint))
-                }
-                .buttonStyle(.plain)
-                Button { observer.dismissError() } label: {
-                    Text("common.dismiss")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(Spacing.xxl)
-        }
+    /// The cover's wash, or the player's neutral when it has none.
+    static func wash(_ colors: CoverColors?, scheme: ColorScheme) -> Color {
+        colors?.wash ?? PlayerWashTone.color(for: scheme)
     }
 
     // MARK: - Layout
@@ -184,7 +141,7 @@ struct FullScreenPlayerView: View {
                 .frame(maxWidth: columnWidth)
                 .frame(maxWidth: .infinity)
 
-                NowPlayingUpNextPanel(observer: observer, tint: tint)
+                NowPlayingUpNextPanel(observer: observer)
             }
         case .compactHeight:
             VStack(spacing: 0) {
@@ -242,13 +199,23 @@ struct FullScreenPlayerView: View {
     /// is measured so the cover can take exactly what is left.
     private func controlsColumn(showsChapters: Bool, showsVolume: Bool) -> some View {
         VStack(spacing: 0) {
-            titleBlock
+            NowPlayingTitleBlock(observer: observer, onViewContributor: onViewContributor)
             Spacer().frame(height: 18)
             // Chapter-scoped progress — its own view so its per-frame position reads don't
-            // re-evaluate the rest of the player.
-            ChapterScrubberSection(observer: observer, tint: tint)
+            // re-evaluate the rest of the player. Still under a problem card, live on a finished book (a seek there is
+            // Listen Again from that point, §4.5).
+            ChapterScrubberSection(observer: observer)
+                .disabled(isShowingProblem)
             Spacer().frame(height: 14)
-            PlayerTransportControls(observer: observer)
+            if let card = observer.card {
+                PlayerStateCardView(
+                    card: card,
+                    onAction: { observer.onCardAction($0) },
+                    onRate: { observer.rate(halfStars: $0) }
+                )
+            } else {
+                PlayerTransportControls(observer: observer)
+            }
             if showsVolume {
                 Spacer().frame(height: 8)
                 SystemVolumeSlider()
@@ -256,15 +223,19 @@ struct FullScreenPlayerView: View {
             Spacer().frame(height: 12)
             PlayerSecondaryControls(
                 observer: observer,
-                tint: tint,
                 showsChaptersControl: showsChapters,
-                onShowChapters: { showChapterList = true },
-                onShowBoost: { showBoostPicker = true }
+                onShowChapters: { showChapterList = true }
             )
             Spacer().frame(height: 8)
         }
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
+    }
+
+    /// A problem card is up: the scrubber has nothing to seek.
+    private var isShowingProblem: Bool {
+        if case .problem = observer.card?.kind { return true }
+        return false
     }
 
     private func cover(side: CGFloat) -> some View {
@@ -291,17 +262,13 @@ struct FullScreenPlayerView: View {
 
             Spacer()
 
-            if observer.totalChapters > 0 {
-                Text(String(
-                    format: String(localized: "player.chapter_of"),
-                    "\(observer.chapterIndex + 1)",
-                    "\(observer.totalChapters)"
-                ))
+            // Where the audio comes from or goes to (§3.1): plain status text, not a chip (HIG; plan F7). Casting reads
+            // in the tint's text ink.
+            Text(observer.statusText)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(observer.isCasting ? Color.luTintInk : Color.secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-            }
+                .lineLimit(1)
 
             Spacer()
 
@@ -325,125 +292,32 @@ struct FullScreenPlayerView: View {
             .accessibilityShowsLargeContentViewer()
     }
 
+    /// The shared More menu (§5.5.7): the places, then Close Book in its own section, destructive (HIG, Menus). Go to
+    /// Author and Go to Narrator are gone: the byline's names are the way there.
     private var moreMenu: some View {
         Menu {
-            Button(action: onViewDetails) {
-                Label(String(localized: "player.go_to_book"), systemImage: "book")
-            }
-            if observer.firstPdfDocId != nil {
-                Button(action: { observer.openCurrentBookPdf() }) {
-                    Label(String(localized: "player.open_pdf"), systemImage: "doc.richtext")
+            ForEach(Array(observer.menu.enumerated()), id: \.offset) { _, section in
+                Section {
+                    ForEach(section.rows, id: \.self) { row in
+                        Button(role: section.isDestructive ? .destructive : nil) { perform(row) } label: {
+                            Label(row.title, systemImage: row.systemImage)
+                        }
+                    }
                 }
-            }
-            if let seriesId = observer.seriesId {
-                Button(action: { onViewSeries(seriesId) }) {
-                    Label(String(localized: "player.go_to_series"), systemImage: "books.vertical")
-                }
-            }
-            contributorButton(
-                observer.authors,
-                single: "player.go_to_author",
-                multiple: "player.go_to_author_multiple",
-                systemImage: "person"
-            )
-            contributorButton(
-                observer.narrators,
-                single: "player.go_to_narrator",
-                multiple: "player.go_to_narrator_multiple",
-                systemImage: "mic"
-            )
-            Divider()
-            Button(role: .destructive, action: { observer.closeBook() }) {
-                Label(String(localized: "player.close_book"), systemImage: "xmark")
             }
         } label: {
             headerGlyph("ellipsis")
         }
         .accessibilityLabel(String(localized: "player.more_options"))
-        .confirmationDialog(
-            contributorPicker?.title ?? "",
-            isPresented: Binding(get: { contributorPicker != nil }, set: { if !$0 { contributorPicker = nil } }),
-            titleVisibility: .visible
-        ) {
-            ForEach(contributorPicker?.choices ?? []) { choice in
-                Button(choice.name) {
-                    contributorPicker = nil
-                    onViewContributor(choice.id)
-                }
-            }
-        }
     }
 
-    /// A "Go to Author/Narrator" menu button: hidden when there are none, a direct navigation for
-    /// one, and a picker for several (matching the Android overflow's single-vs-"…" behaviour).
-    @ViewBuilder
-    private func contributorButton(
-        _ refs: [ContributorNavRef],
-        single: String.LocalizationValue,
-        multiple: String.LocalizationValue,
-        systemImage: String
-    ) -> some View {
-        if refs.count == 1, let only = refs.first {
-            Button(action: { onViewContributor(only.id) }) {
-                Label(String(localized: single), systemImage: systemImage)
-            }
-        } else if refs.count > 1 {
-            Button(action: {
-                contributorPicker = ContributorPickerRequest(title: String(localized: multiple), choices: refs)
-            }) {
-                Label(String(localized: multiple), systemImage: systemImage)
-            }
-        }
-    }
-
-    // MARK: - Title block
-
-    /// Titles wrap rather than truncate as text grows — HIG, Typography: "aim to display as much
-    /// useful text at the largest accessibility font size as you do at the largest standard size".
-    private var titleBlock: some View {
-        let isLarge = dynamicTypeSize.isAccessibilitySize
-        return VStack(alignment: .leading, spacing: 3) {
-            Text(observer.bookTitle)
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .lineLimit(isLarge ? 3 : 2)
-
-            // The chapter's own title; fall back to "Chapter N" only when genuinely untitled.
-            // No "Ch. N · " prefix — the title is often itself "Chapter N", producing confusing
-            // duplicates like "Ch. 3 · Chapter 1" when front-matter offsets the numbering.
-            Text(observer.chapterTitle.flatMap { $0.isEmpty ? nil : $0 }
-                ?? String(format: String(localized: "player.chapter_number"), observer.chapterIndex + 1))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(isLarge ? 3 : 1)
-
-            if !observer.narratorName.isEmpty {
-                Text(String(format: String(localized: "book.detail_narrated_by_value"), observer.narratorName))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(isLarge ? 2 : 1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    // MARK: - Tint
-
-    /// Resolves the cover accent. Coral until extraction lands; coral on any failure
-    /// (never stranded). Keyed on the book id so the cache entry is shared with Book
-    /// Detail (placeholder `coverPath`s never collide); falls back to `coverPath` only
-    /// when the id is unknown.
-    private func resolveTint() {
-        guard let cacheKey = observer.currentBookId ?? observer.coverPath else { return }
-        if let cached = CoverTintExtractor.shared.cached(bookId: cacheKey) {
-            tint = cached.color
-            return
-        }
-        Task {
-            if let resolved = await CoverTintExtractor.shared.resolve(bookId: cacheKey, coverPath: observer.coverPath) {
-                tint = resolved.color
-            }
+    private func perform(_ row: PlayerMenuModel.Row) {
+        switch row {
+        case .goToBook: onViewDetails()
+        case .goToSeries(let seriesId): onViewSeries(seriesId)
+        case .openPdf: observer.openCurrentBookPdf()
+        case .volumeBoost: showBoostPicker = true
+        case .closeBook: observer.closeBook()
         }
     }
 }
