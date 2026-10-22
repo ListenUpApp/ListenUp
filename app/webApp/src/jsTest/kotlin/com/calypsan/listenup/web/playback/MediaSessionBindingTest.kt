@@ -20,6 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
+import com.calypsan.listenup.client.domain.model.LoadedBook
 import kotlinx.coroutines.withTimeout
 
 /** How long a spec waits for a mirror that SHOULD reach the bridge. */
@@ -137,6 +139,7 @@ private fun session(
     PlaybackSession(
         state = state,
         progress = MutableStateFlow(playerProgress(positionMs = POSITION_MS, durationMs = DURATION_MS)),
+        loadedBook = flowOf(LoadedBook.NothingLoaded),
         overlay = MutableStateFlow(PlayerOverlay.None),
         preparingBookId = MutableStateFlow<String?>(null),
         boostUnavailable = MutableStateFlow(false),

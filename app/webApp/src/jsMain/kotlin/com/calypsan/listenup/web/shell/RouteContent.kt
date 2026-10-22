@@ -17,7 +17,9 @@ import com.calypsan.listenup.web.features.library.LibraryRouteContent
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.SeriesListRoute
 import com.calypsan.listenup.web.features.notifications.NotificationsRoute
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingRoute
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.web.features.nowplaying.PlayingReturn
 import com.calypsan.listenup.web.features.profile.ProfileRouteContent
 import com.calypsan.listenup.web.features.search.SearchRouteContent
 import com.calypsan.listenup.web.features.seriesdetail.SeriesRouteContent
@@ -33,6 +35,7 @@ import com.calypsan.listenup.web.nav.EDIT_KEY
 import com.calypsan.listenup.web.nav.HOME_KEY
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
 import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
+import com.calypsan.listenup.web.nav.PLAYING_KEY
 import com.calypsan.listenup.web.nav.PROFILE_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -63,6 +66,7 @@ internal fun RouteContent(
     librarySession: LibrarySession,
     inbox: InboxBadgeState,
     playback: PlaybackSession,
+    playingReturn: PlayingReturn,
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
 ) {
@@ -99,6 +103,8 @@ internal fun RouteContent(
         NotFoundPage(onGoHome = { router.navigate(Routes.home) })
     } else if (bulkEditIds.isNotEmpty()) {
         BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
+    } else if (page == PLAYING_KEY) {
+        NowPlayingRoute(router = router, playback = playback, playingReturn = playingReturn)
     } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,

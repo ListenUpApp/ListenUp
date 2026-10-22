@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.lifecycle.ViewModelStore
+import com.calypsan.listenup.client.domain.model.LoadedBook
+import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
 
@@ -38,6 +42,8 @@ class PlaybackSession(
     val state: StateFlow<PlayerUiState>,
     /** The playhead (~4 Hz), split from [state] so a tick re-renders only what shows the time. */
     val progress: StateFlow<PlayerProgress>,
+    /** Whether a book is loaded, `Restoring` until the local read is done: what `/playing` decides its redirect on. */
+    val loadedBook: Flow<LoadedBook>,
     /** Which picker the view model would have open. Web keeps its pickers' open flags in composition. */
     val overlay: StateFlow<PlayerOverlay>,
     /** The book a play request is in flight for, debounced (Book Detail's busy button). */
@@ -86,6 +92,7 @@ fun graphPlayback(koin: Koin): OpenPlayback =
             viewModel = koin.get(),
             playbackManager = koin.get(),
             audioPlayer = koin.get(),
+            loadedBooks = koin.get(),
         ).asSession()
     }
 
@@ -103,11 +110,13 @@ fun fixedPlayback(
     progress: PlayerProgress = PlayerProgress.Zero,
     preparingBookId: String? = null,
     boostUnavailable: Boolean = false,
+    loadedBook: Flow<LoadedBook> = flowOf(state.asLoadedBook()),
 ): OpenPlayback =
     {
         PlaybackSession(
             state = MutableStateFlow(state),
             progress = MutableStateFlow(progress),
+            loadedBook = loadedBook,
             overlay = MutableStateFlow(PlayerOverlay.None),
             preparingBookId = MutableStateFlow(preparingBookId),
             boostUnavailable = MutableStateFlow(boostUnavailable),
@@ -135,6 +144,22 @@ fun fixedPlayback(
         )
     }
 
+/** What a fixed [state] says about the loaded book, for [fixedPlayback]: a fixed state has nothing left to restore. */
+private fun PlayerUiState.asLoadedBook(): LoadedBook =
+    when (this) {
+        PlayerUiState.NothingLoaded -> {
+            LoadedBook.NothingLoaded
+        }
+
+        is PlayerUiState.Loaded -> {
+            LoadedBook.Loaded(
+                bookId = book.id,
+                isPlaying = phase == PlayerPhase.Playing,
+                isFinished = phase == PlayerPhase.Finished,
+            )
+        }
+    }
+
 /**
  * The shell's [PlayerViewModel], held in a [ViewModelStore] this session owns, plus the browser's gain stage.
  *
@@ -146,6 +171,7 @@ internal class LivePlayback(
     private val viewModel: PlayerViewModel,
     playbackManager: PlaybackManager,
     private val audioPlayer: HtmlAudioPlayer,
+    private val loadedBooks: LoadedBookRepository,
     private val scope: CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main + appCoroutineExceptionHandler),
 ) {
@@ -184,6 +210,7 @@ internal class LivePlayback(
         PlaybackSession(
             state = viewModel.uiState,
             progress = viewModel.progress,
+            loadedBook = loadedBooks.observe(),
             overlay = viewModel.overlay,
             preparingBookId = viewModel.preparingBookId,
             boostUnavailable = audioPlayer.boostUnavailable,
