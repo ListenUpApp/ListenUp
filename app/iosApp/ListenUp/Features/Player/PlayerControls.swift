@@ -4,6 +4,10 @@ import SwiftUI
 
 /// Previous chapter · skip back · play/pause · skip forward · next chapter. Every target is at
 /// least 44pt (HIG, Accessibility: controls need a 44×44pt hit area).
+///
+/// Previous always works while the transport shows: at a chapter's start it goes to the one before, and in chapter 1
+/// it restarts it (player spec §3.3). Next is off at the last chapter. Back and forward keep their places and are off
+/// while there is no settled position to skip from (a stall re-buffers; spec S12), so the row never re-flows.
 struct PlayerTransportControls: View {
     let observer: PlayerObserver
 
@@ -18,8 +22,8 @@ struct PlayerTransportControls: View {
 
     @ScaledMetric(relativeTo: .title) private var playButtonSize: CGFloat = 76
 
-    private var hasPreviousChapter: Bool { observer.showsSkipBack && observer.chapterIndex > 0 }
     private var hasNextChapter: Bool { observer.canSkipToNextChapter }
+    private var canSkip: Bool { observer.showsSkipBack }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -27,7 +31,7 @@ struct PlayerTransportControls: View {
                 systemImage: "backward.end.fill",
                 font: .title3,
                 label: String(localized: "player.previous_chapter"),
-                isEnabled: hasPreviousChapter
+                hint: String(localized: "player.np_previous_chapter_hint")
             ) {
                 observer.previousChapter()
             }
@@ -37,7 +41,8 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)")
+                label: String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)"),
+                isEnabled: canSkip
             ) {
                 observer.skipBackward()
             }
@@ -51,7 +56,8 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)")
+                label: String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)"),
+                isEnabled: canSkip
             ) {
                 observer.skipForward()
             }
@@ -75,6 +81,7 @@ struct PlayerTransportControls: View {
         systemImage: String,
         font: Font,
         label: String,
+        hint: String? = nil,
         isEnabled: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
@@ -91,10 +98,11 @@ struct PlayerTransportControls: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(label)
+        .accessibilityHint(hint ?? "")
     }
 
-    /// The coral play/pause disc. No coloured glow beneath it: a tinted shadow reads as a second,
-    /// blurred control and the HIG keeps depth for layering, not decoration.
+    /// The main control as a coral glyph with no fill (HIG, Playing audio: play and pause are the system's large glyphs in
+    /// the tint), in a 76pt target. While busy it is a spinner, and a tap still pauses a stall.
     private var playPauseButton: some View {
         Button {
             playPauseWillBeActive = !observer.isPlaybackActive
@@ -102,43 +110,41 @@ struct PlayerTransportControls: View {
             observer.primaryAction()
         } label: {
             ZStack {
-                Circle()
-                    .fill(Color.listenUpOrange)
-                if observer.isBuffering {
-                    // Honest buffering: a spinner while the stream loads, not a pause glyph
-                    // that implies audio is flowing when it isn't yet.
+                if observer.primary == .busy {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .controlSize(.large)
-                        .tint(Color.luOnTint)
+                        .tint(Color.luTint)
                 } else {
-                    // `isPlaybackActive` here means "playing" (buffering handled above); it
-                    // reads "pause" while playing because a tap pauses.
                     Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
-                        .font(.title)
-                        .foregroundStyle(Color.luOnTint)
+                        .font(.system(size: 52)) // decorative fixed size: the glyph fills its 76pt target
+                        .foregroundStyle(Color.luTint)
                         .contentTransition(.symbolEffect(.replace.downUp))
                 }
             }
             .frame(width: playButtonSize, height: playButtonSize)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: observer.isPlaybackActive ? "player.pause" : "player.play"))
+        .accessibilityLabel(playLabel)
+    }
+
+    private var playLabel: String {
+        if observer.primary == .busy { return String(localized: "player.mini_busy_a11y") }
+        return String(localized: observer.isPlaybackActive ? "player.pause" : "player.play")
     }
 }
 
 // MARK: - Secondary controls
 
-/// Speed · Sleep · Chapters · AirPlay · Boost, each a 44pt control over a caption. Each control
+/// Speed · Sleep · Chapters · AirPlay, each a 44pt control over a caption (Volume Boost lives in More, §5.5.7). Each control
 /// names itself to VoiceOver (label + value), so the visible caption is hidden from it rather than
 /// read twice. At accessibility text sizes the row becomes a list of control-beside-caption rows,
 /// which the player column scrolls (HIG, Typography: "consider using a stacked layout").
 struct PlayerSecondaryControls: View {
     let observer: PlayerObserver
-    let tint: Color
     let showsChaptersControl: Bool
     let onShowChapters: () -> Void
-    let onShowBoost: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -157,7 +163,11 @@ struct PlayerSecondaryControls: View {
 
             item(caption: String(localized: "player.sleep")) {
                 SleepTimerMenu(observer: observer) {
-                    glyph(observer.sleepTimerActive ? "moon.zzz.fill" : "moon.zzz", tinted: observer.sleepTimerActive)
+                    if observer.sleepTimerActive {
+                        sleepCountdown
+                    } else {
+                        glyph("moon.zzz")
+                    }
                 }
             }
 
@@ -171,16 +181,10 @@ struct PlayerSecondaryControls: View {
 
             // AirPlay's system route picker voices itself; its caption stays readable beside it.
             item(caption: String(localized: "player.airplay"), captionIsSpoken: true) {
-                RoutePickerView(tint: Color(.label), activeTint: tint)
+                RoutePickerView(tint: Color(.label), activeTint: .luTint)
                     .frame(width: 44, height: 44)
             }
 
-            item(caption: String(localized: "player.boost")) {
-                Button(action: onShowBoost) { pill(BoostPickerSheet.formatBoostPill(observer.volumeBoostDb)) }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "player.volume_boost"))
-                    .accessibilityValue(BoostPickerSheet.formatBoost(observer.volumeBoostDb))
-            }
         }
     }
 
@@ -216,11 +220,31 @@ struct PlayerSecondaryControls: View {
             .contentShape(Rectangle())
     }
 
-    private func glyph(_ systemImage: String, tinted: Bool = false) -> some View {
+    private func glyph(_ systemImage: String) -> some View {
         Image(systemName: systemImage)
             .font(.title3)
-            .foregroundStyle(tinted ? tint : .primary)
+            .foregroundStyle(.primary)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
+    }
+
+    /// An armed timer counts down in the sleep gold (§3.9) instead of showing a filled moon: the time left is the
+    /// state, not the glyph's fill. "End of chapter" shows the moon on gold.
+    private var sleepCountdown: some View {
+        Group {
+            if observer.sleepTimerIsEndOfChapter {
+                Image(systemName: "moon.zzz.fill")
+            } else {
+                Text(observer.sleepTimerLabel).monospacedDigit()
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Color.luOnSleepGold)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xxs)
+        .frame(minHeight: 28)
+        .background(Color.luSleepGold, in: Capsule())
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
     }
 }

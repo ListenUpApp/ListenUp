@@ -34,6 +34,13 @@ extension Color {
     /// is deepened; the glyph keeps the meaning off colour alone.
     static let luPlayerError = Color(ColorResource.playerErrorRed)
 
+    /// An armed sleep timer's container on Now Playing — the `SleepGoldContainer` Color Set: `#F6E1C4` light, `#4A3414`
+    /// dark (`#3D2600` dark under Increase Contrast), the player spec's sleep gold (§3.9). Its countdown takes
+    /// `luOnSleepGold`, 9:1 or more in every appearance (`BrandColorContrastTests`).
+    static let luSleepGold = Color(ColorResource.sleepGoldContainer)
+    /// The countdown's ink on `luSleepGold` — the `SleepGoldInk` Color Set: `#4A2E00` light, `#FFDDB0` dark.
+    static let luOnSleepGold = Color(ColorResource.sleepGoldInk)
+
     /// Grouped screen background (`--sys-bg`).
     static let luSurface = Color(.systemGroupedBackground)
     /// Inset-list / card surface (`--sys-bg-2`).
@@ -66,6 +73,7 @@ extension Color {
     let swatches: [(String, Color)] = [
         ("luTint", .luTint), ("luOnTint", .luOnTint), ("luTintInk", .luTintInk),
         ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
+        ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel3", .luLabel3)
