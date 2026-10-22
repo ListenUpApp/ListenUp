@@ -29,7 +29,8 @@ import org.robolectric.RobolectricTestRunner
  * reading it in the parent scope — the chrome probe would recompose on every tick, which is the
  * regression this guards.
  *
- * JUnit4 + Robolectric (consistent with [WavySeekBarTest]).
+ * JUnit4 + Robolectric (consistent with
+ * [com.calypsan.listenup.client.design.components.PlaybackSliderTest]).
  */
 @RunWith(RobolectricTestRunner::class)
 class NowPlayingProgressRecompositionTest {
@@ -52,8 +53,7 @@ class NowPlayingProgressRecompositionTest {
                 // Leaf — reads progress through the deferred lambda.
                 PlayerScrubber(
                     progress = { progress },
-                    isPlaying = true,
-                    isBuffering = false,
+                    isBusy = false,
                     onSeek = {},
                 )
             }

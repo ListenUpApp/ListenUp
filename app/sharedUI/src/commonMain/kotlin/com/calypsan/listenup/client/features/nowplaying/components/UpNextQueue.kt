@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
+import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res

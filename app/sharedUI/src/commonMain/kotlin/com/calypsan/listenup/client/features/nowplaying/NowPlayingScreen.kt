@@ -32,7 +32,6 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.time.Duration
 
 // Drag-to-dismiss: release past a third of the screen height collapses the player.
 private const val DRAG_DISMISS_FRACTION = 0.33f
@@ -307,23 +306,5 @@ fun NowPlayingScreen(
                 )
             }
         }
-    }
-}
-
-// Extension function for formatting playback time
-fun Duration.formatPlaybackTime(): String {
-    val hours = inWholeHours
-    val minutes = inWholeMinutes % 60
-    val seconds = inWholeSeconds % 60
-
-    // ASCII digits in every locale, like DurationFormatter, so one screen never mixes two numeral
-    // systems; and plain padding rather than String.format, which commonMain cannot reach.
-    val clock = "$minutes:${seconds.toString().padStart(2, '0')}"
-    return if (hours >
-        0
-    ) {
-        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        clock
     }
 }

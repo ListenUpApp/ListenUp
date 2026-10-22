@@ -67,15 +67,13 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
+import com.calypsan.listenup.client.design.components.PlaybackSlider
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Full-screen now-playing view for desktop.
@@ -402,10 +400,8 @@ private fun TallLayout(
 
         Spacer(Modifier.height(24.dp))
 
-        // Wavy seek bar
         SeekSection(
             progress = progress,
-            isPlaying = state.isPlaying,
             onSeek = onSeek,
         )
 
@@ -496,7 +492,6 @@ private fun WideLayout(
 
             SeekSection(
                 progress = progress,
-                isPlaying = state.isPlaying,
                 onSeek = onSeek,
             )
 
@@ -724,43 +719,21 @@ private fun TitleSection(
     }
 }
 
-/**
- * Wavy seek bar with time labels.
- * Uses the shared WavySeekBar composable from commonMain.
- */
+/** The shared playback slider, chapter-scoped, with its time labels. */
 @Composable
 private fun SeekSection(
     progress: () -> PlayerProgress,
-    isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth().widthIn(max = 480.dp)) {
-        WavySeekBar(
-            progress = progress().chapterFraction.coerceIn(0f, 1f),
-            onSeek = onSeek,
-            isPlaying = isPlaying,
-        )
-
-        // Time labels
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            val positionMs = progress().chapterPositionMs
-            val durationMs = progress().chapterDurationMs
-            Text(
-                text = positionMs.milliseconds.formatPlaybackTime(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "-${(durationMs - positionMs).coerceAtLeast(0).milliseconds.formatPlaybackTime()}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    val p = progress()
+    PlaybackSlider(
+        fraction = p.chapterFraction.coerceIn(0f, 1f),
+        elapsedMs = p.chapterPositionMs,
+        durationMs = p.chapterDurationMs,
+        onSeek = onSeek,
+        modifier = modifier.fillMaxWidth().widthIn(max = 480.dp),
+    )
 }
 
 /**
