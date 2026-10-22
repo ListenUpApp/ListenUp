@@ -217,13 +217,13 @@ fun NowPlayingPage(
                 BookCard(state, progress)
                 PhoneControls(state, progress, actions, pickers, card)
                 // Wider, the bar is the transport; the card sits at the foot of the book column (§5.6).
-                card?.let { Div(attrs = { classes("np-desk", "np-cardslot") }) { StateCard(it, book.id, actions) } }
+                card?.let { Div(attrs = { classes(DESK, "np-cardslot") }) { StateCard(it, book.id, actions) } }
             }
             // A chapterless book has no list; the book column then takes the width.
             if (state.chapters.isNotEmpty()) {
                 Section(attrs = {
-                    classes("np-listcol", "np-desk")
-                    attr("aria-label", CHAPTERS)
+                    classes("np-listcol", DESK)
+                    attr(ATTR_LABEL, CHAPTERS)
                 }) {
                     NowPlayingChapterList(
                         rows = state.chapters,
@@ -245,13 +245,13 @@ private fun PageHeader(
     onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
     Header(attrs = { classes("np-head") }) {
-        HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, "np-mob", actions.onCollapse)
-        HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, "np-desk", actions.onCollapse)
+        HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, MOB, actions.onCollapse)
+        HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, actions.onCollapse)
         H1(attrs = { classes("np-h1") }) { Text(NowPlayingWords.NOW_PLAYING) }
         // Outside the heading, so the heading is never re-announced when the source changes (verify 6.12).
         Span(attrs = {
             classes("np-status")
-            attr("role", "status")
+            attr(ATTR_ROLE, "status")
         }) { Text(NowPlayingWords.status(state.source)) }
         PlayerMoreMenu(state = state, onItem = onMenuItem)
     }
@@ -266,9 +266,9 @@ private fun HeaderButton(
 ) {
     Button(attrs = {
         classes("np-collapse", widthClass)
-        attr("type", "button")
-        attr("aria-label", label)
-        attr("title", label)
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_LABEL, label)
+        attr(ATTR_TITLE, label)
         onClick { onClick() }
     }) { Icon(icon, size = HEADER_ICON_SIZE) }
 }
@@ -285,7 +285,7 @@ private fun BookIdentity(
     A(href = bookHref, attrs = {
         classes("np-cover")
         attr("tabindex", "-1")
-        attr("aria-hidden", "true")
+        attr(ATTR_HIDDEN, VALUE_TRUE)
         onClick { event ->
             if (event.isPlainPrimaryClick()) {
                 event.preventDefault()
@@ -305,7 +305,7 @@ private fun BookIdentity(
     SeriesLine(book.series, actions.onOpenSeries)
     H2(attrs = { classes("np-title") }) {
         AppLink(href = bookHref, onOpen = { actions.onOpenBook(book.id) }, attrs = {
-            attr("aria-label", NowPlayingWords.goToBook(book.title))
+            attr(ATTR_LABEL, NowPlayingWords.goToBook(book.title))
         }) {
             Text(book.title)
             Icon(WebIcon.ChevronRight, size = TITLE_ICON_SIZE)
@@ -390,13 +390,13 @@ private fun BookCard(
     state: PlayerUiState.Loaded,
     progress: PlayerProgress,
 ) {
-    Div(attrs = { classes("np-bookcard", "np-desk") }) {
+    Div(attrs = { classes("np-bookcard", DESK) }) {
         P(attrs = { classes("np-ch") }) { Text(NowPlayingWords.chapterLine(state.chapter)) }
         P(attrs = { classes("np-left") }) { Text(NowPlayingWords.leftInChapter(progress.chapterRemainingMs)) }
         Div(attrs = {
             classes("np-bookbar")
-            attr("role", "img")
-            attr("aria-label", NowPlayingWords.bookProgress(progress.bookPercent))
+            attr(ATTR_ROLE, "img")
+            attr(ATTR_LABEL, "Book progress ${progress.bookPercent} percent")
         }) {
             Div(attrs = {
                 classes("np-bookbar-fill")
@@ -479,7 +479,7 @@ private fun PhoneControls(
     pickers: PagePickers,
     card: PlayerCard?,
 ) {
-    Div(attrs = { classes("np-phone", "np-mob") }) {
+    Div(attrs = { classes("np-phone", MOB) }) {
         P(attrs = { classes("np-ch") }) { Text(NowPlayingWords.chapterLine(state.chapter)) }
         Div(attrs = { classes("np-scrubber") }) {
             Playhead(
@@ -524,9 +524,9 @@ private fun PhoneTransport(
     Div(attrs = { classes("np-transport") }) {
         Button(attrs = {
             classes("np-step", "np-prev")
-            attr("type", "button")
-            attr("aria-label", PREVIOUS_CHAPTER)
-            attr("title", PREVIOUS_CHAPTER)
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_LABEL, PREVIOUS_CHAPTER)
+            attr(ATTR_TITLE, PREVIOUS_CHAPTER)
             attr("aria-description", NowPlayingWords.PREVIOUS_HINT)
             onClick { actions.onPreviousChapter() }
         }) { Icon(WebIcon.ChapterPrevious, size = STEP_ICON_SIZE) }
@@ -549,9 +549,9 @@ private fun PhoneTransport(
         )
         Button(attrs = {
             classes("np-step", "np-next")
-            attr("type", "button")
-            attr("aria-label", NEXT_CHAPTER)
-            attr("title", NEXT_CHAPTER)
+            attr(ATTR_TYPE, VALUE_BUTTON)
+            attr(ATTR_LABEL, NEXT_CHAPTER)
+            attr(ATTR_TITLE, NEXT_CHAPTER)
             if (!state.canSkipToNextChapter) disabled()
             onClick { actions.onNextChapter() }
         }) { Icon(WebIcon.ChapterNext, size = STEP_ICON_SIZE) }
@@ -568,15 +568,15 @@ internal fun PlayCircle(
     Button(attrs = {
         classes("np-play")
         if (state.primary == PrimaryControl.TapToPlay) classes("ring")
-        attr("type", "button")
-        attr("aria-label", label)
-        attr("title", label)
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_LABEL, label)
+        attr(ATTR_TITLE, label)
         onClick { onPrimary() }
     }) {
         if (state.primary == PrimaryControl.Busy) {
             Div(attrs = {
                 classes("tport-wait")
-                attr("aria-hidden", "true")
+                attr(ATTR_HIDDEN, VALUE_TRUE)
             })
         } else {
             Icon(primaryIcon(state.primary), size = PLAY_ICON_SIZE)
@@ -596,16 +596,16 @@ private fun SkipButton(
 ) {
     Button(attrs = {
         classes("np-skip", extraClass)
-        attr("type", "button")
-        attr("aria-label", label)
-        attr("title", label)
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_LABEL, label)
+        attr(ATTR_TITLE, label)
         if (!enabled) disabled()
         onClick { onClick() }
     }) {
         Icon(icon, size = SKIP_ICON_SIZE)
         Span(attrs = {
             classes("np-skip-n")
-            attr("aria-hidden", "true")
+            attr(ATTR_HIDDEN, VALUE_TRUE)
         }) { Text(seconds.toString()) }
     }
 }
@@ -639,8 +639,8 @@ private fun Pill(
     Button(attrs = {
         classes("np-pill")
         if (on) classes("on")
-        attr("type", "button")
-        label?.let { attr("aria-label", it) }
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        label?.let { attr(ATTR_LABEL, it) }
         onClick { onClick() }
     }) { Text(text) }
 }
@@ -670,3 +670,23 @@ private const val TITLE_ICON_SIZE = 20
 private const val FOLD_AFTER = 3
 
 private const val PERCENT = 100
+
+private const val ATTR_TYPE = "type"
+
+private const val VALUE_BUTTON = "button"
+
+private const val ATTR_LABEL = "aria-label"
+
+private const val ATTR_TITLE = "title"
+
+private const val ATTR_HIDDEN = "aria-hidden"
+
+private const val ATTR_ROLE = "role"
+
+private const val VALUE_TRUE = "true"
+
+/** Shown from 760px, where the bar is the transport. */
+private const val DESK = "np-desk"
+
+/** Shown below 760px, where the page is the whole screen. */
+private const val MOB = "np-mob"

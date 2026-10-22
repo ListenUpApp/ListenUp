@@ -62,9 +62,6 @@ internal object NowPlayingWords {
             else -> chapter.title.ifBlank { counter(chapter.number, chapter.total) }
         }
 
-    /** C6, the one place the counter's rule lives: only beside a real title, never for a chapterless book. */
-    fun showsCounter(chapter: PlayerChapter): Boolean = !chapter.isWholeBook && !chapter.isGenericTitle
-
     /** The current chapter row's visible line: "Playing · 8m left", the bar's own minute wording. */
     fun playingLeft(remainingMs: Long): String = "Playing · ${shortDuration(remainingMs)} left"
 
@@ -116,21 +113,7 @@ internal object NowPlayingWords {
 
     /** The More menu's trigger, named for the book (WCAG 2.4.6, Book Detail's precedent). */
     fun moreFor(title: String): String = "More actions for $title"
-
-    /** A chapter row's name: "Chapter 6, Bridge Four, 20 minutes". */
-    fun chapterRowLabel(
-        number: Int,
-        title: String,
-        durationMs: Long,
-    ): String = "Chapter $number, $title, ${spokenDuration(durationMs)}"
-
-    /** The current row's name: "Chapter 6, Bridge Four, playing, 8 minutes left". */
-    fun currentRowLabel(
-        number: Int,
-        title: String,
-        remainingMs: Long,
-    ): String = "Chapter $number, $title, playing, ${spokenDuration(remainingMs)} left"
-
-    /** The passive book bar's name. */
-    fun bookProgress(percent: Int): String = "Book progress $percent percent"
 }
+
+/** C6, the one place the counter's rule lives: only beside a real title, never for a chapterless book. */
+private fun showsCounter(chapter: PlayerChapter): Boolean = !chapter.isWholeBook && !chapter.isGenericTitle

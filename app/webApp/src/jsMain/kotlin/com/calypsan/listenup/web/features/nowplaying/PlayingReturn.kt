@@ -4,6 +4,7 @@ import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.AddEventListenerOptions
 import org.w3c.dom.events.Event
 
 /**
@@ -41,13 +42,11 @@ class PlayingReturn {
         if (openedInApp) {
             openedInApp = false
             isClosing = true
-            lateinit var onPop: (Event) -> Unit
-            onPop = {
+            val onPop: (Event) -> Unit = {
                 isClosing = false
-                window.removeEventListener("popstate", onPop)
                 window.requestAnimationFrame { returnTo?.takeIf { it.isConnected }?.focus() }
             }
-            window.addEventListener("popstate", onPop)
+            window.addEventListener("popstate", onPop, AddEventListenerOptions(once = true))
             window.history.back()
         } else {
             router.replace(Routes.home)

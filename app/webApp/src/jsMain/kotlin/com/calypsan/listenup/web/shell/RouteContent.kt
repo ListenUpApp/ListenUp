@@ -84,7 +84,6 @@ internal fun RouteContent(
     // `/series/{id}` — a route of its own for the same reason a contributor's page is one: a
     // series is something you arrive at and link to, not a filter over the library grid.
     val seriesId = route.idUnder(SERIES_KEY)
-    val editingSeriesId = route.editTargetOf(seriesId)
     // `/tag/{id}`, `/mood/{id}`, `/genre/{id}` — the chips on a book lead somewhere. Each is a
     // route of its own rather than a filter over the library grid, for the reason a series is:
     // it is a place you arrive at and send someone a link to.
@@ -155,7 +154,7 @@ internal fun RouteContent(
     } else if (seriesId != null) {
         SeriesRouteContent(
             seriesId = seriesId,
-            editingSeriesId = editingSeriesId,
+            editingSeriesId = route.editTargetOf(seriesId),
             router = router,
             openSeriesDetail = graph.openSeriesDetail,
             openSeriesEdit = graph.openSeriesEdit,

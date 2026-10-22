@@ -116,9 +116,9 @@ private fun ChapterRow(
             attr(
                 "aria-label",
                 if (isCurrent) {
-                    NowPlayingWords.currentRowLabel(row.number, row.title, chapterRemainingMs)
+                    currentRowLabel(row.number, row.title, chapterRemainingMs)
                 } else {
-                    NowPlayingWords.chapterRowLabel(row.number, row.title, row.durationMs)
+                    chapterRowLabel(row.number, row.title, row.durationMs)
                 },
             )
             onClick { onPick(row.index) }
@@ -136,6 +136,20 @@ private fun ChapterRow(
         }
     }
 }
+
+/** A chapter row's name: "Chapter 6, Bridge Four, 20 minutes". */
+private fun chapterRowLabel(
+    number: Int,
+    title: String,
+    durationMs: Long,
+): String = "Chapter $number, $title, ${spokenDuration(durationMs)}"
+
+/** The current row's name: "Chapter 6, Bridge Four, playing, 8 minutes left". */
+private fun currentRowLabel(
+    number: Int,
+    title: String,
+    remainingMs: Long,
+): String = "Chapter $number, $title, playing, ${spokenDuration(remainingMs)} left"
 
 /** The row button at [index], or null. */
 private fun HTMLElement.rowAt(index: Int): HTMLElement? = querySelectorAll(".np-row").item(index) as? HTMLElement

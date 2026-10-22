@@ -54,8 +54,6 @@ fun TransportBarHost(
         onSetSpeed = playback.onSetSpeed,
         onResetSpeed = playback.onResetSpeed,
         onSeekToChapter = playback.onSeekToChapter,
-        onPreviousChapter = playback.onPreviousChapter,
-        onNextChapter = playback.onNextChapter,
         onSetSleepTimer = playback.onSetSleepTimer,
         onCancelSleepTimer = playback.onCancelSleepTimer,
         onExtendSleepTimer = playback.onExtendSleepTimer,

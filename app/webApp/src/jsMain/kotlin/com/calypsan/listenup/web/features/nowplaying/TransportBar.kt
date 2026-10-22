@@ -70,8 +70,6 @@ fun TransportBar(
     onSetSpeed: (Float) -> Unit,
     onResetSpeed: () -> Unit = {},
     onSeekToChapter: (Int) -> Unit = {},
-    onPreviousChapter: () -> Unit = {},
-    onNextChapter: () -> Unit = {},
     onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     onCancelSleepTimer: () -> Unit = {},
     onExtendSleepTimer: (Int) -> Unit = {},
