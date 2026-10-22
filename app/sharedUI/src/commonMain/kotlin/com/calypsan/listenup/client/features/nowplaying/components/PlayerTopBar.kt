@@ -88,9 +88,9 @@ fun PlayerTopBar(
     }
     val more: @Composable () -> Unit = { MoreMenu(state = state, includesSeries = !wide, onMenuItem = onMenuItem) }
     if (wide) {
-        WideTopBar(state, onCollapse, status, more, modifier)
+        WideTopBar(state = state, onCollapse = onCollapse, status = status, more = more, modifier = modifier)
     } else {
-        CompactTopBar(onCollapse, status, more, modifier)
+        CompactTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
     }
 }
 

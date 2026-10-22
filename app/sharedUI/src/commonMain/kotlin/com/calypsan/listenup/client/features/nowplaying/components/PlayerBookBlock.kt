@@ -110,9 +110,9 @@ internal fun PlayerTitleBlock(
 ) {
     val textAlign = if (alignment == Alignment.CenterHorizontally) TextAlign.Center else TextAlign.Start
     Column(modifier = modifier, horizontalAlignment = alignment) {
-        state.chapterCounter()?.takeIf { showsCounter }?.let {
+        state.chapterCounter()?.takeIf { showsCounter }?.let { counter ->
             Text(
-                text = it,
+                text = counter,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = textAlign,
@@ -143,18 +143,18 @@ internal fun PlayerTitleBlock(
                     Arrangement.Start
                 }
             Byline(
-                state.book.authors,
-                stringResource(Res.string.player_np_by),
-                onContributor,
-                onShowAuthors,
-                arrangement,
+                people = state.book.authors,
+                lead = stringResource(Res.string.player_np_by),
+                onContributor = onContributor,
+                onShowAll = onShowAuthors,
+                arrangement = arrangement,
             )
             Byline(
-                state.book.narrators,
-                stringResource(Res.string.player_np_read_by),
-                onContributor,
-                onShowNarrators,
-                arrangement,
+                people = state.book.narrators,
+                lead = stringResource(Res.string.player_np_read_by),
+                onContributor = onContributor,
+                onShowAll = onShowNarrators,
+                arrangement = arrangement,
             )
         }
     }

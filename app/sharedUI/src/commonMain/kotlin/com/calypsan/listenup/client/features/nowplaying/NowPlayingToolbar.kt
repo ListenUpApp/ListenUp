@@ -18,14 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +50,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryBu
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
 import com.calypsan.listenup.client.features.nowplaying.components.SleepSettingButton
 import com.calypsan.listenup.client.features.shell.components.NavigationRailWidth
-import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -61,11 +57,9 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_mini_open
-import listenup.composeapp.generated.resources.player_mini_sleep_left
 import listenup.composeapp.generated.resources.player_playback_speed
 import listenup.composeapp.generated.resources.player_skip_backward
 import listenup.composeapp.generated.resources.player_skip_forward
-import listenup.composeapp.generated.resources.player_sleep_timer
 import org.jetbrains.compose.resources.stringResource
 
 /** The narrowest toolbar that holds the whole wide set (§3.5); below it the scrubber and the settings step aside. */

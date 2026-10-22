@@ -160,30 +160,7 @@ fun NowPlayingHost(
                     },
                     onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
                     onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
-                    onMenuItem = { item ->
-                        when (item) {
-                            PlayerMenuItem.GoToBook -> {
-                                viewModel.goToBook()
-                            }
-
-                            is PlayerMenuItem.GoToSeries -> {
-                                viewModel.collapse()
-                                onNavigateToSeries(item.seriesId)
-                            }
-
-                            is PlayerMenuItem.OpenPdf -> {
-                                viewModel.openCurrentPdf()
-                            }
-
-                            is PlayerMenuItem.VolumeBoost -> {
-                                viewModel.showBoostPicker()
-                            }
-
-                            PlayerMenuItem.CloseBook -> {
-                                viewModel.closeBook()
-                            }
-                        }
-                    },
+                    onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries) },
                     onCardAction = viewModel::onCardAction,
                     onRate = viewModel::rate,
                     isTv = isTv,
@@ -339,6 +316,35 @@ private fun OverlayDispatch(
                     onDismiss = viewModel::hideOverlay,
                 )
             }
+        }
+    }
+}
+
+/** Now Playing's More menu: each row forwards to the view-model action it names (spec §5.5.7). */
+private fun PlayerViewModel.onMenuItem(
+    item: PlayerMenuItem,
+    onNavigateToSeries: (String) -> Unit,
+) {
+    when (item) {
+        PlayerMenuItem.GoToBook -> {
+            goToBook()
+        }
+
+        is PlayerMenuItem.GoToSeries -> {
+            collapse()
+            onNavigateToSeries(item.seriesId)
+        }
+
+        is PlayerMenuItem.OpenPdf -> {
+            openCurrentPdf()
+        }
+
+        is PlayerMenuItem.VolumeBoost -> {
+            showBoostPicker()
+        }
+
+        PlayerMenuItem.CloseBook -> {
+            closeBook()
         }
     }
 }

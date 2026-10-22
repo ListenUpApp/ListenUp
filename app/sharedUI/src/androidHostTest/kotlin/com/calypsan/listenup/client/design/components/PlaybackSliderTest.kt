@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -24,7 +23,7 @@ class PlaybackSliderTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private var seeks = mutableListOf<Float>()
+    private val seeks = mutableListOf<Float>()
 
     private fun slider(enabled: Boolean = true) {
         composeRule.setContent {

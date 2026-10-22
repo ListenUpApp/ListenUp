@@ -83,8 +83,20 @@ fun PlayerStateCard(
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
     when (card) {
-        is PlayerCard.Problem -> ProblemCard(card, onAction, modifier)
-        is PlayerCard.Finished -> FinishedCard(card, onAction, onRate, nowMs, zone, modifier)
+        is PlayerCard.Problem -> {
+            ProblemCard(card = card, onAction = onAction, modifier = modifier)
+        }
+
+        is PlayerCard.Finished -> {
+            FinishedCard(
+                card = card,
+                onAction = onAction,
+                onRate = onRate,
+                nowMs = nowMs,
+                zone = zone,
+                modifier = modifier,
+            )
+        }
     }
 }
 
@@ -95,7 +107,7 @@ private fun ProblemCard(
     modifier: Modifier,
 ) {
     val (container, ink) = card.tone.colors()
-    FlatCard(container, ink, modifier) {
+    FlatCard(container = container, ink = ink, modifier = modifier) {
         Text(
             card.error.playerTitle(),
             style = MaterialTheme.typography.titleMedium,
@@ -122,7 +134,11 @@ private fun FinishedCard(
     modifier: Modifier,
 ) {
     val info = card.info
-    FlatCard(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.colorScheme.onSurface, modifier) {
+    FlatCard(
+        container = MaterialTheme.colorScheme.surfaceContainer,
+        ink = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier,
+    ) {
         val meta =
             finishedMeta(
                 durationMs = info.durationMs,
@@ -133,7 +149,7 @@ private fun FinishedCard(
         val line =
             info.finishedAtMs?.let { "${finishedEyebrow(finishedDaysAgo(it, nowMs, zone))} · $meta" } ?: meta
         Text(
-            line,
+            text = line,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -203,14 +219,14 @@ private fun NextBookRow(next: NextInSeries) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                next.title,
+                text = next.title,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            next.sequenceLabel?.let {
+            next.sequenceLabel?.let { sequence ->
                 Text(
-                    stringResource(Res.string.player_np_next_in_series_book, it),
+                    stringResource(Res.string.player_np_next_in_series_book, sequence),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -202,7 +202,13 @@ private val compactCases: List<Pair<String, PlayerUiState.Loaded>> =
             mockActiveState.copy(
                 phase = PlayerPhase.Paused,
                 primary = PrimaryControl.Play,
-                sleepTimer = SleepTimerState.Active(SleepTimerMode.Duration(30), 1_421_000, 1_800_000, 0),
+                sleepTimer =
+                    SleepTimerState.Active(
+                        mode = SleepTimerMode.Duration(30),
+                        remainingMs = 1_421_000,
+                        totalMs = 1_800_000,
+                        startedAt = 0,
+                    ),
             ),
         "Compact — buffering (contained loading indicator)" to mockBufferingState,
         "Compact — a failure (error card)" to
