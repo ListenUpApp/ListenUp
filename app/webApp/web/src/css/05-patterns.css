@@ -609,6 +609,43 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-bookbar { height:4px; border-radius:var(--r-pill); background:var(--cover-track, var(--line)); overflow:hidden; }
 .np-bookbar-fill { height:100%; border-radius:inherit; background:var(--coral-fill); }
 
+/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · sentence · remaining, the transport, the pills. */
+.np-phone { flex-direction:column; align-items:stretch; gap:var(--sp-16); width:100%; }
+.np-scrubber { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:var(--sp-8) var(--sp-8); }
+.np-page .np-scrub { grid-column:1 / -1; grid-row:1; width:100%; height:20px; margin:0; accent-color:var(--coral-fill); cursor:pointer; }
+.np-page .np-scrubber > .np-time:first-child { grid-column:1; grid-row:2; }
+.np-page .np-scrubber > .np-sentence { grid-column:2; grid-row:2; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.np-page .np-scrubber > .np-time:last-child { grid-column:3; grid-row:2; }
+.np-page .np-time { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.np-page .np-transport { display:flex; align-items:center; justify-content:center; gap:18px; padding:0; }
+.np-page .np-play {
+  width:76px; height:76px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; background:var(--coral-fill); color:var(--on-coral);
+}
+@media (hover: hover) { .np-page .np-play:hover { background:var(--coral-fill-press); } }
+.np-page .np-play.ring { box-shadow:0 0 0 4px var(--np-wash), 0 0 0 7px var(--coral-fill); }
+.np-page .np-play:focus { outline:none; }
+.np-page .np-play:focus-visible { outline:3px solid var(--coral); outline-offset:4px; }
+.np-step, .np-skip {
+  position:relative; width:48px; height:48px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; background:transparent; color:var(--ink);
+}
+@media (hover: hover) { .np-step:not(:disabled):hover, .np-skip:not(:disabled):hover { background:color-mix(in srgb, var(--ink) 8%, transparent); } }
+.np-step:disabled, .np-skip:disabled { opacity:.35; cursor:default; }
+.np-step:focus, .np-skip:focus { outline:none; }
+.np-step:focus-visible, .np-skip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-skip-n { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding-top:2px; font-size:.5625rem; font-weight:800; pointer-events:none; }
+.np-pills { display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-8); }
+.np-pill {
+  min-height:44px; padding:0 var(--sp-16); border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius:var(--r-pill); background:transparent; color:var(--ink); font:inherit; font-size:var(--fs-ui); font-weight:600;
+  font-variant-numeric:tabular-nums; cursor:pointer;
+}
+@media (hover: hover) { .np-pill:hover { background:color-mix(in srgb, var(--ink) 6%, transparent); } }
+.np-pill.on { border-color:var(--coral-fill); color:var(--coral-text); }
+.np-pill:focus { outline:none; }
+.np-pill:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
 /* Below 760px: the whole screen, its own transport; from 760px the bar is the transport (C8). */
 .np-mob { display:none; }
 @media (max-width: 759px) {

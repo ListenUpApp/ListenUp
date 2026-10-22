@@ -5,14 +5,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.LoadedBook
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
@@ -26,6 +31,7 @@ import com.calypsan.listenup.web.design.isPlainPrimaryClick
 import com.calypsan.listenup.web.design.rememberCoverThemes
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
+import org.jetbrains.compose.web.attributes.disabled
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.A
@@ -61,6 +67,7 @@ fun NowPlayingRoute(
         state = loaded,
         progress = playback.progress.collectAsState().value,
         actions = playback.pageActions(router = router, playingReturn = playingReturn),
+        boostUnavailable = playback.boostUnavailable.collectAsState().value,
     )
 }
 
@@ -84,6 +91,13 @@ private fun PlaybackSession.pageActions(
         onCardAction = onCardAction,
         onRate = onRate,
         onCloseBook = onCloseBook,
+        onSetSpeed = onSetSpeed,
+        onResetSpeed = onResetSpeed,
+        onSetSleepTimer = onSetSleepTimer,
+        onCancelSleepTimer = onCancelSleepTimer,
+        onExtendSleepTimer = onExtendSleepTimer,
+        onSetBoost = onSetBoost,
+        onResetBoost = onResetBoost,
     )
 
 /**
@@ -105,6 +119,13 @@ class NowPlayingActions(
     val onCardAction: (PlayerCardAction) -> Unit = {},
     val onRate: (Int) -> Unit = {},
     val onCloseBook: () -> Unit = {},
+    val onSetSpeed: (Float) -> Unit = {},
+    val onResetSpeed: () -> Unit = {},
+    val onSetSleepTimer: (SleepTimerMode) -> Unit = {},
+    val onCancelSleepTimer: () -> Unit = {},
+    val onExtendSleepTimer: (Int) -> Unit = {},
+    val onSetBoost: (Float) -> Unit = {},
+    val onResetBoost: () -> Unit = {},
 )
 
 /**
@@ -123,9 +144,12 @@ fun NowPlayingPage(
     state: PlayerUiState.Loaded,
     progress: PlayerProgress,
     actions: NowPlayingActions,
+    boostUnavailable: Boolean = false,
 ) {
     val book = state.book
     val arrival = rememberCoverThemes(book.id, book.coverHash)
+    val pickers = remember { PagePickers() }
+    PagePickerDialogs(state, pickers, actions, boostUnavailable)
     Div(attrs = {
         classes("np-page")
         coverThemed(arrival)
@@ -135,6 +159,7 @@ fun NowPlayingPage(
             Section(attrs = { classes("np-bookcol") }) {
                 BookIdentity(book, actions)
                 BookCard(state, progress)
+                PhoneControls(state, progress, actions, pickers)
             }
         }
     }
@@ -307,6 +332,242 @@ private fun BookCard(
         P(attrs = { classes("np-sentence") }) { Text(NowPlayingWords.bookSentence(progress)) }
     }
 }
+
+/**
+ * Which of the page's own pickers is open. The page owns them because below 760px the bar, which owns its own, is
+ * hidden; Volume boost opens from More at every width.
+ */
+private class PagePickers {
+    var speed by mutableStateOf(false)
+    var sleep by mutableStateOf(false)
+    var chapters by mutableStateOf(false)
+    var boost by mutableStateOf(false)
+}
+
+/** The four pickers, each opened over the page and leaving it underneath when it closes. */
+@Composable
+private fun PagePickerDialogs(
+    state: PlayerUiState.Loaded,
+    pickers: PagePickers,
+    actions: NowPlayingActions,
+    boostUnavailable: Boolean,
+) {
+    val settings = state.settings
+    SpeedPicker(
+        open = pickers.speed,
+        speed = settings.speed,
+        defaultSpeed = settings.defaultSpeed,
+        onSet = actions.onSetSpeed,
+        onReset = actions.onResetSpeed,
+        onDismiss = { pickers.speed = false },
+    )
+    SleepTimerPicker(
+        open = pickers.sleep,
+        state = state.sleepTimer,
+        hasChapters = state.chapters.isNotEmpty(),
+        onSet = { mode ->
+            actions.onSetSleepTimer(mode)
+            pickers.sleep = false
+        },
+        onCancel = actions.onCancelSleepTimer,
+        onExtend = actions.onExtendSleepTimer,
+        onDismiss = { pickers.sleep = false },
+    )
+    ChapterPicker(
+        open = pickers.chapters,
+        chapters = state.chapters,
+        onPick = { index ->
+            actions.onSeekToChapter(index)
+            pickers.chapters = false
+        },
+        onDismiss = { pickers.chapters = false },
+    )
+    BoostPicker(
+        open = pickers.boost,
+        boostDb = settings.boostDb,
+        defaultBoostDb = settings.defaultBoostDb,
+        unavailable = boostUnavailable,
+        onSet = actions.onSetBoost,
+        onReset = actions.onResetBoost,
+        onDismiss = { pickers.boost = false },
+    )
+}
+
+/**
+ * Below 760px, where the bar is hidden: the chapter line, the chapter's scrubber with the book sentence between its
+ * times, the transport, and the settings as pills (§5.2's web phone column).
+ */
+@Composable
+private fun PhoneControls(
+    state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
+    actions: NowPlayingActions,
+    pickers: PagePickers,
+) {
+    Div(attrs = { classes("np-phone", "np-mob") }) {
+        P(attrs = { classes("np-ch") }) { Text(NowPlayingWords.chapterLine(state.chapter)) }
+        Div(attrs = { classes("np-scrubber") }) {
+            Playhead(
+                positionMs = progress.chapterPositionMs,
+                durationMs = progress.chapterDurationMs,
+                timeClass = "np-time",
+                scrubClass = "np-scrub",
+                startMs = state.chapter.startMs,
+                label = NowPlayingWords.CHAPTER_POSITION,
+                showsRemaining = true,
+                onSeek = actions.onSeek,
+                center = { Span(attrs = { classes("np-sentence") }) { Text(NowPlayingWords.bookSentence(progress)) } },
+            )
+        }
+        PhoneTransport(state, actions)
+        SettingsPills(state, pickers)
+    }
+}
+
+/**
+ * Previous · back N · play · forward N · next. Previous is never disabled (§3.3: in chapter one it restarts it, C18);
+ * Next is, in the last chapter. The skips keep their slots while a stall disables them (C5), so the play button never
+ * moves under the thumb.
+ */
+@Composable
+private fun PhoneTransport(
+    state: PlayerUiState.Loaded,
+    actions: NowPlayingActions,
+) {
+    val settings = state.settings
+    Div(attrs = { classes("np-transport") }) {
+        Button(attrs = {
+            classes("np-step", "np-prev")
+            attr("type", "button")
+            attr("aria-label", PREVIOUS_CHAPTER)
+            attr("title", PREVIOUS_CHAPTER)
+            attr("aria-description", NowPlayingWords.PREVIOUS_HINT)
+            onClick { actions.onPreviousChapter() }
+        }) { Icon(WebIcon.ChapterPrevious, size = STEP_ICON_SIZE) }
+        SkipButton(
+            WebIcon.SkipBack,
+            settings.skipBackSec,
+            "Skip back ${settings.skipBackSec} seconds",
+            "np-skip-back",
+            state.showsSkipBack,
+            actions.onSkipBack,
+        )
+        PlayCircle(state, actions.onPrimary)
+        SkipButton(
+            WebIcon.SkipForward,
+            settings.skipForwardSec,
+            "Skip forward ${settings.skipForwardSec} seconds",
+            "np-skip-fwd",
+            state.showsSkipBack,
+            actions.onSkipForward,
+        )
+        Button(attrs = {
+            classes("np-step", "np-next")
+            attr("type", "button")
+            attr("aria-label", NEXT_CHAPTER)
+            attr("title", NEXT_CHAPTER)
+            if (!state.canSkipToNextChapter) disabled()
+            onClick { actions.onNextChapter() }
+        }) { Icon(WebIcon.ChapterNext, size = STEP_ICON_SIZE) }
+    }
+}
+
+/** The 76px coral circle: the shared primary's glyph, a spinner while busy (still a Pause), a ring for Tap to play. */
+@Composable
+internal fun PlayCircle(
+    state: PlayerUiState.Loaded,
+    onPrimary: () -> Unit,
+) {
+    val label = primaryLabel(state.primary, state.phase)
+    Button(attrs = {
+        classes("np-play")
+        if (state.primary == PrimaryControl.TapToPlay) classes("ring")
+        attr("type", "button")
+        attr("aria-label", label)
+        attr("title", label)
+        onClick { onPrimary() }
+    }) {
+        if (state.primary == PrimaryControl.Busy) {
+            Div(attrs = {
+                classes("tport-wait")
+                attr("aria-hidden", "true")
+            })
+        } else {
+            Icon(primaryIcon(state.primary), size = PLAY_ICON_SIZE)
+        }
+    }
+}
+
+/** A skip with the listener's own interval drawn in it; the number is hidden from a screen reader, the label says it. */
+@Composable
+private fun SkipButton(
+    icon: WebIcon,
+    seconds: Int,
+    label: String,
+    extraClass: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("np-skip", extraClass)
+        attr("type", "button")
+        attr("aria-label", label)
+        attr("title", label)
+        if (!enabled) disabled()
+        onClick { onClick() }
+    }) {
+        Icon(icon, size = SKIP_ICON_SIZE)
+        Span(attrs = {
+            classes("np-skip-n")
+            attr("aria-hidden", "true")
+        }) { Text(seconds.toString()) }
+    }
+}
+
+/** Speed · Sleep · Chapters as outlined pills; an armed timer shows its countdown. Boost lives in More (C15). */
+@Composable
+private fun SettingsPills(
+    state: PlayerUiState.Loaded,
+    pickers: PagePickers,
+) {
+    val speed = formatSpeed(state.settings.speed)
+    val active = state.sleepTimer as? SleepTimerState.Active
+    Div(attrs = { classes("np-pills") }) {
+        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = true }
+        Pill(
+            text = active?.formatRemaining() ?: "Sleep",
+            label = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer",
+            on = active != null,
+        ) { pickers.sleep = true }
+        if (state.chapters.isNotEmpty()) Pill(text = "Chapters", label = null, on = false) { pickers.chapters = true }
+    }
+}
+
+@Composable
+private fun Pill(
+    text: String,
+    label: String?,
+    on: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(attrs = {
+        classes("np-pill")
+        if (on) classes("on")
+        attr("type", "button")
+        label?.let { attr("aria-label", it) }
+        onClick { onClick() }
+    }) { Text(text) }
+}
+
+private const val PREVIOUS_CHAPTER = "Previous chapter"
+
+private const val NEXT_CHAPTER = "Next chapter"
+
+private const val STEP_ICON_SIZE = 22
+
+private const val SKIP_ICON_SIZE = 26
+
+private const val PLAY_ICON_SIZE = 32
 
 /** 2× the desktop cover's 380px. */
 private const val COVER_RUNG = 760

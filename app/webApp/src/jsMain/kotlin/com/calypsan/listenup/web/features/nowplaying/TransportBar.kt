@@ -608,6 +608,8 @@ internal fun Playhead(
     label: String = "Seek",
     showsRemaining: Boolean = false,
     onSeek: (Long) -> Unit,
+    /** Drawn between the range and the trailing time: the Now Playing page's book sentence. */
+    center: (@Composable () -> Unit)? = null,
 ) {
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: positionMs
@@ -637,6 +639,7 @@ internal fun Playhead(
             onSeek(startMs + target)
         }
     }
+    center?.invoke()
 
     // The bar counts down what is left of the chapter; the panel shows the book's length.
     val trailing =
