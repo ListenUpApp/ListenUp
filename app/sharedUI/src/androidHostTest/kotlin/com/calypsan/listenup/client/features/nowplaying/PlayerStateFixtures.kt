@@ -96,6 +96,12 @@ internal fun loadedPlayerState(
         finished = finished,
     )
 
+/**
+ * A cover path that does not exist: a cover with a path renders without reaching Koin for the server fallback, so a
+ * test can draw the cover without a Koin graph.
+ */
+internal const val NO_COVER = "/nonexistent/cover.jpg"
+
 /** A position partway through chapter 6. */
 internal val samplePlayerProgress =
     PlayerProgress(
