@@ -38,6 +38,17 @@ kotlin = "2.4.20"
 ksp = "2.3.12"
 mokkery = "3.5.1"
 ktor = "3.6.0"
+# Ahead of Ktor 3.6.0's own OkHttp 5.5.0: 5.5.1 blocks the eight compromised eMudhra intermediate
+# certificates on JVMs and AOSP devices without the Play Services trust update. Drop the pin when
+# a Ktor release depends on okhttp >= 5.5.1.
+okhttp = "5.5.1"
+# Test-only (server jvmTest), ahead of ktor-server-auth-jwt 3.6.0's java-jwt 4.6.0: 4.6.2 brings
+# jackson 2.22.3, which closes the jackson-core/jackson-databind advisories through 2.22.2.
+auth0-java-jwt = "4.6.2"
+# Test-only (:app:baselineprofile), ahead of androidx.benchmark 1.5.0's wire-runtime 6.4.0
+# (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5). The only benchmark release on a fixed Wire is
+# 1.6.0-alpha01, which is not stable; 6.4.7 is the version that release uses.
+wire = "6.4.7"
 # DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Decision
 # 2026-10-10: stay. Stable 0.10.3+ carries the KRPC-560 fix too (2.4.20-0.10.4 plugin is on Maven
 # Central), but that is a downgrade of the transport that only the native CI lanes can vet. Revisit
@@ -115,6 +126,7 @@ androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecyc
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 # Baseline Profile
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "androidx-benchmark" }
+wire-runtime = { module = "com.squareup.wire:wire-runtime", version.ref = "wire" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "androidx-profileinstaller" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }
@@ -148,6 +160,7 @@ ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-curl = { module = "io.ktor:ktor-client-curl", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
@@ -171,6 +184,7 @@ ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.re
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 # Ktor server (auth, rate limit)
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor" }
+auth0-java-jwt = { module = "com.auth0:java-jwt", version.ref = "auth0-java-jwt" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
 ktor-server-rate-limit = { module = "io.ktor:ktor-server-rate-limit", version.ref = "ktor" }
 ktor-server-forwarded-header = { module = "io.ktor:ktor-server-forwarded-header", version.ref = "ktor" }

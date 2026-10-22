@@ -247,6 +247,9 @@ kotlin {
                 // Test-only: com.auth0 JWT lib (via ktor-server-auth-jwt) — an independent oracle that
                 // forges adversarial tokens to cross-check the hand-rolled HS256 verifier. Not in production.
                 implementation(libs.ktor.server.auth.jwt)
+                // That oracle's own library, one patch ahead of ktor-server-auth-jwt's, for its
+                // jackson 2.22.3; see the `auth0-java-jwt` pin in libs.versions.toml.
+                implementation(libs.auth0.java.jwt)
                 implementation(libs.ktor.client.content.negotiation)
                 implementation(libs.kotest.runner.junit5)
                 implementation(libs.kotest.assertions.core)

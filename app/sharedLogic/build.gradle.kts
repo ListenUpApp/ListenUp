@@ -132,6 +132,9 @@ kotlin {
 
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            // Raises Ktor's OkHttp to the release that distrusts the compromised eMudhra
+            // intermediates; see the `okhttp` pin in libs.versions.toml.
+            implementation(libs.okhttp)
             implementation(libs.androidx.work.runtime.ktx)
             // sqlite-bundled links the SQLite C amalgamation and publishes no js variant, so it
             // cannot live in commonMain. Each native platform declares it and passes the driver
@@ -155,6 +158,8 @@ kotlin {
 
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            // Same OkHttp floor as androidMain above.
+            implementation(libs.okhttp)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.jmdns) // mDNS server discovery
             // Note: SLF4J backend provided by consuming app (desktopApp uses logback)

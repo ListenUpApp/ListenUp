@@ -54,16 +54,17 @@ plugins {
 //
 // Remove when Ktor bumps its declared ws floor to >= 8.21.0.
 //
-// express and body-parser declare qs ~6.15.1, which cannot reach 6.16.0 — the only release that
-// fixes both qs denial-of-service advisories (GHSA-4mjr-xmp4-gh2g, GHSA-x5fp-wj9c-mxmx). Same
-// build-only lane, same reasoning, a minor-level move.
+// mocha 11 declares diff ^7.0.0, and every diff below 8.0.3 carries GHSA-73rr-hh4g-fpgx (a
+// low-severity ReDoS in parsePatch). diff has no 7.x fix, and the mocha that takes a fixed diff
+// (12.x, diff ^9) is outside the ^11.7.6 range this Kotlin Gradle plugin pins. Same build-only
+// lane; mocha calls only createPatch and diffWordsWithSpace, which diff 8.x still exports.
 //
-// Remove when express and body-parser declare qs >= 6.16.0.
+// Remove when the Kotlin Gradle plugin moves its mocha to a release that declares diff >= 8.0.3.
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
         resolution("serialize-javascript", "7.0.5")
         resolution("ws", "8.21.3")
-        resolution("qs", "6.16.0")
+        resolution("diff", "8.0.3")
         // The default drops kotlin-js-store/ at the repo root, which the five-directory root
         // layout has no slot for. It is build machinery (KGP's yarn lockfile, which still pins
         // karma, mocha and webpack because the `js { browser() }` targets declare them), so it

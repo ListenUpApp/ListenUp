@@ -56,6 +56,11 @@ baselineProfile {
 
 dependencies {
     implementation(libs.androidx.benchmark.macro.junit4)
+    constraints {
+        // benchmark 1.5.0 pulls wire-runtime 6.4.0 and no stable benchmark moves past it; see the
+        // `wire` pin in libs.versions.toml.
+        implementation(libs.wire.runtime) { because("GHSA-9rm7-3qhh-h2mc, fixed in wire-runtime 6.4.5") }
+    }
     implementation(libs.androidx.test.ext.junit)
     implementation(libs.androidx.test.uiautomator)
 }
