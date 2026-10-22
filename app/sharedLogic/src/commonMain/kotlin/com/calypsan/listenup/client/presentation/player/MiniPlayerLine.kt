@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
 
@@ -118,9 +116,3 @@ object MiniPlayerLines {
         }
     }
 }
-
-/** A failure the reader must act on; a refusal or a lapsed session is not one (the `States-*` boards). */
-private fun AppError.isFailureToFix(): Boolean =
-    this !is PlaybackError.AutoplayBlocked &&
-        this !is PlaybackError.BlockedInBackground &&
-        this !is AuthError.SessionExpired
