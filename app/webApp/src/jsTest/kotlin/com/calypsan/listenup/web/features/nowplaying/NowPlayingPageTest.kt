@@ -86,6 +86,8 @@ class NowPlayingPageTest :
         test("the heading is Now playing, and the status is a live region outside it") {
             val host = page(wayOfKings())
             (host.querySelector("h1") as HTMLElement).textContent shouldBe "Now playing"
+            // The page's one H1 is the shared PageHeader's, so focus-on-navigation and the tab name find it.
+            (host.querySelector("h1") as HTMLElement).className shouldBe "page-t"
             val status = host.querySelector("[role=status].np-status") as HTMLElement
             status.textContent shouldBe "Streaming"
             status.closest("h1") shouldBe null

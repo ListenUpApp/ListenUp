@@ -26,6 +26,7 @@ import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.PageTitle
 import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
@@ -41,9 +42,7 @@ import org.jetbrains.compose.web.css.width
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
-import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
-import org.jetbrains.compose.web.dom.Header
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
@@ -197,7 +196,7 @@ fun NowPlayingPage(
         classes("np-page")
         coverThemed(arrival)
     }) {
-        PageHeader(state, actions) { item ->
+        NowPlayingHeader(state, actions) { item ->
             when (item) {
                 PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
 
@@ -237,24 +236,28 @@ fun NowPlayingPage(
     }
 }
 
-/** Collapse (phone) or Back (wider), the heading, the status, and More. */
+/** Collapse (phone) or Back (wider), the page's one heading, the status, and More: the shared [PageHeader]. */
 @Composable
-private fun PageHeader(
+private fun NowPlayingHeader(
     state: PlayerUiState.Loaded,
     actions: NowPlayingActions,
     onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
-    Header(attrs = { classes("np-head") }) {
-        HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, MOB, actions.onCollapse)
-        HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, actions.onCollapse)
-        H1(attrs = { classes("np-h1") }) { Text(NowPlayingWords.NOW_PLAYING) }
-        // Outside the heading, so the heading is never re-announced when the source changes (verify 6.12).
-        Span(attrs = {
-            classes("np-status")
-            attr(ATTR_ROLE, "status")
-        }) { Text(NowPlayingWords.status(state.source)) }
-        PlayerMoreMenu(state = state, onItem = onMenuItem)
-    }
+    PageHeader(
+        title = NowPlayingWords.NOW_PLAYING,
+        leading = {
+            HeaderButton(NowPlayingWords.COLLAPSE, WebIcon.ChevronDown, MOB, actions.onCollapse)
+            HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, actions.onCollapse)
+        },
+        actions = {
+            // Outside the heading, so the heading is never re-announced when the source changes (verify 6.12).
+            Span(attrs = {
+                classes("np-status")
+                attr(ATTR_ROLE, "status")
+            }) { Text(NowPlayingWords.status(state.source)) }
+            PlayerMoreMenu(state = state, onItem = onMenuItem)
+        },
+    )
 }
 
 @Composable

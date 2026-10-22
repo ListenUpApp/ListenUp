@@ -457,7 +457,8 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   width:100%; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-24);
   padding:var(--sp-24) var(--sp-32) var(--sp-32); border-radius:var(--r-xl); background:var(--np-wash);
 }
-.np-head { display:flex; align-items:center; gap:var(--sp-12); min-height:44px; }
+.np-page .page-h { align-items:center; flex-wrap:nowrap; gap:var(--sp-12); min-height:44px; }
+.np-page .page-h-text { flex:1 1 auto; }
 .np-collapse {
   width:44px; height:44px; flex:none; padding:0; display:inline-flex; align-items:center; justify-content:center;
   border:none; border-radius:var(--r-pill); background:transparent; color:var(--ink); cursor:pointer;
@@ -465,13 +466,13 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 @media (hover: hover) { .np-collapse:hover { background:color-mix(in srgb, var(--ink) 8%, transparent); } }
 .np-collapse:focus { outline:none; }
 .np-collapse:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-.np-h1 { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; color:var(--ink); }
+.np-page .page-t { font-size:var(--fs-h2); letter-spacing:-.02em; line-height:1.2; }
 .np-page .np-status {
   min-height:32px; padding:0 var(--sp-12); display:inline-flex; align-items:center; white-space:nowrap;
   font-size:var(--fs-small); font-weight:600; color:var(--ink-2);
   border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
 }
-.np-head .np-more { margin-left:auto; }
+
 .np-more .btn { min-height:44px; }
 .np-cols { display:grid; gap:var(--sp-32); align-items:start; }
 @media (min-width: 1024px) { .np-cols { grid-template-columns:380px minmax(0, 1fr); } }
@@ -613,12 +614,10 @@ dialog.dlg .dlg-close { align-self: flex-start; }
   .np-desk { display:none; }
   .np-mob { display:flex; }
   .np-page { min-height:100dvh; border-radius:0; padding:var(--sp-8) var(--sp-16) calc(var(--sp-24) + env(safe-area-inset-bottom)); gap:var(--sp-12); }
-  .np-h1 {
+  .np-page .page-t {
     position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
     overflow:hidden; clip-path:inset(50%); white-space:nowrap;
   }
-  .np-head { justify-content:space-between; }
-  .np-head .np-more { margin-left:0; }
   .np-bookcol { align-items:center; text-align:center; gap:var(--sp-8); }
   .np-cover { width:300px; margin-bottom:var(--sp-8); }
 
