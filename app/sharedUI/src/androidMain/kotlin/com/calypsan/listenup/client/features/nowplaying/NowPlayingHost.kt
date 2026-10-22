@@ -33,6 +33,8 @@ import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
+import com.calypsan.listenup.client.presentation.player.PlayerCards
+import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 
@@ -116,6 +118,12 @@ fun NowPlayingHost(
     val skipForwardSec = loaded?.run { settings.skipForwardSec } ?: 0
     val motion = MaterialTheme.motionScheme
 
+    // §5.6: a revoked book closes Now Playing; the mini player then says "No longer in your library" with ✕.
+    val closesNowPlaying = PlayerCards.closesNowPlaying(state)
+    LaunchedEffect(closesNowPlaying, isExpanded) {
+        if (closesNowPlaying && isExpanded) viewModel.collapse()
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         // Full screen (slides up when expanded). Only renders when a book is loaded — expanding
         // into nothing has no meaningful UI.
@@ -144,25 +152,17 @@ fun NowPlayingHost(
                     onPreviousChapter = viewModel::previousChapter,
                     onNextChapter = viewModel::nextChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
-                    onBoostClick = viewModel::showBoostPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,
-                    onGoToBook = viewModel::goToBook,
-                    onGoToSeries = { seriesId ->
-                        viewModel.collapse()
-                        onNavigateToSeries(seriesId)
-                    },
                     onGoToContributor = { contributorId ->
                         viewModel.collapse()
                         onNavigateToContributor(contributorId)
                     },
                     onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
                     onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
-                    onCloseBook = viewModel::closeBook,
-                    skipBackwardSec = skipBackwardSec,
-                    skipForwardSec = skipForwardSec,
-                    hasPdf = loaded.book.firstPdfDocId != null,
-                    onOpenPdf = viewModel::openCurrentPdf,
+                    onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries) },
+                    onCardAction = viewModel::onCardAction,
+                    onRate = viewModel::rate,
                     isTv = isTv,
                 )
             }
@@ -316,6 +316,35 @@ private fun OverlayDispatch(
                     onDismiss = viewModel::hideOverlay,
                 )
             }
+        }
+    }
+}
+
+/** Now Playing's More menu: each row forwards to the view-model action it names (spec §5.5.7). */
+private fun PlayerViewModel.onMenuItem(
+    item: PlayerMenuItem,
+    onNavigateToSeries: (String) -> Unit,
+) {
+    when (item) {
+        PlayerMenuItem.GoToBook -> {
+            goToBook()
+        }
+
+        is PlayerMenuItem.GoToSeries -> {
+            collapse()
+            onNavigateToSeries(item.seriesId)
+        }
+
+        is PlayerMenuItem.OpenPdf -> {
+            openCurrentPdf()
+        }
+
+        is PlayerMenuItem.VolumeBoost -> {
+            showBoostPicker()
+        }
+
+        PlayerMenuItem.CloseBook -> {
+            closeBook()
         }
     }
 }

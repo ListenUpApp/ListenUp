@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.design.LocalCoverThemes
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
+import com.calypsan.listenup.web.features.nowplaying.PlayingReturn
 import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
 import com.calypsan.listenup.web.motion.PageArrival
@@ -21,6 +22,7 @@ import com.calypsan.listenup.web.nav.HOME_KEY
 import com.calypsan.listenup.web.nav.HOME_DEEP_LINKS
 import com.calypsan.listenup.web.nav.LIBRARY_DEEP_LINKS
 import com.calypsan.listenup.web.nav.LIBRARY_KEY
+import com.calypsan.listenup.web.nav.PLAYING_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
@@ -41,7 +43,9 @@ import com.calypsan.listenup.web.nav.SERIES_KEY
 import com.calypsan.listenup.web.nav.NOTIFICATIONS_KEY
 import com.calypsan.listenup.web.nav.SETTINGS_KEY
 import com.calypsan.listenup.web.shell.PhoneTopBar
+import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Div
+import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.shell.AccountIdentity
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
@@ -101,6 +105,8 @@ fun WebAppRoot(
     // Shell-lifetime too: the lock on every book card, on every page, reads this one set.
     val restrictedBookIds = restrictedBooks(graph.admin.restrictedBooks)
     val playback = playbackState(graph.openPlayback)
+    // One per window: where Now Playing closes to, and which control gets focus back (S4).
+    val playingReturn = remember { PlayingReturn() }
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book, the person behind it, or the series it belongs to all live in the library, so
@@ -152,6 +158,7 @@ fun WebAppRoot(
                 )
             },
             sidebarStatus = { SyncStatusLine(state = syncState, now = now, onRefresh = sync.onRefresh) },
+            immersive = page == PLAYING_KEY,
         ) {
             LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
             // The desktop's account menu; a phone's lives in its header (see PhoneTopBar).
@@ -181,6 +188,7 @@ fun WebAppRoot(
                         librarySession = librarySession,
                         inbox = inbox,
                         playback = playback,
+                        playingReturn = playingReturn,
                         heroBookId = heroBookId,
                         onHeroBookIdChange = { heroBookId = it },
                     )
@@ -203,18 +211,25 @@ fun WebAppRoot(
             // Its own scope: the playback tick recomposes the bar, not this lambda. See the host.
             TransportBarHost(
                 playback = playback,
-                // The expanded player's three destinations. `navigate`, not `replace`: leaving the
-                // player for a book is a page change, and Back should return to where you were.
+                // `navigate`, not `replace`: leaving the player for a book is a page change, and Back returns.
                 onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
-                onOpenSeries = { id -> router.navigate(Routes.series(id)) },
-                onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
                 onOpenInbox = { router.navigate(Routes.Admin.inbox) },
+                // Now Playing is a page (S4): the bar opens it, and on it the bar's chevron is the way back.
+                isNowPlayingOpen = page == PLAYING_KEY,
+                onOpenNowPlaying = { opener -> playingReturn.open(router, opener) },
+                onCloseNowPlaying = { playingReturn.close(router) },
+                onFocusChapters = ::focusNowPlayingChapters,
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.
             CommandPaletteHost(router = router, openSearch = graph.openSearch)
         }
     }
+}
+
+/** On `/playing` the chapter list is already on the page: the bar's Chapters takes focus to its current row. */
+private fun focusNowPlayingChapters() {
+    (document.querySelector(".np-list .np-row.on") as? HTMLElement)?.focus()
 }
 
 /** What the shell's content lambda reports to [LocalCompositionProbe] each time it runs. */

@@ -22,6 +22,15 @@ data class PlayerProgress(
     /** Content time left in the book (S10). */
     val bookRemainingMs: Long get() = (bookDurationMs - bookPositionMs).coerceAtLeast(0L)
 
+    /** Whole percent through the book, floored (0..100), for the book sentence "Book 11% · …" (§3.2). */
+    val bookPercent: Int
+        get() =
+            if (bookDurationMs <= 0) {
+                0
+            } else {
+                (bookPositionMs.coerceIn(0L, bookDurationMs) * PERCENT / bookDurationMs).toInt()
+            }
+
     /** The values that stand for nothing loaded. */
     companion object {
         /** Nothing loaded. */
@@ -33,3 +42,5 @@ private fun fraction(
     position: Long,
     duration: Long,
 ): Float = if (duration <= 0) 0f else (position.toFloat() / duration).coerceIn(0f, 1f)
+
+private const val PERCENT = 100L

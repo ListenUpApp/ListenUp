@@ -16,6 +16,13 @@ struct ChapterRowModel: Identifiable, Equatable, Sendable {
     var isCurrent = false
 }
 
+/// One series the loaded book is in, native (rule 8): where Go to Series goes, and the book's place there ("1", "2.5").
+struct SeriesNavRef: Hashable, Sendable {
+    let id: String
+    let name: String
+    let sequenceLabel: String?
+}
+
 /// The native primary control (spec §4.6): what the one big button does, decided in shared code.
 enum PlayerPrimary: Sendable, Equatable {
     case pause, play, busy, retry, listenAgain, signIn, openInbox, close, tapToPlay
@@ -31,16 +38,6 @@ enum PlayerPrimary: Sendable, Equatable {
         case .openInbox: .openInbox
         case .close: .close
         case .tapToPlay: .tapToPlay
-        }
-    }
-
-    /// The error surfaces' action button: what the primary does for a book that can't play.
-    var errorActionTitle: String {
-        switch self {
-        case .signIn: String(localized: "auth.sign_in")
-        case .openInbox: String(localized: "common.inbox")
-        case .close: String(localized: "player.close")
-        case .pause, .play, .busy, .retry, .listenAgain, .tapToPlay: String(localized: "player.retry")
         }
     }
 }
@@ -129,9 +126,30 @@ struct PlayerSnapshot: Equatable {
     var sleepTimerIsEndOfChapter = false
     var sleepTimerRemainingMs: Int64 = 0
     var sleepTimerLabel = ""
+    /// Now Playing's status slot (§3.1): where the audio comes from or goes to.
+    var statusText = ""
+    /// Casting: the status reads "Playing on …" in the tint.
+    var isCasting = false
+    /// The card that takes the transport's place (P32), decided in shared code; nil while the transport shows.
+    var card: PlayerCardModel?
+    /// The More menu (§5.5.7), from the shared builder.
+    var menu: [PlayerMenuSection] = []
+    /// Now Playing closes: nothing is loaded, or the book was revoked (§5.6).
+    var closesNowPlaying = false
+    /// "Chapter 6 of 75" shows only beside a chapter's own, non-generic title, where the counter cannot disagree with
+    /// the book's naming (Simon, 2026-10-14; plan C6). Never for a chapterless book.
+    var showsChapterCounter = false
+    /// A chapterless book: Now Playing reads "Whole Book".
+    var isWholeBook = false
+    /// Every series the book is in, in the book's order.
+    var series: [SeriesNavRef] = []
 
     static func from(_ state: any PlayerUiState) -> PlayerSnapshot {
-        guard case .loaded(let wrapped) = state.sealedType() else { return PlayerSnapshot() }
+        guard case .loaded(let wrapped) = state.sealedType() else {
+            var nothing = PlayerSnapshot()
+            nothing.closesNowPlaying = true
+            return nothing
+        }
         let loaded = wrapped.value
         var snapshot = PlayerSnapshot()
         snapshot.isVisible = true
@@ -149,7 +167,27 @@ struct PlayerSnapshot: Equatable {
         snapshot.skipForwardSec = Int(settings.skipForwardSec)
         snapshot.skipBackwardSec = Int(settings.skipBackSec)
         snapshot.applySleepTimer(loaded.sleepTimer)
+        snapshot.applySource(loaded.source)
+        snapshot.card = PlayerCards.shared.of(state: loaded).map(PlayerCardModel.init)
+        snapshot.menu = PlayerMenuModel.sections(for: loaded)
+        snapshot.closesNowPlaying = PlayerCards.shared.closesNowPlaying(state: loaded)
         return snapshot
+    }
+
+    private mutating func applySource(_ source: any AudioSource) {
+        isCasting = false
+        statusText = switch source.sealedType() {
+        case .downloaded: String(localized: "player.np_status_downloaded")
+        case .downloadedOffline: String(localized: "player.np_status_downloaded_offline")
+        case .streaming: String(localized: "player.np_status_streaming")
+        case .streamingTranscoded: String(localized: "player.np_status_streaming_transcoded")
+        case .offline: String(localized: "player.np_status_offline")
+        case .serverUnreachable: String(localized: "player.np_status_server_unreachable")
+        case .casting(let casting):
+            String(format: String(localized: "player.np_status_playing_on"), casting.value.deviceName)
+        case .notPlayable: String(localized: "player.np_status_not_playable")
+        }
+        if case .casting = source.sealedType() { isCasting = true }
     }
 
     private mutating func applyBook(_ book: PlayerBook) {
@@ -160,6 +198,7 @@ struct PlayerSnapshot: Equatable {
         authorName = authors.map(\.name).joined(separator: ", ")
         narratorName = narrators.map(\.name).joined(separator: ", ")
         seriesId = book.series.first?.id
+        series = book.series.map { SeriesNavRef(id: $0.id, name: $0.name, sequenceLabel: $0.sequenceLabel) }
         coverPath = book.coverPath
         coverHash = book.coverHash
         firstPdfDocId = book.firstPdfDocId
@@ -175,6 +214,8 @@ struct PlayerSnapshot: Equatable {
         chapterIndex = Int(current.index)
         totalChapters = Int(current.total)
         chapterTitle = current.isWholeBook ? nil : current.title
+        isWholeBook = current.isWholeBook
+        showsChapterCounter = !current.isWholeBook && !current.isGenericTitle
         chapterStartMs = current.startMs
         chapterDurationMs = current.durationMs
     }
@@ -204,6 +245,13 @@ struct PlayerSnapshot: Equatable {
         return title == key ? error.message : title
     }
 
+    /// The card's cause for `error`: `player.cause_<code>`, or nil when the catalog has none.
+    static func cause(for error: any AppError) -> String? {
+        let key = "player.cause_" + error.code.lowercased()
+        let cause = String(localized: String.LocalizationValue(key))
+        return cause == key ? nil : cause
+    }
+
     /// The mini line for `error`: `player.mini_<code>`, else the card title (§4.6).
     static func miniTitle(for error: any AppError) -> String {
         let key = "player.mini_" + error.code.lowercased()
@@ -228,6 +276,8 @@ struct PlayerProgressRow: Equatable {
     var chapterDurationMs: Int64 = 0
     var bookPositionMs: Int64 = 0
     var bookDurationMs: Int64 = 0
+    /// Whole percent through the book, floored, for the book sentence: the shared rule, so every platform agrees.
+    var bookPercent = 0
 
     init() {}
 
@@ -236,6 +286,7 @@ struct PlayerProgressRow: Equatable {
         chapterDurationMs = progress.chapterDurationMs
         bookPositionMs = progress.bookPositionMs
         bookDurationMs = progress.bookDurationMs
+        bookPercent = Int(progress.bookPercent)
     }
 
     var chapterRemainingMs: Int64 { max(0, chapterDurationMs - chapterPositionMs) }
@@ -263,10 +314,27 @@ final class PlayerObserver {
     var inboxRequested = false
 
     // view-model-owner: nobody — the observer is an app-lifetime singleton (`Dependencies.playerObserver`),
-    // so its `PlayerViewModel` lives for the process.
-    private let viewModel: PlayerViewModel
-    private let coordinator: PlayerCoordinator
+    // so its `PlayerViewModel` lives for the process. Both are nil only for a detached observer (tests, snapshots).
+    private let viewModel: PlayerViewModel?
+    private let coordinator: PlayerCoordinator?
     private let bridge = FlowBridge()
+
+    #if DEBUG
+    /// An observer frozen at `state`, bound to nothing: actions do nothing. For hosting Now Playing in tests and review
+    /// snapshots without a player or an engine.
+    static func detached(
+        _ state: any PlayerUiState, progress: PlayerProgressRow = PlayerProgressRow()
+    ) -> PlayerObserver {
+        PlayerObserver(snapshot: PlayerSnapshot.from(state), progress: progress)
+    }
+
+    private init(snapshot: PlayerSnapshot, progress: PlayerProgressRow) {
+        viewModel = nil
+        coordinator = nil
+        self.snapshot = snapshot
+        self.progress = progress
+    }
+    #endif
 
     init(viewModel: PlayerViewModel, coordinator: PlayerCoordinator) {
         self.viewModel = viewModel
@@ -304,8 +372,6 @@ final class PlayerObserver {
     var isPreparing: Bool { snapshot.isPreparing }
     /// Audio is playing or buffering toward playing: a tap pauses.
     var isPlaybackActive: Bool { snapshot.isPlaying || snapshot.isBuffering }
-    var isErrored: Bool { snapshot.isErrored }
-    var errorMessage: String? { snapshot.errorMessage }
     var primary: PlayerPrimary { snapshot.primary }
     var miniLine: MiniLine { snapshot.miniLine }
     var showsSkipBack: Bool { snapshot.showsSkipBack }
@@ -320,21 +386,37 @@ final class PlayerObserver {
     var sleepTimerRemainingMs: Int64 { snapshot.sleepTimerRemainingMs }
     var sleepTimerLabel: String { snapshot.sleepTimerLabel }
     var bookDurationMs: Int64 { snapshot.bookDurationMs }
+    var statusText: String { snapshot.statusText }
+    var isCasting: Bool { snapshot.isCasting }
+    var card: PlayerCardModel? { snapshot.card }
+    var menu: [PlayerMenuSection] { snapshot.menu }
+    var closesNowPlaying: Bool { snapshot.closesNowPlaying }
+    var showsChapterCounter: Bool { snapshot.showsChapterCounter }
+    var isWholeBook: Bool { snapshot.isWholeBook }
+    var series: [SeriesNavRef] { snapshot.series }
+    /// Whole percent through the book, for the book sentence (shared rule, floored).
+    var bookPercent: Int { progress.bookPercent }
+    /// Content time left in the book, at the labels' ~1×/sec cadence.
+    var displayBookRemainingMs: Int64 { max(0, bookDurationMs - displayBookPositionMs) }
 
     // MARK: - Position
 
     /// Whether the engine holds the loaded book, so its per-frame tracker is the position's source.
-    private var isLive: Bool { coordinator.currentBookId != nil && coordinator.currentBookId == snapshot.currentBookId }
+    private var isLive: Bool {
+        guard let coordinator else { return false }
+        return coordinator.currentBookId != nil && coordinator.currentBookId == snapshot.currentBookId
+    }
 
     /// Fine, per-frame position — the scrubber's smooth thumb. The engine's display-link tracker while
     /// it holds the book; the shared 4 Hz progress otherwise (a restored book).
     var bookPositionMs: Int64 {
-        isLive ? (coordinator.livePositionMs ?? progress.bookPositionMs) : progress.bookPositionMs
+        isLive ? (coordinator?.livePositionMs ?? progress.bookPositionMs) : progress.bookPositionMs
     }
 
     /// Coarse, ~1×/sec position — for time labels and progress lines, so they don't redraw per frame.
     var displayBookPositionMs: Int64 {
-        isLive ? coordinator.displayPositionMs : PositionQuantizer.displayMs(progress.bookPositionMs)
+        if isLive, let coordinator { return coordinator.displayPositionMs }
+        return PositionQuantizer.displayMs(progress.bookPositionMs)
     }
 
     var chapterPositionMs: Int64 { clampedInChapter(bookPositionMs) }
@@ -351,36 +433,42 @@ final class PlayerObserver {
     // MARK: - Actions (each forwards to the shared player)
 
     func play(bookId: String, startAtMs: Int64? = nil) {
-        viewModel.playBook(bookId: BookId(value: bookId), startAtMs: startAtMs)
+        viewModel?.playBook(bookId: BookId(value: bookId), startAtMs: startAtMs)
     }
-    func togglePlayback() { viewModel.playPause() }
+    func togglePlayback() { viewModel?.playPause() }
     /// The one main button: play/pause, or Retry / Sign in / Open Inbox / Close as the state decides.
-    func primaryAction() { viewModel.onPrimary() }
+    func primaryAction() { viewModel?.onPrimary() }
     /// The mini player's main button: the shared primary, or the sleep fade's Keep Listening, which cancels the timer
     /// and restores full volume where the shared primary would pause (Simon, 2026-10-14).
     func miniPrimary(_ action: MiniPlayerAccessoryModel.PrimaryAction) {
         switch action {
-        case .shared: viewModel.onPrimary()
-        case .keepListening: viewModel.cancelSleepTimer()
+        case .shared: viewModel?.onPrimary()
+        case .keepListening: viewModel?.cancelSleepTimer()
         }
     }
-    func dismissError() { viewModel.dismissError() }
-    func retry() { viewModel.retry() }
-    func seekTo(positionMs: Int64) { viewModel.seekTo(positionMs: positionMs) }
-    func skipForward() { viewModel.skipForward() }
-    func skipBackward() { viewModel.skipBack() }
-    func previousChapter() { viewModel.previousChapter() }
-    func nextChapter() { viewModel.nextChapter() }
-    func selectChapter(index: Int) { viewModel.seekToChapter(index: Int32(index)) }
-    func setSpeed(_ speed: Float) { viewModel.setSpeed(speed: speed) }
-    func setBoost(_ db: Float) { viewModel.setBoost(boostDb: db) }
-    func resetBoost() { viewModel.resetBoost() }
-    func setSleepTimer(minutes: Int) { viewModel.setSleepTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes))) }
-    func setSleepTimerEndOfChapter() { viewModel.setSleepTimer(mode: SleepTimerModeEndOfChapter.shared) }
-    func extendSleepTimer(minutes: Int) { viewModel.extendSleepTimer(minutes: Int32(minutes)) }
-    func cancelSleepTimer() { viewModel.cancelSleepTimer() }
-    func openCurrentBookPdf() { viewModel.openCurrentPdf() }
-    func closeBook() { viewModel.closeBook() }
+    func dismissError() { viewModel?.dismissError() }
+    func retry() { viewModel?.retry() }
+    func seekTo(positionMs: Int64) { viewModel?.seekTo(positionMs: positionMs) }
+    func skipForward() { viewModel?.skipForward() }
+    func skipBackward() { viewModel?.skipBack() }
+    func previousChapter() { viewModel?.previousChapter() }
+    func nextChapter() { viewModel?.nextChapter() }
+    func selectChapter(index: Int) { viewModel?.seekToChapter(index: Int32(index)) }
+    func setSpeed(_ speed: Float) { viewModel?.setSpeed(speed: speed) }
+    func setBoost(_ db: Float) { viewModel?.setBoost(boostDb: db) }
+    func resetBoost() { viewModel?.resetBoost() }
+    func setSleepTimer(minutes: Int) { viewModel?.setSleepTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes))) }
+    func setSleepTimerEndOfChapter() { viewModel?.setSleepTimer(mode: SleepTimerModeEndOfChapter.shared) }
+    func extendSleepTimer(minutes: Int) { viewModel?.extendSleepTimer(minutes: Int32(minutes)) }
+    func cancelSleepTimer() { viewModel?.cancelSleepTimer() }
+    func openCurrentBookPdf() { viewModel?.openCurrentPdf() }
+    func closeBook() { viewModel?.closeBook() }
+    /// A state card's button: the shared dispatcher carries it out (Retry, Dismiss, Close Book, Sign In, …).
+    func onCardAction(_ action: PlayerCardModel.Action) { viewModel?.onCardAction(action: action.kotlin) }
+    /// The finished card's rating, in half stars (2...10).
+    func rate(halfStars: Int) { viewModel?.rate(halfStars: Int32(halfStars)) }
+    /// Go to the loaded book's detail; the shared player emits the navigation.
+    func goToBook() { viewModel?.goToBook() }
 
     private func handle(_ event: any PlayerEvent) {
         switch event.sealedType() {

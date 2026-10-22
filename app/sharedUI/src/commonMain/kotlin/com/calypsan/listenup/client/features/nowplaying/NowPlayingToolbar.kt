@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.components.PlaybackSlider
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -7,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,18 +18,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -52,8 +48,8 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitc
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.features.nowplaying.components.SleepSettingButton
 import com.calypsan.listenup.client.features.shell.components.NavigationRailWidth
-import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -61,15 +57,10 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_mini_open
-import listenup.composeapp.generated.resources.player_mini_sleep_left
 import listenup.composeapp.generated.resources.player_playback_speed
-import listenup.composeapp.generated.resources.player_scrubber_a11y
-import listenup.composeapp.generated.resources.player_scrubber_value_a11y
 import listenup.composeapp.generated.resources.player_skip_backward
 import listenup.composeapp.generated.resources.player_skip_forward
-import listenup.composeapp.generated.resources.player_sleep_timer
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
 /** The narrowest toolbar that holds the whole wide set (§3.5); below it the scrubber and the settings step aside. */
 internal val ToolbarFullSetMinWidth = 840.dp
@@ -241,7 +232,7 @@ private fun RowScope.ToolbarContent(
     if (fullSet) {
         ToolbarScrubber(progress = progress, onSeek = actions.onSeek, modifier = Modifier.weight(1f))
         SpeedButton(speed = state.settings.speed, onClick = actions.onSpeedClick)
-        SleepButton(timer = state.sleepTimer, onClick = actions.onSleepClick)
+        SleepSettingButton(timer = state.sleepTimer, onClick = actions.onSleepClick, tonalWhenIdle = false)
         Ctrl(
             icon = Icons.AutoMirrored.Filled.List,
             contentDescription = stringResource(Res.string.player_chapters),
@@ -301,7 +292,7 @@ private fun ToolbarBody(
     }
 }
 
-/** Elapsed · M3 slider (chapter-scoped) · −remaining. Holds its drag so a tick never yanks the thumb; seeks on release. */
+/** The one playback slider (chapter-scoped), elapsed and −remaining beside it. Holds its drag; seeks on release. */
 @Composable
 private fun ToolbarScrubber(
     progress: () -> PlayerProgress,
@@ -309,32 +300,14 @@ private fun ToolbarScrubber(
     modifier: Modifier = Modifier,
 ) {
     val current = progress()
-    var drag by remember { mutableStateOf<Float?>(null) }
-    val elapsed = current.chapterPositionMs.milliseconds.formatPlaybackTime()
-    val total = current.chapterDurationMs.milliseconds.formatPlaybackTime()
-    val label = stringResource(Res.string.player_scrubber_a11y)
-    val value = stringResource(Res.string.player_scrubber_value_a11y, elapsed, total)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(elapsed, style = MaterialTheme.typography.labelMedium)
-        Slider(
-            value = drag ?: current.chapterFraction,
-            onValueChange = { drag = it },
-            onValueChangeFinished = {
-                drag?.let(onSeek)
-                drag = null
-            },
-            modifier =
-                Modifier.weight(1f).semantics {
-                    contentDescription = label
-                    stateDescription = value
-                },
-        )
-        Text(
-            "-${current.chapterRemainingMs.milliseconds.formatPlaybackTime()}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    PlaybackSlider(
+        fraction = current.chapterFraction,
+        elapsedMs = current.chapterPositionMs,
+        durationMs = current.chapterDurationMs,
+        onSeek = onSeek,
+        modifier = modifier,
+        timesBeside = true,
+    )
 }
 
 /** Speed: a tonal button carrying the rate (§5.1 M13). */
@@ -353,37 +326,4 @@ private fun SpeedButton(
                 stateDescription = rate
             },
     ) { Text(rate) }
-}
-
-/** Sleep: a moon; armed, the countdown on `tertiaryContainer` (§3.9, §5.1 M16). */
-@Composable
-private fun SleepButton(
-    timer: SleepTimerState,
-    onClick: () -> Unit,
-) {
-    if (timer is SleepTimerState.Active) {
-        val left = timer.formatRemaining()
-        val armedLabel = stringResource(Res.string.player_mini_sleep_left, left)
-        FilledTonalButton(
-            onClick = onClick,
-            colors =
-                ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                ),
-            modifier = Modifier.heightIn(min = MinTouchTarget).semantics { contentDescription = armedLabel },
-        ) {
-            Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(left)
-        }
-    } else {
-        Ctrl(
-            icon = Icons.Default.Bedtime,
-            contentDescription = stringResource(Res.string.player_sleep_timer),
-            onClick = onClick,
-            size = MinTouchTarget,
-            iconSize = MiniPlayerGlyphSize,
-            tint = LocalContentColor.current,
-        )
-    }
 }

@@ -95,17 +95,14 @@ class TabletopNowPlayingTest {
                         onPreviousChapter = {},
                         onNextChapter = {},
                         onSpeedClick = {},
-                        onBoostClick = {},
                         onChaptersClick = {},
                         onSleepTimerClick = {},
-                        onGoToBook = {},
-                        onGoToSeries = {},
                         onGoToContributor = {},
                         onShowAuthorPicker = {},
                         onShowNarratorPicker = {},
-                        onCloseBook = {},
-                        skipBackwardSec = 15,
-                        skipForwardSec = 30,
+                        onMenuItem = {},
+                        onCardAction = {},
+                        onRate = {},
                     )
                 }
             }

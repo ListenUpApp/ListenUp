@@ -182,30 +182,10 @@ class TransportBarPhoneTest :
                 .startsWith("Open Now Playing: The Way of Kings") shouldBe true
         }
 
-        test("speed, chapters, boost and sleep are one tap into the full player, and it fills the phone") {
+        test("the body is one tap into the full Now Playing page, a link to /playing") {
             val frame = player()
-            frame.find(".tport-body").click()
-            awaitFrame()
-
-            val panel = frame.rect(frame.find(".np-dlg"))
-            panel.width shouldBe PHONE.toDouble()
-            panel.height shouldBe frame.height.toDouble()
-
-            val chips = frame.findAll(".np-chip").filter(frame::isShown)
-            chips.map { it.textContent.orEmpty().trim() } shouldBe listOf("1×", "Chapters", "Boost", "Sleep")
-            chips.forEach { frame.rect(it).height shouldBeGreaterThanOrEqual MIN_TARGET_PX }
-            frame.horizontalOverflow() shouldBe 0
-        }
-
-        test("the full player's sleep chip opens the sleep timer on a phone") {
-            val frame = player()
-            frame.find(".tport-body").click()
-            awaitFrame()
-
-            frame.findAll(".np-chip").single { it.textContent.orEmpty().trim() == "Sleep" }.click()
-            awaitFrame()
-
-            frame.findAll("dialog[open]").size shouldBe 2
+            frame.find(".tport-body").getAttribute("href") shouldBe "/playing"
+            frame.rect(frame.find(".tport-body")).height shouldBeGreaterThanOrEqual MIN_TARGET_PX
         }
 
         test("the end of a page scrolls clear of the bar instead of hiding under it") {

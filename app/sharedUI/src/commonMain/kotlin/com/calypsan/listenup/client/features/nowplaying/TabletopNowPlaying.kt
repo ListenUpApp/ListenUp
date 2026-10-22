@@ -14,24 +14,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerArtwork
+import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCard
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerTitleBlock
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerSecondaryActions
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerSettingsRow
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
+import com.calypsan.listenup.client.presentation.player.PlayerCard
+import com.calypsan.listenup.client.presentation.player.PlayerCardAction
+import com.calypsan.listenup.client.presentation.player.PlayerCards
+import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 
@@ -54,10 +56,10 @@ private val CONTROLS_MAX_WIDTH = 560.dp
 /**
  * Now Playing on a foldable half open on a table, split at the hinge.
  *
- * The top half stands up facing the user, so it carries what is read at a distance: the collapse
- * and overflow bar, the cover (large, and shadowed like every cover), the title and the chapter. The
- * bottom half lies flat under the hand, so it carries what is touched: the scrubber, the transport,
- * and the speed, boost, sleep and chapter actions. Between them is a gap as tall as the hinge, plus
+ * The top half stands up facing the user, so it carries what is read at a distance: the collapse,
+ * status and More bar, the flat cover, the chapter and the title. The bottom half lies flat under the
+ * hand, so it carries what is touched: the scrubber, the transport (or the state card in its place),
+ * and the settings row. Between them is a gap as tall as the hinge, plus
  * [FOLD_CLEARANCE] either side, so nothing straddles the crease.
  *
  * [hingeBounds] are in window pixels. Now Playing fills the window, so they are also this layout's
@@ -78,21 +80,17 @@ internal fun TabletopNowPlaying(
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onSpeedClick: () -> Unit,
-    onBoostClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
-    onGoToBook: () -> Unit,
-    onGoToSeries: (String) -> Unit,
     onGoToContributor: (String) -> Unit,
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
-    onCloseBook: () -> Unit,
-    skipBackwardSec: Int,
-    skipForwardSec: Int,
-    hasPdf: Boolean = false,
-    onOpenPdf: () -> Unit = {},
+    onMenuItem: (PlayerMenuItem) -> Unit,
+    onCardAction: (PlayerCardAction) -> Unit,
+    onRate: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val card = PlayerCards.of(state)
     val (upperHalfHeight, hingeThickness) =
         with(LocalDensity.current) {
             hingeBounds.top.coerceAtLeast(0).toDp() to hingeBounds.height.coerceAtLeast(0).toDp()
@@ -113,14 +111,7 @@ internal fun TabletopNowPlaying(
             PlayerTopBar(
                 state = state,
                 onCollapse = onCollapse,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
+                onMenuItem = onMenuItem,
                 wide = false,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -130,39 +121,23 @@ internal fun TabletopNowPlaying(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                PlayerArtwork(
-                    coverPath = state.book.coverPath,
-                    bookId = state.book.id,
-                    size = min(min(maxWidth, maxHeight), MAX_COVER_SIZE),
-                    title = state.book.title,
-                    author = state.book.authorLine,
-                    coverHash = state.book.coverHash,
+                PlayerCover(
+                    state = state,
+                    side = min(min(maxWidth, maxHeight), MAX_COVER_SIZE),
                     modifier = Modifier.testTag(NOW_PLAYING_COVER_TAG),
                 )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = state.book.title,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            // The chapter's own title, falling back to "Chapter N" only when it's genuinely untitled
-            // (the same line the stacked and side-by-side players show).
-            Text(
-                text = state.chapterLine(),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            PlayerTitleBlock(
+                state = state,
+                onContributor = onGoToContributor,
+                onShowAuthors = onShowAuthorPicker,
+                onShowNarrators = onShowNarratorPicker,
+                alignment = Alignment.CenterHorizontally,
+                titleLines = 1,
+                showsBylines = false,
             )
         }
 
@@ -184,28 +159,30 @@ internal fun TabletopNowPlaying(
             val controlsWidth = Modifier.widthIn(max = CONTROLS_MAX_WIDTH).fillMaxWidth()
             PlayerScrubber(
                 progress = progress,
-                isPlaying = state.isAudible,
-                isBuffering = state.isBusy,
+                isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = controlsWidth,
+                center = { BookSentence(progress) },
             )
-            PlayerTransport(
-                primary = state.primary,
-                onPrimary = onPrimary,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                skipBackwardSec = skipBackwardSec,
-                skipForwardSec = skipForwardSec,
-                fabSize = 80.dp,
-                modifier = controlsWidth,
-            )
-            PlayerSecondaryActions(
-                playbackSpeed = state.settings.speed,
+            if (card != null) {
+                PlayerStateCard(card = card, onAction = onCardAction, onRate = onRate, modifier = controlsWidth)
+            } else {
+                PlayerTransport(
+                    state = state,
+                    onPrimary = onPrimary,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    playSize = 80.dp,
+                    modifier = controlsWidth,
+                )
+            }
+            PlayerSettingsRow(
+                speed = state.settings.speed,
+                sleepTimer = state.sleepTimer,
+                showsChapters = true,
                 onSpeedClick = onSpeedClick,
-                volumeBoostDb = state.settings.boostDb,
-                onBoostClick = onBoostClick,
                 onSleepClick = onSleepClick,
                 onChaptersClick = onChaptersClick,
                 modifier = controlsWidth,

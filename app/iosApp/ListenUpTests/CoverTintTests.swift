@@ -4,7 +4,7 @@ import UIKit
 @testable import ListenUp
 
 @Suite("CoverTint.clamp — WCAG-solved, per appearance")
-struct CoverTintExtractorTests {
+struct CoverTintTests {
     private let surfaces = CoverTint.Surfaces.system
 
     /// One appearance: its traits, its surfaces, and the contrast its tint is solved to.
@@ -105,16 +105,5 @@ struct CoverTintExtractorTests {
         #expect(tint.srgb(tint.dark).minimumContrastRatio(against: surfaces.dark) >= ContrastMinimum.text)
         #expect(tint.dark.brightness == 1)
         #expect(tint.dark.saturation < CoverTint.maxSaturation)
-    }
-
-    @Test("the extractor caches per book and keeps the coral fallback on an undecodable cover")
-    @MainActor
-    func extractorFallsBackAndCaches() async {
-        let extractor = CoverTintExtractor()
-        let missing = await extractor.resolve(bookId: "no-cover", coverPath: "/nonexistent/cover.jpg")
-        #expect(missing == nil)
-        #expect(extractor.cached(bookId: "no-cover") == nil)
-        let noPath = await extractor.resolve(bookId: "no-path", coverPath: nil)
-        #expect(noPath == nil)
     }
 }

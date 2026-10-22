@@ -225,104 +225,6 @@
    which would otherwise stretch it across the panel. */
 dialog.dlg .dlg-close { align-self: flex-start; }
 
-/* ---- the expanded player. Wider than the pickers because it is the only panel that has to hold
-   a cover, a byline and a transport at once; every other one is a list of choices. */
-.np-dlg { width: 560px; max-width: min(560px, calc(100vw - 32px)); }
-.np-body { display:flex; gap:20px; align-items:flex-start; padding:var(--sp-4) 0 var(--sp-16); }
-/* A problem's cause and Dismiss inside Now Playing (PlayerProblemNote), until PR 3's error card. */
-.np-note { display:flex; align-items:center; gap:10px; margin:0 0 var(--sp-16); padding:10px 14px; border-radius:var(--r-sm); background:var(--player-err-container); color:var(--player-err-ink); font-size:var(--fs-ui); font-weight:600; }
-.np-note-t { flex:1; min-width:0; }
-.np-note-x { width:44px; height:44px; flex:none; border:none; border-radius:var(--r-sm); background:transparent; color:inherit; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .np-note-x:hover { background:var(--surface-2); } }
-.np-meta { flex:1; min-width:0; display:flex; flex-direction:column; gap:var(--sp-8); }
-.np-t { font-size:1.25rem; font-weight:800; letter-spacing:-.02em; color:var(--ink); line-height:1.2; }
-.np-by { font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); }
-.np-sep { color:var(--ink-3); }
-/* A byline name is a control, not decoration — same contract as `.bd-by-name`. */
-.np-by-name { font:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer; border-radius:var(--r-xs); }
-@media (hover: hover) { .np-by-name:hover { color:var(--coral-text); text-decoration:underline; } }
-.np-by-name:focus { outline:none; }
-.np-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-.np-series { display:flex; flex-wrap:wrap; gap:var(--sp-8); }
-.np-series-chip {
-  display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--r-pill);
-  background:var(--surface-2); border:1px solid var(--line);
-  font:inherit; font-size:var(--fs-small); font-weight:700; color:var(--ink-2); cursor:pointer;
-}
-@media (hover: hover) { .np-series-chip:hover { border-color:var(--coral); color:var(--coral-text); } }
-.np-series-chip:focus { outline:none; }
-.np-series-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-.np-series-seq { font-family:var(--mono); font-size:var(--fs-caption); color:var(--ink-3); }
-.np-ch { display:flex; flex-direction:column; gap:2px; margin-top:2px; }
-.np-ch-n { font-family:var(--mono); font-size:var(--fs-caption); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
-.np-ch-t { font-size:var(--fs-ui); color:var(--ink-2); font-weight:600; }
-
-/* The transport. Centred as one group so the play button sits on the panel's axis — the row is
-   read as a unit, not as controls distributed across the width. */
-.np-transport { display:flex; align-items:center; justify-content:center; gap:14px; padding:var(--sp-4) 0 var(--sp-12); }
-.np-play { width:56px; height:56px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral-fill); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
-@media (hover: hover) { .np-play:hover { background:var(--coral-fill-press); } }
-.np-b, .np-chstep {
-  width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer;
-  background:transparent; color:var(--ink-2); display:inline-flex; align-items:center; justify-content:center;
-}
-@media (hover: hover) { .np-b:hover, .np-chstep:not(:disabled):hover { background:var(--surface-2); color:var(--ink); } }
-/* A chapter step at either end of the book is genuinely unavailable, and says so. The hover above
-   is scoped to :not(:disabled) rather than overridden back here, so there is exactly one rule
-   describing when a step responds at all. */
-.np-chstep:disabled { opacity:.3; cursor:default; }
-
-.np-scrub-row { display:flex; align-items:center; gap:var(--sp-12); padding-bottom:var(--sp-16); }
-.np-time { font-size:0.75rem; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
-.np-scrub { flex:1; min-width:60px; height:5px; margin:0; accent-color:var(--coral); cursor:pointer; }
-
-.np-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; padding-bottom:6px; }
-.np-chip {
-  padding:7px 13px; border-radius:var(--r-pill); border:1px solid var(--line); background:transparent;
-  font:inherit; font-size:var(--fs-small); font-weight:700; color:var(--ink-2); cursor:pointer;
-  font-variant-numeric:tabular-nums;
-}
-@media (hover: hover) { .np-chip:hover { background:var(--surface-2); color:var(--ink); } }
-.np-chip.on { border-color:var(--coral); color:var(--coral-text); }
-.np-chip:focus { outline:none; }
-.np-chip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-/* The one control that leaves the player, so it sits apart from the four that do not. */
-.np-goto {
-  margin-left:auto; display:inline-flex; align-items:center; gap:var(--sp-4);
-  padding:7px 13px; border-radius:var(--r-pill); border:1px solid var(--line); background:transparent;
-  font:inherit; font-size:var(--fs-small); font-weight:700; color:var(--ink-2); cursor:pointer;
-}
-@media (hover: hover) { .np-goto:hover { border-color:var(--coral); color:var(--coral-text); } }
-.np-goto:focus { outline:none; }
-.np-goto:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-/* Ends the session rather than adjusting it, so it stands below the chips, not among them. */
-.np-close-book { align-self:flex-start; }
-
-@media (max-width: 639px) {
-  /* The cover is the first thing to go: it is the largest element and the only one that carries
-     no information the rest of the panel does not already state in words. */
-  .np-body { flex-direction:column; align-items:stretch; gap:14px; }
-}
-/* On a phone the full player is the whole screen, not a card floating in it. It is where speed,
-   boost, sleep and the skips live at this width (the bar has room for play and little else), so
-   it gets the room and the thumb-sized targets that job needs. The body scrolls, so a short
-   landscape phone still reaches Close. */
-@media (max-width: 759px) {
-  dialog.dlg.np-dlg {
-    width:100%; max-width:none; height:100%; max-height:none; margin:0; inset:0; border-radius:0;
-  }
-  dialog.dlg.np-dlg .dlg-body {
-    height:100%; overflow-y:auto; gap:var(--sp-12);
-    padding:calc(18px + env(safe-area-inset-top)) calc(var(--sp-16) + env(safe-area-inset-right))
-      calc(18px + env(safe-area-inset-bottom)) calc(var(--sp-16) + env(safe-area-inset-left));
-  }
-  .np-body { align-items:center; }
-  .np-meta { align-self:stretch; }
-  .np-transport { gap:6px; }
-  .np-b, .np-chstep { width:44px; height:44px; }
-  .np-actions { gap:var(--sp-8); }
-  .np-chip, .np-goto { min-height:44px; padding:0 var(--sp-16); font-size:var(--fs-ui); }
-}
 .boost-read {
   margin: 18px 0 10px; font-size: 2.625rem; font-weight: 800; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
@@ -544,3 +446,179 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .luw .mosaic-tile { border-radius:6px; overflow:hidden; background:var(--surface-2); aspect-ratio:1; }
 .luw .mosaic-tile img { display:block; inline-size:100%; block-size:100%; object-fit:cover; }
 .luw .mosaic-tile.is-empty { background:var(--paper-2); }
+
+/* ============================================================
+   NOW PLAYING — the page (/playing, S4, spec §5.4).
+   One structure, laid out per width: below 760px the whole screen with its own transport (.np-mob); from 760px a
+   page in the shell whose transport is the bar (.np-desk), the chapter list under the book, and from 1024px beside
+   it. Everything sits on the cover's wash (--np-wash, 06-shell.css).
+   ============================================================ */
+.np-page {
+  width:100%; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-24);
+  padding:var(--sp-24) var(--sp-32) var(--sp-32); border-radius:var(--r-xl); background:var(--np-wash);
+}
+.np-page .page-h { align-items:center; flex-wrap:nowrap; gap:var(--sp-12); min-height:44px; }
+.np-page .page-h-text { flex:1 1 auto; }
+.np-collapse {
+  width:44px; height:44px; flex:none; padding:0; display:inline-flex; align-items:center; justify-content:center;
+  border:none; border-radius:var(--r-pill); background:transparent; color:var(--ink); cursor:pointer;
+}
+@media (hover: hover) { .np-collapse:hover { background:color-mix(in srgb, var(--ink) 8%, transparent); } }
+.np-collapse:focus { outline:none; }
+.np-collapse:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-page .page-t { font-size:var(--fs-h2); letter-spacing:-.02em; line-height:1.2; }
+.np-page .np-status {
+  min-height:32px; padding:0 var(--sp-12); display:inline-flex; align-items:center; white-space:nowrap;
+  font-size:var(--fs-small); font-weight:600; color:var(--ink-2);
+  border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
+}
+
+.np-more .btn { min-height:44px; }
+.np-cols { display:grid; gap:var(--sp-32); align-items:start; }
+@media (min-width: 1024px) { .np-cols { grid-template-columns:380px minmax(0, 1fr); } }
+.np-bookcol { display:flex; flex-direction:column; gap:var(--sp-12); min-width:0; }
+.np-cover { display:block; width:380px; max-width:100%; }
+.np-page p { margin:0; }
+.np-page .np-series { display:block; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); }
+.np-page .np-sep { color:var(--ink-3); }
+.np-title { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; }
+.np-page a { color:inherit; text-decoration:none; border-radius:var(--r-xs); }
+.np-page .np-title a, .np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a {
+  display:inline-flex; align-items:center; gap:2px; min-height:44px; color:var(--ink);
+}
+.np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a { color:inherit; }
+@media (hover: hover) {
+  .np-page .np-title a:hover, .np-page .np-series a:hover, .np-page .np-by a:hover, .np-page .np-read-by a:hover {
+    color:var(--coral-text); text-decoration:underline;
+  }
+}
+.np-page a:focus { outline:none; }
+.np-page a:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-page .np-by, .np-page .np-read-by { display:block; font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); line-height:1.3; }
+.np-by-k { font-weight:500; color:var(--ink-3); }
+.np-read-by .menu-anchor { display:inline-block; }
+.np-fold {
+  min-height:44px; padding:0; display:inline-flex; align-items:center; gap:2px; border:none; background:none;
+  font:inherit; color:inherit; cursor:pointer; border-radius:var(--r-xs);
+}
+@media (hover: hover) { .np-fold:hover { color:var(--coral-text); } }
+.np-fold:focus { outline:none; }
+.np-fold:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.np-bookcard {
+  display:flex; flex-direction:column; gap:var(--sp-8); margin-top:var(--sp-8); padding:var(--sp-16);
+  border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.np-page .np-ch { display:block; font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
+.np-left, .np-sentence { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-bookbar { height:4px; border-radius:var(--r-pill); background:var(--cover-track, var(--line)); overflow:hidden; }
+.np-bookbar-fill { height:100%; border-radius:inherit; background:var(--coral-fill); }
+
+/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · sentence · remaining, the transport, the pills. */
+.np-phone { flex-direction:column; align-items:stretch; gap:var(--sp-16); width:100%; }
+.np-scrubber { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:var(--sp-8) var(--sp-8); }
+.np-page .np-scrub { grid-column:1 / -1; grid-row:1; width:100%; height:20px; margin:0; accent-color:var(--coral-fill); cursor:pointer; }
+.np-page .np-scrubber > .np-time:first-child { grid-column:1; grid-row:2; }
+.np-page .np-scrubber > .np-sentence { grid-column:2; grid-row:2; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.np-page .np-scrubber > .np-time:last-child { grid-column:3; grid-row:2; }
+.np-page .np-time { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.np-page .np-transport { display:flex; align-items:center; justify-content:center; gap:18px; padding:0; }
+.np-page .np-play {
+  width:76px; height:76px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; background:var(--coral-fill); color:var(--on-coral);
+}
+@media (hover: hover) { .np-page .np-play:hover { background:var(--coral-fill-press); } }
+.np-page .np-play.ring { box-shadow:0 0 0 4px var(--np-wash), 0 0 0 7px var(--coral-fill); }
+.np-page .np-play:focus { outline:none; }
+.np-page .np-play:focus-visible { outline:3px solid var(--coral); outline-offset:4px; }
+.np-step, .np-skip {
+  position:relative; width:48px; height:48px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; background:transparent; color:var(--ink);
+}
+@media (hover: hover) { .np-step:not(:disabled):hover, .np-skip:not(:disabled):hover { background:color-mix(in srgb, var(--ink) 8%, transparent); } }
+.np-step:disabled, .np-skip:disabled { opacity:.35; cursor:default; }
+.np-step:focus, .np-skip:focus { outline:none; }
+.np-step:focus-visible, .np-skip:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* The rotation arrows open on opposite sides; the number nudges toward each one's centre of mass. */
+.np-skip-back .np-skip-n { padding-left:1px; }
+.np-skip-fwd .np-skip-n { padding-right:1px; }
+/* The chapter steps sit just outside the skips, a quieter weight than the play circle between them. */
+.np-prev, .np-next { color:var(--ink-2); }
+.np-skip-n { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding-top:2px; font-size:.5625rem; font-weight:800; pointer-events:none; }
+.np-pills { display:flex; flex-wrap:wrap; justify-content:center; gap:var(--sp-8); }
+.np-pill {
+  min-height:44px; padding:0 var(--sp-16); border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius:var(--r-pill); background:transparent; color:var(--ink); font:inherit; font-size:var(--fs-ui); font-weight:600;
+  font-variant-numeric:tabular-nums; cursor:pointer;
+}
+@media (hover: hover) { .np-pill:hover { background:color-mix(in srgb, var(--ink) 6%, transparent); } }
+.np-pill.on { border-color:var(--coral-fill); color:var(--coral-text); }
+.np-pill:focus { outline:none; }
+.np-pill:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
+/* The chapter list (§3.11): a scroller of its own, so following the playhead never moves the page. */
+.np-listcol { min-width:0; }
+.np-listwrap { display:flex; flex-direction:column; gap:var(--sp-8); }
+.np-list {
+  max-height:max(320px, calc(100dvh - 260px)); overflow:auto; overflow-anchor:none; overscroll-behavior:contain;
+  border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.np-rows { list-style:none; margin:0; padding:var(--sp-4); }
+.np-row {
+  width:100%; min-height:52px; display:grid; grid-template-columns:2.5rem minmax(0, 1fr) auto; align-items:center;
+  gap:var(--sp-12); padding:var(--sp-8) var(--sp-12); border:none; border-radius:var(--r-md); background:transparent;
+  font:inherit; text-align:left; color:var(--ink); cursor:pointer;
+}
+@media (hover: hover) { .np-row:not(.on):hover { background:color-mix(in srgb, var(--ink) 6%, transparent); } }
+.np-row:focus { outline:none; }
+.np-row:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.np-row-n { font-size:var(--fs-small); color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.np-row-main { display:flex; flex-direction:column; min-width:0; }
+.np-row-t { font-size:var(--fs-ui); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.np-row-now { font-size:var(--fs-small); font-weight:600; }
+.np-row-d { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-row.on { background:var(--coral-fill); color:var(--on-coral); }
+.np-row.on .np-row-n, .np-row.on .np-row-d { color:inherit; }
+.np-back-current {
+  align-self:center; min-height:44px; padding:0 var(--sp-16); border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius:var(--r-pill); background:var(--surface); color:var(--ink); font:inherit; font-size:var(--fs-ui); font-weight:600; cursor:pointer;
+}
+@media (hover: hover) { .np-back-current:hover { background:var(--surface-2); } }
+.np-back-current:focus { outline:none; }
+.np-back-current:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
+/* The state card (P32): a problem on the error container, Book Detail's held amber, or a plain container; or the
+   finished book. It takes the transport's place on a phone and sits at the foot of the book column wider. */
+.np-card {
+  display:flex; flex-direction:column; gap:var(--sp-8); width:100%; padding:var(--sp-16) var(--sp-16) var(--sp-16);
+  border-radius:var(--r-lg); text-align:left; background:var(--surface-2); color:var(--ink);
+}
+.np-card.error { background:var(--player-err-container); color:var(--player-err-ink); }
+.np-card.held { background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
+.np-card.finished { background:color-mix(in srgb, var(--surface) 80%, transparent); }
+.np-card-t { font-size:var(--fs-title); font-weight:800; letter-spacing:-.01em; }
+.np-card-c, .np-card-saved { font-size:var(--fs-ui); line-height:1.45; }
+.np-card.neutral .np-card-c, .np-card.held .np-card-c, .np-card.finished .np-card-c { color:var(--ink-2); }
+.np-card-ref { font-size:var(--fs-small); opacity:.8; }
+.np-card-next { display:flex; align-items:center; gap:var(--sp-12); }
+.np-card-next-text { display:flex; flex-direction:column; min-width:0; }
+.np-card-next-k { font-size:var(--fs-caption); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+.np-card-next-t { font-size:var(--fs-ui); font-weight:700; }
+.np-card-next-n { font-size:var(--fs-small); color:var(--ink-2); }
+.np-card-actions { display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-8); margin-top:var(--sp-4); }
+.np-card-actions .btn { min-height:44px; }
+.np-cardslot { margin-top:var(--sp-8); }
+
+/* Below 760px: the whole screen, its own transport; from 760px the bar is the transport (C8). */
+.np-mob { display:none; }
+@media (max-width: 759px) {
+  .np-desk { display:none; }
+  .np-mob { display:flex; }
+  .np-page { min-height:100dvh; border-radius:0; padding:var(--sp-8) var(--sp-16) calc(var(--sp-24) + env(safe-area-inset-bottom)); gap:var(--sp-12); }
+  .np-page .page-t {
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+  }
+  .np-bookcol { align-items:center; text-align:center; gap:var(--sp-8); }
+  .np-cover { width:300px; margin-bottom:var(--sp-8); }
+
+}

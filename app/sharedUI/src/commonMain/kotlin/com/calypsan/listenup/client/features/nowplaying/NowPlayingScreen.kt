@@ -22,17 +22,23 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.motion.PredictiveBackEdgeMargin
 import com.calypsan.listenup.client.design.motion.predictiveBackPreview
 import com.calypsan.listenup.client.design.util.BackGestureEdge
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.foldable.LocalFold
+import com.calypsan.listenup.client.presentation.player.PlayerCardAction
+import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.time.Duration
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_now_playing
+import org.jetbrains.compose.resources.stringResource
 
 // Drag-to-dismiss: release past a third of the screen height collapses the player.
 private const val DRAG_DISMISS_FRACTION = 0.33f
@@ -61,19 +67,14 @@ fun NowPlayingScreen(
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onSpeedClick: () -> Unit,
-    onBoostClick: () -> Unit,
     onChaptersClick: () -> Unit,
     onSleepTimerClick: () -> Unit,
-    onGoToBook: () -> Unit,
-    onGoToSeries: (String) -> Unit,
     onGoToContributor: (String) -> Unit,
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
-    onCloseBook: () -> Unit,
-    skipBackwardSec: Int,
-    skipForwardSec: Int,
-    hasPdf: Boolean = false,
-    onOpenPdf: () -> Unit = {},
+    onMenuItem: (PlayerMenuItem) -> Unit,
+    onCardAction: (PlayerCardAction) -> Unit,
+    onRate: (Int) -> Unit,
     isTv: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -157,11 +158,13 @@ fun NowPlayingScreen(
     val backPreviewCorner = MaterialTheme.shapes.extraLarge.topStart
     val fold = LocalFold.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
+    val nowPlaying = stringResource(Res.string.player_now_playing)
 
     Surface(
         modifier =
             modifier
                 .fillMaxSize()
+                .semantics { paneTitle = nowPlaying }
                 .onKeyEvent {
                     if (isTv) resetAmbient()
                     false // don't consume
@@ -235,19 +238,14 @@ fun NowPlayingScreen(
                     onPreviousChapter = onPreviousChapter,
                     onNextChapter = onNextChapter,
                     onSpeedClick = onSpeedClick,
-                    onBoostClick = onBoostClick,
                     onSleepClick = onSleepTimerClick,
                     onChaptersClick = onChaptersClick,
-                    onGoToBook = onGoToBook,
-                    onGoToSeries = onGoToSeries,
                     onGoToContributor = onGoToContributor,
                     onShowAuthorPicker = onShowAuthorPicker,
                     onShowNarratorPicker = onShowNarratorPicker,
-                    onCloseBook = onCloseBook,
-                    skipBackwardSec = skipBackwardSec,
-                    skipForwardSec = skipForwardSec,
-                    hasPdf = hasPdf,
-                    onOpenPdf = onOpenPdf,
+                    onMenuItem = onMenuItem,
+                    onCardAction = onCardAction,
+                    onRate = onRate,
                 )
             }
 
@@ -263,19 +261,14 @@ fun NowPlayingScreen(
                     onPreviousChapter = onPreviousChapter,
                     onNextChapter = onNextChapter,
                     onSpeedClick = onSpeedClick,
-                    onBoostClick = onBoostClick,
                     onSleepClick = onSleepTimerClick,
                     onChaptersClick = onChaptersClick,
-                    onGoToBook = onGoToBook,
-                    onGoToSeries = onGoToSeries,
                     onGoToContributor = onGoToContributor,
                     onShowAuthorPicker = onShowAuthorPicker,
                     onShowNarratorPicker = onShowNarratorPicker,
-                    onCloseBook = onCloseBook,
-                    skipBackwardSec = skipBackwardSec,
-                    skipForwardSec = skipForwardSec,
-                    hasPdf = hasPdf,
-                    onOpenPdf = onOpenPdf,
+                    onMenuItem = onMenuItem,
+                    onCardAction = onCardAction,
+                    onRate = onRate,
                 )
             }
 
@@ -291,39 +284,16 @@ fun NowPlayingScreen(
                     onPreviousChapter = onPreviousChapter,
                     onNextChapter = onNextChapter,
                     onSpeedClick = onSpeedClick,
-                    onBoostClick = onBoostClick,
                     onSleepClick = onSleepTimerClick,
                     onChaptersClick = onChaptersClick,
-                    onGoToBook = onGoToBook,
-                    onGoToSeries = onGoToSeries,
                     onGoToContributor = onGoToContributor,
                     onShowAuthorPicker = onShowAuthorPicker,
                     onShowNarratorPicker = onShowNarratorPicker,
-                    onCloseBook = onCloseBook,
-                    skipBackwardSec = skipBackwardSec,
-                    skipForwardSec = skipForwardSec,
-                    hasPdf = hasPdf,
-                    onOpenPdf = onOpenPdf,
+                    onMenuItem = onMenuItem,
+                    onCardAction = onCardAction,
+                    onRate = onRate,
                 )
             }
         }
-    }
-}
-
-// Extension function for formatting playback time
-fun Duration.formatPlaybackTime(): String {
-    val hours = inWholeHours
-    val minutes = inWholeMinutes % 60
-    val seconds = inWholeSeconds % 60
-
-    // ASCII digits in every locale, like DurationFormatter, so one screen never mixes two numeral
-    // systems; and plain padding rather than String.format, which commonMain cannot reach.
-    val clock = "$minutes:${seconds.toString().padStart(2, '0')}"
-    return if (hours >
-        0
-    ) {
-        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        clock
     }
 }

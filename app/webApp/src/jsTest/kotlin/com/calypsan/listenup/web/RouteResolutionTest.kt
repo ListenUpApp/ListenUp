@@ -78,6 +78,7 @@ class RouteResolutionTest :
             "/discover/nonsense",
             "/notifications/nonsense",
             "/home/nonsense",
+            "/playing/extra",
             "/search/book/nonsense",
             "/books/edit/nonsense?ids=b1",
             "/settings/devices/nonsense",

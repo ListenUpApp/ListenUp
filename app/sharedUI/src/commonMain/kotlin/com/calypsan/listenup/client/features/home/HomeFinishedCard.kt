@@ -39,7 +39,6 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
@@ -48,28 +47,18 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.home.AlsoFinished
 import com.calypsan.listenup.client.presentation.home.FinishedCard
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.daysUntil
-import kotlinx.datetime.number
-import kotlinx.datetime.toLocalDateTime
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_also_finished_one
 import listenup.composeapp.generated.resources.home_also_finished_one_more
 import listenup.composeapp.generated.resources.home_also_finished_two
 import listenup.composeapp.generated.resources.home_also_finished_two_more
-import listenup.composeapp.generated.resources.home_date_range
 import listenup.composeapp.generated.resources.home_dismiss_everywhere_a11y
-import listenup.composeapp.generated.resources.home_finished_days_ago
-import listenup.composeapp.generated.resources.home_finished_line_no_range
-import listenup.composeapp.generated.resources.home_finished_today
-import listenup.composeapp.generated.resources.home_finished_yesterday
 import listenup.composeapp.generated.resources.home_how_was_it
 import listenup.composeapp.generated.resources.home_play_next_book
 import listenup.composeapp.generated.resources.home_play_next_book_a11y
 import listenup.composeapp.generated.resources.home_you_finished_a_book_a11y
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 /** Test tag for the finish card's one link into the finished book (H15). */
 internal const val HOME_FINISHED_IDENTITY_TAG = "home-finished-identity"
@@ -223,29 +212,6 @@ private fun FinishedRating(
     }
 }
 
-@Composable
-private fun finishedEyebrow(daysAgo: Int): String =
-    when (daysAgo) {
-        0 -> stringResource(Res.string.home_finished_today)
-        1 -> stringResource(Res.string.home_finished_yesterday)
-        else -> stringResource(Res.string.home_finished_days_ago, daysAgo)
-    }
-
-@Composable
-private fun finishedMeta(
-    durationMs: Long,
-    startedAtMs: Long?,
-    finishedAtMs: Long,
-    zone: TimeZone,
-): String {
-    val length = DurationFormatter.hoursMinutes(durationMs.milliseconds)
-    // Q8: a finish with no known start (imported from history) shows its length alone.
-    startedAtMs ?: return length
-    val range =
-        stringResource(Res.string.home_date_range, shortDayMonth(startedAtMs, zone), shortDayMonth(finishedAtMs, zone))
-    return stringResource(Res.string.home_finished_line_no_range, length, range)
-}
-
 /** "Maya, Tom and 3 more finished it too" (C9), or null when nobody is named (Q7). */
 @Composable
 private fun alsoFinishedText(also: AlsoFinished): String? {
@@ -259,26 +225,3 @@ private fun alsoFinishedText(also: AlsoFinished): String? {
         else -> stringResource(Res.string.home_also_finished_two_more, names[0], names[1], more)
     }
 }
-
-/** Local calendar days from [finishedAtMs] to [nowMs] in [zone]: 0 today, 1 yesterday (C10). */
-internal fun finishedDaysAgo(
-    finishedAtMs: Long,
-    nowMs: Long,
-    zone: TimeZone,
-): Int = localDate(finishedAtMs, zone).daysUntil(localDate(nowMs, zone)).coerceAtLeast(0)
-
-/** "6 Sep": the day, then the short English month, in [zone]. */
-internal fun shortDayMonth(
-    epochMs: Long,
-    zone: TimeZone,
-): String {
-    val date = localDate(epochMs, zone)
-    return "${date.day} ${SHORT_MONTHS[date.month.number - 1]}"
-}
-
-private fun localDate(
-    epochMs: Long,
-    zone: TimeZone,
-) = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(zone).date
-
-private val SHORT_MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

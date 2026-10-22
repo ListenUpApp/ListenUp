@@ -1,76 +1,37 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
+import com.calypsan.listenup.client.design.components.PlaybackSlider
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Chapter-scoped scrubber combining [WavySeekBar] with elapsed and remaining time labels.
+ * Now Playing's chapter-scoped scrubber: [PlaybackSlider] over elapsed · [center] · −remaining.
  *
- * The elapsed label shows [chapterPositionMs] formatted as a human-readable time string;
- * the remaining label shows the negative remaining time (e.g. "-15:05"). Both use tabular
- * figures so digits never shift horizontally during playback.
+ * [progress] is a deferred lambda so the 4 Hz position tick recomposes only this leaf, never the player chrome
+ * around it (cover, title, transport), which reads nothing from it.
  *
- * [progress] is a deferred lambda so the 4 Hz position tick recomposes only this leaf scrubber +
- * its time labels — the player chrome above it (artwork, title, transport) reads nothing from it
- * and stays stable across ticks.
- *
- * @param progress Deferred read of the fast-changing playback progress (playhead, chapter bounds).
- * @param isPlaying Whether audio is currently playing; drives the wave amplitude animation.
- * @param isBuffering When true, seeking is disabled and the seek bar is non-interactive.
- * @param onSeek Called with the new fractional position when the user seeks.
+ * @param progress Deferred read of the fast-changing playback progress.
+ * @param isBusy When true (a stall, or a problem card), the scrubber holds still and takes no seek.
+ * @param onSeek Called once, on release, with the chapter fraction to seek to.
+ * @param center Drawn between the times: the book sentence on Now Playing.
  */
 @Composable
 fun PlayerScrubber(
     progress: () -> PlayerProgress,
-    isPlaying: Boolean,
-    isBuffering: Boolean,
+    isBusy: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    center: (@Composable () -> Unit)? = null,
 ) {
-    val current = progress()
-    val chapterProgress = current.chapterFraction
-    val chapterPositionMs = current.chapterPositionMs
-    val chapterDurationMs = current.chapterDurationMs
-
-    val elapsedDuration = chapterPositionMs.milliseconds
-    val remainingDuration = (chapterDurationMs - chapterPositionMs).coerceAtLeast(0L).milliseconds
-
-    val elapsedLabel = elapsedDuration.formatPlaybackTime()
-    val remainingLabel = "-${remainingDuration.formatPlaybackTime()}"
-
-    // Tabular-nums so digits don't shift as time advances.
-    val timeStyle =
-        MaterialTheme.typography.labelMedium.copy(
-            fontFeatureSettings = "tnum",
-        )
-    val timeColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        WavySeekBar(
-            progress = chapterProgress,
-            onSeek = onSeek,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isBuffering,
-            isPlaying = isPlaying,
-            stateDescription = "$elapsedLabel of ${chapterDurationMs.milliseconds.formatPlaybackTime()}",
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(text = elapsedLabel, style = timeStyle, color = timeColor)
-            Text(text = remainingLabel, style = timeStyle, color = timeColor)
-        }
-    }
+    val p = progress()
+    PlaybackSlider(
+        fraction = p.chapterFraction,
+        elapsedMs = p.chapterPositionMs,
+        durationMs = p.chapterDurationMs,
+        onSeek = onSeek,
+        enabled = !isBusy,
+        center = center,
+        modifier = modifier,
+    )
 }

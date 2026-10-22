@@ -116,3 +116,9 @@ internal fun chapterRowsOf(
             isCurrent = index == currentIndex,
         )
     }
+
+/** A failure the reader must act on; a refusal or a lapsed session is not one (the `States-*` boards). */
+internal fun AppError.isFailureToFix(): Boolean =
+    this !is PlaybackError.AutoplayBlocked &&
+        this !is PlaybackError.BlockedInBackground &&
+        this !is AuthError.SessionExpired

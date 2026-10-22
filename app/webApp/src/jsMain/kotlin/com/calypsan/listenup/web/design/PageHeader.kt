@@ -28,7 +28,8 @@ import org.jetbrains.compose.web.dom.Text
  * label: Home's greeting, the sign-in screens, and an entity's hero beside its artwork.
  *
  * [details] renders under the subtitle — a shelf's counts, a profile's numbers. [actions] sit at the
- * header's trailing edge and wrap beneath the title when there is no room.
+ * header's trailing edge and wrap beneath the title when there is no room. [leading] sits before the
+ * title, inside the header: Now Playing's Collapse and Back.
  */
 @Composable
 fun PageHeader(
@@ -40,12 +41,14 @@ fun PageHeader(
     pending: Boolean = false,
     details: (@Composable () -> Unit)? = null,
     actions: (@Composable () -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     PageTitle(documentTitle)
     Header(attrs = {
         classes("page-h")
         if (display) classes("is-display")
     }) {
+        leading?.invoke()
         Div(attrs = { classes("page-h-text") }) {
             eyebrow?.let { P(attrs = { classes("page-eyebrow") }) { Text(it) } }
             H1(attrs = { classes("page-t") }) {

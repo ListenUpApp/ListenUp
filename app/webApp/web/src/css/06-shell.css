@@ -262,6 +262,12 @@
   .tport-mid, .tport-transport { display:contents; }
   .tport-fwd, .tport-head, .tport-settings, .tport-expand { display:none; }
   .tport-b { width:48px; height:48px; }
+
+  /* An immersive page (Now Playing, S4) is the whole phone screen: the tabs, the header and the bar step aside, and
+     the content region gives back the room they had. */
+  .shell.shell-immersive { padding-bottom:0; }
+  .shell-immersive .sidebar, .shell-immersive .ptb, .shell-immersive .tport { display:none; }
+  .shell-immersive .shell-main, .shell-immersive .shell-main:has(> .tport) { --dock:0px; padding:0; }
 }
 
 /* ---- book detail (Workbench layout, Paper voice) ---- */
@@ -298,6 +304,17 @@
   --shadow-glow: 0 6px 18px rgba(0,0,0,0.45);
   --shadow-glow-hover: 0 8px 22px rgba(0,0,0,0.55);
 }
+/* Now Playing's page sits on the same cover wash; with none, the player's own neutral (C12): the spec's paper tone in
+   light, Book Detail's inset surface at night. */
+:root { --np-wash: #F5EFE9; }
+[data-theme="dark"] { --np-wash: var(--surface-2); }
+.cover-themed { --np-wash: var(--cover-wash-l); }
+[data-theme="dark"] .cover-themed { --np-wash: var(--cover-wash-d); }
+/* The page's quieter ink sits on the wash, not on paper: a cover's tone-91 wash (light) or tone-20 wash (dark) takes
+   the stock --ink-3 to about 4:1. On the page, both quiet tiers deepen so each reads at 4.5:1 on the neutral and on
+   every wash the shared rule gives, still in order (NowPlayingWashContrastTest). */
+.np-page { --ink-2: #554E48; --ink-3: #5F5751; }
+[data-theme="dark"] .np-page { --ink-2: #B3AEA9; --ink-3: #A8A39E; }
 .cover-themed .progress { background: var(--cover-track); }
 .cover-themed .progress-fill { background: var(--coral-fill); }
 /* The crossfade from neutral, for colours that arrived after a miss (C10); none for a reader who asked for less motion. */

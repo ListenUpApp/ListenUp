@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapter_number
+import listenup.composeapp.generated.resources.player_chapter_of
+import listenup.composeapp.generated.resources.player_np_whole_book
 import org.jetbrains.compose.resources.stringResource
 
 /** Audio is advancing: the wave moves and the scrubber animates. */
@@ -23,11 +25,26 @@ internal val PlayerUiState.Loaded.isBusy: Boolean
 internal val PlayerBook.authorLine: String
     get() = authors.joinToString(", ") { it.name }
 
-/** The chapter's own title, or "Chapter N" when it has none (a chapterless book reads "Chapter 1", as before). */
+/**
+ * "Chapter 6 of 75" (P7), or null where it must not show: a chapterless book, or a generic title, which our counter
+ * could contradict ("Chapter 16 of 75 · Chapter 14"; Simon, 2026-10-14). Open question 1's default (C6).
+ */
 @Composable
-internal fun PlayerUiState.Loaded.chapterLine(): String =
-    chapter.title.takeUnless { chapter.isWholeBook }?.takeIf { it.isNotBlank() }
-        ?: stringResource(Res.string.player_chapter_number, chapter.number)
+internal fun PlayerUiState.Loaded.chapterCounter(): String? =
+    if (chapter.isWholeBook || chapter.isGenericTitle) {
+        null
+    } else {
+        stringResource(Res.string.player_chapter_of, chapter.number.toString(), chapter.total.toString())
+    }
+
+/** The chapter's own title; "Whole book" for a chapterless book, "Chapter N" for an untitled one (§3.2). */
+@Composable
+internal fun PlayerUiState.Loaded.chapterTitleLine(): String =
+    when {
+        chapter.isWholeBook -> stringResource(Res.string.player_np_whole_book)
+        chapter.title.isBlank() -> stringResource(Res.string.player_chapter_number, chapter.number)
+        else -> chapter.title
+    }
 
 /** The shared contributor rows and full-cast sheet take [BookContributor]s. */
 internal fun List<PlayerContributor>.asBookContributors(): List<BookContributor> =

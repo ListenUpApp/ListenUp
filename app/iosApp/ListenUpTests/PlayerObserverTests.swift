@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import ListenUp
 import ListenupContract
@@ -115,6 +116,28 @@ struct PlayerObserverTests {
         #expect(isTinted)
     }
 
+    @Test("the status words, the counter rule and the book percent")
+    func nowPlayingFacts() {
+        let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, source: AudioSourceStreamingTranscoded.shared))
+        #expect(snapshot.statusText == String(localized: "player.np_status_streaming_transcoded"))
+        #expect(!snapshot.isCasting)
+        #expect(snapshot.showsChapterCounter)
+        #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(isGenericTitle: true)).showsChapterCounter)
+        #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(wholeBook: true)).showsChapterCounter)
+        #expect(PlayerProgressRow(PlayerProgress(
+            chapterPositionMs: 0, chapterDurationMs: 0, bookPositionMs: 18_000_000, bookDurationMs: 163_800_000
+        )).bookPercent == 10)
+    }
+
+    @Test("casting reads Playing on the device, in the tint")
+    func casting() {
+        let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, source: AudioSourceCasting(deviceName: "Living Room")))
+        #expect(snapshot.statusText == String(format: String(localized: "player.np_status_playing_on"), "Living Room"))
+        #expect(snapshot.isCasting)
+    }
+
     @Test("progress becomes a native row with its derived values")
     func progress() {
         let row = PlayerProgressRow(PlayerProgress(
@@ -135,37 +158,48 @@ extension PlayerUiStateLoaded {
         sleepTimer: any SleepTimerState = SleepTimerStateInactive.shared,
         chapterTitle: String? = nil,
         source: any AudioSource = AudioSourceStreaming.shared,
-        showsSkipBack: Bool = true
+        showsSkipBack: Bool = true,
+        finished: FinishedInfo? = nil,
+        firstPdfDocId: String? = nil,
+        boostDb: Float = 0,
+        isGenericTitle: Bool = false,
+        narrators: [PlayerContributor] = [PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 2)],
+        chapterCount: Int = 8,
+        chapterDurationMs: Int64 = 60_000
     ) -> PlayerUiStateLoaded {
-        let total = wholeBook ? 1 : 8
+        let total = wholeBook ? 1 : chapterCount
+        let bookMs = Int64(chapterCount) * chapterDurationMs
         let rows = wholeBook ? [] : (0..<total).map { index in
             PlayerChapterRow(
                 index: Int32(index), number: Int32(index + 1), title: "Chapter \(index + 1)",
-                startMs: Int64(index) * 60_000, durationMs: 60_000, isCurrent: index == currentIndex)
+                startMs: Int64(index) * chapterDurationMs, durationMs: chapterDurationMs,
+                isCurrent: index == currentIndex)
         }
         return PlayerUiStateLoaded(
             book: PlayerBook(
                 id: "book-1", title: "The Way of Kings",
                 authors: [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)],
-                narrators: [PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 2)],
+                narrators: narrators,
                 coverPath: nil, coverHash: nil,
                 series: [PlayerSeriesRef(id: "series-1", name: "The Stormlight Archive", sequenceLabel: "1")],
-                durationMs: 480_000, firstPdfDocId: nil),
+                durationMs: bookMs, firstPdfDocId: firstPdfDocId),
             phase: phase,
             chapter: PlayerChapter(
                 index: Int32(wholeBook ? 0 : currentIndex), number: Int32((wholeBook ? 0 : currentIndex) + 1),
                 total: Int32(total), title: wholeBook ? "" : (chapterTitle ?? "Chapter \(currentIndex + 1)"),
-                isGenericTitle: false, isWholeBook: wholeBook,
-                startMs: wholeBook ? 0 : Int64(currentIndex) * 60_000, durationMs: wholeBook ? 480_000 : 60_000),
+                isGenericTitle: wholeBook || isGenericTitle, isWholeBook: wholeBook,
+                startMs: wholeBook ? 0 : Int64(currentIndex) * chapterDurationMs,
+                durationMs: wholeBook ? bookMs : chapterDurationMs),
             chapters: rows,
             source: source,
             settings: PlayerSettings(
-                speed: 1.5, defaultSpeed: 1.0, boostDb: 0, defaultBoostDb: 0, skipBackSec: 10, skipForwardSec: 30),
+                speed: 1.5, defaultSpeed: 1.0, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
+                skipForwardSec: 30),
             sleepTimer: sleepTimer,
             primary: primary,
             showsSkipBack: showsSkipBack,
             canSkipToNextChapter: !wholeBook && currentIndex < total - 1,
-            finished: nil
+            finished: finished
         )
     }
 }

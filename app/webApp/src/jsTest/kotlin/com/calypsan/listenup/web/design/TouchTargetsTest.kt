@@ -109,12 +109,10 @@ private val SMALL_CONTROLS =
         "shelf-notice-x",
         "shelf-grip",
         "ctl-zoom",
-        "np-note-x",
         "lset-x",
         "chr-a",
         "bd-pick-x",
         "bke-clear",
-        "np-chip",
     )
 
 /** The shared [Button]'s undersized drawings: a 30px icon, a 32px small button and a 40px one. */

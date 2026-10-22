@@ -322,6 +322,19 @@ class PlayerViewModel(
         }
     }
 
+    /** A state card's button ([PlayerCards]): each forwards to the action it names. */
+    fun onCardAction(action: PlayerCardAction) {
+        when (action) {
+            PlayerCardAction.Retry -> retry()
+            PlayerCardAction.Dismiss -> dismissError()
+            PlayerCardAction.CloseBook -> closeBook()
+            // The primary already is Sign in, Open Inbox, Play (Resume) or Tap to play in these states.
+            PlayerCardAction.SignIn, PlayerCardAction.OpenInbox, PlayerCardAction.Resume, PlayerCardAction.TapToPlay -> onPrimary()
+            PlayerCardAction.ListenAgain -> listenAgain()
+            PlayerCardAction.PlayNextBook -> playNextBook()
+        }
+    }
+
     /** Try the failed load or play again. */
     fun retry() {
         session.retry()

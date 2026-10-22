@@ -42,17 +42,14 @@ class WideNowPlayingShortHeightTest {
                     onPreviousChapter = {},
                     onNextChapter = {},
                     onSpeedClick = {},
-                    onBoostClick = {},
                     onSleepClick = {},
                     onChaptersClick = {},
-                    onGoToBook = {},
-                    onGoToSeries = {},
                     onGoToContributor = {},
                     onShowAuthorPicker = {},
                     onShowNarratorPicker = {},
-                    onCloseBook = {},
-                    skipBackwardSec = 15,
-                    skipForwardSec = 30,
+                    onMenuItem = {},
+                    onCardAction = {},
+                    onRate = {},
                 )
             }
         }

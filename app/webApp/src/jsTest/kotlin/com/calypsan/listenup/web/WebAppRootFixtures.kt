@@ -449,6 +449,18 @@ internal suspend fun awaitFrame() {
     }
 }
 
+/** Waits for one `popstate` on `window` (history back is asynchronous), then a frame for the recomposition. */
+internal suspend fun awaitPopstate() {
+    suspendCoroutine { continuation ->
+        window.addEventListener(
+            "popstate",
+            { _: org.w3c.dom.events.Event -> continuation.resume(Unit) },
+            org.w3c.dom.AddEventListenerOptions(once = true),
+        )
+    }
+    awaitFrame()
+}
+
 /** How long a spec waits for a state-flow value to reach the DOM. */
 internal const val RECOMPOSE_TIMEOUT_MS = 2_000L
 

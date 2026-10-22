@@ -31,7 +31,7 @@ import org.robolectric.RobolectricTestRunner
  *  - `StateDescription` — reflects the focused letter when one is active during touch
  *    (e.g. "Letter A"), and is absent at rest.
  *
- * JUnit4 + Robolectric (consistent with [WavySeekBarTest]).
+ * JUnit4 + Robolectric (consistent with [PlaybackSliderTest]).
  */
 @RunWith(RobolectricTestRunner::class)
 class AlphabetScrollbarSemanticsTest {

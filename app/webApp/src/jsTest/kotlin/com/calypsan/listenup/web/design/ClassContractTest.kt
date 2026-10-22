@@ -180,7 +180,10 @@ import com.calypsan.listenup.web.features.profile.ProfilePage
 import com.calypsan.listenup.web.features.profile.editing
 import com.calypsan.listenup.web.features.profile.readyProfile
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingPanel
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingActions
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingPage
+import com.calypsan.listenup.client.presentation.player.FinishedInfo
+import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.web.features.nowplaying.chapterRows
 import com.calypsan.listenup.web.features.nowplaying.loadedPlayerState
 import com.calypsan.listenup.web.features.nowplaying.playerProgress
@@ -289,7 +292,6 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
-import com.calypsan.listenup.web.features.nowplaying.PlayerProblemNote
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
@@ -1473,13 +1475,8 @@ class ClassContractTest :
                             },
                         )
                         AccountMenu(onSignOut = {})
-                        PlayerProblemNote(
-                            error = PlaybackError.ConnectionLost(),
-                            primary = PrimaryControl.Retry,
-                            onRetry = {},
-                            onDismiss = {},
-                        )
                         playerShapes().forEach { it() }
+                        nowPlayingShapes().forEach { it() }
                         browseShapes().forEach { it() }
                         readerShapes().forEach { it() }
                         ratingShapes().forEach { it() }
@@ -2157,6 +2154,91 @@ private fun notificationShapes(): List<@Composable () -> Unit> =
         },
     )
 
+/** Now Playing, the page, in each of its faces: the transport, a problem, a refusal, held, finished. */
+private fun nowPlayingShapes(): List<@Composable () -> Unit> =
+    listOf(
+        {
+            val kings =
+                loadedPlayerState(
+                    title = "The Way of Kings",
+                    bookId = "b1",
+                    authors = listOf(PlayerContributor("c1", "Brandon Sanderson", 1)),
+                    series = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
+                    coverHash = "abc",
+                    durationMs = 3_600_000,
+                    chapters = chapterRows(3),
+                    currentChapterIndex = 0,
+                    boostDb = 6f,
+                )
+            // Now Playing, the page: playing with a chapter list, a problem in the transport's place, held, finished,
+            // and a chapterless book; its More menu and its card on their own.
+            NowPlayingPage(
+                state = kings,
+                progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
+                actions = NowPlayingActions(),
+            )
+            NowPlayingPage(
+                state =
+                    loadedPlayerState(
+                        title = "A standalone",
+                        phase = PlayerPhase.Failed(PlaybackError.ConnectionLost(correlationId = "req-1")),
+                        primary = PrimaryControl.Retry,
+                        authors = emptyList(),
+                    ),
+                progress = playerProgress(),
+                actions = NowPlayingActions(),
+            )
+            NowPlayingPage(
+                state =
+                    loadedPlayerState(
+                        phase = PlayerPhase.Failed(PlaybackError.AutoplayBlocked()),
+                        primary = PrimaryControl.TapToPlay,
+                        narrators = (1..5).map { PlayerContributor("n$it", "Narrator $it", 1) },
+                    ),
+                progress = playerProgress(),
+                actions = NowPlayingActions(),
+            )
+            NowPlayingPage(
+                state =
+                    loadedPlayerState(
+                        phase = PlayerPhase.Unavailable(BookError.HeldForReview()),
+                        primary = PrimaryControl.OpenInbox,
+                    ),
+                progress = playerProgress(),
+                actions = NowPlayingActions(),
+            )
+            NowPlayingPage(
+                state =
+                    loadedPlayerState(
+                        phase = PlayerPhase.Finished,
+                        primary = PrimaryControl.ListenAgain,
+                        finished =
+                            FinishedInfo(
+                                finishedAtMs = 1_760_000_000_000,
+                                startedAtMs = 1_757_000_000_000,
+                                durationMs = 3_600_000,
+                                yourHalfStars = 8,
+                                nextBook =
+                                    NextInSeries(
+                                        bookId = "b2",
+                                        title = "Words of Radiance",
+                                        coverPath = null,
+                                        coverHash = null,
+                                        narratorNames = null,
+                                        seriesName = "The Stormlight Archive",
+                                        sequenceLabel = "2",
+                                        durationMs = 3_600_000,
+                                    ),
+                            ),
+                        sleepTimer =
+                            SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 60_000, totalMs = 1_800_000, startedAt = 0),
+                    ),
+                progress = playerProgress(),
+                actions = NowPlayingActions(),
+            )
+        },
+    )
+
 /**
  * The docked transport bar and the expanded player.
  *
@@ -2234,46 +2316,6 @@ private fun playerShapes(): List<@Composable () -> Unit> =
             // without gesturing — so a class invented in there would go unchecked.
             // Both a fully-known book and a chapterless, authorless standalone: the second
             // draws a different subset (no byline, no series, no chapter line).
-            NowPlayingPanel(
-                open = true,
-                state = kings,
-                progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
-                onPrimary = {},
-                onSeek = {},
-                onSkipBack = {},
-                onSkipForward = {},
-                onPreviousChapter = {},
-                onNextChapter = {},
-                onOpenSpeed = {},
-                onOpenChapters = {},
-                onOpenBoost = {},
-                onOpenSleep = {},
-                onOpenBook = {},
-                onOpenSeries = {},
-                onOpenContributor = {},
-                onCloseBook = {},
-                onDismiss = {},
-            )
-            NowPlayingPanel(
-                open = true,
-                state = loadedPlayerState(title = "A standalone", phase = PlayerPhase.Paused, authors = emptyList()),
-                progress = playerProgress(),
-                onPrimary = {},
-                onSeek = {},
-                onSkipBack = {},
-                onSkipForward = {},
-                onPreviousChapter = {},
-                onNextChapter = {},
-                onOpenSpeed = {},
-                onOpenChapters = {},
-                onOpenBoost = {},
-                onOpenSleep = {},
-                onOpenBook = {},
-                onOpenSeries = {},
-                onOpenContributor = {},
-                onCloseBook = {},
-                onDismiss = {},
-            )
         },
     )
 

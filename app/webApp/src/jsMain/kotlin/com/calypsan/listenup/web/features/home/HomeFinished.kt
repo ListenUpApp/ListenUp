@@ -105,7 +105,11 @@ internal fun HomeFinishedCard(
                 Text(HomeWords.PLAY_NEXT_BOOK)
             }
         }
-        FinishedRating(card, onRate = { actions.onRateFinished(book.bookId, it) })
+        FinishedRating(
+            bookId = book.bookId,
+            yourHalfStars = card.yourHalfStars,
+            onRate = { actions.onRateFinished(book.bookId, it) },
+        )
         HomeWords.alsoFinished(card.alsoFinished.names, card.alsoFinished.othersCount)?.let { line ->
             Button(
                 kind = ButtonKind.Ghost,
@@ -116,13 +120,17 @@ internal fun HomeFinishedCard(
     }
 }
 
-/** "How was it?" over the shared half-star control; a drag previews, a settle rates. */
+/**
+ * "How was it?" over the shared half-star control; a drag previews, a settle rates. Home's finished card and Now
+ * Playing's share it (C22): both describe the same finished book.
+ */
 @Composable
-private fun FinishedRating(
-    card: FinishedCard,
+internal fun FinishedRating(
+    bookId: String,
+    yourHalfStars: Int?,
     onRate: (Int) -> Unit,
 ) {
-    var preview by remember(card.book.bookId, card.yourHalfStars) { mutableIntStateOf(card.yourHalfStars ?: 0) }
+    var preview by remember(bookId, yourHalfStars) { mutableIntStateOf(yourHalfStars ?: 0) }
     Div(attrs = { classes("home-finished-rate") }) {
         Span(attrs = {
             classes("home-finished-rate-k")

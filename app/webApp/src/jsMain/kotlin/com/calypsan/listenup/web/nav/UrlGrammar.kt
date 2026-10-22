@@ -48,6 +48,9 @@ internal object Routes {
     // announces a navigation whose route is a different instance from the current one.
     val home: Route get() = Route(emptyList())
 
+    /** `/playing`: Now Playing, a page at every width (S4). */
+    val playing: Route get() = Route(listOf(PLAYING_KEY))
+
     val library: Route get() = Route(listOf(LIBRARY_KEY))
     val libraryContributors: Route get() = Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))
     val librarySeries: Route get() = Route(listOf(LIBRARY_KEY, SERIES_KEY))
@@ -176,6 +179,7 @@ internal object Routes {
 private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
     mapOf(
         HOME_KEY to { it.size == 1 },
+        PLAYING_KEY to { it.size == 1 },
         DISCOVER_KEY to { it.size == 1 || (it.size == 2 && it[1] == ACTIVITY_KEY) },
         NOTIFICATIONS_KEY to { it.size == 1 },
         LIBRARY_KEY to { it.isSection(CONTRIBUTORS_KEY, SERIES_KEY) },
@@ -272,6 +276,9 @@ internal fun Route.seeAllType(): SearchHitType? {
 }
 
 internal const val HOME_KEY = "home"
+
+/** `/playing` — Now Playing, the loaded book's page (S4). */
+internal const val PLAYING_KEY = "playing"
 
 internal const val DISCOVER_KEY = "discover"
 

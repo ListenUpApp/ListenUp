@@ -21841,22 +21841,252 @@
         }
       }
     },
-    "player.now_playing_overline": {
+    "player.np_book_sentence": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NOW PLAYING"
+            "value": "Book %1$d%% · %2$@ left"
           }
         }
       }
     },
-    "player.now_playing_wide": {
+    "player.np_by": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Now playing"
+            "value": "by"
+          }
+        }
+      }
+    },
+    "player.np_byline_fold": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ & %2$d more"
+          }
+        }
+      }
+    },
+    "player.np_close_book_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Book"
+          }
+        }
+      }
+    },
+    "player.np_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "player.np_go_to_book_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Book"
+          }
+        }
+      }
+    },
+    "player.np_go_to_series_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Series"
+          }
+        }
+      }
+    },
+    "player.np_next_in_series_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
+          }
+        }
+      }
+    },
+    "player.np_now_playing_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now Playing"
+          }
+        }
+      }
+    },
+    "player.np_open_inbox_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Inbox"
+          }
+        }
+      }
+    },
+    "player.np_previous_chapter_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goes to the start of this chapter first."
+          }
+        }
+      }
+    },
+    "player.np_read_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read by"
+          }
+        }
+      }
+    },
+    "player.np_sign_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        }
+      }
+    },
+    "player.np_sign_in_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign In"
+          }
+        }
+      }
+    },
+    "player.np_status_downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded"
+          }
+        }
+      }
+    },
+    "player.np_status_downloaded_offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded · offline"
+          }
+        }
+      }
+    },
+    "player.np_status_not_playable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not playable"
+          }
+        }
+      }
+    },
+    "player.np_status_offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline"
+          }
+        }
+      }
+    },
+    "player.np_status_playing_on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing on %1$@"
+          }
+        }
+      }
+    },
+    "player.np_status_server_unreachable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't reach your server"
+          }
+        }
+      }
+    },
+    "player.np_status_streaming": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streaming"
+          }
+        }
+      }
+    },
+    "player.np_status_streaming_transcoded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streaming · transcoded"
+          }
+        }
+      }
+    },
+    "player.np_volume_boost_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume boost · %1$@"
+          }
+        }
+      }
+    },
+    "player.np_volume_boost_row_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume Boost · %1$@"
+          }
+        }
+      }
+    },
+    "player.np_whole_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whole book"
           }
         }
       }

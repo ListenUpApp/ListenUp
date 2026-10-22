@@ -19,6 +19,7 @@ class RoutesTest :
         val built: Map<String, Route> =
             mapOf(
                 "home" to Routes.home,
+                "playing" to Routes.playing,
                 "admin" to Routes.Admin.root,
                 "adminBackups" to Routes.Admin.backups,
                 "adminBackup" to Routes.Admin.backup(id),

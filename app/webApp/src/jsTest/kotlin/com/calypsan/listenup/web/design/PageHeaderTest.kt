@@ -71,6 +71,21 @@ class PageHeaderTest :
             host.querySelectorAll("h1, h2, h3").length shouldBe 1
         }
 
+        test("a leading control sits before the heading, inside the header") {
+            val host =
+                mounts.mount {
+                    PageHeader(
+                        title = "Now playing",
+                        leading = { Button(attrs = { classes("probe-lead") }) { Text("Back") } },
+                    )
+                }
+
+            val header = host.querySelector("header.page-h") as HTMLElement
+            val lead = header.querySelector(".probe-lead") as HTMLElement
+            val heading = header.querySelector("h1") as HTMLElement
+            (lead.compareDocumentPosition(heading).toInt() and FOLLOWING) shouldBe FOLLOWING
+        }
+
         test("a page still loading keeps its H1, named, with a skeleton where the words will go") {
             val host = mounts.mount { PageHeader(title = "Profile", pending = true) }
 
@@ -131,3 +146,5 @@ class PageHeaderTest :
     })
 
 private const val FOCUS_FRAMES = 6
+
+private const val FOLLOWING = 4 // Node.DOCUMENT_POSITION_FOLLOWING

@@ -113,6 +113,12 @@ private val PRESS_EXEMPT =
         ".crumb a",
         ".bd-by-name",
         ".bd-credits-open",
+        // Now Playing's title, series and people links: inline text, underlined on hover (the same rule as Book
+        // Detail's byline).
+        ".np-page .np-title a",
+        ".np-page .np-series a",
+        ".np-page .np-by a",
+        ".np-page .np-read-by a",
         // Deliberately inert — a static row in the palette is a heading, not a target. Its hover
         // rule exists to CANCEL the row hover above it.
         ".search-row.is-static",

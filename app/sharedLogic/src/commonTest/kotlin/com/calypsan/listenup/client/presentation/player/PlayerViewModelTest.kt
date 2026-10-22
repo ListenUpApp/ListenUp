@@ -21,7 +21,9 @@ import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -244,6 +246,63 @@ class PlayerViewModelTest :
                     runCurrent()
                     rig.sheet.expanded.value shouldBe false
                     rig.s.session.state.value shouldBe PlayerSessionState.NothingLoaded
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("card actions: Dismiss keeps the book paused, Retry prepares again, Close book unloads") {
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("b1")
+                    rig.vm.uiState.test {
+                        rig.vm.playBook(BookId("b1"), null)
+                        runCurrent()
+                        rig.s.engine.phase.value = EnginePhase.IDLE
+                        rig.s.engine.error.value = PlaybackError.ConnectionLost()
+                        runCurrent()
+                        advanceTimeBy(PLAYBACK_DROP_GRACE)
+                        runCurrent()
+                        val card = PlayerCards.of(expectMostRecentLoaded()).shouldBeInstanceOf<PlayerCard.Problem>()
+                        rig.vm.onCardAction(card.secondaryAction.shouldNotBeNull())
+                        runCurrent()
+                        expectMostRecentLoaded().phase shouldBe PlayerPhase.Paused
+
+                        rig.s.engine.error.value = PlaybackError.ConnectionLost()
+                        runCurrent()
+                        advanceTimeBy(PLAYBACK_DROP_GRACE)
+                        runCurrent()
+                        rig.vm.onCardAction(PlayerCardAction.Retry)
+                        runCurrent()
+                        expectMostRecentLoaded().phase shouldNotBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+
+                        rig.vm.onCardAction(PlayerCardAction.CloseBook)
+                        runCurrent()
+                        expectMostRecentItem() shouldBe PlayerUiState.NothingLoaded
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("card actions: Sign in goes through the primary, so it emits OpenSignIn") {
+            runTest {
+                val rig = PlayerViewModelRig(this, storedBookId = "b1")
+                try {
+                    rig.s.withBook("b1")
+                    rig.s.auth.authState.value = AuthState.SessionLapsed(userId = UserId("u1"))
+                    rig.vm.events.test {
+                        rig.vm.uiState.test {
+                            runCurrent()
+                            expectMostRecentLoaded().primary shouldBe PrimaryControl.SignIn
+                            cancelAndIgnoreRemainingEvents()
+                        }
+                        rig.vm.onCardAction(PlayerCardAction.SignIn)
+                        awaitItem() shouldBe PlayerEvent.OpenSignIn
+                    }
                 } finally {
                     rig.close()
                 }

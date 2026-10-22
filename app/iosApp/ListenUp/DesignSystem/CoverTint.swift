@@ -1,4 +1,3 @@
-import CoreImage
 import SwiftUI
 import UIKit
 
@@ -164,64 +163,5 @@ extension CoverTint {
                 darkHighContrast: resolved(.dark, .high)
             )
         }
-    }
-}
-
-/// Resolves (and caches) a `CoverTint` for a book's cover. Async decode off the main
-/// actor; the screen renders coral until this resolves, and falls back to coral on any
-/// failure (never-stranded). Cache keyed by bookId so re-entry never flickers.
-@MainActor
-final class CoverTintExtractor {
-    static let shared = CoverTintExtractor()
-    private var cache: [String: CoverTint] = [:]
-
-    func cached(bookId: String) -> CoverTint? { cache[bookId] }
-
-    func resolve(bookId: String, coverPath: String?) async -> CoverTint? {
-        if let hit = cache[bookId] { return hit }
-        guard let coverPath, let rgb = await Self.averageRGB(coverPath: coverPath) else { return nil }
-        let tint = CoverTint.clamp(red: rgb.0, green: rgb.1, blue: rgb.2)
-        cache[bookId] = tint
-        return tint
-    }
-
-    /// Average RGB of a tiny downsample of the cover. Returns nil if it can't decode.
-    ///
-    /// Decodes a ≤32px thumbnail through the shared `ImageDownsampler` seam (so the
-    /// full-resolution bitmap is never materialized), then reduces its full extent to a
-    /// single averaged pixel via `CIAreaAverage` and reads that pixel back. CPU work, kept
-    /// off the main actor: `@concurrent` keeps it on the cooperative pool even where a plain
-    /// `nonisolated async` would run on the caller's actor.
-    @concurrent
-    nonisolated static func averageRGB(coverPath: String) async -> (Double, Double, Double)? {
-        guard let thumbnail = ImageDownsampler.downsampledImage(atPath: coverPath, maxPixelSize: 32),
-              let cgImage = thumbnail.cgImage
-        else { return nil }
-
-        let inputImage = CIImage(cgImage: cgImage)
-        let extent = inputImage.extent
-        guard extent.width > 0, extent.height > 0,
-              let averageFilter = CIFilter(
-                  name: "CIAreaAverage",
-                  parameters: [
-                      kCIInputImageKey: inputImage,
-                      kCIInputExtentKey: CIVector(cgRect: extent)
-                  ]
-              ),
-              let outputImage = averageFilter.outputImage
-        else { return nil }
-
-        var pixel = [UInt8](repeating: 0, count: 4)
-        let context = CIContext(options: [.workingColorSpace: NSNull()])
-        context.render(
-            outputImage,
-            toBitmap: &pixel,
-            rowBytes: 4,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: .RGBA8,
-            colorSpace: CGColorSpaceCreateDeviceRGB()
-        )
-
-        return (Double(pixel[0]) / 255.0, Double(pixel[1]) / 255.0, Double(pixel[2]) / 255.0)
     }
 }

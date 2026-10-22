@@ -168,6 +168,10 @@ enum class WebIcon(
     // design project grows a pair.
     SkipBack("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5"),
     SkipForward("M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8 M21 3v5h-5"),
+
+    // Previous and next chapter: the bar-and-triangle track glyphs every player uses for a step, not a seek.
+    ChapterPrevious("M19 20L9 12l10-8z M5 19V5"),
+    ChapterNext("M5 4l10 8-10 8z M19 5v14"),
     Shield("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4"),
     Shuffle("M16 3h5v5 M4 20L21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5"),
     Scissors(
