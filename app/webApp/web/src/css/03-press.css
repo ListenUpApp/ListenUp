@@ -48,6 +48,8 @@
 .np-step:not(:disabled):active,
 .np-skip:not(:disabled):active,
 .np-pill:active,
+.np-row:not(.on):active,
+.np-back-current:active,
 .np-page .np-play:active,
 .tport-expand:active,
 .np-play:active,

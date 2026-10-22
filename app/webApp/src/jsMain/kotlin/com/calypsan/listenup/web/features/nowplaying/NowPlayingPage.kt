@@ -161,6 +161,20 @@ fun NowPlayingPage(
                 BookCard(state, progress)
                 PhoneControls(state, progress, actions, pickers)
             }
+            // A chapterless book has no list; the book column then takes the width.
+            if (state.chapters.isNotEmpty()) {
+                Section(attrs = {
+                    classes("np-listcol", "np-desk")
+                    attr("aria-label", CHAPTERS)
+                }) {
+                    NowPlayingChapterList(
+                        rows = state.chapters,
+                        currentIndex = state.chapter.index,
+                        chapterRemainingMs = progress.chapterRemainingMs,
+                        onPick = actions.onSeekToChapter,
+                    )
+                }
+            }
         }
     }
 }
@@ -558,6 +572,8 @@ private fun Pill(
         onClick { onClick() }
     }) { Text(text) }
 }
+
+private const val CHAPTERS = "Chapters"
 
 private const val PREVIOUS_CHAPTER = "Previous chapter"
 

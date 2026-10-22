@@ -646,6 +646,37 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-pill:focus { outline:none; }
 .np-pill:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 
+/* The chapter list (§3.11): a scroller of its own, so following the playhead never moves the page. */
+.np-listcol { min-width:0; }
+.np-listwrap { display:flex; flex-direction:column; gap:var(--sp-8); }
+.np-list {
+  max-height:max(320px, calc(100dvh - 260px)); overflow:auto; overflow-anchor:none; overscroll-behavior:contain;
+  border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.np-rows { list-style:none; margin:0; padding:var(--sp-4); }
+.np-row {
+  width:100%; min-height:52px; display:grid; grid-template-columns:2.5rem minmax(0, 1fr) auto; align-items:center;
+  gap:var(--sp-12); padding:var(--sp-8) var(--sp-12); border:none; border-radius:var(--r-md); background:transparent;
+  font:inherit; text-align:left; color:var(--ink); cursor:pointer;
+}
+@media (hover: hover) { .np-row:not(.on):hover { background:color-mix(in srgb, var(--ink) 6%, transparent); } }
+.np-row:focus { outline:none; }
+.np-row:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.np-row-n { font-size:var(--fs-small); color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.np-row-main { display:flex; flex-direction:column; min-width:0; }
+.np-row-t { font-size:var(--fs-ui); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.np-row-now { font-size:var(--fs-small); font-weight:600; }
+.np-row-d { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-row.on { background:var(--coral-fill); color:var(--on-coral); }
+.np-row.on .np-row-n, .np-row.on .np-row-d { color:inherit; }
+.np-back-current {
+  align-self:center; min-height:44px; padding:0 var(--sp-16); border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius:var(--r-pill); background:var(--surface); color:var(--ink); font:inherit; font-size:var(--fs-ui); font-weight:600; cursor:pointer;
+}
+@media (hover: hover) { .np-back-current:hover { background:var(--surface-2); } }
+.np-back-current:focus { outline:none; }
+.np-back-current:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+
 /* Below 760px: the whole screen, its own transport; from 760px the bar is the transport (C8). */
 .np-mob { display:none; }
 @media (max-width: 759px) {
