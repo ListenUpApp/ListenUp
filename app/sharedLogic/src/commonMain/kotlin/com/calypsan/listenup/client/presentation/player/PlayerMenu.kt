@@ -50,7 +50,10 @@ object PlayerMenus {
         val places =
             buildList {
                 add(PlayerMenuItem.GoToBook)
-                book.series.firstOrNull()?.takeIf { includesSeries }?.let { add(PlayerMenuItem.GoToSeries(it.id)) }
+                book.series
+                    .firstOrNull()
+                    ?.takeIf { includesSeries }
+                    ?.let { add(PlayerMenuItem.GoToSeries(it.id)) }
                 book.firstPdfDocId?.let { add(PlayerMenuItem.OpenPdf(it)) }
                 add(PlayerMenuItem.VolumeBoost(state.settings.boostDb))
             }

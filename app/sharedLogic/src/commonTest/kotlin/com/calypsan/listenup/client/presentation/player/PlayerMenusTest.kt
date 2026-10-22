@@ -31,23 +31,44 @@ class PlayerMenusTest :
         }
 
         test("a wide layout that shows the series link leaves Go to series out") {
-            PlayerMenus.moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false)
-                .first().items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
+            PlayerMenus
+                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false)
+                .first()
+                .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
         }
 
         test("Go to series names the first series, the one the phone shows") {
-            PlayerMenus.moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true)
-                .first().items[1] shouldBe PlayerMenuItem.GoToSeries("s1")
+            PlayerMenus
+                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true)
+                .first()
+                .items[1] shouldBe PlayerMenuItem.GoToSeries("s1")
         }
     })
 
-private fun loaded(series: Boolean, pdf: String?, boostDb: Float): PlayerUiState.Loaded =
+private fun loaded(
+    series: Boolean,
+    pdf: String?,
+    boostDb: Float,
+): PlayerUiState.Loaded =
     PlayerUiState.Loaded(
         book =
             PlayerBook(
-                "b1", "The Way of Kings", emptyList(), emptyList(), null, null,
-                if (series) listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1"), PlayerSeriesRef("s9", "Cosmere", null)) else emptyList(),
-                163_800_000, pdf,
+                "b1",
+                "The Way of Kings",
+                emptyList(),
+                emptyList(),
+                null,
+                null,
+                if (series) {
+                    listOf(
+                        PlayerSeriesRef("s1", "The Stormlight Archive", "1"),
+                        PlayerSeriesRef("s9", "Cosmere", null),
+                    )
+                } else {
+                    emptyList()
+                },
+                163_800_000,
+                pdf,
             ),
         phase = PlayerPhase.Playing,
         chapter = PlayerChapter(5, 6, 75, "Bridge Four", isGenericTitle = false, isWholeBook = false, startMs = 0, durationMs = 1_235_000),
