@@ -167,7 +167,8 @@ struct SleepSheetAccessibilityTests {
             hosted.stops.first { $0.label.hasPrefix(String(localized: "player.sheet_end_of_chapter_ios")) },
             "\(hosted.tree)")
         // Composited, as the snapshot export draws: `layer.render` misses the text in dark.
-        let lines = DrawnContrast(hosted, composited: true).textLines(in: row.frame)
+        // Inset past the row's hairline separator, which would otherwise read as a faint last "line" in dark.
+        let lines = DrawnContrast(hosted, composited: true).textLines(in: row.frame.insetBy(dx: 0, dy: 3))
         #expect(lines.count >= 2, "\(lines)")
         if let subtitle = lines.last {
             #expect(subtitle >= ContrastMinimum.text, "subtitle \(subtitle) in \(appearance.rawValue)")

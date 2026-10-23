@@ -83,7 +83,9 @@ struct ChapterSheetAccessibilityTests {
         // Composited, as the snapshot export draws: `layer.render` misses the text in dark.
         let drawn = DrawnContrast(hosted, composited: true)
         let style = appearance.rawValue
-        for (name, row) in [("other", other.frame), ("current", current.frame)] {
+        // Inset past each row's hairline separator, which would otherwise read as a faint extra "line" in dark.
+        let rows = [("other", other.frame), ("current", current.frame)].map { ($0.0, $0.1.insetBy(dx: 0, dy: 3)) }
+        for (name, row) in rows {
             let number = CGRect(x: row.minX, y: row.minY, width: 46, height: row.height)
             let trailing = CGRect(x: row.maxX - 120, y: row.minY, width: 120, height: row.height)
             for (part, rect) in [("number", number), ("duration and glyph", trailing)] {
@@ -95,8 +97,8 @@ struct ChapterSheetAccessibilityTests {
             }
         }
         let middle = CGRect(
-            x: current.frame.minX + 50, y: current.frame.minY, width: current.frame.width - 180,
-            height: current.frame.height)
+            x: current.frame.minX + 50, y: current.frame.minY + 3, width: current.frame.width - 180,
+            height: current.frame.height - 6)
         let lines = drawn.textLines(in: middle)
         #expect(lines.count >= 2, "\(lines)")
         if let playingLine = lines.last {
