@@ -45,6 +45,8 @@ struct PlayerStateCardView: View {
                 problem(title: title, cause: cause, placeSaved: placeSaved, reference: reference, tone: tone)
             case .finished(let model):
                 finished(model)
+            case .sleepFading:
+                EmptyView()
             }
             actions
         }
@@ -155,6 +157,7 @@ struct PlayerStateCardView: View {
         let title: String = switch card.kind {
         case let .problem(title, _, _, _, _): title
         case .finished: String(localized: "player.mini_finished")
+        case .sleepFading: String(localized: "player.sheet_fading_title_ios")
         }
         AccessibilityNotification.Announcement(title).post()
     }

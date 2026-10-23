@@ -1,19 +1,19 @@
 import SwiftUI
+@preconcurrency import Shared
 
-// Speed and sleep are system menus holding a picker, the way Podcasts offers them — HIG, Menus:
-// a menu's picker shows the current choice with a checkmark, and one tap both chooses and closes.
-// They replace the chip sheets, which asked for a sheet round-trip to pick one value.
-
-/// One entry in the sleep-timer menu.
+/// One sleep-timer choice, for the surfaces that offer the timer as a menu: the iPad's menu bar (`ShellCommands`) and
+/// the system's playback commands (`PlaybackCommandState`). Now Playing offers it as a sheet (`SleepSheet`). The ladder
+/// is the shared one, so every surface lists the same durations.
 enum SleepTimerOption: Hashable {
     case off
     case minutes(Int)
     case endOfChapter
 
+    /// The durations every sleep surface offers, in order: the shared ladder (`SleepTimerChoices`).
+    static var durationMinutes: [Int] { SleepTimerChoices.shared.DURATION_MINUTES.map { Int($0) } }
+
     /// The menu's entries, in order.
-    static let menuOptions: [SleepTimerOption] = [
-        .off, .minutes(15), .minutes(30), .minutes(45), .minutes(60), .minutes(120), .endOfChapter
-    ]
+    static var menuOptions: [SleepTimerOption] { [.off] + durationMinutes.map { .minutes($0) } + [.endOfChapter] }
 
     /// The checked entry for the current timer. A running countdown checks nothing: it no longer
     /// equals the duration it was armed with, so the menu's header shows the time left instead.
@@ -22,8 +22,8 @@ enum SleepTimerOption: Hashable {
         return isEndOfChapter ? .endOfChapter : nil
     }
 
-    /// The "Add more time" ladder — the same 5/10/15 Android's sheet and web's picker offer.
-    static let extensionMinutes = [5, 10, 15]
+    /// The "Add more time" ladder — the shared 5/10/15 Android's sheet and web's picker offer.
+    static var extensionMinutes: [Int] { SleepTimerChoices.shared.EXTEND_MINUTES.map { Int($0) } }
 
     /// Whether the timer has a countdown to add to. An end-of-chapter timer has none (the shared
     /// timer would ignore the request), so the menu offers extending only to a running countdown.

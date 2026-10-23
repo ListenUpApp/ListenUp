@@ -107,6 +107,20 @@ struct MiniPlayerAccessoryModelTests {
         #expect(model(state).line == "Bridge Four · Sleep · \(systemMinutes(23))")
     }
 
+    @Test("an end-of-chapter timer counts down the chapter's remainder at the listening speed, never 0")
+    func sleepArmedEndOfChapter() {
+        let timer = SleepTimerStateActive(
+            mode: SleepTimerModeEndOfChapter.shared, remainingMs: 0, totalMs: 0, startedAt: 0)
+        let atOne = PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four",
+            speed: 1.0)
+        #expect(model(atOne).line == "Bridge Four · Sleep · \(systemMinutes(8))")
+        // 511 s of chapter at 1.5× is 340 s of your evening: five minutes, floored.
+        let atOneAndAHalf = PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four")
+        #expect(model(atOneAndAHalf).line == "Bridge Four · Sleep · \(systemMinutes(5))")
+    }
+
     @Test("the sleep fade offers Keep Listening, which cancels the timer, and keeps back N")
     func fadingOut() {
         let mini = model(playing(PlayerPhaseSleepFading.shared, primary: PrimaryControlPause.shared))

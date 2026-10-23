@@ -22,11 +22,13 @@ struct PlayerCardModel: Equatable {
     enum Kind: Equatable {
         case problem(title: String, cause: String?, placeSaved: Bool, reference: String?, tone: Tone)
         case finished(FinishedModel)
+        /// The sleep timer is fading the audio out: the gold card, with Keep Listening alone (§5.6).
+        case sleepFading
     }
 
     /// A card button. Each one is a shared `PlayerCardAction` that `PlayerViewModel.onCardAction` carries out.
     enum Action: CaseIterable, Equatable {
-        case retry, dismiss, closeBook, signIn, openInbox, resume, tapToPlay, listenAgain, playNextBook
+        case retry, dismiss, closeBook, signIn, openInbox, resume, tapToPlay, listenAgain, playNextBook, keepListening
 
         init(_ action: any PlayerCardAction) {
             self = switch action.sealedType() {
@@ -39,6 +41,7 @@ struct PlayerCardModel: Equatable {
             case .tapToPlay: .tapToPlay
             case .listenAgain: .listenAgain
             case .playNextBook: .playNextBook
+            case .keepListening: .keepListening
             }
         }
 
@@ -54,6 +57,7 @@ struct PlayerCardModel: Equatable {
             case .tapToPlay: PlayerCardActionTapToPlay.shared
             case .listenAgain: PlayerCardActionListenAgain.shared
             case .playNextBook: PlayerCardActionPlayNextBook.shared
+            case .keepListening: PlayerCardActionKeepListening.shared
             }
         }
 
@@ -69,6 +73,7 @@ struct PlayerCardModel: Equatable {
             case .tapToPlay: String(localized: "player.play")
             case .listenAgain: String(localized: "player.mini_listen_again_ios")
             case .playNextBook: String(localized: "home.play_next_book_ios")
+            case .keepListening: String(localized: "player.mini_keep_listening_ios")
             }
         }
     }
@@ -96,6 +101,10 @@ struct PlayerCardModel: Equatable {
             kind = .finished(FinishedModel(finished.info))
             primary = Action(finished.primaryAction)
             secondary = finished.secondaryAction.map(Action.init)
+        case .sleepFading:
+            kind = .sleepFading
+            primary = .keepListening
+            secondary = nil
         }
     }
 }

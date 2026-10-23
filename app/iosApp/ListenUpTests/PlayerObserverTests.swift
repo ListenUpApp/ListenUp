@@ -83,26 +83,65 @@ struct PlayerObserverTests {
         let running = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(sleepTimer: countdown))
         #expect(running.sleepTimerActive)
         #expect(!running.sleepTimerIsEndOfChapter)
-        #expect(running.sleepTimerLabel == "1:05")
+        #expect(running.sleepTimerTotalMs == 900_000)
+        #expect(running.sleepTimerCanExtend)
+        #expect(PlayerObserver.detached(PlayerUiStateLoaded.fixture(sleepTimer: countdown)).sleepTimerLabel == "1:05")
 
         let endOfChapter = SleepTimerStateActive(
             mode: SleepTimerModeEndOfChapter.shared, remainingMs: 0, totalMs: 0, startedAt: 0)
-        #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(sleepTimer: endOfChapter)).sleepTimerIsEndOfChapter)
+        let chapterEnd = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(sleepTimer: endOfChapter))
+        #expect(chapterEnd.sleepTimerIsEndOfChapter)
+        #expect(chapterEnd.sleepTimerTotalMs == 0)
+        #expect(!chapterEnd.sleepTimerCanExtend)
+    }
+
+    @Test("an end-of-chapter timer counts down the chapter's remainder in wall time, not 0:00")
+    func endOfChapterCountdown() {
+        let endOfChapter = SleepTimerStateActive(
+            mode: SleepTimerModeEndOfChapter.shared, remainingMs: 0, totalMs: 0, startedAt: 0)
+        let progress = PlayerProgressRow(PlayerProgress(
+            chapterPositionMs: 720_000, chapterDurationMs: 1_200_000, bookPositionMs: 720_000,
+            bookDurationMs: 9_600_000))
+        let atOne = PlayerObserver.detached(
+            PlayerUiStateLoaded.fixture(sleepTimer: endOfChapter, speed: 1.0), progress: progress)
+        #expect(atOne.sleepCountdownMs == 480_000)
+        #expect(atOne.sleepTimerLabel == "8:00")
+        let atTwo = PlayerObserver.detached(
+            PlayerUiStateLoaded.fixture(sleepTimer: endOfChapter, speed: 2.0), progress: progress)
+        #expect(atTwo.sleepCountdownMs == 240_000)
+        #expect(PlayerObserver.detached(PlayerUiStateLoaded.fixture(), progress: progress).sleepCountdownMs == nil)
+    }
+
+    @Test("the sheets' facts: the default speed, chapter numbers, contributor counts, End of chapter, the fade")
+    func sheetFacts() {
+        let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhaseSleepFading.shared, currentIndex: 2, speed: 1.25, defaultSpeed: 1.1,
+            numberOffset: 3))
+        #expect(snapshot.defaultSpeed == 1.1)
+        #expect(snapshot.playbackSpeed == 1.25)
+        #expect(snapshot.chapterRows.map(\.number).prefix(3) == [4, 5, 6])
+        #expect(snapshot.chapterRows.map(\.index).prefix(3) == [0, 1, 2])
+        #expect(snapshot.narrators.map(\.bookCount) == [2])
+        #expect(snapshot.authors.map(\.bookCount) == [3])
+        #expect(snapshot.offersEndOfChapter)
+        #expect(snapshot.isSleepFading)
+        #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(wholeBook: true)).offersEndOfChapter)
+        #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared)).isSleepFading)
     }
 
     @Test("the mini player's line arrives as a native value, named by the book's own chapter title")
     func miniLine() {
         let playing = PlayerSnapshot.from(
             PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four"))
-        #expect(playing.miniLine == .chapter(number: nil, title: "Bridge Four", sleepRemainingMs: nil))
+        #expect(playing.miniLine == .chapter(number: nil, title: "Bridge Four", sleepArmed: false))
 
         let untitled = PlayerSnapshot.from(
             PlayerUiStateLoaded.fixture(phase: PlayerPhasePaused.shared, currentIndex: 5, chapterTitle: ""))
-        #expect(untitled.miniLine == .paused(number: 6, title: nil, sleepRemainingMs: nil))
+        #expect(untitled.miniLine == .paused(number: 6, title: nil, sleepArmed: false))
 
         let wholeBook = PlayerSnapshot.from(
             PlayerUiStateLoaded.fixture(phase: PlayerPhasePlaying.shared, wholeBook: true))
-        #expect(wholeBook.miniLine == .chapter(number: nil, title: nil, sleepRemainingMs: nil))
+        #expect(wholeBook.miniLine == .chapter(number: nil, title: nil, sleepArmed: false))
 
         let failed = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
             phase: PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
@@ -136,6 +175,17 @@ struct PlayerObserverTests {
             phase: PlayerPhasePlaying.shared, source: AudioSourceCasting(deviceName: "Living Room")))
         #expect(snapshot.statusText == String(format: String(localized: "player.np_status_playing_on"), "Living Room"))
         #expect(snapshot.isCasting)
+        #expect(snapshot.castDeviceName == "Living Room")
+        #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture()).castDeviceName == nil)
+    }
+
+    @Test("an armed timer reaches the mini line as armed, and the line's number is the observer's")
+    func miniLineSleepArmed() {
+        let timer = SleepTimerStateActive(
+            mode: SleepTimerModeEndOfChapter.shared, remainingMs: 0, totalMs: 0, startedAt: 0)
+        let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four"))
+        #expect(snapshot.miniLine == .chapter(number: nil, title: "Bridge Four", sleepArmed: true))
     }
 
     @Test("progress becomes a native row with its derived values")
@@ -165,13 +215,16 @@ extension PlayerUiStateLoaded {
         isGenericTitle: Bool = false,
         narrators: [PlayerContributor] = [PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 2)],
         chapterCount: Int = 8,
-        chapterDurationMs: Int64 = 60_000
+        chapterDurationMs: Int64 = 60_000,
+        speed: Float = 1.5,
+        defaultSpeed: Float = 1.0,
+        numberOffset: Int = 0
     ) -> PlayerUiStateLoaded {
         let total = wholeBook ? 1 : chapterCount
         let bookMs = Int64(chapterCount) * chapterDurationMs
         let rows = wholeBook ? [] : (0..<total).map { index in
             PlayerChapterRow(
-                index: Int32(index), number: Int32(index + 1), title: "Chapter \(index + 1)",
+                index: Int32(index), number: Int32(index + 1 + numberOffset), title: "Chapter \(index + 1)",
                 startMs: Int64(index) * chapterDurationMs, durationMs: chapterDurationMs,
                 isCurrent: index == currentIndex)
         }
@@ -185,7 +238,7 @@ extension PlayerUiStateLoaded {
                 durationMs: bookMs, firstPdfDocId: firstPdfDocId),
             phase: phase,
             chapter: PlayerChapter(
-                index: Int32(wholeBook ? 0 : currentIndex), number: Int32((wholeBook ? 0 : currentIndex) + 1),
+                index: Int32(wholeBook ? 0 : currentIndex), number: Int32(wholeBook ? 1 : currentIndex + 1 + numberOffset),
                 total: Int32(total), title: wholeBook ? "" : (chapterTitle ?? "Chapter \(currentIndex + 1)"),
                 isGenericTitle: wholeBook || isGenericTitle, isWholeBook: wholeBook,
                 startMs: wholeBook ? 0 : Int64(currentIndex) * chapterDurationMs,
@@ -193,7 +246,7 @@ extension PlayerUiStateLoaded {
             chapters: rows,
             source: source,
             settings: PlayerSettings(
-                speed: 1.5, defaultSpeed: 1.0, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
+                speed: speed, defaultSpeed: defaultSpeed, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
                 skipForwardSec: 30),
             sleepTimer: sleepTimer,
             primary: primary,

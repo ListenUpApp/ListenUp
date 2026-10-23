@@ -229,22 +229,17 @@ struct PlayerSecondaryControls: View {
     }
 
     /// An armed timer counts down in the sleep gold (§3.9) instead of showing a filled moon: the time left is the
-    /// state, not the glyph's fill. "End of chapter" shows the moon on gold.
+    /// state, not the glyph's fill. End of chapter counts down to the chapter's end at the listening speed.
     private var sleepCountdown: some View {
-        Group {
-            if observer.sleepTimerIsEndOfChapter {
-                Image(systemName: "moon.zzz.fill")
-            } else {
-                Text(observer.sleepTimerLabel).monospacedDigit()
-            }
-        }
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(Color.luOnSleepGold)
-        .padding(.horizontal, Spacing.s)
-        .padding(.vertical, Spacing.xxs)
-        .frame(minHeight: 28)
-        .background(Color.luSleepGold, in: Capsule())
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
+        Text(observer.sleepTimerLabel)
+            .monospacedDigit()
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.luOnSleepGold)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xxs)
+            .frame(minHeight: 28)
+            .background(Color.luSleepGold, in: Capsule())
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
     }
 }

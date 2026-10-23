@@ -12,6 +12,8 @@ struct ChapterRowModel: Identifiable, Equatable, Sendable {
     let durationMs: Int64
     /// The row's position in the list (0-based).
     var index = 0
+    /// The chapter's own number, as the book counts it (1-based); not always `index + 1`.
+    var number = 0
     /// Exactly one row is current: the chapter the playhead is in.
     var isCurrent = false
 }
@@ -44,10 +46,11 @@ enum PlayerPrimary: Sendable, Equatable {
 
 /// The mini player's second line (spec §5.1), mapped once from the shared `MiniPlayerLine` (rule 8). A chapter is
 /// named by the book's own `title`; `number` is set only for a chaptered book's untitled chapter; both nil is a
-/// chapterless book.
+/// chapterless book. `sleepArmed` says a timer is running; the surface supplies its countdown, which follows the
+/// progress (`PlayerSnapshot.sleepCountdownMs`).
 enum MiniLine: Equatable, Sendable {
-    case chapter(number: Int?, title: String?, sleepRemainingMs: Int64?)
-    case paused(number: Int?, title: String?, sleepRemainingMs: Int64?)
+    case chapter(number: Int?, title: String?, sleepArmed: Bool)
+    case paused(number: Int?, title: String?, sleepArmed: Bool)
     case casting(device: String, number: Int?, title: String?)
     case starting, loading, reconnecting, fadingOut, finished
     /// `title` is the short mini line (`player.mini_<code>`), falling back to the card title. `isTinted` marks a
@@ -59,11 +62,11 @@ enum MiniLine: Equatable, Sendable {
         case .chapter(let chapter):
             let value = chapter.value
             self = .chapter(
-                number: value.number.map { Int($0) }, title: value.title, sleepRemainingMs: value.sleepRemainingMs)
+                number: value.number.map { Int($0) }, title: value.title, sleepArmed: value.sleepArmed)
         case .paused(let paused):
             let value = paused.value
             self = .paused(
-                number: value.number.map { Int($0) }, title: value.title, sleepRemainingMs: value.sleepRemainingMs)
+                number: value.number.map { Int($0) }, title: value.title, sleepArmed: value.sleepArmed)
         case .casting(let casting):
             let value = casting.value
             self = .casting(device: value.deviceName, number: value.number.map { Int($0) }, title: value.title)
@@ -118,18 +121,31 @@ struct PlayerSnapshot: Equatable {
     var showsSkipBack = false
     var canSkipToNextChapter = false
     var playbackSpeed: Float = 1.0
+    /// The user's default speed: the Speed sheet's reset goes back to it.
+    var defaultSpeed: Float = 1.0
     var volumeBoostDb: Float = 0
     var defaultVolumeBoostDb: Float = 0
     var skipForwardSec = 30
     var skipBackwardSec = 10
     var sleepTimerActive = false
     var sleepTimerIsEndOfChapter = false
+    /// A duration timer's own remainder. An end-of-chapter timer carries none: read `sleepCountdownMs` instead.
     var sleepTimerRemainingMs: Int64 = 0
-    var sleepTimerLabel = ""
+    /// What a duration timer was armed with; 0 for end of chapter.
+    var sleepTimerTotalMs: Int64 = 0
+    var sleepTimerStartedAtMs: Int64 = 0
+    /// Only a running duration timer can be extended (shared `SleepTimerChoices.canExtend`).
+    var sleepTimerCanExtend = false
+    /// End of Chapter is offered only for a chaptered book (shared `SleepTimerChoices.offersEndOfChapter`).
+    var offersEndOfChapter = false
+    /// The sleep timer is fading the audio out before it pauses.
+    var isSleepFading = false
     /// Now Playing's status slot (§3.1): where the audio comes from or goes to.
     var statusText = ""
     /// Casting: the status reads "Playing on …" in the tint.
     var isCasting = false
+    /// Where the audio is playing while casting, for AirPlay's caption; nil while it plays here.
+    var castDeviceName: String?
     /// The card that takes the transport's place (P32), decided in shared code; nil while the transport shows.
     var card: PlayerCardModel?
     /// The More menu (§5.5.7), from the shared builder.
@@ -162,6 +178,7 @@ struct PlayerSnapshot: Equatable {
         snapshot.canSkipToNextChapter = loaded.canSkipToNextChapter
         let settings = loaded.settings
         snapshot.playbackSpeed = settings.speed
+        snapshot.defaultSpeed = settings.defaultSpeed
         snapshot.volumeBoostDb = settings.boostDb
         snapshot.defaultVolumeBoostDb = settings.defaultBoostDb
         snapshot.skipForwardSec = Int(settings.skipForwardSec)
@@ -176,6 +193,7 @@ struct PlayerSnapshot: Equatable {
 
     private mutating func applySource(_ source: any AudioSource) {
         isCasting = false
+        castDeviceName = nil
         statusText = switch source.sealedType() {
         case .downloaded: String(localized: "player.np_status_downloaded")
         case .downloadedOffline: String(localized: "player.np_status_downloaded_offline")
@@ -187,14 +205,17 @@ struct PlayerSnapshot: Equatable {
             String(format: String(localized: "player.np_status_playing_on"), casting.value.deviceName)
         case .notPlayable: String(localized: "player.np_status_not_playable")
         }
-        if case .casting = source.sealedType() { isCasting = true }
+        if case .casting(let casting) = source.sealedType() {
+            isCasting = true
+            castDeviceName = casting.value.deviceName
+        }
     }
 
     private mutating func applyBook(_ book: PlayerBook) {
         currentBookId = book.id
         bookTitle = book.title
-        authors = book.authors.map { ContributorNavRef(id: $0.id, name: $0.name) }
-        narrators = book.narrators.map { ContributorNavRef(id: $0.id, name: $0.name) }
+        authors = book.authors.map { ContributorNavRef(id: $0.id, name: $0.name, bookCount: Int($0.bookCount)) }
+        narrators = book.narrators.map { ContributorNavRef(id: $0.id, name: $0.name, bookCount: Int($0.bookCount)) }
         authorName = authors.map(\.name).joined(separator: ", ")
         narratorName = narrators.map(\.name).joined(separator: ", ")
         seriesId = book.series.first?.id
@@ -209,8 +230,9 @@ struct PlayerSnapshot: Equatable {
         chapterRows = rows.map { row in
             ChapterRowModel(
                 id: String(row.index), title: row.title, startMs: row.startMs, durationMs: row.durationMs,
-                index: Int(row.index), isCurrent: row.isCurrent)
+                index: Int(row.index), number: Int(row.number), isCurrent: row.isCurrent)
         }
+        offersEndOfChapter = SleepTimerChoices.shared.offersEndOfChapter(chapter: current)
         chapterIndex = Int(current.index)
         totalChapters = Int(current.total)
         chapterTitle = current.isWholeBook ? nil : current.title
@@ -222,7 +244,10 @@ struct PlayerSnapshot: Equatable {
 
     private mutating func applyPhase(_ phase: any PlayerPhase) {
         switch phase.sealedType() {
-        case .playing, .sleepFading: isPlaying = true
+        case .playing: isPlaying = true
+        case .sleepFading:
+            isPlaying = true
+            isSleepFading = true
         // A network drop inside its grace draws as buffering until the player redesign gives it its own look.
         case .buffering, .reconnecting: isBuffering = true
         case .preparing: isPreparing = true
@@ -260,13 +285,25 @@ struct PlayerSnapshot: Equatable {
     }
 
     private mutating func applySleepTimer(_ state: any SleepTimerState) {
+        sleepTimerCanExtend = SleepTimerChoices.shared.canExtend(timer: state)
         guard case .active(let wrapped) = state.sealedType() else { return }
         let active = wrapped.value
         let isEndOfChapter: Bool = if case .endOfChapter = active.mode.sealedType() { true } else { false }
         sleepTimerActive = true
         sleepTimerIsEndOfChapter = isEndOfChapter
         sleepTimerRemainingMs = active.remainingMs
-        sleepTimerLabel = isEndOfChapter ? String(localized: "player.end_of_chapter") : active.formatRemaining()
+        sleepTimerTotalMs = active.totalMs
+        sleepTimerStartedAtMs = active.startedAt
+    }
+
+    /// Wall-clock milliseconds until the timer pauses playback, given the chapter's content remainder; nil with no
+    /// timer. The shared rule (`SleepCountdowns`): a duration counts itself down, end of chapter is the chapter's
+    /// remainder at the listening speed.
+    func sleepCountdownMs(chapterRemainingMs: Int64) -> Int64? {
+        guard sleepTimerActive else { return nil }
+        return SleepCountdowns.shared.remainingMs(
+            isEndOfChapter: sleepTimerIsEndOfChapter, durationRemainingMs: sleepTimerRemainingMs,
+            chapterRemainingMs: chapterRemainingMs, speed: playbackSpeed)
     }
 }
 
@@ -377,6 +414,7 @@ final class PlayerObserver {
     var showsSkipBack: Bool { snapshot.showsSkipBack }
     var canSkipToNextChapter: Bool { snapshot.canSkipToNextChapter }
     var playbackSpeed: Float { snapshot.playbackSpeed }
+    var defaultSpeed: Float { snapshot.defaultSpeed }
     var volumeBoostDb: Float { snapshot.volumeBoostDb }
     var defaultVolumeBoostDb: Float { snapshot.defaultVolumeBoostDb }
     var skipForwardSec: Int { snapshot.skipForwardSec }
@@ -384,10 +422,21 @@ final class PlayerObserver {
     var sleepTimerActive: Bool { snapshot.sleepTimerActive }
     var sleepTimerIsEndOfChapter: Bool { snapshot.sleepTimerIsEndOfChapter }
     var sleepTimerRemainingMs: Int64 { snapshot.sleepTimerRemainingMs }
-    var sleepTimerLabel: String { snapshot.sleepTimerLabel }
+    /// Wall-clock time until the running timer pauses, following the progress; nil with no timer.
+    var sleepCountdownMs: Int64? { snapshot.sleepCountdownMs(chapterRemainingMs: progress.chapterRemainingMs) }
+    /// The countdown as the settings row and VoiceOver read it ("23:41"); empty with no timer.
+    var sleepTimerLabel: String { sleepCountdownMs.map { DurationFormatting.clock(ms: $0) } ?? "" }
+    /// The book's remainder in wall time at the current speed: the Speed sheet's one wall-time figure (S10).
+    var bookRemainingAtSpeedMs: Int64 {
+        PlayerProgress(
+            chapterPositionMs: progress.chapterPositionMs, chapterDurationMs: progress.chapterDurationMs,
+            bookPositionMs: progress.bookPositionMs, bookDurationMs: progress.bookDurationMs
+        ).bookRemainingAtSpeedMs(speed: snapshot.playbackSpeed)
+    }
     var bookDurationMs: Int64 { snapshot.bookDurationMs }
     var statusText: String { snapshot.statusText }
     var isCasting: Bool { snapshot.isCasting }
+    var castDeviceName: String? { snapshot.castDeviceName }
     var card: PlayerCardModel? { snapshot.card }
     var menu: [PlayerMenuSection] { snapshot.menu }
     var closesNowPlaying: Bool { snapshot.closesNowPlaying }
@@ -443,7 +492,7 @@ final class PlayerObserver {
     func miniPrimary(_ action: MiniPlayerAccessoryModel.PrimaryAction) {
         switch action {
         case .shared: viewModel?.onPrimary()
-        case .keepListening: viewModel?.cancelSleepTimer()
+        case .keepListening: keepListening()
         }
     }
     func dismissError() { viewModel?.dismissError() }
@@ -455,12 +504,18 @@ final class PlayerObserver {
     func nextChapter() { viewModel?.nextChapter() }
     func selectChapter(index: Int) { viewModel?.seekToChapter(index: Int32(index)) }
     func setSpeed(_ speed: Float) { viewModel?.setSpeed(speed: speed) }
+    /// One 0.05× step slower or faster, counted in the shared whole hundredths so repeated steps never drift.
+    func stepSpeed(up: Bool) { viewModel?.stepSpeed(up: up) }
+    /// Back to the user's default speed: the book's own speed is removed, not overwritten.
+    func resetSpeed() { viewModel?.resetSpeed() }
     func setBoost(_ db: Float) { viewModel?.setBoost(boostDb: db) }
     func resetBoost() { viewModel?.resetBoost() }
     func setSleepTimer(minutes: Int) { viewModel?.setSleepTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes))) }
     func setSleepTimerEndOfChapter() { viewModel?.setSleepTimer(mode: SleepTimerModeEndOfChapter.shared) }
     func extendSleepTimer(minutes: Int) { viewModel?.extendSleepTimer(minutes: Int32(minutes)) }
     func cancelSleepTimer() { viewModel?.cancelSleepTimer() }
+    /// The fade's Keep Listening: the timer is cancelled and the volume restored, where the primary would pause.
+    func keepListening() { viewModel?.cancelSleepTimer() }
     func openCurrentBookPdf() { viewModel?.openCurrentPdf() }
     func closeBook() { viewModel?.closeBook() }
     /// A state card's button: the shared dispatcher carries it out (Retry, Dismiss, Close Book, Sign In, …).

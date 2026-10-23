@@ -72,6 +72,17 @@ struct PlayerCardModelTests {
         #expect(card.secondary == .listenAgain)
     }
 
+    @Test("the sleep fade: the gold card with Keep Listening alone")
+    func sleepFading() throws {
+        let card = try #require(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
+            phase: PlayerPhaseSleepFading.shared)).card)
+        #expect(card.kind == .sleepFading)
+        #expect(card.primary == .keepListening)
+        #expect(card.secondary == nil)
+        #expect(PlayerCardModel.Action(PlayerCardActionKeepListening.shared) == .keepListening)
+        #expect(PlayerCardModel.Action.keepListening.title == String(localized: "player.mini_keep_listening_ios"))
+    }
+
     @Test("each native action is the shared one")
     func actionsRoundTrip() {
         for action in PlayerCardModel.Action.allCases {
