@@ -52,10 +52,11 @@ struct SleepSheetModel: Equatable {
         ))
     }
 
-    /// The chapter by the book's own title, or "Chapter 6" when it has none.
+    /// The chapter by the book's own title, or by its own number ("Chapter 8") when it has none, as Android and the
+    /// chapter rows name it.
     private static func chapterName(_ snapshot: PlayerSnapshot) -> String {
         if let title = snapshot.chapterTitle, !title.isEmpty { return title }
-        return String(format: String(localized: "player.chapter_number"), Int32(snapshot.chapterIndex + 1))
+        return String(format: String(localized: "player.chapter_number"), Int32(snapshot.chapterNumber))
     }
 
     /// The share of the timer still to run: the shared `SleepCountdowns.meterFraction`, so the ring agrees with

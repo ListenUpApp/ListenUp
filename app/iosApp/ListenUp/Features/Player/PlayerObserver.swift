@@ -101,6 +101,8 @@ struct PlayerSnapshot: Equatable {
     var bookDurationMs: Int64 = 0
     var chapterRows: [ChapterRowModel] = []
     var chapterIndex = 0
+    /// The current chapter's own number, as the book counts it (front matter included), for naming an untitled chapter.
+    var chapterNumber = 1
     /// A chapterless book is one whole-book chapter (§3.2), so this is never 0 for a loaded book.
     var totalChapters = 0
     /// The current chapter's title; nil for a chapterless book.
@@ -234,6 +236,7 @@ struct PlayerSnapshot: Equatable {
         }
         offersEndOfChapter = SleepTimerChoices.shared.offersEndOfChapter(chapter: current)
         chapterIndex = Int(current.index)
+        chapterNumber = Int(current.number)
         totalChapters = Int(current.total)
         chapterTitle = current.isWholeBook ? nil : current.title
         isWholeBook = current.isWholeBook
