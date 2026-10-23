@@ -1,12 +1,11 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import com.calypsan.listenup.web.design.ButtonKind
-import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ChipOption
+import com.calypsan.listenup.web.design.ChipRadioGroup
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
-import org.jetbrains.compose.web.dom.Button
-import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Button as DomButton
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 import kotlin.math.roundToInt
@@ -42,18 +41,32 @@ internal fun BoostPicker(
 ) {
     PlayerPanel(
         open = open,
-        title = "Volume boost",
+        title = NowPlayingWords.VOLUME_BOOST,
         panelClass = "boost-dlg",
         placement = placement,
         onDismiss = onDismiss,
     ) {
         P(attrs = {
-            classes("mono", "boost-read")
+            classes("boost-read")
             attr("role", "status")
             attr("aria-live", "off")
         }) {
             Text(formatBoost(boostDb))
         }
+
+        // Radios in one connected row (`Sheets-WebPhone`): which boost is in force is a choice of one, and a screen
+        // reader says so. Picking one leaves the panel open (PB5), so the listener hears the difference.
+        ChipRadioGroup(
+            label = NowPlayingWords.BOOST_LEVEL,
+            options = VolumeBoostLimits.PRESETS_DB.map { ChipOption(it, boostLevel(it)) },
+            selected = boostDb,
+            onSelect = onSet,
+            styleClass = "boost-opts",
+            same = ::isSameVolumeBoost,
+            optionClass = "boost-opt",
+        )
+
+        P(attrs = { classes("panel-note") }) { Text(NowPlayingWords.BOOST_NOTE) }
 
         if (unavailable) {
             // `role="alert"`, because it appears in response to the tap that just failed rather
@@ -66,37 +79,24 @@ internal fun BoostPicker(
             }
         }
 
-        Div(attrs = { classes("boost-opts") }) {
-            VolumeBoostLimits.PRESETS_DB.forEach { preset ->
-                val isCurrent = isSameVolumeBoost(preset, boostDb)
-                Button(attrs = {
-                    classes("boost-opt")
-                    if (isCurrent) classes("on")
-                    attr("type", "button")
-                    // Which boost is in force is information, not decoration — a coral fill says
-                    // nothing to a listener who cannot see it.
-                    if (isCurrent) attr("aria-current", "true")
-                    onClick { onSet(preset) }
-                }) {
-                    Text(formatBoost(preset))
-                }
-            }
-        }
-
         // Only when there is something to go back to, exactly as the speed picker does: a reset
         // that is already at its target is a control whose press changes nothing.
         if (!isSameVolumeBoost(boostDb, defaultBoostDb)) {
-            Button(
-                kind = ButtonKind.Secondary,
-                onClick = { onReset() },
-                attrs = {
-                    classes("boost-reset")
-                },
-            ) {
-                Text("Reset to ${formatBoost(defaultBoostDb)}")
+            DomButton(attrs = {
+                classes("panel-reset", "boost-reset")
+                attr("type", "button")
+                onClick { onReset() }
+            }) {
+                Text(NowPlayingWords.resetBoost(formatBoost(defaultBoostDb)))
             }
         }
     }
+}
+
+/** A level as its radio reads it (the board): "Off", "+3", "+6". The readout above says the unit. */
+internal fun boostLevel(db: Float): String {
+    val rounded = db.roundToInt()
+    return if (rounded <= VolumeBoostLimits.MIN_DB) "Off" else "+$rounded"
 }
 
 /**

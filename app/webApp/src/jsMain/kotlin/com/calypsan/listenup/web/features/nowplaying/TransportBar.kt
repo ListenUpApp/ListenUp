@@ -94,6 +94,8 @@ fun TransportBar(
     ChapterPicker(
         open = chaptersOpen,
         chapters = state.chapters,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        bookDurationMs = state.book.durationMs,
         onPick = { index ->
             onSeekToChapter(index)
             chaptersOpen = false

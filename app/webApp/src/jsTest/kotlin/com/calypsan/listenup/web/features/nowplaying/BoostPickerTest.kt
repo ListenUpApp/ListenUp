@@ -6,6 +6,7 @@ import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLButtonElement
@@ -78,7 +79,7 @@ class BoostPickerTest :
 
             host.querySelectorAll(".boost-opt").length shouldBe VolumeBoostLimits.PRESETS_DB.size
             VolumeBoostLimits.PRESETS_DB.forEach { rung ->
-                host.buttonSaying(formatBoost(rung)) shouldBe host.buttonSaying(formatBoost(rung))
+                host.buttonSaying(boostLevel(rung)).shouldNotBeNull()
             }
 
             host.closeDialogs()
@@ -97,9 +98,9 @@ class BoostPickerTest :
         test("the boost in force is marked, and says so to a screen reader") {
             val host = picker(boostDb = BOOSTED)
 
-            val current = host.querySelectorAll("[aria-current='true']")
+            val current = host.querySelectorAll("[role=radio][aria-checked='true']")
             current.length shouldBe 1
-            (current.item(0) as HTMLElement).textContent shouldBe formatBoost(BOOSTED)
+            (current.item(0) as HTMLElement).textContent shouldBe boostLevel(BOOSTED)
 
             host.closeDialogs()
         }
@@ -108,7 +109,7 @@ class BoostPickerTest :
             var picked: Float? = null
             val host = picker(onSet = { picked = it })
 
-            host.buttonSaying(formatBoost(BOOSTED))!!.click()
+            host.buttonSaying(boostLevel(BOOSTED))!!.click()
             awaitFrame()
 
             picked shouldBe BOOSTED
@@ -159,6 +160,32 @@ class BoostPickerTest :
 
             reset shouldBe 1
             set shouldBe 0
+            host.closeDialogs()
+        }
+
+        test("the levels are a radiogroup; picking one sets it and leaves the panel open") {
+            var picked: Float? = null
+            var dismissed = 0
+            val host = picker(boostDb = BOOSTED, onSet = { picked = it }, onDismiss = { dismissed++ })
+
+            val group = host.querySelector("[role=radiogroup][aria-label='Boost level']").shouldNotBeNull()
+            group.querySelectorAll("[role=radio]").asList().map { it.textContent } shouldBe
+                listOf("Off", "+3", "+6", "+9", "+12")
+            host.buttonSaying("+3")!!.click()
+            awaitFrame()
+
+            picked shouldBe 3f
+            dismissed shouldBe 0
+            host.querySelector("dialog[open]").shouldNotBeNull()
+            host.closeDialogs()
+        }
+
+        test("the note, and the reset that names the listener's default") {
+            val host = picker(boostDb = BOOSTED, defaultBoostDb = OFF)
+
+            host.textContent.orEmpty() shouldContain "Louder for quiet recordings. Applies to this book only."
+            (host.querySelector(".boost-reset") as HTMLElement).textContent shouldBe "Reset to Off (your default)"
+
             host.closeDialogs()
         }
 

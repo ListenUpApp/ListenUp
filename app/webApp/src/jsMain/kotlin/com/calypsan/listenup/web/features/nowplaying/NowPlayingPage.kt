@@ -504,6 +504,8 @@ private fun PagePickerDialogs(
     ChapterPicker(
         open = pickers.chapters,
         chapters = state.chapters,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        bookDurationMs = state.book.durationMs,
         onPick = { index ->
             actions.onSeekToChapter(index)
             pickers.chapters = false

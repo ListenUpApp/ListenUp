@@ -144,31 +144,33 @@
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* The chapter picker: a modal list you jump from, not a table you edit. Capped in height so a
-   book with hundreds of marks scrolls inside the dialog rather than growing past the viewport. */
+/* The chapter picker (PC1–PC4): a list you jump from, not a table you edit. Capped in height so a book with hundreds of
+   marks scrolls inside the panel rather than growing past the viewport. */
 .chap-dlg { max-width: 520px; width: min(520px, calc(100vw - 32px)); }
+.chap-sum { margin: -6px 0 0; font-size: var(--fs-small); color: var(--ink-2); }
 .chap-list {
-  display: flex; flex-direction: column; gap: 2px; margin: var(--sp-12) 0;
+  display: flex; flex-direction: column; gap: 2px;
   max-height: min(56vh, 460px); overflow-y: auto;
   /* Scroll anchoring fights a programmatic scrollIntoView on open — the same reason the
      virtualised grid disables it. */
   overflow-anchor: none;
 }
 .chap-row {
-  display: flex; align-items: baseline; gap: var(--sp-12); width: 100%; text-align: left;
-  padding: 9px var(--sp-12); border: none; border-radius: var(--r-sm); cursor: pointer;
-  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-ui);
+  display: flex; align-items: center; gap: var(--sp-12); width: 100%; min-height: 52px; text-align: left;
+  padding: 4px var(--sp-12); border: none; border-radius: 10px; cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: 0.9375rem;
 }
-@media (hover: hover) { .chap-row:hover { background: var(--surface-2); } }
-.chap-row:active { background: var(--surface-3); }
-/* The chapter being listened to. Coral rather than a bolder weight: the row is already dense, and
-   a weight change reflows the text under the reader's eye as the chapter turns over. */
-.chap-row.on { background: var(--coral-soft); color: var(--coral-text); }
-.chap-n { flex-shrink: 0; width: 2.2em; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.chap-row.on .chap-n { color: var(--coral-text); }
-.chap-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chap-at { flex-shrink: 0; font-size: var(--fs-small); color: var(--ink-3); }
-.chap-row.on .chap-at { color: var(--coral-text); }
+@media (hover: hover) { .chap-row:not(.on):hover { background: var(--surface-2); } }
+.chap-row:not(.on):active { background: var(--surface-3); }
+/* The chapter being listened to: filled coral, white ink (§3.11, the board, C14), with "Playing · 8m left" under it. */
+.chap-row.on { background: var(--coral-fill); color: var(--on-coral); font-weight: 700; }
+.chap-row.on:active { background: var(--coral-fill-press); }
+.chap-n { flex-shrink: 0; width: 2.2em; font-size: var(--fs-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.chap-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chap-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chap-now { font-size: var(--fs-caption); font-weight: 700; }
+.chap-dur { flex-shrink: 0; font-size: var(--fs-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.chap-row.on .chap-n, .chap-row.on .chap-dur { color: var(--on-coral); }
 
 /* ---- sleep timer (PT1–PT8, `Sheets-WebPhone`) ---- */
 .sleep-dlg { max-width: 420px; width: min(420px, calc(100vw - 32px)); }
@@ -246,30 +248,30 @@
 .panel-note { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--ink-2); }
 
 /* ---- volume boost ---- */
-/* Narrower than the speed panel: five chips and no slider. */
+/* Narrower than the speed panel: five levels and no slider. */
 .boost-dlg { max-width: 380px; width: min(380px, calc(100vw - 32px)); }
 
-/* A player panel's Close sits at the foot, at its own width — the dialog body is a flex column,
-   which would otherwise stretch it across the panel. */
-dialog.dlg .dlg-close { align-self: flex-start; }
+/* The panel's Close sits beside its heading at its own width. */
+.dlg-head .dlg-close { align-self: center; flex: none; }
 
 .boost-read {
-  margin: 18px 0 10px; font-size: 2.625rem; font-weight: 800; letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+  margin: 0; font-size: 3.25rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--ink);
 }
-/* Said only when a boost was asked for and refused, so it reads as an answer rather than a
-   standing caveat. */
-.boost-warn { margin: 0 0 14px; font-size: var(--fs-small); line-height: 1.45; color: var(--ink-3); text-align: center; }
-.boost-opts { display: flex; flex-wrap: wrap; gap: var(--sp-8); justify-content: center; }
-.boost-opt {
-  min-width: 56px; padding: var(--sp-8) var(--sp-12); border: 1px solid var(--line); border-radius: var(--r-pill);
-  cursor: pointer; background: var(--surface); color: var(--ink);
-  font: inherit; font-size: var(--fs-ui); font-weight: 600; font-variant-numeric: tabular-nums;
+/* Said only when a boost was asked for and refused, so it reads as an answer rather than a standing caveat: the error
+   container, as the board draws it. */
+.boost-warn {
+  margin: 0; padding: 12px 14px; border-radius: 12px; font-size: var(--fs-small); line-height: 1.4;
+  background: var(--player-err-container); color: var(--player-err-ink);
 }
-@media (hover: hover) { .boost-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
-.boost-opt:active { transform: translateY(1px); }
-.boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
-.boost-reset { margin-top: 14px; }
+/* The levels as one connected row of radios (the board's segmented control); the level in force filled coral. */
+.luw .boost-opts { display: flex; border: 1px solid var(--outline); border-radius: var(--r-pill); overflow: hidden; }
+.luw .boost-opts .boost-opt {
+  flex: 1; min-width: 0; min-height: 46px; padding: 0 4px; border: none; border-radius: 0;
+  font-size: var(--fs-ui); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.luw .boost-opts .boost-opt + .boost-opt { border-left: 1px solid var(--line); }
+.luw .boost-opts .boost-opt.is-on { background: var(--coral-fill); color: var(--on-coral); }
 
 /* ---- player panels (§3.8): one shell, two placements ---- */
 /* A heading with its way out beside it (`Sheets-WebPhone`): Close shares the title's row. */
