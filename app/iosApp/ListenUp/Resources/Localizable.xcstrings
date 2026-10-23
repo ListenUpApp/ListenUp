@@ -22121,16 +22121,6 @@
         }
       }
     },
-    "player.play_chapter": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Play chapter"
-          }
-        }
-      }
-    },
     "player.playback_speed": {
       "localizations": {
         "en": {

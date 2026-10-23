@@ -1967,7 +1967,6 @@
     "skip_backward": "Skip back %1$s seconds",
     "speed": "Speed",
     "chapters": "Chapters",
-    "play_chapter": "Play chapter",
     "chapters_count_summary": "%1$d chapters · %2$s",
     "airplay": "AirPlay",
     "sleep_timer": "Sleep timer",
