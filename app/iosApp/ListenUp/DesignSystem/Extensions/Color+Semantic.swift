@@ -40,6 +40,10 @@ extension Color {
     static let luSleepGold = Color(ColorResource.sleepGoldContainer)
     /// The countdown's ink on `luSleepGold` — the `SleepGoldInk` Color Set: `#4A2E00` light, `#FFDDB0` dark.
     static let luOnSleepGold = Color(ColorResource.sleepGoldInk)
+    /// A running timer's meter (the Sleep sheet's ring) on its `luSleepGold` track — the `SleepGoldMeter` Color Set:
+    /// `#A3701F` light, `#E0B26A` dark (`#8A5C14` / `#F0C98A` under Increase Contrast), 3:1 or more on the track in every
+    /// appearance as a meaningful graphic (`BrandColorContrastTests`). The board's `#B07A2A` is 2.9:1, so it is deepened.
+    static let luSleepGoldMeter = Color(ColorResource.sleepGoldMeter)
 
     /// Secondary text on Now Playing's wash — the `OnWashSecondary` Color Set: `#57514D` light, `#ABA6A2` dark
     /// (`#3F3A37` / `#CFCAC6` under Increase Contrast). The system's secondary label is ~3.2:1 on the warm neutral and
@@ -81,7 +85,7 @@ extension Color {
     let swatches: [(String, Color)] = [
         ("luTint", .luTint), ("luOnTint", .luOnTint), ("luTintInk", .luTintInk),
         ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
-        ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold),
+        ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold), ("luSleepGoldMeter", .luSleepGoldMeter),
         ("luOnWashSecondary", .luOnWashSecondary), ("luOnWashTertiary", .luOnWashTertiary),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),

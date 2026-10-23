@@ -149,6 +149,7 @@ struct PlayerSecondaryControls: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Speed and Sleep are sheets, not menus: their values are adjusted, not picked once (HIG, Sheets; plan C10).
     @State private var showsSpeed = false
+    @State private var showsSleep = false
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -167,13 +168,18 @@ struct PlayerSecondaryControls: View {
             }
 
             item(caption: String(localized: "player.sleep")) {
-                SleepTimerMenu(observer: observer) {
+                Button { showsSleep = true } label: {
                     if observer.sleepTimerActive {
                         sleepCountdown
                     } else {
                         glyph("moon.zzz")
                     }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "player.sleep_timer"))
+                // The time left while a timer runs, "Off" otherwise: the moon's fill alone would be state by shape.
+                .accessibilityValue(
+                    observer.sleepTimerActive ? observer.sleepTimerLabel : String(localized: "player.sleep_off"))
             }
 
             if showsChaptersControl {
@@ -192,6 +198,7 @@ struct PlayerSecondaryControls: View {
 
         }
         .sheet(isPresented: $showsSpeed) { SpeedSheet(observer: observer) }
+        .sheet(isPresented: $showsSleep) { SleepSheet(observer: observer) }
     }
 
     private func item(

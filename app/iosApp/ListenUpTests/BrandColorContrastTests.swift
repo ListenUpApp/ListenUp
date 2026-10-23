@@ -171,6 +171,24 @@ struct BrandColorContrastTests {
         #expect(hex(ink) == "4A2E00")
     }
 
+    /// The running timer's ring and bar: the meter against the gold track it runs in, as a meaningful graphic (3:1), and
+    /// the fade card's Keep Listening, gold ink on the gold's own dark ink (player spec §5.6).
+    @Test("the sleep gold's meter reads on its track, and Keep Listening's ink on its fill, in every appearance")
+    func sleepGoldMeter() {
+        let container = UIColor(named: "SleepGoldContainer")
+        let ink = UIColor(named: "SleepGoldInk")
+        let meter = UIColor(named: "SleepGoldMeter")
+        #expect(container != nil && ink != nil && meter != nil)
+        guard let container, let ink, let meter else { return }
+        for traits in Traits.colorAppearances {
+            let track = SRGBColor(container, resolvedFor: traits)
+            let meterRatio = SRGBColor(meter, resolvedFor: traits).contrastRatio(against: track)
+            #expect(meterRatio >= ContrastMinimum.glyph, "meter \(meterRatio) in \(traits.userInterfaceStyle.rawValue)")
+            let buttonRatio = track.contrastRatio(against: SRGBColor(ink, resolvedFor: traits))
+            #expect(buttonRatio >= ContrastMinimum.text, "keep \(buttonRatio) in \(traits.userInterfaceStyle.rawValue)")
+        }
+    }
+
     @Test("the warning amber is visibly not the brand coral")
     func warningIsNotCoral() {
         func hue(_ color: UIColor) -> Double {
