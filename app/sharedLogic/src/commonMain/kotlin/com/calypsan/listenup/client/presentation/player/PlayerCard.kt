@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 
 /**
  * The card that takes the transport's place on Now Playing (spec P32, §3.7, §4.6, the Now Playing column of §5.6):
- * a problem with its ways out, or the finished book. Decided once so Android, iOS and web offer the same actions.
+ * a problem with its ways out, the finished book, or the sleep timer's fade. Decided once so Android, iOS and web offer the same actions.
  */
 sealed interface PlayerCard {
     /**
@@ -29,6 +29,12 @@ sealed interface PlayerCard {
         val primaryAction: PlayerCardAction,
         val secondaryAction: PlayerCardAction?,
     ) : PlayerCard
+
+    /**
+     * The sleep timer has fired and the audio is fading (§5.6 "Sleep fading"). Platforms draw it in the sleep gold,
+     * with one button, Keep listening ([PlayerCardAction.KeepListening]).
+     */
+    data object SleepFading : PlayerCard
 }
 
 /** What a card's button does. [PlayerViewModel.onCardAction] carries each one out; the words are each platform's. */
@@ -59,6 +65,9 @@ sealed interface PlayerCardAction {
 
     /** Play the next book in the series (§3.7). */
     data object PlayNextBook : PlayerCardAction
+
+    /** Cancel the sleep timer during its fade; full volume returns (PT7). */
+    data object KeepListening : PlayerCardAction
 }
 
 /** How a problem card is coloured: the error container, Book Detail's held amber, or a plain container. */
@@ -81,8 +90,9 @@ object PlayerCards {
             is PlayerPhase.Failed -> problem(phase.error, isFailure = true, primary = state.primary)
             is PlayerPhase.Unavailable -> problem(phase.reason, isFailure = false, primary = state.primary)
             PlayerPhase.Finished -> state.finished?.let(::finishedCard)
+            PlayerPhase.SleepFading -> PlayerCard.SleepFading
             PlayerPhase.Playing, PlayerPhase.Paused, PlayerPhase.Restored, PlayerPhase.Preparing,
-            PlayerPhase.Buffering, PlayerPhase.Reconnecting, PlayerPhase.SleepFading,
+            PlayerPhase.Buffering, PlayerPhase.Reconnecting,
             -> null
         }
 

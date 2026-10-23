@@ -29,8 +29,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The card that takes the transport's place on Now Playing (P32, §5.6's web column): a problem with the ways out the
- * shared [com.calypsan.listenup.client.presentation.player.PlayerCards] decided, or the finished book. A problem is
- * `role=alert`, so its arrival is announced. The finished card reuses Home's finished words and rating (C22).
+ * shared [com.calypsan.listenup.client.presentation.player.PlayerCards] decided, the finished book, or the sleep
+ * timer's fade. A problem is `role=alert`, so its arrival is announced; the fade is a polite `role=status`. The finished card reuses Home's finished words and rating (C22).
  */
 @Composable
 internal fun PlayerStateCard(
@@ -44,6 +44,33 @@ internal fun PlayerStateCard(
     when (card) {
         is PlayerCard.Problem -> ProblemCard(card, onAction)
         is PlayerCard.Finished -> FinishedBookCard(card, bookId, onAction, onRate, nowMs, zone)
+        PlayerCard.SleepFading -> SleepFadingCard(onAction)
+    }
+}
+
+/**
+ * The sleep timer's fade (§5.6 "Sleep fading", `States-WebPhone`): the sleep gold with the moon, "Fading out…", what
+ * is happening, and one button, Keep listening. `role=status`, polite: nothing failed.
+ */
+@Composable
+private fun SleepFadingCard(onAction: (PlayerCardAction) -> Unit) {
+    Div(attrs = {
+        classes("np-card", "sleep")
+        attr("role", "status")
+    }) {
+        P(attrs = { classes("np-card-t") }) {
+            Icon(WebIcon.Moon, size = MOON_ICON_SIZE)
+            Text(NowPlayingWords.FADING_TITLE)
+        }
+        P(attrs = { classes("np-card-c") }) { Text(NowPlayingWords.FADING_BODY) }
+        Div(attrs = { classes("np-card-actions") }) {
+            Button(
+                kind = ButtonKind.Primary,
+                size = ButtonSize.Lg,
+                onClick = { onAction(PlayerCardAction.KeepListening) },
+                attrs = { classes("np-keep") },
+            ) { Text(NowPlayingWords.action(PlayerCardAction.KeepListening)) }
+        }
     }
 }
 
@@ -161,3 +188,5 @@ private fun PlayerCardTone.cssClass(): String =
 private const val NEXT_COVER = 56
 
 private const val PLAY_ICON_SIZE = 32
+
+private const val MOON_ICON_SIZE = 20

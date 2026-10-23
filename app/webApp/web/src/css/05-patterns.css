@@ -595,6 +595,10 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .np-card.error { background:var(--player-err-container); color:var(--player-err-ink); }
 .np-card.held { background:var(--warn-soft); border:1px solid color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }
 .np-card.finished { background:color-mix(in srgb, var(--surface) 80%, transparent); }
+/* The sleep fade (§5.6 "Sleep fading"): the sleep gold, one button inked like the card's words. */
+.np-card.sleep { background:var(--sleep-container); color:var(--sleep-ink); }
+.np-card.sleep .np-card-t { display:flex; align-items:center; gap:var(--sp-8); }
+.np-card.sleep .np-keep { background:var(--sleep-ink); color:var(--sleep-container); border-color:transparent; }
 .np-card-t { font-size:var(--fs-title); font-weight:800; letter-spacing:-.01em; }
 .np-card-c, .np-card-saved { font-size:var(--fs-ui); line-height:1.45; }
 .np-card.neutral .np-card-c, .np-card.held .np-card-c, .np-card.finished .np-card-c { color:var(--ink-2); }

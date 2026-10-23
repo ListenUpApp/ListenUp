@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
@@ -15,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +55,7 @@ import listenup.composeapp.generated.resources.home_how_was_it
 import listenup.composeapp.generated.resources.home_next_in_series
 import listenup.composeapp.generated.resources.home_play_next_book
 import listenup.composeapp.generated.resources.player_close_book
+import listenup.composeapp.generated.resources.player_mini_keep_listening
 import listenup.composeapp.generated.resources.player_mini_listen_again
 import listenup.composeapp.generated.resources.player_mini_open_inbox
 import listenup.composeapp.generated.resources.player_mini_resume
@@ -62,6 +66,8 @@ import listenup.composeapp.generated.resources.player_place_saved
 import listenup.composeapp.generated.resources.player_play
 import listenup.composeapp.generated.resources.player_reference
 import listenup.composeapp.generated.resources.player_retry
+import listenup.composeapp.generated.resources.player_sheet_fading_body
+import listenup.composeapp.generated.resources.player_sheet_fading_title
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 
@@ -69,8 +75,8 @@ import kotlin.time.Clock
 private val NextCover = 56.dp
 
 /**
- * The card that takes the transport's place (spec P32, §3.7, §4.6): a problem with its ways out, or the finished
- * book. The actions are decided in shared code ([com.calypsan.listenup.client.presentation.player.PlayerCards]); this
+ * The card that takes the transport's place (spec P32, §3.7, §4.6, §5.6): a problem with its ways out, the finished
+ * book, or the sleep timer's fade. The actions are decided in shared code ([com.calypsan.listenup.client.presentation.player.PlayerCards]); this
  * draws them. Flat, on a container chosen by tone (m3.material.io/styles/color/roles), 28dp corners, no shadow (F6).
  */
 @Composable
@@ -97,6 +103,46 @@ fun PlayerStateCard(
                 modifier = modifier,
             )
         }
+
+        PlayerCard.SleepFading -> {
+            SleepFadingCard(onAction = onAction, modifier = modifier)
+        }
+    }
+}
+
+/**
+ * The sleep timer's fade (§5.6 "Sleep fading", `States-Android`): the sleep gold, `tertiaryContainer`, with the moon,
+ * "Fading out…", what is happening, and one button, Keep listening, on `tertiary`. Announced politely: nothing failed.
+ */
+@Composable
+private fun SleepFadingCard(
+    onAction: (PlayerCardAction) -> Unit,
+    modifier: Modifier,
+) {
+    FlatCard(
+        container = MaterialTheme.colorScheme.tertiaryContainer,
+        ink = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier = modifier,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        ) {
+            Icon(Icons.Default.Bedtime, contentDescription = null)
+            Text(stringResource(Res.string.player_sheet_fading_title), style = MaterialTheme.typography.titleMedium)
+        }
+        Text(stringResource(Res.string.player_sheet_fading_body), style = MaterialTheme.typography.bodyMedium)
+        Button(
+            onClick = { onAction(PlayerCardAction.KeepListening) },
+            shapes = ButtonDefaults.shapes(),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                ),
+            modifier = Modifier.heightIn(min = MinTouchTarget),
+        ) { Text(PlayerCardAction.KeepListening.label()) }
     }
 }
 
@@ -305,5 +351,6 @@ private fun PlayerCardAction.label(): String =
             PlayerCardAction.TapToPlay -> Res.string.player_play
             PlayerCardAction.ListenAgain -> Res.string.player_mini_listen_again
             PlayerCardAction.PlayNextBook -> Res.string.home_play_next_book
+            PlayerCardAction.KeepListening -> Res.string.player_mini_keep_listening
         },
     )

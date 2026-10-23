@@ -25,6 +25,8 @@ internal object NowPlayingWords {
     const val WHOLE_BOOK = "Whole book"
     const val BACK_TO_CURRENT = "Back to current chapter"
     const val COLLAPSE = "Collapse player"
+    const val FADING_TITLE = "Fading out…"
+    const val FADING_BODY = "Your sleep timer is ending. Playback pauses in a moment."
     const val BACK = "Back"
     const val CHAPTER_POSITION = "Chapter position"
 
@@ -80,6 +82,7 @@ internal object NowPlayingWords {
             PlayerCardAction.TapToPlay -> "Play"
             PlayerCardAction.ListenAgain -> "Listen again"
             PlayerCardAction.PlayNextBook -> "Play next book"
+            PlayerCardAction.KeepListening -> "Keep listening"
         }
 
     /** The More menu's boost row: "Volume boost · Off" or "Volume boost · +6 dB". */
