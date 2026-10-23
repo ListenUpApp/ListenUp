@@ -22251,6 +22251,406 @@
         }
       }
     },
+    "player.sheet_add_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add time"
+          }
+        }
+      }
+    },
+    "player.sheet_authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authors"
+          }
+        }
+      }
+    },
+    "player.sheet_books_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book in your library"
+          }
+        }
+      }
+    },
+    "player.sheet_books_one_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 book"
+          }
+        }
+      }
+    },
+    "player.sheet_books_other": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books in your library"
+          }
+        }
+      }
+    },
+    "player.sheet_books_other_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "player.sheet_boost_level": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boost level"
+          }
+        }
+      }
+    },
+    "player.sheet_boost_note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Louder for quiet recordings. Applies to this book only."
+          }
+        }
+      }
+    },
+    "player.sheet_cast_playing_on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cast. Playing on %1$@. Change output"
+          }
+        }
+      }
+    },
+    "player.sheet_chapter_current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d, %2$@, now playing, %3$@ left"
+          }
+        }
+      }
+    },
+    "player.sheet_chapter_play_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play from chapter %1$d: %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "player.sheet_custom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom"
+          }
+        }
+      }
+    },
+    "player.sheet_custom_less": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 minutes less"
+          }
+        }
+      }
+    },
+    "player.sheet_custom_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d min"
+          }
+        }
+      }
+    },
+    "player.sheet_custom_more": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 minutes more"
+          }
+        }
+      }
+    },
+    "player.sheet_durations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Durations"
+          }
+        }
+      }
+    },
+    "player.sheet_end_of_chapter_after": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauses after %1$@ · in %2$@"
+          }
+        }
+      }
+    },
+    "player.sheet_end_of_chapter_after_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After %1$@ · in %2$@"
+          }
+        }
+      }
+    },
+    "player.sheet_fades_out": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio fades out over a few seconds before it pauses."
+          }
+        }
+      }
+    },
+    "player.sheet_fading_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sleep timer is ending. Playback pauses in a moment."
+          }
+        }
+      }
+    },
+    "player.sheet_fading_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fading out…"
+          }
+        }
+      }
+    },
+    "player.sheet_fading_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fading Out…"
+          }
+        }
+      }
+    },
+    "player.sheet_faster": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faster by 0.05"
+          }
+        }
+      }
+    },
+    "player.sheet_left_at_speed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ left at this speed"
+          }
+        }
+      }
+    },
+    "player.sheet_meter_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@ remaining"
+          }
+        }
+      }
+    },
+    "player.sheet_narrators": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrators"
+          }
+        }
+      }
+    },
+    "player.sheet_pauses_at": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauses at %1$@"
+          }
+        }
+      }
+    },
+    "player.sheet_pauses_at_timer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauses at %1$@ · %2$@ timer"
+          }
+        }
+      }
+    },
+    "player.sheet_playing_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing · %1$@ left"
+          }
+        }
+      }
+    },
+    "player.sheet_playing_left_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now Playing · %1$@ left"
+          }
+        }
+      }
+    },
+    "player.sheet_reset_boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset to %1$@ (your default)"
+          }
+        }
+      }
+    },
+    "player.sheet_reset_boost_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset to %1$@ (Your Default)"
+          }
+        }
+      }
+    },
+    "player.sheet_reset_speed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset to %1$@ (your default)"
+          }
+        }
+      }
+    },
+    "player.sheet_reset_speed_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset to %1$@ (Your Default)"
+          }
+        }
+      }
+    },
+    "player.sheet_slower": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slower by 0.05"
+          }
+        }
+      }
+    },
+    "player.sheet_speed_presets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speed presets"
+          }
+        }
+      }
+    },
+    "player.sheet_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        }
+      }
+    },
+    "player.sheet_this_book_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to this book only."
+          }
+        }
+      }
+    },
+    "player.sheet_turn_off_timer_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn Off Timer"
+          }
+        }
+      }
+    },
+    "player.sheet_until_end_of": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Until the end of %1$@ · %2$@"
+          }
+        }
+      }
+    },
     "player.skip_backward": {
       "localizations": {
         "en": {
