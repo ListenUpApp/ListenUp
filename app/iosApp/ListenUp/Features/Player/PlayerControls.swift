@@ -190,9 +190,14 @@ struct PlayerSecondaryControls: View {
                 }
             }
 
-            // AirPlay's system route picker voices itself; its caption stays readable beside it.
-            item(caption: String(localized: "player.airplay"), captionIsSpoken: true) {
-                RoutePickerView(tint: Color(.label), activeTint: .luTint)
+            // AirPlay's system route picker voices itself; its caption stays readable beside it. While the audio plays
+            // elsewhere the caption names the device (HIG, AirPlay: keep the system control as it is; plan C13).
+            item(caption: observer.castDeviceName ?? String(localized: "player.airplay"), captionIsSpoken: true) {
+                RoutePickerView(
+                    tint: Color(.label), activeTint: .luTint,
+                    playingOn: observer.castDeviceName.map {
+                        String(format: String(localized: "player.np_status_playing_on"), $0)
+                    })
                     .frame(width: 44, height: 44)
             }
 

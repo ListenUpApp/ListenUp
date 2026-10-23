@@ -141,6 +141,20 @@ struct NowPlayingAccessibilityTests {
         #expect(next < again)
     }
 
+    @Test func airPlayNamesTheDeviceItIsPlayingOn() async throws {
+        let casting = await host(.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, source: AudioSourceCasting(deviceName: "Living Room")))
+        let playingOn = String(format: String(localized: "player.np_status_playing_on"), "Living Room")
+        #expect(casting.stops.contains { $0.value == playingOn }, "\(casting.tree)")
+        #expect(casting.stop(labelled: "Living Room") != nil, "\(casting.tree)")
+        casting.close()
+
+        let local = await host(Self.playing)
+        defer { local.close() }
+        #expect(local.stop(labelled: String(localized: "player.airplay")) != nil, "\(local.tree)")
+        #expect(!local.stops.contains { $0.value == playingOn })
+    }
+
     @Test func eachToneHasItsGlyph() {
         #expect(PlayerStateCardView.glyph(for: .error) == "exclamationmark.triangle.fill")
         #expect(PlayerStateCardView.glyph(for: .held) == "tray.full.fill")
