@@ -1,5 +1,6 @@
 import Testing
 @testable import ListenUp
+@preconcurrency import Shared
 
 /// The shared player's instructions reach AVAudioEngine in the order it issued them (spec risk R2):
 /// one bridge collector hands each to the coordinator, whose one task runs them, and each load's start, in order.
@@ -41,6 +42,21 @@ struct EngineInstructionOrderTests {
         harness.instructions.send(.load(bookId: "b1", prepared: .fixture()))
         harness.instructions.send(.setVolume(0.2))
         harness.instructions.send(.setVolume(1.0))
+        await harness.engine.waitForVolumeCount(2)
+        #expect(await harness.engine.lastVolume == 1.0)
+    }
+
+    @Test("Keep Listening's restore reaches the engine: the shared SetVolume(1) maps to the engine's setVolume(1)")
+    func keepListeningRestoresVolume() async throws {
+        guard case .setVolume(let faded) = KotlinEngineInstructions.map(EngineCommandSetVolume(volume: 0.2)),
+              case .setVolume(let restored) = KotlinEngineInstructions.map(EngineCommandSetVolume(volume: 1.0)) else {
+            Issue.record("SetVolume did not map to the engine's volume")
+            return
+        }
+        let harness = PlayerHarness()
+        harness.instructions.send(.load(bookId: "b1", prepared: .fixture()))
+        harness.instructions.send(.setVolume(faded))
+        harness.instructions.send(.setVolume(restored))
         await harness.engine.waitForVolumeCount(2)
         #expect(await harness.engine.lastVolume == 1.0)
     }

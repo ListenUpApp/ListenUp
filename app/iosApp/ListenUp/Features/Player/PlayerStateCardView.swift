@@ -39,6 +39,16 @@ struct PlayerStateCardView: View {
     }
 
     var body: some View {
+        if card.kind == .sleepFading {
+            // The fade is the gold card with Keep Listening alone (§5.6), the Sleep sheet's own.
+            SleepFadeCard(onKeepListening: { onAction(card.primary) })
+                .onAppear { announce() }
+        } else {
+            standard
+        }
+    }
+
+    private var standard: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             switch card.kind {
             case let .problem(title, cause, placeSaved, reference, tone):

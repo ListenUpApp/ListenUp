@@ -155,6 +155,25 @@ struct NowPlayingAccessibilityTests {
         #expect(!local.stops.contains { $0.value == playingOn })
     }
 
+    @Test func theSleepFadeShowsTheGoldCardWithKeepListening() async throws {
+        let hosted = await host(.fixture(phase: PlayerPhaseSleepFading.shared, currentIndex: 5))
+        defer { hosted.close() }
+        let title = try #require(
+            hosted.stop(labelled: String(localized: "player.sheet_fading_title_ios")), "\(hosted.tree)")
+        #expect(title.isHeader)
+        let keep = try #require(
+            hosted.stop(labelled: String(localized: "player.mini_keep_listening_ios")), "\(hosted.tree)")
+        #expect(keep.isButton)
+        #expect(hosted.stop(labelled: String(localized: "player.pause")) == nil)
+
+        // The card's ink, its body and its button all read against the gold, on the wash it sits on.
+        let card = CGRect(x: keep.frame.minX, y: title.frame.minY - 4,
+                          width: keep.frame.width, height: keep.frame.maxY - title.frame.minY + 8)
+        let lines = DrawnContrast(hosted).textLines(in: card)
+        #expect(lines.count >= 3, "\(lines)")
+        for ratio in lines { #expect(ratio >= ContrastMinimum.text, "\(lines)") }
+    }
+
     @Test func eachToneHasItsGlyph() {
         #expect(PlayerStateCardView.glyph(for: .error) == "exclamationmark.triangle.fill")
         #expect(PlayerStateCardView.glyph(for: .held) == "tray.full.fill")
