@@ -32,7 +32,8 @@ import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
-import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
+import kotlin.time.Clock
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
@@ -237,7 +238,6 @@ fun NowPlayingHost(
         OverlayDispatch(
             overlay = overlay,
             progress = provideProgress,
-            sleepTimerState = loaded?.sleepTimer ?: SleepTimerState.Inactive,
             loaded = loaded,
             viewModel = viewModel,
             onNavigateToContributor = onNavigateToContributor,
@@ -249,7 +249,6 @@ fun NowPlayingHost(
 private fun OverlayDispatch(
     overlay: PlayerOverlay,
     progress: () -> PlayerProgress,
-    sleepTimerState: SleepTimerState,
     loaded: PlayerUiState.Loaded?,
     viewModel: PlayerViewModel,
     onNavigateToContributor: (String) -> Unit,
@@ -268,13 +267,16 @@ private fun OverlayDispatch(
         }
 
         PlayerOverlay.SleepTimer -> {
-            SleepTimerSheet(
-                currentState = sleepTimerState,
-                onSetTimer = viewModel::setSleepTimer,
-                onCancelTimer = viewModel::cancelSleepTimer,
-                onExtendTimer = viewModel::extendSleepTimer,
-                onDismiss = viewModel::hideOverlay,
-            )
+            if (loaded != null) {
+                SleepTimerSheet(
+                    state = loaded.sleepSheetState(progress),
+                    onSetTimer = viewModel::setSleepTimer,
+                    onCancelTimer = viewModel::cancelSleepTimer,
+                    onExtendTimer = viewModel::extendSleepTimer,
+                    onKeepListening = viewModel::cancelSleepTimer,
+                    onDismiss = viewModel::hideOverlay,
+                )
+            }
         }
 
         is PlayerOverlay.ContributorPicker -> {
@@ -324,6 +326,21 @@ private fun OverlayDispatch(
         }
     }
 }
+
+/**
+ * The sleep sheet's view of the loaded book: the timer's countdown and meter from [SleepCountdowns] (wall time, C1),
+ * the chapter's content remainder for "in 8m", and the wall clock for "Pauses at". Each is read in the leaf that shows
+ * it, so the position tick never recomposes the sheet.
+ */
+private fun PlayerUiState.Loaded.sleepSheetState(progress: () -> PlayerProgress): SleepSheetState =
+    SleepSheetState(
+        timer = sleepTimer,
+        chapter = chapter,
+        chapterRemainingMs = { progress().chapterRemainingMs },
+        countdownMs = { SleepCountdowns.remainingMs(sleepTimer, progress(), settings.speed) },
+        meterFraction = { SleepCountdowns.meterFraction(sleepTimer, progress()) },
+        nowMs = { Clock.System.now().toEpochMilliseconds() },
+    )
 
 /** Now Playing's More menu: each row forwards to the view-model action it names (spec §5.5.7). */
 private fun PlayerViewModel.onMenuItem(

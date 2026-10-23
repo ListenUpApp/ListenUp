@@ -105,7 +105,7 @@ fun PlayerStateCard(
         }
 
         PlayerCard.SleepFading -> {
-            SleepFadingCard(onAction = onAction, modifier = modifier)
+            SleepFadingCard(onKeepListening = { onAction(PlayerCardAction.KeepListening) }, modifier = modifier)
         }
     }
 }
@@ -113,11 +113,12 @@ fun PlayerStateCard(
 /**
  * The sleep timer's fade (§5.6 "Sleep fading", `States-Android`): the sleep gold, `tertiaryContainer`, with the moon,
  * "Fading out…", what is happening, and one button, Keep listening, on `tertiary`. Announced politely: nothing failed.
+ * Now Playing draws it in the transport's place; the sleep sheet draws the same card while the fade runs (PT7).
  */
 @Composable
-private fun SleepFadingCard(
-    onAction: (PlayerCardAction) -> Unit,
-    modifier: Modifier,
+internal fun SleepFadingCard(
+    onKeepListening: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     FlatCard(
         container = MaterialTheme.colorScheme.tertiaryContainer,
@@ -134,7 +135,7 @@ private fun SleepFadingCard(
         }
         Text(stringResource(Res.string.player_sheet_fading_body), style = MaterialTheme.typography.bodyMedium)
         Button(
-            onClick = { onAction(PlayerCardAction.KeepListening) },
+            onClick = onKeepListening,
             shapes = ButtonDefaults.shapes(),
             colors =
                 ButtonDefaults.buttonColors(

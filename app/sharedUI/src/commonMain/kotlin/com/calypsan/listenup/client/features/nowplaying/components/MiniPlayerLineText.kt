@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.features.nowplaying.shortDuration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,7 +14,6 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.error.playerTitle
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -37,7 +37,6 @@ import listenup.composeapp.generated.resources.player_mini_starting
 import listenup.composeapp.generated.resources.player_mini_whole_book
 import listenup.composeapp.generated.resources.player_reconnecting
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
 /** Which parts of [MiniPlayerLine] a surface has room for (spec §5.1 M6/M7). */
 internal enum class MiniLineFit {
@@ -175,8 +174,5 @@ internal fun AppError.miniPlayerWords(): String =
         is PlaybackError.BlockedInBackground -> stringResource(Res.string.player_mini_playback_blocked_in_background)
         else -> playerTitle()
     }
-
-private fun shortDuration(ms: Long): String =
-    DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
 
 private fun joinDots(vararg parts: String?): String = parts.filterNotNull().joinToString(" · ")

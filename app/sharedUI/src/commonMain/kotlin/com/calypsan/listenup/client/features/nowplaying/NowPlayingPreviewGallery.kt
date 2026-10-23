@@ -456,15 +456,30 @@ private fun PanelsSection() {
 
         "sleep" -> {
             SleepTimerSheet(
-                currentState = SleepTimerState.Inactive,
+                state = mockSleepSheetState(SleepTimerState.Inactive),
                 onSetTimer = {},
                 onCancelTimer = {},
                 onExtendTimer = {},
+                onKeepListening = {},
                 onDismiss = { open = null },
             )
         }
     }
 }
+
+/** The sleep sheet over the mock book, 8 minutes from the end of its chapter, at 11:18 PM. */
+private fun mockSleepSheetState(timer: SleepTimerState): SleepSheetState =
+    SleepSheetState(
+        timer = timer,
+        chapter = mockActiveState.chapter,
+        chapterRemainingMs = { 480_000 },
+        countdownMs = { (timer as? SleepTimerState.Active)?.remainingMs?.takeIf { it > 0 } ?: 480_000 },
+        meterFraction = { 0.79f },
+        nowMs = { MOCK_NOW_MS },
+    )
+
+/** 23:18:19 UTC: "Pauses at" reads late evening in the previews. */
+private const val MOCK_NOW_MS = (23 * 3_600 + 18 * 60 + 19) * 1_000L
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
