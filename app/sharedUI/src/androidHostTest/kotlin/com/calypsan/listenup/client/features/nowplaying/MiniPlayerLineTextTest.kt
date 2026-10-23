@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,7 +35,12 @@ class MiniPlayerLineTextTest {
     ) {
         composeRule.setContent {
             MaterialTheme {
-                MiniPlayerLineText(line = MiniPlayerLines.of(state), progress = { samplePlayerProgress }, fit = fit)
+                MiniPlayerLineText(
+                    line = MiniPlayerLines.of(state),
+                    progress = { samplePlayerProgress },
+                    sleepRemainingMs = { SleepCountdowns.remainingMs(state.sleepTimer, samplePlayerProgress, state.settings.speed) },
+                    fit = fit,
+                )
             }
         }
     }
@@ -63,6 +69,13 @@ class MiniPlayerLineTextTest {
             SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 1_380_000, totalMs = 1_800_000, startedAt = 0)
         line(loadedPlayerState(phase = PlayerPhase.Playing, sleepTimer = timer))
         composeRule.onNodeWithText("Bridge Four · Sleep · 23m").assertExists()
+    }
+
+    @Test
+    fun `an armed end-of-chapter timer counts down to the chapter's end, never Sleep 0m`() {
+        val timer = SleepTimerState.Active(SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0)
+        line(loadedPlayerState(phase = PlayerPhase.Playing, sleepTimer = timer))
+        composeRule.onNodeWithText("Bridge Four · Sleep · 8m").assertExists()
     }
 
     @Test

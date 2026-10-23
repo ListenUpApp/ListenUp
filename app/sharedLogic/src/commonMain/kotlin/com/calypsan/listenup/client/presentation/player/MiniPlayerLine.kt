@@ -17,20 +17,21 @@ sealed interface MiniPlayerLine {
     /**
      * Playing: "Bridge Four". [title] is the chapter's own title as the book names it, generic or not; null for a
      * chapterless book, which reads "Whole book", or an untitled chapter, which reads "Chapter [number]". [number]
-     * is set only in that untitled case. [sleepRemainingMs] is a running timer's countdown, which replaces the
-     * time left where the line has it.
+     * is set only in that untitled case. [sleepArmed] says a timer is running; the surface shows its countdown,
+     * `SleepCountdowns.remainingMs(...)`, where the line has its time left. The line carries no number of its own, so it
+     * stays tick-free.
      */
     data class Chapter(
         val number: Int?,
         val title: String?,
-        val sleepRemainingMs: Long?,
+        val sleepArmed: Boolean,
     ) : MiniPlayerLine
 
     /** Paused, or restored at a cold start: "Paused · Bridge Four". Parts as [Chapter]. */
     data class Paused(
         val number: Int?,
         val title: String?,
-        val sleepRemainingMs: Long?,
+        val sleepArmed: Boolean,
     ) : MiniPlayerLine
 
     /** Casting or AirPlay: "Playing on Living Room · Bridge Four". Parts as [Chapter]. */
@@ -75,7 +76,7 @@ object MiniPlayerLines {
         val chapter = state.chapter
         val title = chapter.title.takeUnless { chapter.isWholeBook || it.isBlank() }
         val number = chapter.number.takeIf { !chapter.isWholeBook && title == null }
-        val sleepRemainingMs = (state.sleepTimer as? SleepTimerState.Active)?.remainingMs
+        val sleepArmed = state.sleepTimer is SleepTimerState.Active
         val casting = state.source as? AudioSource.Casting
         return when (val phase = state.phase) {
             is PlayerPhase.Failed -> {
@@ -109,8 +110,8 @@ object MiniPlayerLines {
             PlayerPhase.Playing, PlayerPhase.Paused, PlayerPhase.Restored -> {
                 when {
                     casting != null -> MiniPlayerLine.Casting(casting.deviceName, number, title)
-                    phase == PlayerPhase.Playing -> MiniPlayerLine.Chapter(number, title, sleepRemainingMs)
-                    else -> MiniPlayerLine.Paused(number, title, sleepRemainingMs)
+                    phase == PlayerPhase.Playing -> MiniPlayerLine.Chapter(number, title, sleepArmed)
+                    else -> MiniPlayerLine.Paused(number, title, sleepArmed)
                 }
             }
         }

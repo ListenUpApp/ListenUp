@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
@@ -137,7 +138,14 @@ fun TransportBar(
         attr(ATTR_ROLE, "region")
         attr(ATTR_ARIA_LABEL, "Player")
     }) {
-        BarBook(book = state.book, line = line, progress = progress, bookSwitch = bookSwitch, onOpen = onOpenNowPlaying)
+        BarBook(
+            book = state.book,
+            line = line,
+            progress = progress,
+            sleepRemainingMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed),
+            bookSwitch = bookSwitch,
+            onOpen = onOpenNowPlaying,
+        )
 
         BarTransport(
             state = state,
@@ -200,6 +208,7 @@ private fun BarBook(
     book: PlayerBook,
     line: MiniPlayerLine,
     progress: PlayerProgress,
+    sleepRemainingMs: Long?,
     bookSwitch: BookSwitch,
     onOpen: (HTMLElement?) -> Unit,
 ) {
@@ -224,7 +233,7 @@ private fun BarBook(
     // Named for the book and where it is in it.
     A(href = PLAYING_HREF, attrs = {
         classes("tport-body")
-        attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress)}")
+        attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress, sleepRemainingMs)}")
         onClick { event ->
             if (event.isPlainPrimaryClick()) {
                 event.preventDefault()
@@ -249,10 +258,10 @@ private fun BarBook(
             Span(attrs = { classes("tport-t") }) { Text(book.title) }
             Span(
                 attrs = { classes("tport-sub", "desk") },
-            ) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine)) }
+            ) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine, sleepRemainingMs)) }
             Span(
                 attrs = { classes("tport-sub", "phone") },
-            ) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine)) }
+            ) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine, sleepRemainingMs)) }
         }
     }
 }
