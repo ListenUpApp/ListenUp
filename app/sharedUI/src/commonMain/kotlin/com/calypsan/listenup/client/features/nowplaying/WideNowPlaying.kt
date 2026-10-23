@@ -35,6 +35,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubbe
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
 import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -144,6 +145,7 @@ fun WideNowPlaying(
                         speed = state.settings.speed,
                         sleepTimer = state.sleepTimer,
                         castingTo = (state.source as? AudioSource.Casting)?.deviceName,
+                        sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                         showsChapters = true,
                         onSpeedClick = onSpeedClick,
                         onSleepClick = onSleepClick,

@@ -105,4 +105,11 @@ class CompactNowPlayingTest {
         cardActions shouldBe listOf(PlayerCardAction.Dismiss)
         chaptersOpened shouldBe 1
     }
+
+    @Test
+    fun `the sleep fade - the gold card replaces the transport`() {
+        screen(loadedPlayerState(coverPath = NO_COVER, phase = PlayerPhase.SleepFading))
+        composeRule.onNodeWithText("Keep listening").assertExists()
+        composeRule.onNodeWithContentDescription("Pause").assertDoesNotExist()
+    }
 }

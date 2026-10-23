@@ -174,4 +174,13 @@ class NowPlayingToolbarTest {
         // The board's toolbar: a 60dp cover in a 72dp body, inside the toolbar's 8dp padding (`Mini-AndroidTablet`).
         val ToolbarMaxHeight = 96.dp
     }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `an armed end-of-chapter timer counts down to the chapter's end, not 0 00`() {
+        val timer = SleepTimerState.Active(SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0)
+        toolbar(loadedPlayerState(phase = PlayerPhase.Playing, sleepTimer = timer))
+        // samplePlayerProgress: 724s into a 1,235s chapter, so 8:31 left at 1.0×.
+        composeRule.onNode(hasContentDescription("Sleep timer, 8:31 left")).assertExists()
+    }
 }

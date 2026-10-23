@@ -49,6 +49,7 @@ fun PlayerSettingsRow(
     speed: Float,
     sleepTimer: SleepTimerState,
     castingTo: String?,
+    sleepCountdownMs: () -> Long?,
     showsChapters: Boolean,
     onSpeedClick: () -> Unit,
     onSleepClick: () -> Unit,
@@ -70,7 +71,12 @@ fun PlayerSettingsRow(
         ) { Text(rate) }
     }
     val sleepButton: @Composable () -> Unit = {
-        SleepSettingButton(timer = sleepTimer, onClick = onSleepClick, tonalWhenIdle = true)
+        SleepSettingButton(
+            timer = sleepTimer,
+            countdownMs = sleepCountdownMs,
+            onClick = onSleepClick,
+            tonalWhenIdle = true,
+        )
     }
     val chaptersButton: @Composable () -> Unit = {
         FilledTonalIconButton(
