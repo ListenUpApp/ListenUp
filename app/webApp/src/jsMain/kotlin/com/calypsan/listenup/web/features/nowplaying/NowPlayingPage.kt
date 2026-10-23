@@ -380,8 +380,7 @@ private fun SeriesLine(
 
 /**
  * "by" or "Read by", then each person as a link. More than three fold to the lead and a count (P8/P9, C10), which opens
- * the whole list as a menu of links; the book counts beside each name arrive with the contributor picker on every
- * platform together.
+ * the whole list as a menu of links, each with how many books that person has in this role (PK1, C12; none for zero).
  */
 @Composable
 private fun People(
@@ -403,6 +402,7 @@ private fun People(
                             icon = null,
                             onSelect = { onOpenContributor(person.id) },
                             href = Routes.Contributor.detail(person.id).toUrl(),
+                            detail = NowPlayingWords.books(person.bookCount),
                         )
                     },
                 label = text,

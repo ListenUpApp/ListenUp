@@ -51,6 +51,11 @@ data class MenuAction(
     val href: String? = null,
     /** With [href], the link opens in a new tab (`target=_blank`, `rel=noopener`) and [onSelect] only closes the menu. */
     val opensNewTab: Boolean = false,
+    /**
+     * A second, quieter line under [label] — a person's "14 books" (§5.5.5). It is read into the item's accessible name
+     * ("Michael Kramer, 14 books"), so a screen reader hears what the eye sees.
+     */
+    val detail: String? = null,
 )
 
 /**
@@ -374,6 +379,8 @@ private fun MenuItem(
             },
         )
         item.checked?.let { attr("aria-checked", it.toString()) }
+        item.detailedName()?.let { attr("aria-label", it) }
+        if (item.detail != null) classes("has-d")
         // Only the first item is a Tab stop; the arrows are how a menu is walked.
         attr("tabindex", if (index == 0) "0" else "-1")
         onKeyDown { event ->
@@ -390,10 +397,27 @@ private fun MenuItem(
             }
         }
     }) {
-        item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
-        Text(item.label)
+        MenuItemFace(item)
     }
 }
+
+/** What an item shows: its glyph, its label, and its [MenuAction.detail] under the label when it has one. */
+@Composable
+private fun MenuItemFace(item: MenuAction) {
+    item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
+    val detail = item.detail
+    if (detail == null) {
+        Text(item.label)
+    } else {
+        Span(attrs = { classes("menu-i-tx") }) {
+            Span { Text(item.label) }
+            Span(attrs = { classes("menu-i-d") }) { Text(detail) }
+        }
+    }
+}
+
+/** The accessible name an item with a [MenuAction.detail] carries: "Michael Kramer, 14 books". */
+private fun MenuAction.detailedName(): String? = detail?.let { "$label, $it" }
 
 /**
  * A menu item that is a link ([MenuAction.href]): a real `<a role="menuitem">`, so a new tab and a document's own
@@ -413,6 +437,8 @@ private fun MenuLinkItem(
         if (item.destructive) classes("is-danger")
         attr("role", "menuitem")
         attr("tabindex", if (index == 0) "0" else "-1")
+        item.detailedName()?.let { attr("aria-label", it) }
+        if (item.detail != null) classes("has-d")
         if (item.opensNewTab) {
             attr("target", "_blank")
             attr("rel", "noopener")
@@ -433,8 +459,7 @@ private fun MenuLinkItem(
             }
         }
     }) {
-        item.icon?.let { Icon(it, size = MENU_ICON_SIZE) }
-        Text(item.label)
+        MenuItemFace(item)
     }
 }
 

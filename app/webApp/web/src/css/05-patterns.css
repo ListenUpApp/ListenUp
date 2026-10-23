@@ -101,6 +101,12 @@
 @media (hover: hover) { .menu-i.is-danger:hover { background:var(--danger-soft); } }
 .menu-i.is-danger:active { background:var(--danger-soft); }
 .menu-i:disabled { color:var(--ink-3); cursor:default; }
+/* An item with a second line (MenuAction.detail): a person and their books. */
+.menu-i.has-d { height:auto; min-height:44px; padding-block:4px; }
+.menu-i-tx { display:flex; flex-direction:column; min-width:0; }
+.menu-i-d { font-size:var(--fs-small); font-weight:500; color:var(--ink-2); }
+/* Now Playing's menus — the byline's people, More — are full 44px rows at every width (§8, the boards). */
+.np-page .menu .menu-i { height:auto; min-height:44px; }
 .menu-g-danger { gap:0; }
 .menu-i[role=menuitemcheckbox] { font-weight:400; }
 .menu-i[role=menuitemcheckbox]::before { content:""; flex:none; width:14px; height:14px; border:1.5px solid var(--ink-2); border-radius:4px; }

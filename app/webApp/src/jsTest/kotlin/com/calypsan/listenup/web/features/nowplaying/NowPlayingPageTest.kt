@@ -12,7 +12,10 @@ import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.NoCoverThemes
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LocalCoverThemes
+import com.calypsan.listenup.web.PHONE
+import com.calypsan.listenup.web.ViewportFrames
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -178,5 +181,63 @@ class NowPlayingPageTest :
                 .shouldNotBeNull()
             pageWithThemes(wayOfKings(coverHash = "abc"), themes = NoCoverThemes).querySelector(".np-page.cover-themed") shouldBe
                 null
+        }
+    })
+
+/** Five narrators, the first with fourteen books in this role and the last with none. */
+private val FIVE_NARRATORS =
+    listOf(
+        PlayerContributor("n1", "Michael Kramer", 14),
+        PlayerContributor("n2", "Kate Reading", 1),
+        PlayerContributor("n3", "Narrator 3", 2),
+        PlayerContributor("n4", "Narrator 4", 3),
+        PlayerContributor("n5", "Narrator 5", 0),
+    )
+
+/**
+ * The byline's people with their books (PK1, C12), at a phone's width and a desktop's: "& 4 more" opens a list of links,
+ * each a full 44px target with the person's books under the name; and the inline links are 44px targets too (§8).
+ */
+class NowPlayingBylineTest :
+    FunSpec({
+        val frames = ViewportFrames()
+        afterTest { frames.disposeAll() }
+
+        listOf(PHONE to 844, 1440 to 900).forEach { (width, height) ->
+            test("at ${width}px five narrators fold, and the list shows each person's books as a 44px link") {
+                val frame =
+                    frames.mount(width, height) {
+                        CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
+                            NowPlayingPage(state = wayOfKings(narrators = FIVE_NARRATORS), progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                        }
+                    }
+                val fold = frame.find(".np-read-by .np-fold")
+                fold.textContent shouldBe "Michael Kramer & 4 more"
+                frame.rect(fold).height shouldBeGreaterThanOrEqual 44.0
+
+                fold.click()
+                awaitFrame()
+
+                val links = frame.findAll(".np-read-by .menu a")
+                links.size shouldBe 5
+                links.forEach { link -> frame.rect(link).height shouldBeGreaterThanOrEqual 44.0 }
+                links.first().querySelector(".menu-i-d")?.textContent shouldBe "14 books"
+                links.first().getAttribute("aria-label") shouldBe "Michael Kramer, 14 books"
+                links.first().getAttribute("href") shouldBe "/contributor/n1"
+                links.last().querySelector(".menu-i-d") shouldBe null
+                links.last().getAttribute("href") shouldBe "/contributor/n5"
+            }
+
+            test("at ${width}px the byline's inline links are 44px targets") {
+                val frame =
+                    frames.mount(width, height) {
+                        CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
+                            NowPlayingPage(state = wayOfKings(), progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                        }
+                    }
+                frame.findAll(".np-by a, .np-read-by a").forEach { link ->
+                    frame.rect(link).height shouldBeGreaterThanOrEqual 44.0
+                }
+            }
         }
     })
