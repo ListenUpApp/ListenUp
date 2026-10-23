@@ -100,7 +100,8 @@ struct BoostPickerSheet: View {
 /// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad inline "Up Next" panel
 /// so both surfaces render chapters identically.
 ///
-/// Text stays `.primary`/secondary on every row: the tint is decoration (the wash and the equalizer), never the colour
+/// Text stays `.primary` or `luQuietInk` (4.5:1, unlike the system's secondary and tertiary labels) on every row: the
+/// tint is decoration (the wash and the equalizer), never the colour
 /// a title is read in. The current row is also `.isSelected` and says "now playing", so it is marked by more than colour.
 /// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 min left", or "Play from
 /// chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks (HIG, Typography).
@@ -149,7 +150,7 @@ struct ChapterRow: View {
                     Text("\(number)")
                         .font(.body.weight(.semibold))
                         .monospacedDigit()
-                        .foregroundStyle(isCurrent ? AnyShapeStyle(Color.luTintInk) : AnyShapeStyle(Color.luLabel3))
+                        .foregroundStyle(isCurrent ? Color.luTintInk : Color.luQuietInk)
                         .frame(minWidth: 24)
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -161,7 +162,7 @@ struct ChapterRow: View {
                         if isCurrent {
                             Text(Self.currentLine(remainingMs: remainingMs))
                                 .font(.footnote)
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(Color.luQuietInk)
                         }
                     }
                 }
@@ -174,14 +175,14 @@ struct ChapterRow: View {
                     Text(DurationFormatting.clock(ms: durationMs))
                         .font(.footnote)
                         .monospacedDigit()
-                        .foregroundStyle(Color.secondary)
+                        .foregroundStyle(Color.luQuietInk)
 
                     if isCurrent {
                         EqualizerGlyph(color: tint, isAnimating: isPlaying)
                     } else {
                         Image(systemName: "play.fill")
                             .font(.caption)
-                            .foregroundStyle(Color.luLabel3)
+                            .foregroundStyle(Color.luQuietInk)
                     }
                 }
             }
