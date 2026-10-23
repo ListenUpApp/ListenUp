@@ -2,73 +2,78 @@ import SwiftUI
 
 // MARK: - Boost Picker Sheet
 
-/// Volume-boost picker: a large coral readout of the current boost, a wrapped row of
-/// dB chips, and a "Use default" row that resets the book back to the global default.
-/// No slider — unlike speed, boost is a small discrete catalogue (design-locked), so a
-/// continuous drag would only invite off-catalogue values with no real benefit.
+/// Volume Boost (player spec §5.5.3, PB1–PB5; the `Sheets-iPhone` board): the coral readout, the five levels as a
+/// segmented control, the note, and Reset. HIG, Segmented controls: one choice among a few closely related ones. It
+/// stays open after a pick, so the reader can hear each level and settle (PB5); the close button or a swipe ends it.
 struct BoostPickerSheet: View {
     let currentBoostDb: Float
-    /// The global default, or `nil` while it is still unknown — see `useDefaultRow`.
+    /// The global default, or `nil` while it is still unknown — see `resetRow`.
     let defaultBoostDb: Float?
     let onBoostSelected: (Float) -> Void
     let onUseDefault: () -> Void
 
-    // Mirrors VolumeBoostLimits.MIN_DB...MAX_DB in :contract (not exported to Swift).
-    private let steps: [Float] = [0, 3, 6, 9, 12]
+    // Mirrors VolumeBoostLimits.PRESETS_DB in :contract (not exported to Swift).
+    static let steps: [Float] = [0, 3, 6, 9, 12]
     @ScaledMetric(relativeTo: .largeTitle) private var boostReadoutSize: CGFloat = 56
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        PlayerSheetChrome(title: String(localized: "player.sheet_boost_title_ios")) {
+            VStack(spacing: Spacing.l) {
                 Text(Self.formatBoost(currentBoostDb))
                     .font(.system(size: boostReadoutSize, weight: .bold)) // scaled via @ScaledMetric
                     .monospacedDigit()
-                    .foregroundStyle(Color.luTint)
-                    .padding(.top, Spacing.xs)
+                    .foregroundStyle(Color.luTintInk)
+                    // The selected segment says the same; the readout would say it twice.
+                    .accessibilityHidden(true)
 
-                boostChips
-                    .padding(.top, Spacing.xl)
-
-                useDefaultRow
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, Spacing.l)
-            .padding(.top, Spacing.xs)
-            .navigationTitle(String(localized: "player.volume_boost"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    /// Wrapped catalogue of boost steps; the active step fills coral, the rest are neutral.
-    private var boostChips: some View {
-        FlowLayout(spacing: 9) {
-            ForEach(steps, id: \.self) { step in
-                PillButton(
-                    title: Self.formatBoost(step),
-                    isSelected: abs(step - currentBoostDb) < 0.001
-                ) {
-                    onBoostSelected(step)
+                Picker(String(localized: "player.sheet_boost_level"), selection: selection) {
+                    ForEach(Self.steps, id: \.self) { step in
+                        Text(Self.segmentLabel(step)).tag(step)
+                    }
                 }
+                .pickerStyle(.segmented)
+                // HIG, Accessibility: 44pt targets; the regular segmented control is 32pt tall.
+                .controlSize(.extraLarge)
+
+                Text(String(localized: "player.sheet_boost_note"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                resetRow
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.m)
         }
     }
 
-    /// Shown whenever the default is known — harmless when the book is already at it, and it
-    /// avoids plumbing a separate "has a custom boost" flag through the coordinator. Hidden while
-    /// it is `nil`, because a row that reads "Use default (Off)" on an unresolved read would
-    /// silently apply 0 dB over a real +6 default.
+    /// The segment holding the current boost; a level between the steps (from another client) selects the nearest.
+    private var selection: Binding<Float> {
+        Binding(
+            get: { Self.steps.min { abs($0 - currentBoostDb) < abs($1 - currentBoostDb) } ?? 0 },
+            set: { onBoostSelected($0) }
+        )
+    }
+
+    /// Shown away from the default. Hidden while the default is `nil`, because a row that read "Reset to Off" on an
+    /// unresolved read would silently apply 0 dB over a real +6 default.
     @ViewBuilder
-    private var useDefaultRow: some View {
-        if let defaultBoostDb {
-            Button(action: onUseDefault) {
-                Text(String(format: String(localized: "player.boost_use_default"), Self.formatBoost(defaultBoostDb)))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.secondary)
+    private var resetRow: some View {
+        if let defaultBoostDb, abs(defaultBoostDb - currentBoostDb) >= 0.01 {
+            Button(String(format: String(localized: "player.sheet_reset_boost_ios"), Self.formatBoost(defaultBoostDb))) {
+                onUseDefault()
             }
-            .buttonStyle(.plain)
-            .padding(.top, Spacing.l)
+            .buttonStyle(.borderless)
+            .frame(minHeight: TapTarget.minimum)
         }
+    }
+
+    /// A segment's words: "Off", then "+3" … "+12" (the readout above carries the unit).
+    nonisolated static func segmentLabel(_ db: Float) -> String {
+        let rounded = Int(db.rounded())
+        if rounded == 0 { return String(localized: "player.boost_off") }
+        return String(format: String(localized: "player.boost_pill_db"), rounded)
     }
 
     /// "Off" for no boost, else "+N dB" — the readout and chip label shared shape.
