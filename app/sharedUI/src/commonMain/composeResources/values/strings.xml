@@ -2145,10 +2145,8 @@ One beautiful library.</string>
     <string name="player_collapse">Collapse player</string>
     <string name="player_cover_a11y">Book cover</string>
     <string name="player_end_of_chapter">End of chapter</string>
-    <string name="player_end_of_chapter_subtitle">Pause when the current chapter ends</string>
     <string name="player_expand">Expand</string>
     <string name="player_extend_minutes">+%1$d min</string>
-    <string name="player_fading_out">Fading out…</string>
     <string name="player_go_to_author">Go to author</string>
     <string name="player_go_to_author_multiple">Go to author…</string>
     <string name="player_go_to_book">Go to book</string>
@@ -2222,7 +2220,6 @@ One beautiful library.</string>
     <string name="player_reconnecting">Reconnecting…</string>
     <string name="player_reference">Reference %1$s</string>
     <string name="player_refusal_title">Couldn't start playback</string>
-    <string name="player_reset_to_default">Reset to default (%1$s)</string>
     <string name="player_retry">Retry</string>
     <string name="player_scrubber_a11y">Chapter position</string>
     <string name="player_scrubber_value_a11y">%1$s of %2$s</string>
@@ -2278,7 +2275,6 @@ One beautiful library.</string>
     <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
-    <string name="player_speed_value">%1$sx</string>
     <string name="player_timer_active">Timer active</string>
     <string name="player_title_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="player_title_book_held_for_review">Waiting in the Inbox.</string>
@@ -2292,8 +2288,6 @@ One beautiful library.</string>
     <string name="player_title_playback_stalled">Couldn't play this book.</string>
     <string name="player_title_playback_unsupported_format">Can't play this audio.</string>
     <string name="player_unknown_book">Unknown book</string>
-    <string name="player_until_end_of_chapter">Until end of chapter</string>
-    <string name="player_until_end_of_chapter_detail">Playback will pause when this chapter ends</string>
     <string name="player_up_next">Up next</string>
     <string name="player_view_all_chapters">View all %1$d chapters</string>
     <string name="player_volume_boost">Volume boost</string>

@@ -21441,16 +21441,6 @@
         }
       }
     },
-    "player.end_of_chapter_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pause when the current chapter ends"
-          }
-        }
-      }
-    },
     "player.expand": {
       "localizations": {
         "en": {
@@ -21467,16 +21457,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "+%1$d min"
-          }
-        }
-      }
-    },
-    "player.fading_out": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fading out…"
           }
         }
       }
@@ -22211,16 +22191,6 @@
         }
       }
     },
-    "player.reset_to_default": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset to default (%1$@)"
-          }
-        }
-      }
-    },
     "player.retry": {
       "localizations": {
         "en": {
@@ -22771,16 +22741,6 @@
         }
       }
     },
-    "player.speed_value": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@x"
-          }
-        }
-      }
-    },
     "player.timer_active": {
       "localizations": {
         "en": {
@@ -22907,26 +22867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unknown book"
-          }
-        }
-      }
-    },
-    "player.until_end_of_chapter": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Until end of chapter"
-          }
-        }
-      }
-    },
-    "player.until_end_of_chapter_detail": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playback will pause when this chapter ends"
           }
         }
       }
