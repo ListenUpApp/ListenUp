@@ -147,6 +147,8 @@ struct PlayerSecondaryControls: View {
     let onShowChapters: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Speed and Sleep are sheets, not menus: their values are adjusted, not picked once (HIG, Sheets; plan C10).
+    @State private var showsSpeed = false
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -156,9 +158,12 @@ struct PlayerSecondaryControls: View {
             : AnyLayout(HStackLayout(alignment: .top, spacing: 6))
         layout {
             item(caption: String(localized: "player.speed")) {
-                PlaybackSpeedMenu(observer: observer) {
+                Button { showsSpeed = true } label: {
                     pill(PlaybackRates.format(observer.playbackSpeed))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "player.speed"))
+                .accessibilityValue(PlaybackRates.format(observer.playbackSpeed))
             }
 
             item(caption: String(localized: "player.sleep")) {
@@ -186,6 +191,7 @@ struct PlayerSecondaryControls: View {
             }
 
         }
+        .sheet(isPresented: $showsSpeed) { SpeedSheet(observer: observer) }
     }
 
     private func item(

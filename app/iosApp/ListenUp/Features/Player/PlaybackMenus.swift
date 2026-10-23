@@ -47,31 +47,6 @@ enum SleepTimerOption: Hashable {
     }
 }
 
-/// The player's speed control: a pill that opens a menu of `PlaybackRates`, checked at the
-/// current speed.
-struct PlaybackSpeedMenu<Label: View>: View {
-    let observer: PlayerObserver
-    @ViewBuilder let label: () -> Label
-
-    var body: some View {
-        Menu {
-            Picker(String(localized: "player.playback_speed"), selection: speed) {
-                ForEach(PlaybackRates.options(including: observer.playbackSpeed), id: \.self) { rate in
-                    Text(PlaybackRates.format(rate)).tag(rate)
-                }
-            }
-        } label: {
-            label()
-        }
-        .accessibilityLabel(String(localized: "player.speed"))
-        .accessibilityValue(PlaybackRates.format(observer.playbackSpeed))
-    }
-
-    private var speed: Binding<Float> {
-        Binding(get: { observer.playbackSpeed }, set: { observer.setSpeed($0) })
-    }
-}
-
 /// The player's sleep-timer control: a menu of durations and "End of chapter", headed by the time
 /// left while a timer runs.
 struct SleepTimerMenu<Label: View>: View {
