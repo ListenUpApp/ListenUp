@@ -1,6 +1,12 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.features.nowplaying.components.CastConnectedButton
+import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,11 +52,6 @@ import com.calypsan.listenup.client.presentation.player.PlayerSettings
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.design.theme.Spacing
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_chapters
-import listenup.composeapp.generated.resources.player_sleep
-import listenup.composeapp.generated.resources.player_speed
-import org.jetbrains.compose.resources.stringResource
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,19 @@ private fun mockChapterRows(current: Int): List<PlayerChapterRow> {
         }
     }
 }
+
+/** A long book's 75 chapters, for the chapter sheet opening centred deep in the list. */
+private fun mockLongBookChapters(current: Int): List<PlayerChapterRow> =
+    (0 until 75).map { index ->
+        PlayerChapterRow(
+            index = index,
+            number = index + 1,
+            title = if (index == current) "Bridge Four" else "Chapter ${index + 1}",
+            startMs = index * 2_184_000L,
+            durationMs = 2_184_000L,
+            isCurrent = index == current,
+        )
+    }
 
 private fun mockChapter(index: Int): PlayerChapter {
     val row = mockChapterRows(index)[index]
@@ -421,20 +435,75 @@ private fun WidePreview(content: @Composable () -> Unit) {
     }
 }
 
+/** Every sheet state the gallery opens (PR 4), each in light or dark. */
+private enum class PanelPreview(
+    val label: String,
+) {
+    Speed("Speed"),
+    SleepIdle("Sleep"),
+    SleepWholeBook("Sleep · whole book"),
+    SleepRunning("Sleep · running"),
+    SleepEndOfChapter("Sleep · end of chapter"),
+    SleepFading("Sleep · fading"),
+    Boost("Boost"),
+    Chapters("Chapters · 38 of 75"),
+    Narrators("Narrators"),
+}
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelsSection() {
-    var open by remember { mutableStateOf<String?>(null) }
+    var open by remember { mutableStateOf<PanelPreview?>(null) }
+    var dark by remember { mutableStateOf(false) }
     GalleryLabel("Panels — tap to open (adaptive: bottom sheet on phone, dialog on a wide window)")
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(selected = dark, onClick = { dark = !dark }, label = { Text(DARK_TOGGLE_LABEL) })
+        PanelPreview.entries.forEach { panel -> Button(onClick = { open = panel }) { Text(panel.label) } }
+    }
+    GalleryLabel("Cast while casting — light, then dark")
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Button(onClick = { open = "speed" }) { Text(stringResource(Res.string.player_speed)) }
-        Button(onClick = { open = "chapters" }) { Text(stringResource(Res.string.player_chapters)) }
-        Button(onClick = { open = "sleep" }) { Text(stringResource(Res.string.player_sleep)) }
+        listOf(false, true).forEach { darkChip ->
+            ListenUpTheme(darkTheme = darkChip, dynamicColor = false) {
+                Surface(color = MaterialTheme.colorScheme.surface) {
+                    CastConnectedButton(
+                        deviceName = "Living Room",
+                        onOpenRoutes = {},
+                        modifier = Modifier.padding(8.dp),
+                    )
+                }
+            }
+        }
     }
-    when (open) {
-        "speed" -> {
+    open?.let { panel ->
+        ListenUpTheme(darkTheme = dark, dynamicColor = false) {
+            PanelPreviewSheet(panel = panel, onDismiss = { open = null })
+        }
+    }
+}
+
+@Composable
+private fun PanelPreviewSheet(
+    panel: PanelPreview,
+    onDismiss: () -> Unit,
+) {
+    val thirtyMinutes =
+        SleepTimerState.Active(
+            mode = SleepTimerMode.Duration(30),
+            remainingMs = 1_421_000,
+            totalMs = 1_800_000,
+            startedAt = 0,
+        )
+    val endOfChapter =
+        SleepTimerState.Active(mode = SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0)
+    when (panel) {
+        PanelPreview.Speed -> {
             PlaybackSpeedSheet(
                 currentSpeed = 1.25f,
                 defaultSpeed = 1.0f,
@@ -442,30 +511,78 @@ private fun PanelsSection() {
                 onSpeedChange = {},
                 onStep = {},
                 onResetToDefault = {},
-                onDismiss = { open = null },
+                onDismiss = onDismiss,
             )
         }
 
-        "chapters" -> {
+        PanelPreview.SleepIdle -> {
+            SleepPreview(mockSleepSheetState(SleepTimerState.Inactive), onDismiss)
+        }
+
+        PanelPreview.SleepWholeBook -> {
+            SleepPreview(
+                mockSleepSheetState(SleepTimerState.Inactive).copy(
+                    chapter = mockChapter(0).copy(title = "", isGenericTitle = true, isWholeBook = true),
+                ),
+                onDismiss,
+            )
+        }
+
+        PanelPreview.SleepRunning -> {
+            SleepPreview(mockSleepSheetState(thirtyMinutes), onDismiss)
+        }
+
+        PanelPreview.SleepEndOfChapter -> {
+            SleepPreview(mockSleepSheetState(endOfChapter), onDismiss)
+        }
+
+        PanelPreview.SleepFading -> {
+            SleepPreview(mockSleepSheetState(SleepTimerState.FadingOut), onDismiss)
+        }
+
+        PanelPreview.Boost -> {
+            VolumeBoostSheet(
+                currentBoostDb = 6f,
+                defaultBoostDb = 0f,
+                onBoostChange = {},
+                onResetToDefault = {},
+                onDismiss = onDismiss,
+            )
+        }
+
+        PanelPreview.Chapters -> {
             ChapterPickerSheet(
-                chapters = mockActiveState.chapters,
+                chapters = mockLongBookChapters(current = 37),
                 playingLeft = { "8m" },
                 onChapterSelected = {},
-                onDismiss = { open = null },
+                onDismiss = onDismiss,
             )
         }
 
-        "sleep" -> {
-            SleepTimerSheet(
-                state = mockSleepSheetState(SleepTimerState.Inactive),
-                onSetTimer = {},
-                onCancelTimer = {},
-                onExtendTimer = {},
-                onKeepListening = {},
-                onDismiss = { open = null },
+        PanelPreview.Narrators -> {
+            PlayerContributorPicker(
+                type = ContributorPickerType.NARRATORS,
+                book = mockActiveState.book,
+                onContributorClick = {},
+                onDismiss = onDismiss,
             )
         }
     }
+}
+
+@Composable
+private fun SleepPreview(
+    state: SleepSheetState,
+    onDismiss: () -> Unit,
+) {
+    SleepTimerSheet(
+        state = state,
+        onSetTimer = {},
+        onCancelTimer = {},
+        onExtendTimer = {},
+        onKeepListening = {},
+        onDismiss = onDismiss,
+    )
 }
 
 /** The sleep sheet over the mock book, 8 minutes from the end of its chapter, at 11:18 PM. */
@@ -474,10 +591,13 @@ private fun mockSleepSheetState(timer: SleepTimerState): SleepSheetState =
         timer = timer,
         chapter = mockActiveState.chapter,
         chapterRemainingMs = { 480_000 },
-        countdownMs = { (timer as? SleepTimerState.Active)?.remainingMs?.takeIf { it > 0 } ?: 480_000 },
+        countdownMs = { if (timer is SleepTimerState.Active && timer.remainingMs > 0) timer.remainingMs else 480_000 },
         meterFraction = { 0.79f },
         nowMs = { MOCK_NOW_MS },
     )
+
+/** The gallery's own switch between the light and dark schemes for the panels; gallery chrome, not app copy. */
+private const val DARK_TOGGLE_LABEL = "Dark"
 
 /** 23:18:19 UTC: "Pauses at" reads late evening in the previews. */
 private const val MOCK_NOW_MS = (23 * 3_600 + 18 * 60 + 19) * 1_000L
