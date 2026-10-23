@@ -166,7 +166,8 @@ struct SleepSheetAccessibilityTests {
         let row = try #require(
             hosted.stops.first { $0.label.hasPrefix(String(localized: "player.sheet_end_of_chapter_ios")) },
             "\(hosted.tree)")
-        let lines = DrawnContrast(hosted).textLines(in: row.frame)
+        // Composited, as the snapshot export draws: `layer.render` misses the text in dark.
+        let lines = DrawnContrast(hosted, composited: true).textLines(in: row.frame)
         #expect(lines.count >= 2, "\(lines)")
         if let subtitle = lines.last {
             #expect(subtitle >= ContrastMinimum.text, "subtitle \(subtitle) in \(appearance.rawValue)")

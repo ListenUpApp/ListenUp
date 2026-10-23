@@ -80,7 +80,8 @@ struct ChapterSheetAccessibilityTests {
         let next = String(format: String(localized: "player.sheet_chapter_play_from"), 40, "Chapter 40", "1:00")
         let other = try #require(hosted.stop(labelled: next), "\(hosted.tree)")
         let current = try #require(hosted.stop(labelled: currentLabel), "\(hosted.tree)")
-        let drawn = DrawnContrast(hosted)
+        // Composited, as the snapshot export draws: `layer.render` misses the text in dark.
+        let drawn = DrawnContrast(hosted, composited: true)
         let style = appearance.rawValue
         for (name, row) in [("other", other.frame), ("current", current.frame)] {
             let number = CGRect(x: row.minX, y: row.minY, width: 46, height: row.height)
