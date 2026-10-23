@@ -235,46 +235,53 @@ struct ChapterListSheet: View {
 
     var body: some View {
         PlayerSheetChrome(title: String(localized: "player.chapters"), scrolls: false) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        Text(summary)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, Spacing.m)
-                            .padding(.bottom, Spacing.xs)
-                        ForEach(observer.chapterRows) { chapter in
-                            ChapterRow(
-                                number: chapter.number,
-                                title: chapter.title,
-                                durationMs: chapter.durationMs,
-                                isCurrent: chapter.index == observer.chapterIndex,
-                                isPlaying: observer.isPlaying,
-                                remainingMs: observer.progress.chapterRemainingMs,
-                                tint: .listenUpOrange,
-                                onTap: {
-                                    observer.selectChapter(index: chapter.index)
-                                    onDismiss()
-                                }
-                            )
-                            .id(chapter.id)
-                        }
+            VStack(alignment: .leading, spacing: 0) {
+                // Pinned above the list, so the book's size stays in view while the list opens mid-book.
+                Text(summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.xs)
+                chapterList
+            }
+        }
+    }
+
+    private var chapterList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(observer.chapterRows) { chapter in
+                        ChapterRow(
+                            number: chapter.number,
+                            title: chapter.title,
+                            durationMs: chapter.durationMs,
+                            isCurrent: chapter.index == observer.chapterIndex,
+                            isPlaying: observer.isPlaying,
+                            remainingMs: observer.progress.chapterRemainingMs,
+                            tint: .listenUpOrange,
+                            onTap: {
+                                observer.selectChapter(index: chapter.index)
+                                onDismiss()
+                            }
+                        )
+                        .id(chapter.id)
                     }
-                    .padding(.horizontal, Spacing.xs)
-                    .padding(.vertical, Spacing.xs)
-                    .scrollTargetLayout()
                 }
-                // The scroll position starts on the current row, so the first layout is already centred (§9.2: centring
-                // before the container has laid out is what left the web's list at chapter 1).
-                .scrollPosition(id: $centredRowId, anchor: .center)
-                .task {
-                    // And once more after that layout, without animating: the jump isn't motion the reader asked for.
-                    await Task.yield()
-                    guard let current = Self.currentRowId(in: observer) else { return }
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) { proxy.scrollTo(current, anchor: .center) }
-                }
+                .padding(.horizontal, Spacing.xs)
+                .padding(.vertical, Spacing.xs)
+                .scrollTargetLayout()
+            }
+            // The scroll position starts on the current row, so the first layout is already centred (§9.2: centring
+            // before the container has laid out is what left the web's list at chapter 1).
+            .scrollPosition(id: $centredRowId, anchor: .center)
+            .task {
+                // And once more after that layout, without animating: the jump isn't motion the reader asked for.
+                await Task.yield()
+                guard let current = Self.currentRowId(in: observer) else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { proxy.scrollTo(current, anchor: .center) }
             }
         }
     }
