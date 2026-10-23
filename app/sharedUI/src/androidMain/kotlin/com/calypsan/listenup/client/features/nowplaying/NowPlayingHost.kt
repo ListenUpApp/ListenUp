@@ -27,8 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
-import com.calypsan.listenup.client.features.contributors.CastRole
-import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -282,15 +280,9 @@ private fun OverlayDispatch(
 
         is PlayerOverlay.ContributorPicker -> {
             if (loaded != null) {
-                val role =
-                    when (overlay.type) {
-                        ContributorPickerType.AUTHORS -> CastRole.Authors
-                        ContributorPickerType.NARRATORS -> CastRole.Narrators
-                    }
-                FullCastSheetFor(
-                    role = role,
-                    authors = loaded.book.authors.asBookContributors(),
-                    narrators = loaded.book.narrators.asBookContributors(),
+                PlayerContributorPicker(
+                    type = overlay.type,
+                    book = loaded.book,
                     onContributorClick = { contributorId ->
                         viewModel.collapse()
                         onNavigateToContributor(contributorId)
