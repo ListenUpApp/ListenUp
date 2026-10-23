@@ -2129,7 +2129,12 @@
     "sheet_books_other": "%1$d books in your library",
     "sheet_books_one_ios": "1 book",
     "sheet_books_other_ios": "%1$d books",
-    "sheet_cast_playing_on": "Cast. Playing on %1$s. Change output"
+    "sheet_cast_playing_on": "Cast. Playing on %1$s. Change output",
+    "sheet_speed_title_ios": "Playback Speed",
+    "sheet_speed_times_ios": "%1$s times",
+    "sheet_sleep_title_ios": "Sleep Timer",
+    "sheet_boost_title_ios": "Volume Boost",
+    "sheet_end_of_chapter_ios": "End of Chapter"
   },
   "car": {
     "continue_listening": "Continue listening",

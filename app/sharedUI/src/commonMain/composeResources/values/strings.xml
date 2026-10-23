@@ -2234,6 +2234,7 @@ One beautiful library.</string>
     <string name="player_sheet_books_other_ios">%1$d books</string>
     <string name="player_sheet_boost_level">Boost level</string>
     <string name="player_sheet_boost_note">Louder for quiet recordings. Applies to this book only.</string>
+    <string name="player_sheet_boost_title_ios">Volume Boost</string>
     <string name="player_sheet_cast_playing_on">Cast. Playing on %1$s. Change output</string>
     <string name="player_sheet_chapter_current">Chapter %1$d, %2$s, now playing, %3$s left</string>
     <string name="player_sheet_chapter_play_from">Play from chapter %1$d: %2$s, %3$s</string>
@@ -2244,6 +2245,7 @@ One beautiful library.</string>
     <string name="player_sheet_durations">Durations</string>
     <string name="player_sheet_end_of_chapter_after">Pauses after %1$s · in %2$s</string>
     <string name="player_sheet_end_of_chapter_after_ios">After %1$s · in %2$s</string>
+    <string name="player_sheet_end_of_chapter_ios">End of Chapter</string>
     <string name="player_sheet_fades_out">Audio fades out over a few seconds before it pauses.</string>
     <string name="player_sheet_fading_body">Your sleep timer is ending. Playback pauses in a moment.</string>
     <string name="player_sheet_fading_title">Fading out…</string>
@@ -2260,8 +2262,11 @@ One beautiful library.</string>
     <string name="player_sheet_reset_boost_ios">Reset to %1$s (Your Default)</string>
     <string name="player_sheet_reset_speed">Reset to %1$s (your default)</string>
     <string name="player_sheet_reset_speed_ios">Reset to %1$s (Your Default)</string>
+    <string name="player_sheet_sleep_title_ios">Sleep Timer</string>
     <string name="player_sheet_slower">Slower by 0.05</string>
     <string name="player_sheet_speed_presets">Speed presets</string>
+    <string name="player_sheet_speed_times_ios">%1$s times</string>
+    <string name="player_sheet_speed_title_ios">Playback Speed</string>
     <string name="player_sheet_start">Start</string>
     <string name="player_sheet_this_book_only">Applies to this book only.</string>
     <string name="player_sheet_turn_off_timer_ios">Turn Off Timer</string>

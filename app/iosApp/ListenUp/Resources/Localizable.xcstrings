@@ -22331,6 +22331,16 @@
         }
       }
     },
+    "player.sheet_boost_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume Boost"
+          }
+        }
+      }
+    },
     "player.sheet_cast_playing_on": {
       "localizations": {
         "en": {
@@ -22427,6 +22437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "After %1$@ · in %2$@"
+          }
+        }
+      }
+    },
+    "player.sheet_end_of_chapter_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End of Chapter"
           }
         }
       }
@@ -22591,6 +22611,16 @@
         }
       }
     },
+    "player.sheet_sleep_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sleep Timer"
+          }
+        }
+      }
+    },
     "player.sheet_slower": {
       "localizations": {
         "en": {
@@ -22607,6 +22637,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speed presets"
+          }
+        }
+      }
+    },
+    "player.sheet_speed_times_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ times"
+          }
+        }
+      }
+    },
+    "player.sheet_speed_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback Speed"
           }
         }
       }
