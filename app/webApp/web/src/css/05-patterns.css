@@ -236,7 +236,7 @@
 }
 @media (hover: hover) { .speed-step:hover { background: var(--surface-2); } }
 .speed-step:active { transform: translateY(1px); }
-.speed-slide { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--coral); }
+.speed-slide { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--coral); }
 .speed-bounds { display: flex; justify-content: space-between; padding: 0 52px; font-size: var(--fs-caption); color: var(--ink-2); }
 /* Nine presets, five to a row: the board's grid, which keeps every rung a full 44px target at 360px. */
 .luw .speed-opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }

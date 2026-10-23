@@ -2,15 +2,14 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
+import com.calypsan.listenup.web.contrast
+import com.calypsan.listenup.web.rgb
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
 
 /**
  * The page's quiet words — the times, the book sentence, "Read by", a chapter's number — sit on the wash, not on paper.
@@ -69,30 +68,5 @@ class NowPlayingWashContrastTest :
 private val QUIET_INK = listOf("np-time", "np-sentence", "np-by-k", "np-row-n")
 
 /** The shared cover rule's washes around the hue circle: tone 91 (light) and tone 20 (dark) fix the luminance. */
-private val LIGHT_COVER_WASHES = listOf("#F1E1E5", "#EAE5DA", "#D9E9E5", "#E0E6F1")
-private val DARK_COVER_WASHES = listOf("#3C2C31", "#353025", "#223430", "#2A313C")
-
-private fun rgb(computed: String): List<Double> =
-    Regex("""rgba?\(([^)]*)\)""")
-        .find(computed)!!
-        .groupValues[1]
-        .split(",")
-        .take(3)
-        .map { it.trim().toDouble() }
-
-private fun luminance(rgb: List<Double>): Double {
-    fun channel(value: Double): Double {
-        val c = value / 255
-        return if (c <= 0.04045) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
-    }
-    return 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2])
-}
-
-private fun contrast(
-    a: List<Double>,
-    b: List<Double>,
-): Double {
-    val la = luminance(a)
-    val lb = luminance(b)
-    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
-}
+internal val LIGHT_COVER_WASHES = listOf("#F1E1E5", "#EAE5DA", "#D9E9E5", "#E0E6F1")
+internal val DARK_COVER_WASHES = listOf("#3C2C31", "#353025", "#223430", "#2A313C")
