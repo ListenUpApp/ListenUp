@@ -16,7 +16,6 @@ import com.calypsan.listenup.web.motion.animateComposited
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
@@ -273,7 +272,7 @@ internal fun MenuPanel(
             )
 
             fun placeAgainstTrigger() {
-                anchor()?.let { placeMenu(menu, it) }
+                anchor()?.let { placeAgainst(menu, it) }
             }
             placeAgainstTrigger()
             val place: (Event) -> Unit = { placeAgainstTrigger() }
@@ -439,70 +438,6 @@ private fun MenuLinkItem(
     }
 }
 
-/**
- * Puts [this] in the top layer, above every stacking context and outside every clip. Where the
- * popover API is missing, the `.menu` rule's `position: fixed` is the fallback, which still escapes
- * every clip but a transformed ancestor's.
- */
-private fun HTMLElement.showInTopLayer() {
-    val element: dynamic = this
-    if (jsTypeOf(element.showPopover) == "function") element.showPopover()
-}
-
-/** Shows [this] again in the top layer if an attribute pass closed it; true when it had to. */
-private fun HTMLElement.reopenInTopLayer(): Boolean {
-    val element: dynamic = this
-    val closed = jsTypeOf(element.showPopover) == "function" && !(element.matches(":popover-open") as Boolean)
-    if (closed) element.showPopover()
-    return closed
-}
-
-private fun HTMLElement.focusWithoutScrolling() {
-    asDynamic().focus(js("({ preventScroll: true })"))
-}
-
-/**
- * Places [menu] against [trigger]'s on-screen box: below it and from its left edge by preference,
- * from its right edge when the left would cross the viewport's, above it when only above has room,
- * and — when neither side has room for all of it — on the roomier side, scrolling within the space
- * there.
- */
-private fun placeMenu(
-    menu: HTMLElement,
-    anchor: MenuAnchor,
-) {
-    val viewport = menu.ownerDocument?.documentElement ?: return
-    val viewportWidth = viewport.clientWidth.toDouble()
-    val viewportHeight = viewport.clientHeight.toDouble()
-
-    menu.style.removeProperty("max-height")
-    val width = menu.offsetWidth.toDouble()
-    val height = menu.offsetHeight.toDouble()
-
-    val fromLeft = anchor.left
-    val left =
-        (if (fromLeft + width > viewportWidth - VIEWPORT_GUTTER) anchor.right - width else fromLeft)
-            .coerceAtMost(viewportWidth - VIEWPORT_GUTTER - width)
-            .coerceAtLeast(VIEWPORT_GUTTER)
-
-    val below = anchor.bottom + TRIGGER_GAP
-    val roomBelow = viewportHeight - VIEWPORT_GUTTER - below
-    val roomAbove = anchor.top - TRIGGER_GAP - VIEWPORT_GUTTER
-    val opensBelow = height <= roomBelow || (height > roomAbove && roomBelow >= roomAbove)
-    val room = if (opensBelow) roomBelow else roomAbove
-    if (height > room) menu.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
-    val top = if (opensBelow) below else anchor.top - TRIGGER_GAP - minOf(height, room)
-
-    menu.style.setProperty("left", "${left}px")
-    menu.style.setProperty("top", "${top}px")
-}
-
-/** How close to the viewport's edge a menu may come before it flips to the other side. */
-private const val VIEWPORT_GUTTER = 8.0
-
-/** The space between a trigger and the menu hanging from it. */
-private const val TRIGGER_GAP = 6.0
-
 /** What a key does to an open menu, beyond the arrows its items handle themselves. */
 internal enum class MenuKeyAction {
     /** Escape: close, and hand focus back to the trigger. */
@@ -522,28 +457,6 @@ internal fun menuKeyAction(key: String): MenuKeyAction? =
 /** A DOM node captured by `ref`, for the places a menu has to reach past composition. */
 internal class NodeHolder {
     var element: HTMLElement? = null
-}
-
-/** The on-screen box a menu hangs from: a trigger's, a card's, or a pointer's point (a box of no size). */
-internal data class MenuAnchor(
-    val left: Double,
-    val top: Double,
-    val right: Double,
-    val bottom: Double,
-) {
-    companion object {
-        /** [element]'s box as it stands on screen now. */
-        fun of(element: Element): MenuAnchor {
-            val rect = element.getBoundingClientRect()
-            return MenuAnchor(rect.left, rect.top, rect.right, rect.bottom)
-        }
-
-        /** The point a pointer pressed at. */
-        fun at(
-            x: Double,
-            y: Double,
-        ): MenuAnchor = MenuAnchor(x, y, x, y)
-    }
 }
 
 private const val MENU_ICON_SIZE = 18
