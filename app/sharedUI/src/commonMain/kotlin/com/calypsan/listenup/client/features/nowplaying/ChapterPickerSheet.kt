@@ -36,6 +36,7 @@ fun ChapterPickerSheet(
         title = stringResource(Res.string.player_chapters),
         onDismiss = onDismiss,
         dialogWidth = 560.dp,
+        scrollable = false,
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
