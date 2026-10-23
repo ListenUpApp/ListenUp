@@ -208,7 +208,11 @@ class NowPlayingBylineTest :
                 val frame =
                     frames.mount(width, height) {
                         CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                            NowPlayingPage(state = wayOfKings(narrators = FIVE_NARRATORS), progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                            NowPlayingPage(
+                                state = wayOfKings(narrators = FIVE_NARRATORS),
+                                progress = PlayerProgress.Zero,
+                                actions = NowPlayingActions(),
+                            )
                         }
                     }
                 val fold = frame.find(".np-read-by .np-fold")

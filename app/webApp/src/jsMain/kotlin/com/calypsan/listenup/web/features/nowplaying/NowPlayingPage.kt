@@ -682,7 +682,9 @@ private fun SettingsPills(
     val countdown =
         SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(NowPlayingWords::countdown)
     Div(attrs = { classes("np-pills") }) {
-        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = panelPlacementFor(it) }
+        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { opener ->
+            pickers.speed = panelPlacementFor(opener)
+        }
         Pill(
             text = countdown ?: "Sleep",
             label = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer",

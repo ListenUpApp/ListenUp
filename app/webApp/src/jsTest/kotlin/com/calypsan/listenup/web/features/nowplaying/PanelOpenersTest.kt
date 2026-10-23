@@ -30,10 +30,17 @@ private const val PHONE_HEIGHT = 844
 /** 68 one-minute chapters, the 39th current, with half of it played. */
 private val SIXTY_EIGHT = chapterRows(68, 60_000L)
 
-private val LONG_BOOK = loadedPlayerState(durationMs = 68 * 60_000L, chapters = SIXTY_EIGHT, currentChapterIndex = 38)
+private const val LONG_BOOK_MS = 68 * 60_000L
+
+private val LONG_BOOK = loadedPlayerState(durationMs = LONG_BOOK_MS, chapters = SIXTY_EIGHT, currentChapterIndex = 38)
 
 private val LONG_PROGRESS =
-    PlayerProgress(chapterPositionMs = 30_000, chapterDurationMs = 60_000, bookPositionMs = 38 * 60_000L + 30_000, bookDurationMs = 68 * 60_000L)
+    PlayerProgress(
+        chapterPositionMs = 30_000,
+        chapterDurationMs = 60_000,
+        bookPositionMs = 38 * 60_000L + 30_000,
+        bookDurationMs = LONG_BOOK_MS,
+    )
 
 /**
  * Who opens what, where (§5.1, §5.4, C9): the bar's controls hang popovers from themselves at every width from 760px;

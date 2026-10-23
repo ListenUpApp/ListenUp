@@ -141,7 +141,8 @@ class PlayerPanelTest :
 
             opened.dismissals shouldBe 1
             opened.panel() shouldBe null
-            opened.frame.host.ownerDocument!!.activeElement shouldBe opened.opener()
+            opened.frame.host.ownerDocument!!
+                .activeElement shouldBe opened.opener()
         }
 
         test("Close closes the popover and returns focus to the opener") {
@@ -151,7 +152,8 @@ class PlayerPanelTest :
             awaitFrame()
 
             opened.panel() shouldBe null
-            opened.frame.host.ownerDocument!!.activeElement shouldBe opened.opener()
+            opened.frame.host.ownerDocument!!
+                .activeElement shouldBe opened.opener()
         }
 
         test("an outside press closes the popover") {
@@ -183,7 +185,8 @@ class PlayerPanelTest :
             awaitFrame()
 
             opened.panel() shouldBe null
-            opened.frame.host.ownerDocument!!.activeElement shouldBe after
+            opened.frame.host.ownerDocument!!
+                .activeElement shouldBe after
         }
 
         test("a panel taller than the window scrolls inside itself") {

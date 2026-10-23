@@ -99,7 +99,11 @@ private fun ChapterRow(
         Span(attrs = { classes("chap-n") }) { Text("${chapter.number}") }
         Span(attrs = { classes("chap-tx") }) {
             Span(attrs = { classes("chap-t") }) { Text(chapter.title) }
-            if (isCurrent) Span(attrs = { classes("chap-now") }) { Text(NowPlayingWords.playingLeft(chapterRemainingMs)) }
+            if (isCurrent) {
+                Span(
+                    attrs = { classes("chap-now") },
+                ) { Text(NowPlayingWords.playingLeft(chapterRemainingMs)) }
+            }
         }
         Span(attrs = { classes("chap-dur") }) { Text(formatElapsed(chapter.durationMs)) }
     }

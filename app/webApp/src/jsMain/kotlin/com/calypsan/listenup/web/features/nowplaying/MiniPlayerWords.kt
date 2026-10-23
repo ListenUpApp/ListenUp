@@ -53,7 +53,13 @@ internal fun miniLineText(
             joinDots(
                 "Paused",
                 chapterWords(line.number, line.title),
-                if (fit == MiniLineFit.Phone) phoneTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress) else null,
+                if (fit ==
+                    MiniLineFit.Phone
+                ) {
+                    phoneTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress)
+                } else {
+                    null
+                },
             )
         }
 
@@ -77,11 +83,23 @@ internal fun miniLineLabel(
 ): String =
     when (line) {
         is MiniPlayerLine.Chapter -> {
-            joinCommas(chapterWords(line.number, line.title), spokenTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress))
+            joinCommas(
+                chapterWords(line.number, line.title),
+                spokenTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress),
+            )
         }
 
         is MiniPlayerLine.Paused -> {
-            joinCommas("Paused", chapterWords(line.number, line.title), spokenTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress))
+            joinCommas(
+                "Paused",
+                chapterWords(line.number, line.title),
+                spokenTrailing(
+                    sleepRemainingMs.takeIf {
+                        line.sleepArmed
+                    },
+                    progress,
+                ),
+            )
         }
 
         is MiniPlayerLine.Casting -> {

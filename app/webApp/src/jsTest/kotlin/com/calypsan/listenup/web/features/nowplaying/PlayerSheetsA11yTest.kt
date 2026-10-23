@@ -157,7 +157,10 @@ class PlayerSheetsA11yTest :
 
             test("200% text: $panel as a sheet scrolls only up and down, and its last control can be reached") {
                 val frame = sheet(panel)
-                val root = frame.host.ownerDocument!!.documentElement!!.unsafeCast<HTMLElement>()
+                val root =
+                    frame.host.ownerDocument!!
+                        .documentElement!!
+                        .unsafeCast<HTMLElement>()
                 root.style.fontSize = "32px"
                 awaitFrame()
                 try {

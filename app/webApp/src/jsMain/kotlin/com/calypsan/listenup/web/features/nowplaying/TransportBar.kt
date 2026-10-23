@@ -224,7 +224,11 @@ private class BarPanels {
 }
 
 /** A control's press: closes its panel when open (the opener toggles it), else opens it where [opener] sits. */
-private fun PanelPlacement?.toggledFrom(opener: HTMLElement?): PanelPlacement? = if (this != null) null else panelPlacementFor(opener)
+private fun PanelPlacement?.toggledFrom(opener: HTMLElement?): PanelPlacement? =
+    when (this) {
+        null -> panelPlacementFor(opener)
+        else -> null
+    }
 
 /**
  * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
