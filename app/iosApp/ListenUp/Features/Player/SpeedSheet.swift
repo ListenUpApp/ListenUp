@@ -117,7 +117,6 @@ struct SpeedSheetContent: View {
         ) {
             Text(title)
         }
-        .accessibilityLabel(title)
         .accessibilityValue(SpeedSheetModel.spokenValue(speed))
         .accessibilityAdjustableAction { direction in
             switch direction {

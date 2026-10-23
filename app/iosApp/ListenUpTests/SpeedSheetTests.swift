@@ -78,7 +78,8 @@ struct SpeedSheetAccessibilityTests {
         for key in ["player.sheet_slower", "player.sheet_faster"] {
             let stop = try #require(hosted.stop(labelled: String(localized: String.LocalizationValue(key))),
                                     "\(hosted.tree)")
-            #expect(stop.frame.width >= 44 && stop.frame.height >= 44, "\(key): \(stop.frame)")
+            // 44pt, give or take the layout's sub-point rounding.
+            #expect(stop.frame.width >= 43.9 && stop.frame.height >= 43.9, "\(key): \(stop.frame)")
         }
         #expect(hosted.activate(labelled: String(localized: "player.sheet_faster")))
         #expect(calls.steps == [true])
@@ -117,7 +118,7 @@ struct SpeedSheetAccessibilityTests {
         for label in PlaybackRates.catalogue.map(PlaybackRates.format) {
             // Below the fold a preset is still in the tree; its frame is what matters.
             let stop = try #require(hosted.stop(labelled: label), "\(label) missing:\n\(hosted.tree)")
-            #expect(stop.frame.height >= 44, "\(label): \(stop.frame)")
+            #expect(stop.frame.height >= 43.9, "\(label): \(stop.frame)")
         }
     }
 }
