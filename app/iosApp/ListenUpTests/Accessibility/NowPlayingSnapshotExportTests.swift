@@ -120,3 +120,83 @@ private extension PlayerUiStateLoaded {
             chapterDurationMs: NowPlayingSnapshotExportTests.chapterMs)
     }
 }
+
+/// Renders the Now Playing sheets (player spec §5.5) to PNGs for the design review, at the default text size and at
+/// accessibility size 3, light and dark. One coherent book throughout: The Way of Kings at 1.25×, 12:04 into Bridge
+/// Four (8 min of it left), a 30-minute timer with 23:41 to go. Off unless LU_SNAPSHOT_DIR is set; no app, no audio.
+@MainActor
+@Suite("Player sheet review snapshots", .serialized,
+       .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
+struct PlayerSheetsSnapshotExportTests {
+    enum Sheet: String, CaseIterable {
+        case speed, sleepChoosing, sleepRunning, sleepFading, boost, chapters, bylineMenu, airPlayCasting
+    }
+
+    enum TextSize: String, CaseIterable { case large, ax3 }
+
+    private static let narrators = [
+        PlayerContributor(id: "n1", name: "Michael Kramer", bookCount: 14),
+        PlayerContributor(id: "n2", name: "Kate Reading", bookCount: 11),
+        PlayerContributor(id: "n3", name: "Steven Pacey", bookCount: 1),
+        PlayerContributor(id: "n4", name: "Fiona Hardingham", bookCount: 3)
+    ]
+
+    private static func state(_ sheet: Sheet) -> PlayerUiStateLoaded {
+        let timer: any SleepTimerState = sheet == .sleepRunning
+            ? SleepTimerStateActive(
+                mode: SleepTimerModeDuration(minutes: 30), remainingMs: 1_421_000, totalMs: 1_800_000, startedAt: 0)
+            : SleepTimerStateInactive.shared
+        let phase: any PlayerPhase = sheet == .sleepFading ? PlayerPhaseSleepFading.shared : PlayerPhasePlaying.shared
+        let source: any AudioSource = sheet == .airPlayCasting
+            ? AudioSourceCasting(deviceName: "Living Room") : AudioSourceDownloaded.shared
+        return .fixture(
+            phase: phase, currentIndex: 5, sleepTimer: timer, chapterTitle: "Bridge Four", source: source,
+            boostDb: 6, narrators: narrators, chapterCount: NowPlayingSnapshotExportTests.chapters,
+            chapterDurationMs: NowPlayingSnapshotExportTests.chapterMs, speed: 1.25)
+    }
+
+    @ViewBuilder
+    private func view(_ sheet: Sheet, observer: PlayerObserver) -> some View {
+        switch sheet {
+        case .speed: SpeedSheet(observer: observer)
+        case .sleepChoosing, .sleepRunning, .sleepFading: SleepSheet(observer: observer)
+        case .boost:
+            BoostPickerSheet(currentBoostDb: 6, defaultBoostDb: 0, onBoostSelected: { _ in }, onUseDefault: {})
+        case .chapters: ChapterListSheet(observer: observer, onDismiss: {})
+        case .bylineMenu:
+            // A menu can't be captured open; its rows are what changed.
+            List {
+                Section(NowPlayingTitleBlock.menuHeader(isAuthors: false)) {
+                    ForEach(NowPlayingTitleBlock.menuRows(observer.narrators)) { row in
+                        VStack(alignment: .leading) {
+                            Text(row.name)
+                            if let books = row.books { Text(books).font(.footnote).foregroundStyle(.secondary) }
+                        }
+                    }
+                }
+            }
+        case .airPlayCasting: FullScreenPlayerView(observer: observer)
+        }
+    }
+
+    @Test(arguments: Sheet.allCases, TextSize.allCases)
+    func export(_ sheet: Sheet, _ textSize: TextSize) async throws {
+        let dir = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"]))
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let size = isPad ? CGSize(width: 1180, height: 820) : CGSize(width: 393, height: 852)
+        let state = Self.state(sheet)
+        let progress = NowPlayingSnapshotExportTests.progress(in: state)
+        for appearance in NowPlayingSnapshotExportTests.Appearance.allCases {
+            let hosted = await HostedView(
+                view(sheet, observer: .detached(state, progress: progress)), size: size,
+                dynamicTypeSize: textSize == .ax3 ? .accessibility3 : .large,
+                appearance: appearance == .dark ? .dark : .light)
+            let image = UIGraphicsImageRenderer(bounds: hosted.window.bounds).image { _ in
+                hosted.window.drawHierarchy(in: hosted.window.bounds, afterScreenUpdates: true)
+            }
+            hosted.close()
+            let name = "\(isPad ? "ipad" : "iphone")-sheet-\(sheet.rawValue)-\(textSize.rawValue)-\(appearance.rawValue).png"
+            try #require(image.pngData()).write(to: dir.appendingPathComponent(name))
+        }
+    }
+}
