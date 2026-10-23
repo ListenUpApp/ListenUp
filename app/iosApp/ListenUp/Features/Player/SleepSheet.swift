@@ -22,6 +22,9 @@ struct SleepSheetContent: View {
     let actions: SleepSheetActions
 
     @State private var customMinutes = Int(SleepTimerChoices.shared.CUSTOM_DEFAULT_MINUTES)
+    /// Starting a timer is a choice that moves you on, so it closes the sheet (§3.8), as Android and web do. Adding time
+    /// and turning the timer off keep it open (S13).
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .largeTitle) private var ringSide: CGFloat = 200
@@ -52,26 +55,27 @@ struct SleepSheetContent: View {
         List {
             Section {
                 if let endOfChapter {
-                    Button(action: actions.endOfChapter) {
+                    Button { start(actions.endOfChapter) } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(String(localized: "player.sheet_end_of_chapter_ios"))
                                 .font(.headline)
+                            // Full-strength coral ink: the button's faded tint was 2.2:1 (HIG, Accessibility: 4.5:1).
                             Text(endOfChapter)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.luTintInk)
                         }
                         .frame(maxWidth: .infinity, minHeight: TapTarget.minimum, alignment: .leading)
                         .contentShape(Rectangle())
                     }
                 }
                 ForEach(SleepTimerOption.durationMinutes, id: \.self) { minutes in
-                    Button(SleepTimerOption.formatDuration(minutes)) { actions.minutes(minutes) }
+                    Button(SleepTimerOption.formatDuration(minutes)) { start { actions.minutes(minutes) } }
                         .frame(minHeight: TapTarget.minimum)
                 }
             }
             Section {
                 customRow
-                Button(String(localized: "player.sheet_start")) { actions.start(customMinutes) }
+                Button(String(localized: "player.sheet_start")) { start { actions.start(customMinutes) } }
                     .frame(minHeight: TapTarget.minimum)
             } header: {
                 Text(String(localized: "player.sheet_custom"))
@@ -82,8 +86,15 @@ struct SleepSheetContent: View {
         .listStyle(.insetGrouped)
     }
 
+    /// Starts a timer, then closes the sheet.
+    private func start(_ action: () -> Void) {
+        action()
+        dismiss()
+    }
+
     /// The custom time: its value, then − and + in 44pt targets, stepping the shared five-minute grid within 5...720
-    /// (HIG, Steppers; HIG, Accessibility for the target: the system stepper's segments are 32pt tall).
+    /// (HIG, Steppers; HIG, Accessibility for the target: the system stepper's segments are 32pt tall). VoiceOver hears
+    /// one adjustable stop, "Custom, 20 min", that swipes up and down a step, as it would hear the system `Stepper`.
     private var customRow: some View {
         let minutesText = String(format: String(localized: "player.sheet_custom_minutes"), customMinutes)
         let layout = dynamicTypeSize.isAccessibilitySize
@@ -99,10 +110,24 @@ struct SleepSheetContent: View {
                 customStep(up: true)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "player.sheet_custom"))
+        .accessibilityValue(minutesText)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: customMinutes = stepped(up: true)
+            case .decrement: customMinutes = stepped(up: false)
+            @unknown default: break
+            }
+        }
+    }
+
+    private func stepped(up: Bool) -> Int {
+        Int(SleepTimerChoices.shared.stepCustom(minutes: Int32(customMinutes), up: up))
     }
 
     private func customStep(up: Bool) -> some View {
-        let next = Int(SleepTimerChoices.shared.stepCustom(minutes: Int32(customMinutes), up: up))
+        let next = stepped(up: up)
         return Button { customMinutes = next } label: {
             Image(systemName: up ? "plus" : "minus")
                 .font(.body.weight(.semibold))
@@ -157,9 +182,7 @@ struct SleepSheetContent: View {
             Button(role: .destructive) { actions.turnOff() } label: {
                 Text(String(localized: "player.sheet_turn_off_timer_ios")).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .buttonBorderShape(.capsule)
+            .buttonStyle(SheetCapsuleButtonStyle(ink: .luDangerInk))
         }
         .frame(maxWidth: .infinity)
         .padding(Spacing.l)
@@ -176,10 +199,27 @@ struct SleepSheetContent: View {
     private var extendButtons: some View {
         ForEach(SleepTimerOption.extensionMinutes, id: \.self) { minutes in
             Button(String(format: String(localized: "player.extend_minutes"), minutes)) { actions.extend(minutes) }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .buttonBorderShape(.capsule)
+                .buttonStyle(SheetCapsuleButtonStyle(ink: .luTintInk))
         }
+    }
+}
+
+/// A bordered capsule whose words hold 4.5:1 on its neutral fill in light and dark: the system's bordered style draws them
+/// in the tint, which on the grey fill is 3.1:1 for red and 4.0:1 for coral (HIG, Accessibility). The fill is the
+/// tertiary system fill a bordered button uses, so it still reads as one (HIG, Buttons).
+struct SheetCapsuleButtonStyle: ButtonStyle {
+    let ink: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(ink)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, 14)
+            .frame(minHeight: TapTarget.minimum)
+            .background(Color.luFill, in: Capsule())
+            .contentShape(Capsule())
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 
