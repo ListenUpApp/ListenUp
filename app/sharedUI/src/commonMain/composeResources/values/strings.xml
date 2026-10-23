@@ -2265,6 +2265,7 @@ One beautiful library.</string>
     <string name="player_sheet_sleep_title_ios">Sleep Timer</string>
     <string name="player_sheet_slower">Slower by 0.05</string>
     <string name="player_sheet_speed_presets">Speed presets</string>
+    <string name="player_sheet_speed_times">%1$s times</string>
     <string name="player_sheet_speed_times_ios">%1$s times</string>
     <string name="player_sheet_speed_title_ios">Playback Speed</string>
     <string name="player_sheet_start">Start</string>

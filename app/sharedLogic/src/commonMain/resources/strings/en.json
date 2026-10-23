@@ -2134,7 +2134,8 @@
     "sheet_speed_times_ios": "%1$s times",
     "sheet_sleep_title_ios": "Sleep Timer",
     "sheet_boost_title_ios": "Volume Boost",
-    "sheet_end_of_chapter_ios": "End of Chapter"
+    "sheet_end_of_chapter_ios": "End of Chapter",
+    "sheet_speed_times": "%1$s times"
   },
   "car": {
     "continue_listening": "Continue listening",

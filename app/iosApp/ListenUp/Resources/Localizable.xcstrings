@@ -22641,6 +22641,16 @@
         }
       }
     },
+    "player.sheet_speed_times": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ times"
+          }
+        }
+      }
+    },
     "player.sheet_speed_times_ios": {
       "localizations": {
         "en": {
