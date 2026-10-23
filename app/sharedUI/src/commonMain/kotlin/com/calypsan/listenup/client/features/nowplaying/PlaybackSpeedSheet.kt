@@ -1,13 +1,20 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -19,192 +26,232 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.PillChip
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
-import com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed
+import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.MinTouchTarget
+import com.calypsan.listenup.client.design.components.ButtonGroupChoice
+import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
-import kotlin.math.absoluteValue
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.isSamePlaybackSpeed
+import com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
-import listenup.composeapp.generated.resources.player_reset_to_default
-import listenup.composeapp.generated.resources.player_speed_value
+import listenup.composeapp.generated.resources.player_sheet_faster
+import listenup.composeapp.generated.resources.player_sheet_left_at_speed
+import listenup.composeapp.generated.resources.player_sheet_reset_speed
+import listenup.composeapp.generated.resources.player_sheet_slower
+import listenup.composeapp.generated.resources.player_sheet_speed_presets
+import listenup.composeapp.generated.resources.player_sheet_this_book_only
+import listenup.composeapp.generated.resources.player_sheet_speed_times
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.unit.em
 
 /**
- * A speed as this UI writes it: `1.0x`, `1.25x`, `2.0x`.
+ * A speed as this UI writes it: `1.0×`, `1.25×`, `2.0×` — with the multiplication sign, matching iOS's
+ * `PlaybackRates.format`, web's speed words and every board (C8).
  *
- * Deliberately *not* shared with the browser's own `formatSpeed`, which renders the same rate as
- * `1` and `1.25` with the `×` supplied separately. That is not drift — web's transport control is
- * forty pixels wide, and `1.00x` spends a third of it saying nothing. The two differ because their
- * space budgets differ; the ladder, bounds and increment they draw from do not, and those now live
- * in one place ([PLAYBACK_SPEED_STEPS] and friends).
- *
- * The whole-number case is spelled out rather than trimmed: a lone `1x` beside `1.25x` reads as a
- * different kind of value, and the column of pills is easier to scan when every label has a
- * decimal point in it.
+ * The whole-number case is spelled out rather than trimmed: a lone `1×` beside `1.25×` reads as a different kind of
+ * value, and the column of presets is easier to scan when every label has a decimal point in it.
  */
-fun formatPlaybackSpeed(speed: Float): String =
-    if (speed == speed.toInt().toFloat()) {
-        "${speed.toInt()}.0x"
-    } else {
-        // Plain arithmetic, not String.format: commonMain may not reach java.util, and a locale-aware
-        // format put a comma in "1,25x" beside "1.0x" on a comma-decimal phone.
-        val hundredths = (speed * 100).roundToInt()
-        val fraction =
-            (hundredths % 100)
-                .toString()
-                .padStart(2, '0')
-                .trimEnd('0')
-                .ifEmpty { "0" }
-        "${hundredths / 100}.${fraction}x"
-    }
+fun formatPlaybackSpeed(speed: Float): String = "${speedNumber(speed)}×"
 
 /**
- * Playback-speed panel: a large brand readout, a fine-control slider (0.5x-3.0x, 0.05 steps), a row
- * of preset chips, and a reset-to-default action shown only when the current speed differs from the
- * universal default. Adaptive sheet/dialog via [PlayerPanelScaffold].
+ * The number alone ("1.25"), for "1.25 times". Plain arithmetic, not String.format: commonMain may not reach
+ * java.util, and a locale-aware format put a comma in "1,25" beside "1.0" on a comma-decimal phone.
+ */
+private fun speedNumber(speed: Float): String {
+    val hundredths = (speed * 100).roundToInt()
+    val fraction =
+        (hundredths % 100)
+            .toString()
+            .padStart(2, '0')
+            .trimEnd('0')
+            .ifEmpty { "0" }
+    return "${hundredths / 100}.$fraction"
+}
+
+/**
+ * The Speed sheet (spec §5.5.1, PS1–PS5; `Sheets-Android`): the rate as the sheet's one display figure, beside how long
+ * the book has left at it (S10's single wall-time exception); − slider + in 0.05 steps (an M3 slider with tonal icon
+ * buttons at its ends, m3.material.io/components/sliders/guidelines); the nine presets as one connected single-select
+ * group (m3.material.io/components/button-groups/guidelines: connected groups for selection); reset to the listener's
+ * own default; and that the speed belongs to this book. It stays open while the listener adjusts (§3.8).
  *
- * @param currentSpeed Current playback speed.
- * @param defaultSpeed Universal default speed from settings.
- * @param onSpeedChange Called when the user picks a new speed (marks it custom).
- * @param onResetToDefault Called when the user taps reset (marks it as using the default).
- * @param onDismiss Called when the panel is dismissed.
+ * @param currentSpeed This book's speed.
+ * @param defaultSpeed The listener's default speed, which reset returns to.
+ * @param bookRemainingAtSpeedMs The book's remainder at [currentSpeed], read in a leaf so the position tick recomposes
+ *   only that line.
+ * @param onSpeedChange A preset was chosen, or the slider was released on a rate.
+ * @param onStep − ([up] false) or + ([up] true): one 0.05 step through the shared, integer-stepped rule.
+ * @param onResetToDefault Reset was tapped.
+ * @param onDismiss The sheet was dismissed.
  */
 @Composable
 fun PlaybackSpeedSheet(
     currentSpeed: Float,
-    defaultSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+    defaultSpeed: Float,
+    bookRemainingAtSpeedMs: () -> Long,
     onSpeedChange: (Float) -> Unit,
-    onResetToDefault: () -> Unit = {},
+    onStep: (up: Boolean) -> Unit,
+    onResetToDefault: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
 
-    PlayerPanelScaffold(
-        title = stringResource(Res.string.player_playback_speed),
-        onDismiss = onDismiss,
-        dialogWidth = 520.dp,
-    ) {
-        SpeedReadout(sliderSpeed)
-        Spacer(Modifier.height(Spacing.xl))
-        SpeedSlider(
+    PlayerPanelScaffold(title = stringResource(Res.string.player_playback_speed), onDismiss = onDismiss) {
+        SpeedReadout(speed = sliderSpeed, bookRemainingAtSpeedMs = bookRemainingAtSpeedMs)
+        Spacer(Modifier.height(Spacing.md))
+        FineSpeedControl(
             speed = sliderSpeed,
-            onSpeedChange = { newSpeed ->
-                val snapped = snapPlaybackSpeed(newSpeed)
-                if ((snapped - sliderSpeed).absoluteValue >= 0.01f) sliderSpeed = snapped
-            },
-            onSpeedChangeFinished = { onSpeedChange(sliderSpeed) },
+            onSlide = { sliderSpeed = snapPlaybackSpeed(it) },
+            onSlideFinished = { onSpeedChange(sliderSpeed) },
+            onStep = onStep,
         )
-        Spacer(Modifier.height(22.dp))
-        SpeedPresetRow(
-            currentSpeed = sliderSpeed,
-            onSpeedSelected = { preset ->
-                sliderSpeed = preset
-                onSpeedChange(preset)
-            },
-        )
-        if ((sliderSpeed - defaultSpeed).absoluteValue > 0.01f) {
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                TextButton(
-                    onClick = {
-                        sliderSpeed = defaultSpeed
-                        onResetToDefault()
-                    },
-                ) {
-                    Text(stringResource(Res.string.player_reset_to_default, formatPlaybackSpeed(defaultSpeed)))
+        Spacer(Modifier.height(Spacing.md))
+        ConnectedSelectButtonGroup(
+            choices = PLAYBACK_SPEED_STEPS.map { ButtonGroupChoice<Float?>(it, formatPlaybackSpeed(it)) },
+            selected = PLAYBACK_SPEED_STEPS.firstOrNull { isSamePlaybackSpeed(it, sliderSpeed) },
+            onSelect = { preset ->
+                if (preset != null) {
+                    sliderSpeed = preset
+                    onSpeedChange(preset)
                 }
+            },
+            groupLabel = stringResource(Res.string.player_sheet_speed_presets),
+            rowLength = PRESETS_PER_ROW,
+        )
+        if (!isSamePlaybackSpeed(sliderSpeed, defaultSpeed)) {
+            TextButton(
+                onClick = {
+                    sliderSpeed = defaultSpeed
+                    onResetToDefault()
+                },
+                modifier = Modifier.padding(top = Spacing.sm).heightIn(min = MinTouchTarget),
+            ) {
+                Text(stringResource(Res.string.player_sheet_reset_speed, formatPlaybackSpeed(defaultSpeed)))
             }
         }
+        Text(
+            text = stringResource(Res.string.player_sheet_this_book_only),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.sm),
+        )
     }
 }
 
+/** "1.25×", the sheet's one display moment (F6), beside "32h 24m left at this speed". */
 @Composable
-private fun SpeedReadout(speed: Float) {
-    val formatted = formatPlaybackSpeed(speed)
-    val text =
-        buildAnnotatedString {
-            val xIndex = formatted.lastIndexOf('x')
-            append(formatted.substring(0, xIndex))
-            // The unit sits smaller than the digits, in proportion so it follows the font scale.
-            withStyle(SpanStyle(fontSize = SPEED_UNIT_SCALE.em)) { append("x") }
-        }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+private fun SpeedReadout(
+    speed: Float,
+    bookRemainingAtSpeedMs: () -> Long,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            text = text,
+            text = formatPlaybackSpeed(speed),
             style =
-                MaterialTheme.typography.displayLarge.copy(
+                MaterialTheme.typography.displayMedium.copy(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.Bold,
                 ),
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
         )
+        LeftAtSpeed(bookRemainingAtSpeedMs)
     }
 }
 
+/** The position-dependent leaf: only this line recomposes on the 4 Hz tick. */
 @Composable
-private fun SpeedSlider(
+private fun LeftAtSpeed(bookRemainingAtSpeedMs: () -> Long) {
+    Text(
+        text =
+            stringResource(
+                Res.string.player_sheet_left_at_speed,
+                DurationFormatter.hoursMinutes(bookRemainingAtSpeedMs().coerceAtLeast(0).milliseconds),
+            ),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.End,
+    )
+}
+
+/** − slider +, with the bounds under the slider. The slider commits on release, as it always has. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun FineSpeedControl(
     speed: Float,
-    onSpeedChange: (Float) -> Unit,
-    onSpeedChangeFinished: () -> Unit,
+    onSlide: (Float) -> Unit,
+    onSlideFinished: () -> Unit,
+    onStep: (up: Boolean) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val sliderName = stringResource(Res.string.player_playback_speed)
+    val spokenSpeed = stringResource(Res.string.player_sheet_speed_times, speedNumber(speed))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilledTonalIconButton(
+            onClick = { onStep(false) },
+            enabled = speed > PLAYBACK_SPEED_MIN && !isSamePlaybackSpeed(speed, PLAYBACK_SPEED_MIN),
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.size(MinTouchTarget),
+        ) {
+            Icon(Icons.Default.Remove, contentDescription = stringResource(Res.string.player_sheet_slower))
+        }
         Slider(
             value = speed,
-            onValueChange = onSpeedChange,
-            onValueChangeFinished = onSpeedChangeFinished,
+            onValueChange = onSlide,
+            onValueChangeFinished = onSlideFinished,
             valueRange = PLAYBACK_SPEED_MIN..PLAYBACK_SPEED_MAX,
-            modifier = Modifier.fillMaxWidth(),
+            steps = SLIDER_STEPS,
+            modifier =
+                Modifier.weight(1f).semantics {
+                    contentDescription = sliderName
+                    stateDescription = spokenSpeed
+                },
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+        FilledTonalIconButton(
+            onClick = { onStep(true) },
+            enabled = speed < PLAYBACK_SPEED_MAX && !isSamePlaybackSpeed(speed, PLAYBACK_SPEED_MAX),
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.size(MinTouchTarget),
         ) {
-            Text(
-                text = stringResource(Res.string.player_speed_value, PLAYBACK_SPEED_MIN.toString()),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = stringResource(Res.string.player_speed_value, PLAYBACK_SPEED_MAX.toString()),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Icon(Icons.Default.Add, contentDescription = stringResource(Res.string.player_sheet_faster))
         }
     }
-}
-
-@Composable
-private fun SpeedPresetRow(
-    currentSpeed: Float,
-    onSpeedSelected: (Float) -> Unit,
-) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MinTouchTarget + Spacing.sm),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        PLAYBACK_SPEED_STEPS.forEach { preset ->
-            PillChip(
-                label = formatPlaybackSpeed(preset),
-                selected = (currentSpeed - preset).absoluteValue < 0.01f,
-                onClick = { onSpeedSelected(preset) },
+        listOf(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX).forEach { bound ->
+            Text(
+                text = formatPlaybackSpeed(bound),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-/** The "x" suffix relative to the display-size speed digits (40sp against displayLarge's 57sp). */
-private const val SPEED_UNIT_SCALE = 0.7f
+/** The slider's stops between 0.5× and 3.0×: fifty 0.05 intervals, so 49 stops between the ends. */
+private const val SLIDER_STEPS = 49
+
+/** The board's 5 + 4 grid of presets; at a large font they wrap into connected pairs. */
+private const val PRESETS_PER_ROW = 5

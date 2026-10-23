@@ -438,7 +438,9 @@ private fun PanelsSection() {
             PlaybackSpeedSheet(
                 currentSpeed = 1.25f,
                 defaultSpeed = 1.0f,
+                bookRemainingAtSpeedMs = { 116_640_000 },
                 onSpeedChange = {},
+                onStep = {},
                 onResetToDefault = {},
                 onDismiss = { open = null },
             )

@@ -63,7 +63,7 @@ class CompactNowPlayingTest {
         screen(loadedPlayerState(coverPath = NO_COVER))
         composeRule.onNodeWithContentDescription("Pause").assertExists()
         composeRule.onNodeWithText("Book 10% · 40h 30m left").assertExists()
-        composeRule.onNodeWithText("1.0x").assertExists()
+        composeRule.onNodeWithText("1.0×").assertExists()
         composeRule
             .onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Now playing"))
             .assertExists()

@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -235,6 +236,7 @@ fun NowPlayingHost(
 
         OverlayDispatch(
             overlay = overlay,
+            progress = provideProgress,
             sleepTimerState = loaded?.sleepTimer ?: SleepTimerState.Inactive,
             loaded = loaded,
             viewModel = viewModel,
@@ -246,6 +248,7 @@ fun NowPlayingHost(
 @Composable
 private fun OverlayDispatch(
     overlay: PlayerOverlay,
+    progress: () -> PlayerProgress,
     sleepTimerState: SleepTimerState,
     loaded: PlayerUiState.Loaded?,
     viewModel: PlayerViewModel,
@@ -299,7 +302,9 @@ private fun OverlayDispatch(
                 PlaybackSpeedSheet(
                     currentSpeed = loaded.settings.speed,
                     defaultSpeed = loaded.settings.defaultSpeed,
+                    bookRemainingAtSpeedMs = { progress().bookRemainingAtSpeedMs(loaded.settings.speed) },
                     onSpeedChange = viewModel::setSpeed,
+                    onStep = viewModel::stepSpeed,
                     onResetToDefault = viewModel::resetSpeed,
                     onDismiss = viewModel::hideOverlay,
                 )

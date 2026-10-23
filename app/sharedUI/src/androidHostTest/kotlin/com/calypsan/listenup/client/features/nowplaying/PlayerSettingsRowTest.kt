@@ -45,7 +45,7 @@ class PlayerSettingsRowTest {
     @Test
     fun `speed shows its rate, and each control opens its sheet`() {
         row()
-        composeRule.onNodeWithText("1.25x").performClick()
+        composeRule.onNodeWithText("1.25×").performClick()
         composeRule.onNodeWithContentDescription("Sleep timer").performClick()
         composeRule.onNodeWithContentDescription("Chapters").performClick()
         opened shouldBe listOf("speed", "sleep", "chapters")
