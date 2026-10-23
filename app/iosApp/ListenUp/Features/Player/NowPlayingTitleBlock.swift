@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// One person in the byline's folded menu: their name and their books in your library (spec §5.5.5, PK1).
+struct BylineMenuRow: Equatable, Identifiable {
+    let id: String
+    let name: String
+    /// "14 books"; nil when the library has none counted, so a zero never shows.
+    let books: String?
+}
+
 /// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` board): the book's title, the author and "Read by"
 /// line whose names are links, then the chapter line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
 /// Pull-down buttons: a menu for a navigation choice). Titles wrap rather than truncate as text grows (HIG,
@@ -28,6 +36,23 @@ struct NowPlayingTitleBlock: View {
     static func folded(_ people: [ContributorNavRef]) -> String? {
         guard people.count > foldThreshold, let lead = people.first else { return nil }
         return String(format: String(localized: "player.np_byline_fold"), lead.name, people.count - 1)
+    }
+
+    /// The folded menu's rows: each name with its book count as the menu item's subtitle.
+    static func menuRows(_ people: [ContributorNavRef]) -> [BylineMenuRow] {
+        people.map { person in
+            let books: String? = switch person.bookCount {
+            case ...0: nil
+            case 1: String(localized: "player.sheet_books_one_ios")
+            default: String(format: String(localized: "player.sheet_books_other_ios"), person.bookCount)
+            }
+            return BylineMenuRow(id: person.id, name: person.name, books: books)
+        }
+    }
+
+    /// The folded menu's section header: the role its names fill.
+    static func menuHeader(isAuthors: Bool) -> String {
+        isAuthors ? String(localized: "player.sheet_authors") : String(localized: "player.sheet_narrators")
     }
 
     var body: some View {
@@ -70,8 +95,14 @@ struct NowPlayingTitleBlock: View {
                 }
                 if let folded = Self.folded(people) {
                     Menu {
-                        ForEach(people) { person in
-                            Button(person.name) { onViewContributor(person.id) }
+                        // HIG, Menus: a section title names the group; a second line in an item is its subtitle.
+                        Section(Self.menuHeader(isAuthors: lead == nil)) {
+                            ForEach(Self.menuRows(people)) { row in
+                                Button { onViewContributor(row.id) } label: {
+                                    Text(row.name)
+                                    if let books = row.books { Text(books) }
+                                }
+                            }
                         }
                     } label: {
                         link(folded, isAuthor: lead == nil)
