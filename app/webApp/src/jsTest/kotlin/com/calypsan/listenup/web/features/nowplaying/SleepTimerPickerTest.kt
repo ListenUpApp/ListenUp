@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
@@ -272,6 +273,25 @@ class SleepTimerPickerTest :
             host.querySelector(".sleep-pauses")?.textContent shouldBe "Until the end of Bridge Four · 8m"
             host.querySelectorAll(".sleep-opt").length shouldBe 0
             host.buttonSaying("Cancel timer").shouldNotBeNull()
+
+            host.closeDialogs()
+        }
+
+        test("at 2.0x an end-of-chapter timer's line counts the same wall time as its countdown") {
+            val endOfChapter =
+                SleepTimerState.Active(mode = SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0L)
+            // 8 minutes of chapter at double speed is 4 minutes on the clock.
+            val atDoubleSpeed =
+                SleepCountdowns.remainingMs(
+                    isEndOfChapter = true,
+                    durationRemainingMs = 0,
+                    chapterRemainingMs = EIGHT_MINUTES,
+                    speed = 2f,
+                )
+            val host = picker(state = endOfChapter, countdownMs = atDoubleSpeed, meterFraction = 0.4f)
+
+            host.querySelector(".sleep-left")?.textContent shouldBe "4:00"
+            host.querySelector(".sleep-pauses")?.textContent shouldBe "Until the end of Bridge Four · 4m"
 
             host.closeDialogs()
         }

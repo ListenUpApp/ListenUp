@@ -73,16 +73,19 @@ internal fun SleepTimerPicker(
             }
 
             is SleepTimerState.Active -> {
-                RunningTimer(
-                    state = state,
-                    chapter = chapter,
-                    chapterRemainingMs = chapterRemainingMs,
-                    countdownMs = countdownMs ?: state.remainingMs,
-                    meterFraction = meterFraction,
-                    nowMs = nowMs,
-                    onExtend = onExtend,
-                    onCancel = onCancel,
-                )
+                // SleepCountdowns always counts an active timer down; its own remainingMs is 0 for end of chapter.
+                countdownMs?.let { wallMs ->
+                    RunningTimer(
+                        state = state,
+                        chapter = chapter,
+                        chapterRemainingMs = chapterRemainingMs,
+                        countdownMs = wallMs,
+                        meterFraction = meterFraction,
+                        nowMs = nowMs,
+                        onExtend = onExtend,
+                        onCancel = onCancel,
+                    )
+                }
             }
 
             is SleepTimerState.FadingOut -> {
@@ -194,7 +197,7 @@ private fun RunningTimer(
         Text(
             when (mode) {
                 is SleepTimerMode.Duration -> PlayerSheetWords.pausesAt(nowMs + countdownMs, timerMinutes(state, mode))
-                SleepTimerMode.EndOfChapter -> PlayerSheetWords.untilEndOf(chapterName(chapter), chapterRemainingMs)
+                SleepTimerMode.EndOfChapter -> PlayerSheetWords.untilEndOf(chapterName(chapter), countdownMs)
             },
         )
     }
