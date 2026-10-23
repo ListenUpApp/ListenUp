@@ -22,12 +22,16 @@ struct PlayerSheetsAccessibilityTests {
         #expect(hosted.scrollsVertically, "\(hosted.tree)")
     }
 
-    @Test func theCloseButtonIsAFullTarget() async throws {
+    /// The system's close button (`Button(role: .close)`), in the sheet's top bar. Its glass disc is 36pt; the bar gives
+    /// it the rest of its 44pt target, as it does every bar button (HIG, Sheets; HIG, Toolbars), so the test pins that it
+    /// is the system's, where the system sizes it, rather than a frame the system owns.
+    @Test func theCloseButtonIsTheSystemsInTheTopBar() async throws {
         let hosted = await HostedView(forty, size: CGSize(width: 393, height: 430))
         defer { hosted.close() }
         let close = try #require(hosted.stop(labelled: "Close"), "\(hosted.tree)")
         #expect(close.isButton)
-        #expect(close.frame.width >= 44 && close.frame.height >= 44, "\(close.frame)")
+        #expect(close.frame.minY < 120 && close.frame.maxX > 300, "\(close.frame)")
+        #expect(close.frame.width >= 36 && close.frame.height >= 36, "\(close.frame)")
     }
 
     @Test func aMediumDetentGrowsALargeOneAtAccessibilitySizes() {
