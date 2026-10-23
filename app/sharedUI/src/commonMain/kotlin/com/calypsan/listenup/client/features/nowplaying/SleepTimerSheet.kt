@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.ButtonDefaults
@@ -31,14 +28,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
@@ -48,18 +41,28 @@ import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
 import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_add_more_time
 import listenup.composeapp.generated.resources.player_cancel_timer
 import listenup.composeapp.generated.resources.player_chapter_number
 import listenup.composeapp.generated.resources.player_end_of_chapter
 import listenup.composeapp.generated.resources.player_extend_minutes
-import listenup.composeapp.generated.resources.player_fading_out
 import listenup.composeapp.generated.resources.player_sheet_durations
 import listenup.composeapp.generated.resources.player_sheet_end_of_chapter_after
 import listenup.composeapp.generated.resources.player_sheet_fades_out
 import listenup.composeapp.generated.resources.player_sleep_timer
-import listenup.composeapp.generated.resources.player_until_end_of_chapter
-import listenup.composeapp.generated.resources.player_until_end_of_chapter_detail
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.components.formatPlaybackTime
+import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.features.nowplaying.components.SleepFadingCard
+import com.calypsan.listenup.client.features.nowplaying.components.rememberClockTimeFormatter
+import kotlin.time.Duration.Companion.milliseconds
+import listenup.composeapp.generated.resources.player_sheet_add_time
+import listenup.composeapp.generated.resources.player_sheet_meter_a11y
+import listenup.composeapp.generated.resources.player_sheet_pauses_at_timer
+import listenup.composeapp.generated.resources.player_sheet_until_end_of
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
 
@@ -87,7 +90,12 @@ internal data class SleepSheetState(
 /**
  * The Sleep sheet (spec §5.5.2, PT1–PT8; `Sheets-Android`). With no timer: End of chapter first and largest, in the
  * timer's gold, with the chapter and how long it has left (hidden for a chapterless book); then the durations; then a
- * custom time. Starting a timer closes the sheet (§3.8). Adaptive sheet/dialog via [PlayerPanelScaffold].
+ * custom time. Starting a timer closes the sheet (§3.8).
+ *
+ * Running: the countdown in big m:ss (not a live region, §8), when it pauses by the device's clock, a gold meter of what
+ * is left, +5 / +10 / +15 for a duration, and Cancel timer, which keeps the sheet open and returns to the choices (S13).
+ * Fading: the same gold card Now Playing shows, with Keep listening (PT7). Adaptive sheet/dialog via
+ * [PlayerPanelScaffold].
  *
  * @param state What to draw.
  * @param onSetTimer Start a timer with the chosen [SleepTimerMode].
@@ -112,18 +120,16 @@ internal fun SleepTimerSheet(
             }
 
             is SleepTimerState.Active -> {
-                ActiveTimerDisplay(
-                    state = timer,
+                RunningTimer(
+                    timer = timer,
+                    state = state,
                     onExtend = onExtendTimer,
-                    onCancel = {
-                        onCancelTimer()
-                        onDismiss()
-                    },
+                    onCancel = onCancelTimer,
                 )
             }
 
             SleepTimerState.FadingOut -> {
-                FadingOutDisplay()
+                SleepFadingCard(onKeepListening = onKeepListening)
             }
         }
     }
@@ -243,91 +249,134 @@ private val DURATION_HEIGHT = 56.dp
 /** The board's three-column grid of durations. */
 private const val DURATIONS_PER_ROW = 3
 
+/**
+ * A running timer (PT3–PT6): the countdown, "Pauses at 11:42 PM · 30 min timer" (or, for End of chapter, "Until the end
+ * of Bridge Four · 8m"), the meter, the extend group for a duration ([SleepTimerChoices.canExtend]), and Cancel timer.
+ */
 @Composable
-private fun ActiveTimerDisplay(
-    state: SleepTimerState.Active,
+private fun RunningTimer(
+    timer: SleepTimerState.Active,
+    state: SleepSheetState,
     onExtend: (Int) -> Unit,
     onCancel: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
-        when (state.mode) {
-            is SleepTimerMode.Duration -> DurationCountdown(state = state, onExtend = onExtend)
-            is SleepTimerMode.EndOfChapter -> EndOfChapterCountdown()
-        }
-        Spacer(Modifier.height(32.dp))
-        OutlinedButton(onClick = onCancel, border = listenUpOutlinedBorder(), modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(Res.string.player_cancel_timer))
-        }
+        Countdown(timer = timer, state = state)
+        if (SleepTimerChoices.canExtend(timer)) ExtendGroup(onExtend = onExtend)
+        OutlinedButton(
+            onClick = onCancel,
+            border = listenUpOutlinedBorder(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = RUNNING_BUTTON_HEIGHT),
+        ) { Text(stringResource(Res.string.player_cancel_timer)) }
     }
 }
 
+/** The countdown, its line and its meter: the one leaf the tick recomposes. */
 @Composable
-private fun DurationCountdown(
-    state: SleepTimerState.Active,
-    onExtend: (Int) -> Unit,
+private fun Countdown(
+    timer: SleepTimerState.Active,
+    state: SleepSheetState,
 ) {
-    Text(
-        text = state.formatRemaining(),
-        style = MaterialTheme.typography.displayMedium,
-        color = MaterialTheme.colorScheme.primary,
-    )
-    Spacer(Modifier.height(16.dp))
-    LinearProgressIndicator(
-        progress = { state.progress },
-        modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-    )
-    Spacer(Modifier.height(Spacing.xl))
-    Text(
-        text = stringResource(Res.string.player_add_more_time),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(12.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val countdownMs = state.countdownMs() ?: 0L
+    val countdown = countdownMs.milliseconds.formatPlaybackTime()
+    val fraction = state.meterFraction()
+    val formatClock = rememberClockTimeFormatter()
+    val mode = timer.mode
+    val line =
+        when (mode) {
+            is SleepTimerMode.Duration -> {
+                stringResource(
+                    Res.string.player_sheet_pauses_at_timer,
+                    formatClock(state.nowMs() + countdownMs),
+                    mode.label,
+                )
+            }
+
+            SleepTimerMode.EndOfChapter -> {
+                stringResource(Res.string.player_sheet_until_end_of, state.chapter.sleepName(), shortDuration(countdownMs))
+            }
+        }
+    val totalMs =
+        when (mode) {
+            is SleepTimerMode.Duration -> timer.totalMs
+            SleepTimerMode.EndOfChapter -> if (fraction > 0f) (countdownMs / fraction).toLong() else countdownMs
+        }
+    val meterLabel =
+        stringResource(Res.string.player_sheet_meter_a11y, countdown, totalMs.milliseconds.formatPlaybackTime())
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = countdown,
+            style =
+                MaterialTheme.typography.displayMedium.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = "tnum",
+                ),
+        )
+        Text(
+            text = line,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        LinearProgressIndicator(
+            progress = { fraction },
+            color = MaterialTheme.colorScheme.tertiary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            modifier =
+                Modifier
+                    .padding(top = Spacing.sm)
+                    .fillMaxWidth()
+                    .height(METER_HEIGHT)
+                    .semantics { contentDescription = meterLabel },
+        )
+    }
+}
+
+/**
+ * +5 / +10 / +15: a standard button group, because these are a row of actions, not a choice
+ * (m3.material.io/components/button-groups/guidelines).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ExtendGroup(onExtend: (Int) -> Unit) {
+    val groupLabel = stringResource(Res.string.player_sheet_add_time)
+    ButtonGroup(
+        overflowIndicator = {},
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        modifier = Modifier.fillMaxWidth().semantics { contentDescription = groupLabel },
+    ) {
         SleepTimerChoices.EXTEND_MINUTES.forEach { minutes ->
-            PillChip(
-                label = stringResource(Res.string.player_extend_minutes, minutes),
-                onClick = { onExtend(minutes) },
+            customItem(
+                buttonGroupContent = {
+                    val interactions = remember { MutableInteractionSource() }
+                    FilledTonalButton(
+                        onClick = { onExtend(minutes) },
+                        shapes = ButtonDefaults.shapes(),
+                        interactionSource = interactions,
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .animateWidth(interactions)
+                                .heightIn(min = RUNNING_BUTTON_HEIGHT),
+                    ) { Text(stringResource(Res.string.player_extend_minutes, minutes)) }
+                },
+                menuContent = {},
             )
         }
     }
 }
 
-@Composable
-private fun EndOfChapterCountdown() {
-    Icon(
-        imageVector = Icons.Default.Bedtime,
-        contentDescription = null,
-        modifier = Modifier.size(56.dp),
-        tint = MaterialTheme.colorScheme.primary,
-    )
-    Spacer(Modifier.height(16.dp))
-    Text(
-        text = stringResource(Res.string.player_until_end_of_chapter),
-        style = MaterialTheme.typography.headlineSmall,
-    )
-    Spacer(Modifier.height(4.dp))
-    Text(
-        text = stringResource(Res.string.player_until_end_of_chapter_detail),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
+/** The running view's buttons on the board. */
+private val RUNNING_BUTTON_HEIGHT = 56.dp
 
-@Composable
-private fun FadingOutDisplay() {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            ListenUpLoadingIndicator()
-            Spacer(Modifier.height(16.dp))
-            Text(text = stringResource(Res.string.player_fading_out), style = MaterialTheme.typography.bodyLarge)
-        }
-    }
-}
+/** The gold meter's thickness on the board. */
+private val METER_HEIGHT = 8.dp

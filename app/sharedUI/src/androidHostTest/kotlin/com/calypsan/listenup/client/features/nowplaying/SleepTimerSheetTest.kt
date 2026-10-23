@@ -1,6 +1,10 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -10,8 +14,13 @@ import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
+import com.calypsan.listenup.client.testing.isLiveRegion
+import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.floats.shouldBeLessThan
 import io.kotest.matchers.shouldBe
+import java.util.TimeZone
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +54,24 @@ class SleepTimerSheetTest {
             }
         }
     }
+
+    private lateinit var originalZone: TimeZone
+
+    @Before
+    fun useUtc() {
+        originalZone = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+    }
+
+    @After
+    fun restoreZone() {
+        TimeZone.setDefault(originalZone)
+    }
+
+    private fun hasTextMatching(pattern: Regex) =
+        SemanticsMatcher("text matches $pattern") { node ->
+            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { pattern.matches(it.text) }
+        }
 
     private fun top(text: String) = composeRule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
 
@@ -103,5 +130,67 @@ class SleepTimerSheetTest {
         }
         composeRule.onNodeWithContentDescription("5 minutes less").assertTouchTargetAtLeast()
         composeRule.onNodeWithContentDescription("5 minutes more").assertTouchTargetAtLeast()
+    }
+
+    @Test
+    fun `running - the countdown, Pauses at, the timer's length, and a meter of what is left`() {
+        sheet(sleepSheetState(timer = THIRTY_MINUTES_RUNNING))
+        composeRule.onNodeWithText("23:41").assertExists()
+        composeRule.onNode(hasTextMatching(Regex("""Pauses at 11:42\s?PM · 30 min timer"""))).assertExists()
+        val meter = composeRule.onNodeWithContentDescription("23:41 of 30:00 remaining")
+        meter
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.ProgressBarRangeInfo]
+            .current shouldBe (0.789f plusOrMinus 0.001f)
+    }
+
+    @Test
+    fun `the countdown is not a live region`() {
+        sheet(sleepSheetState(timer = THIRTY_MINUTES_RUNNING))
+        composeRule.onNode(hasText("23:41") and isLiveRegion()).assertDoesNotExist()
+    }
+
+    @Test
+    fun `plus 10 reports 10`() {
+        sheet(sleepSheetState(timer = THIRTY_MINUTES_RUNNING))
+        composeRule.onNodeWithText("+10 min").performClick()
+        extended shouldBe listOf(10)
+    }
+
+    @Test
+    fun `Cancel keeps the sheet open`() {
+        sheet(sleepSheetState(timer = THIRTY_MINUTES_RUNNING))
+        composeRule.onNodeWithText("Cancel timer").performClick()
+        cancelled shouldBe 1
+        dismissed shouldBe 0
+    }
+
+    @Test
+    fun `end of chapter running names the chapter and offers no extend`() {
+        sheet(
+            sleepSheetState(
+                timer = SleepTimerState.Active(SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0),
+                countdownMs = 480_000,
+                meterFraction = 0.4f,
+            ),
+        )
+        composeRule.onNodeWithText("8:00").assertExists()
+        composeRule.onNodeWithText("Until the end of Bridge Four · 8m").assertExists()
+        composeRule.onNodeWithText("+5 min").assertDoesNotExist()
+        composeRule.onNodeWithText("Cancel timer").assertExists()
+    }
+
+    @Test
+    fun `fading - the gold card's words and Keep listening`() {
+        sheet(sleepSheetState(timer = SleepTimerState.FadingOut))
+        composeRule.onNodeWithText("Fading out…").assertExists()
+        composeRule.onNodeWithText("Your sleep timer is ending. Playback pauses in a moment.").assertExists()
+        composeRule.onNodeWithText("Keep listening").performClick()
+        keptListening shouldBe 1
+    }
+
+    private companion object {
+        val THIRTY_MINUTES_RUNNING =
+            SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 1_421_000, totalMs = 1_800_000, startedAt = 0)
     }
 }
