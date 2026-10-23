@@ -195,27 +195,40 @@
   font-variant-numeric: tabular-nums;
 }
 .sleep-fade { margin: var(--sp-16) 0; font-size: var(--fs-ui); color: var(--ink-3); }
-/* ---- playback speed ---- */
+/* ---- playback speed (PS1–PS5, `Sheets-WebPhone`) ---- */
 .speed-dlg { max-width: 460px; width: min(460px, calc(100vw - 32px)); }
-/* The rate, big enough to read from arm's length while the slider is under a thumb. Tabular so
-   the digits do not jitter sideways as it moves. */
+.speed-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4) var(--sp-12); }
+/* The rate, big enough to read from arm's length while a thumb is on the slider. Tabular so the digits do not jitter
+   sideways as it moves. */
 .speed-read {
-  margin: 18px 0 10px; font-size: 2.625rem; font-weight: 800; letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums; text-align: center; color: var(--ink);
+  font-size: 3.25rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--ink);
 }
-.speed-slide { width: 100%; margin: 0 0 18px; accent-color: var(--coral); }
-.speed-opts { display: flex; flex-wrap: wrap; gap: var(--sp-8); justify-content: center; }
-.speed-opt {
-  min-width: 56px; padding: var(--sp-8) var(--sp-12); border: 1px solid var(--line); border-radius: var(--r-pill);
-  cursor: pointer; background: var(--surface); color: var(--ink);
-  font: inherit; font-size: var(--fs-ui); font-weight: 600; font-variant-numeric: tabular-nums;
+.speed-left { font-size: var(--fs-small); color: var(--ink-2); }
+.speed-fine { display: flex; align-items: center; gap: var(--sp-8); }
+.speed-step {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  border: 1px solid var(--outline); border-radius: var(--r-pill); background: transparent; color: var(--ink);
+  font: inherit; font-size: 1.25rem; cursor: pointer;
 }
-@media (hover: hover) { .speed-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
-.speed-opt:active { transform: translateY(1px); }
-/* The rate playing now. Coral fill rather than a heavier weight: the chips sit in a tight row and
-   a weight change reflows every one of them as the selection moves. */
-.speed-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
-.speed-reset { margin-top: 14px; }
+@media (hover: hover) { .speed-step:hover { background: var(--surface-2); } }
+.speed-step:active { transform: translateY(1px); }
+.speed-slide { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--coral); }
+.speed-bounds { display: flex; justify-content: space-between; padding: 0 52px; font-size: var(--fs-caption); color: var(--ink-2); }
+/* Nine presets, five to a row: the board's grid, which keeps every rung a full 44px target at 360px. */
+.luw .speed-opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.luw .speed-opts .speed-opt {
+  min-height: 44px; padding: 0 4px; font-size: var(--fs-ui); color: var(--ink); border-color: var(--outline);
+  font-variant-numeric: tabular-nums;
+}
+/* The rate playing now: coral fill, white ink (the board). Checked, not just coloured: aria-checked says it too. */
+.luw .speed-opts .speed-opt.is-on { background: var(--coral-fill); border-color: var(--coral-fill); color: var(--on-coral); }
+/* A panel's reset: a link-weight action in coral ink, a full 44px tall. */
+.panel-reset {
+  align-self: flex-start; min-height: 44px; padding: 0 4px; border: none; background: none; cursor: pointer;
+  font: inherit; font-size: var(--fs-ui); font-weight: 700; color: var(--coral-text); text-decoration: underline;
+}
+.panel-note { margin: 0; font-size: var(--fs-small); line-height: 1.45; color: var(--ink-2); }
 
 /* ---- volume boost ---- */
 /* Narrower than the speed panel: five chips and no slider. */

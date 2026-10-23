@@ -155,6 +155,7 @@ private fun PlaybackSession.pageActions(
         },
         onSetSpeed = onSetSpeed,
         onResetSpeed = onResetSpeed,
+        onStepSpeed = onStepSpeed,
         onSetSleepTimer = onSetSleepTimer,
         onCancelSleepTimer = onCancelSleepTimer,
         onExtendSleepTimer = onExtendSleepTimer,
@@ -185,6 +186,7 @@ class NowPlayingActions(
     val onCloseBookAndLeave: () -> Unit = {},
     val onSetSpeed: (Float) -> Unit = {},
     val onResetSpeed: () -> Unit = {},
+    val onStepSpeed: (Boolean) -> Unit = {},
     val onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     val onCancelSleepTimer: () -> Unit = {},
     val onExtendSleepTimer: (Int) -> Unit = {},
@@ -214,7 +216,7 @@ fun NowPlayingPage(
     val arrival = rememberCoverThemes(book.id, book.coverHash)
     val pickers = remember { PagePickers() }
     val card = PlayerCards.of(state)
-    PagePickerDialogs(state, pickers, actions, boostUnavailable)
+    PagePickerDialogs(state, progress, pickers, actions, boostUnavailable)
     Div(attrs = {
         classes("np-page")
         coverThemed(arrival)
@@ -462,6 +464,7 @@ private class PagePickers {
 @Composable
 private fun PagePickerDialogs(
     state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
     pickers: PagePickers,
     actions: NowPlayingActions,
     boostUnavailable: Boolean,
@@ -471,7 +474,9 @@ private fun PagePickerDialogs(
         open = pickers.speed,
         speed = settings.speed,
         defaultSpeed = settings.defaultSpeed,
+        leftAtSpeedMs = progress.bookRemainingAtSpeedMs(settings.speed),
         onSet = actions.onSetSpeed,
+        onStep = actions.onStepSpeed,
         onReset = actions.onResetSpeed,
         placement = PanelPlacement.Sheet,
         onDismiss = { pickers.speed = false },
