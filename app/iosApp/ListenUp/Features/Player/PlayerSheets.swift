@@ -95,28 +95,49 @@ struct BoostPickerSheet: View {
 
 // MARK: - Chapter Row
 
-/// One chapter line — number · title · duration, with a now-playing equalizer on the
-/// current chapter and a play glyph on the rest. The current chapter sits on a tinted
-/// wash; others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet)
-/// and the iPad inline "Up Next" panel so both surfaces render chapters identically.
+/// One chapter line — number · title · duration, with a now-playing equalizer on the current chapter and a play glyph
+/// on the rest. The current chapter sits on a coral tint (plan C14: tinted on iOS) with "Now Playing · 8 min left";
+/// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad inline "Up Next" panel
+/// so both surfaces render chapters identically.
 ///
-/// Text stays `.primary`/secondary on every row: the tint is decoration (the wash and the
-/// equalizer), never the colour a title is read in — a cover-derived tint can't promise text
-/// contrast. The current row is also `.isSelected` and says "Now playing", so it is marked by
-/// more than colour. At accessibility text sizes the row stacks (HIG, Typography: "consider
-/// using a stacked layout where text appears above secondary items").
+/// Text stays `.primary`/secondary on every row: the tint is decoration (the wash and the equalizer), never the colour
+/// a title is read in. The current row is also `.isSelected` and says "now playing", so it is marked by more than colour.
+/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 min left", or "Play from
+/// chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks (HIG, Typography).
 struct ChapterRow: View {
-    let index: Int
+    /// The chapter's own number, as the book counts it.
+    let number: Int
     let title: String
     let durationMs: Int64
     let isCurrent: Bool
     let isPlaying: Bool
+    /// Content time left in the current chapter (S10); ignored on other rows.
+    var remainingMs: Int64 = 0
     let tint: Color
     let onTap: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    /// "Now Playing · 8 min left": the current row's visible line.
+    static func currentLine(remainingMs: Int64) -> String {
+        String(
+            format: String(localized: "player.sheet_playing_left_ios"),
+            MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
+    }
+
+    /// The row as VoiceOver reads it.
+    var spokenLabel: String {
+        if isCurrent {
+            return String(
+                format: String(localized: "player.sheet_chapter_current"), number, title,
+                MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
+        }
+        return String(
+            format: String(localized: "player.sheet_chapter_play_from"), number, title,
+            DurationFormatting.clock(ms: durationMs))
+    }
 
     var body: some View {
         let layout = isStacked
@@ -125,17 +146,24 @@ struct ChapterRow: View {
         Button(action: onTap) {
             layout {
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
-                    Text("\(index + 1)")
+                    Text("\(number)")
                         .font(.body.weight(.semibold))
                         .monospacedDigit()
-                        .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(Color.luLabel3))
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(Color.luTintInk) : AnyShapeStyle(Color.luLabel3))
                         .frame(minWidth: 24)
 
-                    Text(title)
-                        .font(.body)
-                        .fontWeight(isCurrent ? .semibold : .regular)
-                        .foregroundStyle(.primary)
-                        .lineLimit(isStacked ? 3 : 1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.body)
+                            .fontWeight(isCurrent ? .semibold : .regular)
+                            .foregroundStyle(.primary)
+                            .lineLimit(isStacked ? 3 : 1)
+                        if isCurrent {
+                            Text(Self.currentLine(remainingMs: remainingMs))
+                                .font(.footnote)
+                                .foregroundStyle(Color.secondary)
+                        }
+                    }
                 }
 
                 if !isStacked {
@@ -166,7 +194,7 @@ struct ChapterRow: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: Radius.m)
-                    .fill(isCurrent ? tint.opacity(0.09) : .clear)
+                    .fill(isCurrent ? tint.opacity(0.10) : .clear)
             )
             .overlay(alignment: .bottom) {
                 if !isCurrent {
@@ -178,71 +206,72 @@ struct ChapterRow: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(spokenLabel)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
-        .accessibilityValue(isCurrent ? String(localized: "player.now_playing") : "")
     }
 }
 
 // MARK: - Chapter List Sheet
 
-/// Scrolling chapter list. The current chapter is coral-highlighted; tapping any row
-/// seeks to that chapter and dismisses.
+/// The Chapters sheet (player spec §5.5.4, PC1–PC4): "75 chapters · 45 hr 30 min", then every chapter, opening centred
+/// on the one you're in — after the sheet has laid out, and without animating, since the jump isn't motion the reader
+/// asked for (§9.2). Tapping a row plays from it and closes the sheet (PC4).
 struct ChapterListSheet: View {
     let observer: PlayerObserver
     let onDismiss: () -> Void
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(Array(observer.chapterRows.enumerated()), id: \.element.id) { index, chapter in
-                        ChapterRow(
-                            index: index,
-                            title: chapter.title,
-                            durationMs: chapter.durationMs,
-                            isCurrent: index == observer.chapterIndex,
-                            isPlaying: observer.isPlaying,
-                            tint: .listenUpOrange,
-                            onTap: {
-                                observer.selectChapter(index: index)
-                                onDismiss()
-                            }
-                        )
+        PlayerSheetChrome(title: String(localized: "player.chapters"), scrolls: false) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        Text(summary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, Spacing.m)
+                            .padding(.bottom, Spacing.xs)
+                        ForEach(observer.chapterRows) { chapter in
+                            ChapterRow(
+                                number: chapter.number,
+                                title: chapter.title,
+                                durationMs: chapter.durationMs,
+                                isCurrent: chapter.index == observer.chapterIndex,
+                                isPlaying: observer.isPlaying,
+                                remainingMs: observer.progress.chapterRemainingMs,
+                                tint: .listenUpOrange,
+                                onTap: {
+                                    observer.selectChapter(index: chapter.index)
+                                    onDismiss()
+                                }
+                            )
+                            .id(chapter.id)
+                        }
                     }
+                    .padding(.horizontal, Spacing.xs)
+                    .padding(.vertical, Spacing.xs)
                 }
-                .padding(.horizontal, Spacing.xs)
-                .padding(.vertical, Spacing.xs)
+                .task {
+                    guard let current = observer.chapterRows.first(where: { $0.index == observer.chapterIndex }) else {
+                        return
+                    }
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { proxy.scrollTo(current.id, anchor: .center) }
+                }
             }
-            .navigationTitle(String(localized: "player.chapters"))
-            .navigationBarTitleDisplayMode(.inline)
         }
+    }
+
+    /// "68 chapters · 1 hr, 8 min".
+    private var summary: String {
+        String(
+            format: String(localized: "player.chapters_count_summary"),
+            observer.totalChapters,
+            DurationFormatting.abbreviated(ms: observer.bookDurationMs))
     }
 }
 
 // MARK: - Shared pieces
-
-/// A capsule chip used by the boost picker. Coral-filled when selected, neutral fill otherwise;
-/// the selected chip also carries the VoiceOver selected trait, so the state isn't colour alone.
-private struct PillButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .medium)
-                .monospacedDigit()
-                .foregroundStyle(isSelected ? Color.luOnTint : .primary)
-                .padding(.horizontal, Spacing.l)
-                .frame(height: 44)
-                .background(Capsule().fill(isSelected ? AnyShapeStyle(Color.luTint) : AnyShapeStyle(Color.luFill)))
-        }
-        .buttonStyle(.pressScaleChip)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
 
 /// Three-bar now-playing equalizer. Bars pulse while playing and hold static when
 /// paused, honouring Reduce Motion.
