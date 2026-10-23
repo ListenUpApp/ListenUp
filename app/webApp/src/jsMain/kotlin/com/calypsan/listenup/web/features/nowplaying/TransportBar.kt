@@ -84,27 +84,27 @@ fun TransportBar(
     onCloseNowPlaying: () -> Unit = {},
     onFocusChapters: (() -> Unit)? = null,
 ) {
-    var chaptersOpen by remember { mutableStateOf(false) }
-    var sleepOpen by remember { mutableStateOf(false) }
-    var speedOpen by remember { mutableStateOf(false) }
+    // Where each panel is open, or null: the bar's controls hang popovers from themselves (§5.1), or open sheets where
+    // the window is narrower than PANEL_POPOVER_MIN_WIDTH_PX (panelPlacementFor).
+    val panels = remember { BarPanels() }
     var boostOpen by remember { mutableStateOf(false) }
     val bookSwitch = remember { BookSwitch() }
     val settings = state.settings
     val hasChapters = state.chapters.isNotEmpty()
     ChapterPicker(
-        open = chaptersOpen,
+        open = panels.chapters != null,
         chapters = state.chapters,
         chapterRemainingMs = progress.chapterRemainingMs,
         bookDurationMs = state.book.durationMs,
         onPick = { index ->
             onSeekToChapter(index)
-            chaptersOpen = false
+            panels.chapters = null
         },
-        placement = PanelPlacement.Sheet,
-        onDismiss = { chaptersOpen = false },
+        placement = panels.chapters ?: PanelPlacement.Sheet,
+        onDismiss = { panels.chapters = null },
     )
     SleepTimerPicker(
-        open = sleepOpen,
+        open = panels.sleep != null,
         state = state.sleepTimer,
         chapter = state.chapter,
         chapterRemainingMs = progress.chapterRemainingMs,
@@ -113,24 +113,24 @@ fun TransportBar(
         nowMs = Date.now().toLong(),
         onSet = { mode ->
             onSetSleepTimer(mode)
-            sleepOpen = false
+            panels.sleep = null
         },
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
         onKeepListening = onCancelSleepTimer,
-        placement = PanelPlacement.Sheet,
-        onDismiss = { sleepOpen = false },
+        placement = panels.sleep ?: PanelPlacement.Sheet,
+        onDismiss = { panels.sleep = null },
     )
     SpeedPicker(
-        open = speedOpen,
+        open = panels.speed != null,
         speed = settings.speed,
         defaultSpeed = settings.defaultSpeed,
         leftAtSpeedMs = progress.bookRemainingAtSpeedMs(settings.speed),
         onSet = onSetSpeed,
         onStep = onStepSpeed,
         onReset = onResetSpeed,
-        placement = PanelPlacement.Sheet,
-        onDismiss = { speedOpen = false },
+        placement = panels.speed ?: PanelPlacement.Sheet,
+        onDismiss = { panels.speed = null },
     )
     BoostPicker(
         open = boostOpen,
@@ -178,18 +178,19 @@ fun TransportBar(
                 speed = settings.speed,
                 hasChapters = hasChapters,
                 sleepTimer = state.sleepTimer,
-                onOpenSpeed = { speedOpen = true },
+                panels = panels,
+                onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
                 // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
-                onOpenChapters = {
+                onOpenChapters = { opener ->
                     if (isNowPlayingOpen &&
                         onFocusChapters != null
                     ) {
                         onFocusChapters()
                     } else {
-                        chaptersOpen = true
+                        panels.chapters = panels.chapters.toggledFrom(opener)
                     }
                 },
-                onOpenSleep = { sleepOpen = true },
+                onOpenSleep = { opener -> panels.sleep = panels.sleep.toggledFrom(opener) },
             )
         }
 
@@ -213,6 +214,16 @@ fun TransportBar(
         onDispose { }
     }
 }
+
+/** Where each of the bar's panels is open, or null when it is closed. */
+private class BarPanels {
+    var speed by mutableStateOf<PanelPlacement?>(null)
+    var sleep by mutableStateOf<PanelPlacement?>(null)
+    var chapters by mutableStateOf<PanelPlacement?>(null)
+}
+
+/** A control's press: closes its panel when open (the opener toggles it), else opens it where [opener] sits. */
+private fun PanelPlacement?.toggledFrom(opener: HTMLElement?): PanelPlacement? = if (this != null) null else panelPlacementFor(opener)
 
 /**
  * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
@@ -339,9 +350,10 @@ private fun SessionControls(
     speed: Float,
     hasChapters: Boolean,
     sleepTimer: SleepTimerState,
-    onOpenSpeed: () -> Unit,
-    onOpenChapters: () -> Unit,
-    onOpenSleep: () -> Unit,
+    panels: BarPanels,
+    onOpenSpeed: (HTMLElement?) -> Unit,
+    onOpenChapters: (HTMLElement?) -> Unit,
+    onOpenSleep: (HTMLElement?) -> Unit,
 ) {
     // Opens the picker rather than cycling. Cycling made one move cheap and every other one
     // expensive — nine rungs meant eight taps to go down one — and could not reach a rate
@@ -352,7 +364,8 @@ private fun SessionControls(
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
         attr(ATTR_TITLE, "Playback speed")
-        onClick { onOpenSpeed() }
+        attr(ATTR_EXPANDED, (panels.speed != null).toString())
+        onClick { event -> onOpenSpeed(event.currentTarget as? HTMLElement) }
     }) { Text("${formatSpeed(speed)}\u00D7") }
 
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
@@ -366,7 +379,8 @@ private fun SessionControls(
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, sleepLabel)
         attr(ATTR_TITLE, sleepLabel)
-        onClick { onOpenSleep() }
+        attr(ATTR_EXPANDED, (panels.sleep != null).toString())
+        onClick { event -> onOpenSleep(event.currentTarget as? HTMLElement) }
     }) {
         Icon(WebIcon.Moon, size = SLEEP_ICON_SIZE)
         if (active != null) {
@@ -384,7 +398,8 @@ private fun SessionControls(
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Chapters")
             attr(ATTR_TITLE, "Chapters")
-            onClick { onOpenChapters() }
+            attr(ATTR_EXPANDED, (panels.chapters != null).toString())
+            onClick { event -> onOpenChapters(event.currentTarget as? HTMLElement) }
         }) { Icon(WebIcon.ListOrdered, size = CHAPTER_ICON_SIZE) }
     }
 }
@@ -688,6 +703,8 @@ private const val ATTR_ARIA_LABEL = "aria-label"
 private const val ATTR_TITLE = "title"
 
 private const val ATTR_ARIA_HIDDEN = "aria-hidden"
+
+private const val ATTR_EXPANDED = "aria-expanded"
 
 private const val ATTR_ROLE = "role"
 

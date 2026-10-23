@@ -227,7 +227,8 @@ class TransportBarTest :
             (host.querySelector(".tport-speed") as HTMLElement).click()
             awaitFrame()
 
-            (host.querySelector(".speed-dlg") as? HTMLDialogElement)?.isModal() shouldBe true
+            // A popover hung from the control (C9): the runner's page is wider than 760px.
+            (host.querySelector(".speed-dlg") as HTMLElement).matches(":popover-open") shouldBe true
             set shouldBe 0
 
             host.closeDialogs()

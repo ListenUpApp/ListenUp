@@ -271,7 +271,8 @@ class BoostBarTest :
             awaitFrame()
 
             set shouldBe 0
-            host.querySelectorAll("dialog.boost-dlg[open]").length shouldBe 1
+            // Beside More, as a popover: the runner's page is wider than 760px (C9).
+            host.querySelectorAll(".boost-dlg.panel-pop").length shouldBe 1
 
             host.closeDialogs()
         }

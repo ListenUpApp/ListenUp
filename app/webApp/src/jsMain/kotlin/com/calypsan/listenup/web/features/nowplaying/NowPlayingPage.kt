@@ -54,6 +54,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlin.js.Date
 import org.w3c.dom.Element
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -223,7 +224,7 @@ fun NowPlayingPage(
         classes("np-page")
         coverThemed(arrival)
     }) {
-        NowPlayingHeader(state, actions) { item ->
+        NowPlayingHeader(state, actions) { item, opener ->
             when (item) {
                 PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
 
@@ -232,7 +233,8 @@ fun NowPlayingPage(
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
 
-                is PlayerMenuItem.VolumeBoost -> pickers.boost = true
+                // From the More trigger: beside it from 760px, a sheet below (C9).
+                is PlayerMenuItem.VolumeBoost -> pickers.boost = panelPlacementFor(opener)
 
                 PlayerMenuItem.CloseBook -> actions.onCloseBookAndLeave()
             }
@@ -282,7 +284,7 @@ private fun WaitingPage(onCollapse: () -> Unit) {
 private fun NowPlayingHeader(
     state: PlayerUiState.Loaded,
     actions: NowPlayingActions,
-    onMenuItem: (PlayerMenuItem) -> Unit,
+    onMenuItem: (PlayerMenuItem, opener: HTMLElement?) -> Unit,
 ) {
     PageHeader(
         title = NowPlayingWords.NOW_PLAYING,
@@ -456,10 +458,10 @@ private fun BookCard(
  * hidden; Volume boost opens from More at every width.
  */
 private class PagePickers {
-    var speed by mutableStateOf(false)
-    var sleep by mutableStateOf(false)
-    var chapters by mutableStateOf(false)
-    var boost by mutableStateOf(false)
+    var speed by mutableStateOf<PanelPlacement?>(null)
+    var sleep by mutableStateOf<PanelPlacement?>(null)
+    var chapters by mutableStateOf<PanelPlacement?>(null)
+    var boost by mutableStateOf<PanelPlacement?>(null)
 }
 
 /** The four pickers, each opened over the page and leaving it underneath when it closes. */
@@ -473,18 +475,18 @@ private fun PagePickerDialogs(
 ) {
     val settings = state.settings
     SpeedPicker(
-        open = pickers.speed,
+        open = pickers.speed != null,
         speed = settings.speed,
         defaultSpeed = settings.defaultSpeed,
         leftAtSpeedMs = progress.bookRemainingAtSpeedMs(settings.speed),
         onSet = actions.onSetSpeed,
         onStep = actions.onStepSpeed,
         onReset = actions.onResetSpeed,
-        placement = PanelPlacement.Sheet,
-        onDismiss = { pickers.speed = false },
+        placement = pickers.speed ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.speed = null },
     )
     SleepTimerPicker(
-        open = pickers.sleep,
+        open = pickers.sleep != null,
         state = state.sleepTimer,
         chapter = state.chapter,
         chapterRemainingMs = progress.chapterRemainingMs,
@@ -493,35 +495,35 @@ private fun PagePickerDialogs(
         nowMs = Date.now().toLong(),
         onSet = { mode ->
             actions.onSetSleepTimer(mode)
-            pickers.sleep = false
+            pickers.sleep = null
         },
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
         onKeepListening = actions.onCancelSleepTimer,
-        placement = PanelPlacement.Sheet,
-        onDismiss = { pickers.sleep = false },
+        placement = pickers.sleep ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.sleep = null },
     )
     ChapterPicker(
-        open = pickers.chapters,
+        open = pickers.chapters != null,
         chapters = state.chapters,
         chapterRemainingMs = progress.chapterRemainingMs,
         bookDurationMs = state.book.durationMs,
         onPick = { index ->
             actions.onSeekToChapter(index)
-            pickers.chapters = false
+            pickers.chapters = null
         },
-        placement = PanelPlacement.Sheet,
-        onDismiss = { pickers.chapters = false },
+        placement = pickers.chapters ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.chapters = null },
     )
     BoostPicker(
-        open = pickers.boost,
+        open = pickers.boost != null,
         boostDb = settings.boostDb,
         defaultBoostDb = settings.defaultBoostDb,
         unavailable = boostUnavailable,
         onSet = actions.onSetBoost,
         onReset = actions.onResetBoost,
-        placement = PanelPlacement.Sheet,
-        onDismiss = { pickers.boost = false },
+        placement = pickers.boost ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.boost = null },
     )
 }
 
@@ -677,13 +679,15 @@ private fun SettingsPills(
     val speed = formatSpeed(state.settings.speed)
     val active = state.sleepTimer as? SleepTimerState.Active
     Div(attrs = { classes("np-pills") }) {
-        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = true }
+        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = panelPlacementFor(it) }
         Pill(
             text = active?.formatRemaining() ?: "Sleep",
             label = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer",
             on = active != null,
-        ) { pickers.sleep = true }
-        if (state.chapters.isNotEmpty()) Pill(text = "Chapters", label = null, on = false) { pickers.chapters = true }
+        ) { pickers.sleep = panelPlacementFor(it) }
+        if (state.chapters.isNotEmpty()) {
+            Pill(text = "Chapters", label = null, on = false) { pickers.chapters = panelPlacementFor(it) }
+        }
     }
 }
 
@@ -692,14 +696,14 @@ private fun Pill(
     text: String,
     label: String?,
     on: Boolean,
-    onClick: () -> Unit,
+    onClick: (opener: HTMLElement?) -> Unit,
 ) {
     Button(attrs = {
         classes("np-pill")
         if (on) classes("on")
         attr(ATTR_TYPE, VALUE_BUTTON)
         label?.let { attr(ATTR_LABEL, it) }
-        onClick { onClick() }
+        onClick { event -> onClick(event.currentTarget as? HTMLElement) }
     }) { Text(text) }
 }
 

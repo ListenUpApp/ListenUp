@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerMenus
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -12,6 +13,7 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.buttonClasses
 import com.calypsan.listenup.web.features.bookdetail.documentUrl
 import org.jetbrains.compose.web.dom.Div
+import org.w3c.dom.HTMLElement
 
 /**
  * Now Playing's "More ▾" (§5.5.7), from the shared [PlayerMenus] so the three platforms list the same rows in the same
@@ -21,8 +23,10 @@ import org.jetbrains.compose.web.dom.Div
 @Composable
 internal fun PlayerMoreMenu(
     state: PlayerUiState.Loaded,
-    onItem: (PlayerMenuItem) -> Unit,
+    /** A chosen row, with the More trigger, which a panel the row opens hangs from (Volume boost, C9). */
+    onItem: (PlayerMenuItem, opener: HTMLElement?) -> Unit,
 ) {
+    val anchor = remember { MoreAnchor() }
     val bookId = state.book.id
     val items =
         PlayerMenus.moreMenu(state, includesSeries = true).flatMap { group ->
@@ -30,7 +34,7 @@ internal fun PlayerMoreMenu(
                 MenuAction(
                     label = item.label(),
                     icon = null,
-                    onSelect = { onItem(item) },
+                    onSelect = { onItem(item, anchor.trigger()) },
                     group = if (group.isDestructive) CLOSE_GROUP else null,
                     destructive = group.isDestructive,
                     href = (item as? PlayerMenuItem.OpenPdf)?.let { documentUrl(bookId, it.documentId) },
@@ -38,7 +42,13 @@ internal fun PlayerMoreMenu(
                 )
             }
         }
-    Div(attrs = { classes("np-more") }) {
+    Div(attrs = {
+        classes("np-more")
+        ref { element ->
+            anchor.element = element
+            onDispose { anchor.element = null }
+        }
+    }) {
         PopupMenu(
             items = items,
             label = NowPlayingWords.moreFor(state.book.title),
@@ -48,6 +58,13 @@ internal fun PlayerMoreMenu(
             trailingIcon = true,
         )
     }
+}
+
+/** The `.np-more` wrapper, captured by `ref`, whose menu trigger a panel opened from More hangs from. */
+private class MoreAnchor {
+    var element: HTMLElement? = null
+
+    fun trigger(): HTMLElement? = element?.querySelector("button[aria-haspopup=menu]") as? HTMLElement
 }
 
 private fun PlayerMenuItem.label(): String =
