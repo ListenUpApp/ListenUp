@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
@@ -340,6 +341,32 @@ class SleepTimerBarTest :
                 }
 
             host.querySelectorAll("[aria-label='Sleep timer']").length shouldBe 1
+        }
+
+        test("an armed end-of-chapter timer reads its real countdown on the bar, not 0:00") {
+            val endOfChapter = SleepTimerState.Active(SleepTimerMode.EndOfChapter, 0, 0, 0)
+            val host =
+                mount {
+                    TransportBar(
+                        state =
+                            loadedPlayerState(
+                                durationMs = 3_600_000,
+                                chapters = chapterRows(3, 1_200_000),
+                                currentChapterIndex = 1,
+                                sleepTimer = endOfChapter,
+                            ),
+                        progress = PlayerProgress(720_000, 1_200_000, 1_920_000, 3_600_000),
+                        onPrimary = {},
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onSetSpeed = {},
+                    )
+                }
+
+            val armed = host.querySelector(".tport-sleep") as HTMLElement
+            armed.textContent shouldBe "8:00"
+            armed.getAttribute("aria-label") shouldBe "Sleep timer, 8:00 left"
         }
 
         test("an armed timer is visible on the bar, not only inside the dialog") {

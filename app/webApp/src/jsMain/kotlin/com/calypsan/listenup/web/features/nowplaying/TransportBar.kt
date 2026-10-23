@@ -178,6 +178,7 @@ fun TransportBar(
                 speed = settings.speed,
                 hasChapters = hasChapters,
                 sleepTimer = state.sleepTimer,
+                sleepCountdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
                 panels = panels,
                 onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
                 // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
@@ -350,6 +351,8 @@ private fun SessionControls(
     speed: Float,
     hasChapters: Boolean,
     sleepTimer: SleepTimerState,
+    /** The armed timer's wall-clock countdown (`SleepCountdowns`): an end-of-chapter timer's included, never 0:00. */
+    sleepCountdownMs: Long?,
     panels: BarPanels,
     onOpenSpeed: (HTMLElement?) -> Unit,
     onOpenChapters: (HTMLElement?) -> Unit,
@@ -371,11 +374,11 @@ private fun SessionControls(
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
     // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
     // armed by having the book stop is the one way this feature can feel broken rather than kind.
-    val active = sleepTimer as? SleepTimerState.Active
-    val sleepLabel = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer"
+    val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(NowPlayingWords::countdown)
+    val sleepLabel = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer"
     Button(attrs = {
         classes("tport-sleep")
-        if (active != null) classes("armed")
+        if (countdown != null) classes("armed")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, sleepLabel)
         attr(ATTR_TITLE, sleepLabel)
@@ -383,8 +386,8 @@ private fun SessionControls(
         onClick { event -> onOpenSleep(event.currentTarget as? HTMLElement) }
     }) {
         Icon(WebIcon.Moon, size = SLEEP_ICON_SIZE)
-        if (active != null) {
-            Span(attrs = { attr(ATTR_ARIA_HIDDEN, VALUE_TRUE) }) { Text(active.formatRemaining()) }
+        if (countdown != null) {
+            Span(attrs = { attr(ATTR_ARIA_HIDDEN, VALUE_TRUE) }) { Text(countdown) }
         }
     }
 

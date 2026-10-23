@@ -557,7 +557,7 @@ private fun PhoneControls(
         }
         // The card takes the transport's place, and only the transport's (C5): the book and the settings stay.
         if (card != null) StateCard(card, state.book.id, actions) else PhoneTransport(state, actions)
-        SettingsPills(state, pickers)
+        SettingsPills(state, progress, pickers)
     }
 }
 
@@ -674,16 +674,19 @@ private fun SkipButton(
 @Composable
 private fun SettingsPills(
     state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
     pickers: PagePickers,
 ) {
     val speed = formatSpeed(state.settings.speed)
-    val active = state.sleepTimer as? SleepTimerState.Active
+    // The wall-clock countdown every surface shares (SleepCountdowns): an end-of-chapter timer's too, never 0:00.
+    val countdown =
+        SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(NowPlayingWords::countdown)
     Div(attrs = { classes("np-pills") }) {
         Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = panelPlacementFor(it) }
         Pill(
-            text = active?.formatRemaining() ?: "Sleep",
-            label = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer",
-            on = active != null,
+            text = countdown ?: "Sleep",
+            label = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer",
+            on = countdown != null,
         ) { pickers.sleep = panelPlacementFor(it) }
         if (state.chapters.isNotEmpty()) {
             Pill(text = "Chapters", label = null, on = false) { pickers.chapters = panelPlacementFor(it) }
