@@ -38,7 +38,8 @@ private const val LARGE_FONT_SCALE = 1.5f
 /**
  * This book's settings (spec §3.1.5, §5.2): Speed (with the rate) · Sleep · Chapters · Cast, one standard button group
  * of tonal buttons (m3.material.io/components/button-groups: standard groups for rows of actions). Each opens a sheet;
- * Cast opens the system route dialog and hides itself with no devices. At large font scale it wraps (§5.2).
+ * Cast opens the system route dialog and hides itself with no devices; while casting it names the device ([castingTo],
+ * §5.5.6). At large font scale it wraps (§5.2).
  * [showsChapters] is false where the chapter list is always visible.
  */
 @Suppress("LongParameterList") // one callback per control the board draws
@@ -47,6 +48,7 @@ private const val LARGE_FONT_SCALE = 1.5f
 fun PlayerSettingsRow(
     speed: Float,
     sleepTimer: SleepTimerState,
+    castingTo: String?,
     showsChapters: Boolean,
     onSpeedClick: () -> Unit,
     onSleepClick: () -> Unit,
@@ -79,7 +81,9 @@ fun PlayerSettingsRow(
             Icon(Icons.AutoMirrored.Filled.List, contentDescription = chaptersName)
         }
     }
-    val castButton: @Composable () -> Unit = { CastButton(modifier = Modifier.size(MinTouchTarget)) }
+    val castButton: @Composable () -> Unit = {
+        CastButton(connectedDeviceName = castingTo, modifier = Modifier.size(MinTouchTarget))
+    }
     val controls =
         listOfNotNull(
             speedButton,

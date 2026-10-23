@@ -33,6 +33,7 @@ class PlayerSettingsRowTest {
                 PlayerSettingsRow(
                     speed = 1.25f,
                     sleepTimer = sleep,
+                    castingTo = null,
                     showsChapters = showsChapters,
                     onSpeedClick = { opened += "speed" },
                     onSleepClick = { opened += "sleep" },

@@ -4,6 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-actual fun CastButton(modifier: Modifier) {
+actual fun CastButton(
+    connectedDeviceName: String?,
+    modifier: Modifier,
+) {
     // Cast is Android-only; render nothing on Desktop.
 }
