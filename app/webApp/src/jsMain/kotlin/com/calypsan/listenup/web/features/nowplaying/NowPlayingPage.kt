@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
@@ -51,6 +52,7 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlin.js.Date
 import org.w3c.dom.Element
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
@@ -484,13 +486,18 @@ private fun PagePickerDialogs(
     SleepTimerPicker(
         open = pickers.sleep,
         state = state.sleepTimer,
-        hasChapters = state.chapters.isNotEmpty(),
+        chapter = state.chapter,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        countdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
+        meterFraction = SleepCountdowns.meterFraction(state.sleepTimer, progress),
+        nowMs = Date.now().toLong(),
         onSet = { mode ->
             actions.onSetSleepTimer(mode)
             pickers.sleep = false
         },
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
+        onKeepListening = actions.onCancelSleepTimer,
         placement = PanelPlacement.Sheet,
         onDismiss = { pickers.sleep = false },
     )

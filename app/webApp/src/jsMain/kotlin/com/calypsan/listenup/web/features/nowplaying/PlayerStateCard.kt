@@ -53,7 +53,7 @@ internal fun PlayerStateCard(
  * is happening, and one button, Keep listening. `role=status`, polite: nothing failed.
  */
 @Composable
-private fun SleepFadingCard(onAction: (PlayerCardAction) -> Unit) {
+internal fun SleepFadingCard(onAction: (PlayerCardAction) -> Unit) {
     Div(attrs = {
         classes("np-card", "sleep")
         attr("role", "status")

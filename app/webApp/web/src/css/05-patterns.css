@@ -170,31 +170,46 @@
 .chap-at { flex-shrink: 0; font-size: var(--fs-small); color: var(--ink-3); }
 .chap-row.on .chap-at { color: var(--coral-text); }
 
-/* ---- sleep timer ---- */
+/* ---- sleep timer (PT1–PT8, `Sheets-WebPhone`) ---- */
 .sleep-dlg { max-width: 420px; width: min(420px, calc(100vw - 32px)); }
-.sleep-opts { display: flex; flex-wrap: wrap; gap: var(--sp-8); margin: 14px 0; }
-.sleep-opt {
-  padding: var(--sp-8) 15px; border: 1px solid var(--line); border-radius: var(--r-pill); cursor: pointer;
-  background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-ui); font-weight: 600;
-}
-@media (hover: hover) { .sleep-opt:hover { background: var(--surface-2); border-color: var(--ink-3); } }
-.sleep-opt:active { transform: translateY(1px); }
+/* End of chapter: first and largest, in the sleep gold (§3.9), saying which chapter and how long. */
 .sleep-eoc {
-  display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left;
-  padding: var(--sp-12) 14px; border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer;
-  background: var(--surface-2); color: var(--ink); font: inherit;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 64px; text-align: left;
+  padding: 10px 14px; border: none; border-radius: 14px; cursor: pointer;
+  background: var(--sleep-container); color: var(--sleep-ink); font: inherit;
 }
-@media (hover: hover) { .sleep-eoc:hover { border-color: var(--coral); } }
+@media (hover: hover) { .sleep-eoc:hover { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sleep-ink) 30%, transparent); } }
 .sleep-eoc:active { transform: scale(0.985); }
-.sleep-eoc-t { font-size: var(--fs-ui); font-weight: 700; }
-.sleep-eoc-s { font-size: var(--fs-small); color: var(--ink-3); }
-/* The countdown. Tabular figures so the digits do not jitter sideways once a second — the number
-   is being watched by someone trying to fall asleep. */
-.sleep-left {
-  margin: var(--sp-16) 0 var(--sp-4); font-size: 1.875rem; font-weight: 700; letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+.sleep-eoc-t { font-size: 1rem; font-weight: 700; }
+.sleep-eoc-s { font-size: var(--fs-small); }
+.sleep-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-8); }
+.sleep-opt {
+  min-height: 48px; padding: 0 var(--sp-8); border: 1px solid var(--outline); border-radius: var(--r-pill); cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-ui); font-weight: 600;
 }
-.sleep-fade { margin: var(--sp-16) 0; font-size: var(--fs-ui); color: var(--ink-3); }
+@media (hover: hover) { .sleep-opt:hover { background: var(--surface-2); } }
+.sleep-opt:active { transform: translateY(1px); }
+.sleep-custom { display: flex; align-items: flex-end; gap: var(--sp-8); }
+.sleep-custom-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-small); font-weight: 600; color: var(--ink); }
+.sleep-custom-in {
+  box-sizing: border-box; width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--outline); border-radius: 10px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 1rem;
+}
+/* The countdown. Tabular figures so the digits do not jitter sideways once a second — the number is being watched by
+   someone trying to fall asleep. */
+.sleep-left { margin: 0; font-size: 3.75rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sleep-pauses { margin: 0; font-size: var(--fs-ui); color: var(--ink-2); }
+/* What is left, in gold, on the panel's inset track. */
+.sleep-meter { height: 10px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.sleep-meter-fill { height: 100%; border-radius: inherit; background: var(--sleep-meter); }
+.sleep-cancel {
+  min-height: 48px; border: none; border-radius: var(--r-pill); cursor: pointer;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 0.9375rem; font-weight: 700;
+}
+@media (hover: hover) { .sleep-cancel:hover { background: var(--surface-3); } }
+.sleep-cancel:active { transform: translateY(1px); }
+/* The fade's card inside the panel: the same gold card Now Playing shows. */
+.sleep-dlg .np-card { margin: 0; }
 /* ---- playback speed (PS1–PS5, `Sheets-WebPhone`) ---- */
 .speed-dlg { max-width: 460px; width: min(460px, calc(100vw - 32px)); }
 .speed-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4) var(--sp-12); }

@@ -32,6 +32,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.js.Date
 import kotlin.math.roundToInt
 
 /**
@@ -103,13 +104,18 @@ fun TransportBar(
     SleepTimerPicker(
         open = sleepOpen,
         state = state.sleepTimer,
-        hasChapters = hasChapters,
+        chapter = state.chapter,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        countdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
+        meterFraction = SleepCountdowns.meterFraction(state.sleepTimer, progress),
+        nowMs = Date.now().toLong(),
         onSet = { mode ->
             onSetSleepTimer(mode)
             sleepOpen = false
         },
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
+        onKeepListening = onCancelSleepTimer,
         placement = PanelPlacement.Sheet,
         onDismiss = { sleepOpen = false },
     )
