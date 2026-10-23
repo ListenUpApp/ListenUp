@@ -37,12 +37,14 @@ internal fun BoostPicker(
     unavailable: Boolean,
     onSet: (Float) -> Unit,
     onReset: () -> Unit,
+    placement: PanelPlacement,
     onDismiss: () -> Unit,
 ) {
-    PlayerDialog(
+    PlayerPanel(
         open = open,
         title = "Volume boost",
         panelClass = "boost-dlg",
+        placement = placement,
         onDismiss = onDismiss,
     ) {
         P(attrs = {

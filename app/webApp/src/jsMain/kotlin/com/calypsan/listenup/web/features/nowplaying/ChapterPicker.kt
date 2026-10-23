@@ -18,7 +18,7 @@ import org.w3c.dom.HTMLElement
  * player to a surface it otherwise has no reason to know about. A name and somewhere to land is the
  * whole requirement. The rows, and which one is current, are the shared model's.
  *
- * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerDialog], shared
+ * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerPanel], shared
  * with every other player panel.
  */
 @Composable
@@ -26,12 +26,14 @@ internal fun ChapterPicker(
     open: Boolean,
     chapters: List<PlayerChapterRow>,
     onPick: (Int) -> Unit,
+    placement: PanelPlacement,
     onDismiss: () -> Unit,
 ) {
-    PlayerDialog(
+    PlayerPanel(
         open = open,
         title = "Chapters",
         panelClass = "chap-dlg",
+        placement = placement,
         onDismiss = onDismiss,
     ) {
         Div(attrs = { classes("chap-list") }) {

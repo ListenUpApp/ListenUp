@@ -46,6 +46,7 @@ internal fun SpeedPicker(
     defaultSpeed: Float,
     onSet: (Float) -> Unit,
     onReset: () -> Unit,
+    placement: PanelPlacement,
     onDismiss: () -> Unit,
 ) {
     // Seeded from `speed` and re-seeded whenever it changes, so the readout tracks the drag at
@@ -53,10 +54,11 @@ internal fun SpeedPicker(
     // would push a rate change into the decoder per pointer sample.
     var dragSpeed by remember(speed) { mutableStateOf(speed) }
 
-    PlayerDialog(
+    PlayerPanel(
         open = open,
         title = "Playback speed",
         panelClass = "speed-dlg",
+        placement = placement,
         onDismiss = onDismiss,
     ) {
         P(attrs = {

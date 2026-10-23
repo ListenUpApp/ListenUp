@@ -473,6 +473,7 @@ private fun PagePickerDialogs(
         defaultSpeed = settings.defaultSpeed,
         onSet = actions.onSetSpeed,
         onReset = actions.onResetSpeed,
+        placement = PanelPlacement.Sheet,
         onDismiss = { pickers.speed = false },
     )
     SleepTimerPicker(
@@ -485,6 +486,7 @@ private fun PagePickerDialogs(
         },
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
+        placement = PanelPlacement.Sheet,
         onDismiss = { pickers.sleep = false },
     )
     ChapterPicker(
@@ -494,6 +496,7 @@ private fun PagePickerDialogs(
             actions.onSeekToChapter(index)
             pickers.chapters = false
         },
+        placement = PanelPlacement.Sheet,
         onDismiss = { pickers.chapters = false },
     )
     BoostPicker(
@@ -503,6 +506,7 @@ private fun PagePickerDialogs(
         unavailable = boostUnavailable,
         onSet = actions.onSetBoost,
         onReset = actions.onResetBoost,
+        placement = PanelPlacement.Sheet,
         onDismiss = { pickers.boost = false },
     )
 }

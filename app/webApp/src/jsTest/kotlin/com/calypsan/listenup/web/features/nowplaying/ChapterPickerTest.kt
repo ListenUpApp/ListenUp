@@ -56,6 +56,7 @@ class ChapterPickerTest :
                         open = open,
                         chapters = chapters,
                         onPick = onPick,
+                        placement = PanelPlacement.Sheet,
                         onDismiss = onDismiss,
                     )
                 }
@@ -139,7 +140,7 @@ class ChapterPickerTest :
             val host = picker()
             val dialog = host.querySelector("dialog.dlg.chap-dlg") as HTMLDialogElement
 
-            val heading = dialog.querySelector(".dlg-body > .dlg-t") as HTMLElement
+            val heading = dialog.querySelector(".dlg-head > .dlg-t") as HTMLElement
             dialog.getAttribute("aria-labelledby") shouldBe heading.id
 
             host.closeDialogs()

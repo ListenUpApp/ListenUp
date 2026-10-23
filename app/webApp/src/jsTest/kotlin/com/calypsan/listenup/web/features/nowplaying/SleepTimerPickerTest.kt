@@ -67,6 +67,7 @@ class SleepTimerPickerTest :
                         onSet = onSet,
                         onCancel = onCancel,
                         onExtend = onExtend,
+                        placement = PanelPlacement.Sheet,
                         onDismiss = onDismiss,
                     )
                 }

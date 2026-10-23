@@ -34,6 +34,10 @@ import org.w3c.dom.events.Event
  * [showTitle] false is for a surface whose field says what it is (the command palette): the title
  * then names the dialog through `aria-label` instead of a heading nobody sees.
  *
+ * [extraClass] is a second class that does not name the heading's id: a variant of the panel's look, such as the
+ * player's bottom sheet (`panel-sheet`). [headerAction] shares a row with the heading (`.dlg-head`), for a panel whose
+ * way out sits beside its title rather than at its foot.
+ *
  * Closing hands focus back to whatever opened it — Cancel, Escape and the confirming verb alike. The
  * dialog is torn down rather than closed in place, so the browser's own restore never runs, and focus
  * fell to `<body>`: the reader's next Tab started again from the top of the page. When the opener has
@@ -46,6 +50,8 @@ fun ModalDialog(
     onDismiss: () -> Unit,
     panelClass: String? = null,
     showTitle: Boolean = true,
+    extraClass: String? = null,
+    headerAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     if (!open) return
@@ -55,6 +61,7 @@ fun ModalDialog(
     Dialog(attrs = {
         classes("dlg")
         panelClass?.let { classes(it) }
+        extraClass?.let { classes(it) }
         if (showTitle) attr("aria-labelledby", titleId) else attr("aria-label", title)
         ref { element ->
             val dialog = element as HTMLDialogElement
@@ -72,11 +79,27 @@ fun ModalDialog(
         }
     }) {
         Div(attrs = { classes("dlg-body") }) {
-            if (showTitle) {
+            val heading: @Composable () -> Unit = {
                 H2(attrs = {
                     classes("dlg-t")
                     attr("id", titleId)
                 }) { Text(title) }
+            }
+            when {
+                showTitle && headerAction != null -> {
+                    Div(attrs = { classes("dlg-head") }) {
+                        heading()
+                        headerAction()
+                    }
+                }
+
+                showTitle -> {
+                    heading()
+                }
+
+                else -> {
+                    headerAction?.invoke()
+                }
             }
             content()
         }

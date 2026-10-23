@@ -24,7 +24,7 @@ import org.jetbrains.compose.web.dom.Text
  * in the browser this morning. `SleepTimerMode.Duration.label` renders them, so "120" reads as
  * "2 hours" here exactly as it does there.
  *
- * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerDialog], shared
+ * The modal shell — focus trap, inert page, Escape-to-close — comes from [PlayerPanel], shared
  * with every other player panel.
  */
 @Composable
@@ -35,12 +35,14 @@ internal fun SleepTimerPicker(
     onSet: (SleepTimerMode) -> Unit,
     onCancel: () -> Unit,
     onExtend: (Int) -> Unit,
+    placement: PanelPlacement,
     onDismiss: () -> Unit,
 ) {
-    PlayerDialog(
+    PlayerPanel(
         open = open,
         title = "Sleep timer",
         panelClass = "sleep-dlg",
+        placement = placement,
         onDismiss = onDismiss,
     ) {
         when (state) {

@@ -96,6 +96,7 @@ fun TransportBar(
             onSeekToChapter(index)
             chaptersOpen = false
         },
+        placement = PanelPlacement.Sheet,
         onDismiss = { chaptersOpen = false },
     )
     SleepTimerPicker(
@@ -108,6 +109,7 @@ fun TransportBar(
         },
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
+        placement = PanelPlacement.Sheet,
         onDismiss = { sleepOpen = false },
     )
     SpeedPicker(
@@ -116,6 +118,7 @@ fun TransportBar(
         defaultSpeed = settings.defaultSpeed,
         onSet = onSetSpeed,
         onReset = onResetSpeed,
+        placement = PanelPlacement.Sheet,
         onDismiss = { speedOpen = false },
     )
     BoostPicker(
@@ -125,6 +128,7 @@ fun TransportBar(
         unavailable = boostUnavailable,
         onSet = onSetBoost,
         onReset = onResetBoost,
+        placement = PanelPlacement.Sheet,
         onDismiss = { boostOpen = false },
     )
 

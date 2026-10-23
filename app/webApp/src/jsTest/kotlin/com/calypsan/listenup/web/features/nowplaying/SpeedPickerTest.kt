@@ -64,6 +64,7 @@ class SpeedPickerTest :
                         defaultSpeed = defaultSpeed,
                         onSet = onSet,
                         onReset = onReset,
+                        placement = PanelPlacement.Sheet,
                         onDismiss = onDismiss,
                     )
                 }

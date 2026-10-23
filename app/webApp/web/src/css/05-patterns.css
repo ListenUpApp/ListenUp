@@ -243,6 +243,27 @@ dialog.dlg .dlg-close { align-self: flex-start; }
 .boost-opt.on { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-text); }
 .boost-reset { margin-top: 14px; }
 
+/* ---- player panels (§3.8): one shell, two placements ---- */
+/* A heading with its way out beside it (`Sheets-WebPhone`): Close shares the title's row. */
+.dlg-head { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-12); }
+.dlg-head .dlg-t { min-width:0; }
+/* The phone page's bottom sheet: docked, full width, rounded on top, and scrolling inside itself so 200% text never
+   pushes a control off the bottom of the screen. */
+dialog.dlg.panel-sheet {
+  margin:auto 0 0; width:100%; max-width:100%; max-height:calc(100dvh - 48px); overflow-y:auto;
+  border-radius:20px 20px 0 0;
+}
+/* The bar's popover: in the top layer, placed by placeAgainst (TopLayer.kt), which also caps its height. */
+div.panel-pop {
+  position:fixed; inset:auto; margin:0; z-index:45; box-sizing:border-box;
+  width:min(380px, calc(100vw - 16px)); max-width:calc(100vw - 16px); overflow-y:auto;
+  display:flex; flex-direction:column; gap:0.7rem; padding:16px 20px 20px;
+  color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-xl);
+  box-shadow:var(--shadow-pop);
+}
+/* Every control in a panel is a full 44px target, on a mouse as on a finger (§8). */
+.panel-sheet .btn, .panel-pop .btn { min-height:44px; }
+
 /* ---- banners ---- */
 .banner { display:flex; align-items:center; gap:11px; padding:0 var(--sp-16); min-height:44px; font-size:var(--fs-ui); font-weight:600; border-bottom:1px solid; }
 .banner.warn { background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 22%, var(--warn-soft)); }

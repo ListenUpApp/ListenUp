@@ -61,6 +61,7 @@ class BoostPickerTest :
                         unavailable = unavailable,
                         onSet = onSet,
                         onReset = onReset,
+                        placement = PanelPlacement.Sheet,
                         onDismiss = onDismiss,
                     )
                 }
