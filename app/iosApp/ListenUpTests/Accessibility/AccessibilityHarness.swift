@@ -127,15 +127,31 @@ final class HostedView {
         return element.accessibilityActivate()
     }
 
-    private func element(labelled label: String, in object: NSObject, seen: inout Set<ObjectIdentifier>) -> NSObject? {
+    /// Raises the first adjustable stop labelled `label` one step, as VoiceOver's swipe up would, and reports whether one
+    /// was found.
+    @discardableResult
+    func increment(adjustableLabelled label: String) -> Bool {
+        var seen = Set<ObjectIdentifier>()
+        guard let element = element(labelled: label, in: window, seen: &seen, adjustable: true) else { return false }
+        element.accessibilityIncrement()
+        return true
+    }
+
+    private func element(
+        labelled label: String, in object: NSObject, seen: inout Set<ObjectIdentifier>, adjustable: Bool = false
+    ) -> NSObject? {
         guard seen.insert(ObjectIdentifier(object)).inserted else { return nil }
         if let view = object as? UIView, view.isHidden || view.alpha == 0 { return nil }
         if object.accessibilityElementsHidden { return nil }
-        if object.isAccessibilityElement { return object.accessibilityLabel == label ? object : nil }
+        if object.isAccessibilityElement {
+            let matches = object.accessibilityLabel == label
+                && (!adjustable || object.accessibilityTraits.contains(.adjustable))
+            return matches ? object : nil
+        }
         let children = accessibilityChildren(of: object)
         let next = children.isEmpty ? ((object as? UIView)?.subviews ?? []) : children
         for child in next {
-            if let found = element(labelled: label, in: child, seen: &seen) { return found }
+            if let found = element(labelled: label, in: child, seen: &seen, adjustable: adjustable) { return found }
         }
         return nil
     }

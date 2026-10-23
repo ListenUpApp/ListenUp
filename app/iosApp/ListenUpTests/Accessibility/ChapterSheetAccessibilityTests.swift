@@ -17,10 +17,10 @@ struct ChapterSheetAccessibilityTests {
         chapterPositionMs: 20_000, chapterDurationMs: 60_000, bookPositionMs: 38 * 60_000 + 20_000,
         bookDurationMs: 68 * 60_000))
 
-    private func host() async -> HostedView {
+    private func host(appearance: UIUserInterfaceStyle = .light) async -> HostedView {
         await HostedView(
             ChapterListSheet(observer: .detached(Self.state, progress: Self.progress), onDismiss: {}),
-            size: CGSize(width: 393, height: 852))
+            size: CGSize(width: 393, height: 852), appearance: appearance)
     }
 
     private var left: String { MiniPlayerAccessoryModel.shortDuration(ms: 40_000) }
@@ -68,5 +68,38 @@ struct ChapterSheetAccessibilityTests {
     @Test func theCurrentRowShowsNowPlayingAndItsTimeLeft() {
         #expect(ChapterRow.currentLine(remainingMs: 40_000)
             == String(format: String(localized: "player.sheet_playing_left_ios"), left))
+    }
+
+    /// Every row's number, duration and play glyph, and the current row's "Now Playing · …" line, read as text on the row
+    /// they sit on, light and dark (HIG, Accessibility: 4.5:1 for text; the glyph shares the duration's ink).
+    @Test(arguments: [UIUserInterfaceStyle.light, .dark])
+    func everyRowsQuietTextReadsOnItsRow(appearance: UIUserInterfaceStyle) async throws {
+        let hosted = await host(appearance: appearance)
+        defer { hosted.close() }
+        await hosted.settle()
+        let next = String(format: String(localized: "player.sheet_chapter_play_from"), 40, "Chapter 40", "1:00")
+        let other = try #require(hosted.stop(labelled: next), "\(hosted.tree)")
+        let current = try #require(hosted.stop(labelled: currentLabel), "\(hosted.tree)")
+        let drawn = DrawnContrast(hosted)
+        let style = appearance.rawValue
+        for (name, row) in [("other", other.frame), ("current", current.frame)] {
+            let number = CGRect(x: row.minX, y: row.minY, width: 46, height: row.height)
+            let trailing = CGRect(x: row.maxX - 120, y: row.minY, width: 120, height: row.height)
+            for (part, rect) in [("number", number), ("duration and glyph", trailing)] {
+                let lines = drawn.textLines(in: rect)
+                #expect(!lines.isEmpty, "\(name) \(part) drew nothing")
+                for line in lines {
+                    #expect(line >= ContrastMinimum.text, "\(name) \(part) \(line) in \(style)")
+                }
+            }
+        }
+        let middle = CGRect(
+            x: current.frame.minX + 50, y: current.frame.minY, width: current.frame.width - 180,
+            height: current.frame.height)
+        let lines = drawn.textLines(in: middle)
+        #expect(lines.count >= 2, "\(lines)")
+        if let playingLine = lines.last {
+            #expect(playingLine >= ContrastMinimum.text, "now playing line \(playingLine) in \(style)")
+        }
     }
 }

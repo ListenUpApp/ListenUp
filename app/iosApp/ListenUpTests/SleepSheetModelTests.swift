@@ -24,10 +24,12 @@ struct SleepSheetModelTests {
         phase: any PlayerPhase = PlayerPhasePlaying.shared,
         sleepTimer: any SleepTimerState = SleepTimerStateInactive.shared,
         wholeBook: Bool = false,
-        speed: Float = 1.0
+        speed: Float = 1.0,
+        chapterTitle: String = "Bridge Four",
+        numberOffset: Int = 0
     ) -> PlayerUiStateLoaded {
         .fixture(phase: phase, currentIndex: 5, wholeBook: wholeBook, sleepTimer: sleepTimer,
-                 chapterTitle: "Bridge Four", chapterDurationMs: 1_200_000, speed: speed)
+                 chapterTitle: chapterTitle, chapterDurationMs: 1_200_000, speed: speed, numberOffset: numberOffset)
     }
 
     static func model(_ state: PlayerUiStateLoaded) -> SleepSheetModel {
@@ -45,6 +47,13 @@ struct SleepSheetModelTests {
         #expect(Self.model(Self.state()).mode == .choosing(endOfChapter: "After Bridge Four · in \(systemMinutes(8))"))
         #expect(Self.model(Self.state(speed: 2.0)).mode
             == .choosing(endOfChapter: "After Bridge Four · in \(systemMinutes(8))"))
+    }
+
+    @Test("an untitled chapter is named by the book's own number, not its position")
+    func untitledChapterUsesItsNumber() {
+        // The sixth chapter in the list, numbered 8 by the book (front matter before it).
+        #expect(Self.model(Self.state(chapterTitle: "", numberOffset: 2)).mode
+            == .choosing(endOfChapter: "After Chapter 8 · in \(systemMinutes(8))"))
     }
 
     @Test("a chapterless book has no End of Chapter")
@@ -128,17 +137,69 @@ struct SleepSheetAccessibilityTests {
         }
     }
 
-    @Test func theCustomStepperIsFullTargetsAndStartSendsItsMinutes() async throws {
+    @Test func theCustomTimeIsOneAdjustableStopAndStartSendsItsMinutes() async throws {
         let calls = Calls()
         let hosted = await host(SleepSheetModelTests.state(), calls: calls)
         defer { hosted.close() }
-        for key in ["player.sheet_custom_less", "player.sheet_custom_more"] {
-            let stop = try #require(hosted.stop(labelled: String(localized: String.LocalizationValue(key))),
-                                    "\(hosted.tree)")
-            #expect(stop.frame.width >= 44 && stop.frame.height >= 44, "\(key): \(stop.frame)")
-        }
+        let minutes = { (value: Int) in String(format: String(localized: "player.sheet_custom_minutes"), value) }
+        let custom = try #require(hosted.stops.first { $0.traits.contains(.adjustable) }, "\(hosted.tree)")
+        #expect(custom.label == String(localized: "player.sheet_custom"))
+        #expect(custom.value == minutes(20))
+        #expect(custom.frame.height >= 44, "\(custom.frame)")
+        #expect(hosted.increment(adjustableLabelled: custom.label))
+        await hosted.settle()
+        let raised = try #require(hosted.stops.first { $0.traits.contains(.adjustable) }, "\(hosted.tree)")
+        #expect(raised.value == minutes(25))
         #expect(hosted.activate(labelled: String(localized: "player.sheet_start")))
-        #expect(calls.started == [20])
+        #expect(calls.started == [25])
+    }
+
+    /// End of Chapter's subtitle is read as text on its row, light and dark (HIG, Accessibility: 4.5:1).
+    @Test(arguments: [UIUserInterfaceStyle.light, .dark])
+    func endOfChapterSubtitleReadsOnItsRow(appearance: UIUserInterfaceStyle) async throws {
+        let actions = SleepSheetActions(
+            endOfChapter: {}, minutes: { _ in }, start: { _ in }, extend: { _ in }, turnOff: {}, keepListening: {})
+        let hosted = await HostedView(
+            SleepSheetContent(model: SleepSheetModelTests.model(SleepSheetModelTests.state()), actions: actions),
+            appearance: appearance)
+        defer { hosted.close() }
+        let row = try #require(
+            hosted.stops.first { $0.label.hasPrefix(String(localized: "player.sheet_end_of_chapter_ios")) },
+            "\(hosted.tree)")
+        let lines = DrawnContrast(hosted).textLines(in: row.frame)
+        #expect(lines.count >= 2, "\(lines)")
+        if let subtitle = lines.last {
+            #expect(subtitle >= ContrastMinimum.text, "subtitle \(subtitle) in \(appearance.rawValue)")
+        }
+    }
+
+    /// Starting a timer moves you on, so the sheet closes; turning one off keeps it open for another choice (§3.8, S13).
+    @Test func startingATimerClosesTheSheetAndTurningItOffDoesNot() async throws {
+        let shown = PresentedFlag()
+        let actions = SleepSheetActions(
+            endOfChapter: {}, minutes: { _ in }, start: { _ in }, extend: { _ in }, turnOff: {}, keepListening: {})
+        let choosing = await HostedView(SheetPresenter(flag: shown) {
+            SleepSheetContent(model: SleepSheetModelTests.model(SleepSheetModelTests.state()), actions: actions)
+        })
+        await choosing.settle()
+        #expect(choosing.activate(labelled: String(localized: "player.sheet_start")), "\(choosing.tree)")
+        await choosing.settle()
+        #expect(!shown.isPresented)
+        choosing.close()
+
+        let timer = SleepTimerStateActive(
+            mode: SleepTimerModeDuration(minutes: 30), remainingMs: 1_421_000, totalMs: 1_800_000, startedAt: 0)
+        let stays = PresentedFlag()
+        let running = await HostedView(SheetPresenter(flag: stays) {
+            SleepSheetContent(
+                model: SleepSheetModelTests.model(SleepSheetModelTests.state(sleepTimer: timer)), actions: actions)
+        })
+        defer { running.close() }
+        await running.settle()
+        #expect(running.activate(labelled: String(localized: "player.sheet_turn_off_timer_ios")), "\(running.tree)")
+        #expect(running.activate(labelled: String(format: String(localized: "player.extend_minutes"), 5)))
+        await running.settle()
+        #expect(stays.isPresented)
     }
 
     @Test func atAccessibilitySizesChoosingScrolls() async {
@@ -168,5 +229,22 @@ struct SleepSheetAccessibilityTests {
         defer { hosted.close() }
         #expect(hosted.activate(labelled: String(localized: "player.mini_keep_listening_ios")), "\(hosted.tree)")
         #expect(calls.keptListening == 1)
+    }
+}
+
+/// Whether a test's sheet is still presented: what a `dismiss()` from inside it flips.
+@MainActor
+@Observable
+final class PresentedFlag {
+    var isPresented = true
+}
+
+/// Presents `content` as a sheet from a blank page, the way Now Playing presents the player's sheets.
+struct SheetPresenter<Content: View>: View {
+    @Bindable var flag: PresentedFlag
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        Color.clear.sheet(isPresented: $flag.isPresented) { content() }
     }
 }
