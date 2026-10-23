@@ -96,7 +96,7 @@ internal fun PlayerPanel(
 @Composable
 private fun CloseButton(onDismiss: () -> Unit) {
     Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }, attrs = { classes("dlg-close") }) {
-        Text(NowPlayingWords.CLOSE)
+        Text(PlayerSheetWords.CLOSE)
     }
 }
 

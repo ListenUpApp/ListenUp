@@ -404,7 +404,7 @@ private fun People(
                             icon = null,
                             onSelect = { onOpenContributor(person.id) },
                             href = Routes.Contributor.detail(person.id).toUrl(),
-                            detail = NowPlayingWords.books(person.bookCount),
+                            detail = PlayerSheetWords.books(person.bookCount),
                         )
                     },
                 label = text,
@@ -680,7 +680,7 @@ private fun SettingsPills(
     val speed = formatSpeed(state.settings.speed)
     // The wall-clock countdown every surface shares (SleepCountdowns): an end-of-chapter timer's too, never 0:00.
     val countdown =
-        SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(NowPlayingWords::countdown)
+        SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(PlayerSheetWords::countdown)
     Div(attrs = { classes("np-pills") }) {
         Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { opener ->
             pickers.speed = panelPlacementFor(opener)

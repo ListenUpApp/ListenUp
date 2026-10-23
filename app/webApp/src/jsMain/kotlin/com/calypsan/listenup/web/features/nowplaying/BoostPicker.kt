@@ -41,7 +41,7 @@ internal fun BoostPicker(
 ) {
     PlayerPanel(
         open = open,
-        title = NowPlayingWords.VOLUME_BOOST,
+        title = PlayerSheetWords.VOLUME_BOOST,
         panelClass = "boost-dlg",
         placement = placement,
         onDismiss = onDismiss,
@@ -57,7 +57,7 @@ internal fun BoostPicker(
         // Radios in one connected row (`Sheets-WebPhone`): which boost is in force is a choice of one, and a screen
         // reader says so. Picking one leaves the panel open (PB5), so the listener hears the difference.
         ChipRadioGroup(
-            label = NowPlayingWords.BOOST_LEVEL,
+            label = PlayerSheetWords.BOOST_LEVEL,
             options = VolumeBoostLimits.PRESETS_DB.map { ChipOption(it, boostLevel(it)) },
             selected = boostDb,
             onSelect = onSet,
@@ -66,7 +66,7 @@ internal fun BoostPicker(
             optionClass = "boost-opt",
         )
 
-        P(attrs = { classes("panel-note") }) { Text(NowPlayingWords.BOOST_NOTE) }
+        P(attrs = { classes("panel-note") }) { Text(PlayerSheetWords.BOOST_NOTE) }
 
         if (unavailable) {
             // `role="alert"`, because it appears in response to the tap that just failed rather
@@ -87,7 +87,7 @@ internal fun BoostPicker(
                 attr("type", "button")
                 onClick { onReset() }
             }) {
-                Text(NowPlayingWords.resetBoost(formatBoost(defaultBoostDb)))
+                Text(PlayerSheetWords.resetBoost(formatBoost(defaultBoostDb)))
             }
         }
     }

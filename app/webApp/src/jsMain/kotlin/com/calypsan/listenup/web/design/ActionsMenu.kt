@@ -151,7 +151,7 @@ fun PopupMenu(
         Button(attrs = {
             classes(*triggerClasses)
             attr("type", "button")
-            attr("aria-label", label)
+            attr(ATTR_ARIA_LABEL, label)
             if (tooltip) attr("title", label)
             attr("aria-haspopup", "menu")
             attr("aria-expanded", open.toString())
@@ -244,7 +244,7 @@ internal fun MenuPanel(
     Div(attrs = {
         classes("menu")
         attr("role", "menu")
-        attr("aria-label", label)
+        attr(ATTR_ARIA_LABEL, label)
         if (onKeyClose != null) {
             onKeyDown { event ->
                 when (menuKeyAction(event.key)) {
@@ -306,7 +306,7 @@ internal fun MenuPanel(
             } else {
                 Div(attrs = {
                     attr("role", "group")
-                    attr("aria-label", group ?: DESTRUCTIVE_GROUP_LABEL)
+                    attr(ATTR_ARIA_LABEL, group ?: DESTRUCTIVE_GROUP_LABEL)
                     if (danger) classes("menu-g-danger")
                 }) {
                     // The group's name is already its label; the heading is for the eye. A destructive run needs none:
@@ -379,7 +379,7 @@ private fun MenuItem(
             },
         )
         item.checked?.let { attr("aria-checked", it.toString()) }
-        item.detailedName()?.let { attr("aria-label", it) }
+        item.detailedName()?.let { attr(ATTR_ARIA_LABEL, it) }
         if (item.detail != null) classes("has-d")
         // Only the first item is a Tab stop; the arrows are how a menu is walked.
         attr("tabindex", if (index == 0) "0" else "-1")
@@ -437,7 +437,7 @@ private fun MenuLinkItem(
         if (item.destructive) classes("is-danger")
         attr("role", "menuitem")
         attr("tabindex", if (index == 0) "0" else "-1")
-        item.detailedName()?.let { attr("aria-label", it) }
+        item.detailedName()?.let { attr(ATTR_ARIA_LABEL, it) }
         if (item.detail != null) classes("has-d")
         if (item.opensNewTab) {
             attr("target", "_blank")
@@ -488,3 +488,5 @@ private const val MENU_ICON_SIZE = 18
 
 /** A destructive run's accessible name: it draws no heading, but a group is still named for a screen reader. */
 private const val DESTRUCTIVE_GROUP_LABEL = "Delete"
+
+private const val ATTR_ARIA_LABEL = "aria-label"

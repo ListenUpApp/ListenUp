@@ -91,6 +91,7 @@ fun TransportBar(
     val bookSwitch = remember { BookSwitch() }
     val settings = state.settings
     val hasChapters = state.chapters.isNotEmpty()
+    val sleepCountdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed)
     ChapterPicker(
         open = panels.chapters != null,
         chapters = state.chapters,
@@ -108,7 +109,7 @@ fun TransportBar(
         state = state.sleepTimer,
         chapter = state.chapter,
         chapterRemainingMs = progress.chapterRemainingMs,
-        countdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
+        countdownMs = sleepCountdownMs,
         meterFraction = SleepCountdowns.meterFraction(state.sleepTimer, progress),
         nowMs = Date.now().toLong(),
         onSet = { mode ->
@@ -157,7 +158,7 @@ fun TransportBar(
             book = state.book,
             line = line,
             progress = progress,
-            sleepRemainingMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed),
+            sleepRemainingMs = sleepCountdownMs,
             bookSwitch = bookSwitch,
             onOpen = onOpenNowPlaying,
         )
@@ -178,14 +179,12 @@ fun TransportBar(
                 speed = settings.speed,
                 hasChapters = hasChapters,
                 sleepTimer = state.sleepTimer,
-                sleepCountdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
+                sleepCountdownMs = sleepCountdownMs,
                 panels = panels,
                 onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
                 // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
                 onOpenChapters = { opener ->
-                    if (isNowPlayingOpen &&
-                        onFocusChapters != null
-                    ) {
+                    if (isNowPlayingOpen && onFocusChapters != null) {
                         onFocusChapters()
                     } else {
                         panels.chapters = panels.chapters.toggledFrom(opener)
@@ -225,10 +224,7 @@ private class BarPanels {
 
 /** A control's press: closes its panel when open (the opener toggles it), else opens it where [opener] sits. */
 private fun PanelPlacement?.toggledFrom(opener: HTMLElement?): PanelPlacement? =
-    when (this) {
-        null -> panelPlacementFor(opener)
-        else -> null
-    }
+    if (this == null) panelPlacementFor(opener) else null
 
 /**
  * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
@@ -378,7 +374,7 @@ private fun SessionControls(
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
     // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
     // armed by having the book stop is the one way this feature can feel broken rather than kind.
-    val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(NowPlayingWords::countdown)
+    val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(PlayerSheetWords::countdown)
     val sleepLabel = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer"
     Button(attrs = {
         classes("tport-sleep")

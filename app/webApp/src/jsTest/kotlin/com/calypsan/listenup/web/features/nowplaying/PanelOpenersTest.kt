@@ -121,7 +121,7 @@ class PanelOpenersTest :
             frame.shouldHangFrom(frame.find(".chap-dlg.panel-pop"), opener)
             val list = frame.rect(frame.find(".chap-dlg .chap-list"))
             val current = frame.rect(frame.find(".chap-dlg .chap-row.on"))
-            abs((current.top + current.height / 2) - (list.top + list.height / 2)) shouldBeLessThan current.height
+            abs(current.top + current.height / 2 - (list.top + list.height / 2)) shouldBeLessThan current.height
         }
 
         test("on the phone page the Speed pill opens a bottom sheet") {

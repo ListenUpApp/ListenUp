@@ -39,13 +39,13 @@ internal fun ChapterPicker(
 ) {
     PlayerPanel(
         open = open,
-        title = NowPlayingWords.CHAPTERS,
+        title = PlayerSheetWords.CHAPTERS,
         panelClass = "chap-dlg",
         placement = placement,
         onDismiss = onDismiss,
     ) {
         val current = remember { RowNode() }
-        P(attrs = { classes("chap-sum") }) { Text(NowPlayingWords.chaptersSummary(chapters.size, bookDurationMs)) }
+        P(attrs = { classes("chap-sum") }) { Text(PlayerSheetWords.chaptersSummary(chapters.size, bookDurationMs)) }
         Div(attrs = { classes("chap-list") }) {
             chapters.forEach { chapter ->
                 key(chapter.startMs) {
@@ -87,7 +87,7 @@ private fun ChapterRow(
         // `aria-current`, not just a class: the highlight is information, and a class alone says nothing to a reader
         // who cannot see it.
         if (isCurrent) attr("aria-current", "true")
-        attr("aria-label", NowPlayingWords.chapterRowLabel(chapter, isCurrent, chapterRemainingMs))
+        attr("aria-label", PlayerSheetWords.chapterRowLabel(chapter, isCurrent, chapterRemainingMs))
         onClick { onPick(chapter.index) }
         if (isCurrent) {
             ref { element ->

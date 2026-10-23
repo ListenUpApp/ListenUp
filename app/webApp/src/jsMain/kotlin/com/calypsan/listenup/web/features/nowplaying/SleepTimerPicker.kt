@@ -62,7 +62,7 @@ internal fun SleepTimerPicker(
 ) {
     PlayerPanel(
         open = open,
-        title = NowPlayingWords.SLEEP_TIMER,
+        title = PlayerSheetWords.SLEEP_TIMER,
         panelClass = "sleep-dlg",
         placement = placement,
         onDismiss = onDismiss,
@@ -107,9 +107,9 @@ private fun IdleOptions(
             attr("type", VALUE_BUTTON)
             onClick { onSet(SleepTimerMode.EndOfChapter) }
         }) {
-            Span(attrs = { classes("sleep-eoc-t") }) { Text(NowPlayingWords.END_OF_CHAPTER) }
+            Span(attrs = { classes("sleep-eoc-t") }) { Text(PlayerSheetWords.END_OF_CHAPTER) }
             Span(attrs = { classes("sleep-eoc-s") }) {
-                Text(NowPlayingWords.endOfChapterAfter(chapterName(chapter), chapterRemainingMs))
+                Text(PlayerSheetWords.endOfChapterAfter(chapterName(chapter), chapterRemainingMs))
             }
         }
     }
@@ -117,7 +117,7 @@ private fun IdleOptions(
     Div(attrs = {
         classes("sleep-opts")
         attr("role", "group")
-        attr("aria-label", NowPlayingWords.DURATIONS)
+        attr("aria-label", PlayerSheetWords.DURATIONS)
     }) {
         SleepTimerChoices.DURATION_MINUTES.forEach { minutes ->
             val mode = SleepTimerMode.Duration(minutes)
@@ -133,7 +133,7 @@ private fun IdleOptions(
 
     CustomMinutes(onStart = { minutes -> onSet(SleepTimerMode.Duration(minutes)) })
 
-    P(attrs = { classes("panel-note") }) { Text(NowPlayingWords.FADES_OUT) }
+    P(attrs = { classes("panel-note") }) { Text(PlayerSheetWords.FADES_OUT) }
 }
 
 /**
@@ -146,7 +146,7 @@ private fun CustomMinutes(onStart: (Int) -> Unit) {
     val minutes = SleepTimerChoices.parseCustom(raw)
     Div(attrs = { classes("sleep-custom") }) {
         Label(forId = CUSTOM_FIELD_ID, attrs = { classes("sleep-custom-l") }) {
-            Text(NowPlayingWords.CUSTOM_MINUTES)
+            Text(PlayerSheetWords.CUSTOM_MINUTES)
             Input(type = InputType.Number) {
                 classes("sleep-custom-in")
                 id(CUSTOM_FIELD_ID)
@@ -163,7 +163,7 @@ private fun CustomMinutes(onStart: (Int) -> Unit) {
             enabled = minutes != null,
             onClick = { minutes?.let(onStart) },
             attrs = { classes("sleep-start") },
-        ) { Text(NowPlayingWords.START) }
+        ) { Text(PlayerSheetWords.START) }
     }
 }
 
@@ -187,14 +187,14 @@ private fun RunningTimer(
         attr("role", "timer")
         attr("aria-live", "off")
     }) {
-        Text(NowPlayingWords.countdown(countdownMs))
+        Text(PlayerSheetWords.countdown(countdownMs))
     }
 
     P(attrs = { classes("sleep-pauses") }) {
         Text(
             when (mode) {
-                is SleepTimerMode.Duration -> NowPlayingWords.pausesAt(nowMs + countdownMs, timerMinutes(state, mode))
-                SleepTimerMode.EndOfChapter -> NowPlayingWords.untilEndOf(chapterName(chapter), chapterRemainingMs)
+                is SleepTimerMode.Duration -> PlayerSheetWords.pausesAt(nowMs + countdownMs, timerMinutes(state, mode))
+                SleepTimerMode.EndOfChapter -> PlayerSheetWords.untilEndOf(chapterName(chapter), chapterRemainingMs)
             },
         )
     }
@@ -202,8 +202,8 @@ private fun RunningTimer(
     // What is LEFT, in gold (§3.9): "23:41 of 30:00 remaining". An end-of-chapter timer's share is the chapter's.
     val meterLabel =
         when (mode) {
-            is SleepTimerMode.Duration -> NowPlayingWords.meterLabel(countdownMs, state.totalMs)
-            SleepTimerMode.EndOfChapter -> NowPlayingWords.meterLabel(chapterRemainingMs, chapter.durationMs)
+            is SleepTimerMode.Duration -> PlayerSheetWords.meterLabel(countdownMs, state.totalMs)
+            SleepTimerMode.EndOfChapter -> PlayerSheetWords.meterLabel(chapterRemainingMs, chapter.durationMs)
         }
     Div(attrs = {
         classes("sleep-meter")
@@ -222,7 +222,7 @@ private fun RunningTimer(
         Div(attrs = {
             classes("sleep-opts", "sleep-extend")
             attr("role", "group")
-            attr("aria-label", NowPlayingWords.ADD_TIME)
+            attr("aria-label", PlayerSheetWords.ADD_TIME)
         }) {
             SleepTimerChoices.EXTEND_MINUTES.forEach { minutes ->
                 DomButton(attrs = {
@@ -230,7 +230,7 @@ private fun RunningTimer(
                     attr("type", VALUE_BUTTON)
                     onClick { onExtend(minutes) }
                 }) {
-                    Text(NowPlayingWords.extend(minutes))
+                    Text(PlayerSheetWords.extend(minutes))
                 }
             }
         }
@@ -241,7 +241,7 @@ private fun RunningTimer(
         classes("sleep-cancel")
         attr("type", VALUE_BUTTON)
         onClick { onCancel() }
-    }) { Text(NowPlayingWords.CANCEL_TIMER) }
+    }) { Text(PlayerSheetWords.CANCEL_TIMER) }
 }
 
 /** "30 min timer": the minutes the timer now runs for, extensions included, or the mode's own when it has no total. */

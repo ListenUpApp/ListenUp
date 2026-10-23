@@ -41,35 +41,35 @@ class NowPlayingWordsTest :
         }
 
         test("the speed sheet's one wall-time figure") {
-            NowPlayingWords.leftAtSpeed(116_640_000) shouldBe "32h 24m left at this speed"
+            PlayerSheetWords.leftAtSpeed(116_640_000) shouldBe "32h 24m left at this speed"
         }
 
         test("the sleep sheet's lines") {
-            NowPlayingWords.endOfChapterAfter("Bridge Four", 480_000) shouldBe "Pauses after Bridge Four · in 8m"
-            NowPlayingWords.untilEndOf("Bridge Four", 480_000) shouldBe "Until the end of Bridge Four · 8m"
-            NowPlayingWords.pausesAt(1_761_000_000_000, minutes = 30) shouldMatch
+            PlayerSheetWords.endOfChapterAfter("Bridge Four", 480_000) shouldBe "Pauses after Bridge Four · in 8m"
+            PlayerSheetWords.untilEndOf("Bridge Four", 480_000) shouldBe "Until the end of Bridge Four · 8m"
+            PlayerSheetWords.pausesAt(1_761_000_000_000, minutes = 30) shouldMatch
                 Regex("Pauses at \\d{1,2}:\\d{2}( ?[AP]M)? · 30 min timer")
-            NowPlayingWords.pausesAt(1_761_000_000_000, minutes = null) shouldMatch Regex("Pauses at \\d{1,2}:\\d{2}( ?[AP]M)?")
-            NowPlayingWords.countdown(1_421_000) shouldBe "23:41"
-            NowPlayingWords.meterLabel(1_421_000, 1_800_000) shouldBe "23:41 of 30:00 remaining"
+            PlayerSheetWords.pausesAt(1_761_000_000_000, minutes = null) shouldMatch Regex("Pauses at \\d{1,2}:\\d{2}( ?[AP]M)?")
+            PlayerSheetWords.countdown(1_421_000) shouldBe "23:41"
+            PlayerSheetWords.meterLabel(1_421_000, 1_800_000) shouldBe "23:41 of 30:00 remaining"
         }
 
         test("a contributor's books, with no line for none") {
-            NowPlayingWords.books(14) shouldBe "14 books"
-            NowPlayingWords.books(1) shouldBe "1 book"
-            NowPlayingWords.books(0) shouldBe null
+            PlayerSheetWords.books(14) shouldBe "14 books"
+            PlayerSheetWords.books(1) shouldBe "1 book"
+            PlayerSheetWords.books(0) shouldBe null
         }
 
         test("a chapter row's label: play from it, or where you are in it") {
             val row = PlayerChapterRow(6, 7, "Anything Reasonable", 0, 1_998_000, isCurrent = false)
-            NowPlayingWords.chapterRowLabel(row, isCurrent = false) shouldBe "Play from chapter 7: Anything Reasonable, 33:18"
+            PlayerSheetWords.chapterRowLabel(row, isCurrent = false) shouldBe "Play from chapter 7: Anything Reasonable, 33:18"
             val current = PlayerChapterRow(5, 6, "Bridge Four", 0, 1_235_000, isCurrent = true)
-            NowPlayingWords.chapterRowLabel(current, isCurrent = true, remainingMs = 480_000) shouldBe
+            PlayerSheetWords.chapterRowLabel(current, isCurrent = true, remainingMs = 480_000) shouldBe
                 "Chapter 6, Bridge Four, now playing, 8m left"
         }
 
         test("the chapter list's header sums the book") {
-            NowPlayingWords.chaptersSummary(75, 163_800_000) shouldBe "75 chapters · 45h 30m"
+            PlayerSheetWords.chaptersSummary(75, 163_800_000) shouldBe "75 chapters · 45h 30m"
         }
 
         test("Keep listening is the fade card's one action") {

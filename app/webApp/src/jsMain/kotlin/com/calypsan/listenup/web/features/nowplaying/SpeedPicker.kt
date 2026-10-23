@@ -62,7 +62,7 @@ internal fun SpeedPicker(
 
     PlayerPanel(
         open = open,
-        title = NowPlayingWords.PLAYBACK_SPEED,
+        title = PlayerSheetWords.PLAYBACK_SPEED,
         panelClass = "speed-dlg",
         placement = placement,
         onDismiss = onDismiss,
@@ -74,11 +74,11 @@ internal fun SpeedPicker(
             }) {
                 Text(speedLabel(dragSpeed))
             }
-            Span(attrs = { classes("speed-left") }) { Text(NowPlayingWords.leftAtSpeed(leftAtSpeedMs)) }
+            Span(attrs = { classes("speed-left") }) { Text(PlayerSheetWords.leftAtSpeed(leftAtSpeedMs)) }
         }
 
         Div(attrs = { classes("speed-fine") }) {
-            StepButton(glyph = "\u2212", label = NowPlayingWords.SLOWER) { onStep(false) }
+            StepButton(glyph = "\u2212", label = PlayerSheetWords.SLOWER) { onStep(false) }
             Input(type = InputType.Range) {
                 classes("speed-slide")
                 attr("min", hundredths(PLAYBACK_SPEED_MIN).toString())
@@ -86,7 +86,7 @@ internal fun SpeedPicker(
                 // Hundredths, because a range's value is a number and 0.05 of a step would round to
                 // nothing. Five of them is the same 0.05 increment the native slider snaps to.
                 attr("step", STEP_HUNDREDTHS.toString())
-                attr("aria-label", NowPlayingWords.PLAYBACK_SPEED)
+                attr("aria-label", PlayerSheetWords.PLAYBACK_SPEED)
                 // The implicit `aria-valuenow` is a raw hundredths count — "one hundred and twenty
                 // five" is not a speed anyone recognises.
                 attr("aria-valuetext", "${formatSpeed(dragSpeed)} times")
@@ -94,7 +94,7 @@ internal fun SpeedPicker(
                 onInput { event -> parsedSpeed(event.target.value)?.let { dragSpeed = it } }
                 onChange { event -> parsedSpeed(event.target.value)?.let { onSet(it) } }
             }
-            StepButton(glyph = "+", label = NowPlayingWords.FASTER) { onStep(true) }
+            StepButton(glyph = "+", label = PlayerSheetWords.FASTER) { onStep(true) }
         }
         Div(attrs = {
             classes("speed-bounds")
@@ -107,7 +107,7 @@ internal fun SpeedPicker(
         // Radios, not buttons that happen to look selected: which rate is playing is a choice of one, and a screen
         // reader says so ("1.25×, radio button, checked, 4 of 9"). A rate between rungs checks none.
         ChipRadioGroup(
-            label = NowPlayingWords.SPEED_PRESETS,
+            label = PlayerSheetWords.SPEED_PRESETS,
             options = PLAYBACK_SPEED_STEPS.map { ChipOption(it, speedLabel(it)) },
             selected = speed,
             onSelect = { preset ->
@@ -131,10 +131,10 @@ internal fun SpeedPicker(
                     onReset()
                 }
             }) {
-                Text(NowPlayingWords.resetSpeed(speedLabel(defaultSpeed)))
+                Text(PlayerSheetWords.resetSpeed(speedLabel(defaultSpeed)))
             }
         }
-        P(attrs = { classes("panel-note") }) { Text(NowPlayingWords.THIS_BOOK_ONLY) }
+        P(attrs = { classes("panel-note") }) { Text(PlayerSheetWords.THIS_BOOK_ONLY) }
     }
 }
 

@@ -54,10 +54,7 @@ fun <T> ChipRadioGroup(
                 tabIndex(if (index == tabStop) 0 else -1)
                 onClick { if (!isOn) onSelect(option.value) }
                 onKeyDown { event ->
-                    val next =
-                        rovingTarget(event.key, index, options.size, RovingAxis.Horizontal)
-                            ?: rovingTarget(event.key, index, options.size, RovingAxis.Vertical)
-                    if (next != null) {
+                    rovingIndex(event.key, index, options.size)?.let { next ->
                         event.preventDefault()
                         if (next != index) onSelect(options[next].value)
                         event.currentTarget.focusSibling(":scope > [role=radio]", next)
@@ -67,3 +64,12 @@ fun <T> ChipRadioGroup(
         }
     }
 }
+
+/** Where an arrow key moves a radio group's selection from [index]: either axis, wrapping; null for other keys. */
+private fun rovingIndex(
+    key: String,
+    index: Int,
+    size: Int,
+): Int? =
+    rovingTarget(key, index, size, RovingAxis.Horizontal)
+        ?: rovingTarget(key, index, size, RovingAxis.Vertical)
