@@ -94,7 +94,7 @@ fun <T> ConnectedSelectButtonGroup(
                         .width
                 with(density) { labelPx.toDp() } + BUTTON_SIDE_PADDING * 2
             }
-        val rows = rowsFor(contentWidths, rowWidth, spacing, rowLength)
+        val rows = rowsFor(contentWidths = contentWidths, rowWidth = rowWidth, spacing = spacing, rowLength = rowLength)
 
         Column(
             modifier =
@@ -154,7 +154,10 @@ private fun rowsFor(
 ): List<List<Int>> {
     val rows = contentWidths.indices.chunked(rowLength.coerceAtLeast(PAIR))
     val everyRowFits =
-        rows.all { row -> row.fold(0.dp) { width, index -> width + contentWidths[index] } + spacing * (row.size - 1) <= rowWidth }
+        rows.all { row ->
+            row.fold(0.dp) { width, index -> width + contentWidths[index] } + spacing * (row.size - 1) <=
+                rowWidth
+        }
     return if (everyRowFits) rows else contentWidths.indices.chunked(PAIR)
 }
 

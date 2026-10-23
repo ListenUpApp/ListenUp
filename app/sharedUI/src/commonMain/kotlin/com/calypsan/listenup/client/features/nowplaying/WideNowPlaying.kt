@@ -145,7 +145,13 @@ fun WideNowPlaying(
                         speed = state.settings.speed,
                         sleepTimer = state.sleepTimer,
                         castingTo = (state.source as? AudioSource.Casting)?.deviceName,
-                        sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
+                        sleepCountdownMs = {
+                            SleepCountdowns.remainingMs(
+                                state.sleepTimer,
+                                progress(),
+                                state.settings.speed,
+                            )
+                        },
                         showsChapters = true,
                         onSpeedClick = onSpeedClick,
                         onSleepClick = onSleepClick,

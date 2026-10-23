@@ -146,7 +146,11 @@ private fun PlayerPanelDialog(
     modifier: Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
+    val windowHeight =
+        with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.height
+                .toDp()
+        }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.large,
@@ -173,7 +177,10 @@ private fun PlayerPanelDialog(
                             ),
                         modifier = Modifier.size(MinTouchTarget),
                     ) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(Res.string.player_close))
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(Res.string.player_close),
+                        )
                     }
                 }
                 PanelBody(scrollable = scrollable, content = content)

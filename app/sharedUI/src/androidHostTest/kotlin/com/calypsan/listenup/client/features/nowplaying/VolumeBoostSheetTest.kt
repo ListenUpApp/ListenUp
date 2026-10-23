@@ -46,8 +46,7 @@ class VolumeBoostSheetTest {
         }
     }
 
-    private fun level(label: String) =
-        hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+    private fun level(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
 
     @Test
     fun `the readout says the level in decibels`() {

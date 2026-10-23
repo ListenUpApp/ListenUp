@@ -62,7 +62,7 @@ internal fun MiniPlayerLineText(
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Text(
-        text = miniLineWords(line, progress, sleepRemainingMs, fit),
+        text = miniLineWords(line = line, progress = progress, sleepRemainingMs = sleepRemainingMs, fit = fit),
         style = MaterialTheme.typography.bodySmall,
         color = color,
         maxLines = 1,
@@ -86,14 +86,27 @@ private fun miniLineWords(
 ): String =
     when (line) {
         is MiniPlayerLine.Chapter -> {
-            joinDots(chapterWords(line.number, line.title), trailing(line.sleepArmed, progress, sleepRemainingMs, fit))
+            joinDots(
+                chapterWords(line.number, line.title),
+                trailing(
+                    sleepArmed = line.sleepArmed,
+                    progress = progress,
+                    sleepRemainingMs = sleepRemainingMs,
+                    fit = fit,
+                ),
+            )
         }
 
         is MiniPlayerLine.Paused -> {
             joinDots(
                 stringResource(Res.string.player_mini_paused),
                 chapterWords(line.number, line.title),
-                trailing(line.sleepArmed, progress, sleepRemainingMs, fit),
+                trailing(
+                    sleepArmed = line.sleepArmed,
+                    progress = progress,
+                    sleepRemainingMs = sleepRemainingMs,
+                    fit = fit,
+                ),
             )
         }
 

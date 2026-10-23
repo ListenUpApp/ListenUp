@@ -26,7 +26,14 @@ data class PlayerProgress(
      * The book's remainder in wall time at [speed]: the Speed sheet's "32h 24m left at this speed", S10's single
      * exception to content time. A non-positive speed gives the content remainder. Pure.
      */
-    fun bookRemainingAtSpeedMs(speed: Float): Long = if (speed > 0f) (bookRemainingMs / speed).toLong() else bookRemainingMs
+    fun bookRemainingAtSpeedMs(speed: Float): Long =
+        if (speed >
+            0f
+        ) {
+            (bookRemainingMs / speed).toLong()
+        } else {
+            bookRemainingMs
+        }
 
     /** Whole percent through the book, floored (0..100), for the book sentence "Book 11% · …" (§3.2). */
     val bookPercent: Int

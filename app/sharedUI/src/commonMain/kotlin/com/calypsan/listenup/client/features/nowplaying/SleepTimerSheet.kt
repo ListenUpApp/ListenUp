@@ -297,7 +297,11 @@ private fun Countdown(
             }
 
             SleepTimerMode.EndOfChapter -> {
-                stringResource(Res.string.player_sheet_until_end_of, state.chapter.sleepName(), shortDuration(countdownMs))
+                stringResource(
+                    Res.string.player_sheet_until_end_of,
+                    state.chapter.sleepName(),
+                    shortDuration(countdownMs),
+                )
             }
         }
     val totalMs =

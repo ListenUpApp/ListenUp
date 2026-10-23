@@ -30,8 +30,7 @@ class PlayerSheetsLargeTextTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun at2x(content: @Composable () -> Unit) =
-        composeRule.setContent { AtFontScale { MaterialTheme { content() } } }
+    private fun at2x(content: @Composable () -> Unit) = composeRule.setContent { AtFontScale { MaterialTheme { content() } } }
 
     @Composable
     private fun SpeedSheet() =

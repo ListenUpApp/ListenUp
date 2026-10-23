@@ -39,7 +39,11 @@ internal fun PlayerContributorPicker(
     val counts = people.associate { it.id to it.bookCount }
     val booksOne = stringResource(Res.string.player_sheet_books_one)
     val booksOther = Res.string.player_sheet_books_other
-    val otherLines = counts.values.filter { it > 1 }.distinct().associateWith { stringResource(booksOther, it) }
+    val otherLines =
+        counts.values
+            .filter { it > 1 }
+            .distinct()
+            .associateWith { stringResource(booksOther, it) }
     FullCastSheet(
         title =
             stringResource(

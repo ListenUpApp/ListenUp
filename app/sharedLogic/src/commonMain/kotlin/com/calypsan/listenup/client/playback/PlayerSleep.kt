@@ -64,7 +64,9 @@ internal class PlayerSleep(
     fun set(mode: SleepTimerMode) {
         val bounded =
             if (mode is SleepTimerMode.Duration) {
-                SleepTimerMode.Duration(mode.minutes.coerceIn(SleepTimerChoices.CUSTOM_MIN_MINUTES, SleepTimerChoices.CUSTOM_MAX_MINUTES))
+                SleepTimerMode.Duration(
+                    mode.minutes.coerceIn(SleepTimerChoices.CUSTOM_MIN_MINUTES, SleepTimerChoices.CUSTOM_MAX_MINUTES),
+                )
             } else {
                 mode
             }

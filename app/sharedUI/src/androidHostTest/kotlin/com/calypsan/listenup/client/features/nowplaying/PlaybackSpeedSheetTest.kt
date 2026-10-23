@@ -53,8 +53,7 @@ class PlaybackSpeedSheetTest {
         }
     }
 
-    private fun radio(label: String) =
-        hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+    private fun radio(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
 
     @Test
     fun `the readout, the time at this speed, and the footnote`() {

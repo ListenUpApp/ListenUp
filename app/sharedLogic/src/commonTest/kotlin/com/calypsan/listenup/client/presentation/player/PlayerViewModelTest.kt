@@ -307,7 +307,8 @@ class PlayerViewModelTest :
                         rig.vm.onCardAction(PlayerCardAction.KeepListening)
                         runCurrent()
                         rig.s.sleep.state.value shouldBe SleepTimerState.Inactive
-                        rig.s.engine.calls.last() shouldBe "setVolume:1.0"
+                        rig.s.engine.calls
+                            .last() shouldBe "setVolume:1.0"
                         expectMostRecentLoaded().phase shouldBe PlayerPhase.Playing
                     }
                 } finally {

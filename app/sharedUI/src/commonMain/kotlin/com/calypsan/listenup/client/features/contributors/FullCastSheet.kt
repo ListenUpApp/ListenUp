@@ -401,9 +401,9 @@ internal fun CastRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            supporting?.let {
+            supporting?.let { line ->
                 Text(
-                    text = it,
+                    text = line,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

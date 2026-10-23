@@ -70,10 +70,17 @@ class SleepTimerSheetTest {
 
     private fun hasTextMatching(pattern: Regex) =
         SemanticsMatcher("text matches $pattern") { node ->
-            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { pattern.matches(it.text) }
+            node.config
+                .getOrNull(SemanticsProperties.Text)
+                .orEmpty()
+                .any { pattern.matches(it.text) }
         }
 
-    private fun top(text: String) = composeRule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
+    private fun top(text: String) =
+        composeRule
+            .onNodeWithText(text)
+            .fetchSemanticsNode()
+            .boundsInRoot.top
 
     @Test
     fun `End of chapter comes first, with the chapter and the time`() {

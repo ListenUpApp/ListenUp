@@ -124,7 +124,8 @@ internal fun sleepSheetState(
     chapterRemainingMs: Long = 480_000,
     countdownMs: Long? = (timer as? SleepTimerState.Active)?.remainingMs,
     meterFraction: Float =
-        (timer as? SleepTimerState.Active)?.takeIf { it.totalMs > 0 }?.let { it.remainingMs.toFloat() / it.totalMs } ?: 0f,
+        (timer as? SleepTimerState.Active)?.takeIf { it.totalMs > 0 }?.let { it.remainingMs.toFloat() / it.totalMs }
+            ?: 0f,
     nowMs: Long = SLEEP_SHEET_NOW_MS,
 ): SleepSheetState =
     SleepSheetState(

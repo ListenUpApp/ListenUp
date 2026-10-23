@@ -69,7 +69,7 @@ class PlayerPanelScaffoldTest {
     @Config(qualifiers = "w412dp-h915dp")
     fun `the title is Medium, not Bold`() {
         panel()
-        composeRule.onNodeWithText("Playback speed").textLayout().layoutInput.style.fontWeight shouldBe
-            FontWeight.Medium
+        val title = composeRule.onNodeWithText("Playback speed").textLayout()
+        title.layoutInput.style.fontWeight shouldBe FontWeight.Medium
     }
 }

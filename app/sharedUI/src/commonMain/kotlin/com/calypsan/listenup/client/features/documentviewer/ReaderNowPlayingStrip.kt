@@ -102,7 +102,13 @@ internal fun ReaderNowPlayingStrip(
                 MiniPlayerLineText(
                     line = line,
                     progress = progress,
-                    sleepRemainingMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
+                    sleepRemainingMs = {
+                        SleepCountdowns.remainingMs(
+                            state.sleepTimer,
+                            progress(),
+                            state.settings.speed,
+                        )
+                    },
                     fit = MiniLineFit.WithTimeLeft,
                 )
             }
