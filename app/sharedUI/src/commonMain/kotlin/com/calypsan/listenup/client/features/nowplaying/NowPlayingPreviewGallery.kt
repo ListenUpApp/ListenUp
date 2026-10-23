@@ -449,6 +449,7 @@ private fun PanelsSection() {
         "chapters" -> {
             ChapterPickerSheet(
                 chapters = mockActiveState.chapters,
+                playingLeft = { "8m" },
                 onChapterSelected = {},
                 onDismiss = { open = null },
             )
