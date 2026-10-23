@@ -220,6 +220,19 @@ struct ChapterListSheet: View {
     let observer: PlayerObserver
     let onDismiss: () -> Void
 
+    /// The row the list rests on, centred: the current chapter's from the first layout.
+    @State private var centredRowId: String?
+
+    init(observer: PlayerObserver, onDismiss: @escaping () -> Void) {
+        self.observer = observer
+        self.onDismiss = onDismiss
+        _centredRowId = State(initialValue: Self.currentRowId(in: observer))
+    }
+
+    private static func currentRowId(in observer: PlayerObserver) -> String? {
+        observer.chapterRows.first { $0.index == observer.chapterIndex }?.id
+    }
+
     var body: some View {
         PlayerSheetChrome(title: String(localized: "player.chapters"), scrolls: false) {
             ScrollViewReader { proxy in
@@ -249,14 +262,18 @@ struct ChapterListSheet: View {
                     }
                     .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, Spacing.xs)
+                    .scrollTargetLayout()
                 }
+                // The scroll position starts on the current row, so the first layout is already centred (§9.2: centring
+                // before the container has laid out is what left the web's list at chapter 1).
+                .scrollPosition(id: $centredRowId, anchor: .center)
                 .task {
-                    guard let current = observer.chapterRows.first(where: { $0.index == observer.chapterIndex }) else {
-                        return
-                    }
+                    // And once more after that layout, without animating: the jump isn't motion the reader asked for.
+                    await Task.yield()
+                    guard let current = Self.currentRowId(in: observer) else { return }
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
-                    withTransaction(transaction) { proxy.scrollTo(current.id, anchor: .center) }
+                    withTransaction(transaction) { proxy.scrollTo(current, anchor: .center) }
                 }
             }
         }
