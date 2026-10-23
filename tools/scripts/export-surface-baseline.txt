@@ -956,6 +956,8 @@ ShelfRepository
 ShortcutAction
 ShortcutActionManager
 ShortcutAction_SealedType
+SleepCountdowns
+SleepTimerChoices
 SleepTimerManager
 SleepTimerMode
 SleepTimerMode_SealedType
