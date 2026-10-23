@@ -215,7 +215,7 @@ struct SheetCapsuleButtonStyle: ButtonStyle {
             .font(.body.weight(.semibold))
             .foregroundStyle(ink)
             .padding(.horizontal, Spacing.l)
-            .padding(.vertical, 14)
+            .padding(.vertical, Spacing.s)
             .frame(minHeight: TapTarget.minimum)
             .background(Color.luFill, in: Capsule())
             .contentShape(Capsule())
