@@ -124,4 +124,15 @@ class PlayerStateCardTest {
                 nextBook = next,
             )
     }
+
+    @Test
+    fun `the sleep fade - Fading out, what is happening, and Keep listening, announced politely`() {
+        card(PlayerCard.SleepFading)
+        composeRule
+            .onNodeWithText("Fading out…")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        composeRule.onNodeWithText("Your sleep timer is ending. Playback pauses in a moment.").assertExists()
+        composeRule.onNodeWithText("Keep listening").performClick()
+        actions shouldBe listOf(PlayerCardAction.KeepListening)
+    }
 }

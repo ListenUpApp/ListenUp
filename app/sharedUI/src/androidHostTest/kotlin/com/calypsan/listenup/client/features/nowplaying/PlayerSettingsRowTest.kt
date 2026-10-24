@@ -8,6 +8,8 @@ import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSettingsRow
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -27,12 +29,15 @@ class PlayerSettingsRowTest {
     private fun row(
         sleep: SleepTimerState = SleepTimerState.Inactive,
         showsChapters: Boolean = true,
+        progress: PlayerProgress = samplePlayerProgress,
     ) {
         composeRule.setContent {
             MaterialTheme {
                 PlayerSettingsRow(
                     speed = 1.25f,
                     sleepTimer = sleep,
+                    castingTo = null,
+                    sleepCountdownMs = { SleepCountdowns.remainingMs(sleep, progress, speed = 1f) },
                     showsChapters = showsChapters,
                     onSpeedClick = { opened += "speed" },
                     onSleepClick = { opened += "sleep" },
@@ -45,7 +50,7 @@ class PlayerSettingsRowTest {
     @Test
     fun `speed shows its rate, and each control opens its sheet`() {
         row()
-        composeRule.onNodeWithText("1.25x").performClick()
+        composeRule.onNodeWithText("1.25×").performClick()
         composeRule.onNodeWithContentDescription("Sleep timer").performClick()
         composeRule.onNodeWithContentDescription("Chapters").performClick()
         opened shouldBe listOf("speed", "sleep", "chapters")
@@ -69,5 +74,26 @@ class PlayerSettingsRowTest {
     fun `chapters can be left out where the list is always visible`() {
         row(showsChapters = false)
         composeRule.onNodeWithContentDescription("Chapters").assertDoesNotExist()
+    }
+
+    @Test
+    fun `an armed end-of-chapter timer counts down to the chapter's end, not 0 00`() {
+        row(
+            sleep = SleepTimerState.Active(SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0),
+            progress = EIGHT_MINUTES_OF_CHAPTER_LEFT,
+        )
+        composeRule.onNodeWithText("8:00").assertExists()
+        composeRule.onNodeWithText("0:00").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Sleep timer, 8:00 left").assertExists()
+    }
+
+    private companion object {
+        val EIGHT_MINUTES_OF_CHAPTER_LEFT =
+            PlayerProgress(
+                chapterPositionMs = 755_000,
+                chapterDurationMs = 1_235_000,
+                bookPositionMs = 18_000_000,
+                bookDurationMs = 163_800_000,
+            )
     }
 }

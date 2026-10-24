@@ -22,7 +22,7 @@ class PlayerMoreMenuTest :
         fun menu(
             state: PlayerUiState.Loaded,
             chosen: MutableList<PlayerMenuItem> = mutableListOf(),
-        ): HTMLElement = mounts.mount { PlayerMoreMenu(state = state, onItem = { chosen += it }) }
+        ): HTMLElement = mounts.mount { PlayerMoreMenu(state = state, onItem = { item, _ -> chosen += item }) }
 
         suspend fun openMenu(host: HTMLElement) {
             (host.querySelector(".np-more button[aria-haspopup=menu]") as HTMLElement).click()

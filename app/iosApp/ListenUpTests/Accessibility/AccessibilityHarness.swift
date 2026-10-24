@@ -100,6 +100,62 @@ final class HostedView {
         stops.map(\.description).joined(separator: "\n")
     }
 
+    /// Whether anything in the hosted hierarchy scrolls vertically: a scroll view whose content is taller than it is.
+    /// The large-text guard for sheets — content that cannot fit must scroll rather than clip.
+    var scrollsVertically: Bool {
+        scrollViews.contains { $0.contentSize.height > $0.bounds.height + 1 }
+    }
+
+    /// Every visible scroll view in the hosted hierarchy, outermost first.
+    var scrollViews: [UIScrollView] {
+        var found: [UIScrollView] = []
+        func walk(_ view: UIView) {
+            guard !view.isHidden else { return }
+            if let scroll = view as? UIScrollView { found.append(scroll) }
+            view.subviews.forEach(walk)
+        }
+        walk(window)
+        return found
+    }
+
+    /// Activates the first stop labelled `label` as VoiceOver's double tap would, and reports whether it took. Lets a
+    /// test press a button through the accessibility tree instead of reaching into the view.
+    @discardableResult
+    func activate(labelled label: String) -> Bool {
+        var seen = Set<ObjectIdentifier>()
+        guard let element = element(labelled: label, in: window, seen: &seen) else { return false }
+        return element.accessibilityActivate()
+    }
+
+    /// Raises the first adjustable stop labelled `label` one step, as VoiceOver's swipe up would, and reports whether one
+    /// was found.
+    @discardableResult
+    func increment(adjustableLabelled label: String) -> Bool {
+        var seen = Set<ObjectIdentifier>()
+        guard let element = element(labelled: label, in: window, seen: &seen, adjustable: true) else { return false }
+        element.accessibilityIncrement()
+        return true
+    }
+
+    private func element(
+        labelled label: String, in object: NSObject, seen: inout Set<ObjectIdentifier>, adjustable: Bool = false
+    ) -> NSObject? {
+        guard seen.insert(ObjectIdentifier(object)).inserted else { return nil }
+        if let view = object as? UIView, view.isHidden || view.alpha == 0 { return nil }
+        if object.accessibilityElementsHidden { return nil }
+        if object.isAccessibilityElement {
+            let matches = object.accessibilityLabel == label
+                && (!adjustable || object.accessibilityTraits.contains(.adjustable))
+            return matches ? object : nil
+        }
+        let children = accessibilityChildren(of: object)
+        let next = children.isEmpty ? ((object as? UIView)?.subviews ?? []) : children
+        for child in next {
+            if let found = element(labelled: label, in: child, seen: &seen, adjustable: adjustable) { return found }
+        }
+        return nil
+    }
+
     /// The SwiftUI-measured height of the hosted content at the window's width.
     func fittingHeight() -> CGFloat {
         fit(CGSize(width: window.bounds.width, height: .greatestFiniteMagnitude)).height

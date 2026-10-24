@@ -26,4 +26,24 @@ struct NowPlayingTitleBlockTests {
             == String(format: String(localized: "player.np_byline_fold"), "Narrator 1", 4))
         #expect(NowPlayingTitleBlock.folded(Array(people.prefix(3))) == nil)
     }
+
+    @Test("the folded menu names each person with their books in your library; none says nothing")
+    func menuRows() {
+        let people = [
+            ContributorNavRef(id: "n1", name: "Michael Kramer", bookCount: 14),
+            ContributorNavRef(id: "n2", name: "Kate Reading", bookCount: 1),
+            ContributorNavRef(id: "n3", name: "New Narrator", bookCount: 0)
+        ]
+        #expect(NowPlayingTitleBlock.menuRows(people) == [
+            BylineMenuRow(id: "n1", name: "Michael Kramer", books: "14 books"),
+            BylineMenuRow(id: "n2", name: "Kate Reading", books: "1 book"),
+            BylineMenuRow(id: "n3", name: "New Narrator", books: nil)
+        ])
+    }
+
+    @Test("the menu's section names the role")
+    func menuHeader() {
+        #expect(NowPlayingTitleBlock.menuHeader(isAuthors: true) == String(localized: "player.sheet_authors"))
+        #expect(NowPlayingTitleBlock.menuHeader(isAuthors: false) == String(localized: "player.sheet_narrators"))
+    }
 }

@@ -93,6 +93,7 @@ fun UpNextQueue(
                         title = chapter.title,
                         durationLabel = chapter.durationMs.milliseconds.formatPlaybackTime(),
                         isCurrent = chapter.index == currentChapterIndex,
+                        playingLeft = null,
                         onClick = { onSeekToChapter(chapter.index) },
                         modifier = Modifier.fillMaxWidth(),
                     )

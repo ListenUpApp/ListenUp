@@ -24,12 +24,16 @@ internal enum class MiniLineFit {
  *
  * A chapter is named by the book's own title, never by our counter: the counter includes front matter, so it can
  * disagree with what the book calls the chapter. Only an untitled chapter falls back to its number.
+ *
+ * [sleepRemainingMs] is the armed timer's wall-clock countdown (`SleepCountdowns.remainingMs`); the line only says
+ * that a timer is armed, so the bar supplies the number.
  */
 internal fun miniLineText(
     line: MiniPlayerLine,
     progress: PlayerProgress,
     fit: MiniLineFit,
     authorLine: String,
+    sleepRemainingMs: Long? = null,
 ): String =
     when (line) {
         is MiniPlayerLine.Chapter -> {
@@ -38,7 +42,7 @@ internal fun miniLineText(
                 if (fit ==
                     MiniLineFit.Phone
                 ) {
-                    phoneTrailing(line.sleepRemainingMs, progress)
+                    phoneTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress)
                 } else {
                     authorLine.ifBlank { null }
                 },
@@ -49,7 +53,13 @@ internal fun miniLineText(
             joinDots(
                 "Paused",
                 chapterWords(line.number, line.title),
-                if (fit == MiniLineFit.Phone) phoneTrailing(line.sleepRemainingMs, progress) else null,
+                if (fit ==
+                    MiniLineFit.Phone
+                ) {
+                    phoneTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress)
+                } else {
+                    null
+                },
             )
         }
 
@@ -69,14 +79,27 @@ internal fun miniLineText(
 internal fun miniLineLabel(
     line: MiniPlayerLine,
     progress: PlayerProgress,
+    sleepRemainingMs: Long? = null,
 ): String =
     when (line) {
         is MiniPlayerLine.Chapter -> {
-            joinCommas(chapterWords(line.number, line.title), spokenTrailing(line.sleepRemainingMs, progress))
+            joinCommas(
+                chapterWords(line.number, line.title),
+                spokenTrailing(sleepRemainingMs.takeIf { line.sleepArmed }, progress),
+            )
         }
 
         is MiniPlayerLine.Paused -> {
-            joinCommas("Paused", chapterWords(line.number, line.title), spokenTrailing(line.sleepRemainingMs, progress))
+            joinCommas(
+                "Paused",
+                chapterWords(line.number, line.title),
+                spokenTrailing(
+                    sleepRemainingMs.takeIf {
+                        line.sleepArmed
+                    },
+                    progress,
+                ),
+            )
         }
 
         is MiniPlayerLine.Casting -> {

@@ -34,12 +34,28 @@ extension Color {
     /// is deepened; the glyph keeps the meaning off colour alone.
     static let luPlayerError = Color(ColorResource.playerErrorRed)
 
+    /// A destructive action's words on a neutral capsule (the Sleep sheet's Turn Off Timer) — the `DangerInk` Color Set:
+    /// `#B42318` light, `#FF9A92` dark (`#8C1D18` / `#FFB8B0` under Increase Contrast). System red on the tertiary fill
+    /// is 3.1:1 light and 4.25:1 dark, under the 4.5:1 text floor (HIG, Accessibility); this holds 4.5:1 on the fill over
+    /// every sheet surface, base and elevated (`BrandColorContrastTests`). The destructive role still marks the button.
+    static let luDangerInk = Color(ColorResource.dangerInk)
+
+    /// Quiet text that must still read as text — the same `OnWashSecondary` Color Set as `luOnWashSecondary`, named for
+    /// use off the wash: a chapter row's number, duration and play glyph, and the current row's "Now Playing · …" line.
+    /// The system's secondary label is ~3.4:1 there and tertiary ~1.7:1; this holds 4.5:1 on the sheet and on the
+    /// current row's coral tint, light and dark (`ChapterSheetAccessibilityTests`).
+    static let luQuietInk = Color(ColorResource.onWashSecondary)
+
     /// An armed sleep timer's container on Now Playing — the `SleepGoldContainer` Color Set: `#F6E1C4` light, `#4A3414`
     /// dark (`#3D2600` dark under Increase Contrast), the player spec's sleep gold (§3.9). Its countdown takes
     /// `luOnSleepGold`, 9:1 or more in every appearance (`BrandColorContrastTests`).
     static let luSleepGold = Color(ColorResource.sleepGoldContainer)
     /// The countdown's ink on `luSleepGold` — the `SleepGoldInk` Color Set: `#4A2E00` light, `#FFDDB0` dark.
     static let luOnSleepGold = Color(ColorResource.sleepGoldInk)
+    /// A running timer's meter (the Sleep sheet's ring) on its `luSleepGold` track — the `SleepGoldMeter` Color Set:
+    /// `#A3701F` light, `#E0B26A` dark (`#8A5C14` / `#F0C98A` under Increase Contrast), 3:1 or more on the track in every
+    /// appearance as a meaningful graphic (`BrandColorContrastTests`). The board's `#B07A2A` is 2.9:1, so it is deepened.
+    static let luSleepGoldMeter = Color(ColorResource.sleepGoldMeter)
 
     /// Secondary text on Now Playing's wash — the `OnWashSecondary` Color Set: `#57514D` light, `#ABA6A2` dark
     /// (`#3F3A37` / `#CFCAC6` under Increase Contrast). The system's secondary label is ~3.2:1 on the warm neutral and
@@ -81,7 +97,7 @@ extension Color {
     let swatches: [(String, Color)] = [
         ("luTint", .luTint), ("luOnTint", .luOnTint), ("luTintInk", .luTintInk),
         ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
-        ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold),
+        ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold), ("luSleepGoldMeter", .luSleepGoldMeter),
         ("luOnWashSecondary", .luOnWashSecondary), ("luOnWashTertiary", .luOnWashTertiary),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),

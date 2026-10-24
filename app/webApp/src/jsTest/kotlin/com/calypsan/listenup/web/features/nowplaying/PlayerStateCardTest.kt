@@ -15,6 +15,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
 
@@ -130,6 +132,26 @@ class PlayerStateCardTest :
             val host =
                 card(wayOfKings(phase = PlayerPhase.Finished, primary = PrimaryControl.ListenAgain, finished = finishedInfo(null)))
             buttons(host) shouldBe listOf("Listen again")
+        }
+
+        test("the fade card: gold, the moon, its words, one Keep listening") {
+            val actions = mutableListOf<PlayerCardAction>()
+            val host = card(wayOfKings(phase = PlayerPhase.SleepFading), actions)
+
+            val fade = host.querySelector(".np-card") as HTMLElement
+            // Polite: nothing failed, so it is a status, not an alert.
+            fade.getAttribute("role") shouldBe "status"
+            val probe = document.createElement("div") as HTMLElement
+            probe.style.setProperty("background-color", "var(--sleep-container)")
+            host.appendChild(probe)
+            window.getComputedStyle(fade).backgroundColor shouldBe window.getComputedStyle(probe).backgroundColor
+            fade.querySelector(".np-card-t svg").shouldNotBeNull()
+            fade.textContent.orEmpty() shouldContain "Fading out…"
+            fade.textContent.orEmpty() shouldContain "Your sleep timer is ending. Playback pauses in a moment."
+            buttons(host) shouldBe listOf("Keep listening")
+
+            (host.querySelector(".np-card button") as HTMLElement).click()
+            actions shouldBe listOf(PlayerCardAction.KeepListening)
         }
 
         test("playing has no card") {

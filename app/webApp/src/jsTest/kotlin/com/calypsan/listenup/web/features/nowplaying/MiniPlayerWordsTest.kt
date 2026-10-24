@@ -6,6 +6,9 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -23,7 +26,7 @@ private const val TWENTY_THREE_MINUTES_MS = 1_380_000L
  */
 class MiniPlayerWordsTest :
     FunSpec({
-        val playing = MiniPlayerLine.Chapter(number = null, title = "Bridge Four", sleepRemainingMs = null)
+        val playing = MiniPlayerLine.Chapter(number = null, title = "Bridge Four", sleepArmed = false)
 
         test("the desktop bar names the chapter and the author; its times sit by the scrubber") {
             miniLineText(playing, EIGHT_MINUTES_LEFT, MiniLineFit.Desktop, "Brandon Sanderson") shouldBe
@@ -35,22 +38,35 @@ class MiniPlayerWordsTest :
         }
 
         test("an armed timer replaces the time on a phone") {
-            miniLineText(playing.copy(sleepRemainingMs = TWENTY_THREE_MINUTES_MS), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
-                "Bridge Four · Sleep · 23m"
+            miniLineText(
+                playing.copy(sleepArmed = true),
+                EIGHT_MINUTES_LEFT,
+                MiniLineFit.Phone,
+                "",
+                sleepRemainingMs = TWENTY_THREE_MINUTES_MS,
+            ) shouldBe "Bridge Four · Sleep · 23m"
+        }
+
+        test("an armed end-of-chapter timer reads its real countdown, never Sleep · 0m") {
+            val armed = playing.copy(sleepArmed = true)
+            val endOfChapter = SleepTimerState.Active(SleepTimerMode.EndOfChapter, remainingMs = 0, totalMs = 0, startedAt = 0)
+            val countdown = SleepCountdowns.remainingMs(endOfChapter, EIGHT_MINUTES_LEFT, speed = 1f)
+            miniLineText(armed, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "", sleepRemainingMs = countdown) shouldBe
+                "Bridge Four · Sleep · 8m"
         }
 
         test("paused says so before the chapter") {
-            val paused = MiniPlayerLine.Paused(null, "Bridge Four", null)
+            val paused = MiniPlayerLine.Paused(null, "Bridge Four", false)
             miniLineText(paused, EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe "Paused · Bridge Four · 8m left"
             miniLineText(paused, EIGHT_MINUTES_LEFT, MiniLineFit.Desktop, "Brandon Sanderson") shouldBe "Paused · Bridge Four"
         }
 
         test("a generic title stands as the book names it; an untitled chapter is numbered; a chapterless book reads Whole book") {
-            miniLineText(MiniPlayerLine.Chapter(null, "Chapter 14", null), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
+            miniLineText(MiniPlayerLine.Chapter(null, "Chapter 14", false), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
                 "Chapter 14 · 8m left"
-            miniLineText(MiniPlayerLine.Chapter(6, null, null), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
+            miniLineText(MiniPlayerLine.Chapter(6, null, false), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
                 "Chapter 6 · 8m left"
-            miniLineText(MiniPlayerLine.Chapter(null, null, null), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
+            miniLineText(MiniPlayerLine.Chapter(null, null, false), EIGHT_MINUTES_LEFT, MiniLineFit.Phone, "") shouldBe
                 "Whole book · 8m left"
         }
 
@@ -82,9 +98,9 @@ class MiniPlayerWordsTest :
 
         test("the spoken line spells the time out, and says whose time it is") {
             miniLineLabel(playing, EIGHT_MINUTES_LEFT) shouldBe "Bridge Four, 8 minutes left in the chapter"
-            miniLineLabel(playing.copy(sleepRemainingMs = TWENTY_THREE_MINUTES_MS), EIGHT_MINUTES_LEFT) shouldBe
+            miniLineLabel(playing.copy(sleepArmed = true), EIGHT_MINUTES_LEFT, sleepRemainingMs = TWENTY_THREE_MINUTES_MS) shouldBe
                 "Bridge Four, sleep timer, 23 minutes left"
-            miniLineLabel(MiniPlayerLine.Paused(null, "Bridge Four", null), EIGHT_MINUTES_LEFT) shouldBe
+            miniLineLabel(MiniPlayerLine.Paused(null, "Bridge Four", false), EIGHT_MINUTES_LEFT) shouldBe
                 "Paused, Bridge Four, 8 minutes left in the chapter"
             miniLineLabel(MiniPlayerLine.Starting, EIGHT_MINUTES_LEFT) shouldBe "Starting…"
         }

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
@@ -31,6 +32,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import kotlin.js.Date
 import kotlin.math.roundToInt
 
 /**
@@ -69,6 +71,7 @@ fun TransportBar(
     onSkipForward: () -> Unit,
     onSetSpeed: (Float) -> Unit,
     onResetSpeed: () -> Unit = {},
+    onStepSpeed: (Boolean) -> Unit = {},
     onSeekToChapter: (Int) -> Unit = {},
     onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     onCancelSleepTimer: () -> Unit = {},
@@ -81,41 +84,54 @@ fun TransportBar(
     onCloseNowPlaying: () -> Unit = {},
     onFocusChapters: (() -> Unit)? = null,
 ) {
-    var chaptersOpen by remember { mutableStateOf(false) }
-    var sleepOpen by remember { mutableStateOf(false) }
-    var speedOpen by remember { mutableStateOf(false) }
+    // Where each panel is open, or null: the bar's controls hang popovers from themselves (§5.1), or open sheets where
+    // the window is narrower than PANEL_POPOVER_MIN_WIDTH_PX (panelPlacementFor).
+    val panels = remember { BarPanels() }
     var boostOpen by remember { mutableStateOf(false) }
     val bookSwitch = remember { BookSwitch() }
     val settings = state.settings
     val hasChapters = state.chapters.isNotEmpty()
+    val sleepCountdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed)
     ChapterPicker(
-        open = chaptersOpen,
+        open = panels.chapters != null,
         chapters = state.chapters,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        bookDurationMs = state.book.durationMs,
         onPick = { index ->
             onSeekToChapter(index)
-            chaptersOpen = false
+            panels.chapters = null
         },
-        onDismiss = { chaptersOpen = false },
+        placement = panels.chapters ?: PanelPlacement.Sheet,
+        onDismiss = { panels.chapters = null },
     )
     SleepTimerPicker(
-        open = sleepOpen,
+        open = panels.sleep != null,
         state = state.sleepTimer,
-        hasChapters = hasChapters,
+        chapter = state.chapter,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        countdownMs = sleepCountdownMs,
+        meterFraction = SleepCountdowns.meterFraction(state.sleepTimer, progress),
+        nowMs = Date.now().toLong(),
         onSet = { mode ->
             onSetSleepTimer(mode)
-            sleepOpen = false
+            panels.sleep = null
         },
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
-        onDismiss = { sleepOpen = false },
+        onKeepListening = onCancelSleepTimer,
+        placement = panels.sleep ?: PanelPlacement.Sheet,
+        onDismiss = { panels.sleep = null },
     )
     SpeedPicker(
-        open = speedOpen,
+        open = panels.speed != null,
         speed = settings.speed,
         defaultSpeed = settings.defaultSpeed,
+        leftAtSpeedMs = progress.bookRemainingAtSpeedMs(settings.speed),
         onSet = onSetSpeed,
+        onStep = onStepSpeed,
         onReset = onResetSpeed,
-        onDismiss = { speedOpen = false },
+        placement = panels.speed ?: PanelPlacement.Sheet,
+        onDismiss = { panels.speed = null },
     )
     BoostPicker(
         open = boostOpen,
@@ -124,6 +140,7 @@ fun TransportBar(
         unavailable = boostUnavailable,
         onSet = onSetBoost,
         onReset = onResetBoost,
+        placement = PanelPlacement.Sheet,
         onDismiss = { boostOpen = false },
     )
 
@@ -137,7 +154,14 @@ fun TransportBar(
         attr(ATTR_ROLE, "region")
         attr(ATTR_ARIA_LABEL, "Player")
     }) {
-        BarBook(book = state.book, line = line, progress = progress, bookSwitch = bookSwitch, onOpen = onOpenNowPlaying)
+        BarBook(
+            book = state.book,
+            line = line,
+            progress = progress,
+            sleepRemainingMs = sleepCountdownMs,
+            bookSwitch = bookSwitch,
+            onOpen = onOpenNowPlaying,
+        )
 
         BarTransport(
             state = state,
@@ -155,18 +179,18 @@ fun TransportBar(
                 speed = settings.speed,
                 hasChapters = hasChapters,
                 sleepTimer = state.sleepTimer,
-                onOpenSpeed = { speedOpen = true },
+                sleepCountdownMs = sleepCountdownMs,
+                panels = panels,
+                onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
                 // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
-                onOpenChapters = {
-                    if (isNowPlayingOpen &&
-                        onFocusChapters != null
-                    ) {
+                onOpenChapters = { opener ->
+                    if (isNowPlayingOpen && onFocusChapters != null) {
                         onFocusChapters()
                     } else {
-                        chaptersOpen = true
+                        panels.chapters = panels.chapters.toggledFrom(opener)
                     }
                 },
-                onOpenSleep = { sleepOpen = true },
+                onOpenSleep = { opener -> panels.sleep = panels.sleep.toggledFrom(opener) },
             )
         }
 
@@ -191,6 +215,17 @@ fun TransportBar(
     }
 }
 
+/** Where each of the bar's panels is open, or null when it is closed. */
+private class BarPanels {
+    var speed by mutableStateOf<PanelPlacement?>(null)
+    var sleep by mutableStateOf<PanelPlacement?>(null)
+    var chapters by mutableStateOf<PanelPlacement?>(null)
+}
+
+/** A control's press: closes its panel when open (the opener toggles it), else opens it where [opener] sits. */
+private fun PanelPlacement?.toggledFrom(opener: HTMLElement?): PanelPlacement? =
+    if (this == null) panelPlacementFor(opener) else null
+
 /**
  * The bar's book: the phone's chapter line, the polite Reconnecting announcement, and the body — cover, title and
  * line — which is one link to Now Playing, `/playing` (M1): a plain click opens it in-app, a modified one in a new tab.
@@ -200,6 +235,7 @@ private fun BarBook(
     book: PlayerBook,
     line: MiniPlayerLine,
     progress: PlayerProgress,
+    sleepRemainingMs: Long?,
     bookSwitch: BookSwitch,
     onOpen: (HTMLElement?) -> Unit,
 ) {
@@ -224,7 +260,7 @@ private fun BarBook(
     // Named for the book and where it is in it.
     A(href = PLAYING_HREF, attrs = {
         classes("tport-body")
-        attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress)}")
+        attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress, sleepRemainingMs)}")
         onClick { event ->
             if (event.isPlainPrimaryClick()) {
                 event.preventDefault()
@@ -249,10 +285,10 @@ private fun BarBook(
             Span(attrs = { classes("tport-t") }) { Text(book.title) }
             Span(
                 attrs = { classes("tport-sub", "desk") },
-            ) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine)) }
+            ) { Text(miniLineText(line, progress, MiniLineFit.Desktop, authorLine, sleepRemainingMs)) }
             Span(
                 attrs = { classes("tport-sub", "phone") },
-            ) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine)) }
+            ) { Text(miniLineText(line, progress, MiniLineFit.Phone, authorLine, sleepRemainingMs)) }
         }
     }
 }
@@ -315,9 +351,12 @@ private fun SessionControls(
     speed: Float,
     hasChapters: Boolean,
     sleepTimer: SleepTimerState,
-    onOpenSpeed: () -> Unit,
-    onOpenChapters: () -> Unit,
-    onOpenSleep: () -> Unit,
+    /** The armed timer's wall-clock countdown (`SleepCountdowns`): an end-of-chapter timer's included, never 0:00. */
+    sleepCountdownMs: Long?,
+    panels: BarPanels,
+    onOpenSpeed: (HTMLElement?) -> Unit,
+    onOpenChapters: (HTMLElement?) -> Unit,
+    onOpenSleep: (HTMLElement?) -> Unit,
 ) {
     // Opens the picker rather than cycling. Cycling made one move cheap and every other one
     // expensive — nine rungs meant eight taps to go down one — and could not reach a rate
@@ -328,25 +367,27 @@ private fun SessionControls(
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
         attr(ATTR_TITLE, "Playback speed")
-        onClick { onOpenSpeed() }
+        attr(ATTR_EXPANDED, (panels.speed != null).toString())
+        onClick { event -> onOpenSpeed(event.currentTarget as? HTMLElement) }
     }) { Text("${formatSpeed(speed)}\u00D7") }
 
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
     // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
     // armed by having the book stop is the one way this feature can feel broken rather than kind.
-    val active = sleepTimer as? SleepTimerState.Active
-    val sleepLabel = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer"
+    val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(PlayerSheetWords::countdown)
+    val sleepLabel = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer"
     Button(attrs = {
         classes("tport-sleep")
-        if (active != null) classes("armed")
+        if (countdown != null) classes("armed")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, sleepLabel)
         attr(ATTR_TITLE, sleepLabel)
-        onClick { onOpenSleep() }
+        attr(ATTR_EXPANDED, (panels.sleep != null).toString())
+        onClick { event -> onOpenSleep(event.currentTarget as? HTMLElement) }
     }) {
         Icon(WebIcon.Moon, size = SLEEP_ICON_SIZE)
-        if (active != null) {
-            Span(attrs = { attr(ATTR_ARIA_HIDDEN, VALUE_TRUE) }) { Text(active.formatRemaining()) }
+        if (countdown != null) {
+            Span(attrs = { attr(ATTR_ARIA_HIDDEN, VALUE_TRUE) }) { Text(countdown) }
         }
     }
 
@@ -360,7 +401,8 @@ private fun SessionControls(
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Chapters")
             attr(ATTR_TITLE, "Chapters")
-            onClick { onOpenChapters() }
+            attr(ATTR_EXPANDED, (panels.chapters != null).toString())
+            onClick { event -> onOpenChapters(event.currentTarget as? HTMLElement) }
         }) { Icon(WebIcon.ListOrdered, size = CHAPTER_ICON_SIZE) }
     }
 }
@@ -664,6 +706,8 @@ private const val ATTR_ARIA_LABEL = "aria-label"
 private const val ATTR_TITLE = "title"
 
 private const val ATTR_ARIA_HIDDEN = "aria-hidden"
+
+private const val ATTR_EXPANDED = "aria-expanded"
 
 private const val ATTR_ROLE = "role"
 

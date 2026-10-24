@@ -46,6 +46,8 @@ protocol PlaybackEngine: Sendable {
 struct ContributorNavRef: Sendable, Hashable, Identifiable {
     let id: String
     let name: String
+    /// Their books in your library, for the byline menu ("14 books"); 0 where it isn't known.
+    var bookCount = 0
 }
 
 /// Native, platform-neutral snapshot of a prepared book. The Kotlin adapter maps

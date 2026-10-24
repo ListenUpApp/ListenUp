@@ -26,15 +26,16 @@ struct NowPlayingUpNextPanel: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(observer.chapterRows.enumerated()), id: \.element.id) { index, chapter in
+                    ForEach(observer.chapterRows) { chapter in
                         ChapterRow(
-                            index: index,
+                            number: chapter.number,
                             title: chapter.title,
                             durationMs: chapter.durationMs,
-                            isCurrent: index == observer.chapterIndex,
+                            isCurrent: chapter.index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
+                            remainingMs: observer.progress.chapterRemainingMs,
                             tint: .luTint,
-                            onTap: { observer.selectChapter(index: index) }
+                            onTap: { observer.selectChapter(index: chapter.index) }
                         )
                         .padding(.vertical, Spacing.xs)
                     }

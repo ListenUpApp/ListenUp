@@ -50,6 +50,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryBu
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
 import com.calypsan.listenup.client.features.nowplaying.components.SleepSettingButton
 import com.calypsan.listenup.client.features.shell.components.NavigationRailWidth
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -232,7 +233,12 @@ private fun RowScope.ToolbarContent(
     if (fullSet) {
         ToolbarScrubber(progress = progress, onSeek = actions.onSeek, modifier = Modifier.weight(1f))
         SpeedButton(speed = state.settings.speed, onClick = actions.onSpeedClick)
-        SleepSettingButton(timer = state.sleepTimer, onClick = actions.onSleepClick, tonalWhenIdle = false)
+        SleepSettingButton(
+            timer = state.sleepTimer,
+            countdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
+            onClick = actions.onSleepClick,
+            tonalWhenIdle = false,
+        )
         Ctrl(
             icon = Icons.AutoMirrored.Filled.List,
             contentDescription = stringResource(Res.string.player_chapters),

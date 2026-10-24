@@ -147,6 +147,9 @@ struct PlayerSecondaryControls: View {
     let onShowChapters: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Speed and Sleep are sheets, not menus: their values are adjusted, not picked once (HIG, Sheets; plan C10).
+    @State private var showsSpeed = false
+    @State private var showsSleep = false
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -156,19 +159,27 @@ struct PlayerSecondaryControls: View {
             : AnyLayout(HStackLayout(alignment: .top, spacing: 6))
         layout {
             item(caption: String(localized: "player.speed")) {
-                PlaybackSpeedMenu(observer: observer) {
+                Button { showsSpeed = true } label: {
                     pill(PlaybackRates.format(observer.playbackSpeed))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "player.speed"))
+                .accessibilityValue(PlaybackRates.format(observer.playbackSpeed))
             }
 
             item(caption: String(localized: "player.sleep")) {
-                SleepTimerMenu(observer: observer) {
+                Button { showsSleep = true } label: {
                     if observer.sleepTimerActive {
                         sleepCountdown
                     } else {
                         glyph("moon.zzz")
                     }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "player.sleep_timer"))
+                // The time left while a timer runs, "Off" otherwise: the moon's fill alone would be state by shape.
+                .accessibilityValue(
+                    observer.sleepTimerActive ? observer.sleepTimerLabel : String(localized: "player.sleep_off"))
             }
 
             if showsChaptersControl {
@@ -179,13 +190,20 @@ struct PlayerSecondaryControls: View {
                 }
             }
 
-            // AirPlay's system route picker voices itself; its caption stays readable beside it.
-            item(caption: String(localized: "player.airplay"), captionIsSpoken: true) {
-                RoutePickerView(tint: Color(.label), activeTint: .luTint)
+            // AirPlay's system route picker voices itself; its caption stays readable beside it. While the audio plays
+            // elsewhere the caption names the device (HIG, AirPlay: keep the system control as it is; plan C13).
+            item(caption: observer.castDeviceName ?? String(localized: "player.airplay"), captionIsSpoken: true) {
+                RoutePickerView(
+                    tint: Color(.label), activeTint: .luTint,
+                    playingOn: observer.castDeviceName.map {
+                        String(format: String(localized: "player.np_status_playing_on"), $0)
+                    })
                     .frame(width: 44, height: 44)
             }
 
         }
+        .sheet(isPresented: $showsSpeed) { SpeedSheet(observer: observer) }
+        .sheet(isPresented: $showsSleep) { SleepSheet(observer: observer) }
     }
 
     private func item(
@@ -229,22 +247,17 @@ struct PlayerSecondaryControls: View {
     }
 
     /// An armed timer counts down in the sleep gold (§3.9) instead of showing a filled moon: the time left is the
-    /// state, not the glyph's fill. "End of chapter" shows the moon on gold.
+    /// state, not the glyph's fill. End of chapter counts down to the chapter's end at the listening speed.
     private var sleepCountdown: some View {
-        Group {
-            if observer.sleepTimerIsEndOfChapter {
-                Image(systemName: "moon.zzz.fill")
-            } else {
-                Text(observer.sleepTimerLabel).monospacedDigit()
-            }
-        }
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(Color.luOnSleepGold)
-        .padding(.horizontal, Spacing.s)
-        .padding(.vertical, Spacing.xxs)
-        .frame(minHeight: 28)
-        .background(Color.luSleepGold, in: Capsule())
-        .frame(minWidth: 44, minHeight: 44)
-        .contentShape(Rectangle())
+        Text(observer.sleepTimerLabel)
+            .monospacedDigit()
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.luOnSleepGold)
+            .padding(.horizontal, Spacing.s)
+            .padding(.vertical, Spacing.xxs)
+            .frame(minHeight: 28)
+            .background(Color.luSleepGold, in: Capsule())
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
     }
 }

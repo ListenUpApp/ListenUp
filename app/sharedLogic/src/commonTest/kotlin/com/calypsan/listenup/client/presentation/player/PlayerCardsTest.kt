@@ -24,7 +24,11 @@ class PlayerCardsTest :
     FunSpec({
         fun problem(state: PlayerUiState.Loaded): PlayerCard.Problem = PlayerCards.of(state).shouldBeInstanceOf<PlayerCard.Problem>()
 
-        test("playing, paused, restored, preparing, buffering, reconnecting and the fade have no card") {
+        test("the sleep fade puts the gold card in the transport's place, with Keep listening alone") {
+            PlayerCards.of(loaded(PlayerPhase.SleepFading)) shouldBe PlayerCard.SleepFading
+        }
+
+        test("playing, paused, restored, preparing, buffering and reconnecting have no card") {
             listOf(
                 PlayerPhase.Playing,
                 PlayerPhase.Paused,
@@ -32,7 +36,6 @@ class PlayerCardsTest :
                 PlayerPhase.Preparing,
                 PlayerPhase.Buffering,
                 PlayerPhase.Reconnecting,
-                PlayerPhase.SleepFading,
             ).forEach { PlayerCards.of(loaded(it)).shouldBeNull() }
         }
 

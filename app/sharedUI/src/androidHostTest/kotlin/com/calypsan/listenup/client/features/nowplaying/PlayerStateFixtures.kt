@@ -110,3 +110,29 @@ internal val samplePlayerProgress =
         bookPositionMs = 18_000_000,
         bookDurationMs = 163_800_000,
     )
+
+/** 23:18:19 on the test's clock (the zone is the test's to set): with 23:41 left, the timer pauses at 11:42 PM. */
+internal const val SLEEP_SHEET_NOW_MS: Long = (23 * 3_600 + 18 * 60 + 19) * 1_000L
+
+/**
+ * What the sleep sheet draws, for its tests: chapter 6, "Bridge Four", with 8 minutes of it left. A duration timer's
+ * countdown and meter default to its own remainder and share of its total, as `SleepCountdowns` gives them.
+ */
+internal fun sleepSheetState(
+    timer: SleepTimerState = SleepTimerState.Inactive,
+    isWholeBook: Boolean = false,
+    chapterRemainingMs: Long = 480_000,
+    countdownMs: Long? = (timer as? SleepTimerState.Active)?.remainingMs,
+    meterFraction: Float =
+        (timer as? SleepTimerState.Active)?.takeIf { it.totalMs > 0 }?.let { it.remainingMs.toFloat() / it.totalMs }
+            ?: 0f,
+    nowMs: Long = SLEEP_SHEET_NOW_MS,
+): SleepSheetState =
+    SleepSheetState(
+        timer = timer,
+        chapter = loadedPlayerState(isWholeBook = isWholeBook).chapter,
+        chapterRemainingMs = { chapterRemainingMs },
+        countdownMs = { countdownMs },
+        meterFraction = { meterFraction },
+        nowMs = { nowMs },
+    )

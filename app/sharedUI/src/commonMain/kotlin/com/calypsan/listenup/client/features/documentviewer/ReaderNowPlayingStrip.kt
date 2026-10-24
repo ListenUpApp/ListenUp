@@ -32,6 +32,7 @@ import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
@@ -98,7 +99,18 @@ internal fun ReaderNowPlayingStrip(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                MiniPlayerLineText(line = line, progress = progress, fit = MiniLineFit.WithTimeLeft)
+                MiniPlayerLineText(
+                    line = line,
+                    progress = progress,
+                    sleepRemainingMs = {
+                        SleepCountdowns.remainingMs(
+                            state.sleepTimer,
+                            progress(),
+                            state.settings.speed,
+                        )
+                    },
+                    fit = MiniLineFit.WithTimeLeft,
+                )
             }
             if (state.showsSkipBack) {
                 Ctrl(

@@ -32,13 +32,18 @@ enum PlaybackRates {
 
     /// "1×", "1.25×", "0.5×" — trailing zeros trimmed, with the multiplication sign.
     static func format(_ speed: Float) -> String {
+        "\(number(speed))×"
+    }
+
+    /// "1", "1.25", "0.5" — the speed's number alone, trailing zeros trimmed, for "1.25 times".
+    static func number(_ speed: Float) -> String {
         let rounded = (speed * 100).rounded() / 100
         if rounded == rounded.rounded() {
-            return "\(Int(rounded))×"
+            return "\(Int(rounded))"
         }
         var text = String(format: "%.2f", rounded)
         while text.hasSuffix("0") { text.removeLast() }
-        return "\(text)×"
+        return text
     }
 
     private static func isSame(_ lhs: Float, _ rhs: Float) -> Bool { abs(lhs - rhs) < 0.001 }

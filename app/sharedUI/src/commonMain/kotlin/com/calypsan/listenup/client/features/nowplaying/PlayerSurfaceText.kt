@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerBook
@@ -12,6 +13,7 @@ import listenup.composeapp.generated.resources.player_chapter_number
 import listenup.composeapp.generated.resources.player_chapter_of
 import listenup.composeapp.generated.resources.player_np_whole_book
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Duration.Companion.milliseconds
 
 /** Audio is advancing: the wave moves and the scrubber animates. */
 internal val PlayerUiState.Loaded.isAudible: Boolean
@@ -49,3 +51,7 @@ internal fun PlayerUiState.Loaded.chapterTitleLine(): String =
 /** The shared contributor rows and full-cast sheet take [BookContributor]s. */
 internal fun List<PlayerContributor>.asBookContributors(): List<BookContributor> =
     map { BookContributor(id = it.id, name = it.name) }
+
+/** A short remainder in content or wall time — "8m", "1h 5m", "<1m" — as the mini line and the sheets write it. */
+internal fun shortDuration(ms: Long): String =
+    DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)

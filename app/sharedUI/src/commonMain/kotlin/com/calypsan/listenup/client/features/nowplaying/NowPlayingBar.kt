@@ -52,6 +52,7 @@ import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_mini_open
 import listenup.composeapp.generated.resources.player_mini_reconnecting_a11y
@@ -271,6 +272,7 @@ internal fun RowScope.MiniBody(
             MiniPlayerLineText(
                 line = line,
                 progress = progress,
+                sleepRemainingMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 fit = fit,
                 color =
                     if (tinted) {

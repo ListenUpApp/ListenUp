@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.features.nowplaying.shortDuration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,7 +14,6 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.error.playerTitle
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -37,7 +37,6 @@ import listenup.composeapp.generated.resources.player_mini_starting
 import listenup.composeapp.generated.resources.player_mini_whole_book
 import listenup.composeapp.generated.resources.player_reconnecting
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.milliseconds
 
 /** Which parts of [MiniPlayerLine] a surface has room for (spec §5.1 M6/M7). */
 internal enum class MiniLineFit {
@@ -49,19 +48,21 @@ internal enum class MiniLineFit {
 }
 
 /**
- * The mini player's second line. A leaf on purpose: only the time-left part reads [progress], so a position tick
- * recomposes this text and nothing around it.
+ * The mini player's second line. A leaf on purpose: only the time-left part reads [progress] and
+ * [sleepRemainingMs], so a position tick recomposes this text and nothing around it. [sleepRemainingMs] is the armed
+ * timer's wall-clock countdown (`SleepCountdowns.remainingMs`), read only when the line says a timer is armed.
  */
 @Composable
 internal fun MiniPlayerLineText(
     line: MiniPlayerLine,
     progress: () -> PlayerProgress,
+    sleepRemainingMs: () -> Long?,
     fit: MiniLineFit,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Text(
-        text = miniLineWords(line, progress, fit),
+        text = miniLineWords(line = line, progress = progress, sleepRemainingMs = sleepRemainingMs, fit = fit),
         style = MaterialTheme.typography.bodySmall,
         color = color,
         maxLines = 1,
@@ -80,18 +81,32 @@ internal fun MiniPlayerLineText(
 private fun miniLineWords(
     line: MiniPlayerLine,
     progress: () -> PlayerProgress,
+    sleepRemainingMs: () -> Long?,
     fit: MiniLineFit,
 ): String =
     when (line) {
         is MiniPlayerLine.Chapter -> {
-            joinDots(chapterWords(line.number, line.title), trailing(line.sleepRemainingMs, progress, fit))
+            joinDots(
+                chapterWords(line.number, line.title),
+                trailing(
+                    sleepArmed = line.sleepArmed,
+                    progress = progress,
+                    sleepRemainingMs = sleepRemainingMs,
+                    fit = fit,
+                ),
+            )
         }
 
         is MiniPlayerLine.Paused -> {
             joinDots(
                 stringResource(Res.string.player_mini_paused),
                 chapterWords(line.number, line.title),
-                trailing(line.sleepRemainingMs, progress, fit),
+                trailing(
+                    sleepArmed = line.sleepArmed,
+                    progress = progress,
+                    sleepRemainingMs = sleepRemainingMs,
+                    fit = fit,
+                ),
             )
         }
 
@@ -145,15 +160,19 @@ private fun chapterWords(
 /** The time left in the chapter, or a running timer in its place; nothing where the surface shows times elsewhere. */
 @Composable
 private fun trailing(
-    sleepRemainingMs: Long?,
+    sleepArmed: Boolean,
     progress: () -> PlayerProgress,
+    sleepRemainingMs: () -> Long?,
     fit: MiniLineFit,
-): String? =
-    when {
-        fit == MiniLineFit.WithoutTime -> null
-        sleepRemainingMs != null -> stringResource(Res.string.player_mini_sleep, shortDuration(sleepRemainingMs))
-        else -> stringResource(Res.string.book_time_left, shortDuration(progress().chapterRemainingMs))
+): String? {
+    if (fit == MiniLineFit.WithoutTime) return null
+    val countdown = if (sleepArmed) sleepRemainingMs() else null
+    return if (countdown != null) {
+        stringResource(Res.string.player_mini_sleep, shortDuration(countdown))
+    } else {
+        stringResource(Res.string.book_time_left, shortDuration(progress().chapterRemainingMs))
     }
+}
 
 /** The short mini-player line for a book that can't play, or the card title where there is none (§4.6). */
 @Composable
@@ -168,8 +187,5 @@ internal fun AppError.miniPlayerWords(): String =
         is PlaybackError.BlockedInBackground -> stringResource(Res.string.player_mini_playback_blocked_in_background)
         else -> playerTitle()
     }
-
-private fun shortDuration(ms: Long): String =
-    DurationFormatter.hoursMinutesOrUnderMinute(ms.coerceAtLeast(0).milliseconds)
 
 private fun joinDots(vararg parts: String?): String = parts.filterNotNull().joinToString(" · ")

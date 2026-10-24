@@ -83,17 +83,11 @@ struct FullScreenPlayerView: View {
             BoostPickerSheet(
                 currentBoostDb: observer.volumeBoostDb,
                 defaultBoostDb: defaultBoostDb,
-                onBoostSelected: { db in
-                    observer.setBoost(db)
-                    showBoostPicker = false
-                },
-                onUseDefault: {
-                    if defaultBoostDb != nil { observer.resetBoost() }
-                    showBoostPicker = false
-                }
+                // The sheet stays up after a pick, so each level can be heard before settling (PB5).
+                onBoostSelected: { observer.setBoost($0) },
+                onUseDefault: { if defaultBoostDb != nil { observer.resetBoost() } }
             )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
+            .playerSheetDetents()
         }
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(

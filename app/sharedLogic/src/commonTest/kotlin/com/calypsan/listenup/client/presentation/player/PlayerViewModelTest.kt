@@ -17,6 +17,8 @@ import com.calypsan.listenup.client.playback.PREPARING_UI_DELAY
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.PlayerSessionState
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
@@ -281,6 +283,33 @@ class PlayerViewModelTest :
                         rig.vm.onCardAction(PlayerCardAction.CloseBook)
                         runCurrent()
                         expectMostRecentItem() shouldBe PlayerUiState.NothingLoaded
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("Keep listening on the fade card cancels the timer and puts full volume back (PT7)") {
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("b1")
+                    rig.vm.uiState.test {
+                        rig.vm.playBook(BookId("b1"), null)
+                        runCurrent()
+                        rig.vm.setSleepTimer(SleepTimerMode.Duration(1))
+                        advanceTimeBy(61_000)
+                        runCurrent()
+                        advanceTimeBy(500)
+                        runCurrent()
+                        PlayerCards.of(expectMostRecentLoaded()) shouldBe PlayerCard.SleepFading
+                        rig.vm.onCardAction(PlayerCardAction.KeepListening)
+                        runCurrent()
+                        rig.s.sleep.state.value shouldBe SleepTimerState.Inactive
+                        rig.s.engine.calls
+                            .last() shouldBe "setVolume:1.0"
+                        expectMostRecentLoaded().phase shouldBe PlayerPhase.Playing
                     }
                 } finally {
                     rig.close()

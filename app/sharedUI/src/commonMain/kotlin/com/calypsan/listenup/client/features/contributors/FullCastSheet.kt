@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -143,6 +144,8 @@ private fun castSections(
  * @param onDismiss     Invoked when the overlay is dismissed without a selection.
  * @param byRole        Head the roster by role, each role's people under it (Book Detail's All credits, spec D8); a
  *   person in two roles is listed under both.
+ * @param supporting    An optional line under a person's name — the player's "14 books in your library" (spec
+ *   §5.5.5, PK1); null shows no line. Book Detail shows none.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,6 +156,7 @@ fun FullCastSheet(
     onContributorClick: (String) -> Unit,
     onDismiss: () -> Unit,
     byRole: Boolean = false,
+    supporting: (BookContributor) -> String? = { null },
 ) {
     val sections = castSections(contributors, byRole)
     val expanded =
@@ -170,6 +174,7 @@ fun FullCastSheet(
             title = title,
             countText = countText,
             sections = sections,
+            supporting = supporting,
             onSelect = onSelect,
             onDismiss = onDismiss,
         )
@@ -178,6 +183,7 @@ fun FullCastSheet(
             title = title,
             countText = countText,
             sections = sections,
+            supporting = supporting,
             onSelect = onSelect,
             onDismiss = onDismiss,
         )
@@ -191,6 +197,7 @@ private fun FullCastBottomSheet(
     title: String,
     countText: String,
     sections: List<CastSection>,
+    supporting: (BookContributor) -> String?,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -224,6 +231,7 @@ private fun FullCastBottomSheet(
                         contributor = contributor,
                         index = index,
                         onClick = { onSelect(contributor.id) },
+                        supporting = supporting(contributor),
                     )
                 }
             }
@@ -237,6 +245,7 @@ private fun FullCastDialog(
     title: String,
     countText: String,
     sections: List<CastSection>,
+    supporting: (BookContributor) -> String?,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -263,7 +272,7 @@ private fun FullCastDialog(
                 ) {
                     sections.forEach { section ->
                         section.heading?.let { RoleHeading(it, Modifier.padding(horizontal = 8.dp)) }
-                        CastPairs(section.contributors, onSelect)
+                        CastPairs(section.contributors, supporting, onSelect)
                     }
                 }
                 Row(
@@ -292,6 +301,7 @@ private fun FullCastDialog(
 @Composable
 private fun CastPairs(
     contributors: List<BookContributor>,
+    supporting: (BookContributor) -> String?,
     onSelect: (String) -> Unit,
 ) {
     contributors.chunked(2).forEachIndexed { rowIndex, pair ->
@@ -301,6 +311,7 @@ private fun CastPairs(
                     contributor = contributor,
                     index = rowIndex * 2 + colIndex,
                     onClick = { onSelect(contributor.id) },
+                    supporting = supporting(contributor),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -348,19 +359,25 @@ private fun CastHeader(
     }
 }
 
-/** One roster row: the contributor's framed photo (or initials) and their name. Every row reads equally. */
+/**
+ * One roster row: the contributor's framed photo (or initials), their name, and an optional [supporting] line under it,
+ * which a screen reader hears with the name ("Michael Kramer, 14 books in your library"). Every row reads equally.
+ */
 @Composable
 internal fun CastRow(
     contributor: BookContributor,
     index: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    supporting: String? = null,
 ) {
     val haptics = LocalHaptics.current
+    val spoken = supporting?.let { "${contributor.name}, $it" }
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
+                .then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)
                 .clickable {
                     haptics.press()
                     onClick()
@@ -376,14 +393,22 @@ internal fun CastRow(
         ) {
             CastAvatar(name = contributor.name, index = index)
         }
-        Text(
-            text = contributor.name,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = contributor.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            supporting?.let { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

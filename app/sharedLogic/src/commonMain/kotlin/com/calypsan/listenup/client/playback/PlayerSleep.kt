@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -59,11 +60,13 @@ internal class PlayerSleep(
                 .filterNotNull()
         }
 
-    /** Start a timer. A duration takes any whole minutes from 1 to [MAX_SLEEP_MINUTES] (the custom stepper, PT8). */
+    /** Start a timer. A duration takes any whole minutes within [SleepTimerChoices]' custom bounds (PT8). */
     fun set(mode: SleepTimerMode) {
         val bounded =
             if (mode is SleepTimerMode.Duration) {
-                SleepTimerMode.Duration(mode.minutes.coerceIn(1, MAX_SLEEP_MINUTES))
+                SleepTimerMode.Duration(
+                    mode.minutes.coerceIn(SleepTimerChoices.CUSTOM_MIN_MINUTES, SleepTimerChoices.CUSTOM_MAX_MINUTES),
+                )
             } else {
                 mode
             }

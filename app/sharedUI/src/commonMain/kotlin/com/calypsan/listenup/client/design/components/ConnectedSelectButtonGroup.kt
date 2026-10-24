@@ -50,7 +50,8 @@ data class ButtonGroupChoice<T>(
  * long label ("12 months") is never squeezed to make the short ones match. Once every label fits in an
  * equal share with room to spare ([EQUAL_WIDTH_SIDE_ROOM] per side), the buttons are equal instead.
  * The row never grows past [maxWidth]. When the labels can't share one row — at a large font scale —
- * the group wraps into connected pairs. Widths never animate.
+ * the group wraps into connected pairs. A long ladder (nine speeds) can ask for rows of [rowLength] instead of one
+ * row, which it gets while every such row fits; past that it wraps into pairs the same way. Widths never animate.
  *
  * Accessibility: the group is a [selectableGroup] named [groupLabel]; each button is a radio button
  * named by its [ButtonGroupChoice.accessibleLabel].
@@ -61,6 +62,7 @@ data class ButtonGroupChoice<T>(
  * @param groupLabel What a screen reader calls the whole group.
  * @param modifier Modifier for the group.
  * @param maxWidth The widest the row may grow.
+ * @param rowLength The most buttons on one row; unbounded by default, so every choice shares one row when it fits.
  * @param colors The buttons' colours. The default suits a group on the page's surface; on a container that
  *   is itself surfaceContainer (a card), pass a contrasting unselected container so every segment shows.
  */
@@ -74,6 +76,7 @@ fun <T> ConnectedSelectButtonGroup(
     modifier: Modifier = Modifier,
     maxWidth: Dp = DEFAULT_MAX_WIDTH,
     colors: ToggleButtonColors = ToggleButtonDefaults.toggleButtonColors(),
+    rowLength: Int = Int.MAX_VALUE,
 ) {
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelLarge
@@ -91,7 +94,7 @@ fun <T> ConnectedSelectButtonGroup(
                         .width
                 with(density) { labelPx.toDp() } + BUTTON_SIDE_PADDING * 2
             }
-        val rows = rowsFor(contentWidths, rowWidth, spacing)
+        val rows = rowsFor(contentWidths = contentWidths, rowWidth = rowWidth, spacing = spacing, rowLength = rowLength)
 
         Column(
             modifier =
@@ -142,15 +145,20 @@ fun <T> ConnectedSelectButtonGroup(
     }
 }
 
-/** The rows the choices fall into: all on one row when their content fits, else connected pairs. */
+/** The rows the choices fall into: rows of up to [rowLength] when each fits, else connected pairs. */
 private fun rowsFor(
     contentWidths: List<Dp>,
     rowWidth: Dp,
     spacing: Dp,
+    rowLength: Int,
 ): List<List<Int>> {
-    val oneRow = contentWidths.fold(0.dp) { a, b -> a + b } + spacing * (contentWidths.size - 1)
-    val indices = contentWidths.indices.toList()
-    return if (oneRow <= rowWidth) listOf(indices) else indices.chunked(PAIR)
+    val rows = contentWidths.indices.chunked(rowLength.coerceAtLeast(PAIR))
+    val everyRowFits =
+        rows.all { row ->
+            row.fold(0.dp) { width, index -> width + contentWidths[index] } + spacing * (row.size - 1) <=
+                rowWidth
+        }
+    return if (everyRowFits) rows else contentWidths.indices.chunked(PAIR)
 }
 
 /** Whether every button in a row can take an equal share and still leave [EQUAL_WIDTH_SIDE_ROOM] per side. */

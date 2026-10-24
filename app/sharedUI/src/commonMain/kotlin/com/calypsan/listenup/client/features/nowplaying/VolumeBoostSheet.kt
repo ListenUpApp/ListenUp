@@ -1,11 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,11 +10,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.MinTouchTarget
+import com.calypsan.listenup.client.design.components.ButtonGroupChoice
+import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
@@ -28,7 +24,10 @@ import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_boost_db
 import listenup.composeapp.generated.resources.player_boost_off
-import listenup.composeapp.generated.resources.player_boost_use_default
+import listenup.composeapp.generated.resources.player_boost_pill_db
+import listenup.composeapp.generated.resources.player_sheet_boost_level
+import listenup.composeapp.generated.resources.player_sheet_boost_note
+import listenup.composeapp.generated.resources.player_sheet_reset_boost
 import listenup.composeapp.generated.resources.player_volume_boost
 import org.jetbrains.compose.resources.stringResource
 
@@ -56,17 +55,16 @@ object VolumeBoostPresets {
 }
 
 /**
- * Volume-boost panel: a large brand readout and a row of discrete dB preset chips (3 dB steps
- * across the full [VolumeBoostLimits] range), plus a reset-to-default action shown only when the
- * current boost differs from the universal default. Unlike [PlaybackSpeedSheet] there is no
- * fine-control slider — boost is a small, discrete catalogue by design (iOS parity). Adaptive
- * sheet/dialog via [PlayerPanelScaffold].
+ * The Boost sheet (spec §5.5.3, PB1–PB5; `Sheets-Android`): the level as the sheet's display figure ("+6 dB"), what
+ * boost is for, the five levels as one connected single-select group (m3.material.io/components/button-groups/guidelines:
+ * connected groups for selection), and reset to the listener's own default. A discrete catalogue by design — no slider
+ * (iOS parity). It stays open while the listener compares levels (§3.8). Adaptive sheet/dialog via [PlayerPanelScaffold].
  *
- * @param currentBoostDb Current per-book boost, in dB.
- * @param defaultBoostDb Universal default boost from settings, in dB.
- * @param onBoostChange Called when the user picks a new boost (marks it custom).
- * @param onResetToDefault Called when the user taps reset (marks it as using the default).
- * @param onDismiss Called when the panel is dismissed.
+ * @param currentBoostDb This book's boost, in dB.
+ * @param defaultBoostDb The listener's default boost, in dB, which reset returns to.
+ * @param onBoostChange A level was chosen.
+ * @param onResetToDefault Reset was tapped.
+ * @param onDismiss The sheet was dismissed.
  */
 @Composable
 fun VolumeBoostSheet(
@@ -77,92 +75,65 @@ fun VolumeBoostSheet(
     onDismiss: () -> Unit,
 ) {
     var selectedBoostDb by remember(currentBoostDb) { mutableFloatStateOf(currentBoostDb) }
-    val offLabel = stringResource(Res.string.player_boost_off)
 
-    PlayerPanelScaffold(
-        title = stringResource(Res.string.player_volume_boost),
-        onDismiss = onDismiss,
-        dialogWidth = 520.dp,
-    ) {
-        BoostReadout(selectedBoostDb, offLabel)
-        Spacer(Modifier.height(Spacing.xl))
-        BoostPresetRow(
-            currentBoostDb = selectedBoostDb,
-            offLabel = offLabel,
-            onBoostSelected = { preset ->
-                selectedBoostDb = preset
-                onBoostChange(preset)
+    PlayerPanelScaffold(title = stringResource(Res.string.player_volume_boost), onDismiss = onDismiss) {
+        Text(
+            text = boostLabel(selectedBoostDb),
+            style =
+                MaterialTheme.typography.displayMedium.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                ),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = stringResource(Res.string.player_sheet_boost_note),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.md),
+        )
+        ConnectedSelectButtonGroup(
+            choices =
+                VolumeBoostPresets.presets.map { preset ->
+                    ButtonGroupChoice<Float?>(preset, pillLabel(preset), boostLabel(preset))
+                },
+            selected = VolumeBoostPresets.presets.firstOrNull { isSameVolumeBoost(it, selectedBoostDb) },
+            onSelect = { preset ->
+                if (preset != null) {
+                    selectedBoostDb = preset
+                    onBoostChange(preset)
+                }
             },
+            groupLabel = stringResource(Res.string.player_sheet_boost_level),
         )
         if (!isSameVolumeBoost(selectedBoostDb, defaultBoostDb)) {
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                val defaultBoostLabel =
-                    VolumeBoostPresets.format(
-                        db = defaultBoostDb,
-                        offLabel = offLabel,
-                        dbLabel = stringResource(Res.string.player_boost_db, defaultBoostDb.roundToInt()),
-                    )
-                TextButton(
-                    onClick = {
-                        selectedBoostDb = defaultBoostDb
-                        onResetToDefault()
-                    },
-                ) {
-                    Text(stringResource(Res.string.player_boost_use_default, defaultBoostLabel))
-                }
+            TextButton(
+                onClick = {
+                    selectedBoostDb = defaultBoostDb
+                    onResetToDefault()
+                },
+                modifier = Modifier.padding(top = Spacing.sm).heightIn(min = MinTouchTarget),
+            ) {
+                Text(stringResource(Res.string.player_sheet_reset_boost, boostLabel(defaultBoostDb)))
             }
         }
     }
 }
 
+/** "Off" or "+6 dB": the readout, the reset, and what a screen reader hears for a level. */
 @Composable
-private fun BoostReadout(
-    boostDb: Float,
-    offLabel: String,
-) {
-    val label =
-        VolumeBoostPresets.format(
-            db = boostDb,
-            offLabel = offLabel,
-            dbLabel = stringResource(Res.string.player_boost_db, boostDb.roundToInt()),
-        )
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(
-            text = label,
-            style =
-                MaterialTheme.typography.displayLarge.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
+private fun boostLabel(db: Float): String =
+    VolumeBoostPresets.format(
+        db = db,
+        offLabel = stringResource(Res.string.player_boost_off),
+        dbLabel = stringResource(Res.string.player_boost_db, db.roundToInt()),
+    )
 
+/** "Off" or "+6": a level's short label in the group, where "dB" would crowd five buttons. */
 @Composable
-private fun BoostPresetRow(
-    currentBoostDb: Float,
-    offLabel: String,
-    onBoostSelected: (Float) -> Unit,
-) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        VolumeBoostPresets.presets.forEach { preset ->
-            val label =
-                VolumeBoostPresets.format(
-                    db = preset,
-                    offLabel = offLabel,
-                    dbLabel = stringResource(Res.string.player_boost_db, preset.roundToInt()),
-                )
-            PillChip(
-                label = label,
-                selected = isSameVolumeBoost(currentBoostDb, preset),
-                onClick = { onBoostSelected(preset) },
-            )
-        }
-    }
-}
+private fun pillLabel(db: Float): String =
+    VolumeBoostPresets.format(
+        db = db,
+        offLabel = stringResource(Res.string.player_boost_off),
+        dbLabel = stringResource(Res.string.player_boost_pill_db, db.roundToInt()),
+    )

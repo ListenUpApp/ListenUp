@@ -171,6 +171,47 @@ struct BrandColorContrastTests {
         #expect(hex(ink) == "4A2E00")
     }
 
+    /// The running timer's ring and bar: the meter against the gold track it runs in, as a meaningful graphic (3:1), and
+    /// the fade card's Keep Listening, gold ink on the gold's own dark ink (player spec §5.6).
+    @Test("the sleep gold's meter reads on its track, and Keep Listening's ink on its fill, in every appearance")
+    func sleepGoldMeter() {
+        let container = UIColor(named: "SleepGoldContainer")
+        let ink = UIColor(named: "SleepGoldInk")
+        let meter = UIColor(named: "SleepGoldMeter")
+        #expect(container != nil && ink != nil && meter != nil)
+        guard let container, let ink, let meter else { return }
+        for traits in Traits.colorAppearances {
+            let track = SRGBColor(container, resolvedFor: traits)
+            let meterRatio = SRGBColor(meter, resolvedFor: traits).contrastRatio(against: track)
+            #expect(meterRatio >= ContrastMinimum.glyph, "meter \(meterRatio) in \(traits.userInterfaceStyle.rawValue)")
+            let buttonRatio = track.contrastRatio(against: SRGBColor(ink, resolvedFor: traits))
+            #expect(buttonRatio >= ContrastMinimum.text, "keep \(buttonRatio) in \(traits.userInterfaceStyle.rawValue)")
+        }
+    }
+
+    /// The running Sleep sheet's capsules: Turn Off Timer's danger ink and +5 / +10 / +15's coral ink on the neutral
+    /// capsule fill, over every surface a sheet can sit on, base and elevated (player spec §8; HIG, Accessibility).
+    @Test("the sleep sheet's capsule inks read as text on their fill, in every appearance")
+    func sheetCapsuleInks() {
+        let danger = UIColor(named: "DangerInk")
+        let coralInk = UIColor(named: "CoralInk")
+        #expect(danger != nil && coralInk != nil)
+        guard let danger, let coralInk else { return }
+        for traits in Traits.colorAppearances {
+            for level in [UIUserInterfaceLevel.base, .elevated] {
+                let resolved = traits.modifyingTraits { $0.userInterfaceLevel = level }
+                for base in [UIColor.systemBackground, .secondarySystemBackground] {
+                    let capsule = SRGBColor(.tertiarySystemFill, resolvedFor: resolved, over: surface(base, resolved))
+                    let style = "\(traits.userInterfaceStyle.rawValue)/\(level.rawValue)"
+                    let off = SRGBColor(danger, resolvedFor: resolved).contrastRatio(against: capsule)
+                    #expect(off >= ContrastMinimum.text, "turn off \(off) in \(style)")
+                    let extend = SRGBColor(coralInk, resolvedFor: resolved).contrastRatio(against: capsule)
+                    #expect(extend >= ContrastMinimum.text, "extend \(extend) in \(style)")
+                }
+            }
+        }
+    }
+
     @Test("the warning amber is visibly not the brand coral")
     func warningIsNotCoral() {
         func hue(_ color: UIColor) -> Double {

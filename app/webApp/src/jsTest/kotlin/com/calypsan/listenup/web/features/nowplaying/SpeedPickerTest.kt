@@ -1,16 +1,25 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.assertions.withClue
+import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
 /** Drags the slider to [speed] and releases, the way a pointer does. */
@@ -37,6 +46,8 @@ private const val BETWEEN_RUNGS = 1.35f
 
 private const val HUNDREDTHS = 100
 
+private const val THIRTY = 30
+
 class SpeedPickerTest :
     FunSpec({
         val mounts = MountRegistry()
@@ -52,7 +63,9 @@ class SpeedPickerTest :
             speed: Float = NORMAL,
             defaultSpeed: Float = NORMAL,
             open: Boolean = true,
+            leftAtSpeedMs: Long = 0,
             onSet: (Float) -> Unit = {},
+            onStep: (Boolean) -> Unit = {},
             onReset: () -> Unit = {},
             onDismiss: () -> Unit = {},
         ): HTMLElement =
@@ -62,8 +75,11 @@ class SpeedPickerTest :
                         open = open,
                         speed = speed,
                         defaultSpeed = defaultSpeed,
+                        leftAtSpeedMs = leftAtSpeedMs,
                         onSet = onSet,
+                        onStep = onStep,
                         onReset = onReset,
+                        placement = PanelPlacement.Sheet,
                         onDismiss = onDismiss,
                     )
                 }
@@ -80,21 +96,20 @@ class SpeedPickerTest :
             // cannot leave the browser showing a stale ladder.
             val host = picker()
 
-            host.querySelectorAll(".speed-opt").length shouldBe PLAYBACK_SPEED_STEPS.size
-            PLAYBACK_SPEED_STEPS.forEach { rung ->
-                host.buttonSaying("${formatSpeed(rung)}×") shouldBe
-                    host.buttonSaying("${formatSpeed(rung)}×")
-            }
+            host.querySelectorAll("[role=radio]").length shouldBe PLAYBACK_SPEED_STEPS.size
+            PLAYBACK_SPEED_STEPS.forEach { rung -> host.buttonSaying(speedLabel(rung)).shouldNotBeNull() }
 
             host.closeDialogs()
         }
 
-        test("the rate playing now is marked, and says so to a screen reader") {
-            val host = picker(speed = FASTER)
+        test("presets are a radiogroup of radios, the current one checked") {
+            val host = picker(speed = 1.25f)
 
-            val current = host.querySelectorAll("[aria-current='true']")
-            current.length shouldBe 1
-            (current.item(0) as HTMLElement).textContent shouldBe "${formatSpeed(FASTER)}×"
+            val group = host.querySelector("[role=radiogroup][aria-label='Speed presets']").shouldNotBeNull()
+            group.querySelectorAll("[role=radio]").length shouldBe 9
+            val checked = group.querySelectorAll("[role=radio][aria-checked='true']")
+            checked.length shouldBe 1
+            (checked.item(0) as HTMLElement).textContent shouldBe "1.25×"
 
             host.closeDialogs()
         }
@@ -104,7 +119,11 @@ class SpeedPickerTest :
             // — a confident wrong answer where marking nothing is a visible one.
             val host = picker(speed = BETWEEN_RUNGS)
 
-            host.querySelectorAll("[aria-current='true']").length shouldBe 0
+            host.querySelectorAll("[role=radio][aria-checked='true']").length shouldBe 0
+            host.closeDialogs()
+            val offRung = picker(speed = 1.3f)
+            offRung.querySelectorAll("[role=radio][aria-checked='true']").length shouldBe 0
+            offRung.closeDialogs()
 
             host.closeDialogs()
         }
@@ -185,6 +204,73 @@ class SpeedPickerTest :
 
             reset shouldBe 1
             set shouldBe 0
+            host.closeDialogs()
+        }
+
+        test("− and + step by 0.05 through the shared rule") {
+            var steps = 0
+            val counted = picker(speed = 2.5f, onStep = { up -> if (!up) steps++ })
+            val slower = counted.querySelector("button[aria-label='Slower by 0.05']") as HTMLButtonElement
+            repeat(THIRTY) { slower.click() }
+            steps shouldBe THIRTY
+            counted.closeDialogs()
+
+            // Driving the real shared step, thirty presses from 2.5 land exactly on 1.0: no float drift (§11 risk).
+            val host =
+                mounts.mount {
+                    var speed by remember { mutableStateOf(2.5f) }
+                    WebAppSurface {
+                        SpeedPicker(
+                            open = true,
+                            speed = speed,
+                            defaultSpeed = NORMAL,
+                            leftAtSpeedMs = 0,
+                            placement = PanelPlacement.Sheet,
+                            onSet = { speed = it },
+                            onStep = { up -> speed = stepPlaybackSpeed(speed, up) },
+                            onReset = {},
+                            onDismiss = {},
+                        )
+                    }
+                }
+            repeat(THIRTY) {
+                (host.querySelector("button[aria-label='Slower by 0.05']") as HTMLButtonElement).click()
+                awaitFrame()
+            }
+            host.querySelector(".speed-read")?.textContent shouldBe "1.0×"
+            host.closeDialogs()
+        }
+
+        test("the time at this speed is shown") {
+            val host = picker(speed = 1.25f, leftAtSpeedMs = 116_640_000)
+
+            host.querySelector(".speed-left")?.textContent shouldBe "32h 24m left at this speed"
+
+            host.closeDialogs()
+        }
+
+        test("reset reads 'Reset to 1.0× (your default)', and the footnote says whose speed this is") {
+            val host = picker(speed = FASTER, defaultSpeed = NORMAL)
+
+            (host.querySelector(".speed-reset") as HTMLElement).textContent shouldBe "Reset to 1.0× (your default)"
+            host.textContent.orEmpty() shouldContain "Applies to this book only."
+
+            host.closeDialogs()
+        }
+
+        test("every button is at least 44px tall, and − and + are 44 square") {
+            val host = picker(speed = FASTER)
+
+            host.querySelectorAll("dialog button").asList().forEach { button ->
+                withClue((button as HTMLElement).textContent.orEmpty()) {
+                    button.getBoundingClientRect().height shouldBeGreaterThanOrEqual 44.0
+                }
+            }
+            listOf("Slower by 0.05", "Faster by 0.05").forEach { label ->
+                val step = host.querySelector("button[aria-label='$label']") as HTMLElement
+                step.getBoundingClientRect().width shouldBeGreaterThanOrEqual 44.0
+            }
+
             host.closeDialogs()
         }
 

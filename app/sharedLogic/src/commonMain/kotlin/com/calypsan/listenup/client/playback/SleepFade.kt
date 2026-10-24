@@ -27,7 +27,7 @@ private const val RESTORE_DELAY_MS = 100L
  * nothing on screen to explain it. The short [RESTORE_DELAY_MS] gap lets the pause take effect
  * first, so the restore cannot un-silence the last instant of the fade.
  *
- * On Desktop and Apple the engine's volume is a documented no-op, so the fade is
+ * On Desktop the engine's volume is a documented no-op, so the fade is
  * inaudible there and playback simply stops at the end of it. The behaviour that matters — that it
  * stops, once, at the right time — is the same everywhere; only the softness of the landing differs.
  */

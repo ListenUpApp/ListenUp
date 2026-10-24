@@ -63,7 +63,7 @@ class CompactNowPlayingTest {
         screen(loadedPlayerState(coverPath = NO_COVER))
         composeRule.onNodeWithContentDescription("Pause").assertExists()
         composeRule.onNodeWithText("Book 10% · 40h 30m left").assertExists()
-        composeRule.onNodeWithText("1.0x").assertExists()
+        composeRule.onNodeWithText("1.0×").assertExists()
         composeRule
             .onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Now playing"))
             .assertExists()
@@ -104,5 +104,12 @@ class CompactNowPlayingTest {
         composeRule.onNodeWithContentDescription("Chapters").performScrollTo().performClick()
         cardActions shouldBe listOf(PlayerCardAction.Dismiss)
         chaptersOpened shouldBe 1
+    }
+
+    @Test
+    fun `the sleep fade - the gold card replaces the transport`() {
+        screen(loadedPlayerState(coverPath = NO_COVER, phase = PlayerPhase.SleepFading))
+        composeRule.onNodeWithText("Keep listening").assertExists()
+        composeRule.onNodeWithContentDescription("Pause").assertDoesNotExist()
     }
 }

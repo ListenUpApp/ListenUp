@@ -155,6 +155,7 @@ private fun session(
         onSeekToChapter = {},
         onSetSpeed = {},
         onResetSpeed = {},
+        onStepSpeed = {},
         onSetBoost = {},
         onResetBoost = {},
         onSetSleepTimer = {},

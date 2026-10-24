@@ -332,6 +332,7 @@ class PlayerViewModel(
             PlayerCardAction.SignIn, PlayerCardAction.OpenInbox, PlayerCardAction.Resume, PlayerCardAction.TapToPlay -> onPrimary()
             PlayerCardAction.ListenAgain -> listenAgain()
             PlayerCardAction.PlayNextBook -> playNextBook()
+            PlayerCardAction.KeepListening -> cancelSleepTimer()
         }
     }
 

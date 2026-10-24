@@ -42,9 +42,6 @@ import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-/** The longest custom sleep timer (spec §4.3, PT8). */
-internal const val MAX_SLEEP_MINUTES = 720
-
 /**
  * The one owner of this device's loaded book (spec §4; Architecture in the PR 1 plan).
  *

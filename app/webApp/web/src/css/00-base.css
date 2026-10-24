@@ -92,6 +92,8 @@
   --player-err-ink:       #410E0B;
   --sleep-container:      #F6E1C4;
   --sleep-ink:            #4A2E00;
+  /* The running timer's meter, gold on the panel's inset track (≥ 3:1 against --surface-2 in both themes). */
+  --sleep-meter:          #B07A2A;
   --danger-fill:      #C0392B;
   --danger-fill-press:#A5301F;
   --on-danger:        #FFFFFF;
@@ -234,6 +236,7 @@
   --player-err-ink:       #F9DEDC;
   --sleep-container:      #4A2E00;
   --sleep-ink:            #F6E1C4;
+  --sleep-meter:          #E0B26A;
   --warn:        #F3D492;
   --warn-soft:   #2A2110;
   --on-warn:     #2A2110;

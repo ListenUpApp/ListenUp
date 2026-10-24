@@ -2,6 +2,8 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -146,6 +148,18 @@ class NowPlayingPagePhoneTest :
             frame.host.querySelector(".np-mob .np-transport") shouldBe null
             (frame.find(".np-mob input[type=range]") as HTMLInputElement).disabled shouldBe true
             frame.findAll(".np-mob .np-pill").size shouldBe 3
+        }
+
+        test("an armed end-of-chapter timer's pill reads its real countdown, not 0:00") {
+            val frame =
+                phonePage(
+                    wayOfKings(chapters = chapterRows(3, 1_200_000), currentChapterIndex = 1)
+                        .copy(sleepTimer = SleepTimerState.Active(SleepTimerMode.EndOfChapter, 0, 0, 0)),
+                    progress = PlayerProgress(720_000, 1_200_000, 1_920_000, 3_600_000),
+                )
+            val pill = frame.findAll(".np-mob .np-pill")[1]
+            pill.textContent shouldBe "8:00"
+            pill.getAttribute("aria-label") shouldBe "Sleep timer, 8:00 left"
         }
 
         test("at phone width an immersive shell hides the tabs, the header and the bar") {

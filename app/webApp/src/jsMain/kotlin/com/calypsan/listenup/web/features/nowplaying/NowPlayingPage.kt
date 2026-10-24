@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
@@ -51,7 +52,9 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlin.js.Date
 import org.w3c.dom.Element
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.EventTarget
 import org.w3c.dom.events.KeyboardEvent
@@ -155,6 +158,7 @@ private fun PlaybackSession.pageActions(
         },
         onSetSpeed = onSetSpeed,
         onResetSpeed = onResetSpeed,
+        onStepSpeed = onStepSpeed,
         onSetSleepTimer = onSetSleepTimer,
         onCancelSleepTimer = onCancelSleepTimer,
         onExtendSleepTimer = onExtendSleepTimer,
@@ -185,6 +189,7 @@ class NowPlayingActions(
     val onCloseBookAndLeave: () -> Unit = {},
     val onSetSpeed: (Float) -> Unit = {},
     val onResetSpeed: () -> Unit = {},
+    val onStepSpeed: (Boolean) -> Unit = {},
     val onSetSleepTimer: (SleepTimerMode) -> Unit = {},
     val onCancelSleepTimer: () -> Unit = {},
     val onExtendSleepTimer: (Int) -> Unit = {},
@@ -214,12 +219,12 @@ fun NowPlayingPage(
     val arrival = rememberCoverThemes(book.id, book.coverHash)
     val pickers = remember { PagePickers() }
     val card = PlayerCards.of(state)
-    PagePickerDialogs(state, pickers, actions, boostUnavailable)
+    PagePickerDialogs(state, progress, pickers, actions, boostUnavailable)
     Div(attrs = {
         classes("np-page")
         coverThemed(arrival)
     }) {
-        NowPlayingHeader(state, actions) { item ->
+        NowPlayingHeader(state, actions) { item, opener ->
             when (item) {
                 PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
 
@@ -228,7 +233,8 @@ fun NowPlayingPage(
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
 
-                is PlayerMenuItem.VolumeBoost -> pickers.boost = true
+                // From the More trigger: beside it from 760px, a sheet below (C9).
+                is PlayerMenuItem.VolumeBoost -> pickers.boost = panelPlacementFor(opener)
 
                 PlayerMenuItem.CloseBook -> actions.onCloseBookAndLeave()
             }
@@ -278,7 +284,7 @@ private fun WaitingPage(onCollapse: () -> Unit) {
 private fun NowPlayingHeader(
     state: PlayerUiState.Loaded,
     actions: NowPlayingActions,
-    onMenuItem: (PlayerMenuItem) -> Unit,
+    onMenuItem: (PlayerMenuItem, opener: HTMLElement?) -> Unit,
 ) {
     PageHeader(
         title = NowPlayingWords.NOW_PLAYING,
@@ -376,8 +382,7 @@ private fun SeriesLine(
 
 /**
  * "by" or "Read by", then each person as a link. More than three fold to the lead and a count (P8/P9, C10), which opens
- * the whole list as a menu of links; the book counts beside each name arrive with the contributor picker on every
- * platform together.
+ * the whole list as a menu of links, each with how many books that person has in this role (PK1, C12; none for zero).
  */
 @Composable
 private fun People(
@@ -399,6 +404,7 @@ private fun People(
                             icon = null,
                             onSelect = { onOpenContributor(person.id) },
                             href = Routes.Contributor.detail(person.id).toUrl(),
+                            detail = PlayerSheetWords.books(person.bookCount),
                         )
                     },
                 label = text,
@@ -452,58 +458,72 @@ private fun BookCard(
  * hidden; Volume boost opens from More at every width.
  */
 private class PagePickers {
-    var speed by mutableStateOf(false)
-    var sleep by mutableStateOf(false)
-    var chapters by mutableStateOf(false)
-    var boost by mutableStateOf(false)
+    var speed by mutableStateOf<PanelPlacement?>(null)
+    var sleep by mutableStateOf<PanelPlacement?>(null)
+    var chapters by mutableStateOf<PanelPlacement?>(null)
+    var boost by mutableStateOf<PanelPlacement?>(null)
 }
 
 /** The four pickers, each opened over the page and leaving it underneath when it closes. */
 @Composable
 private fun PagePickerDialogs(
     state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
     pickers: PagePickers,
     actions: NowPlayingActions,
     boostUnavailable: Boolean,
 ) {
     val settings = state.settings
     SpeedPicker(
-        open = pickers.speed,
+        open = pickers.speed != null,
         speed = settings.speed,
         defaultSpeed = settings.defaultSpeed,
+        leftAtSpeedMs = progress.bookRemainingAtSpeedMs(settings.speed),
         onSet = actions.onSetSpeed,
+        onStep = actions.onStepSpeed,
         onReset = actions.onResetSpeed,
-        onDismiss = { pickers.speed = false },
+        placement = pickers.speed ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.speed = null },
     )
     SleepTimerPicker(
-        open = pickers.sleep,
+        open = pickers.sleep != null,
         state = state.sleepTimer,
-        hasChapters = state.chapters.isNotEmpty(),
+        chapter = state.chapter,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        countdownMs = SleepCountdowns.remainingMs(state.sleepTimer, progress, settings.speed),
+        meterFraction = SleepCountdowns.meterFraction(state.sleepTimer, progress),
+        nowMs = Date.now().toLong(),
         onSet = { mode ->
             actions.onSetSleepTimer(mode)
-            pickers.sleep = false
+            pickers.sleep = null
         },
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
-        onDismiss = { pickers.sleep = false },
+        onKeepListening = actions.onCancelSleepTimer,
+        placement = pickers.sleep ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.sleep = null },
     )
     ChapterPicker(
-        open = pickers.chapters,
+        open = pickers.chapters != null,
         chapters = state.chapters,
+        chapterRemainingMs = progress.chapterRemainingMs,
+        bookDurationMs = state.book.durationMs,
         onPick = { index ->
             actions.onSeekToChapter(index)
-            pickers.chapters = false
+            pickers.chapters = null
         },
-        onDismiss = { pickers.chapters = false },
+        placement = pickers.chapters ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.chapters = null },
     )
     BoostPicker(
-        open = pickers.boost,
+        open = pickers.boost != null,
         boostDb = settings.boostDb,
         defaultBoostDb = settings.defaultBoostDb,
         unavailable = boostUnavailable,
         onSet = actions.onSetBoost,
         onReset = actions.onResetBoost,
-        onDismiss = { pickers.boost = false },
+        placement = pickers.boost ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.boost = null },
     )
 }
 
@@ -537,7 +557,7 @@ private fun PhoneControls(
         }
         // The card takes the transport's place, and only the transport's (C5): the book and the settings stay.
         if (card != null) StateCard(card, state.book.id, actions) else PhoneTransport(state, actions)
-        SettingsPills(state, pickers)
+        SettingsPills(state, progress, pickers)
     }
 }
 
@@ -654,18 +674,25 @@ private fun SkipButton(
 @Composable
 private fun SettingsPills(
     state: PlayerUiState.Loaded,
+    progress: PlayerProgress,
     pickers: PagePickers,
 ) {
     val speed = formatSpeed(state.settings.speed)
-    val active = state.sleepTimer as? SleepTimerState.Active
+    // The wall-clock countdown every surface shares (SleepCountdowns): an end-of-chapter timer's too, never 0:00.
+    val countdown =
+        SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(PlayerSheetWords::countdown)
     Div(attrs = { classes("np-pills") }) {
-        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { pickers.speed = true }
+        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { opener ->
+            pickers.speed = panelPlacementFor(opener)
+        }
         Pill(
-            text = active?.formatRemaining() ?: "Sleep",
-            label = active?.let { "Sleep timer, ${it.formatRemaining()} left" } ?: "Sleep timer",
-            on = active != null,
-        ) { pickers.sleep = true }
-        if (state.chapters.isNotEmpty()) Pill(text = "Chapters", label = null, on = false) { pickers.chapters = true }
+            text = countdown ?: "Sleep",
+            label = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer",
+            on = countdown != null,
+        ) { pickers.sleep = panelPlacementFor(it) }
+        if (state.chapters.isNotEmpty()) {
+            Pill(text = "Chapters", label = null, on = false) { pickers.chapters = panelPlacementFor(it) }
+        }
     }
 }
 
@@ -674,14 +701,14 @@ private fun Pill(
     text: String,
     label: String?,
     on: Boolean,
-    onClick: () -> Unit,
+    onClick: (opener: HTMLElement?) -> Unit,
 ) {
     Button(attrs = {
         classes("np-pill")
         if (on) classes("on")
         attr(ATTR_TYPE, VALUE_BUTTON)
         label?.let { attr(ATTR_LABEL, it) }
-        onClick { onClick() }
+        onClick { event -> onClick(event.currentTarget as? HTMLElement) }
     }) { Text(text) }
 }
 

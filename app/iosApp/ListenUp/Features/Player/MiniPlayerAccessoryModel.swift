@@ -68,7 +68,9 @@ struct MiniPlayerAccessoryModel: Equatable {
         let (primary, label, action) = primary(for: snapshot)
         var isFailure = false
         if case .problem(_, _, let tinted) = snapshot.miniLine { isFailure = tinted }
-        let parts = isInline ? nil : lineParts(snapshot.miniLine, chapterRemainingMs: chapterRemainingMs)
+        let parts = isInline ? nil : lineParts(
+            snapshot.miniLine, chapterRemainingMs: chapterRemainingMs,
+            sleepCountdownMs: snapshot.sleepCountdownMs(chapterRemainingMs: chapterRemainingMs))
         // On a phone the fade's Keep Listening needs back N's room so the title and the line stay readable; back N
         // stays one tap away in Now Playing.
         let isPhoneFade = snapshot.miniLine == .fadingOut && !isWide
@@ -122,15 +124,19 @@ struct MiniPlayerAccessoryModel: Equatable {
     }
 
     /// The line in words, as a lead that may truncate and a tail that never does. A chapter is named by the book's own
-    /// title, never by our counter (Simon, 2026-10-14).
-    static func lineParts(_ line: MiniLine, chapterRemainingMs: Int64) -> (lead: String, tail: String?) {
+    /// title, never by our counter (Simon, 2026-10-14). An armed timer's tail is its wall-clock countdown.
+    static func lineParts(
+        _ line: MiniLine, chapterRemainingMs: Int64, sleepCountdownMs: Int64?
+    ) -> (lead: String, tail: String?) {
         func chapter(_ number: Int?, _ title: String?) -> String {
             if let title { return title }
             if let number { return String(format: String(localized: "player.mini_chapter"), Int32(number)) }
             return String(localized: "player.mini_whole_book")
         }
-        func trailing(_ sleepMs: Int64?) -> String {
-            if let sleepMs { return String(format: String(localized: "player.mini_sleep"), shortDuration(ms: sleepMs)) }
+        func trailing(_ sleepArmed: Bool) -> String {
+            if sleepArmed, let sleepCountdownMs {
+                return String(format: String(localized: "player.mini_sleep"), shortDuration(ms: sleepCountdownMs))
+            }
             return String(format: String(localized: "book.time_left"), shortDuration(ms: chapterRemainingMs))
         }
         switch line {
