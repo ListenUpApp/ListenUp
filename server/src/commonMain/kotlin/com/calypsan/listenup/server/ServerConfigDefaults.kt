@@ -29,7 +29,7 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
     listOf(
         ServerConfigDefault("ktor.deployment.port", "8080", "PORT"),
         ServerConfigDefault("app.serverName", "ListenUp", "LISTENUP_SERVER_NAME"),
-        ServerConfigDefault("database.jdbcUrl", "", null),
+        ServerConfigDefault("database.jdbcUrl", "", "LISTENUP_DB_URL"),
         // Placeholder secrets: the resolver treats these exact defaults as "unset" and generates real
         // secrets under $LISTENUP_HOME/secrets.properties on first boot.
         ServerConfigDefault(

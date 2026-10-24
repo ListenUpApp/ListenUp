@@ -38,6 +38,15 @@ class ServerConfigDefaultsContractTest :
             applicationConf.getString("hardcover.clientId") shouldBe HARDCOVER_LISTENUP_CLIENT_ID
         }
 
+        test("LISTENUP_DB_URL relocates the database, as the data-home KDoc promises") {
+            val env = ConfigFactory.parseMap(mapOf("LISTENUP_DB_URL" to "jdbc:sqlite:/tmp/elsewhere.db"))
+            ConfigFactory
+                .parseResources("application.conf")
+                .withFallback(env)
+                .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false))
+                .getString("database.jdbcUrl") shouldBe "jdbc:sqlite:/tmp/elsewhere.db"
+        }
+
         test("every LISTENUP_ env override in application.conf is declared in SERVER_CONFIG_DEFAULTS") {
             val confText =
                 checkNotNull(ServerConfigDefaultsContractTest::class.java.getResource("/application.conf")) {
