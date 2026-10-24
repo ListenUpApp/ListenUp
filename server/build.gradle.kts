@@ -578,7 +578,9 @@ tasks.register<JavaExec>("runDemo") {
     classpath = jvmMainRuntimeClasspath
     environment("LISTENUP_SEED_PROFILE", "demo")
     environment("LISTENUP_LIBRARY_PATH", seedLibraryDir.get().asFile.absolutePath)
-    environment("LISTENUP_DB_URL", "jdbc:sqlite:${layout.buildDirectory.get().asFile.absolutePath}/demo.db")
+    // The demo owns its whole data home (database, lock, secrets, covers, logs): without this the
+    // server falls back to ~/ListenUp, the developer's real library.
+    environment("LISTENUP_HOME", layout.buildDirectory.dir("demo-home").get().asFile.absolutePath)
 }
 
 // The Kotlin/Native peer of `:server:run` — builds `server.kexe` (debug) and runs it in one command,
