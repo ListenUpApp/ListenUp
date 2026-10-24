@@ -70,6 +70,15 @@ struct MainTabView: View {
         )
     }
 
+    /// Whether the sidebar lists its sections: the tab bar's own answer, or the sidebar-first placement's.
+    private var sidebarListsSections: Bool {
+        SidebarSections.areListed(
+            tabBarSaysShowing: isTabBarShowingSections,
+            usesSidebar: usesSidebar,
+            placesSidebarFirst: SidebarFirstTabBar.isAvailable
+        )
+    }
+
     /// Books held for review — 0 for anyone who is not an admin, which hides every badge.
     private var heldCount: Int { inboxBadge?.heldCount ?? 0 }
 
@@ -79,7 +88,7 @@ struct MainTabView: View {
         LibrarySidebarBadges.forPlacement(
             counts: libraryObserver?.sectionCounts.counts ?? .zero,
             heldCount: heldCount,
-            showingSections: isTabBarShowingSections
+            showingSections: sidebarListsSections
         )
     }
 
@@ -127,6 +136,7 @@ struct MainTabView: View {
         .task { await shareLinks.load() }
         .tabViewStyle(.sidebarAdaptable)
         .modifier(SidebarFirstTabBar(usesSidebar: usesSidebar))
+        .environment(\.sidebarListsSections, sidebarListsSections)
         .tabViewCustomization($sidebarCustomization)
         // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with
         // the tab bar when it minimizes on scroll.
@@ -191,7 +201,7 @@ struct MainTabView: View {
             }
             restoreNavigationOnce()
         }
-        .onChange(of: isTabBarShowingSections) { _, showing in
+        .onChange(of: sidebarListsSections) { _, showing in
             shell.adaptToSidebarSections(showing: showing)
         }
         .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
@@ -273,7 +283,7 @@ struct MainTabView: View {
             // "Waiting for you to release", is the inbox screen's own subtitle: a sidebar entry carries one line.
             if InboxPlacement.showsServerSection(
                 isAdmin: inboxBadge?.isAdmin == true,
-                showingSections: isTabBarShowingSections
+                showingSections: sidebarListsSections
             ) {
                 TabSection(String(localized: "common.server")) {
                     SwiftUI.Tab(ShellTab.adminInbox.title, systemImage: "tray.full", value: ShellTab.adminInbox) {
@@ -399,6 +409,11 @@ private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
 /// systems keep the `.sidebarAdaptable` default.
 private struct SidebarFirstTabBar: ViewModifier {
     let usesSidebar: Bool
+
+    /// Whether this system places the sidebar first (`defaultTabBarPlacement`, iOS 27).
+    static var isAvailable: Bool {
+        if #available(iOS 27.0, *) { true } else { false }
+    }
 
     func body(content: Content) -> some View {
         if #available(iOS 27.0, *) {

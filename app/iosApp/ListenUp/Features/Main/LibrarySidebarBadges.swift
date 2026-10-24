@@ -32,6 +32,24 @@ struct LibrarySidebarBadges: Equatable {
     }
 }
 
+/// Whether the sidebar lists its sections (and with them the counts and Server › Inbox).
+///
+/// SwiftUI's `isTabBarShowingSections` is true while the sidebar is shown, but on the iOS 27 sidebar-first placement it
+/// answers false even with the sidebar on screen (iPhone Duo, open, iOS 27.1: `tabBarPlacement` reports `bottomBar`),
+/// which left the open Duo's sidebar without counts or the admin's inbox. So where the shell has placed the sidebar
+/// first for a regular-by-regular window, the sidebar is the surface and the environment's answer is not asked.
+enum SidebarSections {
+    static func areListed(tabBarSaysShowing: Bool, usesSidebar: Bool, placesSidebarFirst: Bool) -> Bool {
+        tabBarSaysShowing || (usesSidebar && placesSidebarFirst)
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether the sidebar lists its sections, as the shell decided it (`SidebarSections.areListed`). Set by
+    /// `MainTabView` for every tab's content, which cannot rely on `isTabBarShowingSections` alone.
+    @Entry var sidebarListsSections = false
+}
+
 /// Where the admin inbox is reached on iPad, so the held books are always one tap from a badge that says so.
 ///
 /// HIG, Tab bars: "You can display a badge … on a tab to indicate that there's new or updated information in the

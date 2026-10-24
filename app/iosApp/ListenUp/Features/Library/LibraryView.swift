@@ -13,8 +13,8 @@ import Shared
 /// - The section's sort lives in the toolbar's Sort menu; its count is the navigation subtitle.
 /// - Pull-to-refresh syncs all content.
 struct LibraryView: View {
-    /// Whether the iPad sidebar is listing its sections (and with them Server › Inbox).
-    @Environment(\.isTabBarShowingSections) private var isTabBarShowingSections
+    /// Whether the sidebar is listing its sections (and with them Server › Inbox).
+    @Environment(\.sidebarListsSections) private var sidebarListsSections
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
 
@@ -223,7 +223,7 @@ struct LibraryView: View {
                 // While the sidebar lists Server › Inbox that is the way in; otherwise the grid's entry is.
                 inbox: InboxPlacement.showsGridEntry(
                     showsSectionPicker: chrome.showsSectionPicker,
-                    showingSections: isTabBarShowingSections,
+                    showingSections: sidebarListsSections,
                     isSelecting: isSelecting
                 ) ? inbox : nil,
                 statusStrip: observer.statusStrip,
