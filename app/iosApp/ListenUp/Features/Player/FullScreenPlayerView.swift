@@ -15,6 +15,9 @@ import SwiftUI
 /// - regular (iPad, and Split View or Stage Manager windows wide enough): "Now Playing" in the header, the series as a
 ///   link above the title, the cover beside the controls where a 240pt cover fits beside them (the `NP-iPad` board) and
 ///   above them where it doesn't, and the always-visible `NowPlayingChapterPanel` in place of the Chapters button (P22)
+/// - tabletop: a phone half open on a table splits at the hinge — header, cover and title on the standing half;
+///   scrubber, transport and settings on the lying half (iPhone Duo; Android's `TabletopNowPlaying`)
+/// - book: a phone half open like a book puts the column and the chapter panel on facing pages
 /// The cover takes the height the controls leave; when even the smallest cover would not fit
 /// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
@@ -39,6 +42,8 @@ struct FullScreenPlayerView: View {
     @State private var defaultBoostDb: Float?
     /// The controls column's natural height, measured; the cover sizes itself to what is left.
     @State private var controlsHeight: CGFloat = 0
+    /// The tabletop lying half's controls, measured, so they scroll only when they cannot fit (accessibility sizes).
+    @State private var lyingHalfHeight: CGFloat = 0
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -58,13 +63,15 @@ struct FullScreenPlayerView: View {
         GeometryReader { proxy in
             let mode = PlayerLayoutMode.resolve(
                 size: proxy.size,
-                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+                isAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
+                fold: Self.fold(in: proxy)
             )
             layout(mode, in: proxy.size)
                 // The panel takes over from the sheet when a window grows into `.regular` (Split View, Stage Manager).
                 .onChange(of: mode == .regular) { _, showsPanel in
                     if showsPanel { showChapterList = false }
                 }
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: mode)
         }
         // Only the background runs edge to edge; the controls keep clear of the home indicator. The wash is opaque, so
         // Reduce Transparency changes nothing here.
@@ -128,8 +135,11 @@ struct FullScreenPlayerView: View {
     private func layout(_ mode: PlayerLayoutMode, in size: CGSize) -> some View {
         let belowHeader = CGSize(width: size.width, height: max(0, size.height - Self.headerHeight))
         switch mode {
-        // The fold is not read yet, so these never resolve; they take the stacked column until they have their own.
-        case .stacked, .tabletop, .book:
+        case .tabletop(let hinge):
+            tabletop(hinge: hinge, in: size)
+        case .book(let hinge):
+            book(hinge: hinge, in: size)
+        case .stacked:
             VStack(spacing: 0) {
                 header(showsTitle: false)
                 stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)
@@ -389,6 +399,104 @@ struct FullScreenPlayerView: View {
         case .openPdf: observer.openCurrentBookPdf()
         case .volumeBoost: showBoostPicker = true
         case .closeBook: observer.closeBook()
+        }
+    }
+}
+
+// MARK: - Fold
+
+extension FullScreenPlayerView {
+    /// The window's fold from the active division regions, in this view's own coordinates. Read from the fold, never
+    /// from measuring the layout, so the split stays put while the player is dragged.
+    private static func fold(in proxy: GeometryProxy) -> PlayerFold {
+        guard #available(iOS 27.1, *) else { return .none }
+        return PlayerFold.from(divisionFrames: proxy.reservedRegions(kind: .division).map(\.frame))
+    }
+
+    /// Half open on a table. The standing half carries what is read at a distance — the header, the cover and a
+    /// one-line title; the lying half what is touched — the scrubber, the transport (or the state card) and the
+    /// settings row. A gap as tall as the hinge, plus a clearance either side, keeps everything off the crease.
+    @ViewBuilder
+    private func tabletop(hinge: CGRect, in size: CGSize) -> some View {
+        let clearance = PlayerLayoutMode.foldClearance
+        let lyingHalf = max(0, size.height - hinge.maxY - clearance)
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                header(showsTitle: false)
+                GeometryReader { space in
+                    cover(side: max(0, min(space.size.width, space.size.height, PlayerLayoutMode.tabletopCoverMaximum)))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                Spacer().frame(height: 16)
+                NowPlayingTitleBlock(observer: observer, onViewContributor: onViewContributor, form: .oneLine)
+                    .padding(.horizontal, margin)
+            }
+            .padding(.bottom, clearance)
+            .frame(height: max(0, hinge.minY))
+
+            Color.clear.frame(height: hinge.height)
+
+            Group {
+                if lyingHalfHeight <= lyingHalf {
+                    lyingHalfControls
+                } else {
+                    ScrollView { lyingHalfControls }
+                        .scrollBounceBehavior(.basedOnSize)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, clearance)
+        }
+    }
+
+    /// The tabletop's lying half: the controls a hand's width wide, centred.
+    private var lyingHalfControls: some View {
+        VStack(spacing: 20) {
+            ChapterScrubberSection(observer: observer)
+                .disabled(isShowingProblem)
+            if let card = observer.card {
+                PlayerStateCardView(
+                    card: card,
+                    onAction: { observer.onCardAction($0) },
+                    onRate: { observer.rate(halfStars: $0) }
+                )
+            } else {
+                PlayerTransportControls(observer: observer)
+            }
+            PlayerSecondaryControls(
+                observer: observer,
+                showsChaptersControl: true,
+                onShowChapters: { showChapterList = true }
+            )
+        }
+        .frame(maxWidth: PlayerLayoutMode.tabletopControlsMaximumWidth)
+        .padding(.horizontal, margin)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { lyingHalfHeight = $0 }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Half open like a book: the regular arrangement, split at the hinge rather than at a fixed pane width — the
+    /// player column on the near page, the chapter panel on the far one.
+    @ViewBuilder
+    private func book(hinge: CGRect, in size: CGSize) -> some View {
+        let clearance = PlayerLayoutMode.foldClearance
+        let columnWidth = max(0, hinge.minX - clearance)
+        let paneWidth = max(0, size.width - hinge.maxX - clearance)
+        let belowHeader = max(0, size.height - Self.headerHeight)
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                header(showsTitle: false)
+                stackedColumn(width: columnWidth, height: belowHeader, showsChapters: false)
+            }
+            .frame(width: columnWidth)
+
+            Color.clear.frame(width: max(0, size.width - columnWidth - paneWidth))
+
+            NowPlayingChapterPanel(observer: observer)
+                .frame(width: max(0, paneWidth - Self.panelGap))
+                .padding(.vertical, Spacing.m)
+                .padding(.trailing, Self.panelGap)
         }
     }
 }

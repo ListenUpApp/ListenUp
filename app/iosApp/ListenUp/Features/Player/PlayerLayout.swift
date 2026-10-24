@@ -47,6 +47,12 @@ enum PlayerLayoutMode: Equatable {
     static let coverRange: ClosedRange<CGFloat> = 120...460
     /// The cover inside a scrolling column, where height is no longer the constraint.
     static let preferredScrollingCoverSide: CGFloat = 240
+    /// Clearance either side of the fold, so nothing sits on the crease even when the hinge reports no thickness.
+    static let foldClearance: CGFloat = 16
+    /// The tabletop cover stays a cover, not a wall, on the standing half.
+    static let tabletopCoverMaximum: CGFloat = 360
+    /// The lying half's controls keep a hand's width rather than spanning the screen.
+    static let tabletopControlsMaximumWidth: CGFloat = 560
 
     static func resolve(size: CGSize, isAccessibilitySize: Bool, fold: PlayerFold = .none) -> PlayerLayoutMode {
         switch fold {
