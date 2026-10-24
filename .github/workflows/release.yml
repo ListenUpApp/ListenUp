@@ -348,8 +348,8 @@ jobs:
   server:
     name: Server → GHCR
     # Pin to 24.04 so the builder's glibc matches what the runtime image provides:
-    # Dockerfile.native builds against debian:12-slim and runs on
-    # gcr.io/distroless/cc-debian12:nonroot (glibc 2.36). The dynamically-linked
+    # Dockerfile.native builds against debian:13-slim and runs on
+    # gcr.io/distroless/cc-debian13:nonroot (glibc 2.41). The dynamically-linked
     # server.kexe would fail to start on an older-glibc base with "GLIBC_x.y not found".
     runs-on: ubuntu-24.04
     needs: set-version
