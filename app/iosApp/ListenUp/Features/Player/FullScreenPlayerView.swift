@@ -128,7 +128,8 @@ struct FullScreenPlayerView: View {
     private func layout(_ mode: PlayerLayoutMode, in size: CGSize) -> some View {
         let belowHeader = CGSize(width: size.width, height: max(0, size.height - Self.headerHeight))
         switch mode {
-        case .stacked:
+        // The fold is not read yet, so these never resolve; they take the stacked column until they have their own.
+        case .stacked, .tabletop, .book:
             VStack(spacing: 0) {
                 header(showsTitle: false)
                 stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)

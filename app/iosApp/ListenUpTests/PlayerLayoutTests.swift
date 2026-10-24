@@ -88,6 +88,49 @@ struct PlayerLayoutTests {
             playerWidth: 1180 - PlayerLayoutMode.panelWidth, isAccessibilitySize: true) == .stacked)
     }
 
+    // MARK: - Fold (mirrors Android's NowPlayingLayoutTest)
+
+    private static let unfolded = CGSize(width: 673, height: 841)
+    private static let horizontalHinge = CGRect(x: 0, y: 420, width: 673, height: 0)
+    private static let verticalHinge = CGRect(x: 336, y: 0, width: 0, height: 841)
+
+    @Test func noFoldLeavesTheChoiceToTheWindow() {
+        #expect(PlayerLayoutMode.resolve(size: Self.unfolded, isAccessibilitySize: false, fold: .none) == .stacked)
+        #expect(PlayerLayoutMode.resolve(
+            size: CGSize(width: 1376, height: 990), isAccessibilitySize: false, fold: .none) == .regular)
+        #expect(PlayerLayoutMode.resolve(
+            size: CGSize(width: 832, height: 419), isAccessibilitySize: false, fold: .none) == .compactHeight)
+    }
+
+    @Test func halfOpenWithAHorizontalHingeSplitsThePlayerAcrossTheFold() {
+        let mode = PlayerLayoutMode.resolve(
+            size: Self.unfolded, isAccessibilitySize: false, fold: .tabletop(hinge: Self.horizontalHinge))
+        #expect(mode == .tabletop(hinge: Self.horizontalHinge))
+    }
+
+    @Test func tabletopWinsOverTheWindowEvenOneWideEnoughForThePane() {
+        let wide = CGSize(width: 1376, height: 990)
+        let hinge = CGRect(x: 0, y: 495, width: 1376, height: 0)
+        #expect(PlayerLayoutMode.resolve(size: wide, isAccessibilitySize: false, fold: .tabletop(hinge: hinge))
+            == .tabletop(hinge: hinge))
+    }
+
+    @Test func halfOpenLikeABookPutsTheCoverAndTheChaptersOnFacingPages() {
+        // Below the pane's 768pt minimum, which alone would stack.
+        let mode = PlayerLayoutMode.resolve(
+            size: Self.unfolded, isAccessibilitySize: false, fold: .book(hinge: Self.verticalHinge))
+        #expect(mode == .book(hinge: Self.verticalHinge))
+    }
+
+    @Test func accessibilitySizesDoNotChangeTheFoldsChoice() {
+        #expect(PlayerLayoutMode.resolve(
+            size: Self.unfolded, isAccessibilitySize: true, fold: .tabletop(hinge: Self.horizontalHinge))
+            == .tabletop(hinge: Self.horizontalHinge))
+        #expect(PlayerLayoutMode.resolve(
+            size: Self.unfolded, isAccessibilitySize: true, fold: .book(hinge: Self.verticalHinge))
+            == .book(hinge: Self.verticalHinge))
+    }
+
     // MARK: - Cover
 
     @Test func stackedCoverFillsTheWidthWhenThereIsRoom() {
@@ -130,5 +173,36 @@ struct PlayerLayoutTests {
             columnWidth: 620, availableHeight: 776, controlsHeight: 300, isAccessibilitySize: true) == nil)
         #expect(PlayerLayoutMode.stackedCoverSide(
             columnWidth: 620, availableHeight: 776, controlsHeight: 300, isAccessibilitySize: false) != nil)
+    }
+}
+
+/// The window's fold, read from the active division regions (`GeometryProxy.reservedRegions(kind: .division)`),
+/// which only carry the fold while the phone is partly folded.
+@Suite("PlayerFold")
+struct PlayerFoldTests {
+    @Test func noDivisionIsNoFold() {
+        #expect(PlayerFold.from(divisionFrames: []) == .none)
+    }
+
+    @Test func aHingeAcrossTheScreenIsTabletop() {
+        let hinge = CGRect(x: 0, y: 400, width: 700, height: 20)
+        #expect(PlayerFold.from(divisionFrames: [hinge]) == .tabletop(hinge: hinge))
+    }
+
+    @Test func aHingeDownTheScreenIsABook() {
+        let hinge = CGRect(x: 340, y: 0, width: 20, height: 840)
+        #expect(PlayerFold.from(divisionFrames: [hinge]) == .book(hinge: hinge))
+    }
+
+    /// A seamless fold reports no thickness: it is still a fold, a line across the screen.
+    @Test func aZeroThicknessHingeIsStillAFold() {
+        let line = CGRect(x: 0, y: 420, width: 700, height: 0)
+        #expect(PlayerFold.from(divisionFrames: [line]) == .tabletop(hinge: line))
+    }
+
+    @Test func theFirstDivisionDecides() {
+        let across = CGRect(x: 0, y: 400, width: 700, height: 0)
+        let down = CGRect(x: 340, y: 0, width: 0, height: 840)
+        #expect(PlayerFold.from(divisionFrames: [across, down]) == .tabletop(hinge: across))
     }
 }
