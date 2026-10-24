@@ -68,7 +68,11 @@ class WideNowPlayingTest {
     @Test
     fun `the header reads Now playing in titleMedium, with the status and More`() {
         wide()
-        val style = composeRule.onNodeWithText("Now playing").textLayout().layoutInput.style
+        val style =
+            composeRule
+                .onNodeWithText("Now playing")
+                .textLayout()
+                .layoutInput.style
         style.fontSize shouldBe titleMedium.fontSize
         style.fontWeight shouldBe FontWeight.Medium
     }

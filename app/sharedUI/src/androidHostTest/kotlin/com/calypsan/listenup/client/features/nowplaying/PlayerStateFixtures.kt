@@ -175,7 +175,8 @@ internal fun chapteredState(
 ): PlayerUiState.Loaded {
     val rows = bookChapterRows(current)
     val row = rows[current]
-    val base = loadedPlayerState(coverPath = NO_COVER, series = series, phase = phase, primary = primary, source = source)
+    val base =
+        loadedPlayerState(coverPath = NO_COVER, series = series, phase = phase, primary = primary, source = source)
     return base.copy(
         chapter =
             base.chapter.copy(

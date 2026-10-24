@@ -115,7 +115,9 @@ internal fun NowPlayingChapterPanel(
     val showsBack by remember(currentIndex) {
         derivedStateOf {
             lastCurrent != null &&
-                ChapterListFollow.showsBackToCurrent(currentRowFullyVisible = listState.isItemFullyVisible(currentIndex))
+                ChapterListFollow.showsBackToCurrent(
+                    currentRowFullyVisible = listState.isItemFullyVisible(currentIndex),
+                )
         }
     }
     val leftWords by remember(progress) { derivedStateOf { shortDuration(progress().chapterRemainingMs) } }
@@ -125,7 +127,9 @@ internal fun NowPlayingChapterPanel(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        Column(modifier = Modifier.padding(top = Spacing.lg, start = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm)) {
+        Column(
+            modifier = Modifier.padding(top = Spacing.lg, start = Spacing.sm, end = Spacing.sm, bottom = Spacing.sm),
+        ) {
             Column(modifier = Modifier.padding(start = Spacing.md, end = Spacing.md, bottom = Spacing.sm)) {
                 Text(
                     text = stringResource(Res.string.player_chapters),
