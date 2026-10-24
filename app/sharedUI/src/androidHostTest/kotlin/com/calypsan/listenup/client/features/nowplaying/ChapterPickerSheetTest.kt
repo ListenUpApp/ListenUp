@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
-import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
 import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
@@ -36,7 +35,7 @@ class ChapterPickerSheetTest {
         composeRule.setContent {
             MaterialTheme {
                 ChapterPickerSheet(
-                    chapters = chapters(current),
+                    chapters = bookChapterRows(current),
                     playingLeft = { shortDuration(chapterRemainingMs) },
                     onChapterSelected = { selected += it },
                     onDismiss = {},
@@ -91,28 +90,5 @@ class ChapterPickerSheetTest {
         sheet(current = 5)
         composeRule.onNodeWithTag(CHAPTER_LIST_TAG).performScrollToNode(hasTestTag(chapterRowTag(6)))
         composeRule.onNodeWithTag(chapterRowTag(6)).assertTouchTargetAtLeast()
-    }
-
-    private companion object {
-        const val BOOK_MS = 163_800_000L // 45h 30m
-
-        /** 75 chapters: 6 is "Bridge Four" (20:35), 7 is "Anything Reasonable" (33:18), and they sum to the book. */
-        fun chapters(current: Int): List<ChapterRowState> {
-            val named = mapOf(5 to ("Bridge Four" to 1_235_000L), 6 to ("Anything Reasonable" to 1_998_000L))
-            val rest = (BOOK_MS - named.values.sumOf { it.second }) / 73
-            val durations = (0 until 75).map { named[it]?.second ?: rest }.toMutableList()
-            durations[74] += BOOK_MS - durations.sum()
-            var start = 0L
-            return (0 until 75).map { index ->
-                ChapterRowState(
-                    index = index,
-                    number = index + 1,
-                    title = named[index]?.first ?: "Chapter ${index + 1}",
-                    startMs = start,
-                    durationMs = durations[index],
-                    isCurrent = index == current,
-                ).also { start += durations[index] }
-            }
-        }
     }
 }
