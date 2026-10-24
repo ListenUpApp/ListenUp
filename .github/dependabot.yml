@@ -12,6 +12,11 @@ updates:
     directory: /server
     schedule:
       interval: monthly
+    # One PR for every FROM line: the debian builders and the distroless runtime must share a Debian
+    # release (tools/scripts/check-docker-debian-release.sh fails the build when they do not).
+    groups:
+      server-image:
+        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /app/webApp/web
