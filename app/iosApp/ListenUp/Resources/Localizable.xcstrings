@@ -22891,26 +22891,6 @@
         }
       }
     },
-    "player.up_next": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up next"
-          }
-        }
-      }
-    },
-    "player.view_all_chapters": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View all %1$d chapters"
-          }
-        }
-      }
-    },
     "player.volume_boost": {
       "localizations": {
         "en": {

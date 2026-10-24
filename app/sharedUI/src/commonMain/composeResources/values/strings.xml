@@ -2290,8 +2290,6 @@ One beautiful library.</string>
     <string name="player_title_playback_stalled">Couldn't play this book.</string>
     <string name="player_title_playback_unsupported_format">Can't play this audio.</string>
     <string name="player_unknown_book">Unknown book</string>
-    <string name="player_up_next">Up next</string>
-    <string name="player_view_all_chapters">View all %1$d chapters</string>
     <string name="player_volume_boost">Volume boost</string>
     <string name="profile_avatar">Avatar</string>
     <string name="profile_avatar_description">Shown across your profile and reviews.</string>
