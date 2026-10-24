@@ -56,7 +56,6 @@ import com.calypsan.listenup.client.design.theme.Spacing
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
-
 private const val LARGE_FONT_SCALE = 1.5f
 
 private const val MOCK_BOOK_ID = "the-way-of-kings"
@@ -372,27 +371,34 @@ private val mockWideState =
 private fun WideSection() {
     wideWindows.forEach { (label, size) ->
         listOf(false, true).forEach { dark ->
-            WideCase("Wide $label — playing, ${if (dark) "dark" else "light"} →", mockWideState, size, dark)
+            WideCase(
+                label = "Wide $label — playing, ${if (dark) "dark" else "light"} →",
+                state = mockWideState,
+                size = size,
+                dark = dark,
+            )
         }
     }
     val threeColumns = wideWindows.first().second
     WideCase(
-        "Wide 1280×800 — a failure (the card in the transport's place; the panel stays) →",
-        mockWideState.copy(
-            phase = PlayerPhase.Failed(PlaybackError.ConnectionLost(correlationId = "req-7f3a")),
-            primary = PrimaryControl.Retry,
-            showsSkipBack = false,
-        ),
-        threeColumns,
+        label = "Wide 1280×800 — a failure (the card in the transport's place; the panel stays) →",
+        state =
+            mockWideState.copy(
+                phase = PlayerPhase.Failed(PlaybackError.ConnectionLost(correlationId = "req-7f3a")),
+                primary = PrimaryControl.Retry,
+                showsSkipBack = false,
+            ),
+        size = threeColumns,
         dark = false,
     )
     WideCase(
-        "Wide 1280×800 — chapterless (no panel, nothing to pick), dark →",
-        mockActiveState.copy(
-            chapter = mockChapter(0).copy(title = "", isGenericTitle = true, isWholeBook = true),
-            chapters = emptyList(),
-        ),
-        threeColumns,
+        label = "Wide 1280×800 — chapterless (no panel, nothing to pick), dark →",
+        state =
+            mockActiveState.copy(
+                chapter = mockChapter(0).copy(title = "", isGenericTitle = true, isWholeBook = true),
+                chapters = emptyList(),
+            ),
+        size = threeColumns,
         dark = true,
     )
 }

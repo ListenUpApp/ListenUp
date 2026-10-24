@@ -162,7 +162,8 @@ fun WideNowPlaying(
             ) {
                 val width = maxWidth
                 val height = maxHeight
-                val panes = widePanes(width, height, isShort = isShort, isBookPosture = isBookPosture)
+                val panes =
+                    widePanes(maxWidth = width, maxHeight = height, isShort = isShort, isBookPosture = isBookPosture)
                 val showsPanel = panes != WidePanes.CoverAndControls && state.chapters.isNotEmpty()
                 LaunchedEffect(showsPanel) { reportPanel(showsPanel) }
 
@@ -212,45 +213,71 @@ fun WideNowPlaying(
                         settingsRow = settingsRow,
                     )
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(PaneGap),
-                    ) {
-                        val panelSpace = if (showsPanel) PanelWidth + PaneGap else 0.dp
-                        if (panes == WidePanes.ThreeColumns) {
-                            val coverSide =
-                                min(
-                                    min(MaxWideCover, width - panelSpace - PaneGap - MinControlsWidth),
-                                    height - COVER_DROP,
-                                )
-                            PlayerCover(
-                                state = state,
-                                side = coverSide,
-                                modifier = Modifier.padding(top = COVER_DROP).testTag(WIDE_COVER_TAG),
-                            )
-                        }
-                        val stackedCoverSide =
-                            min(min(MaxWideCover, width - panelSpace), height - MinControlsHeight)
-                        PlayerColumn(
-                            state = state,
-                            coverSide = stackedCoverSide.takeIf { panes == WidePanes.ColumnAndPanel },
-                            controls = controls,
-                            settingsRow = settingsRow,
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
-                        if (showsPanel) {
-                            NowPlayingChapterPanel(
-                                rows = state.chapters,
-                                currentIndex = state.chapter.index,
-                                bookDurationMs = state.book.durationMs,
-                                progress = progress,
-                                onSeekToChapter = onSeekToChapter,
-                                modifier = Modifier.width(PanelWidth).fillMaxHeight(),
-                            )
-                        }
-                    }
+                    PanesWithPanel(
+                        state = state,
+                        progress = progress,
+                        panes = panes,
+                        showsPanel = showsPanel,
+                        maxWidth = width,
+                        maxHeight = height,
+                        controls = controls,
+                        settingsRow = settingsRow,
+                        onSeekToChapter = onSeekToChapter,
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * [WidePanes.ThreeColumns] (cover · player column · panel) and [WidePanes.ColumnAndPanel] (the cover over the player
+ * column, beside the panel). Without chapters ([showsPanel] false) the player takes the panel's width.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun PanesWithPanel(
+    state: PlayerUiState.Loaded,
+    progress: () -> PlayerProgress,
+    panes: WidePanes,
+    showsPanel: Boolean,
+    maxWidth: Dp,
+    maxHeight: Dp,
+    controls: @Composable () -> Unit,
+    settingsRow: @Composable () -> Unit,
+    onSeekToChapter: (Int) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(PaneGap),
+    ) {
+        val panelSpace = if (showsPanel) PanelWidth + PaneGap else 0.dp
+        if (panes == WidePanes.ThreeColumns) {
+            val coverSide =
+                min(min(MaxWideCover, maxWidth - panelSpace - PaneGap - MinControlsWidth), maxHeight - COVER_DROP)
+            PlayerCover(
+                state = state,
+                side = coverSide,
+                modifier = Modifier.padding(top = COVER_DROP).testTag(WIDE_COVER_TAG),
+            )
+        }
+        val stackedCoverSide = min(min(MaxWideCover, maxWidth - panelSpace), maxHeight - MinControlsHeight)
+        PlayerColumn(
+            state = state,
+            coverSide = stackedCoverSide.takeIf { panes == WidePanes.ColumnAndPanel },
+            controls = controls,
+            settingsRow = settingsRow,
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+        )
+        if (showsPanel) {
+            NowPlayingChapterPanel(
+                rows = state.chapters,
+                currentIndex = state.chapter.index,
+                bookDurationMs = state.book.durationMs,
+                progress = progress,
+                onSeekToChapter = onSeekToChapter,
+                modifier = Modifier.width(PanelWidth).fillMaxHeight(),
+            )
         }
     }
 }

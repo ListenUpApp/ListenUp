@@ -183,7 +183,13 @@ internal fun PlayerTitleBlock(
                 } else {
                     Arrangement.Start
                 }
-            Bylines(state, onContributor, onShowAuthors, onShowNarrators, bylineArrangement)
+            Bylines(
+                state = state,
+                onContributor = onContributor,
+                onShowAuthors = onShowAuthors,
+                onShowNarrators = onShowNarrators,
+                arrangement = bylineArrangement,
+            )
         }
     }
 }
@@ -200,7 +206,9 @@ private fun WideTitleBlock(
     modifier: Modifier,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
-        state.book.series.firstOrNull()?.let { series -> SeriesLink(series = series, onSeries = onSeries) }
+        state.book.series
+            .firstOrNull()
+            ?.let { series -> SeriesLink(series = series, onSeries = onSeries) }
         Text(
             text = state.book.title,
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Medium),
@@ -209,7 +217,13 @@ private fun WideTitleBlock(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(Spacing.xs))
-        Bylines(state, onContributor, onShowAuthors, onShowNarrators, Arrangement.Start)
+        Bylines(
+            state = state,
+            onContributor = onContributor,
+            onShowAuthors = onShowAuthors,
+            onShowNarrators = onShowNarrators,
+            arrangement = Arrangement.Start,
+        )
         Spacer(Modifier.height(WideChapterGap))
         state.chapterCounter()?.let { counter ->
             Text(
