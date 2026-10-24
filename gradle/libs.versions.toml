@@ -48,7 +48,7 @@ auth0-java-jwt = "4.6.2"
 # Test-only (:app:baselineprofile), ahead of androidx.benchmark 1.5.0's wire-runtime 6.4.0
 # (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5). The only benchmark release on a fixed Wire is
 # 1.6.0-alpha01, which is not stable; 6.4.7 is the version that release uses.
-wire = "6.4.7"
+wire = "7.1.0"
 # DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Decision
 # 2026-10-10: stay. Stable 0.10.3+ carries the KRPC-560 fix too (2.4.20-0.10.4 plugin is on Maven
 # Central), but that is a downgrade of the transport that only the native CI lanes can vet. Revisit
