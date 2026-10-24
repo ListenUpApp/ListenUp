@@ -41,6 +41,15 @@ struct NowPlayingTitleBlockTests {
         ])
     }
 
+    @Test("the series line names the book's place in it, or the series alone")
+    func seriesLine() {
+        #expect(NowPlayingTitleBlock.seriesLine(
+            SeriesNavRef(id: "s1", name: "The Stormlight Archive", sequenceLabel: "1"))
+            == "The Stormlight Archive · Book 1")
+        #expect(NowPlayingTitleBlock.seriesLine(SeriesNavRef(id: "s1", name: "Discworld", sequenceLabel: nil))
+            == "Discworld")
+    }
+
     @Test("the menu's section names the role")
     func menuHeader() {
         #expect(NowPlayingTitleBlock.menuHeader(isAuthors: true) == String(localized: "player.sheet_authors"))

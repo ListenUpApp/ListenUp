@@ -21,6 +21,19 @@ struct PlayerMenuModelTests {
         #expect(!titles.contains(String(localized: "player.go_to_narrator")))
     }
 
+    /// On iPad's wide player the series is a link above the title, so More leaves Go to Series out (P10); the phone
+    /// keeps it. The shared `PlayerMenus.moreMenu(includesSeries:)` decides.
+    @Test("Go to Series is in More only where the series isn't already a link")
+    func includesSeries() {
+        let state = PlayerUiStateLoaded.fixture()
+        let with = PlayerMenuModel.sections(for: state, includesSeries: true).flatMap(\.rows)
+        let without = PlayerMenuModel.sections(for: state, includesSeries: false).flatMap(\.rows)
+        #expect(with.contains(.goToSeries("series-1")))
+        #expect(!without.contains { if case .goToSeries = $0 { true } else { false } })
+        #expect(without.contains(.goToBook))
+        #expect(PlayerSnapshot.from(state).menuWithoutSeries.flatMap(\.rows) == without)
+    }
+
     @Test("the boost row reads its value")
     func boostTitle() {
         let off = String(localized: "player.boost_off")

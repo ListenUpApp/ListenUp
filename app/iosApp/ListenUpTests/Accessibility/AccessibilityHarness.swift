@@ -44,7 +44,8 @@ final class HostedView {
         _ content: Content,
         size: CGSize = CGSize(width: 393, height: 852),
         dynamicTypeSize: DynamicTypeSize = .large,
-        appearance: UIUserInterfaceStyle = .light
+        appearance: UIUserInterfaceStyle = .light,
+        contrast: UIAccessibilityContrast = .normal
     ) async {
         if !(await Self.accessibilityRuntimeHasLoaded()) {
             Issue.record("SwiftUI's accessibility bundle never loaded, so this tree may be empty or a stop short.")
@@ -54,6 +55,9 @@ final class HostedView {
             .environment(HapticsSettings())
         let host = UIHostingController(rootView: root)
         host.overrideUserInterfaceStyle = appearance
+        // Increase Contrast, as the system sets it: dynamic colours resolve their high-contrast variants, and SwiftUI's
+        // `colorSchemeContrast` reads `.increased`.
+        host.traitOverrides.accessibilityContrast = contrast
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
             preconditionFailure("The test host has no window scene to host a view in.")
         }

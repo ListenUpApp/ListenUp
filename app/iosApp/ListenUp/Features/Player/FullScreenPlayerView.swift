@@ -12,7 +12,9 @@ import SwiftUI
 /// Layout (`PlayerLayoutMode`, from the space actually available):
 /// - stacked: header · cover · titles · scrubber · transport (or the state card) · volume · settings row
 /// - compact height: the cover beside that column (a phone in landscape)
-/// - regular: the column beside the always-visible "Up Next" chapter pane (iPad)
+/// - regular (iPad, and Split View or Stage Manager windows wide enough): "Now Playing" in the header, the series as a
+///   link above the title, the cover beside the controls where a 240pt cover fits beside them (the `NP-iPad` board) and
+///   above them where it doesn't, and the always-visible `NowPlayingChapterPanel` in place of the Chapters button (P22)
 /// The cover takes the height the controls leave; when even the smallest cover would not fit
 /// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
@@ -47,6 +49,10 @@ struct FullScreenPlayerView: View {
     private var margin: CGFloat { PlayerLayoutMode.horizontalMargin }
     /// The header row: 44pt controls.
     private static let headerHeight: CGFloat = 44
+    /// Between the player and the chapter panel, and the panel's distance from the window's edge (the board's 24).
+    private static let panelGap: CGFloat = Spacing.xl
+    /// The stacked column's widest, beside the panel: wider and the transport spreads apart.
+    private static let regularColumnMaximumWidth: CGFloat = 620
 
     var body: some View {
         GeometryReader { proxy in
@@ -55,6 +61,10 @@ struct FullScreenPlayerView: View {
                 isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
             )
             layout(mode, in: proxy.size)
+                // The panel takes over from the sheet when a window grows into `.regular` (Split View, Stage Manager).
+                .onChange(of: mode == .regular) { _, showsPanel in
+                    if showsPanel { showChapterList = false }
+                }
         }
         // Only the background runs edge to edge; the controls keep clear of the home indicator. The wash is opaque, so
         // Reduce Transparency changes nothing here.
@@ -120,27 +130,14 @@ struct FullScreenPlayerView: View {
         switch mode {
         case .stacked:
             VStack(spacing: 0) {
-                header
+                header(showsTitle: false)
                 stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)
             }
         case .regular:
-            // The chapter panel replaces the chapter sheet, so the column hides its
-            // Chapters control.
-            let columnWidth = min(620, size.width - PlayerLayoutMode.panelWidth)
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    header
-                    stackedColumn(width: columnWidth, height: belowHeader.height, showsChapters: false)
-                }
-                .frame(maxWidth: columnWidth)
-                .frame(maxWidth: .infinity)
-
-                NowPlayingChapterPanel(observer: observer)
-                    .frame(width: PlayerLayoutMode.panelWidth)
-            }
+            regularLayout(in: size)
         case .compactHeight:
             VStack(spacing: 0) {
-                header
+                header(showsTitle: false)
                 HStack(alignment: .center, spacing: 28) {
                     cover(side: PlayerLayoutMode.compactHeightCoverSide(in: belowHeader))
                     // The volume view stays out of the short layout: the hardware buttons and
@@ -161,6 +158,61 @@ struct FullScreenPlayerView: View {
         }
     }
 
+    /// The `NP-iPad` board: the header over the player area, and the chapter panel the full height beside it. The panel
+    /// replaces the chapter sheet, so the column hides its Chapters control; a chapterless book has nothing to pick, so it
+    /// gets no panel and no Chapters either, and the player takes the width.
+    @ViewBuilder
+    private func regularLayout(in size: CGSize) -> some View {
+        let showsPanel = !observer.chapterRows.isEmpty
+        // The panel, the gap before it and the margin after it.
+        let panelSpace = showsPanel ? PlayerLayoutMode.panelWidth + 2 * Self.panelGap : 0
+        let playerWidth = max(0, size.width - panelSpace)
+        let playerHeight = max(0, size.height - 2 * Spacing.m - Self.headerHeight)
+        HStack(alignment: .top, spacing: Self.panelGap) {
+            VStack(spacing: 0) {
+                header(showsTitle: true)
+                playerArea(width: playerWidth, height: playerHeight)
+            }
+            .frame(width: playerWidth)
+            if showsPanel {
+                NowPlayingChapterPanel(observer: observer)
+                    .frame(width: PlayerLayoutMode.panelWidth)
+            }
+        }
+        .padding(.vertical, Spacing.m)
+        .padding(.trailing, showsPanel ? Self.panelGap : 0)
+    }
+
+    /// The player beside the panel: the cover beside the controls where it can be 240pt or more, else above them
+    /// (`PlayerLayoutMode.regularArrangement`). Either way the controls scroll rather than clip.
+    @ViewBuilder
+    private func playerArea(width: CGFloat, height: CGFloat) -> some View {
+        switch PlayerLayoutMode.regularArrangement(
+            playerWidth: width, isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+        ) {
+        case .coverBeside(let coverSide):
+            HStack(alignment: .center, spacing: PlayerLayoutMode.besideGap) {
+                cover(side: min(coverSide, height - 2 * PlayerLayoutMode.verticalMargin))
+                let fits = controlsHeight <= height - PlayerLayoutMode.verticalMargin
+                if fits {
+                    controlsColumn(showsChapters: false, showsVolume: true, showsSeries: true)
+                } else {
+                    ScrollView {
+                        controlsColumn(showsChapters: false, showsVolume: true, showsSeries: true)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                }
+            }
+            .padding(.horizontal, margin)
+            .frame(maxHeight: .infinity)
+        case .stacked:
+            let columnWidth = min(Self.regularColumnMaximumWidth, width)
+            stackedColumn(width: columnWidth, height: height, showsChapters: false, showsSeries: true)
+                .frame(width: columnWidth)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
     /// Cover above the controls — phones in portrait, narrow windows, and the iPad column. The
     /// cover takes the height the controls leave over; when even the smallest cover cannot fit
     /// (small phones, accessibility text sizes), the column scrolls instead of clipping.
@@ -171,7 +223,9 @@ struct FullScreenPlayerView: View {
     /// 530pt instead of 330 on an iPhone 17e — and the cover stayed stuck at ~155pt with empty
     /// bands around it (Pass 7 Simulator matrix).
     @ViewBuilder
-    private func stackedColumn(width: CGFloat, height: CGFloat, showsChapters: Bool) -> some View {
+    private func stackedColumn(
+        width: CGFloat, height: CGFloat, showsChapters: Bool, showsSeries: Bool = false
+    ) -> some View {
         let fittedSide = PlayerLayoutMode.stackedCoverSide(
             columnWidth: width,
             availableHeight: height,
@@ -183,7 +237,7 @@ struct FullScreenPlayerView: View {
                 Spacer(minLength: fittedSide == nil ? Spacing.s : 12)
                 cover(side: fittedSide ?? PlayerLayoutMode.scrollingCoverSide(columnWidth: width))
                 Spacer(minLength: 20)
-                controlsColumn(showsChapters: showsChapters, showsVolume: true)
+                controlsColumn(showsChapters: showsChapters, showsVolume: true, showsSeries: showsSeries)
                     .padding(.horizontal, margin)
             }
             .frame(minHeight: height)
@@ -192,10 +246,13 @@ struct FullScreenPlayerView: View {
     }
 
     /// Titles, scrubber, transport, volume, and the secondary row at their natural height, which
-    /// is measured so the cover can take exactly what is left.
-    private func controlsColumn(showsChapters: Bool, showsVolume: Bool) -> some View {
+    /// is measured so the cover can take exactly what is left. `showsSeries` puts the series link above the title, where
+    /// More leaves Go to Series out (P10).
+    private func controlsColumn(showsChapters: Bool, showsVolume: Bool, showsSeries: Bool = false) -> some View {
         VStack(spacing: 0) {
-            NowPlayingTitleBlock(observer: observer, onViewContributor: onViewContributor)
+            NowPlayingTitleBlock(
+                observer: observer, showsSeries: showsSeries, onViewSeries: onViewSeries,
+                onViewContributor: onViewContributor)
             Spacer().frame(height: 18)
             // Chapter-scoped progress — its own view so its per-frame position reads don't
             // re-evaluate the rest of the player. Still under a problem card, live on a finished book (a seek there is
@@ -248,8 +305,11 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Header
 
-    private var header: some View {
-        HStack {
+    /// Collapse · where the audio is · More. On iPad's wide player it is titled "Now Playing" (the `NP-iPad` board; HIG,
+    /// Layout: name the screen where there is room), the status centred in what is left, and More leaves Go to Series
+    /// out because the series is a link above the title.
+    private func header(showsTitle: Bool) -> some View {
+        HStack(spacing: 0) {
             Button { dismiss() } label: {
                 headerGlyph("chevron.down")
             }
@@ -257,7 +317,16 @@ struct FullScreenPlayerView: View {
             .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
             .accessibilityLabel(String(localized: "player.collapse"))
 
-            Spacer()
+            if showsTitle {
+                Text(String(localized: "player.np_now_playing_ios"))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .padding(.leading, Spacing.xs)
+                    .accessibilityAddTraits(.isHeader)
+            }
+
+            Spacer(minLength: Spacing.xs)
 
             // Where the audio comes from or goes to (§3.1): plain status text, not a chip (HIG; plan F7). Casting reads
             // in the tint's text ink.
@@ -267,9 +336,9 @@ struct FullScreenPlayerView: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(1)
 
-            Spacer()
+            Spacer(minLength: Spacing.xs)
 
-            moreMenu
+            moreMenu(includesSeries: !showsTitle)
         }
         .frame(minHeight: Self.headerHeight)
         .padding(.horizontal, Spacing.m)
@@ -290,10 +359,12 @@ struct FullScreenPlayerView: View {
     }
 
     /// The shared More menu (§5.5.7): the places, then Close Book in its own section, destructive (HIG, Menus). Go to
-    /// Author and Go to Narrator are gone: the byline's names are the way there.
-    private var moreMenu: some View {
+    /// Author and Go to Narrator are gone: the byline's names are the way there; Go to Series too, where the series is a
+    /// link above the title.
+    private func moreMenu(includesSeries: Bool) -> some View {
         Menu {
-            ForEach(Array(observer.menu.enumerated()), id: \.offset) { _, section in
+            let sections = includesSeries ? observer.menu : observer.menuWithoutSeries
+            ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                 Section {
                     ForEach(section.rows, id: \.self) { row in
                         Button(role: section.isDestructive ? .destructive : nil) { perform(row) } label: {
