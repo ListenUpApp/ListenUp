@@ -1,12 +1,14 @@
 # Two-stage runtime image for the Kotlin/Native server.kexe.
 #
-# We COMPILE SQLite inside a debian:12 builder because **distroless/cc ships no SQLite at all** —
+# We COMPILE SQLite inside a debian:13 builder because **distroless/cc ships no SQLite at all** —
 # verified by exporting the base: it carries glibc, libgcc, libstdc++, libcrypto/libssl and nothing
 # else. The binary links libsqlite3.so.0, so without this stage the image has no SQLite to load and
 # the server cannot start. (An earlier comment here claimed we were overriding "the base's 3.40.1";
 # there is no base SQLite to override. That mistake made this stage look like a deletion candidate
-# once FTS5 went away — it is not one.) Building against debian:12 links the same glibc 2.36 the
-# distroless base provides. Static-linking is not an option (K/N can't link host-built .a archives;
+# once FTS5 went away — it is not one.) The builder stages and the distroless base must be the same
+# Debian release: every .so staged below is linked against the builder's glibc, so a debian:13
+# builder on a debian12 base ships a libcurl that needs GLIBC_2.38 into a glibc 2.36 image, and the
+# server cannot load it. Bump both together. Static-linking is not an option (K/N can't link host-built .a archives;
 # no musl target) — see docs/plans/050 §5.
 #
 # Version floor: our own SQL needs **3.35** (`ALTER TABLE ... DROP COLUMN`, in
@@ -22,11 +24,11 @@
 # an image that died on first boot with `no such module: fts5` — a release-blocking break that CI
 # could not see, because CI never builds this image and the tests run against the host's SQLite.
 # The verify step below turns that into a build failure instead of a runtime one.
-FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS libs
-ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
-# Trust on first use, recorded 2026-10-10: sqlite.org publishes only SHA3-256 for the current release,
-# and none for this one. Bump this together with the URL.
-ARG SQLITE_AMALGAMATION_SHA256=bde30d13ebdf84926ddd5e8b6df145be03a577a48fd075a087a5dd815bcdf740
+FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS libs
+ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
+# sqlite.org publishes only SHA3-256 for the current release: this SHA-256 was computed 2026-10-23 from a
+# download whose SHA3-256 matched the one on sqlite.org/download.html. Bump this together with the URL.
+ARG SQLITE_AMALGAMATION_SHA256=0a9c8e34352dad46006aa82836d5383bff9dc6bc9ce5a60553c05aa30e6ad1f9
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc libc6-dev ca-certificates curl unzip libargon2-1 libcurl4 \
@@ -88,15 +90,17 @@ RUN mkdir -p /curl-deps \
 # Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2 only in
 # non-free — so the plugin is built here. `-Dauto_features=disabled -Dfdkaac=enabled` builds that
 # one plugin rather than all of gst-plugins-bad, which takes about eight seconds.
-FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS media
-ARG GST_VERSION=1.22.0
-# Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum.
-ARG GST_PLUGINS_BAD_SHA256=3c9d9300f5f4fb3e3d36009379d1fb6d9ecd79c1a135df742b8a68417dd663a1
-ARG FFMPEG_VERSION=7.1.1
+FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS media
+ARG GST_VERSION=1.26.11
+# Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum. Stay on the
+# release line of the builder's GStreamer (debian:13 ships 1.26): a stable plugins-bad requires a core
+# of at least its own major.minor, so a newer line will not configure against it.
+ARG GST_PLUGINS_BAD_SHA256=110fb82795f0e569b1e27b12ab9699d35c7762e1ff4db95335d6ac8d1442af3d
+ARG FFMPEG_VERSION=7.1.5
 # ffmpeg.org publishes no checksum file, only a GPG signature: this value was computed from a tarball
 # whose .asc verified against the FFmpeg release signing key FCF986EA15E6E293A5644F10B4322F04D67658D8
-# (2026-10-10). Bump this together with FFMPEG_VERSION.
-ARG FFMPEG_SHA256=733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
+# (2026-10-23). Bump this together with FFMPEG_VERSION.
+ARG FFMPEG_SHA256=de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f
 # Edit the deb822 source in place. Adding a legacy .list line collides with the base image's
 # Signed-By and breaks apt outright with "Conflicting values set for option Signed-By".
 RUN sed -i "s/^Components: main$/Components: main contrib non-free/" /etc/apt/sources.list.d/debian.sources \
@@ -231,7 +235,7 @@ RUN set -eu; P=/usr/lib/x86_64-linux-gnu/gstreamer-1.0; mkdir -p /stage/plugins 
     cp /usr/bin/gst-launch-1.0 /usr/local/bin/ffmpeg /stage/; \
     du -sh /stage
 
-FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
 # None of these three are in distroless/cc. libcrypt.so.1 — Debian split it out of glibc into
 # libcrypt1 and the binary links crypt(3). libsqlite3.so.0 — our self-built build from the stage
 # above; the base ships no SQLite whatsoever. libargon2.so.1 — debian's.

@@ -113,7 +113,7 @@ private fun trackTone(
             CoverAppearance.Light -> Contrast.lighter(fillTone, MIN_GRAPHIC_CONTRAST)
             CoverAppearance.Dark -> Contrast.darker(fillTone, MIN_GRAPHIC_CONTRAST)
         }
-    return if (moved < 0) appearance.trackTone else moved
+    return moved ?: appearance.trackTone
 }
 
 /** The share of the cover's pixels darker than tone 20: a cover that is nearly all black has no colour to give. */
