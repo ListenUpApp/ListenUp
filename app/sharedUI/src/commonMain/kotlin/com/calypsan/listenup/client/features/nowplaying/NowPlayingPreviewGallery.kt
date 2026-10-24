@@ -362,6 +362,7 @@ private fun WideSection() {
             onSpeedClick = {},
             onSleepClick = {},
             onChaptersClick = {},
+            onSeekToChapter = {},
             onGoToContributor = {},
             onShowAuthorPicker = {},
             onShowNarratorPicker = {},

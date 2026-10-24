@@ -38,9 +38,12 @@ internal const val MIN_CONTROLS_WIDTH_DP = 360
 
 /**
  * The height the player column needs below a stacked cover, at font scale 1: the series link, a two-line title, both
- * bylines, the counter and the chapter title, the scrubber with its times, the 96dp transport and the settings row.
+ * bylines, the counter and the chapter title, the scrubber with its times, the 96dp transport and the settings row,
+ * plus the column's 24dp top padding and the 24dp gap under the cover. Measured on the real column at 1280×800
+ * (Robolectric, native graphics; series link's target top to the settings row's bottom): 470dp with a one-line title,
+ * 506dp with a two-line one. 506 + 48 = 554, rounded up.
  */
-internal const val MIN_CONTROLS_HEIGHT_DP = 520
+internal const val MIN_CONTROLS_HEIGHT_DP = 560
 
 /** The wide header's height (the board's 56dp bar). */
 internal const val WIDE_HEADER_HEIGHT_DP = 56

@@ -1,14 +1,13 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -38,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -59,6 +59,9 @@ import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as Chap
 /** The chapter panel's list's test tag. */
 internal const val CHAPTER_PANEL_TAG = "player-chapter-panel"
 
+/** Room at the list's foot for Back to current chapter: its 48dp target and an 8dp margin either side. */
+private val BackButtonReserve = 64.dp
+
 /**
  * The tablet's always-visible chapter list (spec §3.11, §5.3, P33; `NP-AndroidTablet`): a supporting pane beside the
  * player (m3.material.io/foundations/layout/canonical-layouts/supporting-pane) on `surfaceContainer` with extra-large
@@ -68,7 +71,8 @@ internal const val CHAPTER_PANEL_TAG = "player-chapter-panel"
  * It opens centred on the current chapter once it has laid out (§9.2). When the chapter changes it follows only if the
  * old current row was fully in view, so it never yanks the list from under a reader who scrolled away; the rule is the
  * shared [ChapterListFollow]. While the current row is out of view, "Back to current chapter" (a tonal button: a
- * secondary action, m3.material.io/components/buttons) sits at its foot. A tap plays from that chapter.
+ * secondary action, m3.material.io/components/buttons) floats at its foot; the list's last rows scroll clear of it.
+ * A tap plays from that chapter.
  *
  * The position tick reaches only the row's words (through a derived state that changes once a minute) and its bar
  * (read while it draws), so the list never recomposes on a tick. Mounted only for a book with chapters.
@@ -92,7 +96,6 @@ internal fun NowPlayingChapterPanel(
 ) {
     val haptics = LocalHaptics.current
     val scope = rememberCoroutineScope()
-    val motion = MaterialTheme.motionScheme
     var lastCurrent by remember { mutableStateOf<Int?>(null) }
 
     // The opening move and every follow in one effect: the previous row's visibility is read before any scroll, so it
@@ -141,41 +144,61 @@ internal fun NowPlayingChapterPanel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth().testTag(CHAPTER_PANEL_TAG),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                contentPadding = PaddingValues(bottom = Spacing.xs),
-            ) {
-                items(rows, key = { it.index }, contentType = { "chapter" }) { row ->
-                    val isCurrent = row.index == currentIndex
-                    PlayerChapterRow(
-                        number = row.number,
-                        title = row.title,
-                        durationLabel = row.durationMs.milliseconds.formatPlaybackTime(),
-                        isCurrent = isCurrent,
-                        playingLeft = { leftWords }.takeIf { isCurrent },
-                        chapterFraction = { progress().chapterFraction }.takeIf { isCurrent },
-                        onClick = { onSeekToChapter(row.index) },
-                        modifier = Modifier.testTag(chapterRowTag(row.index)),
-                    )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().testTag(CHAPTER_PANEL_TAG),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    // The last rows scroll clear of Back to current chapter, which floats over the list's foot.
+                    contentPadding = PaddingValues(bottom = BackButtonReserve),
+                ) {
+                    items(rows, key = { it.index }, contentType = { "chapter" }) { row ->
+                        val isCurrent = row.index == currentIndex
+                        PlayerChapterRow(
+                            number = row.number,
+                            title = row.title,
+                            durationLabel = row.durationMs.milliseconds.formatPlaybackTime(),
+                            isCurrent = isCurrent,
+                            playingLeft = { leftWords }.takeIf { isCurrent },
+                            chapterFraction = { progress().chapterFraction }.takeIf { isCurrent },
+                            onClick = { onSeekToChapter(row.index) },
+                            modifier = Modifier.testTag(chapterRowTag(row.index)),
+                        )
+                    }
                 }
+                BackToCurrentChapter(
+                    visible = showsBack,
+                    onClick = {
+                        haptics.press()
+                        scope.launch { listState.centreOn(currentIndex, animate = true) }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.sm),
+                )
             }
-            AnimatedVisibility(
-                visible = showsBack,
-                enter = fadeIn(motion.fastEffectsSpec()) + expandVertically(motion.fastSpatialSpec()),
-                exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()),
-            ) {
-                Box(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm), contentAlignment = Alignment.Center) {
-                    FilledTonalButton(
-                        onClick = {
-                            haptics.press()
-                            scope.launch { listState.centreOn(currentIndex, animate = true) }
-                        },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) { Text(stringResource(Res.string.player_np_back_to_current)) }
-                }
-            }
+        }
+    }
+}
+
+/**
+ * "Back to current chapter": a tonal button (m3.material.io/components/buttons, a secondary action) that fades in and
+ * out on the motion scheme's fast effects, which the system's "Remove animations" silences. A control, not news, so
+ * it is no live region.
+ */
+@Composable
+private fun BackToCurrentChapter(
+    visible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(motion.fastEffectsSpec()),
+        exit = fadeOut(motion.fastEffectsSpec()),
+        modifier = modifier,
+    ) {
+        FilledTonalButton(onClick = onClick, modifier = Modifier.heightIn(min = MinTouchTarget)) {
+            Text(stringResource(Res.string.player_np_back_to_current))
         }
     }
 }

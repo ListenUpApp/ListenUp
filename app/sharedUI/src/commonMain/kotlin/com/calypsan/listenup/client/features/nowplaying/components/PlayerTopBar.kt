@@ -2,12 +2,10 @@ package com.calypsan.listenup.client.features.nowplaying.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
@@ -19,7 +17,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.StatusChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
+import com.calypsan.listenup.client.features.nowplaying.WIDE_HEADER_HEIGHT_DP
 import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerMenus
@@ -68,12 +66,12 @@ private val StatusSideClearance = 56.dp
  * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
  *
  * **Compact** (`wide = false`): Collapse on the left, the [StatusChip] centred, More on the right.
- * **Wide** (`wide = true`): a tonal collapse, the "Now playing" overline over the first series (or the title), the
- * status chip and More.
+ * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip
+ * · More, on a 56dp bar.
  *
  * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Open PDF and Volume boost,
- * then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the series as the
- * subtitle, so their menu leaves Go to series out.
+ * then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the series as a link
+ * above the title (P10), so their menu leaves Go to series out.
  */
 @Composable
 fun PlayerTopBar(
@@ -88,7 +86,7 @@ fun PlayerTopBar(
     }
     val more: @Composable () -> Unit = { MoreMenu(state = state, includesSeries = !wide, onMenuItem = onMenuItem) }
     if (wide) {
-        WideTopBar(state = state, onCollapse = onCollapse, status = status, more = more, modifier = modifier)
+        WideTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
     } else {
         CompactTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
     }
@@ -118,10 +116,13 @@ private fun CompactTopBar(
     }
 }
 
-/** Wide header: tonal collapse · "Now playing" over the series or title · status · More. */
+/**
+ * Wide header (the board): a standard collapse, "Now playing" in `titleMedium` Medium (m3.material.io/styles/typography/
+ * type-scale-tokens: Medium for titles), the status and More. The screen's pane title carries the same words for
+ * TalkBack, so the text is not a heading of its own.
+ */
 @Composable
 private fun WideTopBar(
-    state: PlayerUiState.Loaded,
     onCollapse: () -> Unit,
     status: @Composable () -> Unit,
     more: @Composable () -> Unit,
@@ -129,42 +130,26 @@ private fun WideTopBar(
 ) {
     val haptics = LocalHaptics.current
     Row(
-        modifier = modifier.fillMaxWidth().height(84.dp),
+        modifier = modifier.fillMaxWidth().height(WIDE_HEADER_HEIGHT_DP.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilledTonalIconButton(
+        IconButton(
             onClick = {
                 haptics.press()
                 onCollapse()
             },
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.size(52.dp),
         ) {
-            Icon(
-                Icons.Default.KeyboardArrowDown,
-                contentDescription = stringResource(Res.string.player_collapse),
-                modifier = Modifier.size(28.dp),
-            )
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(Res.string.player_now_playing),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-            Text(
-                text =
-                    state.book.series
-                        .firstOrNull()
-                        ?.name ?: state.book.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = stringResource(Res.string.player_now_playing),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
         status()
         more()
     }

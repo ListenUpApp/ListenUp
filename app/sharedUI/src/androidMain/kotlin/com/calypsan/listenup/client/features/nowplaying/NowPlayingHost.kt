@@ -18,6 +18,9 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -124,6 +127,12 @@ fun NowPlayingHost(
         if (closesNowPlaying && isExpanded) viewModel.collapse()
     }
 
+    // A chapter sheet left open as the window grows (a phone unfolded, a tablet rotated) gives way to the panel.
+    var showsChapterPanel by remember { mutableStateOf(false) }
+    LaunchedEffect(overlay, isExpanded, showsChapterPanel) {
+        if (closesChapterSheet(overlay, isExpanded, showsChapterPanel)) viewModel.hideOverlay()
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         // Full screen (slides up when expanded). Only renders when a book is loaded — expanding
         // into nothing has no meaningful UI.
@@ -153,6 +162,7 @@ fun NowPlayingHost(
                     onNextChapter = viewModel::nextChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
                     onChaptersClick = viewModel::showChapterPicker,
+                    onSeekToChapter = viewModel::seekToChapter,
                     onSleepTimerClick = viewModel::showSleepTimer,
                     onGoToContributor = { contributorId ->
                         viewModel.collapse()
@@ -164,6 +174,7 @@ fun NowPlayingHost(
                     onCardAction = viewModel::onCardAction,
                     onRate = viewModel::rate,
                     isTv = isTv,
+                    onChapterPanelShown = { showsChapterPanel = it },
                 )
             }
         }
@@ -334,6 +345,16 @@ private fun PlayerUiState.Loaded.sleepSheetState(progress: () -> PlayerProgress)
         meterFraction = { SleepCountdowns.meterFraction(sleepTimer, progress()) },
         nowMs = { Clock.System.now().toEpochMilliseconds() },
     )
+
+/**
+ * Whether an open chapter sheet should close because expanded Now Playing now shows the chapter panel, which lists the
+ * same chapters. Collapsed there is no panel, so the tablet toolbar's Chapters still opens the sheet. Pure.
+ */
+internal fun closesChapterSheet(
+    overlay: PlayerOverlay,
+    isExpanded: Boolean,
+    showsChapterPanel: Boolean,
+): Boolean = overlay == PlayerOverlay.ChapterPicker && isExpanded && showsChapterPanel
 
 /** Now Playing's More menu: each row forwards to the view-model action it names (spec §5.5.7). */
 private fun PlayerViewModel.onMenuItem(

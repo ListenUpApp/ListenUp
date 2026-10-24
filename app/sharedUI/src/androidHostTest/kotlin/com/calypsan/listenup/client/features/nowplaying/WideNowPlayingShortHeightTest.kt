@@ -44,6 +44,7 @@ class WideNowPlayingShortHeightTest {
                     onSpeedClick = {},
                     onSleepClick = {},
                     onChaptersClick = {},
+                    onSeekToChapter = {},
                     onGoToContributor = {},
                     onShowAuthorPicker = {},
                     onShowNarratorPicker = {},
