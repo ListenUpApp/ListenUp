@@ -128,6 +128,9 @@ struct NowPlayingChapterPanel: View {
             Text(String(localized: "player.np_back_to_current_ios"))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.luTintInk)
+                // Wraps rather than truncates at large text sizes (HIG, Typography).
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, minHeight: TapTarget.minimum)
         }
         .buttonStyle(.bordered)
