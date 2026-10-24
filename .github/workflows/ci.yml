@@ -46,6 +46,15 @@ jobs:
       - name: Lint (Spotless + Detekt)
         run: ./gradlew spotlessCheck detekt --no-daemon
 
+      # The server image's debian:N builders and its distroless *-debianN runtime must move together:
+      # every library the builders stage is linked against their glibc. Nothing in CI builds the
+      # image, so this is the only thing that sees a Dependabot bump split them. The self-test runs
+      # first so a guard that has stopped failing cannot pass silently.
+      - name: Server image Debian release guard
+        run: |
+          bash tools/scripts/check-docker-debian-release.test.sh
+          bash tools/scripts/check-docker-debian-release.sh
+
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
       # container, pinned (0.65.1 — keep CLAUDE.md's local-commands row in sync when bumping).
       # Non-strict: error-severity violations gate; style is advisory. Config: app/iosApp/.swiftlint.yml.
