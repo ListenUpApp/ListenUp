@@ -7,19 +7,33 @@ import Testing
 struct MainShellModelTests {
     // MARK: - Sidebar or tab bar
 
-    @Test func anIPadAtRegularWidthUsesTheSidebar() {
-        #expect(MainShellModel.usesSidebar(horizontalSizeClass: .regular, isPhone: false))
+    @Test func anIPadFullScreenUsesTheSidebar() {
+        #expect(MainShellModel.usesSidebar(horizontalSizeClass: .regular, verticalSizeClass: .regular))
     }
 
     @Test func aNarrowIPadWindowUsesTheTabBar() {
-        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .compact, isPhone: false))
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .compact, verticalSizeClass: .regular))
     }
 
-    /// A Plus or Pro Max iPhone in landscape reports a regular width, but an iPhone has no sidebar:
-    /// taking the sidebar's tab set there flattened the Library sections into the tab bar and pushed
-    /// Search, Discover and Narrators into "More" (Pass 7 Simulator matrix).
-    @Test func anIPhoneInLandscapeKeepsTheTabBar() {
-        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .regular, isPhone: true))
+    /// A Plus or Pro Max iPhone in landscape reports a regular width but a compact height: it has no
+    /// room for a sidebar, and taking the sidebar's tab set there flattened the Library sections into
+    /// the tab bar and pushed Search, Discover and Narrators into "More" (Pass 7 Simulator matrix).
+    @Test func aProMaxIPhoneInLandscapeKeepsTheTabBar() {
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .regular, verticalSizeClass: .compact))
+    }
+
+    /// The open iPhone Duo reports regular by regular, the same classes as an iPad.
+    @Test func theOpenIPhoneDuoUsesTheSidebar() {
+        #expect(MainShellModel.usesSidebar(horizontalSizeClass: .regular, verticalSizeClass: .regular))
+    }
+
+    @Test func theClosedIPhoneDuoInLandscapeKeepsTheTabBar() {
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .compact, verticalSizeClass: .compact))
+    }
+
+    @Test func anUnknownSizeClassKeepsTheTabBar() {
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: nil, verticalSizeClass: .regular))
+        #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .regular, verticalSizeClass: nil))
     }
 
     // MARK: - Opening destinations

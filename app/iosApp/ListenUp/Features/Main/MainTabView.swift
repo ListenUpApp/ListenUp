@@ -17,6 +17,7 @@ struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(PushTapRouter.self) private var pushTapRouter
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var shell = MainShellModel()
     @State private var playerObserver: PlayerObserver?
@@ -59,12 +60,13 @@ struct MainTabView: View {
         }
     }
 
-    /// A regular-width iPad window shows the sidebar; an iPhone (in either orientation) and a narrow
-    /// iPad window (1/3 Split View) the tab bar.
+    /// A window that is regular in both directions (an iPad full screen, the open iPhone Duo) shows
+    /// the sidebar; a phone in either orientation, the closed Duo and a narrow iPad window (1/3
+    /// Split View) the tab bar.
     private var usesSidebar: Bool {
         MainShellModel.usesSidebar(
             horizontalSizeClass: horizontalSizeClass,
-            isPhone: UIDevice.current.userInterfaceIdiom == .phone
+            verticalSizeClass: verticalSizeClass
         )
     }
 
@@ -124,6 +126,7 @@ struct MainTabView: View {
         .environment(\.restrictedBooks, restrictedBooks)
         .task { await shareLinks.load() }
         .tabViewStyle(.sidebarAdaptable)
+        .modifier(SidebarFirstTabBar(usesSidebar: usesSidebar))
         .tabViewCustomization($sidebarCustomization)
         // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with
         // the tab bar when it minimizes on scroll.
@@ -384,6 +387,22 @@ private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
             content.tabViewBottomAccessory(isEnabled: isEnabled, content: accessory)
         } else if isEnabled {
             content.tabViewBottomAccessory(content: accessory)
+        } else {
+            content
+        }
+    }
+}
+
+/// Opens on the sidebar instead of the floating tab bar when the shell decided on one (a window
+/// that is regular in both directions: an iPad full screen, the open iPhone Duo), from the iOS 27
+/// SDK. A Pro Max iPhone in landscape and the closed Duo keep the automatic tab bar, and earlier
+/// systems keep the `.sidebarAdaptable` default.
+private struct SidebarFirstTabBar: ViewModifier {
+    let usesSidebar: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.0, *) {
+            content.defaultTabBarPlacement(usesSidebar ? .sidebar : .automatic)
         } else {
             content
         }
