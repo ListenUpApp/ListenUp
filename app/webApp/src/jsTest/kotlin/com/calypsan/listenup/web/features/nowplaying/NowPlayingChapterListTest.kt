@@ -8,6 +8,7 @@ import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
@@ -28,6 +29,7 @@ class NowPlayingChapterListTest :
             rows: List<PlayerChapterRow>,
             current: MutableState<Int>,
             chapterRemainingMs: Long = 0,
+            chapterFraction: MutableState<Float> = mutableStateOf(0f),
             onPick: (Int) -> Unit = {},
         ): ViewportFrame =
             frames.mount(width = DESKTOP_WIDTH, height = DESKTOP_HEIGHT) {
@@ -35,6 +37,8 @@ class NowPlayingChapterListTest :
                     rows = rows.map { it.copy(isCurrent = it.index == current.value) },
                     currentIndex = current.value,
                     chapterRemainingMs = chapterRemainingMs,
+                    chapterFraction = chapterFraction.value,
+                    bookDurationMs = KINGS_MS,
                     onPick = onPick,
                 )
             }
@@ -43,8 +47,9 @@ class NowPlayingChapterListTest :
             rows: List<PlayerChapterRow>,
             current: Int,
             chapterRemainingMs: Long = 0,
+            chapterFraction: Float = 0f,
             onPick: (Int) -> Unit = {},
-        ): ViewportFrame = listWithState(rows, mutableStateOf(current), chapterRemainingMs, onPick)
+        ): ViewportFrame = listWithState(rows, mutableStateOf(current), chapterRemainingMs, mutableStateOf(chapterFraction), onPick)
 
         fun ViewportFrame.row(index: Int): HTMLElement = findAll(".np-row")[index]
 
@@ -64,7 +69,48 @@ class NowPlayingChapterListTest :
             val frame = list(chapterRows(3, 600_000), current = 1, chapterRemainingMs = 511_000)
             frame.find(".np-row.on").textContent.orEmpty() shouldContain "Playing · 8m left"
             frame.find(".np-row .np-row-d").textContent shouldBe "10:00"
-            frame.find(".np-row.on").getAttribute("aria-label") shouldBe "Chapter 2, Chapter 2, playing, 8 minutes left"
+        }
+
+        test("a row's name is the chapter popover's: Play from chapter 3, and the current one now playing with its time left") {
+            val frame = list(chapterRows(3, 600_000), current = 1, chapterRemainingMs = 511_000)
+            frame.find(".np-row.on").getAttribute("aria-label") shouldBe "Chapter 2, Chapter 2, now playing, 8m left"
+            frame.row(2).getAttribute("aria-label") shouldBe "Play from chapter 3: Chapter 3, 10:00"
+        }
+
+        test("the list is headed Chapters, with how many and how long, and the heading is not a tab stop") {
+            val frame = list(chapterRows(75, 60_000), current = 5)
+            val heading = frame.find(".np-listhead h2")
+            heading.textContent shouldBe "Chapters"
+            heading.id shouldBe CHAPTERS_HEADING_ID
+            heading.hasAttribute("tabindex") shouldBe false
+            frame.find(".np-listhead .np-listsum").textContent shouldBe "75 chapters · 45h 30m"
+        }
+
+        test("the current row shows the chapter's progress as a bar, hidden from assistive tech") {
+            val frame = list(chapterRows(3, 600_000), current = 1, chapterRemainingMs = 511_000, chapterFraction = 0.59f)
+            frame.findAll(".np-row-bar").size shouldBe 1
+            val bar = frame.find(".np-row.on .np-row-bar")
+            bar.getAttribute("aria-hidden") shouldBe "true"
+            frame.find(".np-row.on .np-row-fill").style.width shouldBe "59%"
+        }
+
+        test("the bar moves with the playhead without re-rendering the list") {
+            val fraction = mutableStateOf(0.59f)
+            val frame = listWithState(chapterRows(3, 600_000), mutableStateOf(1), 511_000, fraction)
+            val fill = frame.find(".np-row.on .np-row-fill")
+            val label = frame.find(".np-row.on").getAttribute("aria-label")
+            fraction.value = 0.60f
+            awaitFrame()
+            frame.find(".np-row.on .np-row-fill") shouldBeSameInstanceAs fill
+            fill.style.width shouldBe "60%"
+            frame.find(".np-row.on").getAttribute("aria-label") shouldBe label
+        }
+
+        test("the bar sits before Playing · 8m left, as on the tablet") {
+            val frame = list(chapterRows(3, 600_000), current = 1, chapterRemainingMs = 511_000, chapterFraction = 0.5f)
+            val now = frame.find(".np-row.on .np-row-now")
+            (now.firstElementChild as HTMLElement).classList.contains("np-row-bar") shouldBe true
+            now.textContent shouldBe "Playing · 8m left"
         }
 
         test("a row is a button that plays from that chapter") {
@@ -82,6 +128,24 @@ class NowPlayingChapterListTest :
             awaitFrame()
             awaitVisible(frame.scroller(), frame.row(11))
             frame.host.ownerDocument!!.querySelector(".np-back-current") shouldBe null
+        }
+
+        test("scrolling the current row out of view offers Back to current chapter, with no chapter change") {
+            val frame = list(chapterRows(68, 60_000), current = 10)
+            val scroller = frame.scroller()
+            awaitFrame()
+            awaitFrame()
+            awaitVisible(scroller, frame.row(10))
+            frame.host.ownerDocument!!.querySelector(".np-back-current") shouldBe null
+            scroller.scrollTop = scroller.scrollHeight.toDouble()
+            withTimeout(SCROLL_TIMEOUT_MS) {
+                while (frame.host.ownerDocument!!.querySelector(".np-back-current") == null) delay(POLL_MS)
+            }
+            (frame.find(".np-back-current") as HTMLButtonElement).click()
+            awaitVisible(scroller, frame.row(10))
+            withTimeout(SCROLL_TIMEOUT_MS) {
+                while (frame.host.ownerDocument!!.querySelector(".np-back-current") != null) delay(POLL_MS)
+            }
         }
 
         test("scrolled away, a chapter change leaves the list alone and offers Back to current chapter") {

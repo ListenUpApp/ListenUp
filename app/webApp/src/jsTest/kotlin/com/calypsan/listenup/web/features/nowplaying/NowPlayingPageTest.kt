@@ -170,6 +170,20 @@ class NowPlayingPageTest :
             (host.querySelector(".np-bookcard .np-ch") as HTMLElement).textContent shouldBe "Chapter 6"
         }
 
+        test("the chapter list's region is named by its visible Chapters heading, and the current row shows its progress") {
+            val host =
+                page(
+                    wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
+                    progress = PlayerProgress(724_000, 1_235_000, 18_000_000, KINGS_MS),
+                )
+            val region = host.querySelector("section.np-listcol") as HTMLElement
+            region.hasAttribute("aria-label") shouldBe false
+            val heading = region.querySelector("#${region.getAttribute("aria-labelledby")}") as HTMLElement
+            heading.tagName shouldBe "H2"
+            heading.textContent shouldBe "Chapters"
+            (region.querySelector(".np-row.on .np-row-fill") as HTMLElement).style.width shouldBe "59%"
+        }
+
         test("a chapterless book reads Whole book") {
             val host = page(wayOfKings(chapters = emptyList()))
             (host.querySelector(".np-bookcard .np-ch") as HTMLElement).textContent shouldBe "Whole book"

@@ -251,12 +251,14 @@ fun NowPlayingPage(
             if (state.chapters.isNotEmpty()) {
                 Section(attrs = {
                     classes("np-listcol", DESK)
-                    attr(ATTR_LABEL, CHAPTERS)
+                    attr("aria-labelledby", CHAPTERS_HEADING_ID)
                 }) {
                     NowPlayingChapterList(
                         rows = state.chapters,
                         currentIndex = state.chapter.index,
                         chapterRemainingMs = progress.chapterRemainingMs,
+                        chapterFraction = progress.chapterFraction,
+                        bookDurationMs = book.durationMs,
                         onPick = actions.onSeekToChapter,
                     )
                 }
@@ -711,8 +713,6 @@ private fun Pill(
         onClick { event -> onClick(event.currentTarget as? HTMLElement) }
     }) { Text(text) }
 }
-
-private const val CHAPTERS = "Chapters"
 
 private const val PREVIOUS_CHAPTER = "Previous chapter"
 
