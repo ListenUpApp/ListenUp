@@ -20,6 +20,9 @@ import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
  * The sheets (PR 4) add their own pairs: the sleep gold (the armed control, the fade card and Keep listening), the coral
  * current chapter row, Cast while casting, the sheets' footnotes on `surfaceContainerLow`, and the gold meter against
  * its track, which is a non-text mark (WCAG 1.4.11, 3:1).
+ *
+ * The tablet's chapter panel (PR 5) adds the panel's ink on `surfaceContainer`, Back to current chapter's tonal pair,
+ * and the current row's chapter bar: its fill against its track and against the coral row, both non-text (3:1).
  */
 class NowPlayingInkContrastTest :
     FunSpec({
@@ -59,6 +62,26 @@ class NowPlayingInkContrastTest :
                         (scheme.onSurfaceVariant to scheme.surfaceContainerLow),
                 ).forEach { (pair, colors) ->
                     withClue(pair) { contrastRatio(colors.first, colors.second) shouldBeGreaterThanOrEqual AA_TEXT }
+                }
+            }
+
+            test("$name: the tablet's chapter panel reads at 4.5:1 on surfaceContainer, and its button on its tone") {
+                listOf(
+                    "onSurface on surfaceContainer (the panel's titles and heading)" to
+                        (scheme.onSurface to scheme.surfaceContainer),
+                    "onSecondaryContainer on secondaryContainer (Back to current chapter)" to
+                        (scheme.onSecondaryContainer to scheme.secondaryContainer),
+                ).forEach { (pair, colors) ->
+                    withClue(pair) { contrastRatio(colors.first, colors.second) shouldBeGreaterThanOrEqual AA_TEXT }
+                }
+            }
+
+            test("$name: the current row's chapter bar reads at 3:1 against its track and against the row") {
+                withClue("onPrimary (the fill) on onPrimaryContainer (the track)") {
+                    contrastRatio(scheme.onPrimary, scheme.onPrimaryContainer) shouldBeGreaterThanOrEqual AA_NON_TEXT
+                }
+                withClue("onPrimary (the fill) on primary (the row)") {
+                    contrastRatio(scheme.onPrimary, scheme.primary) shouldBeGreaterThanOrEqual AA_NON_TEXT
                 }
             }
 
