@@ -90,6 +90,55 @@ struct NowPlayingSnapshotExportTests {
     }
 }
 
+/// Renders Now Playing on iPad (player spec §3.11, §5.3; the `NP-iPad` board) to PNGs for the design review: the board's
+/// landscape, the panel after a scroll away with Back to Current Chapter, upright, a Split View half (the phone layout),
+/// accessibility size 3, and the Reduce Transparency card — light and dark. Sized explicitly, so it renders the same on
+/// any destination; run it on the iPad one. Off unless LU_SNAPSHOT_DIR is set; no app, no audio.
+@MainActor
+@Suite("Now Playing iPad review snapshots", .serialized,
+       .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
+struct NowPlayingIPadSnapshotExportTests {
+    enum Shot: String, CaseIterable {
+        case landscape, backToCurrent, portrait, splitHalf, ax3, reduceTransparency, increaseContrast
+    }
+
+    private static func size(_ shot: Shot) -> CGSize {
+        switch shot {
+        case .portrait: CGSize(width: 834, height: 1150)
+        case .splitHalf: CGSize(width: 683, height: 1000)
+        default: CGSize(width: 1180, height: 820)
+        }
+    }
+
+    @Test(arguments: Shot.allCases, NowPlayingSnapshotExportTests.Appearance.allCases)
+    func export(_ shot: Shot, _ appearance: NowPlayingSnapshotExportTests.Appearance) async throws {
+        let dir = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"]))
+        let state = PlayerUiStateLoaded.fixtureAt(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four")
+        let progress = NowPlayingSnapshotExportTests.progress(in: state)
+        let hosted = await HostedView(
+            FullScreenPlayerView(observer: .detached(state, progress: progress))
+                .environment(\.chapterPanelShowsOpaqueCard, shot == .reduceTransparency),
+            size: Self.size(shot),
+            dynamicTypeSize: shot == .ax3 ? .accessibility3 : .large,
+            appearance: appearance == .dark ? .dark : .light,
+            contrast: shot == .increaseContrast ? .high : .normal)
+        defer { hosted.close() }
+        await hosted.settle()
+        if shot == .backToCurrent, let list = hosted.scrollViews.min(by: { $0.bounds.width < $1.bounds.width }) {
+            let bottom = max(0, list.contentSize.height - list.bounds.height + list.adjustedContentInset.bottom)
+            list.setContentOffset(CGPoint(x: 0, y: bottom), animated: false)
+            await hosted.settle()
+            await hosted.settle()
+        }
+        let image = UIGraphicsImageRenderer(bounds: hosted.window.bounds).image { _ in
+            hosted.window.drawHierarchy(in: hosted.window.bounds, afterScreenUpdates: true)
+        }
+        let name = "ipad-np-\(shot.rawValue)-\(appearance.rawValue).png"
+        try #require(image.pngData()).write(to: dir.appendingPathComponent(name))
+    }
+}
+
 extension NowPlayingSnapshotExportTests {
     /// 12:04 into the current chapter, which puts the book at a floored percent with hours left: a coherent frame.
     static func progress(in state: PlayerUiStateLoaded) -> PlayerProgressRow {

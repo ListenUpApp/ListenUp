@@ -16,6 +16,7 @@ struct NowPlayingChapterPanel: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.chapterPanelShowsOpaqueCard) private var showsOpaqueCard
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
@@ -50,7 +51,7 @@ struct NowPlayingChapterPanel: View {
         .padding(.horizontal, Spacing.xs)
         .padding(.bottom, Spacing.xs)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Self.cardFill(reduceTransparency: reduceTransparency), in: card)
+        .background(Self.cardFill(reduceTransparency: reduceTransparency || showsOpaqueCard), in: card)
         .overlay(card.strokeBorder(border, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
     }
@@ -152,4 +153,10 @@ struct NowPlayingChapterPanel: View {
             observer.totalChapters,
             DurationFormatting.abbreviated(ms: observer.bookDurationMs))
     }
+}
+
+extension EnvironmentValues {
+    /// Draws the chapter panel's Reduce Transparency card whatever the system setting, which SwiftUI cannot override:
+    /// for Xcode previews and the review snapshots. The system setting still applies everywhere else.
+    @Entry var chapterPanelShowsOpaqueCard = false
 }
