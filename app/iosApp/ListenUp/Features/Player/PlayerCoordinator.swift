@@ -495,12 +495,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
         chapterIndex = ChapterMath.index(forPositionMs: displayPositionMs, in: chapterRows) ?? 0
     }
 
-    /// Persist the current position immediately. Called on pause, seek, and when the app
-    /// backgrounds/terminates — the periodic 5 s tick is not enough to guarantee the place survives a kill.
+    /// Persist the current position immediately, even if the calling task is cancelled. Called when a
+    /// window scene enters the background (`RootView`'s scene-phase handler in `ListenUpApp.swift`, under a
+    /// `beginBackgroundTask` assertion) — the periodic 5 s tick is not enough to guarantee the place survives
+    /// a kill. Pause and seek persist through the shared tracker (`onPlaybackPaused`, `onSeek`), not here.
     func saveCurrentPosition() async {
         // Key on the book the engine holds: saving during a load would zero an untouched resume point.
         guard let id = engineBook?.bookId else { return }
-        await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
+        await savePositionUncancellably(bookId: id, positionMs: bookPositionMs)
     }
 
     /// Unload the engine — sign-out's teardown, awaited so the audio session is deactivated and the
@@ -528,9 +530,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
         enginePhase = .idle
         resetMetadataForSwitch()
         updateNowPlaying()
-        if let place { await progress.savePositionNow(bookId: place.bookId, positionMs: place.positionMs) }
+        if let place { await savePositionUncancellably(bookId: place.bookId, positionMs: place.positionMs) }
         await engine.deactivateSession()
         await engine.unload()
+    }
+
+    /// A teardown save: the bridged Kotlin suspend cancels its coroutine when the calling task is cancelled,
+    /// and teardown is exactly when tasks get cancelled. Android runs the same save under `NonCancellable`.
+    private func savePositionUncancellably(bookId: String, positionMs: Int64) async {
+        await uncancellable { @MainActor in
+            await self.progress.savePositionNow(bookId: bookId, positionMs: positionMs)
+        }
     }
 
     // MARK: - RemoteCommandHandler (Decision 12: engine-level, the session sees the resulting facts)
