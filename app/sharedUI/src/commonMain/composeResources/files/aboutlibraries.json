@@ -1003,10 +1003,10 @@
         },
         {
             "uniqueId": "androidx.core:core",
-            "artifactVersion": "1.19.0",
+            "artifactVersion": "1.19.1",
             "name": "Core",
             "description": "Provides backward-compatible implementations of Android platform APIs and features.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/core#1.19.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/core#1.19.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1028,10 +1028,10 @@
         },
         {
             "uniqueId": "androidx.core:core-ktx",
-            "artifactVersion": "1.19.0",
+            "artifactVersion": "1.19.1",
             "name": "Core Kotlin Extensions",
             "description": "Kotlin extensions for 'core' artifact",
-            "website": "https://developer.android.com/jetpack/androidx/releases/core#1.19.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/core#1.19.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -3632,7 +3632,7 @@
         },
         {
             "uniqueId": "com.google.firebase:firebase-messaging",
-            "artifactVersion": "26.0.0",
+            "artifactVersion": "26.0.1",
             "name": "com.google.firebase:firebase-messaging",
             "description": "",
             "developers": [
@@ -3723,7 +3723,7 @@
         },
         {
             "uniqueId": "com.materialkolor:material-color-utilities",
-            "artifactVersion": "5.0.1",
+            "artifactVersion": "6.0.0",
             "name": "MaterialKolor",
             "description": "Material You dynamic color for Compose Multiplatform",
             "website": "https://github.com/jordond/materialkolor",
@@ -3738,7 +3738,8 @@
                 "url": "https://github.com/jordond/materialkolor"
             },
             "licenses": [
-                "MIT"
+                "MIT",
+                "Apache-2.0"
             ],
             "funding": [
                 
@@ -3746,7 +3747,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-compose-core",
-            "artifactVersion": "15.2.0",
+            "artifactVersion": "15.3.0",
             "name": "AboutLibraries Compose UI Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
@@ -3769,7 +3770,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-compose-m3",
-            "artifactVersion": "15.2.0",
+            "artifactVersion": "15.3.0",
             "name": "AboutLibraries Compose Material 3 Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
@@ -3792,7 +3793,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-core",
-            "artifactVersion": "15.2.0",
+            "artifactVersion": "15.3.0",
             "name": "AboutLibraries Core Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
@@ -3815,7 +3816,7 @@
         },
         {
             "uniqueId": "com.mikepenz:multiplatform-markdown-renderer",
-            "artifactVersion": "0.45.0",
+            "artifactVersion": "0.46.0",
             "name": "Multiplatform Markdown Renderer",
             "description": "Kotlin Multiplatform Markdown Renderer. (Android, Desktop, ...) powered by Compose Multiplatform",
             "website": "https://github.com/mikepenz/multiplatform-markdown-renderer",
@@ -3838,7 +3839,7 @@
         },
         {
             "uniqueId": "com.mikepenz:multiplatform-markdown-renderer-m3",
-            "artifactVersion": "0.45.0",
+            "artifactVersion": "0.46.0",
             "name": "Multiplatform Markdown Renderer - Material 3",
             "description": "Kotlin Multiplatform Markdown Renderer. (Android, Desktop, ...) powered by Compose Multiplatform",
             "website": "https://github.com/mikepenz/multiplatform-markdown-renderer",
@@ -3907,7 +3908,7 @@
         },
         {
             "uniqueId": "dev.drewhamilton.poko:poko-annotations",
-            "artifactVersion": "0.23.1",
+            "artifactVersion": "0.23.2",
             "name": "Poko Annotations",
             "description": "A Kotlin compiler plugin for generating equals, hashCode, and toString for plain old Kotlin objects.",
             "website": "https://github.com/drewhamilton/Poko",
@@ -5257,7 +5258,7 @@
         },
         {
             "uniqueId": "org.jetbrains.androidx.navigation3:navigation3-ui",
-            "artifactVersion": "1.1.2",
+            "artifactVersion": "1.2.0",
             "name": "Androidx Navigation 3 UI",
             "description": "Provides a Navigation3 display that uses the building blocks from runtime to create a higher level solution.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5377,7 +5378,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.animation:animation",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Animation",
             "description": "Compose animation library",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5401,7 +5402,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.animation:animation-core",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Animation Core",
             "description": "Animation engine and animation primitives that are the building blocks of the Compose animation library",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5473,7 +5474,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.components:components-resources",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Resources for Compose JB",
             "description": "Resources for Compose JB",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5497,7 +5498,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.components:components-ui-tooling-preview",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Experimental Compose Multiplatform tooling library API. This library provides the API required to declare @Preview composables in user apps.",
             "description": "Experimental Compose Multiplatform tooling library API. This library provides the API required to declare @Preview composables in user apps.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5521,7 +5522,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.desktop:desktop",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Desktop",
             "description": "Compose Desktop",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5545,7 +5546,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.desktop:desktop-jvm-linux-x64",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Desktop",
             "description": "Compose Desktop",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5569,7 +5570,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.foundation:foundation",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Foundation",
             "description": "Higher level abstractions of the Compose UI primitives. This library is design system agnostic, providing the high-level building blocks for both application and design-system developers",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5593,7 +5594,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.foundation:foundation-layout",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Layouts",
             "description": "Compose layout implementations",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5845,7 +5846,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.material:material",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Material Components",
             "description": "Compose Material Design Components library",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5893,7 +5894,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.runtime:runtime",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Runtime",
             "description": "Tree composition support for code generated by the Compose compiler plugin and corresponding public API",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5917,7 +5918,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.runtime:runtime-saveable",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Saveable",
             "description": "Compose components that allow saving and restoring the local ui state",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5941,7 +5942,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose UI",
             "description": "Compose UI primitives. This library contains the primitives that form the Compose UI Toolkit, such as drawing, measurement and layout.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5965,7 +5966,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-backhandler",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose BackHandler",
             "description": "Provides BackHandler in Compose Multiplatform projects",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -5989,7 +5990,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-geometry",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Geometry",
             "description": "Compose classes related to dimensions without units",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6013,7 +6014,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-graphics",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Graphics",
             "description": "Compose graphics",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6037,7 +6038,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-text",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose UI Text",
             "description": "Compose Text primitives and utilities",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6061,7 +6062,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-tooling",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Tooling",
             "description": "Compose tooling library. This library exposes information to our tools for better IDE support.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6085,7 +6086,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-tooling-data",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Tooling Data",
             "description": "Compose tooling library data. This library provides data about compose for different tooling purposes.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6109,7 +6110,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-tooling-preview",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose UI Preview Tooling",
             "description": "Compose tooling library API. This library provides the API required to declare @Preview composables in user apps.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6133,7 +6134,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-uikit",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose UIKit",
             "description": "Internal iOS UIKit utilities including Objective-C library.",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6157,7 +6158,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-unit",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Unit",
             "description": "Compose classes for simple units",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6181,7 +6182,7 @@
         },
         {
             "uniqueId": "org.jetbrains.compose.ui:ui-util",
-            "artifactVersion": "1.12.1",
+            "artifactVersion": "1.12.2",
             "name": "Compose Util",
             "description": "Internal Compose utilities used by other modules",
             "website": "https://github.com/JetBrains/compose-multiplatform",
@@ -6253,7 +6254,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlin:kotlin-reflect",
-            "artifactVersion": "2.3.0",
+            "artifactVersion": "2.4.0",
             "name": "Kotlin Reflect",
             "description": "Kotlin Full Reflection Library",
             "website": "https://kotlinlang.org/",
@@ -6277,7 +6278,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib",
-            "artifactVersion": "2.4.20",
+            "artifactVersion": "2.4.21",
             "name": "Kotlin Stdlib",
             "description": "Kotlin Standard Library",
             "website": "https://kotlinlang.org/",
@@ -6301,7 +6302,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib-common",
-            "artifactVersion": "2.4.20",
+            "artifactVersion": "2.4.21",
             "name": "Kotlin Stdlib Common",
             "description": "Kotlin Common Standard Library (legacy, use kotlin-stdlib instead)",
             "website": "https://kotlinlang.org/",
@@ -6417,7 +6418,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-collections-immutable",
-            "artifactVersion": "0.5.1",
+            "artifactVersion": "0.5.2",
             "name": "kotlinx-collections-immutable",
             "description": "Kotlin Immutable Collections multiplatform library",
             "website": "https://github.com/Kotlin/kotlinx.collections.immutable",
@@ -6659,7 +6660,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-core",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "core",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6683,7 +6684,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-client",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-client",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6707,7 +6708,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-core",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-core",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6731,7 +6732,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-client",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-ktor-client",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6755,7 +6756,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-core",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-ktor-core",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6779,7 +6780,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-logging",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-logging",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6803,7 +6804,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-core",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-serialization-core",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6827,7 +6828,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-json",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "krpc-serialization-json",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6851,7 +6852,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-utils",
-            "artifactVersion": "0.11.0-grpc-189",
+            "artifactVersion": "0.11.0-grpc-190",
             "name": "utils",
             "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
             "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -6875,7 +6876,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-bom",
-            "artifactVersion": "1.11.0",
+            "artifactVersion": "1.12.0",
             "name": "kotlinx-serialization-bom",
             "description": "Kotlin multiplatform serialization runtime library",
             "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -6897,7 +6898,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-core",
-            "artifactVersion": "1.11.0",
+            "artifactVersion": "1.12.0",
             "name": "kotlinx-serialization-core",
             "description": "Kotlin multiplatform serialization runtime library",
             "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -6919,7 +6920,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-json",
-            "artifactVersion": "1.11.0",
+            "artifactVersion": "1.12.0",
             "name": "kotlinx-serialization-json",
             "description": "Kotlin multiplatform serialization runtime library",
             "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -6941,7 +6942,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-json-io",
-            "artifactVersion": "1.11.0",
+            "artifactVersion": "1.12.0",
             "name": "kotlinx-serialization-json-io",
             "description": "Kotlin multiplatform serialization runtime library",
             "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -6986,7 +6987,7 @@
         },
         {
             "uniqueId": "org.jetbrains.skiko:skiko",
-            "artifactVersion": "0.150.1",
+            "artifactVersion": "0.150.2",
             "name": "Skiko KMP",
             "description": "Kotlin Skia bindings",
             "website": "https://www.github.com/JetBrains/skiko",
@@ -7010,7 +7011,7 @@
         },
         {
             "uniqueId": "org.jetbrains.skiko:skiko-awt",
-            "artifactVersion": "0.150.1",
+            "artifactVersion": "0.150.2",
             "name": "Skiko Awt",
             "description": "Kotlin Skia bindings",
             "website": "https://www.github.com/JetBrains/skiko",
@@ -7034,7 +7035,7 @@
         },
         {
             "uniqueId": "org.jetbrains.skiko:skiko-awt-runtime-linux-x64",
-            "artifactVersion": "0.150.1",
+            "artifactVersion": "0.150.2",
             "name": "Skiko JVM Runtime for Linux X64",
             "description": "Kotlin Skia bindings",
             "website": "https://www.github.com/JetBrains/skiko",
@@ -7082,7 +7083,7 @@
         },
         {
             "uniqueId": "org.jetbrains:markdown",
-            "artifactVersion": "0.7.9",
+            "artifactVersion": "0.7.17",
             "name": "markdown",
             "description": "Markdown parser in Kotlin",
             "website": "https://github.com/JetBrains/markdown",
@@ -7105,7 +7106,7 @@
         },
         {
             "uniqueId": "org.jmdns:jmdns",
-            "artifactVersion": "3.6.3",
+            "artifactVersion": "3.6.4",
             "name": "JmDNS",
             "description": "JmDNS is a Java implementation of multi-cast DNS and can be used for service registration and discovery in local area networks. JmDNS is fully compatible with Apple's Bonjour.\nThe project was originally started in December 2002 by Arthur van Hoff at Strangeberry.",
             "website": "https://jmdns.org",
