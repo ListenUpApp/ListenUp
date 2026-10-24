@@ -33,7 +33,9 @@ struct HardcoverKeptOffAccessibilityTests {
         let button = try #require(hosted.stop(labelled: syncAgainLabel), "\(hosted.tree)")
         #expect(button.frame.minY >= text.frame.maxY - 1, "button \(button.frame) text \(text.frame)")
         // The title has the row's width, not a sliver of it.
-        #expect(text.frame.width >= 280, "text \(text.frame)")
+        // 280pt, or three quarters of the room where the safe area leaves less (the closed iPhone Duo's strip).
+        let wanted = min(280, hosted.usableBounds.width * 0.75)
+        #expect(text.frame.width >= wanted, "text \(text.frame) in \(hosted.usableBounds)")
     }
 
     @Test func atDefaultSizesSyncAgainSitsBesideTheBook() async throws {

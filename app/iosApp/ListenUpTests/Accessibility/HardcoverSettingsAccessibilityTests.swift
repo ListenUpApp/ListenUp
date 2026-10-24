@@ -60,10 +60,12 @@ struct HardcoverSettingsAccessibilityTests {
         let text = CGRect(x: row.frame.minX + 44, y: row.frame.minY, width: row.frame.width - 44,
                           height: row.frame.height)
         let lines = DrawnContrast(hosted).textLines(in: text)
-        try #require(lines.count == 2, "lines: \(lines)")
+        // Title, then the detail — which wraps onto a second line where the safe area leaves less room.
+        try #require(lines.count >= 2, "lines: \(lines)")
         // System secondary label grey here is 3.44:1 (the systemic note, left to the system and to Increase
         // Contrast); the tint faded to secondary opacity was 2.20:1.
-        #expect(lines[1] >= 3.0, "detail drawn at \(lines[1]):1")
+        let detail = lines.dropFirst()
+        #expect(detail.allSatisfy { $0 >= 3.0 }, "detail drawn at \(Array(detail)):1")
     }
 
     // MARK: M3 — Needs a match is bounded
