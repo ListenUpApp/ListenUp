@@ -97,8 +97,9 @@ struct BoostPickerSheet: View {
 
 /// One chapter line — number · title · duration, with a now-playing equalizer on the current chapter and a play glyph
 /// on the rest. The current chapter sits on a coral tint (plan C14: tinted on iOS) with "Now Playing · 8 min left";
-/// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad inline "Up Next" panel
-/// so both surfaces render chapters identically.
+/// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad's `NowPlayingChapterPanel`
+/// so both surfaces render chapters identically; only the panel draws the current row's chapter bar (`chapterFraction`),
+/// because the panel stays open while the chapter plays (§3.11).
 ///
 /// Text stays `.primary` or `luQuietInk` (4.5:1, unlike the system's secondary and tertiary labels) on every row: the
 /// tint is decoration (the wash and the equalizer), never the colour
@@ -114,10 +115,16 @@ struct ChapterRow: View {
     let isPlaying: Bool
     /// Content time left in the current chapter (S10); ignored on other rows.
     var remainingMs: Int64 = 0
+    /// How far through the chapter the playhead is, read only by the row's bar so a progress tick redraws the bar alone.
+    /// nil draws no bar (the sheet, every row but the current one).
+    var chapterFraction: (() -> Float)?
     let tint: Color
     let onTap: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The current row's tint: the coral at this opacity (plan C14: tinted on iOS, never filled).
+    static let currentTintOpacity = 0.10
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -163,6 +170,10 @@ struct ChapterRow: View {
                             Text(Self.currentLine(remainingMs: remainingMs))
                                 .font(.footnote)
                                 .foregroundStyle(Color.luQuietInk)
+                            if let chapterFraction {
+                                ChapterRowBar(fraction: chapterFraction)
+                                    .padding(.top, Spacing.xxs)
+                            }
                         }
                     }
                 }
@@ -195,7 +206,7 @@ struct ChapterRow: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: Radius.m)
-                    .fill(isCurrent ? tint.opacity(0.10) : .clear)
+                    .fill(isCurrent ? tint.opacity(Self.currentTintOpacity) : .clear)
             )
             .overlay(alignment: .bottom) {
                 if !isCurrent {
@@ -209,6 +220,34 @@ struct ChapterRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(spokenLabel)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
+/// The current row's chapter progress in the iPad panel (spec §3.11; verify c5): an 80pt capsule, its fill in the deeper
+/// coral ink on a coral track, so the moving part reads at 3:1 or more against its own track on every wash (WCAG 1.4.11;
+/// plan C7 — the board's pale track under a light fill would all but vanish). Decorative to VoiceOver: the row already
+/// says the time left. Its own view, so the fraction is read here and a progress tick redraws only the bar.
+struct ChapterRowBar: View {
+    let fraction: () -> Float
+
+    /// The fill: `CoralInk` (#A8261F light, #FF9270 dark, deeper still under Increase Contrast).
+    static let fill = Color.luTintInk
+    /// The track: the coral at this opacity, over the row's tint.
+    static let trackOpacity = 0.22
+    static let width: CGFloat = 80
+    static let height: CGFloat = 4
+
+    var body: some View {
+        let progress = CGFloat(min(1, max(0, fraction())))
+        Capsule()
+            .fill(Color.luTint.opacity(Self.trackOpacity))
+            .overlay(alignment: .leading) {
+                Capsule()
+                    .fill(Self.fill)
+                    .frame(width: Self.width * progress)
+            }
+            .frame(width: Self.width, height: Self.height)
+            .accessibilityHidden(true)
     }
 }
 
@@ -300,7 +339,10 @@ struct ChapterListSheet: View {
 
 /// Three-bar now-playing equalizer. Bars pulse while playing and hold static when
 /// paused, honouring Reduce Motion.
-private struct EqualizerGlyph: View {
+struct EqualizerGlyph: View {
+    /// The bars move only while the book plays, and never under Reduce Motion (HIG, Motion).
+    static func shouldPulse(isAnimating: Bool, reduceMotion: Bool) -> Bool { isAnimating && !reduceMotion }
+
     let color: Color
     let isAnimating: Bool
 
@@ -328,6 +370,6 @@ private struct EqualizerGlyph: View {
         )
     }
 
-    private var shouldPulse: Bool { isAnimating && !reduceMotion }
+    private var shouldPulse: Bool { Self.shouldPulse(isAnimating: isAnimating, reduceMotion: reduceMotion) }
     private var animate: Bool { shouldPulse && phase }
 }

@@ -62,6 +62,11 @@ extension Color {
     /// on a cover's tone-91 wash; this holds 4.5:1 on the neutral and every wash the shared cover rule can give
     /// (`NowPlayingWashTests`). For the status, the narrators, the times and the book sentence.
     static let luOnWashSecondary = Color(ColorResource.onWashSecondary)
+    /// The iPad chapter panel's card on Now Playing's wash — the `PlayerPanel` Color Set: white at 60% in light,
+    /// `#1C1C1E` at 70% in dark (the `NP-iPad` board's translucent card), and opaque in both under Increase Contrast.
+    /// A plain fill, not Liquid Glass: the panel is content (HIG, Materials: "Don't use Liquid Glass in the content
+    /// layer"). Under Reduce Transparency the panel swaps it for an opaque surface (`NowPlayingChapterPanel.cardFill`).
+    static let luPlayerPanel = Color(ColorResource.playerPanel)
     /// Disabled glyphs on Now Playing's wash — the `OnWashTertiary` Color Set, 3:1 or more on every wash.
     static let luOnWashTertiary = Color(ColorResource.onWashTertiary)
 
@@ -99,6 +104,7 @@ extension Color {
         ("luWarning", .luWarning), ("luPlayerError", .luPlayerError),
         ("luSleepGold", .luSleepGold), ("luOnSleepGold", .luOnSleepGold), ("luSleepGoldMeter", .luSleepGoldMeter),
         ("luOnWashSecondary", .luOnWashSecondary), ("luOnWashTertiary", .luOnWashTertiary),
+        ("luPlayerPanel", .luPlayerPanel),
         ("luSurface", .luSurface), ("luSurface2", .luSurface2),
         ("luSeparator", .luSeparator), ("luFill", .luFill),
         ("luLabel3", .luLabel3)

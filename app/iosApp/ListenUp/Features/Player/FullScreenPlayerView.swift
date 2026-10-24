@@ -124,9 +124,9 @@ struct FullScreenPlayerView: View {
                 stackedColumn(width: size.width, height: belowHeader.height, showsChapters: true)
             }
         case .regular:
-            // The inline "Up Next" pane replaces the chapter sheet, so the column hides its
+            // The chapter panel replaces the chapter sheet, so the column hides its
             // Chapters control.
-            let columnWidth = min(620, size.width - NowPlayingUpNextPanel.width)
+            let columnWidth = min(620, size.width - PlayerLayoutMode.panelWidth)
             HStack(spacing: 0) {
                 VStack(spacing: 0) {
                     header
@@ -135,7 +135,8 @@ struct FullScreenPlayerView: View {
                 .frame(maxWidth: columnWidth)
                 .frame(maxWidth: .infinity)
 
-                NowPlayingUpNextPanel(observer: observer)
+                NowPlayingChapterPanel(observer: observer)
+                    .frame(width: PlayerLayoutMode.panelWidth)
             }
         case .compactHeight:
             VStack(spacing: 0) {
