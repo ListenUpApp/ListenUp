@@ -2183,6 +2183,8 @@ One beautiful library.</string>
     <string name="player_more_options">More options</string>
     <string name="player_next_chapter">Next chapter</string>
     <string name="player_now_playing">Now playing</string>
+    <string name="player_np_back_to_current">Back to current chapter</string>
+    <string name="player_np_back_to_current_ios">Back to Current Chapter</string>
     <string name="player_np_book_sentence">Book %1$d% · %2$s left</string>
     <string name="player_np_by">by</string>
     <string name="player_np_byline_fold">%1$s &amp; %2$d more</string>
@@ -2195,6 +2197,7 @@ One beautiful library.</string>
     <string name="player_np_open_inbox_ios">Open Inbox</string>
     <string name="player_np_previous_chapter_hint">Goes to the start of this chapter first.</string>
     <string name="player_np_read_by">Read by</string>
+    <string name="player_np_series_book">%1$s · Book %2$s</string>
     <string name="player_np_sign_in">Sign in</string>
     <string name="player_np_sign_in_ios">Sign In</string>
     <string name="player_np_status_downloaded">Downloaded</string>

@@ -21821,6 +21821,26 @@
         }
       }
     },
+    "player.np_back_to_current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to current chapter"
+          }
+        }
+      }
+    },
+    "player.np_back_to_current_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to Current Chapter"
+          }
+        }
+      }
+    },
     "player.np_book_sentence": {
       "localizations": {
         "en": {
@@ -21937,6 +21957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read by"
+          }
+        }
+      }
+    },
+    "player.np_series_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Book %2$@"
           }
         }
       }
