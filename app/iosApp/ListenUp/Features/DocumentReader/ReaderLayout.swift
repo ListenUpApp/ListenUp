@@ -40,3 +40,33 @@ enum ReaderSplit: Equatable {
     /// A pane `ReaderLayoutMode.paneWidth` wide against the trailing edge.
     case trailingPane
 }
+
+/// The widths of the page, the gap over the hinge, and the listening pane, leading to trailing.
+struct ReaderColumns: Equatable {
+    let page: CGFloat
+    let gap: CGFloat
+    let pane: CGFloat
+
+    init(page: CGFloat, gap: CGFloat, pane: CGFloat) {
+        self.page = page
+        self.gap = gap
+        self.pane = pane
+    }
+
+    /// The columns for `split` across `width`. A hinge keeps `PlayerLayoutMode.foldClearance` either side, so nothing
+    /// sits on the crease even when the fold reports no thickness; its frame is left to right, so right to left the
+    /// page takes the right-hand side of it.
+    init(split: ReaderSplit, width: CGFloat, layoutDirection: LayoutDirection) {
+        switch split {
+        case .hinge(let hinge):
+            let clearance = PlayerLayoutMode.foldClearance
+            let left = max(0, hinge.minX - clearance)
+            let right = max(0, width - hinge.maxX - clearance)
+            let (page, pane) = layoutDirection == .rightToLeft ? (right, left) : (left, right)
+            self.init(page: page, gap: max(0, width - page - pane), pane: pane)
+        case .trailingPane:
+            let pane = min(ReaderLayoutMode.paneWidth, width)
+            self.init(page: width - pane, gap: 0, pane: pane)
+        }
+    }
+}

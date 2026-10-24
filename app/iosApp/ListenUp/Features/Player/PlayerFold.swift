@@ -1,4 +1,5 @@
 import CoreGraphics
+import SwiftUI
 
 /// The window's fold, mirroring Android's `Fold` (`client/foldable/Posture.kt`).
 ///
@@ -17,5 +18,13 @@ enum PlayerFold: Equatable {
     static func from(divisionFrames: [CGRect]) -> PlayerFold {
         guard let hinge = divisionFrames.first else { return .none }
         return hinge.width > hinge.height ? .tabletop(hinge: hinge) : .book(hinge: hinge)
+    }
+
+    /// The window's fold from the active division regions, in `proxy`'s own coordinates — the one reader of them, for
+    /// Now Playing and the PDF reader alike. Read from the fold, never from measuring the layout, so a split stays put
+    /// while its view is dragged.
+    static func from(_ proxy: GeometryProxy) -> PlayerFold {
+        guard #available(iOS 27.1, *) else { return .none }
+        return from(divisionFrames: proxy.reservedRegions(kind: .division).map(\.frame))
     }
 }

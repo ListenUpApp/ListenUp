@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Full-screen PDF reader with immersive chrome: tap to toggle the top bar and bottom dock
 /// (scrubber + now-playing strip). A folio hint pill anchors the top when chrome is hidden
-/// so the reader always knows their position.
+/// so the reader always knows their position. With room — an iPad, an iPhone Duo half open like a book — the
+/// listening pane sits beside the page in place of the strip (`ReaderLayoutMode`).
 struct DocumentReaderView: View {
     let document: ReaderDocument
     var onDone: () -> Void
@@ -21,47 +22,30 @@ struct DocumentReaderView: View {
     @State private var search: PdfSearchController?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
+    @Environment(\.verticalSizeClass) private var vSize
+    @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.dependencies) private var dependencies
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
 
     var body: some View {
-        ZStack {
-            Color(.systemBackground).ignoresSafeArea()
-
-            if let pdfDocument {
-                // On regular (iPad) show the persistent page rail beside the reader.
-                // On compact (iPhone, or iPad in narrow Split View) show the PDF full-width.
-                if hSize == .regular {
-                    HStack(spacing: 0) {
-                        PageRailView(
-                            document: pdfDocument,
-                            currentPageIndex: currentPageIndex,
-                            onSelect: { goToPage = $0 }
-                        )
-                        pdfView(document: pdfDocument)
-                    }
-                } else {
-                    pdfView(document: pdfDocument)
-                }
-            } else if didAttemptLoad {
-                errorState
-            } else {
-                ProgressView()
-            }
+        // The layout follows the fold and the size classes (`ReaderLayoutMode`): with room, the player's own controls sit
+        // beside the page in place of the strip — the same player observer the strip reads, so it is never a second
+        // player, and opening the reader from Now Playing leaves Now Playing as it was underneath.
+        GeometryReader { proxy in
+            let mode = ReaderLayoutMode.resolve(
+                horizontalSizeClass: hSize,
+                verticalSizeClass: vSize,
+                fold: PlayerFold.from(proxy),
+                hasCurrentBook: dependencies.playerObserver.isVisible
+            )
+            reader(mode, width: proxy.size.width)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: mode)
         }
         .task {
             pdfDocument = PDFDocument(url: document.url)
             if let pdfDocument { search = PdfSearchController(document: pdfDocument) }
             didAttemptLoad = true
-        }
-        .safeAreaBar(edge: .top) {
-            if chromeVisible { topBar }
-        }
-        .safeAreaBar(edge: .bottom) {
-            if chromeVisible, pdfDocument != nil, pageCount > 0 { bottomDock }
-        }
-        .overlay(alignment: .top) {
-            if !chromeVisible, pageCount > 0 { folioHint }
         }
         .fullScreenCover(isPresented: $showGrid) {
             if let pdfDocument {
@@ -81,6 +65,71 @@ struct DocumentReaderView: View {
                     onClose: { search.cancel(); clearHighlight = true; showSearch = false }
                 )
             }
+        }
+    }
+
+    // MARK: - Layout
+
+    /// The page alone with its dock under it, or the page and the listening pane side by side. The top bar spans both;
+    /// beside the pane, the page keeps its scrubber under it and the strip gives way to the pane.
+    @ViewBuilder
+    private func reader(_ mode: ReaderLayoutMode, width: CGFloat) -> some View {
+        // The rail is regular width's always-on page picker; it gives the width to the pane when the pane shows.
+        let showsRail = hSize == .regular && mode == .single
+        ZStack {
+            Color(.systemBackground).ignoresSafeArea()
+            switch mode {
+            case .single:
+                pageArea(showsRail: showsRail)
+            case .beside(let split):
+                let columns = ReaderColumns(split: split, width: width, layoutDirection: layoutDirection)
+                HStack(spacing: 0) {
+                    pageArea(showsRail: false)
+                        .safeAreaBar(edge: .bottom) {
+                            if chromeVisible, pageCount > 0 {
+                                scrubberRow
+                                    .padding(.horizontal, Spacing.m)
+                                    .padding(.vertical, Spacing.s)
+                            }
+                        }
+                        .frame(width: columns.page)
+                    Color.clear.frame(width: columns.gap)
+                    ReaderListeningPane(observer: dependencies.playerObserver)
+                        .frame(width: columns.pane)
+                }
+            }
+        }
+        .safeAreaBar(edge: .top) {
+            if chromeVisible { topBar(showsRail: showsRail) }
+        }
+        .safeAreaBar(edge: .bottom) {
+            if mode == .single, chromeVisible, pdfDocument != nil, pageCount > 0 { bottomDock }
+        }
+        .overlay(alignment: .top) {
+            if !chromeVisible, pageCount > 0 { folioHint }
+        }
+    }
+
+    /// The PDF — beside the page rail on regular width — or its loading and error states.
+    @ViewBuilder
+    private func pageArea(showsRail: Bool) -> some View {
+        if let pdfDocument {
+            if showsRail {
+                HStack(spacing: 0) {
+                    PageRailView(
+                        document: pdfDocument,
+                        currentPageIndex: currentPageIndex,
+                        onSelect: { goToPage = $0 }
+                    )
+                    pdfView(document: pdfDocument)
+                }
+            } else {
+                pdfView(document: pdfDocument)
+            }
+        } else if didAttemptLoad {
+            errorState
+        } else {
+            ProgressView()
         }
     }
 
@@ -111,7 +160,7 @@ struct DocumentReaderView: View {
 
     // MARK: - Top bar
 
-    private var topBar: some View {
+    private func topBar(showsRail: Bool) -> some View {
         HStack {
             Button(String(localized: "common.done"), action: onDone)
                 .font(.body.weight(.semibold))
@@ -123,8 +172,8 @@ struct DocumentReaderView: View {
                     }
                     .accessibilityLabel(String(localized: "book.detail_document_search"))
                 }
-                // The rail is the always-on equivalent on regular (iPad); hide the grid button there.
-                if hSize != .regular {
+                // The rail is the always-on equivalent; hide the grid button while it shows.
+                if !showsRail {
                     Button { showGrid = true } label: {
                         Image(systemName: "square.grid.2x2")
                     }

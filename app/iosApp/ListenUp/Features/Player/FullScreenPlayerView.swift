@@ -64,7 +64,7 @@ struct FullScreenPlayerView: View {
             let mode = PlayerLayoutMode.resolve(
                 size: proxy.size,
                 isAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
-                fold: Self.fold(in: proxy)
+                fold: PlayerFold.from(proxy)
             )
             layout(mode, in: proxy.size)
                 // The panel takes over from the sheet when a window grows into `.regular` (Split View, Stage Manager).
@@ -406,13 +406,6 @@ struct FullScreenPlayerView: View {
 // MARK: - Fold
 
 extension FullScreenPlayerView {
-    /// The window's fold from the active division regions, in this view's own coordinates. Read from the fold, never
-    /// from measuring the layout, so the split stays put while the player is dragged.
-    private static func fold(in proxy: GeometryProxy) -> PlayerFold {
-        guard #available(iOS 27.1, *) else { return .none }
-        return PlayerFold.from(divisionFrames: proxy.reservedRegions(kind: .division).map(\.frame))
-    }
-
     /// Half open on a table. The standing half carries what is read at a distance — the header, the cover and a
     /// one-line title; the lying half what is touched — the scrubber, the transport (or the state card) and the
     /// settings row. A gap as tall as the hinge, plus a clearance either side, keeps everything off the crease.
