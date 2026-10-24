@@ -310,30 +310,6 @@ struct PlayerSnapshot: Equatable {
     }
 }
 
-/// Native mirror of the shared `PlayerProgress` (~4 Hz): the four positions and what derives from them.
-struct PlayerProgressRow: Equatable {
-    var chapterPositionMs: Int64 = 0
-    var chapterDurationMs: Int64 = 0
-    var bookPositionMs: Int64 = 0
-    var bookDurationMs: Int64 = 0
-    /// Whole percent through the book, floored, for the book sentence: the shared rule, so every platform agrees.
-    var bookPercent = 0
-
-    init() {}
-
-    init(_ progress: PlayerProgress) {
-        chapterPositionMs = progress.chapterPositionMs
-        chapterDurationMs = progress.chapterDurationMs
-        bookPositionMs = progress.bookPositionMs
-        bookDurationMs = progress.bookDurationMs
-        bookPercent = Int(progress.bookPercent)
-    }
-
-    var chapterRemainingMs: Int64 { max(0, chapterDurationMs - chapterPositionMs) }
-    var bookRemainingMs: Int64 { max(0, bookDurationMs - bookPositionMs) }
-    var bookFraction: Float { bookDurationMs > 0 ? min(1, max(0, Float(bookPositionMs) / Float(bookDurationMs))) : 0 }
-}
-
 /// The SwiftUI model of the shared player (spec S1): one `PlayerViewModel`, mapped to native values once
 /// at this boundary (rule 8). Every player surface — the mini player, Now Playing, the reader strip,
 /// CarPlay, the Live Activity, Book and Series Detail — reads this and acts through it.
