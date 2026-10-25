@@ -90,6 +90,15 @@ fun skipDistanceMs(
 ): Long = (seconds * speed * 1000).toLong()
 
 /**
+ * The book position [offsetMs] into [chapter], clamped to the chapter. The browser's Media Session reports and seeks
+ * in chapter time (its `seekto` handler is the caller); the player seeks in book time.
+ */
+fun bookPositionInChapterMs(
+    chapter: PlayerChapter,
+    offsetMs: Long,
+): Long = chapter.startMs + offsetMs.coerceIn(0L, chapter.durationMs)
+
+/**
  * One [PLAYBACK_SPEED_INCREMENT] up or down from [speed], clamped to [PLAYBACK_SPEED_MIN]..[PLAYBACK_SPEED_MAX].
  *
  * Counted in whole hundredths and divided once, so a hundred presses land exactly on a rung instead of
