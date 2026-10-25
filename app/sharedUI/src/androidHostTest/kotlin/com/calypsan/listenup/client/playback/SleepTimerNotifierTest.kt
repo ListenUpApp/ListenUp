@@ -67,7 +67,10 @@ class SleepTimerNotifierTest {
         notification.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER) shouldBe true
         notification.`when` shouldBe STARTED_AT + 120_000
         notification.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString() shouldBe "Sleep timer"
-        notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString().startsWith("Pauses at ") shouldBe
+        notification.extras
+            .getCharSequence(NotificationCompat.EXTRA_TEXT)
+            .toString()
+            .startsWith("Pauses at ") shouldBe
             true
         notification.actionTitles() shouldBe listOf("Add 10 min", "Cancel")
         notification.visibility shouldBe Notification.VISIBILITY_PUBLIC

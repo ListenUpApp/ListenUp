@@ -129,8 +129,9 @@ class ChapterWindowPlayer(
                 ),
             ).setCurrentMediaItemIndex(0)
             .setContentPositionMs(windowPositionSupplier(context.window))
-            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.bookPositionMs))
-            .build()
+            .setAvailableCommands(
+                baseState.availableCommands.withChapterSeekCommands(context.chapters, context.bookPositionMs),
+            ).build()
     }
 
     /**
