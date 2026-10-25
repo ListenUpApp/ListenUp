@@ -120,7 +120,11 @@ struct FullScreenPlayerView: View {
             )
             .playerSheetDetents()
         }
-        .reportsPlayerSheet(showBoostPicker || showChapterList)
+        .reportsPlayerSheet(Self.isCovered(
+            showsBoostPicker: showBoostPicker,
+            showsChapterList: showChapterList,
+            isReadingDocument: observer.documentToOpen != nil
+        ))
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(
                 observer: observer,
@@ -135,6 +139,14 @@ struct FullScreenPlayerView: View {
         )) { doc in
             DocumentReaderView(document: doc, onDone: { observer.documentToOpen = nil })
         }
+    }
+
+    // MARK: - Coverings
+
+    /// Whether something covers the player: one of its sheets, or the PDF reader. Esc closes that first, so the
+    /// shell's Close Player waits while it is up.
+    static func isCovered(showsBoostPicker: Bool, showsChapterList: Bool, isReadingDocument: Bool) -> Bool {
+        showsBoostPicker || showsChapterList || isReadingDocument
     }
 
     // MARK: - Background

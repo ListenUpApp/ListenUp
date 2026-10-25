@@ -1,8 +1,8 @@
 import SwiftUI
 
 extension EnvironmentValues {
-    /// Tells the shell that one of the full player's sheets opened or closed, so the Playback menu's Close Player (Esc)
-    /// waits while a sheet is open and Esc closes the sheet first. Nil outside the shell (previews, tests).
+    /// Tells the shell that one of the full player's sheets (or its PDF reader) opened or closed, so the Playback menu's
+    /// Close Player (Esc) waits while it is open and Esc closes it first. Nil outside the shell (previews, tests).
     @Entry var reportPlayerSheet: (@MainActor @Sendable (Bool) -> Void)?
 }
 

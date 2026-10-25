@@ -57,7 +57,7 @@ final class MainShellModel {
     /// Set by Show Chapters (⇧⌘C); the player shows its chapters (the panel on a wide window, the sheet otherwise) and
     /// clears it.
     var isChapterListRequested = false
-    /// Whether one of the full player's sheets is open: Esc closes the sheet first, so Close Player waits for it.
+    /// Whether one of the full player's sheets, or its PDF reader, is open: Esc closes that first, so Close Player waits.
     var playerSheetIsOpen = false
     /// The Library section the compact Library tab shows (and the sidebar remembers).
     var librarySection: LibraryTab = .books

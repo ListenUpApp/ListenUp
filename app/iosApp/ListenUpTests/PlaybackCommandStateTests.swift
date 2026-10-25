@@ -87,6 +87,19 @@ struct PlaybackCommandStateTests {
         #expect(!sheet.canClosePlayer)
     }
 
+    /// The PDF reader covers the player as a sheet does, so Esc must not close the player behind it: Close Player waits.
+    @Test func theDocumentReaderHoldsClosePlayerLikeASheet() {
+        let readerUp = FullScreenPlayerView.isCovered(
+            showsBoostPicker: false, showsChapterList: false, isReadingDocument: true)
+        #expect(readerUp)
+        let state = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: readerUp)
+        #expect(!state.canClosePlayer)
+
+        #expect(!FullScreenPlayerView.isCovered(showsBoostPicker: false, showsChapterList: false, isReadingDocument: false))
+        #expect(FullScreenPlayerView.isCovered(showsBoostPicker: true, showsChapterList: false, isReadingDocument: false))
+        #expect(FullScreenPlayerView.isCovered(showsBoostPicker: false, showsChapterList: true, isReadingDocument: false))
+    }
+
     @Test func playingAndBufferingOfferPause() {
         #expect(PlaybackCommandState.from(snapshot: snapshot(primary: .pause, isPlaying: true)).showsPause)
         // Buffering draws the busy spinner, and pressing it pauses: the command stays live.
