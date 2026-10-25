@@ -69,6 +69,8 @@ class NowPlayingInkContrastTest :
                 listOf(
                     "onSurface on surfaceContainer (the panel's titles and heading)" to
                         (scheme.onSurface to scheme.surfaceContainer),
+                    "onSurfaceVariant on surfaceContainer (the panel's summary, numbers and durations)" to
+                        (scheme.onSurfaceVariant to scheme.surfaceContainer),
                     "onSecondaryContainer on secondaryContainer (Back to current chapter)" to
                         (scheme.onSecondaryContainer to scheme.secondaryContainer),
                 ).forEach { (pair, colors) ->
