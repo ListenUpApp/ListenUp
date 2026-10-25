@@ -55,8 +55,10 @@ enum PlayerMenuModel {
     /// The More menu for `state`. Go to Series is in it unless the series is already a link on screen (`includesSeries`
     /// false: iPad's wide player, where the series sits above the title; P10).
     static func sections(for state: PlayerUiStateLoaded, includesSeries: Bool) -> [PlayerMenuSection] {
-        PlayerMenus.shared.moreMenu(state: state, includesSeries: includesSeries, includesShortcuts: false).map { group in
-            PlayerMenuSection(rows: group.items.compactMap(Row.init), isDestructive: group.isDestructive)
-        }
+        PlayerMenus.shared
+            .moreMenu(state: state, includesSeries: includesSeries, includesShortcuts: false)
+            .map { group in
+                PlayerMenuSection(rows: group.items.compactMap(Row.init), isDestructive: group.isDestructive)
+            }
     }
 }
