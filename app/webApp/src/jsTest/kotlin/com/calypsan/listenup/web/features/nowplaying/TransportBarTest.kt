@@ -414,8 +414,8 @@ class TransportBarTest :
 
             val sheet = host.ownerDocument!!.querySelector(".keys-dlg").shouldNotBeNull()
             sheet.querySelector("h2")!!.textContent shouldBe "Keyboard shortcuts"
-            sheet.querySelectorAll("dl dt").length shouldBe PLAYER_SHORTCUTS.size
-            sheet.querySelectorAll("dl dd").length shouldBe PLAYER_SHORTCUTS.size
+            sheet.querySelectorAll("dl dt").length shouldBe playerShortcuts().size
+            sheet.querySelectorAll("dl dd").length shouldBe playerShortcuts().size
             sheet.querySelector("dt kbd")!!.textContent shouldBe "Space"
             (host.querySelector(".tport-keys") as HTMLElement).getAttribute("aria-expanded") shouldBe "true"
         }

@@ -229,7 +229,7 @@ class PlayerShortcutKeysTest :
                 awaitFrame()
                 val sheet = host.ownerDocument!!.querySelector(".panel-pop.keys-dlg").shouldNotBeNull()
                 sheet.querySelector("h2")!!.textContent shouldBe "Keyboard shortcuts"
-                sheet.querySelectorAll("dt").length shouldBe PLAYER_SHORTCUTS.size
+                sheet.querySelectorAll("dt").length shouldBe playerShortcuts().size
                 press("Escape")
                 awaitFrame()
                 document.activeElement shouldBe host.querySelector(".tport-keys")

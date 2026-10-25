@@ -85,7 +85,7 @@ class PlayerKeysTest :
         }
 
         test("the sheet's table names each key once and spells its aria-keyshortcuts") {
-            PLAYER_SHORTCUTS.map { it.aria } shouldBe
+            playerShortcuts(platform = "MacIntel").map { it.aria } shouldBe
                 listOf(
                     "Space",
                     "ArrowLeft ArrowRight",
@@ -96,7 +96,18 @@ class PlayerKeysTest :
                     "P",
                     "Escape",
                     "?",
-                    "/ Meta+K",
+                    "/ Control+K Meta+K",
                 )
+        }
+
+        test("search reads ⌘K on Apple platforms and Ctrl+K everywhere else; both work everywhere") {
+            val mac = playerShortcuts(platform = "macOS").last()
+            mac.keys shouldBe listOf("/", "⌘K")
+            playerShortcuts(platform = "iPad").last().keys shouldBe listOf("/", "⌘K")
+            listOf("Windows", "Linux x86_64", "Android", "").forEach { platform ->
+                val search = playerShortcuts(platform = platform).last()
+                search.keys shouldBe listOf("/", "Ctrl+K")
+                search.aria shouldBe "/ Control+K Meta+K"
+            }
         }
     })

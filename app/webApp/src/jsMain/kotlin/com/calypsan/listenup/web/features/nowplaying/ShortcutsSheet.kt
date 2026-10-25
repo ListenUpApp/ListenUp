@@ -10,7 +10,7 @@ import org.jetbrains.compose.web.dom.Text
 
 /**
  * The keyboard shortcuts (spec §5.8, `Shortcuts-WebDesktop`), from `?`, the bar's Shortcuts button and More: one row per
- * [PLAYER_SHORTCUTS] entry, read as pairs (a `<dl>`: the keys, then what they do). A [PlayerPanel], so it hangs from
+ * [playerShortcuts] entry, read as pairs (a `<dl>`: the keys, then what they do). A [PlayerPanel], so it hangs from
  * its opener on wide and is a bottom sheet on a phone, and Esc or Close hand focus back.
  */
 @Composable
@@ -27,7 +27,7 @@ internal fun ShortcutsSheet(
         onDismiss = onDismiss,
     ) {
         Dl(attrs = { classes("keys-list") }) {
-            PLAYER_SHORTCUTS.forEach { shortcut ->
+            playerShortcuts().forEach { shortcut ->
                 Dt(attrs = { classes("keys-k") }) {
                     shortcut.keys.forEachIndexed { index, key ->
                         if (index > 0) Span(attrs = { classes("keys-or") }) { Text(" ") }

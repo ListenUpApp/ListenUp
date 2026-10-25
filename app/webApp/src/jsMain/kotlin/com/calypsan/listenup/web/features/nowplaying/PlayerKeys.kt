@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.design.browserPlatform
+import com.calypsan.listenup.web.design.isApplePlatform
 import com.calypsan.listenup.web.shell.KeyTarget
 import org.w3c.dom.events.KeyboardEvent
 
@@ -129,8 +131,12 @@ data class PlayerShortcut(
     val description: String,
 )
 
-/** The sheet, the tooltips and the handler all read this table, so they cannot disagree (spec §5.8). */
-val PLAYER_SHORTCUTS: List<PlayerShortcut> =
+/**
+ * The sheet, the tooltips and the handler all read this table, so they cannot disagree (spec §5.8). Search shows its
+ * chord as the reader's keyboard labels it, ⌘K on a Mac, iPhone or iPad and Ctrl+K elsewhere ([platform] is the
+ * browser's); the palette takes either modifier everywhere, so `aria-keyshortcuts` names both.
+ */
+fun playerShortcuts(platform: String = browserPlatform()): List<PlayerShortcut> =
     listOf(
         PlayerShortcut(listOf("Space"), "Space", "Play or pause"),
         PlayerShortcut(listOf("←", "→"), "ArrowLeft ArrowRight", "Skip back or forward"),
@@ -141,7 +147,11 @@ val PLAYER_SHORTCUTS: List<PlayerShortcut> =
         PlayerShortcut(listOf("P"), "P", "Open or close Now Playing"),
         PlayerShortcut(listOf("Esc"), "Escape", "Close Now Playing"),
         PlayerShortcut(listOf("?"), "?", "Keyboard shortcuts"),
-        PlayerShortcut(listOf("/", "⌘K"), "/ Meta+K", "Search"),
+        PlayerShortcut(
+            listOf("/", if (isApplePlatform(platform)) "⌘K" else "Ctrl+K"),
+            "/ Control+K Meta+K",
+            "Search",
+        ),
     )
 
 /** The `aria-keyshortcuts` value of each control the table names. */
