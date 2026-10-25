@@ -21361,16 +21361,6 @@
         }
       }
     },
-    "player.chapter_remaining": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ • %2$@ left"
-          }
-        }
-      }
-    },
     "player.chapters": {
       "localizations": {
         "en": {
@@ -22217,16 +22207,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Playback speed"
-          }
-        }
-      }
-    },
-    "player.playing": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playing..."
           }
         }
       }

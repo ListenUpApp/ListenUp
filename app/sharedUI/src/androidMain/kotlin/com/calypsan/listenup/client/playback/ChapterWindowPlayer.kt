@@ -8,6 +8,7 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.localization.SystemStrings
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -61,13 +62,16 @@ private data class ChapterSeekContext(
  * [ChapterNavigation.hasNext]: at the last chapter there is nothing to skip to, so the button greys
  * out there, and a next that arrives anyway does nothing.
  *
+ * **Metadata.** The title stays the book's; the artist is the chapter and the time left in it
+ * ("Bridge Four · 8m left", [systemTrackLine]), which Android 13+ draws as the card's second line;
+ * the album is the author (spec §5.7).
+ *
  * **Invalidation.** [ForwardingSimpleBasePlayer] already invalidates state automatically on
  * every underlying-player event (play/pause, buffering, ExoPlayer-driven position
- * discontinuities). The one case that doesn't cover is a chapter boundary crossed purely by
- * elapsed playback time — no underlying-player event fires for that. [invalidate] is the public
- * hook for it: the service collects `PlaybackManager.currentChapter` and calls [invalidate] on
- * chapter rollover so connected controllers pick up the new chapter title/duration together with
- * a position discontinuity.
+ * discontinuities). Two cases it doesn't cover are crossed purely by elapsed playback time: a
+ * chapter boundary, and the minute the card's "8m left" counts down. [invalidate] is the public
+ * hook for both: the service calls it on chapter rollover and once a minute while playing, so
+ * connected controllers pick up the new chapter and time left.
  *
  * **Chapterless / single-chapter books.** When [chaptersProvider] returns an empty list,
  * [currentChapterWindow] presents the whole book as one window — no special-casing is visible to
@@ -91,12 +95,14 @@ private data class ChapterSeekContext(
  * @param timelineProvider Synchronous snapshot of the file/offset timeline for the currently
  *   playing book, or null before playback has been prepared. The service passes
  *   `playbackManager.currentTimeline.value`.
+ * @param strings The current catalog snapshot, for the card's second line.
  */
 @OptIn(UnstableApi::class)
 class ChapterWindowPlayer(
     player: Player,
     private val chaptersProvider: () -> List<Chapter>,
     private val timelineProvider: () -> PlaybackTimeline?,
+    private val strings: () -> SystemStrings,
 ) : ForwardingSimpleBasePlayer(player) {
     /**
      * Forces every connected controller to re-read [getState] and observe a position
@@ -116,7 +122,6 @@ class ChapterWindowPlayer(
             .setPlaylist(
                 listOf(
                     chapterMediaItemData(
-                        baseState = baseState,
                         window = context.window,
                         chapters = context.chapters,
                         underlyingPlayer = player,
@@ -216,16 +221,18 @@ class ChapterWindowPlayer(
 
     /** Builds the single [SimpleBasePlayer.MediaItemData] representing [window]. */
     private fun chapterMediaItemData(
-        baseState: State,
         window: ChapterWindow,
         chapters: List<Chapter>,
         underlyingPlayer: Player,
     ): SimpleBasePlayer.MediaItemData {
-        val chapterTitle = chapters.getOrNull(window.chapterIndex)?.title
-        val metadataBuilder = baseState.currentMetadata.buildUpon()
-        if (chapterTitle != null) {
-            metadataBuilder.setTitle(chapterTitle)
-        }
+        // Title stays the book, as the media item names it. Android 13+ draws the card's second line from the
+        // artist, so the chapter and its time left go there (spec §5.7), and the author moves to the album.
+        val book = underlyingPlayer.mediaMetadata
+        val metadataBuilder =
+            book
+                .buildUpon()
+                .setArtist(systemTrackLine(window.chapterName(chapters), window.remainingMs, strings()))
+                .setAlbumTitle(book.artist)
         if (window.chapterIndex >= 0) {
             metadataBuilder.setTrackNumber(window.chapterIndex + 1)
             metadataBuilder.setTotalTrackCount(chapters.size)

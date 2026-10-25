@@ -35,8 +35,8 @@ class SystemStringsTest {
             // placeholders intact. Losing one silently drops the chapter number or the author name.
             val loaded = loadSystemStrings()
 
-            loaded.playerChapterOf shouldBe "Chapter %1\$s of %2\$s"
-            loaded.playerChapterRemaining shouldBe "%1\$s • %2\$s left"
+            loaded.playerSystemTrackLeft shouldBe "%1\$s · %2\$s left"
+            loaded.playerMiniChapter shouldBe "Chapter %1\$d"
             loaded.carBookSubtitle shouldBe "%1\$s - %2\$s"
 
             // The skip labels joined this group in #1300: the seconds are the user's synced

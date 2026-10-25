@@ -14,17 +14,17 @@ import listenup.composeapp.generated.resources.car_sign_in_message
 import listenup.composeapp.generated.resources.player_cast_session_lost
 import listenup.composeapp.generated.resources.player_cast_start_failed
 import listenup.composeapp.generated.resources.player_cast_unsupported_format
-import listenup.composeapp.generated.resources.player_chapter_of
-import listenup.composeapp.generated.resources.player_chapter_remaining
+import listenup.composeapp.generated.resources.player_mini_chapter
+import listenup.composeapp.generated.resources.player_mini_whole_book
 import listenup.composeapp.generated.resources.player_next_chapter
 import listenup.composeapp.generated.resources.player_pause
 import listenup.composeapp.generated.resources.player_play
-import listenup.composeapp.generated.resources.player_playing
 import listenup.composeapp.generated.resources.player_previous_chapter
 import listenup.composeapp.generated.resources.player_refusal_title
 import listenup.composeapp.generated.resources.player_skip_backward
 import listenup.composeapp.generated.resources.player_skip_forward
 import listenup.composeapp.generated.resources.player_speed
+import listenup.composeapp.generated.resources.player_system_track_left
 import listenup.composeapp.generated.resources.player_unknown_book
 import org.jetbrains.compose.resources.getString
 
@@ -94,12 +94,12 @@ data class SystemStrings(
     val playerSpeed: String,
     /** Notification headline when neither the book nor the session names a title. */
     val playerUnknownBook: String,
-    /** Notification subtitle when no chapter information is available. */
-    val playerPlaying: String,
-    /** Generic chapter label, `%1$s` position and `%2$s` total. */
-    val playerChapterOf: String,
-    /** Notification subtitle, `%1$s` chapter label and `%2$s` time remaining. */
-    val playerChapterRemaining: String,
+    /** The system media card's second line, `%1$s` the chapter's name and `%2$s` the time left in it. */
+    val playerSystemTrackLeft: String,
+    /** An untitled chapter's name, `%1$d` its number: "Chapter 6", as the mini player says it. */
+    val playerMiniChapter: String,
+    /** A chapterless book's name for its one window: "Whole book". */
+    val playerMiniWholeBook: String,
     /** Headline of the notice posted when the platform refuses to start playback. */
     val playerRefusalTitle: String,
     /** Toast shown when a cast handoff cannot be prepared. */
@@ -135,9 +135,9 @@ data class SystemStrings(
                 playerPause = "Pause",
                 playerSpeed = "Speed",
                 playerUnknownBook = "Unknown book",
-                playerPlaying = "Playing...",
-                playerChapterOf = "Chapter %1\$s of %2\$s",
-                playerChapterRemaining = "%1\$s • %2\$s left",
+                playerSystemTrackLeft = "%1\$s · %2\$s left",
+                playerMiniChapter = "Chapter %1\$d",
+                playerMiniWholeBook = "Whole book",
                 playerRefusalTitle = "Couldn't start playback",
                 playerCastStartFailed = "Couldn't start casting.",
                 playerCastUnsupportedFormat = "This book's format can't be cast.",
@@ -175,9 +175,9 @@ suspend fun loadSystemStrings(): SystemStrings =
         playerPause = getString(Res.string.player_pause),
         playerSpeed = getString(Res.string.player_speed),
         playerUnknownBook = getString(Res.string.player_unknown_book),
-        playerPlaying = getString(Res.string.player_playing),
-        playerChapterOf = getString(Res.string.player_chapter_of),
-        playerChapterRemaining = getString(Res.string.player_chapter_remaining),
+        playerSystemTrackLeft = getString(Res.string.player_system_track_left),
+        playerMiniChapter = getString(Res.string.player_mini_chapter),
+        playerMiniWholeBook = getString(Res.string.player_mini_whole_book),
         playerRefusalTitle = getString(Res.string.player_refusal_title),
         playerCastStartFailed = getString(Res.string.player_cast_start_failed),
         playerCastUnsupportedFormat = getString(Res.string.player_cast_unsupported_format),

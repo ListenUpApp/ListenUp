@@ -958,6 +958,11 @@ internal class FakeExoPlayer(
     // What the listener last asked for. A player that errored mid-play still wants to play (Media3 keeps
     // playWhenReady through an error), which is what the recovery path reads; play() and pause() move it.
     private var playWhenReady: Boolean = false,
+    // What the book's media item says (title = the book, artist = the author), for the chapter wrapper's
+    // presentation (ChapterWindowPlayerMetadataTest).
+    private val stubbedMetadata: MediaMetadata = MediaMetadata.EMPTY,
+    // The rate, for the speed-scaled system skips.
+    private val stubbedSpeed: Float = 1f,
 ) : ExoPlayer {
     private val _currentPosition = stubbedPosition
     private val _currentMediaItemIndex = stubbedMediaItemIndex
@@ -1148,7 +1153,7 @@ internal class FakeExoPlayer(
 
     override fun setPlaybackSpeed(speed: Float) = Unit
 
-    override fun getPlaybackParameters(): PlaybackParameters = PlaybackParameters.DEFAULT
+    override fun getPlaybackParameters(): PlaybackParameters = PlaybackParameters(stubbedSpeed)
 
     override fun release() = Unit
 
@@ -1158,7 +1163,7 @@ internal class FakeExoPlayer(
 
     override fun setTrackSelectionParameters(parameters: TrackSelectionParameters) = Unit
 
-    override fun getMediaMetadata(): MediaMetadata = MediaMetadata.EMPTY
+    override fun getMediaMetadata(): MediaMetadata = stubbedMetadata
 
     override fun getPlaylistMetadata(): MediaMetadata = MediaMetadata.EMPTY
 

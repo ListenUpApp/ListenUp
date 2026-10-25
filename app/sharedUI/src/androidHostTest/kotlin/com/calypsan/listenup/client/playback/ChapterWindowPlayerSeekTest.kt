@@ -4,6 +4,7 @@ import androidx.media3.common.Player
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
+import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.core.BookId
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -60,6 +61,7 @@ class ChapterWindowPlayerSeekTest {
             player = fake,
             chaptersProvider = { chapters },
             timelineProvider = { timeline },
+            strings = { SystemStrings.ENGLISH_FALLBACK },
         )
 
     private fun seekableFake() =

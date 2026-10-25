@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.presentation.player.ChapterName
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -155,6 +157,46 @@ class ChapterWindowTest :
                 val resolvedFile2 = timeline.resolve(seekIntoFile2Ms)
                 resolvedFile2.mediaItemIndex shouldBe 1
                 resolvedFile2.positionInFileMs shouldBe 20_000L
+            }
+        }
+
+        context("the system card's track line (spec §5.7)") {
+            val words = SystemStrings.ENGLISH_FALLBACK
+
+            test("a titled chapter reads its own title and the time left in it") {
+                systemTrackLine(ChapterName.Titled("Bridge Four"), remainingMs = 8 * 60_000L + 31_000L, words) shouldBe
+                    "Bridge Four · 8m left"
+            }
+
+            test("an untitled chapter reads its number") {
+                systemTrackLine(ChapterName.Untitled(6), remainingMs = 8 * 60_000L, words) shouldBe
+                    "Chapter 6 · 8m left"
+            }
+
+            test("a chapterless book reads Whole book, with hours") {
+                systemTrackLine(ChapterName.WholeBook, remainingMs = (40 * 60 + 31) * 60_000L, words) shouldBe
+                    "Whole book · 40h 31m left"
+            }
+
+            test("under a minute reads the under-a-minute form") {
+                systemTrackLine(ChapterName.Titled("Prologue"), remainingMs = 59_999L, words) shouldBe
+                    "Prologue · < 1m left"
+            }
+
+            test("the window names its chapter the way the mini player does") {
+                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
+                window.chapterName(threeChapters) shouldBe ChapterName.Titled("Chapter Two")
+
+                val untitled = threeChapters.map { if (it.id == "c2") it.copy(title = " ") else it }
+                window.chapterName(untitled) shouldBe ChapterName.Untitled(2)
+
+                val whole = currentChapterWindow(emptyList(), bookPositionMs = 150_000L, totalDurationMs)
+                whole.chapterName(emptyList()) shouldBe ChapterName.WholeBook
+            }
+
+            test("the time left is content time, the window's remainder") {
+                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
+                window.remainingMs shouldBe 100_000L
             }
         }
     })

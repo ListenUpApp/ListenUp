@@ -2025,8 +2025,6 @@
     "boost_use_default": "Use default (%1$s)",
     "volume_boost": "Volume boost",
     "unknown_book": "Unknown book",
-    "playing": "Playing...",
-    "chapter_remaining": "%1$s • %2$s left",
     "refusal_title": "Couldn't start playback",
     "cast_start_failed": "Couldn't start casting.",
     "cast_unsupported_format": "This book's format can't be cast.",

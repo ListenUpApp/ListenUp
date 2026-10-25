@@ -2137,7 +2137,6 @@ One beautiful library.</string>
     <string name="player_cause_playback_unsupported_format">This device can't decode the book's audio format.</string>
     <string name="player_chapter_number">Chapter %1$d</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
-    <string name="player_chapter_remaining">%1$s • %2$s left</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapters_count_summary">%1$d chapters · %2$s</string>
     <string name="player_close">Close</string>
@@ -2223,7 +2222,6 @@ One beautiful library.</string>
     <string name="player_place_saved">Your place is saved.</string>
     <string name="player_play">Play</string>
     <string name="player_playback_speed">Playback speed</string>
-    <string name="player_playing">Playing...</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_reconnecting">Reconnecting…</string>
     <string name="player_reference">Reference %1$s</string>

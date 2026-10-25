@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CommandButton
@@ -13,12 +14,10 @@ import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import java.util.Locale
-import kotlin.time.Duration.Companion.milliseconds
 import com.google.common.collect.ImmutableList
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -27,18 +26,16 @@ private val logger = KotlinLogging.logger {}
 /**
  * Custom notification provider for audiobook playback.
  *
- * Provides chapter-aware content:
- * - Smart chapter title (named chapters vs "Chapter X of Y")
- * - Time remaining in chapter
+ * Provides chapter-aware content, read from the session's metadata ([ChapterWindowPlayer]):
+ * - The book as the title
+ * - The chapter and the time left in it as the text
  * - Chapter skip buttons in expanded view
  * - Skip buttons in collapsed view, moving by the user's configured intervals ([skipIntervals])
  */
 @OptIn(UnstableApi::class)
 class AudiobookNotificationProvider(
     private val context: Context,
-    private val playbackManager: PlaybackManager,
     private val skipIntervals: SkipIntervalsHolder,
-    private val bookTitle: () -> CharSequence? = { null },
     private val strings: SystemStringsHolder = SystemStringsHolder(),
 ) : MediaNotification.Provider {
     companion object {
@@ -122,7 +119,6 @@ class AudiobookNotificationProvider(
         onNotificationChangedCallback: MediaNotification.Provider.Callback,
     ): MediaNotification {
         val player = mediaSession.player
-        val chapterInfo = playbackManager.currentChapter.value
 
         // Build notification
         val builder =
@@ -138,13 +134,11 @@ class AudiobookNotificationProvider(
                     ),
                 )
 
-        // Content: Book title and chapter info
+        // Content: the session's own words (ChapterWindowPlayer): the book, then the chapter and its time left.
+        // Android 13+ draws its card from the session, so reading the same metadata here keeps one source.
         val metadata = player.mediaMetadata
-        builder.setContentTitle(notificationTitle(bookTitle(), metadata.title))
-
-        // Subtitle: chapter info with time remaining
-        val subtitle = buildChapterSubtitle(chapterInfo)
-        builder.setContentText(subtitle)
+        builder.setContentTitle(notificationTitle(metadata))
+        builder.setContentText(notificationText(metadata))
 
         // Cover art. Downsampled before caching: the provider serves covers at their stored
         // resolution and a notification large icon needs a fraction of it.
@@ -264,52 +258,10 @@ class AudiobookNotificationProvider(
         extras: Bundle,
     ): Boolean = false
 
-    /**
-     * Picks the notification's headline: the book, falling back to whatever the session player
-     * is presenting.
-     *
-     * The session player is [ChapterWindowPlayer], which replaces the item title with the
-     * *chapter* title so system surfaces present a chapter the way a music player presents a
-     * track. Reading that here put the chapter in both lines and left the book nameless, so the
-     * book title is sourced from the underlying transport player instead. The fallback keeps the
-     * never-stranded property: a chapter title beats "Unknown Book".
-     */
-    internal fun notificationTitle(
-        bookTitle: CharSequence?,
-        sessionTitle: CharSequence?,
-    ): String =
-        bookTitle?.run { toString().takeIf { it.isNotBlank() } }
-            ?: sessionTitle?.run { toString().takeIf { it.isNotBlank() } }
-            ?: copy.playerUnknownBook
+    /** The notification's headline: the session's title, which is the book; "Unknown book" when it has none. */
+    internal fun notificationTitle(metadata: MediaMetadata): String =
+        metadata.title?.toString()?.takeIf { it.isNotBlank() } ?: copy.playerUnknownBook
 
-    /**
-     * Build chapter subtitle with time remaining.
-     *
-     * Examples:
-     * - Named chapter: "Chapter 14: The Chandrian • 8m left"
-     * - Generic chapter: "Chapter 14 of 92 • 8m left"
-     * - No chapter info: "Playing..."
-     *
-     * Visible for testing.
-     */
-    internal fun buildChapterSubtitle(chapterInfo: PlaybackManager.ChapterInfo?): String {
-        if (chapterInfo == null) return copy.playerPlaying
-
-        val chapterText =
-            if (chapterInfo.isGenericTitle) {
-                copy.playerChapterOf.format(Locale.getDefault(), chapterInfo.index + 1, chapterInfo.totalChapters)
-            } else {
-                chapterInfo.title
-            }
-
-        val timeRemaining = formatDuration(chapterInfo.remainingMs)
-        return copy.playerChapterRemaining.format(Locale.getDefault(), chapterText, timeRemaining)
-    }
-
-    /**
-     * Format duration in human-readable form.
-     *
-     * Visible for testing.
-     */
-    internal fun formatDuration(ms: Long): String = DurationFormatter.hoursMinutesOrUnderMinute(ms.milliseconds)
+    /** The notification's text: the session's artist, which is the chapter and the time left in it. */
+    internal fun notificationText(metadata: MediaMetadata): CharSequence? = metadata.artist
 }
