@@ -35,7 +35,7 @@ class MediaButtonPreferencesTest {
     }
 
     @Test
-    fun `the skips sit beside previous and next, never in their slots, so next stays empty at the last chapter`() {
+    fun `the skips take the secondary and overflow slots, never the previous and next slots`() {
         val buttons = mediaButtonsFor(ControllerTrust.MEDIA_NOTIFICATION, backwardSec = 10, forwardSec = 30, words)
 
         buttons[0].slots.toArray().toList() shouldBe
