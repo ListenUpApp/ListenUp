@@ -1151,6 +1151,14 @@ private fun BoxScope.AuthenticatedNavOverlays(
     onRetryLibrarySetupCheck: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit,
 ) {
+    // A reader opened from Now Playing returns to it when it is left, as iOS's reader over Now Playing does.
+    val top = backStack.lastOrNull()
+    var previousTop by remember { mutableStateOf(top) }
+    LaunchedEffect(top) {
+        if (reexpandsNowPlaying(leftTop = previousTop, stack = backStack)) nowPlayingViewModel.expand()
+        previousTop = top
+    }
+
     // Now Playing overlay - persistent across all navigation
     // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
     // Also animates up when snackbar is visible
@@ -1169,8 +1177,8 @@ private fun BoxScope.AuthenticatedNavOverlays(
         onNavigateToContributor = { contributorId ->
             backStack.add(ContributorDetail(contributorId))
         },
-        onNavigateToDocument = { localPath ->
-            backStack.add(DocumentViewer(localPath))
+        onNavigateToDocument = { localPath, opensFromNowPlaying ->
+            backStack.add(DocumentViewer(localPath, opensFromNowPlaying))
         },
         // The same routes the lapsed-session banner and the admin Inbox entry use.
         onOpenSignIn = {

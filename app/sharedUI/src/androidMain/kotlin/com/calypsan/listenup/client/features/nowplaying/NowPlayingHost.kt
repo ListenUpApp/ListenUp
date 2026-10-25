@@ -66,7 +66,7 @@ fun NowPlayingHost(
     onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
-    onNavigateToDocument: (localPath: String) -> Unit,
+    onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
     onOpenSignIn: () -> Unit,
     onOpenInbox: () -> Unit,
     viewModel: PlayerViewModel,
@@ -81,30 +81,13 @@ fun NowPlayingHost(
     // scrubber + time labels that actually read it — never this host or the player chrome.
     val provideProgress = { progressState.value }
 
-    // Consume one-shot navigation events from the ViewModel.
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is PlayerEvent.OpenDocumentViewer -> {
-                    onNavigateToDocument(event.localPath)
-                }
-
-                is PlayerEvent.NavigateToBook -> {
-                    viewModel.collapse()
-                    onNavigateToBook(event.bookId)
-                }
-
-                PlayerEvent.OpenSignIn -> {
-                    onOpenSignIn()
-                }
-
-                PlayerEvent.OpenInbox -> {
-                    viewModel.collapse()
-                    onOpenInbox()
-                }
-            }
-        }
-    }
+    PlayerEventsEffect(
+        viewModel = viewModel,
+        onNavigateToBook = onNavigateToBook,
+        onNavigateToDocument = onNavigateToDocument,
+        onOpenSignIn = onOpenSignIn,
+        onOpenInbox = onOpenInbox,
+    )
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -255,6 +238,43 @@ fun NowPlayingHost(
             viewModel = viewModel,
             onNavigateToContributor = onNavigateToContributor,
         )
+    }
+}
+
+/** Consumes the [viewModel]'s one-shot navigation events, routing each to the callback that names it. */
+@Composable
+private fun PlayerEventsEffect(
+    viewModel: PlayerViewModel,
+    onNavigateToBook: (String) -> Unit,
+    onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
+    onOpenSignIn: () -> Unit,
+    onOpenInbox: () -> Unit,
+) {
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is PlayerEvent.OpenDocumentViewer -> {
+                    // From the expanded player, it steps aside for the reader and comes back when the reader closes.
+                    val opensFromNowPlaying = viewModel.expanded.value
+                    if (opensFromNowPlaying) viewModel.collapse()
+                    onNavigateToDocument(event.localPath, opensFromNowPlaying)
+                }
+
+                is PlayerEvent.NavigateToBook -> {
+                    viewModel.collapse()
+                    onNavigateToBook(event.bookId)
+                }
+
+                PlayerEvent.OpenSignIn -> {
+                    onOpenSignIn()
+                }
+
+                PlayerEvent.OpenInbox -> {
+                    viewModel.collapse()
+                    onOpenInbox()
+                }
+            }
+        }
     }
 }
 
