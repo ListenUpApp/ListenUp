@@ -370,7 +370,13 @@ class PlaybackService :
         // exactly where the configured-interval wrapper needs to sit. Not held as a field —
         // it owns nothing to release, and [activeTransportPlayer] must keep handing out the raw
         // player, whose coordinates every position calculation in this service speaks.
-        val skipAware = SkipIntervalPlayer(activePlayer, { skipIntervals.forwardMs }, { skipIntervals.backwardMs })
+        val skipAware =
+            SkipIntervalPlayer(
+                player = activePlayer,
+                forwardMs = { skipIntervals.forwardMs },
+                backwardMs = { skipIntervals.backwardMs },
+                speed = { activePlayer.playbackParameters.speed },
+            )
 
         // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
         // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.

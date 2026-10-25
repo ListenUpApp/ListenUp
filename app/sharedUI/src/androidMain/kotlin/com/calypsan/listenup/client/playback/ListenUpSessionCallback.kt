@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
+import com.calypsan.listenup.client.presentation.player.skipDistanceMs
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.valueOrNull
@@ -762,8 +763,8 @@ internal class ListenUpSessionCallback(
 
         when (customCommand.customAction) {
             AudiobookNotificationProvider.COMMAND_SKIP_BACK -> {
-                // Get book-relative position, subtract the configured interval, seek.
-                val backwardMs = skipIntervals.backwardMs
+                // Book-relative position, less the interval in seconds of listening (× speed, spec §3.3), then seek.
+                val backwardMs = skipDistanceMs(skipIntervals.backwardSec, p.playbackParameters.speed)
                 val currentBookPosition = transport.bookRelativePositionMs()
                 val newPosition = (currentBookPosition - backwardMs).coerceAtLeast(0)
 
@@ -780,7 +781,7 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_SKIP_FORWARD -> {
-                val forwardMs = skipIntervals.forwardMs
+                val forwardMs = skipDistanceMs(skipIntervals.forwardSec, p.playbackParameters.speed)
                 val currentBookPosition = transport.bookRelativePositionMs()
                 val maxPosition = timeline?.totalDurationMs ?: p.duration
                 val newPosition = (currentBookPosition + forwardMs).coerceAtMost(maxPosition)

@@ -27,7 +27,7 @@ class SkipIntervalPlayerTest :
         fun fake(positionMs: Long = 300_000L) = FakeExoPlayer(stubbedPosition = positionMs, stubbedDuration = 600_000L)
 
         test("reports the configured increments, so controllers render the truth") {
-            val player = SkipIntervalPlayer(fake(), forwardMs = { 45_000L }, backwardMs = { 20_000L })
+            val player = SkipIntervalPlayer(fake(), forwardMs = { 45_000L }, backwardMs = { 20_000L }, speed = { 1f })
 
             player.seekForwardIncrement shouldBe 45_000L
             player.seekBackIncrement shouldBe 20_000L
@@ -35,7 +35,7 @@ class SkipIntervalPlayerTest :
 
         test("seekForward moves by the configured interval, not Media3's or our old 30 seconds") {
             val underlying = fake()
-            val player = SkipIntervalPlayer(underlying, forwardMs = { 45_000L }, backwardMs = { 20_000L })
+            val player = SkipIntervalPlayer(underlying, forwardMs = { 45_000L }, backwardMs = { 20_000L }, speed = { 1f })
 
             player.seekForward()
 
@@ -45,7 +45,7 @@ class SkipIntervalPlayerTest :
 
         test("seekBack moves by the configured interval, not the old 10 seconds") {
             val underlying = fake()
-            val player = SkipIntervalPlayer(underlying, forwardMs = { 45_000L }, backwardMs = { 20_000L })
+            val player = SkipIntervalPlayer(underlying, forwardMs = { 45_000L }, backwardMs = { 20_000L }, speed = { 1f })
 
             player.seekBack()
 
@@ -55,7 +55,7 @@ class SkipIntervalPlayerTest :
         test("a settings change lands on the next press without rebuilding the player") {
             var forward = 15_000L
             val underlying = fake()
-            val player = SkipIntervalPlayer(underlying, forwardMs = { forward }, backwardMs = { 10_000L })
+            val player = SkipIntervalPlayer(underlying, forwardMs = { forward }, backwardMs = { 10_000L }, speed = { 1f })
 
             player.seekForward()
             forward = 90_000L
@@ -67,9 +67,26 @@ class SkipIntervalPlayerTest :
             underlying.fileRelativeSeekCalls shouldBe listOf(315_000L, 390_000L)
         }
 
+        test("at 2x a skip moves twice the interval of book, as the app's own skip does (spec §3.3)") {
+            val underlying = fake()
+            val player = SkipIntervalPlayer(underlying, forwardMs = { 30_000L }, backwardMs = { 10_000L }, speed = { 2f })
+
+            player.seekBack()
+            player.seekForward()
+
+            underlying.fileRelativeSeekCalls shouldBe listOf(280_000L, 360_000L)
+        }
+
+        test("the reported increments stay the interval, the seconds of listening a button is labelled with") {
+            val player = SkipIntervalPlayer(fake(), forwardMs = { 30_000L }, backwardMs = { 10_000L }, speed = { 2f })
+
+            player.seekForwardIncrement shouldBe 30_000L
+            player.seekBackIncrement shouldBe 10_000L
+        }
+
         test("a forward skip clamps to the end of the media rather than seeking past it") {
             val underlying = fake(positionMs = 599_000L)
-            val player = SkipIntervalPlayer(underlying, forwardMs = { 120_000L }, backwardMs = { 10_000L })
+            val player = SkipIntervalPlayer(underlying, forwardMs = { 120_000L }, backwardMs = { 10_000L }, speed = { 1f })
 
             player.seekForward()
 
@@ -78,7 +95,7 @@ class SkipIntervalPlayerTest :
 
         test("a backward skip clamps to zero rather than seeking negative") {
             val underlying = fake(positionMs = 5_000L)
-            val player = SkipIntervalPlayer(underlying, forwardMs = { 30_000L }, backwardMs = { 60_000L })
+            val player = SkipIntervalPlayer(underlying, forwardMs = { 30_000L }, backwardMs = { 60_000L }, speed = { 1f })
 
             player.seekBack()
 

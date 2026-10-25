@@ -254,6 +254,29 @@ class ListenUpSessionCallbackTest {
     }
 
     @Test
+    fun `skip back at 1_5x moves 15 seconds of book for a 10 second interval`() {
+        val player = FakeExoPlayer(stubbedSpeed = 1.5f)
+        val callback = callbackWith(player = player, bookPositionMs = 120_000L, timeline = threeFileTimeline())
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
+
+        // 120_000 − 15_000 = 105_000 book-relative → 45_000 into the second file. The app's own skip moves
+        // seconds of listening (spec §3.3); a lock-screen skip used to move only 10 s of book.
+        player.seekCalls shouldBe listOf(1 to 45_000L)
+    }
+
+    @Test
+    fun `skip forward at 2x moves twice the interval`() {
+        val player = FakeExoPlayer(stubbedSpeed = 2f)
+        val callback = callbackWith(player = player, bookPositionMs = 60_000L, timeline = threeFileTimeline())
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
+
+        // 60_000 + 2 × 30_000 = 120_000 → the start of the third file.
+        player.seekCalls shouldBe listOf(2 to 0L)
+    }
+
+    @Test
     fun `skip back clamps at the start of the book`() {
         val player = FakeExoPlayer()
         val callback = callbackWith(player = player, bookPositionMs = 5_000L, timeline = threeFileTimeline())
