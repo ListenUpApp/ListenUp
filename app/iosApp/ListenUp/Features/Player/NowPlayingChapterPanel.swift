@@ -89,7 +89,8 @@ struct NowPlayingChapterPanel: View {
                                 durationMs: chapter.durationMs,
                                 isCurrent: isCurrent,
                                 isPlaying: observer.isPlaying,
-                                remainingMs: observer.progress.chapterRemainingMs,
+                                // Closures, read in the current row's leaves: a progress tick never redraws the list.
+                                remainingMs: isCurrent ? { observer.progress.chapterRemainingMs } : nil,
                                 chapterFraction: isCurrent ? { observer.progress.chapterFraction } : nil,
                                 tint: .luTint,
                                 onTap: { observer.selectChapter(index: chapter.index) }

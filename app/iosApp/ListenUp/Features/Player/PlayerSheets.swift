@@ -114,8 +114,9 @@ struct ChapterRow: View {
     let durationMs: Int64
     let isCurrent: Bool
     let isPlaying: Bool
-    /// Content time left in the current chapter (S10); ignored on other rows.
-    var remainingMs: Int64 = 0
+    /// Content time left in the current chapter (S10), read only by the row's time-left line and its spoken name, so a
+    /// progress tick redraws those alone and never the list around them. nil on every other row.
+    var remainingMs: (() -> Int64)?
     /// How far through the chapter the playhead is, read only by the row's bar so a progress tick redraws the bar alone.
     /// nil draws no bar (the sheet, every row but the current one).
     var chapterFraction: (() -> Float)?
@@ -136,9 +137,9 @@ struct ChapterRow: View {
             MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
     }
 
-    /// The row as VoiceOver reads it.
-    var spokenLabel: String {
-        if isCurrent {
+    /// The row as VoiceOver reads it: `remainingMs` is the current row's time left, nil on every other row.
+    static func spokenLabel(number: Int, title: String, durationMs: Int64, remainingMs: Int64?) -> String {
+        if let remainingMs {
             return String(
                 format: String(localized: "player.sheet_chapter_current"), number, title,
                 MiniPlayerAccessoryModel.spokenDuration(ms: remainingMs))
@@ -147,6 +148,9 @@ struct ChapterRow: View {
             format: String(localized: "player.sheet_chapter_play_from"), number, title,
             DurationFormatting.clock(ms: durationMs))
     }
+
+    /// The time left this row reads, or nil: only the current row's.
+    private var currentRemainingMs: (() -> Int64)? { isCurrent ? remainingMs : nil }
 
     var body: some View {
         let layout = isStacked
@@ -167,10 +171,10 @@ struct ChapterRow: View {
                             .fontWeight(isCurrent ? .semibold : .regular)
                             .foregroundStyle(.primary)
                             .lineLimit(isStacked ? 3 : 1)
+                        if let currentRemainingMs {
+                            ChapterRowTimeLeft(remainingMs: currentRemainingMs)
+                        }
                         if isCurrent {
-                            Text(Self.currentLine(remainingMs: remainingMs))
-                                .font(.footnote)
-                                .foregroundStyle(Color.luQuietInk)
                             if let chapterFraction {
                                 ChapterRowBar(fraction: chapterFraction)
                                     .padding(.top, Spacing.xxs)
@@ -219,8 +223,35 @@ struct ChapterRow: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(spokenLabel)
+        .modifier(ChapterRowSpokenLabel(
+            number: number, title: title, durationMs: durationMs, remainingMs: currentRemainingMs))
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
+/// The current row's "Now Playing · 8 min left". Its own view, so the time left is read here and a progress tick
+/// redraws this line alone.
+struct ChapterRowTimeLeft: View {
+    let remainingMs: () -> Int64
+
+    var body: some View {
+        Text(ChapterRow.currentLine(remainingMs: remainingMs()))
+            .font(.footnote)
+            .foregroundStyle(Color.luQuietInk)
+    }
+}
+
+/// A chapter row's one VoiceOver name (`ChapterRow.spokenLabel`). A modifier, so the current row's time left is read
+/// in its own body and a progress tick renames the row without rebuilding it.
+struct ChapterRowSpokenLabel: ViewModifier {
+    let number: Int
+    let title: String
+    let durationMs: Int64
+    let remainingMs: (() -> Int64)?
+
+    func body(content: Content) -> some View {
+        content.accessibilityLabel(ChapterRow.spokenLabel(
+            number: number, title: title, durationMs: durationMs, remainingMs: remainingMs?()))
     }
 }
 
@@ -299,7 +330,7 @@ struct ChapterListSheet: View {
                             durationMs: chapter.durationMs,
                             isCurrent: chapter.index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
-                            remainingMs: observer.progress.chapterRemainingMs,
+                            remainingMs: { observer.progress.chapterRemainingMs },
                             tint: .listenUpOrange,
                             onTap: {
                                 observer.selectChapter(index: chapter.index)

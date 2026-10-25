@@ -148,14 +148,49 @@ struct ChapterPanelAccessibilityTests {
         #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 510_000, locale: english) == "8 minutes")
         #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 3_930_000, locale: english) == "1 hour, 5 minutes")
         #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 42_000, locale: english) == "42 seconds")
-        let label = ChapterRow(
-            number: 6, title: "Bridge Four", durationMs: 1_235_000, isCurrent: true, isPlaying: true,
-            remainingMs: 510_000, tint: .luTint, onTap: {}
-        ).spokenLabel
+        let label = ChapterRow.spokenLabel(number: 6, title: "Bridge Four", durationMs: 1_235_000, remainingMs: 510_000)
         let spoken = String(
             format: String(localized: "player.sheet_chapter_current"), 6, "Bridge Four",
             MiniPlayerAccessoryModel.spokenDuration(ms: 510_000))
         #expect(label == spoken)
+    }
+
+    /// A progress tick reaches only the current row's leaves (its time-left line, its spoken name and its bar), never
+    /// the row's own body, so the panel and its other rows do not redraw four times a second.
+    @Test func aProgressTickReachesOnlyTheCurrentRowsLeaves() {
+        let reads = ProgressReads()
+        let row = ChapterRow(
+            number: 6, title: "Bridge Four", durationMs: 1_235_000, isCurrent: true, isPlaying: true,
+            remainingMs: {
+                reads.count += 1
+                return 510_000
+            },
+            chapterFraction: {
+                reads.count += 1
+                return 0.5
+            },
+            tint: .luTint, onTap: {})
+        _ = row.body
+        #expect(reads.count == 0)
+    }
+
+    /// And the leaves still follow the tick: the current row's name says the new time left.
+    @Test func aProgressTickRenamesTheCurrentRow() async throws {
+        let observer = Self.observer()
+        let hosted = await HostedView(
+            NowPlayingChapterPanel(observer: observer).frame(width: PlayerLayoutMode.panelWidth),
+            size: CGSize(width: 400, height: 760))
+        defer { hosted.close() }
+        await hosted.settle()
+        #expect(hosted.stop(labelled: currentLabel(38)) != nil, "\(hosted.tree)")
+        observer.replaceDetachedState(Self.state(), progress: PlayerProgressRow(PlayerProgress(
+            chapterPositionMs: 50_000, chapterDurationMs: 60_000, bookPositionMs: 38 * 60_000 + 50_000,
+            bookDurationMs: 68 * 60_000)))
+        await hosted.settle()
+        let tenLeft = String(
+            format: String(localized: "player.sheet_chapter_current"), 39, "Chapter 39",
+            MiniPlayerAccessoryModel.spokenDuration(ms: 10_000))
+        #expect(hosted.stop(labelled: tenLeft) != nil, "\(hosted.tree)")
     }
 
     @Test func everyControlHasAFullTapTarget() async throws {
@@ -383,6 +418,12 @@ struct ChapterPanelAccessibilityTests {
 @MainActor
 private final class OpenedSeries {
     var ids: [String] = []
+}
+
+/// How many times a row read the playhead.
+@MainActor
+private final class ProgressReads {
+    var count = 0
 }
 
 private extension CGRect {
