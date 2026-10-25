@@ -31,6 +31,8 @@ struct FullScreenPlayerView: View {
     var onViewSeries: (String) -> Void = { _ in }
     /// Dismiss the player and navigate to the given contributor (author or narrator).
     var onViewContributor: (String) -> Void = { _ in }
+    /// Set by the Playback menu's Show Chapters (⇧⌘C); the player shows its chapters and clears it.
+    var chapterListRequest: Binding<Bool> = .constant(false)
 
     @State private var showChapterList: Bool = false
     @State private var showBoostPicker: Bool = false
@@ -44,6 +46,8 @@ struct FullScreenPlayerView: View {
     @State private var controlsHeight: CGFloat = 0
     /// The tabletop lying half's controls, measured, so they scroll only when they cannot fit (accessibility sizes).
     @State private var lyingHalfHeight: CGFloat = 0
+    /// Show Chapters on a wide window moves VoiceOver to the chapter panel, which is already on screen.
+    @AccessibilityFocusState private var chapterPanelFocused: Bool
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -72,6 +76,16 @@ struct FullScreenPlayerView: View {
                     if showsPanel { showChapterList = false }
                 }
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: mode)
+                // ⇧⌘C: the panel where the window shows one, the sheet elsewhere — decided by the same resolved mode.
+                .onChange(of: chapterListRequest.wrappedValue, initial: true) { _, requested in
+                    guard requested else { return }
+                    chapterListRequest.wrappedValue = false
+                    if Self.showsChapterPanel(mode), !observer.chapterRows.isEmpty {
+                        chapterPanelFocused = true
+                    } else {
+                        showChapterList = true
+                    }
+                }
         }
         // Only the background runs edge to edge; the controls keep clear of the home indicator. The wash is opaque, so
         // Reduce Transparency changes nothing here.
@@ -106,6 +120,7 @@ struct FullScreenPlayerView: View {
             )
             .playerSheetDetents()
         }
+        .reportsPlayerSheet(showBoostPicker || showChapterList)
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(
                 observer: observer,
@@ -188,6 +203,7 @@ struct FullScreenPlayerView: View {
             if showsPanel {
                 NowPlayingChapterPanel(observer: observer)
                     .frame(width: PlayerLayoutMode.panelWidth)
+                    .accessibilityFocused($chapterPanelFocused)
             }
         }
         .padding(.vertical, Spacing.m)
@@ -490,6 +506,13 @@ extension FullScreenPlayerView {
                 .frame(width: max(0, paneWidth - Self.panelGap))
                 .padding(.vertical, Spacing.m)
                 .padding(.trailing, Self.panelGap)
+                .accessibilityFocused($chapterPanelFocused)
         }
+    }
+
+    /// Whether the resolved layout already shows the chapter panel: the wide window, and a phone half open like a book.
+    static func showsChapterPanel(_ mode: PlayerLayoutMode) -> Bool {
+        if case .book = mode { return true }
+        return mode == .regular
     }
 }

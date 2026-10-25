@@ -50,6 +50,43 @@ struct PlaybackCommandStateTests {
         #expect(state.hasNextChapter)
     }
 
+    /// §3.3: previous in chapter 1 restarts chapter 1, so ⌥⌘← is live there (it used to grey out).
+    @Test func previousChapterIsLiveInChapterOne() {
+        #expect(PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0)).hasPreviousChapter)
+    }
+
+    @Test func speedStepsStopAtTheEndsOfTheRange() {
+        var slowest = snapshot()
+        slowest.playbackSpeed = 0.5
+        var fastest = snapshot()
+        fastest.playbackSpeed = 3.0
+        #expect(!PlaybackCommandState.from(snapshot: slowest).canStepSpeedDown)
+        #expect(PlaybackCommandState.from(snapshot: slowest).canStepSpeedUp)
+        #expect(!PlaybackCommandState.from(snapshot: fastest).canStepSpeedUp)
+        #expect(PlaybackCommandState.from(snapshot: fastest).canStepSpeedDown)
+    }
+
+    @Test func showChaptersNeedsChapters() {
+        var chaptered = snapshot()
+        chaptered.chapterRows = [ChapterRowModel(id: "c1", title: "Prelude", startMs: 0, durationMs: 1_000)]
+        #expect(PlaybackCommandState.from(snapshot: chaptered).canShowChapters)
+        #expect(!PlaybackCommandState.from(snapshot: snapshot()).canShowChapters)
+    }
+
+    /// ⌘0 opens the player when it is not showing; Esc closes it only once none of its sheets is open.
+    @Test func showAndCloseFollowThePlayerAndItsSheets() {
+        let closed = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: false)
+        #expect(closed.canShowNowPlaying)
+        #expect(!closed.canClosePlayer)
+
+        let open = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true)
+        #expect(!open.canShowNowPlaying)
+        #expect(open.canClosePlayer)
+
+        let sheet = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: true)
+        #expect(!sheet.canClosePlayer)
+    }
+
     @Test func playingAndBufferingOfferPause() {
         #expect(PlaybackCommandState.from(snapshot: snapshot(primary: .pause, isPlaying: true)).showsPause)
         // Buffering draws the busy spinner, and pressing it pauses: the command stays live.

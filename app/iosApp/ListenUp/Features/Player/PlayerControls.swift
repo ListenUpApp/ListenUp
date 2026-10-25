@@ -204,6 +204,7 @@ struct PlayerSecondaryControls: View {
         }
         .sheet(isPresented: $showsSpeed) { SpeedSheet(observer: observer) }
         .sheet(isPresented: $showsSleep) { SleepSheet(observer: observer) }
+        .reportsPlayerSheet(showsSpeed || showsSleep)
     }
 
     private func item(

@@ -350,4 +350,27 @@ struct MainShellModelTests {
         #expect(shell.selectedTab == .home)
         #expect(shell.path(for: .home).isEmpty)
     }
+
+    // MARK: - The Playback menu's player items
+
+    @Test func showNowPlayingPresentsThePlayer() {
+        let shell = MainShellModel()
+        shell.showPlayer()
+        #expect(shell.isPlayerPresented)
+        #expect(!shell.isChapterListRequested)
+    }
+
+    @Test func showChaptersPresentsThePlayerAndAsksForItsChapters() {
+        let shell = MainShellModel()
+        shell.showPlayerChapters()
+        #expect(shell.isPlayerPresented)
+        #expect(shell.isChapterListRequested)
+    }
+
+    @Test func closePlayerDismissesIt() {
+        let shell = MainShellModel()
+        shell.isPlayerPresented = true
+        shell.closePlayer()
+        #expect(!shell.isPlayerPresented)
+    }
 }
