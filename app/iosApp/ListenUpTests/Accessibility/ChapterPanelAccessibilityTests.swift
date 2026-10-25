@@ -162,16 +162,16 @@ struct ChapterPanelAccessibilityTests {
         let row = ChapterRow(
             number: 6, title: "Bridge Four", durationMs: 1_235_000, isCurrent: true, isPlaying: true,
             remainingMs: {
-                reads.count += 1
+                reads.times += 1
                 return 510_000
             },
             chapterFraction: {
-                reads.count += 1
+                reads.times += 1
                 return 0.5
             },
             tint: .luTint, onTap: {})
         _ = row.body
-        #expect(reads.count == 0)
+        #expect(reads.times == 0)
     }
 
     /// And the leaves still follow the tick: the current row's name says the new time left.
@@ -423,7 +423,7 @@ private final class OpenedSeries {
 /// How many times a row read the playhead.
 @MainActor
 private final class ProgressReads {
-    var count = 0
+    var times = 0
 }
 
 private extension CGRect {
