@@ -106,6 +106,8 @@ struct NowPlayingChapterPanel: View {
                 // The first layout already rests on the current row (§9.2: centring before the container has laid out
                 // is what left the web's list at chapter 1).
                 .scrollPosition(id: $centredRowId, anchor: .center)
+                // Reduce Motion can change while the panel is open; every move after that obeys it.
+                .onChange(of: reduceMotion, initial: true) { _, on in follow.reduceMotion = on }
                 .task(id: observer.chapterIndex) {
                     // After the layout, so the jump lands; then by the shared rule on every chapter change.
                     follow.reduceMotion = reduceMotion
