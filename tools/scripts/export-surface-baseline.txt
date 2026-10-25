@@ -200,8 +200,12 @@ ChapterInput
 ChapterListFollow
 ChapterListMove
 ChapterListMove_SealedType
+ChapterName
+ChapterName_SealedType
 ChapterNamesUi
 ChapterNamesUi_SealedType
+ChapterNaming
+ChapterNavigation
 ChapterRowUi
 ChapterSetProblem
 ChapterSetProblem_SealedType
