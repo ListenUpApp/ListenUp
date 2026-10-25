@@ -30,6 +30,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
@@ -59,8 +61,8 @@ import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as Chap
 /** The chapter panel's list's test tag. */
 internal const val CHAPTER_PANEL_TAG = "player-chapter-panel"
 
-/** Room at the list's foot for Back to current chapter: its 48dp target and an 8dp margin either side. */
-private val BackButtonReserve = 64.dp
+/** Clearance the list's foot keeps above Back to current chapter's measured height: its 8dp margin either side. */
+private val BackButtonClearance = 16.dp
 
 /**
  * The tablet's always-visible chapter list (spec §3.11, §5.3, P33; `NP-AndroidTablet`): a supporting pane beside the
@@ -120,6 +122,9 @@ internal fun NowPlayingChapterPanel(
                 )
         }
     }
+    // The button's real height: at the largest font its label wraps and the button outgrows any fixed reserve.
+    var backButtonHeight by remember { mutableStateOf(MinTouchTarget) }
+    val density = LocalDensity.current
     val leftWords by remember(progress) { derivedStateOf { shortDuration(progress().chapterRemainingMs) } }
 
     Surface(
@@ -154,7 +159,7 @@ internal fun NowPlayingChapterPanel(
                     modifier = Modifier.fillMaxSize().testTag(CHAPTER_PANEL_TAG),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                     // The last rows scroll clear of Back to current chapter, which floats over the list's foot.
-                    contentPadding = PaddingValues(bottom = BackButtonReserve),
+                    contentPadding = PaddingValues(bottom = backButtonHeight + BackButtonClearance),
                 ) {
                     items(rows, key = { it.index }, contentType = { "chapter" }) { row ->
                         val isCurrent = row.index == currentIndex
@@ -176,7 +181,13 @@ internal fun NowPlayingChapterPanel(
                         haptics.press()
                         scope.launch { listState.centreOn(currentIndex, animate = true) }
                     },
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.sm),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = Spacing.sm)
+                            .onSizeChanged { size ->
+                                if (size.height > 0) backButtonHeight = with(density) { size.height.toDp() }
+                            },
                 )
             }
         }

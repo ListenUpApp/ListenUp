@@ -22,11 +22,16 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.nowplaying.components.CHAPTER_PANEL_TAG
 import com.calypsan.listenup.client.features.nowplaying.components.CHAPTER_ROW_BAR_TAG
 import com.calypsan.listenup.client.features.nowplaying.components.NowPlayingChapterPanel
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerChapterRow
+import com.calypsan.listenup.client.testing.AtFontScale
+import com.calypsan.listenup.client.testing.LARGEST_FONT_SCALE
+import io.kotest.assertions.withClue
+import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
@@ -35,6 +40,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The tablet's chapter panel (spec §3.11, §5.3, `NP-AndroidTablet`): it opens centred on the current chapter, follows a
@@ -102,19 +108,25 @@ class NowPlayingChapterPanelTest {
     private val seeks = mutableListOf<Int>()
     private lateinit var listState: LazyListState
 
-    private fun panel(current: MutableIntState) {
+    private fun panel(
+        current: MutableIntState,
+        width: Dp = 340.dp,
+        fontScale: Float = 1f,
+    ) {
         composeRule.setContent {
             listState = rememberLazyListState()
-            MaterialTheme {
-                Box(Modifier.size(width = 340.dp, height = 720.dp)) {
-                    NowPlayingChapterPanel(
-                        rows = ROWS,
-                        currentIndex = current.intValue,
-                        bookDurationMs = FIXTURE_BOOK_MS,
-                        progress = { samplePlayerProgress },
-                        onSeekToChapter = { seeks += it },
-                        listState = listState,
-                    )
+            AtFontScale(fontScale) {
+                MaterialTheme {
+                    Box(Modifier.size(width = width, height = 720.dp)) {
+                        NowPlayingChapterPanel(
+                            rows = ROWS,
+                            currentIndex = current.intValue,
+                            bookDurationMs = FIXTURE_BOOK_MS,
+                            progress = { samplePlayerProgress },
+                            onSeekToChapter = { seeks += it },
+                            listState = listState,
+                        )
+                    }
                 }
             }
         }
@@ -174,6 +186,23 @@ class NowPlayingChapterPanelTest {
         composeRule.onNodeWithTag(CHAPTER_PANEL_TAG).performScrollToIndex(70)
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Back to current chapter").assertIsDisplayed()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // Text measured at its real size, so the label really wraps.
+    fun `when Back to current chapter wraps, the last chapter still scrolls clear of it`() {
+        // A narrow panel at the largest font wraps the label onto a second line, so the button outgrows a fixed reserve.
+        panel(mutableIntStateOf(10), width = 220.dp, fontScale = LARGEST_FONT_SCALE)
+        composeRule.onNodeWithTag(CHAPTER_PANEL_TAG).performScrollToIndex(ROWS.lastIndex)
+        composeRule.waitForIdle()
+        val back = composeRule.onNodeWithText("Back to current chapter").assertIsDisplayed().fetchSemanticsNode()
+        val lastRow = composeRule.onNodeWithTag(chapterRowTag(ROWS.lastIndex)).fetchSemanticsNode()
+        withClue("the label did not wrap: ${back.boundsInRoot}") {
+            back.boundsInRoot.height shouldBeGreaterThan with(composeRule.density) { 64.dp.toPx() }
+        }
+        withClue("last row ${lastRow.boundsInRoot}, Back to current chapter ${back.boundsInRoot}") {
+            (lastRow.boundsInRoot.bottom <= back.boundsInRoot.top) shouldBe true
+        }
     }
 
     @Test

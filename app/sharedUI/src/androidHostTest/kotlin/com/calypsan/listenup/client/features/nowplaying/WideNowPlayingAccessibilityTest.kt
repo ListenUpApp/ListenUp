@@ -65,12 +65,16 @@ class WideNowPlayingAccessibilityTest {
     }
 
     @Test
-    fun `at the largest font the panel scrolls to its last chapter, and Back to current chapter is reachable`() {
+    fun `at the largest font the panel scrolls its last chapter clear of Back to current chapter`() {
+        // At 2x the button all but fills the panel, and a longer language wraps it; the list's foot follows its height.
         wide(fontScale = LARGEST_FONT_SCALE)
         composeRule.onNodeWithTag(CHAPTER_PANEL_TAG).performScrollToIndex(74)
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag(chapterRowTag(74)).assertIsDisplayed()
-        composeRule.onNodeWithText("Back to current chapter").assertIsDisplayed()
+        val lastRow = composeRule.onNodeWithTag(chapterRowTag(74)).assertIsDisplayed().fetchSemanticsNode()
+        val back = composeRule.onNodeWithText("Back to current chapter").assertIsDisplayed().fetchSemanticsNode()
+        withClue("last row ${lastRow.boundsInRoot}, Back to current chapter ${back.boundsInRoot}") {
+            (lastRow.boundsInRoot.bottom <= back.boundsInRoot.top) shouldBe true
+        }
     }
 
     @Test
