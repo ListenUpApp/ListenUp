@@ -98,7 +98,13 @@ internal class ListenUpSessionCallback(
             controller = controller,
             trust = trust,
             customSessionCommands = customCommands,
-            mediaButtons = mediaButtonsFor(trust, skipIntervals.backwardSec, skipIntervals.forwardSec, copy),
+            mediaButtons =
+                mediaButtonsFor(
+                    trust = trust,
+                    backwardSec = skipIntervals.backwardSec,
+                    forwardSec = skipIntervals.forwardSec,
+                    words = copy,
+                ),
         )
     }
 

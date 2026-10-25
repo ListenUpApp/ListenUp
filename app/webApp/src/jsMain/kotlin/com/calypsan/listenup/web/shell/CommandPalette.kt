@@ -198,11 +198,25 @@ private fun paletteKeyDownHandler(
         }
         val action: (() -> Unit)? =
             when (keyboardEvent.key) {
-                "Escape" -> onClose
-                "ArrowDown" -> ({ onMoveHighlight(1) })
-                "ArrowUp" -> ({ onMoveHighlight(-1) })
-                "Enter" -> if (keyboardEvent.shiftKey) onCommit else onActivateHighlighted
-                else -> null
+                "Escape" -> {
+                    onClose
+                }
+
+                "ArrowDown" -> {
+                    { onMoveHighlight(1) }
+                }
+
+                "ArrowUp" -> {
+                    { onMoveHighlight(-1) }
+                }
+
+                "Enter" -> {
+                    if (keyboardEvent.shiftKey) onCommit else onActivateHighlighted
+                }
+
+                else -> {
+                    null
+                }
             }
         action?.let {
             keyboardEvent.preventDefault()

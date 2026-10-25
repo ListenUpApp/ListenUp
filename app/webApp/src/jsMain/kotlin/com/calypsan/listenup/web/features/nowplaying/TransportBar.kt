@@ -197,35 +197,10 @@ fun TransportBar(
                 },
                 onOpenSleep = { opener -> panels.sleep = panels.sleep.toggledFrom(opener) },
             )
-            // The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and
-            // Open. In the settings group, so it steps aside with them below 760px, where the web phone has none.
-            Button(attrs = {
-                classes("tport-keys")
-                attr(ATTR_TYPE, VALUE_BUTTON)
-                attr(ATTR_ARIA_LABEL, NowPlayingWords.KEYBOARD_SHORTCUTS)
-                attr(ATTR_TITLE, NowPlayingWords.withKey(NowPlayingWords.KEYBOARD_SHORTCUTS, "?"))
-                attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SHORTCUTS)
-                attr(DATA_PLAYER_KEY, PlayerKeyAria.SHORTCUTS)
-                attr(ATTR_EXPANDED, (panels.shortcuts != null).toString())
-                onClick { event ->
-                    panels.shortcuts = panels.shortcuts.toggledFrom(event.currentTarget as? HTMLElement)
-                }
-            }) { Icon(WebIcon.Keyboard, size = CHAPTER_ICON_SIZE) }
+            ShortcutsButton(panels)
         }
 
-        // Open ↔ Close: on the page it is the way back (§5.1), and says so.
-        val expandLabel = if (isNowPlayingOpen) "Close Now Playing" else "Open Now Playing"
-        Button(attrs = {
-            classes("tport-expand")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, expandLabel)
-            attr(ATTR_TITLE, NowPlayingWords.withKey(expandLabel, if (isNowPlayingOpen) "P, Esc" else "P"))
-            attr(ATTR_KEYSHORTCUTS, if (isNowPlayingOpen) PlayerKeyAria.CLOSE_PLAYER else PlayerKeyAria.OPEN_PLAYER)
-            attr("aria-expanded", isNowPlayingOpen.toString())
-            onClick { event ->
-                if (isNowPlayingOpen) onCloseNowPlaying() else onOpenNowPlaying(event.currentTarget as? HTMLElement)
-            }
-        }) { Icon(if (isNowPlayingOpen) WebIcon.ChevronDown else WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+        ExpandButton(isNowPlayingOpen, onOpenNowPlaying, onCloseNowPlaying)
     }
 
     // In the same apply that swaps the book in, so its first painted frame is already the motion's first.
@@ -233,6 +208,45 @@ fun TransportBar(
         bookSwitch.show(state.book.id)
         onDispose { }
     }
+}
+
+/**
+ * The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
+ * settings group, so it steps aside with them below 760px, where the web phone has none.
+ */
+@Composable
+private fun ShortcutsButton(panels: BarPanels) {
+    Button(attrs = {
+        classes("tport-keys")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, NowPlayingWords.KEYBOARD_SHORTCUTS)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(NowPlayingWords.KEYBOARD_SHORTCUTS, "?"))
+        attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SHORTCUTS)
+        attr(DATA_PLAYER_KEY, PlayerKeyAria.SHORTCUTS)
+        attr(ATTR_EXPANDED, (panels.shortcuts != null).toString())
+        onClick { event -> panels.shortcuts = panels.shortcuts.toggledFrom(event.currentTarget as? HTMLElement) }
+    }) { Icon(WebIcon.Keyboard, size = CHAPTER_ICON_SIZE) }
+}
+
+/** Open ↔ Close: on the page it is the way back (§5.1), and says so; P opens it, and P or Esc closes it. */
+@Composable
+private fun ExpandButton(
+    isNowPlayingOpen: Boolean,
+    onOpenNowPlaying: (opener: HTMLElement?) -> Unit,
+    onCloseNowPlaying: () -> Unit,
+) {
+    val label = if (isNowPlayingOpen) "Close Now Playing" else "Open Now Playing"
+    Button(attrs = {
+        classes("tport-expand")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, label)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label, if (isNowPlayingOpen) "P, Esc" else "P"))
+        attr(ATTR_KEYSHORTCUTS, if (isNowPlayingOpen) PlayerKeyAria.CLOSE_PLAYER else PlayerKeyAria.OPEN_PLAYER)
+        attr("aria-expanded", isNowPlayingOpen.toString())
+        onClick { event ->
+            if (isNowPlayingOpen) onCloseNowPlaying() else onOpenNowPlaying(event.currentTarget as? HTMLElement)
+        }
+    }) { Icon(if (isNowPlayingOpen) WebIcon.ChevronDown else WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
 }
 
 /** Where each of the bar's panels is open, or null when it is closed. */

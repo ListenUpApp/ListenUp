@@ -62,9 +62,9 @@ class ChapterWindowPlayerMetadataTest {
         // 9 s into chapter 6 (500 s .. 600 s): 91 s left reads "1m".
         val metadata = presented(chapters, positionMs = 509_000L)
 
-        assertEquals("The Way of Kings", metadata.title.toString())
-        assertEquals("Bridge Four · 1m left", metadata.artist.toString())
-        assertEquals("Brandon Sanderson", metadata.albumTitle.toString())
+        assertEquals("The Way of Kings", metadata.title?.toString())
+        assertEquals("Bridge Four · 1m left", metadata.artist?.toString())
+        assertEquals("Brandon Sanderson", metadata.albumTitle?.toString())
         assertEquals(6, metadata.trackNumber)
         assertEquals(75, metadata.totalTrackCount)
     }
@@ -73,8 +73,8 @@ class ChapterWindowPlayerMetadataTest {
     fun `a chapterless book reads Whole book, with no track number`() {
         val metadata = presented(emptyList(), positionMs = 0L)
 
-        assertEquals("The Way of Kings", metadata.title.toString())
-        assertEquals("Whole book · 2h 30m left", metadata.artist.toString())
+        assertEquals("The Way of Kings", metadata.title?.toString())
+        assertEquals("Whole book · 2h 30m left", metadata.artist?.toString())
         assertEquals(null, metadata.trackNumber)
     }
 }

@@ -260,7 +260,7 @@ class AudiobookNotificationProvider(
 
     /** The notification's headline: the session's title, which is the book; "Unknown book" when it has none. */
     internal fun notificationTitle(metadata: MediaMetadata): String =
-        metadata.title?.toString()?.takeIf { it.isNotBlank() } ?: copy.playerUnknownBook
+        metadata.title?.run { toString().takeIf { it.isNotBlank() } } ?: copy.playerUnknownBook
 
     /** The notification's text: the session's artist, which is the chapter and the time left in it. */
     internal fun notificationText(metadata: MediaMetadata): CharSequence? = metadata.artist

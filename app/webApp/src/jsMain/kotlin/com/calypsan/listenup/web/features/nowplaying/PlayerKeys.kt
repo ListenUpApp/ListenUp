@@ -81,33 +81,43 @@ fun playerKeyFor(
     press: KeyPress,
     context: KeyContext,
 ): PlayerKey? {
-    val target = context.target
-    val standsDown =
-        !context.isLoaded ||
-            press.isComposing ||
-            press.defaultPrevented ||
-            press.ctrl ||
-            press.meta ||
-            press.alt ||
-            target.isEditable ||
-            target.isInDialog ||
-            (target.activates && press.key in ACTIVATION_KEYS) ||
-            (target.inComposite && press.key in ARROW_KEYS)
-    if (standsDown) return null
+    if (!context.isLoaded || standsDown(press, context.target)) return null
     return when (press.key) {
         " " -> PlayerKey.PlayPause
         "ArrowLeft" -> if (press.shift) PlayerKey.PreviousChapter else PlayerKey.SkipBack
         "ArrowRight" -> if (press.shift) PlayerKey.NextChapter else PlayerKey.SkipForward
-        "<" -> PlayerKey.Slower
-        ">" -> PlayerKey.Faster
-        "t", "T" -> PlayerKey.Sleep
-        "c", "C" -> PlayerKey.Chapters
-        "p", "P" -> PlayerKey.TogglePlayer
-        "?" -> PlayerKey.Shortcuts
         "Escape" -> PlayerKey.ClosePlayer.takeIf { context.onPlayingPage }
-        else -> null
+        else -> CHARACTER_KEYS[press.key]
     }
 }
+
+/** Whether [press] belongs to someone else: the browser, the OS, the palette, a field, a dialog or a widget. */
+private fun standsDown(
+    press: KeyPress,
+    target: KeyTarget,
+): Boolean {
+    val handledElsewhere = press.isComposing || press.defaultPrevented || press.ctrl || press.meta || press.alt
+    val ownedByTarget =
+        target.isEditable ||
+            target.isInDialog ||
+            (target.activates && press.key in ACTIVATION_KEYS) ||
+            (target.inComposite && press.key in ARROW_KEYS)
+    return handledElsewhere || ownedByTarget
+}
+
+/** The single-character keys: layout-independent characters, letters in either case. */
+private val CHARACTER_KEYS: Map<String, PlayerKey> =
+    mapOf(
+        "<" to PlayerKey.Slower,
+        ">" to PlayerKey.Faster,
+        "t" to PlayerKey.Sleep,
+        "T" to PlayerKey.Sleep,
+        "c" to PlayerKey.Chapters,
+        "C" to PlayerKey.Chapters,
+        "p" to PlayerKey.TogglePlayer,
+        "P" to PlayerKey.TogglePlayer,
+        "?" to PlayerKey.Shortcuts,
+    )
 
 /**
  * One row of the shortcuts sheet, and what a control's tooltip and `aria-keyshortcuts` say: [keys] as the eye reads

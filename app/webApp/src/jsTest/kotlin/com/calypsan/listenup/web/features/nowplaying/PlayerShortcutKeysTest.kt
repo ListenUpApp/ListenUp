@@ -288,7 +288,7 @@ class PlayerShortcutKeysTest :
                     restore()
                 }
             try {
-                (js("window.__luKeydowns") as Int) shouldBe 1
+                js("window.__luKeydowns").unsafeCast<Int>() shouldBe 1
             } finally {
                 composition.dispose()
                 router.dispose()

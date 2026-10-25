@@ -314,11 +314,13 @@ val playbackModule =
                 sleepTimer = session.sleepTimerState,
                 chapter =
                     session.currentChapter.map { chapter ->
-                        chapter?.let { ChapterNaming.of(it.title, number = it.index + 1, isWholeBook = false) }
+                        chapter?.let { info ->
+                            ChapterNaming.of(info.title, number = info.index + 1, isWholeBook = false)
+                        }
                     },
                 strings = get(),
                 scope = get(),
-            ).also { it.start() }
+            ).apply { start() }
         }
 
         // The user's configured skip intervals (#1300). One instance, so the ExoPlayer wrapper,

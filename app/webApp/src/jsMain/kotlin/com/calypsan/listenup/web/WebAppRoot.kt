@@ -241,18 +241,7 @@ fun WebAppRoot(
                 onFocusChapters = ::focusNowPlayingChapters,
             )
 
-            PlayingTitle(playback, documentTitle)
-            DocumentTitleWriter(documentTitle)
-
-            // The player's keyboard, on every page while a book is loaded (spec §5.8).
-            PlayerShortcutKeys(
-                playback = playback,
-                onPlayingPage = page == PLAYING_KEY,
-                onTogglePlayer = { opener ->
-                    if (page == PLAYING_KEY) playingReturn.close(router) else playingReturn.open(router, opener)
-                },
-                onClosePlayer = { playingReturn.close(router) },
-            )
+            PlayerSurfaces(playback, documentTitle, router, playingReturn, onPlayingPage = page == PLAYING_KEY)
 
             // Last of all: the palette overlays everything above it, including the transport bar.
             CommandPaletteHost(router = router, openSearch = graph.openSearch)
@@ -260,14 +249,29 @@ fun WebAppRoot(
     }
 }
 
-/** Tells [title] what is playing, so the tab names it on every page while it plays (spec §5.7). */
+/**
+ * What the player puts on the shell beyond the bar: the tab naming what plays (spec §5.7) and the player's keyboard on
+ * every page while a book is loaded (spec §5.8).
+ */
 @Composable
-private fun PlayingTitle(
+private fun PlayerSurfaces(
     playback: PlaybackSession,
     title: DocumentTitle,
+    router: Router,
+    playingReturn: PlayingReturn,
+    onPlayingPage: Boolean,
 ) {
     val playing = playingTitleFor(playback.state.collectAsState().value)
     SideEffect { title.playing = playing }
+    DocumentTitleWriter(title)
+    PlayerShortcutKeys(
+        playback = playback,
+        onPlayingPage = onPlayingPage,
+        onTogglePlayer = { opener ->
+            if (onPlayingPage) playingReturn.close(router) else playingReturn.open(router, opener)
+        },
+        onClosePlayer = { playingReturn.close(router) },
+    )
 }
 
 /** On `/playing` the chapter list is already on the page: the bar's Chapters takes focus to its current row. */

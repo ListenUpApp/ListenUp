@@ -151,8 +151,9 @@ class SleepTimerNotifier(
                     .addAction(action(SleepTimerActionReceiver.ACTION_KEEP_LISTENING, words.sleepKeepListening))
             }
 
+            // Never built: show() cancels instead.
             SleepNotice.Off -> {
-                Unit
+                return builder.build()
             }
         }
         return builder.build()

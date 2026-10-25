@@ -95,9 +95,11 @@ struct PlaybackCommandStateTests {
         #expect(buffering.canTogglePlayback)
     }
 
-    @Test func chapterJumpsStopAtTheEnds() {
+    /// Next stops at the last chapter. Previous does not stop at the first: there it restarts chapter 1 (§3.3), which
+    /// is why this test changed from expecting it dimmed.
+    @Test func nextStopsAtTheLastChapterAndPreviousRestartsTheFirst() {
         let first = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0, canSkipToNextChapter: true))
-        #expect(!first.hasPreviousChapter)
+        #expect(first.hasPreviousChapter)
         #expect(first.hasNextChapter)
         let last = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 2, canSkipToNextChapter: false))
         #expect(last.hasPreviousChapter)

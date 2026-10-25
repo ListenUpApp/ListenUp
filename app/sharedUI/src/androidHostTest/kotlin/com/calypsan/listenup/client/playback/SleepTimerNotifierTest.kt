@@ -66,12 +66,13 @@ class SleepTimerNotifierTest {
         notification.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN) shouldBe true
         notification.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER) shouldBe true
         notification.`when` shouldBe STARTED_AT + 120_000
-        notification.extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString() shouldBe "Sleep timer"
-        notification.extras
-            .getCharSequence(NotificationCompat.EXTRA_TEXT)
-            .toString()
-            .startsWith("Pauses at ") shouldBe
-            true
+        notification.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString() shouldBe "Sleep timer"
+        val text =
+            notification.extras
+                .getCharSequence(NotificationCompat.EXTRA_TEXT)
+                ?.toString()
+                .orEmpty()
+        text.startsWith("Pauses at ") shouldBe true
         notification.actionTitles() shouldBe listOf("Add 10 min", "Cancel")
         notification.visibility shouldBe Notification.VISIBILITY_PUBLIC
     }
@@ -107,7 +108,7 @@ class SleepTimerNotifierTest {
             )
 
         val notification = posted()!!
-        notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString() shouldBe
+        notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString() shouldBe
             "Pauses at the end of Bridge Four"
         notification.actionTitles() shouldBe listOf("Cancel")
         notification.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER) shouldBe false
@@ -118,7 +119,7 @@ class SleepTimerNotifierTest {
         timer.value = SleepTimerState.FadingOut
 
         val notification = posted()!!
-        notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString() shouldBe "Fading out…"
+        notification.extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString() shouldBe "Fading out…"
         notification.actionTitles() shouldBe listOf("Keep listening")
     }
 
