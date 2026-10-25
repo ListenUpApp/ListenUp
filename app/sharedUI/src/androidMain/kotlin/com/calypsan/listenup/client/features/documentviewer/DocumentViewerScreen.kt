@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.nowplaying.OverlayDispatch
+import com.calypsan.listenup.client.features.nowplaying.PlayerEventsEffect
+import com.calypsan.listenup.client.features.nowplaying.PlayerNavigation
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
@@ -110,12 +112,15 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * @param path Absolute path to the local PDF file.
  * @param onBack Called when the user taps the navigation-icon back button.
+ * @param playerNavigation Where this entry's player events lead (Sign in from the strip, a problem card's way out) —
+ *   the same places the mini-player's lead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DocumentViewerScreen(
     path: String,
     onBack: () -> Unit,
+    playerNavigation: PlayerNavigation,
 ) {
     val renderMutex = remember(path) { Mutex() }
     val document by rememberPdfDocument(path, renderMutex)
@@ -135,6 +140,8 @@ internal fun DocumentViewerScreen(
 
     val nowPlayingOverlay by nowPlayingViewModel.overlay.collectAsStateWithLifecycle()
     val playerActions = remember(nowPlayingViewModel) { nowPlayingViewModel.readerPlayerActions() }
+    // This entry's player is its own instance, so its events are collected here, not by the shell's host.
+    PlayerEventsEffect(viewModel = nowPlayingViewModel, navigation = playerNavigation)
 
     var chromeVisible by remember { mutableStateOf(true) }
     var showGrid by remember { mutableStateOf(false) }

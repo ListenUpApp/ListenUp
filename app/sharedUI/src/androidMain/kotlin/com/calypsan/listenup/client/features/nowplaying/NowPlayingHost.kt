@@ -59,16 +59,13 @@ private val SnackbarHeight = 48.dp
  */
 @Suppress("LongMethod")
 @Composable
-fun NowPlayingHost(
+internal fun NowPlayingHost(
     isShellShowing: Boolean,
     isReaderShowing: Boolean,
     snackbarHostState: SnackbarHostState?,
-    onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
-    onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
-    onOpenSignIn: () -> Unit,
-    onOpenInbox: () -> Unit,
+    navigation: PlayerNavigation,
     viewModel: PlayerViewModel,
     onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -81,13 +78,7 @@ fun NowPlayingHost(
     // scrubber + time labels that actually read it — never this host or the player chrome.
     val provideProgress = { progressState.value }
 
-    PlayerEventsEffect(
-        viewModel = viewModel,
-        onNavigateToBook = onNavigateToBook,
-        onNavigateToDocument = onNavigateToDocument,
-        onOpenSignIn = onOpenSignIn,
-        onOpenInbox = onOpenInbox,
-    )
+    PlayerEventsEffect(viewModel = viewModel, navigation = navigation)
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -241,37 +232,48 @@ fun NowPlayingHost(
     }
 }
 
-/** Consumes the [viewModel]'s one-shot navigation events, routing each to the callback that names it. */
+/**
+ * Where the player's one-shot navigation events lead: the same places from every surface that hosts a
+ * [PlayerViewModel] (`playerNavigation()` on the back stack builds it).
+ */
+internal data class PlayerNavigation(
+    val onNavigateToBook: (String) -> Unit,
+    val onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
+    val onOpenSignIn: () -> Unit,
+    val onOpenInbox: () -> Unit,
+)
+
+/**
+ * Consumes the [viewModel]'s one-shot navigation events, routing each through [navigation]. Each surface that owns a
+ * [PlayerViewModel] instance collects its own: Now Playing here, and the PDF reader for its entry's player.
+ */
 @Composable
-private fun PlayerEventsEffect(
+internal fun PlayerEventsEffect(
     viewModel: PlayerViewModel,
-    onNavigateToBook: (String) -> Unit,
-    onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
-    onOpenSignIn: () -> Unit,
-    onOpenInbox: () -> Unit,
+    navigation: PlayerNavigation,
 ) {
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(viewModel, navigation) {
         viewModel.events.collect { event ->
             when (event) {
                 is PlayerEvent.OpenDocumentViewer -> {
                     // From the expanded player, it steps aside for the reader and comes back when the reader closes.
                     val opensFromNowPlaying = viewModel.expanded.value
                     if (opensFromNowPlaying) viewModel.collapse()
-                    onNavigateToDocument(event.localPath, opensFromNowPlaying)
+                    navigation.onNavigateToDocument(event.localPath, opensFromNowPlaying)
                 }
 
                 is PlayerEvent.NavigateToBook -> {
                     viewModel.collapse()
-                    onNavigateToBook(event.bookId)
+                    navigation.onNavigateToBook(event.bookId)
                 }
 
                 PlayerEvent.OpenSignIn -> {
-                    onOpenSignIn()
+                    navigation.onOpenSignIn()
                 }
 
                 PlayerEvent.OpenInbox -> {
                     viewModel.collapse()
-                    onOpenInbox()
+                    navigation.onOpenInbox()
                 }
             }
         }

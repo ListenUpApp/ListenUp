@@ -12,7 +12,9 @@ import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
+import com.calypsan.listenup.client.navigation.playerNavigation
 import com.calypsan.listenup.client.navigation.popFrom
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookDetailFocus
@@ -101,6 +103,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             onBack = {
                 backStack.popFrom(args)
             },
+            playerNavigation = remember(backStack) { backStack.playerNavigation() },
         )
     }
     entry<BrowseFacet> { args ->

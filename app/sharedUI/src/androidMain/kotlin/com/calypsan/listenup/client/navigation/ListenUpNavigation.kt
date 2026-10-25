@@ -1168,23 +1168,13 @@ private fun BoxScope.AuthenticatedNavOverlays(
         isShellShowing = backStack.lastOrNull() == Shell,
         isReaderShowing = backStack.lastOrNull() is DocumentViewer,
         snackbarHostState = snackbarHostState,
-        onNavigateToBook = { bookId ->
-            backStack.add(BookDetail(bookId))
-        },
         onNavigateToSeries = { seriesId ->
             backStack.add(SeriesDetail(seriesId))
         },
         onNavigateToContributor = { contributorId ->
             backStack.add(ContributorDetail(contributorId))
         },
-        onNavigateToDocument = { localPath, opensFromNowPlaying ->
-            backStack.add(DocumentViewer(localPath, opensFromNowPlaying))
-        },
-        // The same routes the lapsed-session banner and the admin Inbox entry use.
-        onOpenSignIn = {
-            if (backStack.lastOrNull() != Login) backStack.add(Login)
-        },
-        onOpenInbox = { backStack.add(AdminInbox) },
+        navigation = remember(backStack) { backStack.playerNavigation() },
         viewModel = nowPlayingViewModel,
         onBarFootprintChanged = onBarFootprintChanged,
     )
