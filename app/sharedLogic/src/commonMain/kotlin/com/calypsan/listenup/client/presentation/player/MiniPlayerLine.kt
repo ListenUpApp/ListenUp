@@ -74,8 +74,9 @@ object MiniPlayerLines {
     /** The mini player's line for [state]. Pure. */
     fun of(state: PlayerUiState.Loaded): MiniPlayerLine {
         val chapter = state.chapter
-        val title = chapter.title.takeUnless { chapter.isWholeBook || it.isBlank() }
-        val number = chapter.number.takeIf { !chapter.isWholeBook && title == null }
+        val name = ChapterNaming.of(chapter.title, chapter.number, chapter.isWholeBook)
+        val title = (name as? ChapterName.Titled)?.title
+        val number = (name as? ChapterName.Untitled)?.number
         val sleepArmed = state.sleepTimer is SleepTimerState.Active
         val casting = state.source as? AudioSource.Casting
         return when (val phase = state.phase) {
