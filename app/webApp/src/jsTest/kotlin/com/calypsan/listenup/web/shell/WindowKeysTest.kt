@@ -36,6 +36,27 @@ class WindowKeysTest :
             heard shouldBe 1
         }
 
+        test("without the popover API the open-modal check falls back to dialog[open], and still finds an open dialog") {
+            // Safari before 17 and Firefox before 125 have no popover API and throw a SyntaxError on `:popover-open`.
+            // Chromium cannot be made to throw, but it can be made to look like those browsers to the feature check.
+            openModalSelector() shouldBe "dialog[open], :popover-open"
+            js("window.__luShowPopover = HTMLElement.prototype.showPopover; delete HTMLElement.prototype.showPopover;")
+            val host = document.createElement("div") as HTMLElement
+            document.body!!.appendChild(host)
+            try {
+                openModalSelector() shouldBe "dialog[open]"
+                host.innerHTML = "<dialog open><button>Close</button></dialog><button id='lu-outside'>Play</button>"
+                val outside = document.getElementById("lu-outside") as HTMLElement
+                val event = keydown(" ")
+                outside.dispatchEvent(event)
+                keyTargetOf(event).isInDialog shouldBe true
+            } finally {
+                host.remove()
+                js("HTMLElement.prototype.showPopover = window.__luShowPopover; delete window.__luShowPopover;")
+            }
+            openModalSelector() shouldBe "dialog[open], :popover-open"
+        }
+
         test("one editability rule: fields, editable content and text roles are editable; buttons are not") {
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)

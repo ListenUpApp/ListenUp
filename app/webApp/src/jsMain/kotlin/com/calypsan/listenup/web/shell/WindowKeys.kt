@@ -125,10 +125,20 @@ fun keyTargetOf(event: KeyboardEvent): KeyTarget {
     val element = event.target as? Element
     return KeyTarget(
         isEditable = isEditableTarget(element),
-        isInDialog = element?.closest(DIALOG_SELECTOR) != null || document.querySelector(OPEN_MODAL_SELECTOR) != null,
+        isInDialog = element?.closest(DIALOG_SELECTOR) != null || document.querySelector(openModalSelector()) != null,
         activates = element?.closest(ACTIVATES_SELECTOR) != null,
         inComposite = element?.closest(COMPOSITE_SELECTOR) != null,
     )
+}
+
+/**
+ * An open dialog or popover anywhere has the keyboard (a modal makes the page behind it inert): the keys are its own.
+ * `:popover-open` only where the browser has the popover API, the same feature check `TopLayer` makes: Safari before 17
+ * and Firefox before 125 throw a SyntaxError on the pseudo-class, which would take every player key down with it.
+ */
+internal fun openModalSelector(): String {
+    val hasPopoverApi = document.body?.let { jsTypeOf(it.asDynamic().showPopover) == "function" } == true
+    return if (hasPopoverApi) "dialog[open], :popover-open" else "dialog[open]"
 }
 
 private const val KEYDOWN = "keydown"
@@ -138,9 +148,6 @@ private const val EDITABLE_SELECTOR =
         "[role=textbox], [role=searchbox], [role=combobox]"
 
 private const val DIALOG_SELECTOR = "dialog, [role=dialog], [role=menu], [role=listbox], [popover]"
-
-/** An open dialog or popover anywhere has the keyboard (a modal makes the page behind it inert): the keys are its own. */
-private const val OPEN_MODAL_SELECTOR = "dialog[open], :popover-open"
 
 private const val ACTIVATES_SELECTOR =
     "button, a[href], summary, [role=button], [role=link], [role=radio], [role=checkbox], [role=switch], " +
