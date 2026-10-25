@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerChapter
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.features.nowplaying.components.centreOn
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
 import listenup.composeapp.generated.resources.Res
@@ -42,14 +43,14 @@ internal fun chapterRowTag(index: Int): String = "player-chapter-$index"
  * via [PlayerPanelScaffold]; the list scrolls itself, so the scaffold does not.
  *
  * @param chapters Every chapter of the loaded book; the current one carries [ChapterRowState.isCurrent].
- * @param playingLeft The current chapter's remainder ("8m"), read by the current row alone.
+ * @param playingLeft The current chapter's remainder, floored to the minute, read by the current row alone.
  * @param onChapterSelected The tapped chapter's zero-based index.
  * @param onDismiss The sheet was dismissed.
  */
 @Composable
 fun ChapterPickerSheet(
     chapters: List<ChapterRowState>,
-    playingLeft: () -> String,
+    playingLeft: () -> Duration,
     onChapterSelected: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {

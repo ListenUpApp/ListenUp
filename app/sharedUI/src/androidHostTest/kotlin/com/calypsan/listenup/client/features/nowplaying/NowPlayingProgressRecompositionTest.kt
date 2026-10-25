@@ -14,6 +14,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Proves the structural fix for the 4 Hz now-playing recomposition storm: the fast-changing
@@ -77,7 +78,7 @@ class NowPlayingProgressRecompositionTest {
 
     @Test
     fun `a progress tick redraws the current chapter row's bar without recomposing the row`() {
-        // The row reads its "8m left" words while it composes, so counting those reads counts the row's compositions;
+        // The row reads its time left while it composes, so counting those reads counts the row's compositions;
         // the bar reads the fraction only while it draws.
         var rowCompositions = 0
         var barDraws = 0
@@ -94,7 +95,7 @@ class NowPlayingProgressRecompositionTest {
                 isCurrent = true,
                 playingLeft = {
                     rowCompositions++
-                    "8m"
+                    8.minutes
                 },
                 chapterFraction = {
                     barDraws++

@@ -31,24 +31,29 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.features.nowplaying.chapterLeftToTheMinute
+import com.calypsan.listenup.client.features.nowplaying.shortDuration
+import com.calypsan.listenup.client.features.nowplaying.spokenDuration
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_sheet_chapter_current
 import listenup.composeapp.generated.resources.player_sheet_chapter_play_from
 import listenup.composeapp.generated.resources.player_sheet_playing_left
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Duration
 
 /**
  * One row of the chapter list (spec §5.5.4, `Sheets-Android`): number · title · duration. The current chapter is filled
  * coral (`primary` / `onPrimary`, C14) and says "Playing · 8m left" under its title; there is no trailing glyph, because
  * the words say it. Screen readers hear what a tap does — "Play from chapter 7: Anything Reasonable, 33:18" — or, on
- * the current row, "Chapter 6, Bridge Four, now playing, 8m left" (§8), and the current row is selected.
+ * the current row, "Chapter 6, Bridge Four, now playing, 8 minutes left" (§8): the screen's "8m" in words, so it is
+ * never heard as "8 metres". The current row is selected.
  *
  * @param number The chapter's own number.
  * @param title The chapter's title, ellipsised when too long.
  * @param durationLabel The chapter's length ("33:18").
  * @param isCurrent Whether this is the chapter playing now.
- * @param playingLeft The current chapter's remainder ("8m"), read in this leaf so the tick recomposes only this row;
- *   null where no row is current.
+ * @param playingLeft The current chapter's remainder, floored to the minute ([chapterLeftToTheMinute]), read in this
+ *   leaf so the tick recomposes only this row; null where no row is current.
  * @param chapterFraction How far through the current chapter, 0..1, for the bar under its title (§5.3: linear, not
  *   wavy); null where no bar is drawn (the phone sheet). Read only while the bar draws, so a tick never recomposes the
  *   row. The bar is decorative: the row's label already says how long is left (§8).
@@ -60,7 +65,7 @@ fun PlayerChapterRow(
     title: String,
     durationLabel: String,
     isCurrent: Boolean,
-    playingLeft: (() -> String)?,
+    playingLeft: (() -> Duration)?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     chapterFraction: (() -> Float)? = null,
@@ -70,10 +75,11 @@ fun PlayerChapterRow(
     val container = if (isCurrent) colors.primary else Color.Transparent
     val ink = if (isCurrent) colors.onPrimary else colors.onSurface
     val quietInk = if (isCurrent) colors.onPrimary else colors.onSurfaceVariant
-    val left = if (isCurrent) playingLeft?.invoke() else null
+    val leftDuration = if (isCurrent) playingLeft?.invoke() else null
+    val left = leftDuration?.let { shortDuration(it.inWholeMilliseconds) }
     val label =
-        if (isCurrent && left != null) {
-            stringResource(Res.string.player_sheet_chapter_current, number, title, left)
+        if (leftDuration != null) {
+            stringResource(Res.string.player_sheet_chapter_current, number, title, spokenDuration(leftDuration))
         } else {
             stringResource(Res.string.player_sheet_chapter_play_from, number, title, durationLabel)
         }

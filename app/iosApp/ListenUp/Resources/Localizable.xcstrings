@@ -22761,6 +22761,66 @@
         }
       }
     },
+    "player.spoken_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d hours"
+          }
+        }
+      }
+    },
+    "player.spoken_hours_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "player.spoken_hours_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hour"
+          }
+        }
+      }
+    },
+    "player.spoken_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d minutes"
+          }
+        }
+      }
+    },
+    "player.spoken_minutes_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 minute"
+          }
+        }
+      }
+    },
+    "player.spoken_under_a_minute": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less than a minute"
+          }
+        }
+      }
+    },
     "player.timer_active": {
       "localizations": {
         "en": {

@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerSettings
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.design.theme.Spacing
+import kotlin.time.Duration.Companion.minutes
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
 
@@ -623,7 +624,7 @@ private fun PanelPreviewSheet(
         PanelPreview.Chapters -> {
             ChapterPickerSheet(
                 chapters = mockLongBookChapters(current = 37),
-                playingLeft = { "8m" },
+                playingLeft = { 8.minutes },
                 onChapterSelected = {},
                 onDismiss = onDismiss,
             )

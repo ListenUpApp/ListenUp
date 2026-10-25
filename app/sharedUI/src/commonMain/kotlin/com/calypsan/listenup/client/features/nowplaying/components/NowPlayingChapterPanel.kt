@@ -44,7 +44,7 @@ import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.chapterRowTag
-import com.calypsan.listenup.client.features.nowplaying.shortDuration
+import com.calypsan.listenup.client.features.nowplaying.chapterLeftToTheMinute
 import com.calypsan.listenup.client.presentation.player.ChapterListFollow
 import com.calypsan.listenup.client.presentation.player.ChapterListMove
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -125,7 +125,7 @@ internal fun NowPlayingChapterPanel(
     // The button's real height: at the largest font its label wraps and the button outgrows any fixed reserve.
     var backButtonHeight by remember { mutableStateOf(MinTouchTarget) }
     val density = LocalDensity.current
-    val leftWords by remember(progress) { derivedStateOf { shortDuration(progress().chapterRemainingMs) } }
+    val left by remember(progress) { derivedStateOf { progress().chapterLeftToTheMinute } }
 
     Surface(
         modifier = modifier.semantics { isTraversalGroup = true },
@@ -168,7 +168,7 @@ internal fun NowPlayingChapterPanel(
                             title = row.title,
                             durationLabel = row.durationMs.milliseconds.formatPlaybackTime(),
                             isCurrent = isCurrent,
-                            playingLeft = { leftWords }.takeIf { isCurrent },
+                            playingLeft = { left }.takeIf { isCurrent },
                             chapterFraction = { progress().chapterFraction }.takeIf { isCurrent },
                             onClick = { onSeekToChapter(row.index) },
                             modifier = Modifier.testTag(chapterRowTag(row.index)),

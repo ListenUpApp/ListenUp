@@ -36,6 +36,7 @@ import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
 import org.junit.Rule
+import kotlin.time.Duration.Companion.minutes
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -65,7 +66,7 @@ class NowPlayingChapterPanelTest {
                     title = "Bridge Four",
                     durationLabel = "20:35",
                     isCurrent = isCurrent,
-                    playingLeft = { "8m" },
+                    playingLeft = { 8.minutes },
                     chapterFraction = chapterFraction,
                     onClick = {},
                 )
@@ -101,7 +102,7 @@ class NowPlayingChapterPanelTest {
             .onNodeWithTag(CHAPTER_ROW_BAR_TAG, useUnmergedTree = true)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ProgressBarRangeInfo))
         composeRule
-            .onNode(hasContentDescription("Chapter 6, Bridge Four, now playing, 8m left"))
+            .onNode(hasContentDescription("Chapter 6, Bridge Four, now playing, 8 minutes left"))
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ProgressBarRangeInfo))
     }
 
@@ -220,7 +221,7 @@ class NowPlayingChapterPanelTest {
             .assert(hasContentDescription("Play from chapter 7: Anything Reasonable, 33:18"))
         composeRule
             .onNodeWithTag(chapterRowTag(5))
-            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8m left"))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8 minutes left"))
     }
 
     @Test

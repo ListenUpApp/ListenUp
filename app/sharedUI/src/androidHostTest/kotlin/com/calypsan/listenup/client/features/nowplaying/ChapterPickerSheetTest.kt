@@ -14,6 +14,8 @@ import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
 import org.junit.Rule
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.milliseconds
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,7 +38,7 @@ class ChapterPickerSheetTest {
             MaterialTheme {
                 ChapterPickerSheet(
                     chapters = bookChapterRows(current),
-                    playingLeft = { shortDuration(chapterRemainingMs) },
+                    playingLeft = { chapterRemainingMs.milliseconds.inWholeMinutes.minutes },
                     onChapterSelected = { selected += it },
                     onDismiss = {},
                 )
@@ -60,7 +62,24 @@ class ChapterPickerSheetTest {
         composeRule
             .onNodeWithTag(chapterRowTag(5))
             .assertIsSelected()
-            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8m left"))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8 minutes left"))
+    }
+
+    @Test
+    fun `TalkBack hears the time left in words, as long as it is`() {
+        sheet(current = 5, chapterRemainingMs = 3_930_000)
+        composeRule.onNodeWithText("Playing · 1h 5m left").assertExists()
+        composeRule
+            .onNodeWithTag(chapterRowTag(5))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 1 hour 5 minutes left"))
+    }
+
+    @Test
+    fun `TalkBack hears the last minute as less than a minute, never as none`() {
+        sheet(current = 5, chapterRemainingMs = 42_000)
+        composeRule
+            .onNodeWithTag(chapterRowTag(5))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, less than a minute left"))
     }
 
     @Test

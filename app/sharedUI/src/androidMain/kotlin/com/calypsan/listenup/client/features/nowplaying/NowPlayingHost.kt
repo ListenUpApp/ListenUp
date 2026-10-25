@@ -269,7 +269,7 @@ private fun OverlayDispatch(
             if (loaded != null) {
                 ChapterPickerSheet(
                     chapters = loaded.chapters,
-                    playingLeft = { shortDuration(progress().chapterRemainingMs) },
+                    playingLeft = { progress().chapterLeftToTheMinute },
                     onChapterSelected = viewModel::seekToChapter,
                     onDismiss = viewModel::hideOverlay,
                 )

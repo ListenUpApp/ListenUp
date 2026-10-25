@@ -2277,6 +2277,12 @@ One beautiful library.</string>
     <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
+    <string name="player_spoken_hours">%1$d hours</string>
+    <string name="player_spoken_hours_minutes">%1$s %2$s</string>
+    <string name="player_spoken_hours_one">1 hour</string>
+    <string name="player_spoken_minutes">%1$d minutes</string>
+    <string name="player_spoken_minutes_one">1 minute</string>
+    <string name="player_spoken_under_a_minute">less than a minute</string>
     <string name="player_timer_active">Timer active</string>
     <string name="player_title_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="player_title_book_held_for_review">Waiting in the Inbox.</string>
