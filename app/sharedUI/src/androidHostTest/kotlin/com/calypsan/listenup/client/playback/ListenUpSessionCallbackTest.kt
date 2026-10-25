@@ -178,6 +178,46 @@ class ListenUpSessionCallbackTest {
     }
 
     @Test
+    fun `next chapter at the last chapter is skipped, not a restart of the last chapter`() {
+        val player = FakeExoPlayer()
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 120_000L,
+                timeline = threeFileTimeline(),
+                chapters = twoChapters(),
+                publishedPositions = published,
+            )
+
+        val result = callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER)
+
+        // §3.3: next does nothing at the last chapter. It used to seek to the last chapter's own
+        // start, throwing the listener back up to 90 s of the book.
+        result.resultCode shouldBe SessionResult.RESULT_INFO_SKIPPED
+        published.shouldBeEmpty()
+        player.seekCalls.shouldBeEmpty()
+    }
+
+    @Test
+    fun `previous chapter within 3 s of a chapter's start goes to the chapter before`() {
+        val player = FakeExoPlayer()
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 92_000L,
+                timeline = threeFileTimeline(),
+                chapters = twoChapters(),
+                publishedPositions = published,
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_PREV_CHAPTER)
+
+        published shouldBe listOf(0 to 0L)
+    }
+
+    @Test
     fun `a seek without a timeline still publishes the file-relative landing position`() {
         val player = FakeExoPlayer(stubbedPosition = 45_000L, stubbedMediaItemIndex = 1)
         val published = mutableListOf<Pair<Int, Long>>()

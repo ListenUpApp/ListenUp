@@ -15,8 +15,8 @@ private fun chapter(
 ) = Chapter(id = id, title = title, duration = duration, startTime = startTime)
 
 /**
- * Pure chapter-window-math tests for [currentChapterWindow], [seekTargetToBookPosition],
- * [previousChapterTarget], and [nextChapterTarget].
+ * Pure chapter-window-math tests for [currentChapterWindow] and [seekTargetToBookPosition]. Where previous
+ * and next land is the shared `ChapterNavigation`'s rule, tested once in `ChapterNavigationTest`.
  *
  * The Media3-aware companion [ChapterWindowPlayer] is exercised on a real device (its
  * constructor requires a live `Looper`, unavailable in this Robolectric-free host-test
@@ -155,84 +155,6 @@ class ChapterWindowTest :
                 val resolvedFile2 = timeline.resolve(seekIntoFile2Ms)
                 resolvedFile2.mediaItemIndex shouldBe 1
                 resolvedFile2.positionInFileMs shouldBe 20_000L
-            }
-        }
-
-        context("previousChapterTarget") {
-            test("early in the current chapter, previous moves to the start of the prior chapter") {
-                val target = previousChapterTarget(threeChapters, bookPositionMs = 101_000L, totalDurationMs)
-                target shouldBe 0L
-            }
-
-            test("more than the restart threshold into the chapter, previous restarts the current chapter") {
-                val target = previousChapterTarget(threeChapters, bookPositionMs = 120_000L, totalDurationMs)
-                target shouldBe 100_000L
-            }
-
-            test("exactly at the restart threshold still moves to the prior chapter") {
-                val target =
-                    previousChapterTarget(
-                        threeChapters,
-                        bookPositionMs = 100_000L + 3_000L,
-                        totalDurationMs,
-                        restartThresholdMs = 3_000L,
-                    )
-                target shouldBe 0L
-            }
-
-            test("clamps at the first chapter — previous always restarts it, never goes negative") {
-                val target = previousChapterTarget(threeChapters, bookPositionMs = 500L, totalDurationMs)
-                target shouldBe 0L
-            }
-
-            test("chapterless book restarts the book") {
-                val target = previousChapterTarget(emptyList(), bookPositionMs = 50_000L, totalDurationMs)
-                target shouldBe 0L
-            }
-        }
-
-        context("nextChapterTarget") {
-            test("moves to the start of the next chapter") {
-                val target = nextChapterTarget(threeChapters, bookPositionMs = 50_000L, totalDurationMs)
-                target shouldBe 100_000L
-            }
-
-            test("clamps at the last chapter — stays at its own start") {
-                val target = nextChapterTarget(threeChapters, bookPositionMs = 260_000L, totalDurationMs)
-                target shouldBe 250_000L
-            }
-
-            test("chapterless book has no next target beyond the book start") {
-                val target = nextChapterTarget(emptyList(), bookPositionMs = 50_000L, totalDurationMs)
-                target shouldBe 0L
-            }
-        }
-
-        context("hasPreviousChapter / hasNextChapter") {
-            test("previous is always available — restart-current, even at chapter 0 or a chapterless book") {
-                // Not scenario-dependent: hasPreviousChapter() takes no window/chapters input by
-                // design (see its KDoc) — this is the one assertion of that invariant.
-                hasPreviousChapter() shouldBe true
-            }
-
-            test("first chapter has a next chapter") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 0L, totalDurationMs)
-                hasNextChapter(threeChapters, window) shouldBe true
-            }
-
-            test("middle chapter has a next chapter") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                hasNextChapter(threeChapters, window) shouldBe true
-            }
-
-            test("last chapter has no next chapter") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 260_000L, totalDurationMs)
-                hasNextChapter(threeChapters, window) shouldBe false
-            }
-
-            test("chapterless book has no next chapter") {
-                val window = currentChapterWindow(emptyList(), bookPositionMs = 50_000L, totalDurationMs)
-                hasNextChapter(emptyList(), window) shouldBe false
             }
         }
     })

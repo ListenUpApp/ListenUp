@@ -52,16 +52,14 @@ private data class ChapterSeekContext(
  * this wrapper always reports a single-item playlist (the current chapter's window), Media3's
  * `BasePlayer.seekToPrevious()`/`seekToNext()` always route through [handleSeek] with
  * `COMMAND_SEEK_TO_PREVIOUS`/`COMMAND_SEEK_TO_NEXT` (there is never a previous/next *media item*
- * to hop to), which is exactly what car head-unit prev/next buttons invoke. "Previous" restarts
- * the current chapter when more than [PREVIOUS_RESTART_THRESHOLD_MS] into it (the default
- * [previousChapterTarget] applies) — standard media-player behavior — otherwise it moves to the
- * previous chapter's start (or, at the first chapter / in a chapterless book, clamps to the
- * window's own start — a harmless restart).
- * `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM` variant) is therefore *always* advertised via
- * [getState] — [hasPreviousChapter] — matching standard Media3/media-player UX where "previous"
- * is never greyed out; it's always at least a restart affordance. `COMMAND_SEEK_TO_NEXT` (and its
- * `_MEDIA_ITEM` variant) stays gated on [hasNextChapter]: past the last chapter there is genuinely
- * nothing to skip to, so the button greys out there.
+ * to hop to), which is exactly what car head-unit prev/next buttons invoke. Where they land is the
+ * shared [ChapterNavigation] rule (spec §3.3), the same one the app, iOS and the web use: "previous"
+ * restarts the current chapter once it has run for more than three seconds, otherwise it moves to the
+ * previous chapter's start, and chapter 1 restarts. `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM`
+ * variant) is therefore *always* advertised via [getState]: "previous" is never greyed out, it is at
+ * least a restart. `COMMAND_SEEK_TO_NEXT` (and its `_MEDIA_ITEM` variant) is gated on
+ * [ChapterNavigation.hasNext]: at the last chapter there is nothing to skip to, so the button greys
+ * out there, and a next that arrives anyway does nothing.
  *
  * **Invalidation.** [ForwardingSimpleBasePlayer] already invalidates state automatically on
  * every underlying-player event (play/pause, buffering, ExoPlayer-driven position
@@ -126,7 +124,7 @@ class ChapterWindowPlayer(
                 ),
             ).setCurrentMediaItemIndex(0)
             .setContentPositionMs(windowPositionSupplier(context.window))
-            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.window))
+            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.bookPositionMs))
             .build()
     }
 
@@ -171,11 +169,12 @@ class ChapterWindowPlayer(
         val targetBookPositionMs =
             when (seekCommand) {
                 Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
-                    previousChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
+                    ChapterNavigation.previousStartMs(context.bookPositionMs, context.chapters)
                 }
 
                 Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                    nextChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
+                    ChapterNavigation.nextStartMs(context.bookPositionMs, context.chapters)
+                        ?: return Futures.immediateVoidFuture()
                 }
 
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION -> {
@@ -244,15 +243,12 @@ class ChapterWindowPlayer(
     /** Adds/removes the chapter-aware seek commands so a controller reflects [window]'s edges. */
     private fun Player.Commands.withChapterSeekCommands(
         chapters: List<Chapter>,
-        window: ChapterWindow,
+        bookPositionMs: Long,
     ): Player.Commands {
-        val hasPrevious = hasPreviousChapter()
-        val hasNext = hasNextChapter(chapters, window)
+        val hasNext = ChapterNavigation.hasNext(bookPositionMs, chapters)
         return buildUpon()
-            .addIf(Player.COMMAND_SEEK_TO_PREVIOUS, hasPrevious)
-            .removeIf(Player.COMMAND_SEEK_TO_PREVIOUS, !hasPrevious)
-            .addIf(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, hasPrevious)
-            .removeIf(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, !hasPrevious)
+            .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             .addIf(Player.COMMAND_SEEK_TO_NEXT, hasNext)
             .removeIf(Player.COMMAND_SEEK_TO_NEXT, !hasNext)
             .addIf(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, hasNext)

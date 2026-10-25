@@ -112,6 +112,44 @@ class ChapterWindowPlayerSeekTest {
 
         assertEquals(listOf(0 to chapterStartMs + 60_000L), fake.seekCalls)
     }
+
+    @Test
+    fun `next at the last chapter leaves the position where it was`() {
+        // 45 s into "Part 2: Right Attitude", the last chapter.
+        val fake = seekableFakeAt(nextChapterStartMs + 45_000L)
+        val wrapper = wrapperOver(fake)
+
+        wrapper.seekToNext()
+
+        assertEquals(emptyList<Pair<Int, Long>>(), fake.seekCalls)
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT))
+    }
+
+    @Test
+    fun `previous within 3 s of a chapter's start goes to the chapter before, past 3 s restarts`() {
+        val early = seekableFakeAt(chapterStartMs + 2_000L)
+        wrapperOver(early).seekToPrevious()
+        assertEquals(listOf(0 to 2_294_000L), early.seekCalls)
+
+        val late = seekableFakeAt(chapterStartMs + 5_000L)
+        wrapperOver(late).seekToPrevious()
+        assertEquals(listOf(0 to chapterStartMs), late.seekCalls)
+    }
+
+    private fun seekableFakeAt(positionMs: Long) =
+        FakeExoPlayer(
+            stubbedPosition = positionMs,
+            stubbedMediaItemIndex = 0,
+            availableCommands =
+                Player.Commands
+                    .Builder()
+                    .addAll(
+                        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_TO_PREVIOUS,
+                        Player.COMMAND_SEEK_TO_NEXT,
+                    ).build(),
+        )
 }
 
 /** Minimal [PlaybackTransport] over a fake, for the contrast case above. */

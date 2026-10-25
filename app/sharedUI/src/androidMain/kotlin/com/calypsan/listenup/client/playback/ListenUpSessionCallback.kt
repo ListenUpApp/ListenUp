@@ -823,12 +823,10 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
-                // Shares its mapping with ChapterWindowPlayer.handleSeek's
-                // COMMAND_SEEK_TO_PREVIOUS branch — one implementation, same
-                // restart-vs-jump threshold everywhere (see previousChapterTarget's KDoc).
+                // The shared ChapterNavigation rule (spec §3.3), as ChapterWindowPlayer.handleSeek's
+                // COMMAND_SEEK_TO_PREVIOUS branch and every other surface use it.
                 if (chapters.isNotEmpty() && timeline != null) {
-                    val target =
-                        previousChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
+                    val target = ChapterNavigation.previousStartMs(transport.bookRelativePositionMs(), chapters)
                     val resolved = timeline.resolve(target)
                     playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }
@@ -842,16 +840,16 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER -> {
-                // Shares its mapping with ChapterWindowPlayer.handleSeek's
-                // COMMAND_SEEK_TO_NEXT branch — one implementation everywhere.
-                if (chapters.isNotEmpty() && timeline != null) {
-                    val target =
-                        nextChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
+                // The shared ChapterNavigation rule, as ChapterWindowPlayer.handleSeek's COMMAND_SEEK_TO_NEXT
+                // branch uses it. At the last chapter there is no next: nothing moves, and the head unit is
+                // told so rather than told it worked.
+                val target = ChapterNavigation.nextStartMs(transport.bookRelativePositionMs(), chapters)
+                if (timeline != null && target != null) {
                     val resolved = timeline.resolve(target)
                     playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Next chapter target: ${target}ms" }
                 } else {
-                    logger.debug { "Next chapter requested with no chapter data available — skipping" }
+                    logger.debug { "Next chapter requested at the last chapter or with no chapter data — skipping" }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
                 }
             }
