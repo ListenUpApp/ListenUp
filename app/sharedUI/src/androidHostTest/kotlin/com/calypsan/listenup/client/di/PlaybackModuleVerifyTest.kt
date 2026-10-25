@@ -60,6 +60,10 @@ class PlaybackModuleVerifyTest :
                         ContributorRepository::class,
                         SeriesRepository::class,
                         ErrorBus::class,
+                        // The sleep notification reads the shared session (sharedLogic's playerModule); its two
+                        // flows are mapped from the session at the binding, not bound on their own.
+                        com.calypsan.listenup.client.playback.PlayerSession::class,
+                        kotlinx.coroutines.flow.Flow::class,
                     ),
             )
         }

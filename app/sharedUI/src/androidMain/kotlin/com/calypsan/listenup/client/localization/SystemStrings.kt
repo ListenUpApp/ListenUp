@@ -26,6 +26,14 @@ import listenup.composeapp.generated.resources.player_skip_forward
 import listenup.composeapp.generated.resources.player_speed
 import listenup.composeapp.generated.resources.player_system_track_left
 import listenup.composeapp.generated.resources.player_unknown_book
+import listenup.composeapp.generated.resources.player_end_of_chapter
+import listenup.composeapp.generated.resources.player_mini_keep_listening
+import listenup.composeapp.generated.resources.player_sheet_fading_title
+import listenup.composeapp.generated.resources.player_sheet_pauses_at
+import listenup.composeapp.generated.resources.player_sleep_notification_add_ten
+import listenup.composeapp.generated.resources.player_sleep_notification_cancel
+import listenup.composeapp.generated.resources.player_sleep_notification_end_of_chapter
+import listenup.composeapp.generated.resources.player_sleep_timer
 import org.jetbrains.compose.resources.getString
 
 /**
@@ -102,6 +110,22 @@ data class SystemStrings(
     val playerMiniWholeBook: String,
     /** Headline of the notice posted when the platform refuses to start playback. */
     val playerRefusalTitle: String,
+    /** Sleep notification: its title, "Sleep timer". */
+    val sleepTitle: String,
+    /** Sleep notification, a duration timer: `%1$s` the device-clock time it pauses at. */
+    val sleepPausesAt: String,
+    /** Sleep notification, an end-of-chapter timer: `%1$s` the chapter's name. */
+    val sleepPausesAtEndOf: String,
+    /** Sleep notification, an end-of-chapter timer with no chapter to name. */
+    val sleepEndOfChapter: String,
+    /** Sleep notification while the fade runs. */
+    val sleepFading: String,
+    /** Sleep notification action: ten more minutes. */
+    val sleepAddTen: String,
+    /** Sleep notification action: cancel the timer. */
+    val sleepCancel: String,
+    /** Sleep notification action during the fade: cancel it and restore the volume. */
+    val sleepKeepListening: String,
     /** Toast shown when a cast handoff cannot be prepared. */
     val playerCastStartFailed: String,
     /** Toast shown when a book's format cannot be cast. */
@@ -139,6 +163,14 @@ data class SystemStrings(
                 playerMiniChapter = "Chapter %1\$d",
                 playerMiniWholeBook = "Whole book",
                 playerRefusalTitle = "Couldn't start playback",
+                sleepTitle = "Sleep timer",
+                sleepPausesAt = "Pauses at %1\$s",
+                sleepPausesAtEndOf = "Pauses at the end of %1\$s",
+                sleepEndOfChapter = "End of chapter",
+                sleepFading = "Fading out…",
+                sleepAddTen = "Add 10 min",
+                sleepCancel = "Cancel",
+                sleepKeepListening = "Keep listening",
                 playerCastStartFailed = "Couldn't start casting.",
                 playerCastUnsupportedFormat = "This book's format can't be cast.",
                 playerCastSessionLost = "Casting stopped — playing on this device instead.",
@@ -179,6 +211,14 @@ suspend fun loadSystemStrings(): SystemStrings =
         playerMiniChapter = getString(Res.string.player_mini_chapter),
         playerMiniWholeBook = getString(Res.string.player_mini_whole_book),
         playerRefusalTitle = getString(Res.string.player_refusal_title),
+        sleepTitle = getString(Res.string.player_sleep_timer),
+        sleepPausesAt = getString(Res.string.player_sheet_pauses_at),
+        sleepPausesAtEndOf = getString(Res.string.player_sleep_notification_end_of_chapter),
+        sleepEndOfChapter = getString(Res.string.player_end_of_chapter),
+        sleepFading = getString(Res.string.player_sheet_fading_title),
+        sleepAddTen = getString(Res.string.player_sleep_notification_add_ten),
+        sleepCancel = getString(Res.string.player_sleep_notification_cancel),
+        sleepKeepListening = getString(Res.string.player_mini_keep_listening),
         playerCastStartFailed = getString(Res.string.player_cast_start_failed),
         playerCastUnsupportedFormat = getString(Res.string.player_cast_unsupported_format),
         playerCastSessionLost = getString(Res.string.player_cast_session_lost),

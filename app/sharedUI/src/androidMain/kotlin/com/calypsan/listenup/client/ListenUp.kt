@@ -55,6 +55,11 @@ import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackErrorHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.SleepTimerControls
+import com.calypsan.listenup.client.playback.SleepTimerNotifier
+import com.calypsan.listenup.client.presentation.player.ChapterNaming
+import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SkipIntervalsHolder
 import com.calypsan.listenup.client.playback.OutputRoute
@@ -291,6 +296,30 @@ val playbackModule =
         // The system-surface string snapshot (#1246). One instance, so `PlaybackService`'s
         // single refresh reaches the Koin-built browse tree and its own collaborators alike.
         single { SystemStringsHolder() }
+
+        // The sleep notification (spec §5.7): application-scoped, so a running timer stays in the shade after the
+        // playback service's idle stop. Eager, so it follows the shared timer from launch.
+        single<SleepTimerControls> {
+            val session = get<PlayerSession>()
+            object : SleepTimerControls {
+                override fun extendSleepTimer(minutes: Int) = session.extendSleepTimer(minutes)
+
+                override fun cancelSleepTimer() = session.cancelSleepTimer()
+            }
+        }
+        single(createdAtStart = true) {
+            val session = get<PlayerSession>()
+            SleepTimerNotifier(
+                context = get(),
+                sleepTimer = session.sleepTimerState,
+                chapter =
+                    session.currentChapter.map { chapter ->
+                        chapter?.let { ChapterNaming.of(it.title, number = it.index + 1, isWholeBook = false) }
+                    },
+                strings = get(),
+                scope = get(),
+            ).also { it.start() }
+        }
 
         // The user's configured skip intervals (#1300). One instance, so the ExoPlayer wrapper,
         // the session callback and the notification all move by the same number.
