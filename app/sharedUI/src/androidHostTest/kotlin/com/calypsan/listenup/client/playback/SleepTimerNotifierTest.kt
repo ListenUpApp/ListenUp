@@ -35,7 +35,7 @@ class SleepTimerNotifierTest {
     @Before
     fun setUp() {
         NotificationChannels.registerAll(context)
-        SleepTimerNotifier(context, timer, chapter, SystemStringsHolder(), scope).start()
+        SleepTimerNotifier(context, timer, chapter, SystemStringsHolder(), scope, nowMs = { NOW }).start()
     }
 
     @After
@@ -75,6 +75,17 @@ class SleepTimerNotifierTest {
         text.startsWith("Pauses at ") shouldBe true
         notification.actionTitles() shouldBe listOf("Add 10 min", "Cancel")
         notification.visibility shouldBe Notification.VISIBILITY_PUBLIC
+    }
+
+    /**
+     * An ongoing notification outlives a killed process. The timeout is the system's own net: it removes the
+     * countdown once the deadline and the fade are past, whether or not anyone is left to cancel it.
+     */
+    @Test
+    fun `a counting notification times itself out after the deadline and the fade`() {
+        timer.value = duration(remainingMs = 120_000, totalMs = 120_000)
+
+        posted()!!.timeoutAfter shouldBe (STARTED_AT + 120_000 - NOW) + SLEEP_FADE_DURATION_MS
     }
 
     @Test
@@ -140,5 +151,8 @@ class SleepTimerNotifierTest {
 
     private companion object {
         const val STARTED_AT = 1_800_000_000_000L
+
+        /** The clock the notifier reads: 30 s into a two-minute timer. */
+        const val NOW = STARTED_AT + 30_000
     }
 }

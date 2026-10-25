@@ -79,6 +79,9 @@ internal fun sleepNoticeOf(
  * Application-scoped rather than the playback service's: the service stops on its idle timeout, and a timer a
  * listener set must stay visible and cancellable until it ends. Denied notifications are a silent no-op, as for
  * [PlaybackRefusalNotifier].
+ *
+ * An ongoing notification outlives a killed process, so the countdown carries a timeout: the system removes it once
+ * the deadline and the fade are past, even with nobody left to cancel it.
  */
 class SleepTimerNotifier(
     private val context: Context,
@@ -86,6 +89,8 @@ class SleepTimerNotifier(
     private val chapter: Flow<ChapterName?>,
     private val strings: SystemStringsHolder,
     private val scope: CoroutineScope,
+    /** Wall-clock milliseconds; the countdown's timeout is measured from it. */
+    private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
     private val notificationManager: NotificationManager?
         get() = context.getSystemService(NotificationManager::class.java)
@@ -135,6 +140,7 @@ class SleepTimerNotifier(
                     .setShowWhen(true)
                     .setUsesChronometer(true)
                     .setChronometerCountDown(true)
+                    .setTimeoutAfter((notice.deadlineMs - nowMs()).coerceAtLeast(0) + SLEEP_FADE_DURATION_MS)
                     .addAction(action(SleepTimerActionReceiver.ACTION_ADD_TEN, words.sleepAddTen))
                     .addAction(action(SleepTimerActionReceiver.ACTION_CANCEL, words.sleepCancel))
             }
