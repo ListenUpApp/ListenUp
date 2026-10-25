@@ -71,6 +71,13 @@ final class HostedView {
         await settle()
     }
 
+    /// The window's bounds less its safe area: the room the content really has. Asymmetric — the closed iPhone Duo's
+    /// vertical bar reserves a strip down one edge — so a test measures against this, never `bounds.width` less a
+    /// symmetric margin, and never assumes the left inset equals the right.
+    var usableBounds: CGRect {
+        window.bounds.inset(by: window.safeAreaInsets)
+    }
+
     /// Lets SwiftUI lay out, render, and publish its accessibility nodes.
     func settle() async {
         for _ in 0..<4 {

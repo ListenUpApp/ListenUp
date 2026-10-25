@@ -7,6 +7,11 @@ import CoreGraphics
 /// size classes, not device type or orientation", and rule 12's width-driven responsiveness. A Pro
 /// Max in landscape reports a regular width yet has ~420pt of height, which is exactly where a
 /// size-class fork went wrong.
+///
+/// A partly folded phone (iPhone Duo) is decided by its fold first, whatever the window size, in the order of
+/// Android's `nowPlayingLayout` (`features/nowplaying/NowPlayingLayout.kt`) — the two are one spec: half open on a
+/// table, the player splits at the hinge (`tabletop`); half open like a book, the player and the chapters take
+/// facing pages (`book`).
 enum PlayerLayoutMode: Equatable {
     /// The player beside the always-visible chapter panel (iPad, and wide Split View or Stage Manager windows). Inside it,
     /// `regularArrangement(playerWidth:isAccessibilitySize:)` decides whether the cover sits beside the controls.
@@ -15,6 +20,10 @@ enum PlayerLayoutMode: Equatable {
     case compactHeight
     /// One column, cover above controls; scrolls when it cannot fit (phones, narrow Split View).
     case stacked
+    /// Half open on a table: what is read on the standing half above the hinge, what is touched on the lying half.
+    case tabletop(hinge: CGRect)
+    /// Half open like a book: the player column and the "Up Next" pane on either side of the hinge.
+    case book(hinge: CGRect)
 
     /// Below this height a wide window puts the cover beside the controls.
     static let compactHeightThreshold: CGFloat = 500
@@ -38,8 +47,19 @@ enum PlayerLayoutMode: Equatable {
     static let coverRange: ClosedRange<CGFloat> = 120...460
     /// The cover inside a scrolling column, where height is no longer the constraint.
     static let preferredScrollingCoverSide: CGFloat = 240
+    /// Clearance either side of the fold, so nothing sits on the crease even when the hinge reports no thickness.
+    static let foldClearance: CGFloat = 16
+    /// The tabletop cover stays a cover, not a wall, on the standing half.
+    static let tabletopCoverMaximum: CGFloat = 360
+    /// The lying half's controls keep a hand's width rather than spanning the screen.
+    static let tabletopControlsMaximumWidth: CGFloat = 560
 
-    static func resolve(size: CGSize, isAccessibilitySize: Bool) -> PlayerLayoutMode {
+    static func resolve(size: CGSize, isAccessibilitySize: Bool, fold: PlayerFold = .none) -> PlayerLayoutMode {
+        switch fold {
+        case .tabletop(let hinge): return .tabletop(hinge: hinge)
+        case .book(let hinge): return .book(hinge: hinge)
+        case .none: break
+        }
         if size.height < compactHeightThreshold, size.width > size.height {
             return .compactHeight
         }

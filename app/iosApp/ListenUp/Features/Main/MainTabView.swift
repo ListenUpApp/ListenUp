@@ -17,6 +17,7 @@ struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(PushTapRouter.self) private var pushTapRouter
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var shell = MainShellModel()
     @State private var playerObserver: PlayerObserver?
@@ -59,12 +60,22 @@ struct MainTabView: View {
         }
     }
 
-    /// A regular-width iPad window shows the sidebar; an iPhone (in either orientation) and a narrow
-    /// iPad window (1/3 Split View) the tab bar.
+    /// A window that is regular in both directions (an iPad full screen, the open iPhone Duo) shows
+    /// the sidebar; a phone in either orientation, the closed Duo and a narrow iPad window (1/3
+    /// Split View) the tab bar.
     private var usesSidebar: Bool {
         MainShellModel.usesSidebar(
             horizontalSizeClass: horizontalSizeClass,
-            isPhone: UIDevice.current.userInterfaceIdiom == .phone
+            verticalSizeClass: verticalSizeClass
+        )
+    }
+
+    /// Whether the sidebar lists its sections: the tab bar's own answer, or the sidebar-first placement's.
+    private var sidebarListsSections: Bool {
+        SidebarSections.areListed(
+            tabBarSaysShowing: isTabBarShowingSections,
+            usesSidebar: usesSidebar,
+            placesSidebarFirst: SidebarFirstTabBar.isAvailable
         )
     }
 
@@ -77,7 +88,7 @@ struct MainTabView: View {
         LibrarySidebarBadges.forPlacement(
             counts: libraryObserver?.sectionCounts.counts ?? .zero,
             heldCount: heldCount,
-            showingSections: isTabBarShowingSections
+            showingSections: sidebarListsSections
         )
     }
 
@@ -124,6 +135,8 @@ struct MainTabView: View {
         .environment(\.restrictedBooks, restrictedBooks)
         .task { await shareLinks.load() }
         .tabViewStyle(.sidebarAdaptable)
+        .modifier(SidebarFirstTabBar(usesSidebar: usesSidebar))
+        .environment(\.sidebarListsSections, sidebarListsSections)
         .tabViewCustomization($sidebarCustomization)
         // HIG, Tab bars: an attached accessory "like the MiniPlayer in Music" moves inline with
         // the tab bar when it minimizes on scroll.
@@ -188,7 +201,7 @@ struct MainTabView: View {
             }
             restoreNavigationOnce()
         }
-        .onChange(of: isTabBarShowingSections) { _, showing in
+        .onChange(of: sidebarListsSections) { _, showing in
             shell.adaptToSidebarSections(showing: showing)
         }
         .onChange(of: usesSidebar, initial: true) { _, usesSidebar in
@@ -270,7 +283,7 @@ struct MainTabView: View {
             // "Waiting for you to release", is the inbox screen's own subtitle: a sidebar entry carries one line.
             if InboxPlacement.showsServerSection(
                 isAdmin: inboxBadge?.isAdmin == true,
-                showingSections: isTabBarShowingSections
+                showingSections: sidebarListsSections
             ) {
                 TabSection(String(localized: "common.server")) {
                     SwiftUI.Tab(ShellTab.adminInbox.title, systemImage: "tray.full", value: ShellTab.adminInbox) {
@@ -384,6 +397,35 @@ private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
             content.tabViewBottomAccessory(isEnabled: isEnabled, content: accessory)
         } else if isEnabled {
             content.tabViewBottomAccessory(content: accessory)
+        } else {
+            content
+        }
+    }
+}
+
+/// Opens on the sidebar instead of the floating tab bar when the shell decided on one (a window
+/// that is regular in both directions: an iPad full screen, the open iPhone Duo), from the iOS 27
+/// SDK. A Pro Max iPhone in landscape and the closed Duo keep the automatic tab bar, and earlier
+/// systems keep the `.sidebarAdaptable` default.
+///
+/// The tab view's identity follows the placement. Changing `defaultTabBarPlacement` on a live tab view crashed the
+/// app when the Duo folded: UIKit rebuilt the tab items inside the trait pass and threw (`-[UITabBarController
+/// _tabs_rebuildTabBarItemsAnimated:]`, "insertObject:atIndex: object cannot be nil", iOS 27.1). Deferring the change
+/// by a main-actor turn did not help, and neither did keeping the tab set constant, so a placement change builds a
+/// fresh tab view instead. The shell model owns the selected tab and every stack, so nothing the person is on is lost.
+private struct SidebarFirstTabBar: ViewModifier {
+    let usesSidebar: Bool
+
+    /// Whether this system places the sidebar first (`defaultTabBarPlacement`, iOS 27).
+    static var isAvailable: Bool {
+        if #available(iOS 27.0, *) { true } else { false }
+    }
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.0, *) {
+            content
+                .defaultTabBarPlacement(usesSidebar ? .sidebar : .automatic)
+                .id(usesSidebar)
         } else {
             content
         }

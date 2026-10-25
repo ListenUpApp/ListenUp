@@ -30,7 +30,11 @@ struct PlayerSheetsAccessibilityTests {
         defer { hosted.close() }
         let close = try #require(hosted.stop(labelled: "Close"), "\(hosted.tree)")
         #expect(close.isButton)
-        #expect(close.frame.minY < 120 && close.frame.maxX > 300, "\(close.frame)")
+        // In the top bar, or — on the closed iPhone Duo, whose bars run down the trailing edge — in the vertical strip,
+        // which begins below the status area and so sits lower; either way at the trailing end.
+        let isInVerticalStrip = hosted.window.safeAreaInsets.right > 0
+        #expect(isInVerticalStrip || close.frame.minY < 120, "\(close.frame)")
+        #expect(close.frame.maxX > 300, "\(close.frame)")
         #expect(close.frame.width >= 36 && close.frame.height >= 36, "\(close.frame)")
     }
 

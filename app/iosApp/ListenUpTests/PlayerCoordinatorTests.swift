@@ -390,6 +390,24 @@ struct StopDeactivatesSessionTests {
         #expect(await harness.engine.didUnload)
     }
 
+    /// The place is saved last, during teardown — exactly when the task running it is likeliest to be
+    /// cancelled. The cancellation must not reach the save, or up to 5 s of listening is lost
+    /// (Android runs the same save under `NonCancellable`).
+    @Test func stopFinishesTheSaveWhenItsTaskIsCancelled() async throws {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 4321))
+        harness.progress.holdsSaves = true
+
+        let stopping = Task { await harness.coordinator.stop() }
+        await harness.progress.waitForSaveEntered()
+        stopping.cancel()
+        harness.progress.releaseHeldSave()
+        await stopping.value
+
+        #expect(harness.progress.savedNow.map(\.0) == ["book1"])
+        #expect(harness.progress.cancelledSaves.isEmpty, "the teardown save saw its caller's cancellation")
+    }
+
     /// Sign-out's stop starts in Swift, so it tells the shared player the engine is empty.
     @Test func swiftInitiatedStopReportsUnloaded() async throws {
         let harness = PlayerHarness()

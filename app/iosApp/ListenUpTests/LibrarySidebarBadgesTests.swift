@@ -3,6 +3,28 @@ import Testing
 
 /// The iPad sidebar's badges: a count on every section while the sidebar lists them, the held count on Server › Inbox;
 /// only the held count, on the collapsed Library item, when it hides.
+@Suite("Sidebar sections")
+struct SidebarSectionsTests {
+    @Test func theTabBarSayingSoIsEnough() {
+        #expect(SidebarSections.areListed(tabBarSaysShowing: true, usesSidebar: false, placesSidebarFirst: false))
+    }
+
+    /// SwiftUI's `isTabBarShowingSections` answers false on the iOS 27 sidebar-first placement even while the sidebar is
+    /// on screen (iPhone Duo, open, iOS 27.1: `tabBarPlacement` reports `bottomBar`), so the shell also reads it from
+    /// its own regular-by-regular decision.
+    @Test func theOpenDuoListsSectionsEvenWhenTheEnvironmentSaysNo() {
+        #expect(SidebarSections.areListed(tabBarSaysShowing: false, usesSidebar: true, placesSidebarFirst: true))
+    }
+
+    @Test func aPhoneKeepsTheTabBarsAnswer() {
+        #expect(!SidebarSections.areListed(tabBarSaysShowing: false, usesSidebar: false, placesSidebarFirst: true))
+    }
+
+    @Test func beforeSidebarFirstPlacementTheTabBarsAnswerStands() {
+        #expect(!SidebarSections.areListed(tabBarSaysShowing: false, usesSidebar: true, placesSidebarFirst: false))
+    }
+}
+
 @Suite("Library sidebar badges")
 struct LibrarySidebarBadgesTests {
     let counts = LibrarySectionCountsValue(books: 248, series: 42, authors: 132, narrators: 97)

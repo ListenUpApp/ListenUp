@@ -134,7 +134,8 @@ fun BookDetailScreen(
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
-    onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    /** Opens the in-app reader on a downloaded document, titled with this book's name. */
+    onOpenDocumentViewer: (localPath: String, bookTitle: String) -> Unit = { _, _ -> },
     /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
     landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
@@ -166,7 +167,9 @@ fun BookDetailScreen(
         viewModel.navActions.collect { action ->
             when (action) {
                 is BookDetailNavAction.OpenDocumentViewer -> {
-                    onOpenDocumentViewer(action.localPath)
+                    // The reader is titled with this book's name, as iOS's is.
+                    val title = (viewModel.state.value as? BookDetailUiState.Ready)?.run { book.title }.orEmpty()
+                    onOpenDocumentViewer(action.localPath, title)
                 }
 
                 is BookDetailNavAction.ShowViewerComingSoon -> {

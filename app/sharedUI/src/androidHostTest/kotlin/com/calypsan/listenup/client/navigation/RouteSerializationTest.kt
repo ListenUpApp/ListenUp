@@ -127,5 +127,5 @@ internal fun sampleRoutes(): List<Route> =
         add(EditProfile)
 
         // Document viewer (Android-only PDF viewer)
-        add(DocumentViewer(localPath = "/data/data/com.example/cache/doc.pdf"))
+        add(DocumentViewer(localPath = "/data/data/com.example/cache/doc.pdf", title = "The Salt Roads"))
     }

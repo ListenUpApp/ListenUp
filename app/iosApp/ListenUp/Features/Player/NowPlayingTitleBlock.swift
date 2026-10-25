@@ -23,6 +23,17 @@ struct NowPlayingTitleBlock: View {
     var onViewSeries: (String) -> Void = { _ in }
     /// Dismiss Now Playing and open the contributor.
     let onViewContributor: (String) -> Void
+    /// How much of the block shows.
+    var form: Form = .full
+
+    /// How much of the title block shows.
+    enum Form {
+        /// Title, bylines and chapter line, leading.
+        case full
+        /// One line each of title and chapter, centred, no bylines: read at a distance on a tabletop fold's standing
+        /// half, as Android's tabletop player does.
+        case oneLine
+    }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -69,18 +80,21 @@ struct NowPlayingTitleBlock: View {
 
     var body: some View {
         let isLarge = dynamicTypeSize.isAccessibilitySize
-        VStack(alignment: .leading, spacing: 3) {
-            if showsSeries, let series = observer.series.first {
+        let isOneLine = form == .oneLine
+        VStack(alignment: isOneLine ? .center : .leading, spacing: 3) {
+            if showsSeries, !isOneLine, let series = observer.series.first {
                 seriesLink(series)
             }
             Text(observer.bookTitle)
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
-                .lineLimit(isLarge ? 3 : 2)
+                .lineLimit(isOneLine ? 1 : (isLarge ? 3 : 2))
                 .accessibilityAddTraits(.isHeader)
 
-            byline(lead: nil, observer.authors)
-            byline(lead: String(localized: "player.np_read_by"), observer.narrators)
+            if !isOneLine {
+                byline(lead: nil, observer.authors)
+                byline(lead: String(localized: "player.np_read_by"), observer.narrators)
+            }
 
             Text(Self.chapterLine(
                 number: observer.chapterIndex + 1,
@@ -91,10 +105,10 @@ struct NowPlayingTitleBlock: View {
             ))
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.primary)
-            .lineLimit(isLarge ? 3 : 1)
+            .lineLimit(isLarge && !isOneLine ? 3 : 1)
             .padding(.top, Spacing.xs)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: isOneLine ? .center : .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
 

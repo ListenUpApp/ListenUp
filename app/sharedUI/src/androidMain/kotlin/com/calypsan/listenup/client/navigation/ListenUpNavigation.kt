@@ -70,6 +70,7 @@ import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.ProvideRestrictedBookIds
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
+import com.calypsan.listenup.client.design.components.isMiniPlayerShown
 import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -715,7 +716,6 @@ private fun AuthenticatedNavigation(
     // latch the measured footprint so transient zero sizes during the slide-out animation don't collapse the inset.
     val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
     val playerExpanded by nowPlayingViewModel.expanded.collectAsStateWithLifecycle()
-    val barVisible = playerState is PlayerUiState.Loaded && !playerExpanded
     var latchedFootprint by remember { mutableStateOf(DefaultNowPlayingFootprint) }
 
     // AppStartupViewModel holds the library-setup check result across Activity re-creations.
@@ -732,6 +732,14 @@ private fun AuthenticatedNavigation(
     // (rubric §Navigation rule); the back stack survives when isChecking toggles,
     // preventing navigation position from being lost on app resume.
     val backStack = rememberNavBackStack(Shell)
+    // The PDF reader carries its own player, so the mini-player gives way to it there.
+    val isReaderShowing = backStack.lastOrNull() is DocumentViewer
+    val barVisible =
+        isMiniPlayerShown(
+            isBookLoaded = playerState is PlayerUiState.Loaded,
+            isNowPlayingExpanded = playerExpanded,
+            isReaderShowing = isReaderShowing,
+        )
 
     // Pop the banner-pushed re-auth Login entry the moment the session is restored,
     // landing the user back on the shell exactly where they left off.
@@ -1143,6 +1151,14 @@ private fun BoxScope.AuthenticatedNavOverlays(
     onRetryLibrarySetupCheck: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit,
 ) {
+    // A reader opened from Now Playing returns to it when it is left, as iOS's reader over Now Playing does.
+    val top = backStack.lastOrNull()
+    var previousTop by remember { mutableStateOf(top) }
+    LaunchedEffect(top) {
+        if (reexpandsNowPlaying(leftTop = previousTop, stack = backStack)) nowPlayingViewModel.expand()
+        previousTop = top
+    }
+
     // Now Playing overlay - persistent across all navigation
     // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
     // Also animates up when snackbar is visible
@@ -1150,24 +1166,15 @@ private fun BoxScope.AuthenticatedNavOverlays(
     // as NowPlayingBar in AppShell - prevents state divergence between screens
     NowPlayingHost(
         isShellShowing = backStack.lastOrNull() == Shell,
+        isReaderShowing = backStack.lastOrNull() is DocumentViewer,
         snackbarHostState = snackbarHostState,
-        onNavigateToBook = { bookId ->
-            backStack.add(BookDetail(bookId))
-        },
         onNavigateToSeries = { seriesId ->
             backStack.add(SeriesDetail(seriesId))
         },
         onNavigateToContributor = { contributorId ->
             backStack.add(ContributorDetail(contributorId))
         },
-        onNavigateToDocument = { localPath ->
-            backStack.add(DocumentViewer(localPath))
-        },
-        // The same routes the lapsed-session banner and the admin Inbox entry use.
-        onOpenSignIn = {
-            if (backStack.lastOrNull() != Login) backStack.add(Login)
-        },
-        onOpenInbox = { backStack.add(AdminInbox) },
+        navigation = remember(backStack) { backStack.playerNavigation() },
         viewModel = nowPlayingViewModel,
         onBarFootprintChanged = onBarFootprintChanged,
     )

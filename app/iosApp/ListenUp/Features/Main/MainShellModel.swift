@@ -157,12 +157,18 @@ final class MainShellModel {
     /// Whether the shell shows the sidebar's tabs (one entry per Library section, plus Downloads and
     /// Settings) rather than the compact tab bar's.
     ///
-    /// Only an iPad (or a future Mac) window at regular width has a sidebar to put them in. A Plus or
-    /// Pro Max iPhone in landscape also reports a regular width, but `.sidebarAdaptable` keeps a tab
-    /// bar on iPhone, so the sidebar's tab set there overflowed into "More" and buried Search,
-    /// Discover and Narrators (HIG, Tab bars: keep the tab bar's tabs the app's top-level sections).
-    static func usesSidebar(horizontalSizeClass: UserInterfaceSizeClass?, isPhone: Bool) -> Bool {
-        horizontalSizeClass == .regular && !isPhone
+    /// The sidebar is for a window that is regular in both directions: an iPad full screen or the
+    /// open iPhone Duo (7.6 inches, regular by regular). A Plus or Pro Max iPhone in landscape also
+    /// reports a regular width, but its height is compact, and `.sidebarAdaptable` keeps a tab bar
+    /// there, so the sidebar's tab set overflowed into "More" and buried Search, Discover and
+    /// Narrators (HIG, Tab bars: keep the tab bar's tabs the app's top-level sections). Deciding from
+    /// the two size classes rather than the device idiom follows HIG, Layout: determine layout from
+    /// size classes, not device type.
+    static func usesSidebar(
+        horizontalSizeClass: UserInterfaceSizeClass?,
+        verticalSizeClass: UserInterfaceSizeClass?
+    ) -> Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
     }
 
     /// Re-homes the selection when the window crosses between the compact tab bar and the sidebar.

@@ -84,13 +84,14 @@ struct FrameEditorAccessibilityTests {
     func sliderSpansTheWidth() async throws {
         let view = await hosted(.ready(Self.photo()))
         defer { view.close() }
-        let width = view.window.bounds.width
+        // The room inside the safe area: the closed iPhone Duo keeps a strip down one edge for its vertical bar.
+        let usable = view.usableBounds
         let slider = try #require(view.stop(labelled: "Zoom"), "\(view.tree)")
         let reset = try #require(view.stop(labelled: "Reset"), "\(view.tree)")
         // Inside ~20 pt margins and the two magnifier glyphs, the track keeps the rest of the width.
-        #expect(slider.frame.width >= width - 120, "slider \(slider.frame) in a \(width)-wide window")
+        #expect(slider.frame.width >= usable.width - 120, "slider \(slider.frame) in a \(usable) usable area")
         #expect(reset.frame.minY >= slider.frame.maxY)
-        #expect(abs(reset.frame.midX - width / 2) < 2)
+        #expect(abs(reset.frame.midX - usable.midX) < 2)
     }
 
     @Test("on iPad the zoom slider keeps at least 300 pt")

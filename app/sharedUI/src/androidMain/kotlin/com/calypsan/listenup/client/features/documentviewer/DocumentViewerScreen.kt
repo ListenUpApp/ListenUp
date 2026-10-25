@@ -16,10 +16,22 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.calypsan.listenup.client.foldable.LocalFold
+import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -55,6 +67,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.features.nowplaying.OverlayDispatch
+import com.calypsan.listenup.client.features.nowplaying.PlayerEventsEffect
+import com.calypsan.listenup.client.features.nowplaying.PlayerNavigation
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
@@ -91,17 +106,23 @@ import org.koin.compose.viewmodel.koinViewModel
  * outer [Box], leaving [ZoomableBox]'s own [pointerInput] to handle transform gestures.
  *
  * The bottom dock shows a [ReaderNowPlayingStrip] (when playback is active) above a
- * [ReaderPageScrubber]. Playback state is sourced from this entry's own [PlayerViewModel] — a projection
+ * [ReaderPageScrubber]; with room — a tablet, a foldable half open like a book — the [ReaderListeningPane] sits beside
+ * the page in the strip's place ([ReaderFrame]). Playback state is sourced from this entry's own [PlayerViewModel] — a projection
  * of the one process-wide PlayerSession, so it agrees with the shell's mini player.
  *
  * @param path Absolute path to the local PDF file.
+ * @param title The book's title, shown in the top bar.
  * @param onBack Called when the user taps the navigation-icon back button.
+ * @param playerNavigation Where this entry's player events lead (Sign in from the strip, a problem card's way out) —
+ *   the same places the mini-player's lead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DocumentViewerScreen(
     path: String,
+    title: String,
     onBack: () -> Unit,
+    playerNavigation: PlayerNavigation,
 ) {
     val renderMutex = remember(path) { Mutex() }
     val document by rememberPdfDocument(path, renderMutex)
@@ -119,38 +140,39 @@ internal fun DocumentViewerScreen(
     // recompose the page list — the same deferral NowPlayingHost uses.
     val nowPlayingProgress = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
+    val nowPlayingOverlay by nowPlayingViewModel.overlay.collectAsStateWithLifecycle()
+    val playerActions = remember(nowPlayingViewModel) { nowPlayingViewModel.readerPlayerActions() }
+    // This entry's player is its own instance, so its events are collected here, not by the shell's host.
+    PlayerEventsEffect(viewModel = nowPlayingViewModel, navigation = playerNavigation)
+
     var chromeVisible by remember { mutableStateOf(true) }
     var showGrid by remember { mutableStateOf(false) }
 
-    Scaffold(
+    ReaderFrame(
+        state = playerState,
+        progress = { nowPlayingProgress.value },
+        actions = playerActions,
+        chromeVisible = chromeVisible,
         topBar = {
             ReaderTopBar(
-                title = basenameOf(path),
+                // The book's name, as iOS titles its reader; the file name (an id) only if that was unknown.
+                title = title.ifBlank { basenameOf(path) },
                 onBack = onBack,
                 chromeVisible = chromeVisible,
                 onGrid = { showGrid = true },
             )
         },
-        bottomBar = {
-            ReaderBottomDock(
-                chromeVisible = chromeVisible,
-                nowPlayingState = playerState,
-                nowPlayingProgress = { nowPlayingProgress.value },
-                onPrimary = nowPlayingViewModel::onPrimary,
-                onSkipBack = { nowPlayingViewModel.skipBack() },
-                onKeepListening = nowPlayingViewModel::cancelSleepTimer,
-                wrapper = wrapper,
-                firstVisible = firstVisible,
-                onSeekToIndex = { index -> scope.launch { listState.scrollToItem(index) } },
-            )
+        scrubber = {
+            if (wrapper != null && wrapper.pageCount > 0) {
+                ReaderPageScrubber(
+                    currentPage = firstVisible + 1,
+                    pageCount = wrapper.pageCount,
+                    onSeekToIndex = { index -> scope.launch { listState.scrollToItem(index) } },
+                )
+            }
         },
-    ) { paddingValues ->
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-        ) {
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (wrapper == null) {
                 if (document == PdfDocument.Opening) OpeningContent() else ErrorContent()
             } else {
@@ -207,6 +229,122 @@ internal fun DocumentViewerScreen(
                         onClose = { showGrid = false },
                     )
                 }
+            }
+        }
+    }
+
+    // The pane's Speed and Sleep open this entry's own sheets, as Now Playing's do.
+    OverlayDispatch(
+        overlay = nowPlayingOverlay,
+        progress = { nowPlayingProgress.value },
+        loaded = playerState as? PlayerUiState.Loaded,
+        viewModel = nowPlayingViewModel,
+        onNavigateToContributor = {},
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+/**
+ * The reader's frame: the top bar over the [pages], and the player either as the strip in the bottom dock above the
+ * [scrubber] or, when the screen has room ([readerLayout]), as the [ReaderListeningPane] beside the page with the
+ * [scrubber] under the page. The window and the fold are read here, as Now Playing reads them.
+ *
+ * @param progress reads the playback position; only the strip's and the pane's leaves call it.
+ */
+@Composable
+internal fun ReaderFrame(
+    state: PlayerUiState,
+    progress: () -> PlayerProgress,
+    actions: ReaderPlayerActions,
+    chromeVisible: Boolean,
+    topBar: @Composable () -> Unit,
+    scrubber: @Composable () -> Unit,
+    pages: @Composable () -> Unit,
+) {
+    val loaded = state as? PlayerUiState.Loaded
+    val layout = readerLayout(currentWindowAdaptiveInfoV2().windowSizeClass, LocalFold.current, loaded != null)
+    if (layout is ReaderLayout.Beside && loaded != null) {
+        Scaffold(topBar = topBar) { paddingValues ->
+            ReaderBeside(
+                split = layout.splitAt,
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                page = {
+                    Column(Modifier.fillMaxSize()) {
+                        Box(Modifier.weight(1f).fillMaxWidth()) { pages() }
+                        ReaderBottomDock(chromeVisible = chromeVisible) { scrubber() }
+                    }
+                },
+                pane = { ReaderListeningPane(state = loaded, progress = progress, actions = actions) },
+            )
+        }
+    } else {
+        Scaffold(
+            topBar = topBar,
+            bottomBar = {
+                ReaderBottomDock(chromeVisible = chromeVisible) {
+                    ReaderNowPlayingStrip(
+                        state = state,
+                        progress = progress,
+                        onPrimary = actions.onPrimary,
+                        onSkipBack = actions.onSkipBack,
+                        onKeepListening = actions.onKeepListening,
+                    )
+                    scrubber()
+                }
+            },
+        ) { paddingValues ->
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+            ) {
+                pages()
+            }
+        }
+    }
+}
+
+/** The listening pane's width beside the page in a wide window. */
+private val READER_PANE_WIDTH = 360.dp
+
+/** Clearance either side of the fold, so nothing sits on the crease even when the hinge reports no thickness. */
+private val FOLD_CLEARANCE = 16.dp
+
+/**
+ * The [page] and the [pane] side by side, divided at [split]. A hinge's bounds are window pixels, so the frame reads
+ * its own left edge in the window to place the split; that comes from the fold, never from measuring the content.
+ */
+@Composable
+private fun ReaderBeside(
+    split: ReaderSplit,
+    modifier: Modifier,
+    page: @Composable () -> Unit,
+    pane: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    var frameLeft by remember { mutableIntStateOf(0) }
+    BoxWithConstraints(modifier.onPlaced { frameLeft = it.positionInWindow().x.roundToInt() }) {
+        val columns =
+            with(density) {
+                readerColumns(
+                    split = split,
+                    left = frameLeft,
+                    width = constraints.maxWidth,
+                    paneWidth = READER_PANE_WIDTH.roundToPx(),
+                    clearance = FOLD_CLEARANCE.roundToPx(),
+                    layoutDirection = layoutDirection,
+                )
+            }
+        Row(Modifier.fillMaxSize()) {
+            with(density) {
+                Box(Modifier.width(columns.page.toDp()).fillMaxHeight()) { page() }
+                Spacer(Modifier.width(columns.gap.toDp()))
+                Box(Modifier.width(columns.pane.toDp()).fillMaxHeight()) { pane() }
             }
         }
     }
@@ -338,41 +476,22 @@ private fun ReaderTopBar(
 // ---------------------------------------------------------------------------
 
 /**
- * Animating bottom dock containing [ReaderNowPlayingStrip] + [ReaderPageScrubber].
+ * Animating bottom dock: the [ReaderNowPlayingStrip] above the [ReaderPageScrubber], or the scrubber alone under the
+ * page when the listening pane takes the strip's place.
  */
 @Composable
 private fun ReaderBottomDock(
     chromeVisible: Boolean,
-    nowPlayingState: PlayerUiState,
-    nowPlayingProgress: () -> PlayerProgress,
-    onPrimary: () -> Unit,
-    onSkipBack: () -> Unit,
-    onKeepListening: () -> Unit,
-    wrapper: PdfRendererWrapper?,
-    firstVisible: Int,
-    onSeekToIndex: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     AnimatedVisibility(
         visible = chromeVisible,
+        modifier = modifier,
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            ReaderNowPlayingStrip(
-                state = nowPlayingState,
-                progress = nowPlayingProgress,
-                onPrimary = onPrimary,
-                onSkipBack = onSkipBack,
-                onKeepListening = onKeepListening,
-            )
-            if (wrapper != null && wrapper.pageCount > 0) {
-                ReaderPageScrubber(
-                    currentPage = firstVisible + 1,
-                    pageCount = wrapper.pageCount,
-                    onSeekToIndex = onSeekToIndex,
-                )
-            }
-        }
+        Column(modifier = Modifier.fillMaxWidth(), content = content)
     }
 }
 

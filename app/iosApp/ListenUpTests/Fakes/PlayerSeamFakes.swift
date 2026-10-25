@@ -202,8 +202,36 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64) {
         finished.append((bookId, positionMs, durationMs)); gate.signal()
     }
+    /// Saves the caller's cancellation reached. The real bridged Kotlin suspend checks for cancellation
+    /// on entry and cancels its coroutine when the calling task is cancelled, so each of these is a
+    /// place the real reporter would have lost.
+    private(set) var cancelledSaves: [(String, Int64)] = []
+    /// While true, `savePositionNow` holds each save open until `releaseHeldSave()` — a slow write a
+    /// test can cancel the caller in the middle of.
+    var holdsSaves = false
+    private var isSaveReleased = false
+    private var isSaveEntered = false
+
     func savePositionNow(bookId: String, positionMs: Int64) async {
+        if holdsSaves {
+            isSaveEntered = true; gate.signal()
+            await gate.wait { [weak self] in self?.isSaveReleased ?? true }
+        }
+        guard !Task.isCancelled else {
+            cancelledSaves.append((bookId, positionMs)); gate.signal()
+            return
+        }
         savedNow.append((bookId, positionMs)); gate.signal()
+    }
+
+    /// Suspend until a held save has been entered (see `holdsSaves`).
+    func waitForSaveEntered() async {
+        await gate.wait { [weak self] in self?.isSaveEntered ?? true }
+    }
+
+    /// Let a held save finish.
+    func releaseHeldSave() {
+        isSaveReleased = true; gate.signal()
     }
 
     /// Suspend until playback has been reported started for `bookId`.

@@ -12,7 +12,9 @@ import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
 import com.calypsan.listenup.client.features.bulkedit.bulkEditAppliedMessage
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
+import com.calypsan.listenup.client.navigation.playerNavigation
 import com.calypsan.listenup.client.navigation.popFrom
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookDetailFocus
@@ -86,8 +88,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onSeeAllReaders = { id -> backStack.add(BookReaders(id)) },
                 onFindHardcoverMatch = { id -> backStack.add(HardcoverMatch(id)) },
                 onCollectionClick = { id -> backStack.add(AdminCollectionDetail(id)) },
-                onOpenDocumentViewer = { localPath ->
-                    backStack.add(DocumentViewer(localPath))
+                onOpenDocumentViewer = { localPath, bookTitle ->
+                    backStack.add(DocumentViewer(localPath, bookTitle))
                 },
                 onEditChaptersClick = { id ->
                     backStack.add(ChapterEditor(id))
@@ -98,9 +100,11 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     entry<DocumentViewer> { args ->
         DocumentViewerScreen(
             path = args.localPath,
+            title = args.title,
             onBack = {
                 backStack.popFrom(args)
             },
+            playerNavigation = remember(backStack) { backStack.playerNavigation() },
         )
     }
     entry<BrowseFacet> { args ->

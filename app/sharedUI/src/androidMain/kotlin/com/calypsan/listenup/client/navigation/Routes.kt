@@ -531,8 +531,23 @@ data object EditProfile : Route
  * so the path survives round-trips through the back-stack without encoding issues.
  *
  * @property localPath Absolute path to the local PDF file to display.
+ * @property title The reader's title: the book's, as iOS titles its reader — the file's own name is an id.
+ * @property opensFromNowPlaying Opened from the expanded Now Playing, which collapsed to show it; leaving the reader
+ *   expands it again ([reexpandsNowPlaying]).
  */
 @Serializable
 data class DocumentViewer(
     val localPath: String,
+    val title: String,
+    val opensFromNowPlaying: Boolean = false,
 ) : Route
+
+/**
+ * Whether Now Playing expands again now that [leftTop] is no longer the top of [stack]: it was a reader opened from
+ * Now Playing and it has left the stack (backed out of, by the button or the system back), rather than been covered
+ * by a screen pushed over it.
+ */
+internal fun reexpandsNowPlaying(
+    leftTop: NavKey?,
+    stack: List<NavKey>,
+): Boolean = leftTop is DocumentViewer && leftTop.opensFromNowPlaying && leftTop !in stack

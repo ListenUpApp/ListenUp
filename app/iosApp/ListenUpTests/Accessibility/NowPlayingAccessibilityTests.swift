@@ -37,7 +37,9 @@ struct NowPlayingAccessibilityTests {
         defer { hosted.close() }
         for label in [String(localized: "player.collapse"), String(localized: "player.more_options")] {
             let stop = try #require(hosted.stop(labelled: label), "\(hosted.tree)")
-            #expect(stop.frame.width >= 44 && stop.frame.height >= 44, "\(label): \(stop.frame)")
+            // Rounded: a layout that starts on a fractional point (the closed Duo's asymmetric safe area) measures
+            // a 44pt target as 43.99999999999999.
+            #expect(stop.frame.width.rounded() >= 44 && stop.frame.height.rounded() >= 44, "\(label): \(stop.frame)")
         }
     }
 

@@ -61,7 +61,12 @@ struct MiniPlayerAccessibilityTests {
         defer { hosted.close() }
         let book = try #require(hosted.stops(labelContaining: "The Way of Kings").first, "\(hosted.tree)")
         // The text column: past the 34pt cover and its 10pt gap, where the hairline's played part runs beneath it.
-        let column = CGRect(x: book.frame.minX + 46, y: book.frame.minY - 8, width: 110, height: book.frame.height + 16)
+        // It ends 8pt short of the skip-back button where the accessory is narrower than 110pt of text (beside the
+        // closed iPhone Duo's vertical bar), so the button's glyph is not read as a band of the line's ink.
+        let back = try #require(hosted.stop(labelled: skipBackLabel), "\(hosted.tree)")
+        let columnStart = book.frame.minX + 46
+        let columnWidth = min(110, back.frame.minX - 8 - columnStart)
+        let column = CGRect(x: columnStart, y: book.frame.minY - 8, width: columnWidth, height: book.frame.height + 16)
         let runs = InkRuns(hosted.window).rows(in: column)
         // Title, line, hairline: three separate bands of ink, the last two at least 2pt apart.
         try #require(runs.count >= 3, "ink bands \(runs) in \(column)")

@@ -54,18 +54,18 @@ private val SnackbarHeight = 48.dp
  *
  * @param isShellShowing Whether the shell is the top destination: on a phone its bottom navigation is showing (and
  * the shell draws the bar itself); on a wide window its rail is, and the toolbar floats beside it.
+ * @param isReaderShowing Whether the PDF reader is the top destination. It carries its own strip or listening pane, so
+ * neither mini-player shows over it (see `isMiniPlayerShown`).
  */
 @Suppress("LongMethod")
 @Composable
-fun NowPlayingHost(
+internal fun NowPlayingHost(
     isShellShowing: Boolean,
+    isReaderShowing: Boolean,
     snackbarHostState: SnackbarHostState?,
-    onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
-    onNavigateToDocument: (localPath: String) -> Unit,
-    onOpenSignIn: () -> Unit,
-    onOpenInbox: () -> Unit,
+    navigation: PlayerNavigation,
     viewModel: PlayerViewModel,
     onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -78,30 +78,7 @@ fun NowPlayingHost(
     // scrubber + time labels that actually read it — never this host or the player chrome.
     val provideProgress = { progressState.value }
 
-    // Consume one-shot navigation events from the ViewModel.
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is PlayerEvent.OpenDocumentViewer -> {
-                    onNavigateToDocument(event.localPath)
-                }
-
-                is PlayerEvent.NavigateToBook -> {
-                    viewModel.collapse()
-                    onNavigateToBook(event.bookId)
-                }
-
-                PlayerEvent.OpenSignIn -> {
-                    onOpenSignIn()
-                }
-
-                PlayerEvent.OpenInbox -> {
-                    viewModel.collapse()
-                    onOpenInbox()
-                }
-            }
-        }
-    }
+    PlayerEventsEffect(viewModel = viewModel, navigation = navigation)
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -179,8 +156,9 @@ fun NowPlayingHost(
             }
         }
 
-        // Mini player: the floating toolbar on wide windows and TV, the docked phone bar otherwise.
-        if (useToolbar) {
+        // Mini player: the floating toolbar on wide windows and TV, the docked phone bar otherwise — and neither over
+        // the PDF reader, whose own player replaces it (nothing to measure then; the navigation root reserves no space).
+        if (useToolbar && !isReaderShowing) {
             val density = LocalDensity.current
             NowPlayingToolbar(
                 state = state,
@@ -207,7 +185,7 @@ fun NowPlayingHost(
                         // TV's leanback shell places its own rail; the toolbar spans the window there (M18).
                         .padding(nowPlayingToolbarPadding(besideRail = isShellShowing && !isTv)),
             )
-        } else if (!isShellShowing) {
+        } else if (!isShellShowing && !isReaderShowing) {
             // Detail screens: no navigation bar under it, so the docked bar sits at the bottom edge and runs under the
             // gesture area, padding its own row clear of it. Its measured footprint therefore already includes that
             // inset, which is what LocalNowPlayingInsets must span for ListenUpScaffold to clear it. (On the shell the
@@ -254,8 +232,59 @@ fun NowPlayingHost(
     }
 }
 
+/**
+ * Where the player's one-shot navigation events lead: the same places from every surface that hosts a
+ * [PlayerViewModel] (`playerNavigation()` on the back stack builds it).
+ */
+internal data class PlayerNavigation(
+    val onNavigateToBook: (String) -> Unit,
+    val onNavigateToDocument: (localPath: String, title: String, opensFromNowPlaying: Boolean) -> Unit,
+    val onOpenSignIn: () -> Unit,
+    val onOpenInbox: () -> Unit,
+)
+
+/**
+ * Consumes the [viewModel]'s one-shot navigation events, routing each through [navigation]. Each surface that owns a
+ * [PlayerViewModel] instance collects its own: Now Playing here, and the PDF reader for its entry's player.
+ */
 @Composable
-private fun OverlayDispatch(
+internal fun PlayerEventsEffect(
+    viewModel: PlayerViewModel,
+    navigation: PlayerNavigation,
+) {
+    LaunchedEffect(viewModel, navigation) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is PlayerEvent.OpenDocumentViewer -> {
+                    // From the expanded player, it steps aside for the reader and comes back when the reader closes.
+                    val opensFromNowPlaying = viewModel.expanded.value
+                    if (opensFromNowPlaying) viewModel.collapse()
+                    // Titled with the playing book's name, as iOS titles the reader it opens from Now Playing.
+                    val title = (viewModel.uiState.value as? PlayerUiState.Loaded)?.run { book.title }.orEmpty()
+                    navigation.onNavigateToDocument(event.localPath, title, opensFromNowPlaying)
+                }
+
+                is PlayerEvent.NavigateToBook -> {
+                    viewModel.collapse()
+                    navigation.onNavigateToBook(event.bookId)
+                }
+
+                PlayerEvent.OpenSignIn -> {
+                    navigation.onOpenSignIn()
+                }
+
+                PlayerEvent.OpenInbox -> {
+                    viewModel.collapse()
+                    navigation.onOpenInbox()
+                }
+            }
+        }
+    }
+}
+
+/** The [viewModel]'s open picker or sheet, for Now Playing and the reader's listening pane alike. */
+@Composable
+internal fun OverlayDispatch(
     overlay: PlayerOverlay,
     progress: () -> PlayerProgress,
     loaded: PlayerUiState.Loaded?,

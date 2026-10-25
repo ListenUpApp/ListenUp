@@ -54,8 +54,9 @@ inline below.
 
 ## iOS idiom & tech
 
-7. **iOS 26 minimum. Swift 6 with strict concurrency. Use the newest platform APIs the
-   floor unlocks.** Concurrency conventions:
+7. **iOS 26 minimum. Built with the Swift 6.4 toolchain (Xcode 27.1) in the Swift 6 language
+   mode, with strict concurrency. Use the newest platform APIs the floor unlocks.**
+   Concurrency conventions:
    - No `nonisolated(unsafe)` shared mutable state. Isolate it (`@MainActor`) or guard it
      (`OSAllocatedUnfairLock`).
    - Funnel framework callbacks (KVO, time observers, notifications) through a **single
