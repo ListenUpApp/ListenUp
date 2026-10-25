@@ -94,7 +94,9 @@ struct SystemIntegrationSessionTests {
 
         info = NowPlayingInfo.chapterScoped(
             title: "The Way of Kings", artist: "Prelude", bookPositionMs: 5_000,
-            chapters: [Chapter(id: "c1", title: "Prelude", duration: 60_000, startTime: 0, partTitle: nil, bookTitle: nil)],
+            chapters: [
+                Chapter(id: "c1", title: "Prelude", duration: 60_000, startTime: 0, partTitle: nil, bookTitle: nil)
+            ],
             bookDurationMs: 60_000, rate: 1.0, artworkPath: nil
         )
         #expect(info.hasPreviousChapter)

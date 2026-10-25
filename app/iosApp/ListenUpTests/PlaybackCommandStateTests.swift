@@ -59,7 +59,8 @@ struct PlaybackCommandStateTests {
 
     /// A chapterless book has no previous chapter: ⌥⌘← dims rather than jump to 0:00.
     @Test func previousChapterIsOffInAChapterlessBook() {
-        let state = PlaybackCommandState.from(snapshot: snapshot(canSkipToNextChapter: false, canSkipToPreviousChapter: false))
+        let chapterless = snapshot(canSkipToNextChapter: false, canSkipToPreviousChapter: false)
+        let state = PlaybackCommandState.from(snapshot: chapterless)
         #expect(!state.hasPreviousChapter)
         #expect(state.canSeek)
     }
@@ -98,15 +99,18 @@ struct PlaybackCommandStateTests {
 
     /// The PDF reader covers the player as a sheet does, so Esc must not close the player behind it: Close Player waits.
     @Test func theDocumentReaderHoldsClosePlayerLikeASheet() {
-        let readerUp = FullScreenPlayerView.isCovered(
-            showsBoostPicker: false, showsChapterList: false, isReadingDocument: true)
+        func covered(boost: Bool = false, chapters: Bool = false, reader: Bool = false) -> Bool {
+            FullScreenPlayerView.isCovered(showsBoostPicker: boost, showsChapterList: chapters, isReadingDocument: reader)
+        }
+        let readerUp = covered(reader: true)
         #expect(readerUp)
-        let state = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: readerUp)
+        let state = PlaybackCommandState.from(
+            snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: readerUp)
         #expect(!state.canClosePlayer)
 
-        #expect(!FullScreenPlayerView.isCovered(showsBoostPicker: false, showsChapterList: false, isReadingDocument: false))
-        #expect(FullScreenPlayerView.isCovered(showsBoostPicker: true, showsChapterList: false, isReadingDocument: false))
-        #expect(FullScreenPlayerView.isCovered(showsBoostPicker: false, showsChapterList: true, isReadingDocument: false))
+        #expect(!covered())
+        #expect(covered(boost: true))
+        #expect(covered(chapters: true))
     }
 
     @Test func playingAndBufferingOfferPause() {
