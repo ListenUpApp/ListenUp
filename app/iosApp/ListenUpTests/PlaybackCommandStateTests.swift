@@ -100,7 +100,8 @@ struct PlaybackCommandStateTests {
     /// The PDF reader covers the player as a sheet does, so Esc must not close the player behind it: Close Player waits.
     @Test func theDocumentReaderHoldsClosePlayerLikeASheet() {
         func covered(boost: Bool = false, chapters: Bool = false, reader: Bool = false) -> Bool {
-            FullScreenPlayerView.isCovered(showsBoostPicker: boost, showsChapterList: chapters, isReadingDocument: reader)
+            FullScreenPlayerView.isCovered(
+                showsBoostPicker: boost, showsChapterList: chapters, isReadingDocument: reader)
         }
         let readerUp = covered(reader: true)
         #expect(readerUp)
