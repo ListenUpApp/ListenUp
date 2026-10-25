@@ -407,6 +407,12 @@ private struct MiniPlayerAccessory<Accessory: View>: ViewModifier {
 /// that is regular in both directions: an iPad full screen, the open iPhone Duo), from the iOS 27
 /// SDK. A Pro Max iPhone in landscape and the closed Duo keep the automatic tab bar, and earlier
 /// systems keep the `.sidebarAdaptable` default.
+///
+/// The tab view's identity follows the placement. Changing `defaultTabBarPlacement` on a live tab view crashed the
+/// app when the Duo folded: UIKit rebuilt the tab items inside the trait pass and threw (`-[UITabBarController
+/// _tabs_rebuildTabBarItemsAnimated:]`, "insertObject:atIndex: object cannot be nil", iOS 27.1). Deferring the change
+/// by a main-actor turn did not help, and neither did keeping the tab set constant, so a placement change builds a
+/// fresh tab view instead. The shell model owns the selected tab and every stack, so nothing the person is on is lost.
 private struct SidebarFirstTabBar: ViewModifier {
     let usesSidebar: Bool
 
@@ -417,7 +423,9 @@ private struct SidebarFirstTabBar: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(iOS 27.0, *) {
-            content.defaultTabBarPlacement(usesSidebar ? .sidebar : .automatic)
+            content
+                .defaultTabBarPlacement(usesSidebar ? .sidebar : .automatic)
+                .id(usesSidebar)
         } else {
             content
         }
