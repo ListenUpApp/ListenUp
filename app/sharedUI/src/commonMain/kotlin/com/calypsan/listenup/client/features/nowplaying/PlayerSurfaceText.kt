@@ -93,14 +93,10 @@ internal fun spokenDuration(duration: Duration): String {
             1 -> stringResource(Res.string.player_spoken_minutes_one)
             else -> stringResource(Res.string.player_spoken_minutes, minutes)
         }
-    return when {
-        hoursWords != null && minutesWords != null -> {
-            stringResource(Res.string.player_spoken_hours_minutes, hoursWords, minutesWords)
-        }
-
-        else -> {
-            hoursWords ?: minutesWords ?: stringResource(Res.string.player_spoken_under_a_minute)
-        }
+    return if (hoursWords != null && minutesWords != null) {
+        stringResource(Res.string.player_spoken_hours_minutes, hoursWords, minutesWords)
+    } else {
+        hoursWords ?: minutesWords ?: stringResource(Res.string.player_spoken_under_a_minute)
     }
 }
 
