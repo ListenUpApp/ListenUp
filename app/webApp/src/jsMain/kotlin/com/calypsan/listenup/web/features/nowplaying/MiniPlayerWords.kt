@@ -5,7 +5,12 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.player.ChapterName
+import com.calypsan.listenup.client.presentation.player.ChapterNaming
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.presentation.player.PlayerChapter
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -156,6 +161,27 @@ private fun chapterWords(
     number: Int?,
     title: String?,
 ): String = title ?: number?.let { "Chapter $it" } ?: "Whole book"
+
+/**
+ * The tab's title while a book plays (spec §5.7, C11): "Bridge Four · The Way of Kings", the chapter as the book names
+ * it; null while it is paused, finished, failing or not loaded, so a paused book does not rename every tab for days.
+ */
+internal fun playingTitleFor(state: PlayerUiState): String? {
+    val loaded = state as? PlayerUiState.Loaded ?: return null
+    val playing = loaded.phase == PlayerPhase.Playing || loaded.phase == PlayerPhase.SleepFading
+    return if (playing) "${surfaceChapterName(loaded.chapter)} · ${loaded.book.title}" else null
+}
+
+/**
+ * What the system surfaces call [chapter] (the browser's media hub, the tab title): the shared `ChapterNaming` rule, in
+ * the mini player's words, so every surface names the chapter alike.
+ */
+internal fun surfaceChapterName(chapter: PlayerChapter): String =
+    when (val name = ChapterNaming.of(chapter.title, chapter.number, chapter.isWholeBook)) {
+        is ChapterName.Titled -> name.title
+        is ChapterName.Untitled -> chapterWords(name.number, null)
+        ChapterName.WholeBook -> chapterWords(null, null)
+    }
 
 private fun phoneTrailing(
     sleepRemainingMs: Long?,
