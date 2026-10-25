@@ -14,6 +14,13 @@ import io.kotest.matchers.shouldBe
 class TransportProjectionsTest :
     FunSpec({
 
+        context("skipDistanceMs") {
+            test("a skip covers seconds of listening, so seconds × speed of book") {
+                skipDistanceMs(10, 2f) shouldBe 20_000L
+                skipDistanceMs(30, 0.5f) shouldBe 15_000L
+            }
+        }
+
         context("skipTargetMs") {
 
             test("moves by the configured interval at normal speed") {

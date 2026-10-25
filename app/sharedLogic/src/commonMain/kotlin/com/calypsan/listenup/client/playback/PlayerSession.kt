@@ -534,7 +534,7 @@ class PlayerSession(
     fun previousChapter() {
         onPlayer {
             if (movesThePlayhead()) {
-                seekTo(previousChapterTargetMs(positionMs.value, chapters.value))
+                seekTo(ChapterNavigation.previousStartMs(positionMs.value, chapters.value))
             } else {
                 carry(PlaybackMove.PreviousChapter)
             }
@@ -545,7 +545,7 @@ class PlayerSession(
     fun nextChapter() {
         onPlayer {
             if (movesThePlayhead()) {
-                nextChapterTargetMs(positionMs.value, chapters.value)?.let(::seekTo)
+                ChapterNavigation.nextStartMs(positionMs.value, chapters.value)?.let(::seekTo)
             } else {
                 carry(PlaybackMove.NextChapter)
             }
