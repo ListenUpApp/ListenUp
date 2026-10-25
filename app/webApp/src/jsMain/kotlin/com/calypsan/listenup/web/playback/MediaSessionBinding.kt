@@ -43,7 +43,10 @@ internal interface MediaSessionBridge {
 
     fun setSeekToHandler(handler: ((Long) -> Unit)?)
 
-    /** Nothing is loaded: no metadata, and a state of "none", so the OS stops offering a closed book. */
+    /**
+     * Nothing is loaded: no metadata, no position state and a state of "none", so the OS stops offering a closed
+     * book and leaves no stale scrubber behind.
+     */
     fun clear()
 }
 
@@ -132,6 +135,8 @@ private class BrowserMediaSession : MediaSessionBridge {
     override fun clear() {
         session.metadata = null
         session.playbackState = "none"
+        // No arguments clears the position state; the browser keeps the last one otherwise.
+        session.setPositionState()
     }
 }
 
@@ -149,7 +154,8 @@ internal const val MEDIA_SESSION_ARTWORK_PX = 512
  * (§3.3), with next track removed at the last chapter (a `null` handler hides the button). The
  * metadata changes once per chapter and the position on every tick, so the two are collected
  * separately and `distinctUntilChanged` keeps the browser from being rewritten a few times a
- * second. Closing the book clears it all.
+ * second. Closing the book clears it all, the action handlers too: a media key pressed with
+ * nothing loaded reaches no handler, rather than one that acts on a book that is not there.
  */
 internal fun bindMediaSession(
     session: PlaybackSession,
@@ -160,20 +166,26 @@ internal fun bindMediaSession(
 
     fun isGoing(): Boolean = (session.state.value as? PlayerUiState.Loaded)?.phase?.isGoing() == true
 
-    // Not toggles: a headset that repeats "pause", or a browser that sends it while we are already paused, must
-    // not start the book.
-    bridge.setHandler("play") { if (!isGoing()) session.onPlayPause() }
-    bridge.setHandler("pause") { if (isGoing()) session.onPlayPause() }
-    bridge.setHandler("stop") { if (isGoing()) session.onPlayPause() }
-    bridge.setHandler("seekbackward", session.onSkipBack)
-    bridge.setHandler("seekforward", session.onSkipForward)
-    bridge.setHandler("previoustrack", session.onPreviousChapter)
-    bridge.setSeekToHandler { offsetMs ->
-        (session.state.value as? PlayerUiState.Loaded)?.let {
-            session.onSeek(
-                bookPositionInChapterMs(it.chapter, offsetMs),
-            )
-        }
+    /** Registers what the OS may ask of [reach], or unregisters everything when nothing is loaded. */
+    fun answer(reach: TransportReach?) {
+        val loadedNow = reach != null
+        // Not toggles: a headset that repeats "pause", or a browser that sends it while we are already paused, must
+        // not start the book.
+        bridge.setHandler("play", { if (!isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("pause", { if (isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("stop", { if (isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("seekbackward", session.onSkipBack.takeIf { loadedNow })
+        bridge.setHandler("seekforward", session.onSkipForward.takeIf { loadedNow })
+        bridge.setHandler("previoustrack", session.onPreviousChapter.takeIf { loadedNow })
+        bridge.setHandler("nexttrack", session.onNextChapter.takeIf { reach?.hasNext == true })
+        bridge.setSeekToHandler(
+            { offsetMs: Long ->
+                (session.state.value as? PlayerUiState.Loaded)?.let {
+                    session.onSeek(bookPositionInChapterMs(it.chapter, offsetMs))
+                }
+                Unit
+            }.takeIf { loadedNow },
+        )
     }
 
     val job =
@@ -186,9 +198,9 @@ internal fun bindMediaSession(
             }
             launch {
                 loaded
-                    .map { it?.canSkipToNextChapter == true }
+                    .map { state -> state?.let { TransportReach(hasNext = it.canSkipToNextChapter) } }
                     .distinctUntilChanged()
-                    .collect { hasNext -> bridge.setHandler("nexttrack", session.onNextChapter.takeIf { hasNext }) }
+                    .collect(::answer)
             }
             launch {
                 loaded
@@ -225,6 +237,11 @@ private fun PlayerPhase.isGoing(): Boolean =
         this == PlayerPhase.Preparing ||
         this == PlayerPhase.Buffering ||
         this == PlayerPhase.Reconnecting
+
+/** Which chapter moves the loaded book offers the OS: next goes nowhere at the last chapter. */
+private data class TransportReach(
+    val hasNext: Boolean,
+)
 
 /** What the OS is told is playing: changes once per chapter, never on a tick. */
 private data class TrackInfo(

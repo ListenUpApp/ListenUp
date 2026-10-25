@@ -327,6 +327,8 @@ class MediaSessionBindingTest :
                     scope = scope,
                 )
             try {
+                // The handlers arrive with the loaded book, not at bind time.
+                awaitTrue { bridge.handlers["play"] != null }
                 bridge.handlers.getValue("play")!!.invoke()
                 playPauses shouldBe 1
 
@@ -351,6 +353,8 @@ class MediaSessionBindingTest :
                     scope = scope,
                 )
             try {
+                // The handlers arrive with the loaded book, not at bind time.
+                awaitTrue { bridge.handlers["play"] != null }
                 bridge.handlers.getValue("play")!!.invoke()
                 state.value = dune(phase = PlayerPhase.Paused)
                 bridge.handlers.getValue("pause")!!.invoke()
@@ -374,6 +378,7 @@ class MediaSessionBindingTest :
                     scope = scope,
                 )
             try {
+                awaitTrue { bridge.handlers["stop"] != null }
                 bridge.handlers.getValue("stop")!!.invoke()
 
                 playPauses shouldBe 1
@@ -505,6 +510,57 @@ class MediaSessionBindingTest :
             } finally {
                 dispose()
                 scope.cancel()
+            }
+        }
+
+        test("closing the book unregisters every action, so a media key with nothing loaded does nothing") {
+            val bridge = RecordingMediaSession()
+            val calls = mutableListOf<String>()
+            var playPauses = 0
+            val state = MutableStateFlow<PlayerUiState>(dune(phase = PlayerPhase.Paused))
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose =
+                bindMediaSession(
+                    session = session(state = state, onPlayPause = { playPauses++ }, calls = calls),
+                    bridge = bridge,
+                    scope = scope,
+                )
+            try {
+                awaitTrue { bridge.handlers["nexttrack"] != null }
+
+                state.value = PlayerUiState.NothingLoaded
+
+                // A closed book answers nothing: the OS is told there is no handler, not handed one that acts anyway.
+                awaitTrue { TRANSPORT_ACTIONS.all { it in bridge.handlers && bridge.handlers[it] == null } }
+                bridge.seekTo shouldBe null
+                playPauses shouldBe 0
+                calls shouldBe emptyList()
+
+                // The next book brings them back.
+                state.value = dune(phase = PlayerPhase.Paused)
+                awaitTrue { bridge.handlers["play"] != null && bridge.handlers["previoustrack"] != null }
+                bridge.seekTo shouldNotBe null
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
+        test("the browser's clear also drops the position state, so no stale scrubber is left behind") {
+            val real = browserMediaSession()
+            real shouldNotBe null
+            js(
+                "window.__luPositionStateCalls = [];" +
+                    "navigator.mediaSession.setPositionState = function () {" +
+                    " window.__luPositionStateCalls.push(arguments.length); };",
+            )
+            try {
+                real!!.clear()
+
+                js("window.__luPositionStateCalls").unsafeCast<Array<Int>>().toList() shouldBe listOf(0)
+            } finally {
+                // The own property shadowed the prototype's method; deleting it restores the real one.
+                js("delete navigator.mediaSession.setPositionState; delete window.__luPositionStateCalls;")
             }
         }
 
