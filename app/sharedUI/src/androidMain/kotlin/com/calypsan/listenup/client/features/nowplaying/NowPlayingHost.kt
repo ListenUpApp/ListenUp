@@ -254,8 +254,9 @@ fun NowPlayingHost(
     }
 }
 
+/** The [viewModel]'s open picker or sheet, for Now Playing and the reader's listening pane alike. */
 @Composable
-private fun OverlayDispatch(
+internal fun OverlayDispatch(
     overlay: PlayerOverlay,
     progress: () -> PlayerProgress,
     loaded: PlayerUiState.Loaded?,

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.documentviewer
 
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.foldable.Fold
 import com.calypsan.listenup.client.foldable.Posture
@@ -50,6 +51,42 @@ internal fun readerLayout(
         else -> ReaderLayout.Single
     }
 }
+
+/** The widths of the page, the gap over the hinge, and the listening pane, start to end, in pixels. */
+internal data class ReaderColumns(
+    val page: Int,
+    val gap: Int,
+    val pane: Int,
+)
+
+/**
+ * The columns for [split] across a frame [width] pixels wide whose left edge is at [left] in the window — the hinge's
+ * bounds are window pixels. A hinge keeps [clearance] either side, so nothing sits on the crease even when the fold
+ * reports no thickness; its bounds run left to right, so right to left the page takes the right-hand side of it.
+ * The pane in a wide window is [paneWidth] wide. One spec with iOS's `ReaderColumns`.
+ */
+internal fun readerColumns(
+    split: ReaderSplit,
+    left: Int,
+    width: Int,
+    paneWidth: Int,
+    clearance: Int,
+    layoutDirection: LayoutDirection,
+): ReaderColumns =
+    when (split) {
+        is ReaderSplit.Hinge -> {
+            val leftOfHinge = (split.bounds.left - left - clearance).coerceAtLeast(0)
+            val rightOfHinge = (left + width - split.bounds.right - clearance).coerceAtLeast(0)
+            val (page, pane) =
+                if (layoutDirection == LayoutDirection.Rtl) rightOfHinge to leftOfHinge else leftOfHinge to rightOfHinge
+            ReaderColumns(page = page, gap = (width - page - pane).coerceAtLeast(0), pane = pane)
+        }
+
+        ReaderSplit.TrailingPane -> {
+            val pane = paneWidth.coerceAtMost(width)
+            ReaderColumns(page = width - pane, gap = 0, pane = pane)
+        }
+    }
 
 /** An expanded width with at least a medium height: a tablet, or a foldable open flat on its side. */
 private fun hasRoomForPane(windowSizeClass: WindowSizeClass): Boolean =
