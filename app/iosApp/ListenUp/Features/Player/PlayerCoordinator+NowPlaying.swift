@@ -14,6 +14,7 @@ extension NowPlayingInfo {
     static func chapterScoped(
         title: String,
         artist: String,
+        album: String = "",
         bookPositionMs: Int64,
         chapters: [Chapter],
         bookDurationMs: Int64,
@@ -26,7 +27,7 @@ extension NowPlayingInfo {
             in: chapters,
             bookDurationMs: bookDurationMs
         )
-        return NowPlayingInfo(
+        var info = NowPlayingInfo(
             title: title,
             artist: artist,
             windowDurationMs: window.durationMs,
@@ -37,6 +38,20 @@ extension NowPlayingInfo {
             chapterCount: window.index >= 0 ? window.chapterCount : nil,
             defaultRate: defaultRate
         )
+        info.album = album
+        info.hasNextChapter = ChapterNavigation.shared.hasNext(positionMs: bookPositionMs, chapters: chapters)
+        return info
+    }
+
+    /// What the Lock Screen calls the chapter (spec §5.7): the shared `ChapterNaming` rule, in the mini player's
+    /// words — the book's own title, "Chapter N" when it has none, "Whole book" for a chapterless book.
+    static func chapterName(title: String?, number: Int, isWholeBook: Bool) -> String {
+        switch ChapterNaming.shared.of(title: title, number: Int32(number), isWholeBook: isWholeBook).sealedType() {
+        case .titled(let titled): titled.value.title
+        case .untitled(let untitled):
+            String(format: String(localized: "player.mini_chapter"), untitled.value.number)
+        case .wholeBook: String(localized: "player.mini_whole_book")
+        }
     }
 }
 
@@ -49,9 +64,12 @@ extension PlayerCoordinator {
             system.clear()
             return
         }
+        // Title = the book, artist = the chapter, album = the author (§5.7), as Android's card and the browser say it.
         system.update(.chapterScoped(
-            title: chapterTitle ?? bookTitle,
-            artist: authorName,
+            title: bookTitle,
+            artist: NowPlayingInfo.chapterName(
+                title: chapterTitle, number: chapterIndex + 1, isWholeBook: chapterRows.isEmpty),
+            album: authorName,
             bookPositionMs: bookPositionMs,
             chapters: chapters,
             bookDurationMs: bookDurationMs,

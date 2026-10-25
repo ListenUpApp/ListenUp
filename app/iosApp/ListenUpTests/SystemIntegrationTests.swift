@@ -40,6 +40,43 @@ struct SystemIntegrationSessionTests {
         #expect(command.supportedPlaybackRates.map(\.floatValue) == PlaybackRates.catalogue)
     }
 
+    /// Previous and next track are the chapter (§3.3, gap 25), for AirPods, CarPlay and headsets: registered and live.
+    @Test func attachRegistersPreviousAndNextTrack() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+
+        system.attach(handler: RecordingRemoteHandler())
+
+        #expect(session.remoteCommandCenter.previousTrackCommand.isEnabled)
+        #expect(session.remoteCommandCenter.nextTrackCommand.isEnabled)
+        // The interval skips stay registered beside them.
+        system.updateSkipIntervals(forwardSeconds: 30, backwardSeconds: 10)
+        #expect(session.remoteCommandCenter.skipForwardCommand.preferredIntervals == [30])
+        #expect(session.remoteCommandCenter.skipBackwardCommand.preferredIntervals == [10])
+    }
+
+    /// At the last chapter next track greys out; previous never does (it restarts the chapter).
+    @Test func nextTrackGreysOutAtTheLastChapter() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+        system.attach(handler: RecordingRemoteHandler())
+        var info = NowPlayingInfo(
+            title: "The Way of Kings", artist: "Epilogue",
+            windowDurationMs: 1_000, windowElapsedMs: 0, rate: 1.0,
+            artworkPath: nil, chapterNumber: 75, chapterCount: 75
+        )
+        info.hasNextChapter = false
+
+        system.update(info)
+
+        #expect(!session.remoteCommandCenter.nextTrackCommand.isEnabled)
+        #expect(session.remoteCommandCenter.previousTrackCommand.isEnabled)
+
+        info.hasNextChapter = true
+        system.update(info)
+        #expect(session.remoteCommandCenter.nextTrackCommand.isEnabled)
+    }
+
     @Test func clearEmptiesTheSessionsInfoCenter() {
         let session = MPNowPlayingSession(players: [AVPlayer()])
         let system = SystemIntegration(session: session)
@@ -60,6 +97,8 @@ final class RecordingRemoteHandler: RemoteCommandHandler {
     func remotePause() {}
     func remoteSkipForward() {}
     func remoteSkipBackward() {}
+    func remotePreviousTrack() {}
+    func remoteNextTrack() -> Bool { true }
     func remoteSeek(toWindowPositionMs positionMs: Int64) {}
     func remoteSetRate(_ rate: Float) { requestedRates.append(rate) }
 }
@@ -81,6 +120,30 @@ struct SystemIntegrationTests {
         let dict = SystemIntegration.dictionary(from: info)
         #expect(dict[MPMediaItemPropertyTitle] as? String == "The Way of Kings")
         #expect(dict[MPMediaItemPropertyArtist] as? String == "Brandon Sanderson")
+    }
+
+    /// Spec §5.7: title = the book, artist = the chapter, album = the author.
+    @Test func theAuthorRidesInTheAlbum() {
+        var named = NowPlayingInfo(
+            title: "The Way of Kings", artist: "Bridge Four",
+            windowDurationMs: 1_000, windowElapsedMs: 0, rate: 1.0,
+            artworkPath: nil, chapterNumber: 6, chapterCount: 75
+        )
+        named.album = "Brandon Sanderson"
+        let dict = SystemIntegration.dictionary(from: named)
+        #expect(dict[MPMediaItemPropertyTitle] as? String == "The Way of Kings")
+        #expect(dict[MPMediaItemPropertyArtist] as? String == "Bridge Four")
+        #expect(dict[MPMediaItemPropertyAlbumTitle] as? String == "Brandon Sanderson")
+    }
+
+    /// The chapter is named as the mini player names it: its own title, else its number, else the whole book.
+    @Test func theChapterIsNamedByTheSharedRule() {
+        #expect(NowPlayingInfo.chapterName(title: "Bridge Four", number: 6, isWholeBook: false) == "Bridge Four")
+        #expect(NowPlayingInfo.chapterName(title: "Chapter 14", number: 16, isWholeBook: false) == "Chapter 14")
+        #expect(NowPlayingInfo.chapterName(title: " ", number: 6, isWholeBook: false)
+            == String(format: String(localized: "player.mini_chapter"), Int32(6)))
+        #expect(NowPlayingInfo.chapterName(title: nil, number: 1, isWholeBook: true)
+            == String(localized: "player.mini_whole_book"))
     }
 
     @Test func convertsMillisecondsToSeconds() {
