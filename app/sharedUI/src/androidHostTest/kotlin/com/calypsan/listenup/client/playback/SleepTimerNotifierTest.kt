@@ -85,7 +85,8 @@ class SleepTimerNotifierTest {
     fun `a counting notification times itself out after the deadline and the fade`() {
         timer.value = duration(remainingMs = 120_000, totalMs = 120_000)
 
-        posted()!!.timeoutAfter shouldBe (STARTED_AT + 120_000 - NOW) + SLEEP_FADE_DURATION_MS
+        // The 90 s left on the timer, then the fade.
+        posted()!!.timeoutAfter shouldBe 90_000 + SLEEP_FADE_DURATION_MS
     }
 
     @Test
