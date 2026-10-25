@@ -123,11 +123,12 @@ internal fun mayAccessCoverArt(trust: ControllerTrust): Boolean =
  * Builds an [MediaSession.ConnectionResult] tailored to the controller's trust level.
  *
  * - Full-trust controllers ([ControllerTrust.OWN_APP] / [ControllerTrust.AUTO_OR_AUTOMOTIVE]):
- *   default session + library commands, plus all custom audiobook commands, plus the custom layout.
- * - [ControllerTrust.MEDIA_NOTIFICATION]: default session + custom commands + custom layout
- *   (library commands are irrelevant for the notification surface).
+ *   default session + library commands, plus all custom audiobook commands, plus [mediaButtons].
+ * - [ControllerTrust.MEDIA_NOTIFICATION]: default session + custom commands + [mediaButtons]
+ *   (library commands are irrelevant for the notification surface). Media3 hands this controller's
+ *   buttons to the platform session, which the Android 13+ system card and Android Auto read.
  * - [ControllerTrust.TRUSTED_SYSTEM] / [ControllerTrust.UNKNOWN]: default session commands only.
- *   No custom audiobook commands, no custom layout.
+ *   No custom audiobook commands, no media buttons.
  *
  * For [ControllerTrust.UNKNOWN], browse requests are additionally rejected at
  * [androidx.media3.session.MediaLibraryService.MediaLibrarySession.Callback.onGetLibraryRoot].
@@ -137,7 +138,7 @@ internal fun MediaSession.buildConnectionResultFor(
     controller: MediaSession.ControllerInfo,
     trust: ControllerTrust,
     customSessionCommands: List<SessionCommand>,
-    customLayout: List<CommandButton>,
+    mediaButtons: List<CommandButton>,
 ): MediaSession.ConnectionResult {
     val baseCommands =
         when (trust) {
@@ -181,7 +182,7 @@ internal fun MediaSession.buildConnectionResultFor(
             .setAvailablePlayerCommands(playerCommandsFor(trust))
 
     if (includeCustom) {
-        builder.setCustomLayout(customLayout)
+        builder.setMediaButtonPreferences(mediaButtons)
     }
 
     return builder.build()
