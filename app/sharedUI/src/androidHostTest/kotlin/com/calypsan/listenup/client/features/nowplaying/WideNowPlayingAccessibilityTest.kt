@@ -1,7 +1,18 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import android.view.View
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -17,7 +28,9 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.testing.AtFontScale
 import com.calypsan.listenup.client.testing.LARGEST_FONT_SCALE
+import com.calypsan.listenup.client.testing.TalkBackOrder
 import io.kotest.assertions.withClue
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -38,11 +51,15 @@ class WideNowPlayingAccessibilityTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private lateinit var composeView: View
+
     private fun wide(
         fontScale: Float = 1f,
         state: PlayerUiState.Loaded = chapteredState(current = 38),
     ) {
         composeRule.setContent {
+            val view = LocalView.current
+            SideEffect { composeView = view }
             AtFontScale(fontScale) { MaterialTheme { TestWideNowPlaying(state = state) } }
         }
         composeRule.waitForIdle()
@@ -93,10 +110,59 @@ class WideNowPlayingAccessibilityTest {
     }
 
     @Test
-    fun `D-pad and TalkBack order follow the eye - the player column, then the panel`() {
+    fun `TalkBack and the D-pad reach every player-column control before the panel's heading and rows`() {
+        TalkBackOrder.enableAccessibility()
         wide()
-        val play = composeRule.onNodeWithContentDescription("Pause").fetchSemanticsNode()
-        val currentRow = composeRule.onNodeWithTag(chapterRowTag(38)).fetchSemanticsNode()
-        (play.boundsInRoot.right <= currentRow.boundsInRoot.left) shouldBe true
+        val ids = TalkBackOrder.of(composeView, composeRule)
+        val player =
+            listOf(
+                "collapse" to composeRule.onNodeWithContentDescription("Collapse player"),
+                "series link" to composeRule.onNodeWithText("The Stormlight Archive · Book 1"),
+                "title" to composeRule.onNodeWithText("The Way of Kings"),
+                "transport" to composeRule.onNodeWithContentDescription("Pause"),
+                "settings" to composeRule.onNodeWithContentDescription("Sleep timer", substring = true),
+            ).map { (name, node) -> name to ids.indexOf(node.fetchSemanticsNode().id) }
+        val panel =
+            listOf(
+                "panel heading" to composeRule.onNode(hasText("Chapters") and isHeading()),
+                "the panel's first row" to composeRule.onNodeWithTag(firstVisibleRowTag()),
+            ).map { (name, node) -> name to ids.indexOf(node.fetchSemanticsNode().id) }
+
+        withClue("player $player, panel $panel, traversal $ids") {
+            (player + panel).none { it.second < 0 } shouldBe true
+            player.maxOf { it.second } shouldBeLessThan panel.minOf { it.second }
+        }
+    }
+
+    @Test
+    fun `the panel is its own traversal group, so TalkBack finishes the player before entering it`() {
+        wide()
+        composeRule
+            .onNode(
+                SemanticsMatcher.expectValue(SemanticsProperties.IsTraversalGroup, true) and
+                    hasAnyDescendant(hasText("Chapters") and isHeading()) and
+                    hasAnyDescendant(hasTestTag(CHAPTER_PANEL_TAG)) and
+                    !hasAnyDescendant(hasContentDescription("Pause")),
+            ).assertExists()
+    }
+
+    /** The tag of the panel's topmost row in view: the first one TalkBack meets after the heading. */
+    private fun firstVisibleRowTag(): String {
+        val panelTop =
+            composeRule
+                .onNodeWithTag(CHAPTER_PANEL_TAG)
+                .fetchSemanticsNode()
+                .boundsInRoot.top
+        return (0 until 75)
+            .map(::chapterRowTag)
+            .mapNotNull { tag ->
+                composeRule
+                    .onAllNodesWithTag(tag)
+                    .fetchSemanticsNodes()
+                    .firstOrNull()
+                    ?.let { tag to it.boundsInRoot }
+            }.filter { (_, bounds) -> bounds.top >= panelTop && bounds.height > 0f }
+            .minBy { (_, bounds) -> bounds.top }
+            .first
     }
 }
