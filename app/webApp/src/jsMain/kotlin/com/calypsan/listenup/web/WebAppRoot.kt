@@ -5,6 +5,7 @@ import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
 import com.calypsan.listenup.web.features.books.SelectionHandOff
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,10 @@ import org.jetbrains.compose.web.dom.Div
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.shell.AccountIdentity
 import com.calypsan.listenup.web.shell.AccountMenu
+import com.calypsan.listenup.web.design.DocumentTitle
+import com.calypsan.listenup.web.design.DocumentTitleWriter
+import com.calypsan.listenup.web.design.LocalDocumentTitle
+import com.calypsan.listenup.web.features.nowplaying.playingTitleFor
 import com.calypsan.listenup.web.shell.CommandPaletteHost
 import com.calypsan.listenup.web.shell.LocalWindowKeys
 import com.calypsan.listenup.web.shell.WindowKeys
@@ -114,6 +119,8 @@ fun WebAppRoot(
     val playingReturn = remember { PlayingReturn() }
     // The one window key listener (spec §5.8): the palette, the player and a page's own keys register with it.
     val windowKeys = remember { WindowKeys() }
+    // The tab's one title (spec §5.7): the page's name, or what is playing while it plays.
+    val documentTitle = remember { DocumentTitle() }
     DisposableEffect(windowKeys) {
         val remove = windowKeys.install()
         onDispose { remove() }
@@ -139,6 +146,7 @@ fun WebAppRoot(
 
     CompositionLocalProvider(
         LocalWindowKeys provides windowKeys,
+        LocalDocumentTitle provides documentTitle,
         LocalRestrictedBookIds provides restrictedBookIds,
         LocalAvatarFrames provides graph.observeAvatarFrame,
         LocalCoverThemes provides graph.coverThemes,
@@ -233,6 +241,9 @@ fun WebAppRoot(
                 onFocusChapters = ::focusNowPlayingChapters,
             )
 
+            PlayingTitle(playback, documentTitle)
+            DocumentTitleWriter(documentTitle)
+
             // The player's keyboard, on every page while a book is loaded (spec §5.8).
             PlayerShortcutKeys(
                 playback = playback,
@@ -247,6 +258,16 @@ fun WebAppRoot(
             CommandPaletteHost(router = router, openSearch = graph.openSearch)
         }
     }
+}
+
+/** Tells [title] what is playing, so the tab names it on every page while it plays (spec §5.7). */
+@Composable
+private fun PlayingTitle(
+    playback: PlaybackSession,
+    title: DocumentTitle,
+) {
+    val playing = playingTitleFor(playback.state.collectAsState().value)
+    SideEffect { title.playing = playing }
 }
 
 /** On `/playing` the chapter list is already on the page: the bar's Chapters takes focus to its current row. */
