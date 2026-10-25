@@ -205,4 +205,13 @@ struct PlayerFoldTests {
         let down = CGRect(x: 340, y: 0, width: 0, height: 840)
         #expect(PlayerFold.from(divisionFrames: [across, down]) == .tabletop(hinge: across))
     }
+
+    /// ⇧⌘C focuses the chapter panel wherever the layout already shows one, and opens the sheet everywhere else.
+    @Test func showChaptersFocusesThePanelOnAWideWindowAndABookFold() {
+        #expect(FullScreenPlayerView.showsChapterPanel(.regular))
+        #expect(FullScreenPlayerView.showsChapterPanel(.book(hinge: CGRect(x: 336, y: 0, width: 0, height: 841))))
+        #expect(!FullScreenPlayerView.showsChapterPanel(.stacked))
+        #expect(!FullScreenPlayerView.showsChapterPanel(.compactHeight))
+        #expect(!FullScreenPlayerView.showsChapterPanel(.tabletop(hinge: CGRect(x: 0, y: 420, width: 673, height: 0))))
+    }
 }
