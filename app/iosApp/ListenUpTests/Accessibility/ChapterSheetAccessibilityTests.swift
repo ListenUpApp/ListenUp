@@ -25,7 +25,9 @@ struct ChapterSheetAccessibilityTests {
 
     private var left: String { MiniPlayerAccessoryModel.shortDuration(ms: 40_000) }
     private var currentLabel: String {
-        String(format: String(localized: "player.sheet_chapter_current"), 39, "Chapter 39", left)
+        String(
+            format: String(localized: "player.sheet_chapter_current"), 39, "Chapter 39",
+            MiniPlayerAccessoryModel.spokenDuration(ms: 40_000))
     }
 
     @Test func itOpensCentredOnTheCurrentChapter() async throws {

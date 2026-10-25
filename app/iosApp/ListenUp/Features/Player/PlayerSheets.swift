@@ -104,8 +104,9 @@ struct BoostPickerSheet: View {
 /// Text stays `.primary` or `luQuietInk` (4.5:1, unlike the system's secondary and tertiary labels) on every row: the
 /// tint is decoration (the wash and the equalizer), never the colour
 /// a title is read in. The current row is also `.isSelected` and says "now playing", so it is marked by more than colour.
-/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 min left", or "Play from
-/// chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks (HIG, Typography).
+/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 minutes left" (the visible
+/// "8 min" in words), or "Play from chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks
+/// (HIG, Typography).
 struct ChapterRow: View {
     /// The chapter's own number, as the book counts it.
     let number: Int
@@ -140,7 +141,7 @@ struct ChapterRow: View {
         if isCurrent {
             return String(
                 format: String(localized: "player.sheet_chapter_current"), number, title,
-                MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
+                MiniPlayerAccessoryModel.spokenDuration(ms: remainingMs))
         }
         return String(
             format: String(localized: "player.sheet_chapter_play_from"), number, title,

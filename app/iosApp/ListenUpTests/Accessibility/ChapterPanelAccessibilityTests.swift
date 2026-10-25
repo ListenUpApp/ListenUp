@@ -44,7 +44,8 @@ struct ChapterPanelAccessibilityTests {
 
     // MARK: - Words
 
-    private var left: String { MiniPlayerAccessoryModel.shortDuration(ms: 40_000) }
+    /// The current row's time left as VoiceOver says it: 40 seconds, in words.
+    private var left: String { MiniPlayerAccessoryModel.spokenDuration(ms: 40_000) }
     private var nowPlaying: String { String(localized: "player.np_now_playing_ios") }
     private var backToCurrent: String { String(localized: "player.np_back_to_current_ios") }
     private var chapters: String { String(localized: "player.chapters") }
@@ -139,6 +140,22 @@ struct ChapterPanelAccessibilityTests {
         // The row bar is drawn, not spoken: the current row is still one stop.
         let insideCurrent = hosted.stops.filter { current.frame.insetBy(dx: 2, dy: 2).contains($0.frame.center) }
         #expect(insideCurrent.count == 1, "\(insideCurrent)")
+    }
+
+    /// The row shows "8 min" and says "8 minutes": VoiceOver never reads an abbreviation as letters (spec §8).
+    @Test func theCurrentRowSaysItsTimeLeftInWords() {
+        let english = Locale(identifier: "en_US")
+        #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 510_000, locale: english) == "8 minutes")
+        #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 3_930_000, locale: english) == "1 hour, 5 minutes")
+        #expect(MiniPlayerAccessoryModel.spokenDuration(ms: 42_000, locale: english) == "42 seconds")
+        let label = ChapterRow(
+            number: 6, title: "Bridge Four", durationMs: 1_235_000, isCurrent: true, isPlaying: true,
+            remainingMs: 510_000, tint: .luTint, onTap: {}
+        ).spokenLabel
+        let spoken = String(
+            format: String(localized: "player.sheet_chapter_current"), 6, "Bridge Four",
+            MiniPlayerAccessoryModel.spokenDuration(ms: 510_000))
+        #expect(label == spoken)
     }
 
     @Test func everyControlHasAFullTapTarget() async throws {
