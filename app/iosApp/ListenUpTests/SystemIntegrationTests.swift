@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import MediaPlayer
+import Shared
 import Testing
 @testable import ListenUp
 
