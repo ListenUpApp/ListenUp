@@ -54,11 +54,14 @@ private val SnackbarHeight = 48.dp
  *
  * @param isShellShowing Whether the shell is the top destination: on a phone its bottom navigation is showing (and
  * the shell draws the bar itself); on a wide window its rail is, and the toolbar floats beside it.
+ * @param isReaderShowing Whether the PDF reader is the top destination. It carries its own strip or listening pane, so
+ * neither mini-player shows over it (see `isMiniPlayerShown`).
  */
 @Suppress("LongMethod")
 @Composable
 fun NowPlayingHost(
     isShellShowing: Boolean,
+    isReaderShowing: Boolean,
     snackbarHostState: SnackbarHostState?,
     onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
@@ -179,8 +182,9 @@ fun NowPlayingHost(
             }
         }
 
-        // Mini player: the floating toolbar on wide windows and TV, the docked phone bar otherwise.
-        if (useToolbar) {
+        // Mini player: the floating toolbar on wide windows and TV, the docked phone bar otherwise — and neither over
+        // the PDF reader, whose own player replaces it (nothing to measure then; the navigation root reserves no space).
+        if (useToolbar && !isReaderShowing) {
             val density = LocalDensity.current
             NowPlayingToolbar(
                 state = state,
@@ -207,7 +211,7 @@ fun NowPlayingHost(
                         // TV's leanback shell places its own rail; the toolbar spans the window there (M18).
                         .padding(nowPlayingToolbarPadding(besideRail = isShellShowing && !isTv)),
             )
-        } else if (!isShellShowing) {
+        } else if (!isShellShowing && !isReaderShowing) {
             // Detail screens: no navigation bar under it, so the docked bar sits at the bottom edge and runs under the
             // gesture area, padding its own row clear of it. Its measured footprint therefore already includes that
             // inset, which is what LocalNowPlayingInsets must span for ListenUpScaffold to clear it. (On the shell the

@@ -28,6 +28,17 @@ val LocalNowPlayingInsets: ProvidableCompositionLocal<WindowInsets> =
     compositionLocalOf { WindowInsets(left = 0, top = 0, right = 0, bottom = 0) }
 
 /**
+ * Whether the mini-player shows: a book is loaded and nothing on screen already plays it — not the expanded Now
+ * Playing, and not the PDF reader, which carries its own strip or listening pane (as iOS's full-screen reader does).
+ * A hidden mini-player reserves no space ([nowPlayingClearance]).
+ */
+fun isMiniPlayerShown(
+    isBookLoaded: Boolean,
+    isNowPlayingExpanded: Boolean,
+    isReaderShowing: Boolean,
+): Boolean = isBookLoaded && !isNowPlayingExpanded && !isReaderShowing
+
+/**
  * The bottom clearance the mini-player requires, in dp. The bar's measured footprint when
  * it is visible, otherwise zero — so the space is reclaimed the instant playback stops.
  */
