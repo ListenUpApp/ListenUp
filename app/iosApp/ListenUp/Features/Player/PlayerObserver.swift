@@ -152,6 +152,8 @@ struct PlayerSnapshot: Equatable {
     var card: PlayerCardModel?
     /// The More menu (§5.5.7), from the shared builder.
     var menu: [PlayerMenuSection] = []
+    /// The same menu where the series is already a link on screen (iPad's wide player, P10): no Go to Series.
+    var menuWithoutSeries: [PlayerMenuSection] = []
     /// Now Playing closes: nothing is loaded, or the book was revoked (§5.6).
     var closesNowPlaying = false
     /// "Chapter 6 of 75" shows only beside a chapter's own, non-generic title, where the counter cannot disagree with
@@ -188,7 +190,8 @@ struct PlayerSnapshot: Equatable {
         snapshot.applySleepTimer(loaded.sleepTimer)
         snapshot.applySource(loaded.source)
         snapshot.card = PlayerCards.shared.of(state: loaded).map(PlayerCardModel.init)
-        snapshot.menu = PlayerMenuModel.sections(for: loaded)
+        snapshot.menu = PlayerMenuModel.sections(for: loaded, includesSeries: true)
+        snapshot.menuWithoutSeries = PlayerMenuModel.sections(for: loaded, includesSeries: false)
         snapshot.closesNowPlaying = PlayerCards.shared.closesNowPlaying(state: loaded)
         return snapshot
     }
@@ -310,30 +313,6 @@ struct PlayerSnapshot: Equatable {
     }
 }
 
-/// Native mirror of the shared `PlayerProgress` (~4 Hz): the four positions and what derives from them.
-struct PlayerProgressRow: Equatable {
-    var chapterPositionMs: Int64 = 0
-    var chapterDurationMs: Int64 = 0
-    var bookPositionMs: Int64 = 0
-    var bookDurationMs: Int64 = 0
-    /// Whole percent through the book, floored, for the book sentence: the shared rule, so every platform agrees.
-    var bookPercent = 0
-
-    init() {}
-
-    init(_ progress: PlayerProgress) {
-        chapterPositionMs = progress.chapterPositionMs
-        chapterDurationMs = progress.chapterDurationMs
-        bookPositionMs = progress.bookPositionMs
-        bookDurationMs = progress.bookDurationMs
-        bookPercent = Int(progress.bookPercent)
-    }
-
-    var chapterRemainingMs: Int64 { max(0, chapterDurationMs - chapterPositionMs) }
-    var bookRemainingMs: Int64 { max(0, bookDurationMs - bookPositionMs) }
-    var bookFraction: Float { bookDurationMs > 0 ? min(1, max(0, Float(bookPositionMs) / Float(bookDurationMs))) : 0 }
-}
-
 /// The SwiftUI model of the shared player (spec S1): one `PlayerViewModel`, mapped to native values once
 /// at this boundary (rule 8). Every player surface — the mini player, Now Playing, the reader strip,
 /// CarPlay, the Live Activity, Book and Series Detail — reads this and acts through it.
@@ -366,6 +345,13 @@ final class PlayerObserver {
         _ state: any PlayerUiState, progress: PlayerProgressRow = PlayerProgressRow()
     ) -> PlayerObserver {
         PlayerObserver(snapshot: PlayerSnapshot.from(state), progress: progress)
+    }
+
+    /// Moves a detached observer to `state`, as a new frame from the shared player would: a hosted test's playhead
+    /// crossing into the next chapter.
+    func replaceDetachedState(_ state: any PlayerUiState, progress: PlayerProgressRow) {
+        snapshot = PlayerSnapshot.from(state)
+        self.progress = progress
     }
 
     private init(snapshot: PlayerSnapshot, progress: PlayerProgressRow) {
@@ -442,6 +428,8 @@ final class PlayerObserver {
     var castDeviceName: String? { snapshot.castDeviceName }
     var card: PlayerCardModel? { snapshot.card }
     var menu: [PlayerMenuSection] { snapshot.menu }
+    /// More without Go to Series, for where the series is a link above the title.
+    var menuWithoutSeries: [PlayerMenuSection] { snapshot.menuWithoutSeries }
     var closesNowPlaying: Bool { snapshot.closesNowPlaying }
     var showsChapterCounter: Bool { snapshot.showsChapterCounter }
     var isWholeBook: Bool { snapshot.isWholeBook }

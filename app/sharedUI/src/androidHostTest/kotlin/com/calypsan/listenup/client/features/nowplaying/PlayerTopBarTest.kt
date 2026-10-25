@@ -16,7 +16,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P1, the status slot and P25: Collapse, the chip, and the More menu from the shared builder. */
+/**
+ * P1, the status slot and P25: Collapse, the chip, and the More menu from the shared builder. The wide header (P3,
+ * `NP-AndroidTablet`) reads just "Now playing": the series is a link in the player column, so More leaves it out.
+ */
 @Config(qualifiers = "w412dp-h915dp")
 @RunWith(RobolectricTestRunner::class)
 class PlayerTopBarTest {
@@ -26,7 +29,7 @@ class PlayerTopBarTest {
     private val picked = mutableListOf<PlayerMenuItem>()
     private var collapses = 0
 
-    private fun bar() {
+    private fun bar(wide: Boolean = false) {
         composeRule.setContent {
             MaterialTheme {
                 PlayerTopBar(
@@ -39,6 +42,7 @@ class PlayerTopBarTest {
                         ),
                     onCollapse = { collapses++ },
                     onMenuItem = { picked += it },
+                    wide = wide,
                 )
             }
         }
@@ -64,5 +68,23 @@ class PlayerTopBarTest {
         composeRule.onNodeWithText("Go to narrator").assertDoesNotExist()
         composeRule.onNodeWithText("Close book").performClick()
         picked shouldBe listOf(PlayerMenuItem.CloseBook)
+    }
+
+    @Test
+    fun `the wide header reads Now playing, not the series, and keeps the status and Collapse`() {
+        bar(wide = true)
+        composeRule.onNodeWithText("Now playing").assertExists()
+        composeRule.onNodeWithText("The Stormlight Archive").assertDoesNotExist()
+        composeRule.onNodeWithText("Streaming · transcoded").assertExists()
+        composeRule.onNodeWithContentDescription("Collapse player").performClick()
+        collapses shouldBe 1
+    }
+
+    @Test
+    fun `the wide header's More leaves Go to series out`() {
+        bar(wide = true)
+        composeRule.onNodeWithContentDescription("More options").performClick()
+        composeRule.onNodeWithText("Go to book").assertExists()
+        composeRule.onNodeWithText("Go to series").assertDoesNotExist()
     }
 }

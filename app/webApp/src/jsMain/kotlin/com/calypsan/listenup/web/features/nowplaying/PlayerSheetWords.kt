@@ -91,7 +91,7 @@ internal object PlayerSheetWords {
 
     /**
      * A chapter row's accessible name: "Play from chapter 7: Anything Reasonable, 33:18", or for the current one
-     * "Chapter 6, Bridge Four, now playing, 8m left".
+     * "Chapter 6, Bridge Four, now playing, 8 minutes left": the row's "8m" in words, as a screen reader should say it.
      */
     fun chapterRowLabel(
         row: PlayerChapterRow,
@@ -99,7 +99,7 @@ internal object PlayerSheetWords {
         remainingMs: Long = 0,
     ): String =
         if (isCurrent) {
-            "Chapter ${row.number}, ${row.title}, now playing, ${shortDuration(remainingMs)} left"
+            "Chapter ${row.number}, ${row.title}, now playing, ${spokenDuration(remainingMs)} left"
         } else {
             "Play from chapter ${row.number}: ${row.title}, ${formatElapsed(row.durationMs)}"
         }

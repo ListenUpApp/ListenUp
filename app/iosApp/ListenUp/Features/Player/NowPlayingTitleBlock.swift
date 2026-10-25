@@ -8,13 +8,19 @@ struct BylineMenuRow: Equatable, Identifiable {
     let books: String?
 }
 
-/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` board): the book's title, the author and "Read by"
+/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` and `NP-iPad` boards): on iPad's wide player the
+/// series as a link above the title (P10), then the book's title, the author and "Read by"
 /// line whose names are links, then the chapter line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
 /// Pull-down buttons: a menu for a navigation choice). Titles wrap rather than truncate as text grows (HIG,
 /// Typography: "aim to display as much useful text at the largest accessibility font size as you do at the largest
 /// standard size").
 struct NowPlayingTitleBlock: View {
     let observer: PlayerObserver
+    /// Shows "The Stormlight Archive · Book 1" above the title, as a link: iPad's wide player, where More leaves Go to
+    /// Series out (P10). The phone keeps Go to Series in More instead.
+    var showsSeries = false
+    /// Dismiss Now Playing and open the series.
+    var onViewSeries: (String) -> Void = { _ in }
     /// Dismiss Now Playing and open the contributor.
     let onViewContributor: (String) -> Void
 
@@ -30,6 +36,12 @@ struct NowPlayingTitleBlock: View {
         guard !title.isEmpty else { return String(format: String(localized: "player.chapter_number"), number) }
         guard showsCounter else { return title }
         return String(format: String(localized: "player.chapter_of"), "\(number)", "\(total)") + " · " + title
+    }
+
+    /// "The Stormlight Archive · Book 1", or the series alone when the book has no place in it.
+    static func seriesLine(_ series: SeriesNavRef) -> String {
+        guard let sequence = series.sequenceLabel, !sequence.isEmpty else { return series.name }
+        return String(format: String(localized: "player.np_series_book"), series.name, sequence)
     }
 
     /// "Narrator 1 & 4 more" for more than three people, else nil (the names are listed).
@@ -58,6 +70,9 @@ struct NowPlayingTitleBlock: View {
     var body: some View {
         let isLarge = dynamicTypeSize.isAccessibilitySize
         VStack(alignment: .leading, spacing: 3) {
+            if showsSeries, let series = observer.series.first {
+                seriesLink(series)
+            }
             Text(observer.bookTitle)
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
@@ -120,6 +135,21 @@ struct NowPlayingTitleBlock: View {
                 }
             }
         }
+    }
+
+    /// The series, a link in the wash's secondary ink (the `NP-iPad` board), in a full 44pt target (HIG, Accessibility).
+    private func seriesLink(_ series: SeriesNavRef) -> some View {
+        Button { onViewSeries(series.id) } label: {
+            Text(Self.seriesLine(series))
+                .font(.subheadline)
+                .foregroundStyle(Color.luOnWashSecondary)
+                .multilineTextAlignment(.leading)
+                .frame(minHeight: TapTarget.minimum, alignment: .leading)
+                .contentShape(Rectangle())
+                .hoverEffect(.highlight)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isLink)
     }
 
     /// "Michael Kramer &", "Kate Reading": commas between names, an ampersand before the last.

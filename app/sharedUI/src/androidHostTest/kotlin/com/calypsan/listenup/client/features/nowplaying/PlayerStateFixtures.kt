@@ -136,3 +136,56 @@ internal fun sleepSheetState(
         meterFraction = { meterFraction },
         nowMs = { nowMs },
     )
+
+/** The fixture book's length, 45h 30m, which its [bookChapterRows] sum to. */
+internal const val FIXTURE_BOOK_MS = 163_800_000L
+
+/**
+ * 75 chapter rows that sum to the fixture book: chapter 6 is "Bridge Four" (20:35), chapter 7 is "Anything Reasonable"
+ * (33:18), and [current] (a zero-based index) is the one playing.
+ */
+internal fun bookChapterRows(current: Int): List<PlayerChapterRow> {
+    val named = mapOf(5 to ("Bridge Four" to 1_235_000L), 6 to ("Anything Reasonable" to 1_998_000L))
+    val rest = (FIXTURE_BOOK_MS - named.values.sumOf { it.second }) / 73
+    val durations = (0 until 75).map { named[it]?.second ?: rest }.toMutableList()
+    durations[74] += FIXTURE_BOOK_MS - durations.sum()
+    var start = 0L
+    return (0 until 75).map { index ->
+        PlayerChapterRow(
+            index = index,
+            number = index + 1,
+            title = named[index]?.first ?: "Chapter ${index + 1}",
+            startMs = start,
+            durationMs = durations[index],
+            isCurrent = index == current,
+        ).also { start += durations[index] }
+    }
+}
+
+/**
+ * The fixture book playing chapter [current] (zero-based) of its 75 [bookChapterRows], for the wide screen's tests.
+ * Defaults to chapter 6, "Bridge Four", in "The Stormlight Archive" as book 1, with a cover that needs no Koin.
+ */
+internal fun chapteredState(
+    current: Int = 5,
+    series: List<PlayerSeriesRef> = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
+    phase: PlayerPhase = PlayerPhase.Playing,
+    primary: PrimaryControl = PrimaryControl.Pause,
+    source: AudioSource = AudioSource.Downloaded,
+): PlayerUiState.Loaded {
+    val rows = bookChapterRows(current)
+    val row = rows[current]
+    val base =
+        loadedPlayerState(coverPath = NO_COVER, series = series, phase = phase, primary = primary, source = source)
+    return base.copy(
+        chapter =
+            base.chapter.copy(
+                index = row.index,
+                number = row.number,
+                title = row.title,
+                startMs = row.startMs,
+                durationMs = row.durationMs,
+            ),
+        chapters = rows,
+    )
+}

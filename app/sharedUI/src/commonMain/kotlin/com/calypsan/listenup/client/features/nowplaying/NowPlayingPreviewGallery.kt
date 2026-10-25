@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.api.error.BookError
@@ -52,10 +53,9 @@ import com.calypsan.listenup.client.presentation.player.PlayerSettings
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.client.design.theme.Spacing
+import kotlin.time.Duration.Companion.minutes
 
 // ── Mock data ───────────────────────────────────────────────────────────────────
-
-private val WIDE_PREVIEW_WIDTH = 1100.dp
 
 private const val LARGE_FONT_SCALE = 1.5f
 
@@ -84,7 +84,7 @@ private val mockChapterTitles =
         "Assassin's Mark" to 1_980_000L,
     )
 
-// Six chapters so the UpNextQueue shows a real preview slice + "View all N chapters" footer.
+// Six chapters for the phone states; the wide previews play deep in the 75-chapter book (mockLongBookChapters).
 private fun mockChapterRows(current: Int): List<PlayerChapterRow> {
     var start = 0L
     return mockChapterTitles.mapIndexed { index, (title, duration) ->
@@ -345,30 +345,97 @@ private fun CompactCase(
     }
 }
 
+/** The wide previews' window sizes (spec §5.3): three columns, an upright tablet's column and panel, and no panel. */
+private val wideWindows =
+    listOf(
+        "1280×800 — three columns" to (1280.dp to 800.dp),
+        "900×1200 — the player column beside the panel" to (900.dp to 1200.dp),
+        "1000×700 — cover and controls, Chapters as a sheet" to (1000.dp to 700.dp),
+    )
+
+/** The 75-chapter book, playing chapter 38, "Bridge Four", so the panel opens centred deep in its list. */
+private val mockWideState =
+    mockActiveState.copy(
+        chapter =
+            mockChapter(2).copy(
+                index = 37,
+                number = 38,
+                total = 75,
+                title = "Bridge Four",
+                startMs = 37 * 2_184_000L,
+                durationMs = 2_184_000L,
+            ),
+        chapters = mockLongBookChapters(37),
+    )
+
 @Composable
 private fun WideSection() {
-    GalleryLabel("Wide (expanded / foldable inner) — landscape player — scroll horizontally →")
-    WidePreview {
-        WideNowPlaying(
-            state = mockActiveState,
-            progress = { mockProgress },
-            onCollapse = {},
-            onPrimary = {},
-            onSeek = {},
-            onSkipBack = {},
-            onSkipForward = {},
-            onPreviousChapter = {},
-            onNextChapter = {},
-            onSpeedClick = {},
-            onSleepClick = {},
-            onChaptersClick = {},
-            onGoToContributor = {},
-            onShowAuthorPicker = {},
-            onShowNarratorPicker = {},
-            onMenuItem = {},
-            onCardAction = {},
-            onRate = {},
-        )
+    wideWindows.forEach { (label, size) ->
+        listOf(false, true).forEach { dark ->
+            WideCase(
+                label = "Wide $label — playing, ${if (dark) "dark" else "light"} →",
+                state = mockWideState,
+                size = size,
+                dark = dark,
+            )
+        }
+    }
+    val threeColumns = wideWindows.first().second
+    WideCase(
+        label = "Wide 1280×800 — a failure (the card in the transport's place; the panel stays) →",
+        state =
+            mockWideState.copy(
+                phase = PlayerPhase.Failed(PlaybackError.ConnectionLost(correlationId = "req-7f3a")),
+                primary = PrimaryControl.Retry,
+                showsSkipBack = false,
+            ),
+        size = threeColumns,
+        dark = false,
+    )
+    WideCase(
+        label = "Wide 1280×800 — chapterless (no panel, nothing to pick), dark →",
+        state =
+            mockActiveState.copy(
+                chapter = mockChapter(0).copy(title = "", isGenericTitle = true, isWholeBook = true),
+                chapters = emptyList(),
+            ),
+        size = threeColumns,
+        dark = true,
+    )
+}
+
+@Composable
+private fun WideCase(
+    label: String,
+    state: PlayerUiState.Loaded,
+    size: Pair<Dp, Dp>,
+    dark: Boolean,
+) {
+    GalleryLabel(label)
+    WidePreview(width = size.first, height = size.second) {
+        ListenUpTheme(darkTheme = dark, dynamicColor = false) {
+            WideNowPlaying(
+                state = state,
+                progress = { mockProgress },
+                onCollapse = {},
+                onPrimary = {},
+                onSeek = {},
+                onSkipBack = {},
+                onSkipForward = {},
+                onPreviousChapter = {},
+                onNextChapter = {},
+                onSpeedClick = {},
+                onSleepClick = {},
+                onChaptersClick = {},
+                onSeekToChapter = {},
+                onGoToContributor = {},
+                onShowAuthorPicker = {},
+                onShowNarratorPicker = {},
+                onMenuItem = {},
+                onCardAction = {},
+                onRate = {},
+            )
+        }
     }
 }
 
@@ -429,9 +496,13 @@ private fun MiniPlayerDesktopSection() {
  * horizontal scroller, so wide-only layouts don't collapse when viewed on a narrow phone.
  */
 @Composable
-private fun WidePreview(content: @Composable () -> Unit) {
+private fun WidePreview(
+    width: Dp = 1100.dp,
+    height: Dp = 820.dp,
+    content: @Composable () -> Unit,
+) {
     Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        Box(modifier = Modifier.width(WIDE_PREVIEW_WIDTH).height(820.dp)) { content() }
+        Box(modifier = Modifier.width(width).height(height)) { content() }
     }
 }
 
@@ -553,7 +624,7 @@ private fun PanelPreviewSheet(
         PanelPreview.Chapters -> {
             ChapterPickerSheet(
                 chapters = mockLongBookChapters(current = 37),
-                playingLeft = { "8m" },
+                playingLeft = { 8.minutes },
                 onChapterSelected = {},
                 onDismiss = onDismiss,
             )

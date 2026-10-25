@@ -10,11 +10,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
-import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
 import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
 import org.junit.Rule
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.milliseconds
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,8 +37,8 @@ class ChapterPickerSheetTest {
         composeRule.setContent {
             MaterialTheme {
                 ChapterPickerSheet(
-                    chapters = chapters(current),
-                    playingLeft = { shortDuration(chapterRemainingMs) },
+                    chapters = bookChapterRows(current),
+                    playingLeft = { chapterRemainingMs.milliseconds.inWholeMinutes.minutes },
                     onChapterSelected = { selected += it },
                     onDismiss = {},
                 )
@@ -61,7 +62,24 @@ class ChapterPickerSheetTest {
         composeRule
             .onNodeWithTag(chapterRowTag(5))
             .assertIsSelected()
-            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8m left"))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 8 minutes left"))
+    }
+
+    @Test
+    fun `TalkBack hears the time left in words, as long as it is`() {
+        sheet(current = 5, chapterRemainingMs = 3_930_000)
+        composeRule.onNodeWithText("Playing · 1h 5m left").assertExists()
+        composeRule
+            .onNodeWithTag(chapterRowTag(5))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, 1 hour 5 minutes left"))
+    }
+
+    @Test
+    fun `TalkBack hears the last minute as less than a minute, never as none`() {
+        sheet(current = 5, chapterRemainingMs = 42_000)
+        composeRule
+            .onNodeWithTag(chapterRowTag(5))
+            .assert(hasContentDescription("Chapter 6, Bridge Four, now playing, less than a minute left"))
     }
 
     @Test
@@ -91,28 +109,5 @@ class ChapterPickerSheetTest {
         sheet(current = 5)
         composeRule.onNodeWithTag(CHAPTER_LIST_TAG).performScrollToNode(hasTestTag(chapterRowTag(6)))
         composeRule.onNodeWithTag(chapterRowTag(6)).assertTouchTargetAtLeast()
-    }
-
-    private companion object {
-        const val BOOK_MS = 163_800_000L // 45h 30m
-
-        /** 75 chapters: 6 is "Bridge Four" (20:35), 7 is "Anything Reasonable" (33:18), and they sum to the book. */
-        fun chapters(current: Int): List<ChapterRowState> {
-            val named = mapOf(5 to ("Bridge Four" to 1_235_000L), 6 to ("Anything Reasonable" to 1_998_000L))
-            val rest = (BOOK_MS - named.values.sumOf { it.second }) / 73
-            val durations = (0 until 75).map { named[it]?.second ?: rest }.toMutableList()
-            durations[74] += BOOK_MS - durations.sum()
-            var start = 0L
-            return (0 until 75).map { index ->
-                ChapterRowState(
-                    index = index,
-                    number = index + 1,
-                    title = named[index]?.first ?: "Chapter ${index + 1}",
-                    startMs = start,
-                    durationMs = durations[index],
-                    isCurrent = index == current,
-                ).also { start += durations[index] }
-            }
-        }
     }
 }

@@ -196,6 +196,16 @@ struct PlayerObserverTests {
         #expect(row.bookRemainingMs == 270_000)
         #expect(row.bookFraction == 0.55)
     }
+
+    @Test("the chapter's fraction feeds the chapter panel's row bar, and an empty chapter is at zero")
+    func chapterFraction() {
+        let row = PlayerProgressRow(PlayerProgress(
+            chapterPositionMs: 720_000, chapterDurationMs: 1_200_000, bookPositionMs: 0, bookDurationMs: 0))
+        #expect(row.chapterFraction == 0.6)
+        let empty = PlayerProgressRow(PlayerProgress(
+            chapterPositionMs: 0, chapterDurationMs: 0, bookPositionMs: 0, bookDurationMs: 0))
+        #expect(empty.chapterFraction == 0)
+    }
 }
 
 extension PlayerUiStateLoaded {

@@ -43,6 +43,51 @@ struct PlayerLayoutTests {
         #expect(PlayerLayoutMode.resolve(size: CGSize(width: 1376, height: 990), isAccessibilitySize: true) == .regular)
     }
 
+    // MARK: - Multitasking (HIG, Multitasking: an iPad app can appear at any window size)
+
+    @Test func halfSplitViewOn13InchStacksWithTheChapterSheet() {
+        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 683, height: 1000), isAccessibilitySize: false)
+            == .stacked)
+    }
+
+    @Test func twoThirdsSplitViewOn13InchShowsThePanel() {
+        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 900, height: 1000), isAccessibilitySize: false)
+            == .regular)
+    }
+
+    @Test func stageManagerSmallWindowStacks() {
+        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 700, height: 560), isAccessibilitySize: false) == .stacked)
+    }
+
+    @Test func stageManagerShortWideWindowPutsTheCoverBeside() {
+        #expect(PlayerLayoutMode.resolve(size: CGSize(width: 1100, height: 480), isAccessibilitySize: false)
+            == .compactHeight)
+    }
+
+    // MARK: - Inside .regular (the NP-iPad board: the cover beside the controls)
+
+    @Test func aWidePlayerAreaPutsTheCoverBesideTheControls() {
+        #expect(PlayerLayoutMode.regularArrangement(playerWidth: 1180 - PlayerLayoutMode.panelWidth)
+            == .coverBeside(coverSide: 330))
+    }
+
+    @Test func anUprightIPadStacksTheCoverOverTheControls() {
+        #expect(PlayerLayoutMode.regularArrangement(playerWidth: 834 - PlayerLayoutMode.panelWidth) == .stacked)
+    }
+
+    @Test func theCoverGoesBesideOnlyWhenItCanBeAtLeast240() {
+        let threshold = PlayerLayoutMode.coverBesideMinimumPlayerWidth
+        #expect(PlayerLayoutMode.regularArrangement(playerWidth: threshold) == .coverBeside(coverSide: 240))
+        #expect(PlayerLayoutMode.regularArrangement(playerWidth: threshold - 1) == .stacked)
+    }
+
+    /// At accessibility text sizes the controls need the whole column, so the cover goes back above them and the column
+    /// scrolls (HIG, Typography: "Consider adjusting your layout at large font sizes").
+    @Test func accessibilityTextStacksTheRegularColumn() {
+        #expect(PlayerLayoutMode.regularArrangement(
+            playerWidth: 1180 - PlayerLayoutMode.panelWidth, isAccessibilitySize: true) == .stacked)
+    }
+
     // MARK: - Cover
 
     @Test func stackedCoverFillsTheWidthWhenThereIsRoom() {

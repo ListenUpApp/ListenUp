@@ -53,6 +53,9 @@ private const val TV_AMBIENT_DELAY_MS = 15_000L
  * fade — then dispatches the body to an adaptive layout ([nowPlayingLayout]): [TabletopNowPlaying]
  * split at the hinge on a foldable half open on a table, [WideNowPlaying] on wide or short windows
  * and in book posture, and [CompactNowPlaying] everywhere else.
+ *
+ * @param onSeekToChapter Play from the chapter at this zero-based index: a row of the wide layout's chapter panel.
+ * @param onChapterPanelShown Whether the wide layout's chapter panel is on screen, each time that changes.
  */
 @Suppress("LongMethod", "LongParameterList")
 @Composable
@@ -68,6 +71,7 @@ fun NowPlayingScreen(
     onNextChapter: () -> Unit,
     onSpeedClick: () -> Unit,
     onChaptersClick: () -> Unit,
+    onSeekToChapter: (Int) -> Unit,
     onSleepTimerClick: () -> Unit,
     onGoToContributor: (String) -> Unit,
     onShowAuthorPicker: () -> Unit,
@@ -77,6 +81,7 @@ fun NowPlayingScreen(
     onRate: (Int) -> Unit,
     isTv: Boolean = false,
     modifier: Modifier = Modifier,
+    onChapterPanelShown: (Boolean) -> Unit = {},
 ) {
     // Predictive back: track the gesture's progress and edge to preview the dismissal — Material's
     // full-screen preview (predictiveBackPreview), which shrinks and drifts but never fades.
@@ -263,12 +268,14 @@ fun NowPlayingScreen(
                     onSpeedClick = onSpeedClick,
                     onSleepClick = onSleepTimerClick,
                     onChaptersClick = onChaptersClick,
+                    onSeekToChapter = onSeekToChapter,
                     onGoToContributor = onGoToContributor,
                     onShowAuthorPicker = onShowAuthorPicker,
                     onShowNarratorPicker = onShowNarratorPicker,
                     onMenuItem = onMenuItem,
                     onCardAction = onCardAction,
                     onRate = onRate,
+                    onChapterPanelShown = onChapterPanelShown,
                 )
             }
 

@@ -167,4 +167,15 @@ struct MiniPlayerAccessoryModel: Equatable {
         return Duration.milliseconds(clamped).formatted(
             .units(allowed: [.hours, .minutes], width: .abbreviated, fractionalPart: .hide(rounded: .down)))
     }
+
+    /// `shortDuration` as VoiceOver should say it: the same floored amount with its units spelled out ("8 minutes",
+    /// "1 hour, 5 minutes"), so an abbreviation like "min" or "hr" is never read as letters.
+    static func spokenDuration(ms: Int64, locale: Locale = .autoupdatingCurrent) -> String {
+        let clamped = max(0, ms)
+        if clamped < 60_000 {
+            return Duration.seconds(clamped / 1_000).formatted(.units(allowed: [.seconds], width: .wide).locale(locale))
+        }
+        return Duration.milliseconds(clamped).formatted(
+            .units(allowed: [.hours, .minutes], width: .wide, fractionalPart: .hide(rounded: .down)).locale(locale))
+    }
 }

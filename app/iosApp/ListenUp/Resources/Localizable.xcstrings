@@ -21821,6 +21821,26 @@
         }
       }
     },
+    "player.np_back_to_current": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to current chapter"
+          }
+        }
+      }
+    },
+    "player.np_back_to_current_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to Current Chapter"
+          }
+        }
+      }
+    },
     "player.np_book_sentence": {
       "localizations": {
         "en": {
@@ -21937,6 +21957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read by"
+          }
+        }
+      }
+    },
+    "player.np_series_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Book %2$@"
           }
         }
       }
@@ -22731,6 +22761,66 @@
         }
       }
     },
+    "player.spoken_hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d hours"
+          }
+        }
+      }
+    },
+    "player.spoken_hours_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "player.spoken_hours_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 hour"
+          }
+        }
+      }
+    },
+    "player.spoken_minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d minutes"
+          }
+        }
+      }
+    },
+    "player.spoken_minutes_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 minute"
+          }
+        }
+      }
+    },
+    "player.spoken_under_a_minute": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less than a minute"
+          }
+        }
+      }
+    },
     "player.timer_active": {
       "localizations": {
         "en": {
@@ -22857,26 +22947,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unknown book"
-          }
-        }
-      }
-    },
-    "player.up_next": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up next"
-          }
-        }
-      }
-    },
-    "player.view_all_chapters": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View all %1$d chapters"
           }
         }
       }

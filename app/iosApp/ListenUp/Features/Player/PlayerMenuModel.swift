@@ -49,9 +49,10 @@ enum PlayerMenuModel {
         }
     }
 
-    /// The More menu for `state`. iPhone and the iPad column both include Go to Series in this release.
-    static func sections(for state: PlayerUiStateLoaded) -> [PlayerMenuSection] {
-        PlayerMenus.shared.moreMenu(state: state, includesSeries: true).map { group in
+    /// The More menu for `state`. Go to Series is in it unless the series is already a link on screen (`includesSeries`
+    /// false: iPad's wide player, where the series sits above the title; P10).
+    static func sections(for state: PlayerUiStateLoaded, includesSeries: Bool) -> [PlayerMenuSection] {
+        PlayerMenus.shared.moreMenu(state: state, includesSeries: includesSeries).map { group in
             PlayerMenuSection(rows: group.items.map(Row.init), isDestructive: group.isDestructive)
         }
     }

@@ -46,6 +46,7 @@ class CompactNowPlayingTest {
                     onNextChapter = {},
                     onSpeedClick = {},
                     onChaptersClick = { chaptersOpened++ },
+                    onSeekToChapter = {},
                     onSleepTimerClick = {},
                     onGoToContributor = {},
                     onShowAuthorPicker = {},

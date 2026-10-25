@@ -96,6 +96,7 @@ class TabletopNowPlayingTest {
                         onNextChapter = {},
                         onSpeedClick = {},
                         onChaptersClick = {},
+                        onSeekToChapter = {},
                         onSleepTimerClick = {},
                         onGoToContributor = {},
                         onShowAuthorPicker = {},

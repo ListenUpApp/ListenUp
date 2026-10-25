@@ -97,14 +97,16 @@ struct BoostPickerSheet: View {
 
 /// One chapter line — number · title · duration, with a now-playing equalizer on the current chapter and a play glyph
 /// on the rest. The current chapter sits on a coral tint (plan C14: tinted on iOS) with "Now Playing · 8 min left";
-/// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad inline "Up Next" panel
-/// so both surfaces render chapters identically.
+/// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad's `NowPlayingChapterPanel`
+/// so both surfaces render chapters identically; only the panel draws the current row's chapter bar (`chapterFraction`),
+/// because the panel stays open while the chapter plays (§3.11).
 ///
 /// Text stays `.primary` or `luQuietInk` (4.5:1, unlike the system's secondary and tertiary labels) on every row: the
 /// tint is decoration (the wash and the equalizer), never the colour
 /// a title is read in. The current row is also `.isSelected` and says "now playing", so it is marked by more than colour.
-/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 min left", or "Play from
-/// chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks (HIG, Typography).
+/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 minutes left" (the visible
+/// "8 min" in words), or "Play from chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks
+/// (HIG, Typography).
 struct ChapterRow: View {
     /// The chapter's own number, as the book counts it.
     let number: Int
@@ -112,12 +114,19 @@ struct ChapterRow: View {
     let durationMs: Int64
     let isCurrent: Bool
     let isPlaying: Bool
-    /// Content time left in the current chapter (S10); ignored on other rows.
-    var remainingMs: Int64 = 0
+    /// Content time left in the current chapter (S10), read only by the row's time-left line and its spoken name, so a
+    /// progress tick redraws those alone and never the list around them. nil on every other row.
+    var remainingMs: (() -> Int64)?
+    /// How far through the chapter the playhead is, read only by the row's bar so a progress tick redraws the bar alone.
+    /// nil draws no bar (the sheet, every row but the current one).
+    var chapterFraction: (() -> Float)?
     let tint: Color
     let onTap: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The current row's tint: the coral at this opacity (plan C14: tinted on iOS, never filled).
+    static let currentTintOpacity = 0.10
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
 
@@ -128,17 +137,20 @@ struct ChapterRow: View {
             MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
     }
 
-    /// The row as VoiceOver reads it.
-    var spokenLabel: String {
-        if isCurrent {
+    /// The row as VoiceOver reads it: `remainingMs` is the current row's time left, nil on every other row.
+    static func spokenLabel(number: Int, title: String, durationMs: Int64, remainingMs: Int64?) -> String {
+        if let remainingMs {
             return String(
                 format: String(localized: "player.sheet_chapter_current"), number, title,
-                MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
+                MiniPlayerAccessoryModel.spokenDuration(ms: remainingMs))
         }
         return String(
             format: String(localized: "player.sheet_chapter_play_from"), number, title,
             DurationFormatting.clock(ms: durationMs))
     }
+
+    /// The time left this row reads, or nil: only the current row's.
+    private var currentRemainingMs: (() -> Int64)? { isCurrent ? remainingMs : nil }
 
     var body: some View {
         let layout = isStacked
@@ -159,10 +171,14 @@ struct ChapterRow: View {
                             .fontWeight(isCurrent ? .semibold : .regular)
                             .foregroundStyle(.primary)
                             .lineLimit(isStacked ? 3 : 1)
+                        if let currentRemainingMs {
+                            ChapterRowTimeLeft(remainingMs: currentRemainingMs)
+                        }
                         if isCurrent {
-                            Text(Self.currentLine(remainingMs: remainingMs))
-                                .font(.footnote)
-                                .foregroundStyle(Color.luQuietInk)
+                            if let chapterFraction {
+                                ChapterRowBar(fraction: chapterFraction)
+                                    .padding(.top, Spacing.xxs)
+                            }
                         }
                     }
                 }
@@ -195,7 +211,7 @@ struct ChapterRow: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: Radius.m)
-                    .fill(isCurrent ? tint.opacity(0.10) : .clear)
+                    .fill(isCurrent ? tint.opacity(Self.currentTintOpacity) : .clear)
             )
             .overlay(alignment: .bottom) {
                 if !isCurrent {
@@ -207,8 +223,63 @@ struct ChapterRow: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(spokenLabel)
+        .modifier(ChapterRowSpokenLabel(
+            number: number, title: title, durationMs: durationMs, remainingMs: currentRemainingMs))
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
+/// The current row's "Now Playing · 8 min left". Its own view, so the time left is read here and a progress tick
+/// redraws this line alone.
+struct ChapterRowTimeLeft: View {
+    let remainingMs: () -> Int64
+
+    var body: some View {
+        Text(ChapterRow.currentLine(remainingMs: remainingMs()))
+            .font(.footnote)
+            .foregroundStyle(Color.luQuietInk)
+    }
+}
+
+/// A chapter row's one VoiceOver name (`ChapterRow.spokenLabel`). A modifier, so the current row's time left is read
+/// in its own body and a progress tick renames the row without rebuilding it.
+struct ChapterRowSpokenLabel: ViewModifier {
+    let number: Int
+    let title: String
+    let durationMs: Int64
+    let remainingMs: (() -> Int64)?
+
+    func body(content: Content) -> some View {
+        content.accessibilityLabel(ChapterRow.spokenLabel(
+            number: number, title: title, durationMs: durationMs, remainingMs: remainingMs?()))
+    }
+}
+
+/// The current row's chapter progress in the iPad panel (spec §3.11; verify c5): an 80pt capsule, its fill in the deeper
+/// coral ink on a coral track, so the moving part reads at 3:1 or more against its own track on every wash (WCAG 1.4.11;
+/// plan C7 — the board's pale track under a light fill would all but vanish). Decorative to VoiceOver: the row already
+/// says the time left. Its own view, so the fraction is read here and a progress tick redraws only the bar.
+struct ChapterRowBar: View {
+    let fraction: () -> Float
+
+    /// The fill: `CoralInk` (#A8261F light, #FF9270 dark, deeper still under Increase Contrast).
+    static let fill = Color.luTintInk
+    /// The track: the coral at this opacity, over the row's tint.
+    static let trackOpacity = 0.22
+    static let width: CGFloat = 80
+    static let height: CGFloat = 4
+
+    var body: some View {
+        let progress = CGFloat(min(1, max(0, fraction())))
+        Capsule()
+            .fill(Color.luTint.opacity(Self.trackOpacity))
+            .overlay(alignment: .leading) {
+                Capsule()
+                    .fill(Self.fill)
+                    .frame(width: Self.width * progress)
+            }
+            .frame(width: Self.width, height: Self.height)
+            .accessibilityHidden(true)
     }
 }
 
@@ -259,7 +330,7 @@ struct ChapterListSheet: View {
                             durationMs: chapter.durationMs,
                             isCurrent: chapter.index == observer.chapterIndex,
                             isPlaying: observer.isPlaying,
-                            remainingMs: observer.progress.chapterRemainingMs,
+                            remainingMs: { observer.progress.chapterRemainingMs },
                             tint: .listenUpOrange,
                             onTap: {
                                 observer.selectChapter(index: chapter.index)
@@ -300,7 +371,10 @@ struct ChapterListSheet: View {
 
 /// Three-bar now-playing equalizer. Bars pulse while playing and hold static when
 /// paused, honouring Reduce Motion.
-private struct EqualizerGlyph: View {
+struct EqualizerGlyph: View {
+    /// The bars move only while the book plays, and never under Reduce Motion (HIG, Motion).
+    static func shouldPulse(isAnimating: Bool, reduceMotion: Bool) -> Bool { isAnimating && !reduceMotion }
+
     let color: Color
     let isAnimating: Bool
 
@@ -328,6 +402,6 @@ private struct EqualizerGlyph: View {
         )
     }
 
-    private var shouldPulse: Bool { isAnimating && !reduceMotion }
+    private var shouldPulse: Bool { Self.shouldPulse(isAnimating: isAnimating, reduceMotion: reduceMotion) }
     private var animate: Bool { shouldPulse && phase }
 }

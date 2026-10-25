@@ -8,7 +8,8 @@ import CoreGraphics
 /// Max in landscape reports a regular width yet has ~420pt of height, which is exactly where a
 /// size-class fork went wrong.
 enum PlayerLayoutMode: Equatable {
-    /// Player column beside the always-visible "Up Next" chapter pane (full-size iPad).
+    /// The player beside the always-visible chapter panel (iPad, and wide Split View or Stage Manager windows). Inside it,
+    /// `regularArrangement(playerWidth:isAccessibilitySize:)` decides whether the cover sits beside the controls.
     case regular
     /// Short and wide (a phone in landscape): the cover sits beside the controls.
     case compactHeight
@@ -77,6 +78,43 @@ enum PlayerLayoutMode: Equatable {
     static func compactHeightCoverSide(in size: CGSize) -> CGFloat {
         let fitted = min(size.height - 2 * verticalMargin, size.width * compactHeightCoverWidthShare)
         return min(max(fitted, coverRange.lowerBound), coverRange.upperBound)
+    }
+
+    // MARK: - Inside .regular (the NP-iPad board)
+
+    /// The chapter panel's width, beside the player.
+    static let panelWidth: CGFloat = 360
+    /// The gap between the cover and the controls when they sit side by side (the board).
+    static let besideGap: CGFloat = 32
+    /// The narrowest controls column worth putting a cover beside: the transport and the settings row fit at 340.
+    static let besideControlsMinimumWidth: CGFloat = 340
+    /// The cover beside the controls: never under 240 (spec §5.3), never over the board's 330.
+    static let coverBesideRange: ClosedRange<CGFloat> = 240...330
+    /// The narrowest player area that holds a 240pt cover beside a usable controls column.
+    static var coverBesideMinimumPlayerWidth: CGFloat {
+        2 * horizontalMargin + coverBesideRange.lowerBound + besideGap + besideControlsMinimumWidth
+    }
+
+    /// How the player area beside the panel arranges the cover and the controls.
+    enum RegularArrangement: Equatable {
+        /// The board: the cover at `coverSide`, beside the controls (iPad landscape).
+        case coverBeside(coverSide: CGFloat)
+        /// The cover above the controls (iPad upright, two-thirds Split View, accessibility text sizes).
+        case stacked
+    }
+
+    /// The cover goes beside the controls wherever it can be at least 240pt beside a usable controls column; below that
+    /// it stacks above them. At accessibility text sizes the controls need the whole column, so it always stacks (HIG,
+    /// Typography: "Consider adjusting your layout at large font sizes").
+    ///
+    /// - Parameters:
+    ///   - playerWidth: the width beside the panel, margins included.
+    ///   - isAccessibilitySize: text at an accessibility size.
+    static func regularArrangement(playerWidth: CGFloat, isAccessibilitySize: Bool = false) -> RegularArrangement {
+        if isAccessibilitySize { return .stacked }
+        let room = playerWidth - 2 * horizontalMargin - besideGap - besideControlsMinimumWidth
+        guard room >= coverBesideRange.lowerBound else { return .stacked }
+        return .coverBeside(coverSide: min(room, coverBesideRange.upperBound))
     }
 
     /// The scrolling fallback's cover — a fixed, comfortable size, narrowed to fit the column.

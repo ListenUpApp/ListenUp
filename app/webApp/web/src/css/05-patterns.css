@@ -615,6 +615,10 @@ div.panel-pop {
 /* The chapter list (§3.11): a scroller of its own, so following the playhead never moves the page. */
 .np-listcol { min-width:0; }
 .np-listwrap { display:flex; flex-direction:column; gap:var(--sp-8); }
+/* The board's heading over the list: "Chapters" and how many and how long, on the wash. Not a tab stop. */
+.np-listhead { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:var(--sp-4) var(--sp-8); padding:0 var(--sp-12); }
+.np-listhead h2 { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; color:var(--ink); }
+.np-listsum { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
 .np-list {
   max-height:max(320px, calc(100dvh - 260px)); overflow:auto; overflow-anchor:none; overscroll-behavior:contain;
   border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
@@ -631,7 +635,11 @@ div.panel-pop {
 .np-row-n { font-size:var(--fs-small); color:var(--ink-3); font-variant-numeric:tabular-nums; }
 .np-row-main { display:flex; flex-direction:column; min-width:0; }
 .np-row-t { font-size:var(--fs-ui); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.np-row-now { font-size:var(--fs-small); font-weight:600; }
+.np-row-now { display:flex; align-items:center; gap:var(--sp-8); font-size:var(--fs-small); font-weight:600; }
+/* How far through the chapter (§5.3): white on the pressed coral, ≥ 3:1 against both the track and the row (C7). */
+.np-row-bar { flex:none; width:80px; height:4px; border-radius:var(--r-pill); background:var(--coral-fill-press); overflow:hidden; }
+.np-row-fill { display:block; height:100%; border-radius:inherit; background:var(--on-coral); }
+@media (prefers-reduced-motion: no-preference) { .np-row-fill { transition:width .25s linear; } }
 .np-row-d { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
 .np-row.on { background:var(--coral-fill); color:var(--on-coral); }
 .np-row.on .np-row-n, .np-row.on .np-row-d { color:inherit; }

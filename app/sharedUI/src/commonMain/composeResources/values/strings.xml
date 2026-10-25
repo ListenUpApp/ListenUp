@@ -2183,6 +2183,8 @@ One beautiful library.</string>
     <string name="player_more_options">More options</string>
     <string name="player_next_chapter">Next chapter</string>
     <string name="player_now_playing">Now playing</string>
+    <string name="player_np_back_to_current">Back to current chapter</string>
+    <string name="player_np_back_to_current_ios">Back to Current Chapter</string>
     <string name="player_np_book_sentence">Book %1$d% · %2$s left</string>
     <string name="player_np_by">by</string>
     <string name="player_np_byline_fold">%1$s &amp; %2$d more</string>
@@ -2195,6 +2197,7 @@ One beautiful library.</string>
     <string name="player_np_open_inbox_ios">Open Inbox</string>
     <string name="player_np_previous_chapter_hint">Goes to the start of this chapter first.</string>
     <string name="player_np_read_by">Read by</string>
+    <string name="player_np_series_book">%1$s · Book %2$s</string>
     <string name="player_np_sign_in">Sign in</string>
     <string name="player_np_sign_in_ios">Sign In</string>
     <string name="player_np_status_downloaded">Downloaded</string>
@@ -2274,6 +2277,12 @@ One beautiful library.</string>
     <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
+    <string name="player_spoken_hours">%1$d hours</string>
+    <string name="player_spoken_hours_minutes">%1$s %2$s</string>
+    <string name="player_spoken_hours_one">1 hour</string>
+    <string name="player_spoken_minutes">%1$d minutes</string>
+    <string name="player_spoken_minutes_one">1 minute</string>
+    <string name="player_spoken_under_a_minute">less than a minute</string>
     <string name="player_timer_active">Timer active</string>
     <string name="player_title_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="player_title_book_held_for_review">Waiting in the Inbox.</string>
@@ -2287,8 +2296,6 @@ One beautiful library.</string>
     <string name="player_title_playback_stalled">Couldn't play this book.</string>
     <string name="player_title_playback_unsupported_format">Can't play this audio.</string>
     <string name="player_unknown_book">Unknown book</string>
-    <string name="player_up_next">Up next</string>
-    <string name="player_view_all_chapters">View all %1$d chapters</string>
     <string name="player_volume_boost">Volume boost</string>
     <string name="profile_avatar">Avatar</string>
     <string name="profile_avatar_description">Shown across your profile and reviews.</string>

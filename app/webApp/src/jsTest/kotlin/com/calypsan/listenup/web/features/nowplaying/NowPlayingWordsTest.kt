@@ -60,12 +60,12 @@ class NowPlayingWordsTest :
             PlayerSheetWords.books(0) shouldBe null
         }
 
-        test("a chapter row's label: play from it, or where you are in it") {
+        test("a chapter row's label: play from it, or where you are in it, its time left in words") {
             val row = PlayerChapterRow(6, 7, "Anything Reasonable", 0, 1_998_000, isCurrent = false)
             PlayerSheetWords.chapterRowLabel(row, isCurrent = false) shouldBe "Play from chapter 7: Anything Reasonable, 33:18"
             val current = PlayerChapterRow(5, 6, "Bridge Four", 0, 1_235_000, isCurrent = true)
             PlayerSheetWords.chapterRowLabel(current, isCurrent = true, remainingMs = 480_000) shouldBe
-                "Chapter 6, Bridge Four, now playing, 8m left"
+                "Chapter 6, Bridge Four, now playing, 8 minutes left"
         }
 
         test("the chapter list's header sums the book") {
