@@ -16,7 +16,7 @@ enum class PlayerKey {
     /** →: forward the interval, × speed. */
     SkipForward,
 
-    /** Shift+←: the previous chapter, by the shared rule (restart after 3 s). */
+    /** Shift+←: the previous chapter, by the shared rule (restart after 3 s); nothing in a chapterless book. */
     PreviousChapter,
 
     /** Shift+→: the next chapter; nothing at the last. */
@@ -66,11 +66,15 @@ data class KeyPress(
     )
 }
 
-/** Where the press happened: whether there is a book to control, the page, and the element that had focus. */
+/**
+ * Where the press happened: whether there is a book to control, the page, the element that had focus, and whether the
+ * book has a previous chapter to go to (not in a chapterless book, where previous would only jump to 0:00).
+ */
 data class KeyContext(
     val isLoaded: Boolean,
     val onPlayingPage: Boolean,
     val target: KeyTarget = KeyTarget.Body,
+    val hasPreviousChapter: Boolean = true,
 )
 
 /**
@@ -84,9 +88,10 @@ fun playerKeyFor(
     context: KeyContext,
 ): PlayerKey? {
     if (!context.isLoaded || standsDown(press, context.target)) return null
+    val previousChapter = PlayerKey.PreviousChapter.takeIf { context.hasPreviousChapter }
     return when (press.key) {
         " " -> PlayerKey.PlayPause
-        "ArrowLeft" -> if (press.shift) PlayerKey.PreviousChapter else PlayerKey.SkipBack
+        "ArrowLeft" -> if (press.shift) previousChapter else PlayerKey.SkipBack
         "ArrowRight" -> if (press.shift) PlayerKey.NextChapter else PlayerKey.SkipForward
         "Escape" -> PlayerKey.ClosePlayer.takeIf { context.onPlayingPage }
         else -> CHARACTER_KEYS[press.key]

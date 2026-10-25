@@ -40,6 +40,7 @@ extension NowPlayingInfo {
         )
         info.album = album
         info.hasNextChapter = ChapterNavigation.shared.hasNext(positionMs: bookPositionMs, chapters: chapters)
+        info.hasPreviousChapter = ChapterNavigation.shared.hasPrevious(chapters: chapters)
         return info
     }
 

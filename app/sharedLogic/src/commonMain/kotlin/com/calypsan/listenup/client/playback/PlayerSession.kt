@@ -530,11 +530,11 @@ class PlayerSession(
         }
     }
 
-    /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts. */
+    /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts; a no-op in a chapterless book. */
     fun previousChapter() {
         onPlayer {
             if (movesThePlayhead()) {
-                seekTo(ChapterNavigation.previousStartMs(positionMs.value, chapters.value))
+                ChapterNavigation.previousStartMs(positionMs.value, chapters.value)?.let(::seekTo)
             } else {
                 carry(PlaybackMove.PreviousChapter)
             }

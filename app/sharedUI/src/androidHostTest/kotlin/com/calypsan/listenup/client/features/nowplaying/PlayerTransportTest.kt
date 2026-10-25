@@ -64,6 +64,18 @@ class PlayerTransportTest {
     }
 
     @Test
+    fun `a chapterless book disables Previous rather than restarting the book`() {
+        transport(loadedPlayerState(phase = PlayerPhase.Playing, isWholeBook = true, canSkipToNextChapter = false))
+        composeRule.onNodeWithContentDescription("Previous chapter").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `chapter 6 keeps Previous enabled`() {
+        transport(loadedPlayerState(phase = PlayerPhase.Playing))
+        composeRule.onNodeWithContentDescription("Previous chapter").assertIsEnabled()
+    }
+
+    @Test
     fun `buffering keeps the skips' slots but disables them, and the busy button still pauses`() {
         transport(loadedPlayerState(phase = PlayerPhase.Buffering, primary = PrimaryControl.Busy))
         composeRule.onNodeWithContentDescription("Skip back 10 seconds").assertIsNotEnabled()

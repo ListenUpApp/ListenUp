@@ -491,23 +491,34 @@ struct RemoteTrackCommandTests {
 
     @Test func previousWithinThreeSecondsGoesToThePreviousChapter() async {
         let harness = await loaded(at: 101_000)
-        harness.coordinator.remotePreviousTrack()
+        #expect(harness.coordinator.remotePreviousTrack())
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 0)
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 0 })
     }
 
     @Test func previousLaterInAChapterRestartsIt() async {
         let harness = await loaded(at: 120_000)
-        harness.coordinator.remotePreviousTrack()
+        #expect(harness.coordinator.remotePreviousTrack())
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 100_000)
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 100_000 })
     }
 
     @Test func previousInChapterOneRestartsIt() async {
         let harness = await loaded(at: 500)
-        harness.coordinator.remotePreviousTrack()
+        #expect(harness.coordinator.remotePreviousTrack())
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 0)
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 0 })
+    }
+
+    /// A chapterless book has no previous: nothing moves, and the system is told so rather than sent to 0:00.
+    @Test func previousInAChapterlessBookDoesNothing() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(durationMs: 300_000))
+        harness.engine.emit(.position(ms: 120_000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 120_000 }
+        let seeksBefore = harness.progress.seeks.count
+        #expect(!harness.coordinator.remotePreviousTrack())
+        #expect(harness.progress.seeks.count == seeksBefore)
     }
 
     @Test func nextGoesToTheNextChapter() async {

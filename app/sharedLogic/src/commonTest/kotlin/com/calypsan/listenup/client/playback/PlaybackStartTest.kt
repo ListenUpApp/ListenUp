@@ -22,6 +22,8 @@ class PlaybackStartTest :
             landingMs(150_000, listOf(PlaybackMove.NextChapter), threeChapters, 300_000) shouldBe 200_000L
             landingMs(250_000, listOf(PlaybackMove.NextChapter), threeChapters, 300_000) shouldBe 250_000L
             landingMs(150_000, listOf(PlaybackMove.PreviousChapter), threeChapters, 300_000) shouldBe 100_000L
+            // A chapterless book has no previous, so a carried previous moves nothing.
+            landingMs(150_000, listOf(PlaybackMove.PreviousChapter), emptyList(), 300_000) shouldBe 150_000L
             landingMs(
                 150_000,
                 listOf(PlaybackMove.PreviousChapter, PlaybackMove.PreviousChapter),

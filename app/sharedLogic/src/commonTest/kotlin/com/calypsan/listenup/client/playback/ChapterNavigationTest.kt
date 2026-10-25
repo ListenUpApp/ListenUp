@@ -29,8 +29,12 @@ class ChapterNavigationTest :
                 ChapterNavigation.previousStartMs(positionMs = 1_000, chapters = chapters) shouldBe 0
                 ChapterNavigation.previousStartMs(positionMs = 50_000, chapters = chapters) shouldBe 0
             }
-            test("a chapterless book restarts the book") {
-                ChapterNavigation.previousStartMs(positionMs = 50_000, chapters = emptyList()) shouldBe 0
+            test("a chapterless book has no previous: nothing to restart to but the start of the book") {
+                ChapterNavigation.previousStartMs(positionMs = 50_000, chapters = emptyList()).shouldBeNull()
+                ChapterNavigation.hasPrevious(emptyList()) shouldBe false
+            }
+            test("a chaptered book always has a previous, even in chapter 1, where it restarts") {
+                ChapterNavigation.hasPrevious(chapters) shouldBe true
             }
         }
 

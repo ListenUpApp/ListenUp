@@ -39,8 +39,8 @@ private val SkipSize = 56.dp
 
 /**
  * Now Playing's transport (spec P14–P18, §3.3): one standard button group of Previous · back N · play · forward N ·
- * Next (m3.material.io/components/button-groups: standard groups for rows of actions). Previous is always enabled
- * and says it restarts the chapter first; Next is off at the last chapter. The skips keep their slots in every state
+ * Next (m3.material.io/components/button-groups: standard groups for rows of actions). Previous is enabled in every
+ * chapter and says it restarts the chapter first, but is off in a chapterless book; Next is off at the last chapter. The skips keep their slots in every state
  * and are disabled while there is no settled position (S12), so the group never re-flows under the thumb (C5).
  */
 @Suppress("LongParameterList") // one callback per control the board draws
@@ -73,6 +73,8 @@ fun PlayerTransport(
             buttonGroupContent = {
                 IconButton(
                     onClick = previous,
+                    // A chapterless book has no previous: it would only jump to 0:00.
+                    enabled = state.canSkipToPreviousChapter,
                     shapes = IconButtonDefaults.shapes(),
                     modifier =
                         Modifier.semantics {

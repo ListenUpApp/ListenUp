@@ -692,10 +692,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
 // In this file so they reach the private `seek(toMs:)`; outside the class body, which is long enough.
 extension PlayerCoordinator {
-    /// Previous chapter by the shared rule (§3.3), the one every surface uses.
-    func remotePreviousTrack() {
-        let target = ChapterNavigation.shared.previousStartMs(positionMs: bookPositionMs, chapters: chapters)
+    /// Previous chapter by the shared rule (§3.3), the one every surface uses; nothing in a chapterless book, and the
+    /// system is told so.
+    func remotePreviousTrack() -> Bool {
+        guard let target = ChapterNavigation.shared.previousStartMs(positionMs: bookPositionMs, chapters: chapters)
+        else { return false }
         Task { await seek(toMs: target) }
+        return true
     }
 
     /// Next chapter by the shared rule; nothing at the last chapter, and the system is told so.

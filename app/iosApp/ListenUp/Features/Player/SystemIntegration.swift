@@ -38,6 +38,8 @@ struct NowPlayingInfo: Equatable, Sendable {
     var album: String = ""
     /// Whether next track goes anywhere: false at the last chapter, where the system greys it out (§3.3).
     var hasNextChapter: Bool = true
+    /// Whether previous track goes anywhere: false only in a chapterless book, where it would jump to 0:00.
+    var hasPreviousChapter: Bool = true
 }
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
@@ -50,8 +52,8 @@ protocol RemoteCommandHandler: AnyObject {
     func remoteSkipForward()
     func remoteSkipBackward()
     /// Previous track: the previous chapter by the shared rule (§3.3: restart after 3 s; chapter 1 restarts) — AirPods,
-    /// CarPlay and headsets.
-    func remotePreviousTrack()
+    /// CarPlay and headsets. False in a chapterless book, where there is none, so the system is told nothing moved.
+    func remotePreviousTrack() -> Bool
     /// Next track: the next chapter. False when there is none (the last chapter), so the system is told nothing moved.
     func remoteNextTrack() -> Bool
     /// Seek to a position within the CURRENTLY PRESENTED WINDOW (the current chapter, or the whole
@@ -106,8 +108,10 @@ final class SystemIntegration {
     /// Push a fresh lock-screen snapshot.
     func update(_ info: NowPlayingInfo) {
         infoCenter.nowPlayingInfo = Self.dictionary(from: info)
-        // Next track greys out at the last chapter (§3.3). Previous never does: it can always restart the chapter.
+        // Next track greys out at the last chapter (§3.3). Previous greys out only in a chapterless book: in a chaptered
+        // one it can always restart the chapter.
         commandCenter.nextTrackCommand.isEnabled = info.hasNextChapter
+        commandCenter.previousTrackCommand.isEnabled = info.hasPreviousChapter
     }
 
     /// Set the lock-screen skip intervals the system shows on its skip controls.
@@ -189,8 +193,7 @@ final class SystemIntegration {
         center.previousTrackCommand.isEnabled = true
         center.previousTrackCommand.addTarget { [weak self] _ in
             guard let handler = self?.handler else { return .noActionableNowPlayingItem }
-            handler.remotePreviousTrack()
-            return .success
+            return handler.remotePreviousTrack() ? .success : .commandFailed
         }
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { [weak self] _ in

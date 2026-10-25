@@ -181,24 +181,26 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// are never custom.
     private func configureNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
-        observeNextChapter()
+        observeChapterButtons()
         nowPlaying.isUpNextButtonEnabled = true
         nowPlaying.upNextTitle = String(localized: "player.chapters")
         nowPlaying.add(self)
     }
 
-    /// Re-draw the buttons whenever next becomes possible or impossible, re-arming like `observeHome`. Stops once the
-    /// car disconnects.
-    private func observeNextChapter() {
+    /// Re-draw the buttons whenever previous or next becomes possible or impossible, re-arming like `observeHome`. Stops
+    /// once the car disconnects.
+    private func observeChapterButtons() {
         guard interfaceController != nil else { return }
         withObservationTracking {
-            updateNowPlayingButtons(hasNextChapter: Dependencies.shared.playerObserver.canSkipToNextChapter)
+            let player = Dependencies.shared.playerObserver
+            updateNowPlayingButtons(
+                hasPreviousChapter: player.canSkipToPreviousChapter, hasNextChapter: player.canSkipToNextChapter)
         } onChange: { [weak self] in
-            Task { @MainActor in self?.observeNextChapter() }
+            Task { @MainActor in self?.observeChapterButtons() }
         }
     }
 
-    private func updateNowPlayingButtons(hasNextChapter: Bool) {
+    private func updateNowPlayingButtons(hasPreviousChapter: Bool, hasNextChapter: Bool) {
         let chapterButtons = CarPlayChapterButton.all.map { spec in
             let image = buttonImage(spec.symbolName, accessibilityLabel: spec.accessibilityLabel)
             let button = CPNowPlayingImageButton(image: image) { _ in
@@ -210,7 +212,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
                     }
                 }
             }
-            button.isEnabled = spec.isEnabled(hasNextChapter: hasNextChapter)
+            button.isEnabled = spec.isEnabled(hasPreviousChapter: hasPreviousChapter, hasNextChapter: hasNextChapter)
             return button
         }
 

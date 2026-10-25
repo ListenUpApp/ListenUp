@@ -13,19 +13,25 @@ object ChapterNavigation {
 
     /**
      * The start of the current chapter once it has run for more than [RESTART_AFTER_MS], otherwise the start of the
-     * previous one. Chapter 1, and a book with no chapters, always restart. Defined by elapsed time, so there is no
-     * hidden "pressed again within 3 s" timer.
+     * previous one. Chapter 1 always restarts. Null in a book with no chapters: there previous does nothing, rather
+     * than jump to 0:00. Defined by elapsed time, so there is no hidden "pressed again within 3 s" timer.
      */
     fun previousStartMs(
         positionMs: Long,
         chapters: List<Chapter>,
-    ): Long {
-        if (chapters.isEmpty()) return 0L
+    ): Long? {
+        if (chapters.isEmpty()) return null
         val current = currentIndex(positionMs, chapters)
         val chapterStart = chapters[current].startTime
         val restart = positionMs - chapterStart > RESTART_AFTER_MS || current == 0
         return if (restart) chapterStart else chapters[current - 1].startTime
     }
+
+    /**
+     * Whether previous does anything: what every surface's previous control is enabled by. Always, in a chaptered
+     * book (at worst it restarts the chapter); never in a chapterless one.
+     */
+    fun hasPrevious(chapters: List<Chapter>): Boolean = chapters.isNotEmpty()
 
     /** The next chapter's start, or null at the last chapter and in a chapterless book: next does nothing there. */
     fun nextStartMs(

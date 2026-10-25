@@ -74,6 +74,9 @@ struct PlayerObserverTests {
         let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(wholeBook: true))
         #expect(snapshot.totalChapters == 1)
         #expect(snapshot.chapterTitle == nil)
+        // Previous would only jump to 0:00 there, so every previous control reads it as off.
+        #expect(!snapshot.canSkipToPreviousChapter)
+        #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(currentIndex: 0)).canSkipToPreviousChapter)
     }
 
     @Test("a running sleep timer shows its remaining time; end of chapter is flagged")

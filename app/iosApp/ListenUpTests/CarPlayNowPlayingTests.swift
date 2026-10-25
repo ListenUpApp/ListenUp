@@ -44,11 +44,12 @@ struct CarPlayNowPlayingTests {
         #expect(CarPlayChapterButton.next.action == .next)
     }
 
-    /// The shared rule (§3.3): previous can always restart the chapter, so it never greys out; next does at the last.
-    @Test func nextIsDisabledAtTheLastChapterAndPreviousNeverIs() {
-        #expect(CarPlayChapterButton.previous.isEnabled(hasNextChapter: false))
-        #expect(CarPlayChapterButton.previous.isEnabled(hasNextChapter: true))
-        #expect(CarPlayChapterButton.next.isEnabled(hasNextChapter: true))
-        #expect(!CarPlayChapterButton.next.isEnabled(hasNextChapter: false))
+    /// The shared rule (§3.3): in a chaptered book previous can always restart the chapter, so it greys out only in a
+    /// chapterless book; next greys out at the last chapter.
+    @Test func nextIsDisabledAtTheLastChapterAndPreviousOnlyWithoutChapters() {
+        #expect(CarPlayChapterButton.previous.isEnabled(hasPreviousChapter: true, hasNextChapter: false))
+        #expect(!CarPlayChapterButton.previous.isEnabled(hasPreviousChapter: false, hasNextChapter: false))
+        #expect(CarPlayChapterButton.next.isEnabled(hasPreviousChapter: true, hasNextChapter: true))
+        #expect(!CarPlayChapterButton.next.isEnabled(hasPreviousChapter: true, hasNextChapter: false))
     }
 }

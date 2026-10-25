@@ -110,4 +110,11 @@ class PlayerKeysTest :
                 search.aria shouldBe "/ Control+K Meta+K"
             }
         }
+
+        test("Shift+← stands down in a chapterless book, where there is no previous chapter; ← still skips") {
+            val chapterless = loaded.copy(hasPreviousChapter = false)
+            playerKeyFor(KeyPress("ArrowLeft", shift = true), chapterless) shouldBe null
+            playerKeyFor(KeyPress("ArrowLeft"), chapterless) shouldBe PlayerKey.SkipBack
+            playerKeyFor(KeyPress("ArrowRight", shift = true), chapterless) shouldBe PlayerKey.NextChapter
+        }
     })

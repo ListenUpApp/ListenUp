@@ -133,6 +133,23 @@ class PlayerShortcutKeysTest :
             }
         }
 
+        test("in a chapterless book Shift+← does nothing, rather than jump to 0:00; ← still skips back") {
+            val calls = mutableListOf<String>()
+            val chapterless = loadedPlayerState(title = "Piranesi", authors = listOf(PlayerContributor("c3", "Susanna Clarke", 1)))
+            val (_, router, composition) = mountAt("/library", openPlayback = recordingPlayback(chapterless, calls))
+            try {
+                awaitFrame()
+                (document.activeElement as? HTMLElement)?.blur()
+                press("ArrowLeft", shift = true)
+                press("ArrowLeft")
+
+                calls shouldBe listOf("skip back")
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
         test("keys are ignored in an <input>: Space and T type there") {
             val calls = mutableListOf<String>()
             val (host, router, composition) = mountAt("/library", openPlayback = recordingPlayback(wayOfKings(), calls))

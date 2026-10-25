@@ -12,6 +12,7 @@ struct PlaybackCommandStateTests {
         showsSkipBack: Bool = true,
         chapterIndex: Int = 0,
         canSkipToNextChapter: Bool = true,
+        canSkipToPreviousChapter: Bool = true,
         sleepTimerActive: Bool = false,
         sleepTimerIsEndOfChapter: Bool = false
     ) -> PlayerSnapshot {
@@ -23,6 +24,7 @@ struct PlaybackCommandStateTests {
         snapshot.showsSkipBack = showsSkipBack
         snapshot.chapterIndex = chapterIndex
         snapshot.canSkipToNextChapter = canSkipToNextChapter
+        snapshot.canSkipToPreviousChapter = canSkipToPreviousChapter
         snapshot.sleepTimerActive = sleepTimerActive
         snapshot.sleepTimerIsEndOfChapter = sleepTimerIsEndOfChapter
         return snapshot
@@ -53,6 +55,13 @@ struct PlaybackCommandStateTests {
     /// §3.3: previous in chapter 1 restarts chapter 1, so ⌥⌘← is live there (it used to grey out).
     @Test func previousChapterIsLiveInChapterOne() {
         #expect(PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0)).hasPreviousChapter)
+    }
+
+    /// A chapterless book has no previous chapter: ⌥⌘← dims rather than jump to 0:00.
+    @Test func previousChapterIsOffInAChapterlessBook() {
+        let state = PlaybackCommandState.from(snapshot: snapshot(canSkipToNextChapter: false, canSkipToPreviousChapter: false))
+        #expect(!state.hasPreviousChapter)
+        #expect(state.canSeek)
     }
 
     @Test func speedStepsStopAtTheEndsOfTheRange() {

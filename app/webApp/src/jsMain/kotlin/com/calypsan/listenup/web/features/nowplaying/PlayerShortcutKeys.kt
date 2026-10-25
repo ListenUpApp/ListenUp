@@ -23,11 +23,13 @@ fun PlayerShortcutKeys(
     onClosePlayer: () -> Unit,
 ) {
     WindowKeyHandler(KeyPriority.Player) { event ->
+        val loaded = playback.state.value as? PlayerUiState.Loaded
         val context =
             KeyContext(
-                isLoaded = playback.state.value is PlayerUiState.Loaded,
+                isLoaded = loaded != null,
                 onPlayingPage = onPlayingPage,
                 target = keyTargetOf(event),
+                hasPreviousChapter = loaded?.canSkipToPreviousChapter == true,
             )
         val key = playerKeyFor(KeyPress(event), context) ?: return@WindowKeyHandler false
         val done =

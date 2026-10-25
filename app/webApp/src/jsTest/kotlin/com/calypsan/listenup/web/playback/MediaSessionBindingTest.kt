@@ -435,6 +435,28 @@ class MediaSessionBindingTest :
             }
         }
 
+        test("a chapterless book offers no previous or next track, and the rest stay") {
+            val bridge = RecordingMediaSession()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose =
+                bindMediaSession(
+                    session = session(state = MutableStateFlow(piranesi()), onPlayPause = {}),
+                    bridge = bridge,
+                    scope = scope,
+                )
+            try {
+                awaitTrue { bridge.handlers["play"] != null }
+
+                ("previoustrack" in bridge.handlers) shouldBe true
+                bridge.handlers["previoustrack"] shouldBe null
+                bridge.handlers["nexttrack"] shouldBe null
+                bridge.handlers["seekbackward"] shouldNotBe null
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
         test("the position is the chapter's, and a seek lands in that chapter") {
             val bridge = RecordingMediaSession()
             val calls = mutableListOf<String>()

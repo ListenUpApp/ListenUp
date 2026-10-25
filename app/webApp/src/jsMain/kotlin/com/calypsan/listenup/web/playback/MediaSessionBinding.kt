@@ -151,7 +151,8 @@ internal const val MEDIA_SESSION_ARTWORK_PX = 512
  * page only through this API. Like the Android card and the iOS lock screen (spec §5.7), the OS
  * sees the chapter as the track: title = the book, artist = the chapter, album = the author, a
  * chapter-scoped position, and previous / next track = previous / next chapter by the shared rule
- * (§3.3), with next track removed at the last chapter (a `null` handler hides the button). The
+ * (§3.3), with next track removed at the last chapter and previous track in a chapterless book (a
+ * `null` handler hides the button), where previous would only jump to 0:00. The
  * metadata changes once per chapter and the position on every tick, so the two are collected
  * separately and `distinctUntilChanged` keeps the browser from being rewritten a few times a
  * second. Closing the book clears it all, the action handlers too: a media key pressed with
@@ -176,7 +177,7 @@ internal fun bindMediaSession(
         bridge.setHandler("stop", { if (isGoing()) session.onPlayPause() }.takeIf { loadedNow })
         bridge.setHandler("seekbackward", session.onSkipBack.takeIf { loadedNow })
         bridge.setHandler("seekforward", session.onSkipForward.takeIf { loadedNow })
-        bridge.setHandler("previoustrack", session.onPreviousChapter.takeIf { loadedNow })
+        bridge.setHandler("previoustrack", session.onPreviousChapter.takeIf { reach?.hasPrevious == true })
         bridge.setHandler("nexttrack", session.onNextChapter.takeIf { reach?.hasNext == true })
         bridge.setSeekToHandler(
             { offsetMs: Long ->
@@ -198,7 +199,7 @@ internal fun bindMediaSession(
             }
             launch {
                 loaded
-                    .map { state -> state?.let { TransportReach(hasNext = it.canSkipToNextChapter) } }
+                    .map { state -> state?.let(::TransportReach) }
                     .distinctUntilChanged()
                     .collect(::answer)
             }
@@ -238,10 +239,19 @@ private fun PlayerPhase.isGoing(): Boolean =
         this == PlayerPhase.Buffering ||
         this == PlayerPhase.Reconnecting
 
-/** Which chapter moves the loaded book offers the OS: next goes nowhere at the last chapter. */
+/**
+ * Which chapter moves the loaded book offers the OS: previous goes nowhere in a chapterless book, next at the last
+ * chapter.
+ */
 private data class TransportReach(
+    val hasPrevious: Boolean,
     val hasNext: Boolean,
-)
+) {
+    constructor(state: PlayerUiState.Loaded) : this(
+        hasPrevious = state.canSkipToPreviousChapter,
+        hasNext = state.canSkipToNextChapter,
+    )
+}
 
 /** What the OS is told is playing: changes once per chapter, never on a tick. */
 private data class TrackInfo(

@@ -576,6 +576,8 @@ private fun PhoneTransport(
             attr(ATTR_TITLE, NowPlayingWords.withKey(PREVIOUS_CHAPTER, "Shift+←"))
             attr(ATTR_KEYS, PlayerKeyAria.PREVIOUS_CHAPTER)
             attr("aria-description", NowPlayingWords.PREVIOUS_HINT)
+            // A chapterless book has no previous: it would only jump to 0:00.
+            if (!state.canSkipToPreviousChapter) disabled()
             onClick { actions.onPreviousChapter() }
         }) { Icon(WebIcon.ChapterPrevious, size = STEP_ICON_SIZE) }
         SkipButton(

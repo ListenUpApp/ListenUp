@@ -56,13 +56,15 @@ class ChapterWindowPlayerSeekTest {
             Chapter(id = "ch-10", title = "Part 2: Right Attitude", duration = 156_000L, startTime = nextChapterStartMs),
         )
 
-    private fun wrapperOver(fake: FakeExoPlayer) =
-        ChapterWindowPlayer(
-            player = fake,
-            chaptersProvider = { chapters },
-            timelineProvider = { timeline },
-            strings = { SystemStrings.ENGLISH_FALLBACK },
-        )
+    private fun wrapperOver(
+        fake: FakeExoPlayer,
+        bookChapters: List<Chapter> = chapters,
+    ) = ChapterWindowPlayer(
+        player = fake,
+        chaptersProvider = { bookChapters },
+        timelineProvider = { timeline },
+        strings = { SystemStrings.ENGLISH_FALLBACK },
+    )
 
     private fun seekableFake() =
         FakeExoPlayer(
@@ -136,6 +138,22 @@ class ChapterWindowPlayerSeekTest {
         val late = seekableFakeAt(chapterStartMs + 5_000L)
         wrapperOver(late).seekToPrevious()
         assertEquals(listOf(0 to chapterStartMs), late.seekCalls)
+    }
+
+    @Test
+    fun `a chapterless book offers no previous, and a previous that arrives anyway moves nothing`() {
+        val fake = seekableFakeAt(bookPositionMs)
+        val wrapper = wrapperOver(fake, bookChapters = emptyList())
+
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM))
+        wrapper.seekToPrevious()
+        assertEquals(emptyList<Pair<Int, Long>>(), fake.seekCalls)
+    }
+
+    @Test
+    fun `a chaptered book always offers previous, which restarts chapter 1`() {
+        assertEquals(true, wrapperOver(seekableFakeAt(2_294_000L + 1_000L)).isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
     }
 
     private fun seekableFakeAt(positionMs: Long) =

@@ -34,7 +34,8 @@ enum CarPlayChapterRows {
 /// a label).
 ///
 /// They move by the shared rule every surface uses (§3.3, `ChapterNavigation` through `PlayerObserver`): previous
-/// restarts the chapter after 3 s and chapter 1 restarts, so it is always enabled; next is disabled at the last chapter.
+/// restarts the chapter after 3 s and chapter 1 restarts, so it is enabled in every chaptered book and disabled only in a
+/// chapterless one; next is disabled at the last chapter.
 struct CarPlayChapterButton: Equatable {
     /// Which way a chapter button moves.
     enum Action: Equatable {
@@ -60,10 +61,11 @@ struct CarPlayChapterButton: Equatable {
     /// In the order the template shows them.
     static let all: [CarPlayChapterButton] = [.previous, .next]
 
-    /// Whether the button can do anything: previous always (it can restart the chapter), next only before the last.
-    func isEnabled(hasNextChapter: Bool) -> Bool {
+    /// Whether the button can do anything: previous wherever the book has chapters (it can restart one), next only
+    /// before the last.
+    func isEnabled(hasPreviousChapter: Bool, hasNextChapter: Bool) -> Bool {
         switch action {
-        case .previous: true
+        case .previous: hasPreviousChapter
         case .next: hasNextChapter
         }
     }

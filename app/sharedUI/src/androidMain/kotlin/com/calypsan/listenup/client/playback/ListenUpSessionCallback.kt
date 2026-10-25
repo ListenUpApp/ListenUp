@@ -805,8 +805,8 @@ internal class ListenUpSessionCallback(
             AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
                 // The shared ChapterNavigation rule (spec §3.3), as ChapterWindowPlayer.handleSeek's
                 // COMMAND_SEEK_TO_PREVIOUS branch and every other surface use it.
-                if (chapters.isNotEmpty() && timeline != null) {
-                    val target = ChapterNavigation.previousStartMs(transport.bookRelativePositionMs(), chapters)
+                val target = ChapterNavigation.previousStartMs(transport.bookRelativePositionMs(), chapters)
+                if (timeline != null && target != null) {
                     val resolved = timeline.resolve(target)
                     playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }

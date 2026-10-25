@@ -77,6 +77,30 @@ struct SystemIntegrationSessionTests {
         #expect(session.remoteCommandCenter.nextTrackCommand.isEnabled)
     }
 
+    /// A chapterless book has no previous track: it greys out rather than jump to 0:00.
+    @Test func previousTrackGreysOutInAChapterlessBook() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+        system.attach(handler: RecordingRemoteHandler())
+        var info = NowPlayingInfo.chapterScoped(
+            title: "The Way of Kings", artist: "Whole book", bookPositionMs: 5_000, chapters: [],
+            bookDurationMs: 60_000, rate: 1.0, artworkPath: nil
+        )
+        #expect(!info.hasPreviousChapter)
+
+        system.update(info)
+        #expect(!session.remoteCommandCenter.previousTrackCommand.isEnabled)
+
+        info = NowPlayingInfo.chapterScoped(
+            title: "The Way of Kings", artist: "Prelude", bookPositionMs: 5_000,
+            chapters: [Chapter(id: "c1", title: "Prelude", duration: 60_000, startTime: 0, partTitle: nil, bookTitle: nil)],
+            bookDurationMs: 60_000, rate: 1.0, artworkPath: nil
+        )
+        #expect(info.hasPreviousChapter)
+        system.update(info)
+        #expect(session.remoteCommandCenter.previousTrackCommand.isEnabled)
+    }
+
     @Test func clearEmptiesTheSessionsInfoCenter() {
         let session = MPNowPlayingSession(players: [AVPlayer()])
         let system = SystemIntegration(session: session)
@@ -97,7 +121,7 @@ final class RecordingRemoteHandler: RemoteCommandHandler {
     func remotePause() {}
     func remoteSkipForward() {}
     func remoteSkipBackward() {}
-    func remotePreviousTrack() {}
+    func remotePreviousTrack() -> Bool { true }
     func remoteNextTrack() -> Bool { true }
     func remoteSeek(toWindowPositionMs positionMs: Int64) {}
     func remoteSetRate(_ rate: Float) { requestedRates.append(rate) }

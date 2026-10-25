@@ -26,7 +26,15 @@ sealed interface PlayerUiState {
         val canSkipToNextChapter: Boolean,
         /** Non-null only in [PlayerPhase.Finished]. */
         val finished: FinishedInfo?,
-    ) : PlayerUiState
+    ) : PlayerUiState {
+        /**
+         * False in a chapterless book, where previous would only jump to 0:00 (§3.3); true in every chapter of a
+         * chaptered one, chapter 1 included, where it restarts the chapter. The same answer as
+         * [com.calypsan.listenup.client.playback.ChapterNavigation.hasPrevious], read off the chapter every surface
+         * already has.
+         */
+        val canSkipToPreviousChapter: Boolean get() = !chapter.isWholeBook
+    }
 }
 
 /** The loaded book's identity, from Room, so it is right before the prepare returns (§3.6). */

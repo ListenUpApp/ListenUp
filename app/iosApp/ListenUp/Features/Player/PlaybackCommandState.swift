@@ -12,7 +12,8 @@ struct PlaybackCommandState: Equatable {
     let showsPause: Bool
     /// Skips, chapter jumps and the sleep timer need a loaded book.
     let canSeek: Bool
-    /// Previous chapter can run whenever skips can: in chapter 1, or a chapterless book, it restarts (§3.3).
+    /// Previous chapter can run whenever skips can in a chaptered book (in chapter 1 it restarts, §3.3); never in a
+    /// chapterless one, where it would only jump to 0:00.
     let hasPreviousChapter: Bool
     let hasNextChapter: Bool
     /// Show Chapters (⇧⌘C): the book has chapters to show.
@@ -47,7 +48,7 @@ struct PlaybackCommandState: Equatable {
             canTogglePlayback: !snapshot.isPreparing,
             showsPause: snapshot.isPlaying || snapshot.isBuffering,
             canSeek: snapshot.showsSkipBack,
-            hasPreviousChapter: snapshot.showsSkipBack,
+            hasPreviousChapter: snapshot.showsSkipBack && snapshot.canSkipToPreviousChapter,
             hasNextChapter: snapshot.canSkipToNextChapter,
             canShowChapters: !snapshot.chapterRows.isEmpty,
             canStepSpeedDown: speed > (PlaybackRates.catalogue.first ?? speed),

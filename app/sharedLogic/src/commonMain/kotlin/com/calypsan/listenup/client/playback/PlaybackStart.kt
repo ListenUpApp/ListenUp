@@ -54,7 +54,7 @@ internal fun landingMs(
         .fold(fromMs.coerceIn(0L, lastMs)) { at, move ->
             when (move) {
                 is PlaybackMove.Skip -> at + move.deltaMs
-                PlaybackMove.PreviousChapter -> ChapterNavigation.previousStartMs(at, chapters)
+                PlaybackMove.PreviousChapter -> ChapterNavigation.previousStartMs(at, chapters) ?: at
                 PlaybackMove.NextChapter -> ChapterNavigation.nextStartMs(at, chapters) ?: at
             }.coerceIn(0L, lastMs)
         }
