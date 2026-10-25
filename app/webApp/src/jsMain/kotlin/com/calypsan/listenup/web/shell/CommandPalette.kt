@@ -1,7 +1,6 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,10 +22,7 @@ import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.SEARCH_QUERY_KEY
 import com.calypsan.listenup.web.nav.slug
 import kotlinx.browser.document
-import kotlinx.browser.window
-import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 
 /**
@@ -101,9 +97,9 @@ internal fun CommandPaletteHost(
         highlighted = hits[(currentIndex + delta).mod(hits.size)]
     }
 
-    DisposableEffect(Unit) {
-        val onWindowKeyDown =
-            paletteKeyDownHandler(
+    WindowKeyHandler(
+        KeyPriority.Palette,
+        paletteKeyDownHandler(
                 isOpen = { isOpen },
                 onOpen = ::openPalette,
                 onClose = { closePalette() },
@@ -118,10 +114,8 @@ internal fun CommandPaletteHost(
                         router.navigate(paletteSearchRoute(query))
                     }
                 },
-            )
-        window.addEventListener("keydown", onWindowKeyDown)
-        onDispose { window.removeEventListener("keydown", onWindowKeyDown) }
-    }
+            ),
+    )
 
     // Handed back once the palette has actually left the page, not in the close call itself: until
     // the recomposition that removes it, the palette is a modal `<dialog>` and everything behind it
@@ -173,8 +167,8 @@ internal fun CommandPaletteHost(
 }
 
 /**
- * Builds [CommandPaletteHost]'s single `window`-level `keydown` handler from the callbacks it
- * needs invoked. Pulled out of the composable itself so its own branching doesn't count against
+ * Builds [CommandPaletteHost]'s key handler for the shell's [WindowKeys] from the callbacks it
+ * needs invoked; true when it took the press. Pulled out of the composable itself so its own branching doesn't count against
  * [CommandPaletteHost]'s cognitive/cyclomatic complexity — this is a plain dispatch table, not
  * state the composable needs to reason about.
  */
@@ -185,12 +179,11 @@ private fun paletteKeyDownHandler(
     onMoveHighlight: (Int) -> Unit,
     onActivateHighlighted: () -> Unit,
     onCommit: () -> Unit,
-): (Event) -> Unit =
-    handler@{ event ->
-        val keyboardEvent = event as KeyboardEvent
+): (KeyboardEvent) -> Boolean =
+    handler@{ keyboardEvent ->
         // Enter, an arrow or Escape while an input method is composing belongs to the composition
         // (confirming a candidate, picking one), not to the palette.
-        if (keyboardEvent.isComposing) return@handler
+        if (keyboardEvent.isComposing) return@handler false
         if (!isOpen()) {
             val isShortcut =
                 keyboardEvent.key.equals(PALETTE_SHORTCUT_KEY, ignoreCase = true) &&
@@ -198,32 +191,24 @@ private fun paletteKeyDownHandler(
             val isSlash = keyboardEvent.key == "/" && !isEditableTarget(document.activeElement)
             // Another modal — a confirm dialog — makes the page behind it inert, and the shortcut
             // belongs to that page. Opening over it would stack two modals.
-            if ((!isShortcut && !isSlash) || anotherModalIsOpen()) return@handler
+            if ((!isShortcut && !isSlash) || anotherModalIsOpen()) return@handler false
             keyboardEvent.preventDefault()
             onOpen()
-            return@handler
+            return@handler true
         }
-        when (keyboardEvent.key) {
-            "Escape" -> {
-                keyboardEvent.preventDefault()
-                onClose()
+        val action: (() -> Unit)? =
+            when (keyboardEvent.key) {
+                "Escape" -> onClose
+                "ArrowDown" -> ({ onMoveHighlight(1) })
+                "ArrowUp" -> ({ onMoveHighlight(-1) })
+                "Enter" -> if (keyboardEvent.shiftKey) onCommit else onActivateHighlighted
+                else -> null
             }
-
-            "ArrowDown" -> {
-                keyboardEvent.preventDefault()
-                onMoveHighlight(1)
-            }
-
-            "ArrowUp" -> {
-                keyboardEvent.preventDefault()
-                onMoveHighlight(-1)
-            }
-
-            "Enter" -> {
-                keyboardEvent.preventDefault()
-                if (keyboardEvent.shiftKey) onCommit() else onActivateHighlighted()
-            }
+        action?.let {
+            keyboardEvent.preventDefault()
+            it()
         }
+        action != null
     }
 
 /**
@@ -249,17 +234,6 @@ private fun paletteSearchRoute(query: String): Route = if (query.isBlank()) Rout
 /** True while a modal `<dialog>` is showing. Asked only while the palette is shut, so it is never the palette. */
 private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
 
-/**
- * True for a text input, a textarea, a `select` or a `contenteditable` region — everywhere `/` must
- * type the character (a select uses typed characters to jump to an option) rather than open the
- * palette out from under the reader.
- */
-private fun isEditableTarget(target: Element?): Boolean {
-    val element = target as? HTMLElement ?: return false
-    return element.isContentEditable || element.tagName in EDITABLE_TAGS
-}
-
-private val EDITABLE_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
 
 /** The letter half of the ⌘K / Ctrl+K shortcut. */
 private const val PALETTE_SHORTCUT_KEY = "k"
