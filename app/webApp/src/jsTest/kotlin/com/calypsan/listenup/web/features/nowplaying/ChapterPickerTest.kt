@@ -136,7 +136,7 @@ class ChapterPickerTest :
             host.closeDialogs()
         }
 
-        test("the current row says 'Playing · 8m left', and every row is named for what pressing it does") {
+        test("the current row shows 'Playing · 8m left' and is named '8 minutes left', and every row for what pressing it does") {
             val rows =
                 listOf(
                     PlayerChapterRow(5, 6, "Bridge Four", 0, 1_235_000, isCurrent = true),
@@ -147,7 +147,7 @@ class ChapterPickerTest :
             val next = host.querySelectorAll(".chap-row").item(1) as HTMLElement
 
             current.textContent.orEmpty() shouldContain "Playing · 8m left"
-            current.getAttribute("aria-label") shouldBe "Chapter 6, Bridge Four, now playing, 8m left"
+            current.getAttribute("aria-label") shouldBe "Chapter 6, Bridge Four, now playing, 8 minutes left"
             next.getAttribute("aria-label") shouldBe "Play from chapter 7: Anything Reasonable, 33:18"
 
             host.closeDialogs()

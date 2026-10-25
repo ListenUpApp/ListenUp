@@ -71,9 +71,9 @@ class NowPlayingChapterListTest :
             frame.find(".np-row .np-row-d").textContent shouldBe "10:00"
         }
 
-        test("a row's name is the chapter popover's: Play from chapter 3, and the current one now playing with its time left") {
+        test("a row's name is the chapter popover's: Play from chapter 3, and the current one now playing with its time left in words") {
             val frame = list(chapterRows(3, 600_000), current = 1, chapterRemainingMs = 511_000)
-            frame.find(".np-row.on").getAttribute("aria-label") shouldBe "Chapter 2, Chapter 2, now playing, 8m left"
+            frame.find(".np-row.on").getAttribute("aria-label") shouldBe "Chapter 2, Chapter 2, now playing, 8 minutes left"
             frame.row(2).getAttribute("aria-label") shouldBe "Play from chapter 3: Chapter 3, 10:00"
         }
 
