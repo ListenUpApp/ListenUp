@@ -17,8 +17,9 @@ import kotlinx.browser.document
  * "ListenUp". The tab used to say "ListenUp" on every route, so the Back menu was a column of
  * identical entries and a screen reader announced nothing when the page changed (WCAG 2.4.2).
  *
- * Inside the shell the name goes to its [DocumentTitle], which owns `document.title` (while a book plays the tab names
- * that instead, spec §5.7); a page rendered without the shell writes the title itself.
+ * Inside the shell the name goes to its [DocumentTitle], which owns `document.title` (while a book plays, the chapter
+ * and the book go in front of the page's name, spec §5.7, so every page still has a title of its own); a page rendered
+ * without the shell writes the title itself.
  *
  * A [SideEffect] rather than a keyed effect: it re-asserts on every recomposition, so the title
  * follows a name that arrives late (a book still loading) and the page composed last wins, which is
@@ -40,8 +41,9 @@ fun PageTitle(page: String?) {
 }
 
 /**
- * The one owner of `document.title` in the shell: the page's name, unless a book is playing, when the tab says what is
- * playing ("Bridge Four · The Way of Kings · ListenUp", spec §5.7) on every page. Two writers would flicker.
+ * The one owner of `document.title` in the shell: the page's name, with what is playing in front of it while a book
+ * plays ("Bridge Four · The Way of Kings · Library · ListenUp", spec §5.7). The page's name stays, so navigating still
+ * changes the title and each page is told apart (WCAG 2.4.2). Two writers would flicker.
  */
 class DocumentTitle {
     /** The page on screen's name ([PageTitle]); null for Home. */
@@ -51,7 +53,7 @@ class DocumentTitle {
     var playing by mutableStateOf<String?>(null)
 
     /** The tab's title now. */
-    val title: String get() = playing?.let { "$it · $APP_NAME" } ?: documentTitleFor(page)
+    val title: String get() = playing?.let { "$it · ${documentTitleFor(page)}" } ?: documentTitleFor(page)
 }
 
 /** The shell's [DocumentTitle], or null where a page is rendered alone. */

@@ -163,8 +163,9 @@ private fun chapterWords(
 ): String = title ?: number?.let { "Chapter $it" } ?: "Whole book"
 
 /**
- * The tab's title while a book plays (spec §5.7, C11): "Bridge Four · The Way of Kings", the chapter as the book names
- * it; null while it is paused, finished, failing or not loaded, so a paused book does not rename every tab for days.
+ * What the tab puts in front of the page's name while a book plays (spec §5.7, C11): "Bridge Four · The Way of Kings",
+ * the chapter as the book names it; null while it is paused, finished, failing or not loaded, so a paused book does not
+ * rename every tab for days.
  */
 internal fun playingTitleFor(state: PlayerUiState): String? {
     val loaded = state as? PlayerUiState.Loaded ?: return null

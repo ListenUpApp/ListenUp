@@ -35,13 +35,28 @@ class DocumentTitleTest :
             title.title shouldBe "ListenUp"
         }
 
-        test("while a book plays, every page's tab names the chapter and the book") {
+        test("while a book plays, the tab puts the chapter and the book in front of the page's own name") {
             val title = DocumentTitle()
             title.page = "Library"
             title.playing = playingTitleFor(wayOfKings(PlayerPhase.Playing))
+            title.title shouldBe "Bridge Four · The Way of Kings · Library · ListenUp"
+            // Home has no page name: the playing words go in front of "ListenUp" alone.
+            title.page = null
             title.title shouldBe "Bridge Four · The Way of Kings · ListenUp"
+        }
+
+        test("navigating while a book plays changes the title, so each page is told apart (WCAG 2.4.2)") {
+            val title = DocumentTitle()
+            title.playing = playingTitleFor(wayOfKings(PlayerPhase.Playing))
+            val pages = listOf(null, "Library", "Settings", "The Way of Kings")
+            val titles =
+                pages.map { page ->
+                    title.page = page
+                    title.title
+                }
+            titles.toSet().size shouldBe pages.size
             title.page = "Settings"
-            title.title shouldBe "Bridge Four · The Way of Kings · ListenUp"
+            title.title shouldBe "Bridge Four · The Way of Kings · Settings · ListenUp"
         }
 
         test("a chapter change names the new chapter; an untitled one by its number") {
