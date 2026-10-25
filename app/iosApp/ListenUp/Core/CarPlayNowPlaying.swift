@@ -29,25 +29,42 @@ enum CarPlayChapterRows {
     }
 }
 
-/// One of the car's custom now-playing buttons: its glyph, the name VoiceOver speaks for it, and
-/// how many chapters it moves. The template's image buttons have no title, so the label rides on
-/// the image (HIG, CarPlay; VoiceOver — every control needs a label).
+/// One of the car's custom now-playing buttons: its glyph, the name VoiceOver speaks for it, and what it does. The
+/// template's image buttons have no title, so the label rides on the image (HIG, CarPlay; VoiceOver — every control needs
+/// a label).
+///
+/// They move by the shared rule every surface uses (§3.3, `ChapterNavigation` through `PlayerObserver`): previous
+/// restarts the chapter after 3 s and chapter 1 restarts, so it is always enabled; next is disabled at the last chapter.
 struct CarPlayChapterButton: Equatable {
+    /// Which way a chapter button moves.
+    enum Action: Equatable {
+        case previous
+        case next
+    }
+
     let symbolName: String
     let accessibilityLabel: String
-    let chapterOffset: Int
+    let action: Action
 
     static let previous = CarPlayChapterButton(
         symbolName: "backward.end",
         accessibilityLabel: String(localized: "player.previous_chapter"),
-        chapterOffset: -1
+        action: .previous
     )
     static let next = CarPlayChapterButton(
         symbolName: "forward.end",
         accessibilityLabel: String(localized: "player.next_chapter"),
-        chapterOffset: 1
+        action: .next
     )
 
     /// In the order the template shows them.
     static let all: [CarPlayChapterButton] = [.previous, .next]
+
+    /// Whether the button can do anything: previous always (it can restart the chapter), next only before the last.
+    func isEnabled(hasNextChapter: Bool) -> Bool {
+        switch action {
+        case .previous: true
+        case .next: hasNextChapter
+        }
+    }
 }

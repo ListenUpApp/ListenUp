@@ -172,23 +172,46 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// `PlaybackRates`, and CarPlay draws its current value from the `changePlaybackRateCommand`
     /// that `SystemIntegration` registers for the lock screen too (rule 13).
     ///
-    /// Custom buttons on purpose, not `nextTrackCommand`/`previousTrackCommand`: the remote
-    /// command center is global, so enabling track commands would also flip the phone's lock
-    /// screen from the 10/30 interval skips to track arrows and remap headphone controls.
-    /// These buttons live only on the car screen. Only the chapter buttons are custom — the
-    /// 10/30 interval skips already render in the system transport row (driven by the enabled
-    /// remote commands), and custom copies would show them twice.
+    /// The chapter buttons go through the shared player, so they follow the rule every surface does (§3.3):
+    /// previous restarts the chapter after 3 s and chapter 1 restarts; next is disabled at the last chapter. Next and
+    /// previous track are also registered with the remote command center (`SystemIntegration`) for AirPods and
+    /// headsets, which this template may draw as well. These custom buttons stay only while it does not: if the
+    /// system transport row draws its own track buttons, the custom pair is a duplicate, and removing it is a
+    /// deletion with no other change. The 10/30 interval skips already render in the system transport row, so they
+    /// are never custom.
     private func configureNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
+        observeNextChapter()
+        nowPlaying.isUpNextButtonEnabled = true
+        nowPlaying.upNextTitle = String(localized: "player.chapters")
+        nowPlaying.add(self)
+    }
 
+    /// Re-draw the buttons whenever next becomes possible or impossible, re-arming like `observeHome`. Stops once the
+    /// car disconnects.
+    private func observeNextChapter() {
+        guard interfaceController != nil else { return }
+        withObservationTracking {
+            updateNowPlayingButtons(hasNextChapter: Dependencies.shared.playerObserver.canSkipToNextChapter)
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeNextChapter() }
+        }
+    }
+
+    private func updateNowPlayingButtons(hasNextChapter: Bool) {
         let chapterButtons = CarPlayChapterButton.all.map { spec in
             let image = buttonImage(spec.symbolName, accessibilityLabel: spec.accessibilityLabel)
-            return CPNowPlayingImageButton(image: image) { _ in
+            let button = CPNowPlayingImageButton(image: image) { _ in
                 Task { @MainActor in
                     let player = Dependencies.shared.playerObserver
-                    player.selectChapter(index: player.chapterIndex + spec.chapterOffset)
+                    switch spec.action {
+                    case .previous: player.previousChapter()
+                    case .next: player.nextChapter()
+                    }
                 }
             }
+            button.isEnabled = spec.isEnabled(hasNextChapter: hasNextChapter)
+            return button
         }
 
         let rateButton = CPNowPlayingPlaybackRateButton { _ in
@@ -199,10 +222,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
 
         let buttons: [CPNowPlayingButton] = [rateButton] + chapterButtons
-        nowPlaying.updateNowPlayingButtons(buttons)
-        nowPlaying.isUpNextButtonEnabled = true
-        nowPlaying.upNextTitle = String(localized: "player.chapters")
-        nowPlaying.add(self)
+        CPNowPlayingTemplate.shared.updateNowPlayingButtons(buttons)
     }
 
     /// Return the shared template to its defaults. It is a process-wide singleton, so leaving our
