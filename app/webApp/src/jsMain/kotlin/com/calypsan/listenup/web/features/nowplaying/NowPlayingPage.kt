@@ -3,7 +3,6 @@ package com.calypsan.listenup.web.features.nowplaying
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,13 +50,8 @@ import org.jetbrains.compose.web.dom.Section
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlinx.browser.document
-import kotlinx.browser.window
 import kotlin.js.Date
-import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
-import org.w3c.dom.events.Event
-import org.w3c.dom.events.EventTarget
-import org.w3c.dom.events.KeyboardEvent
 
 /**
  * `/playing` (S4): Now Playing as a page. With nothing loaded it goes Home, replacing the entry; while the loaded book
@@ -80,21 +74,8 @@ fun NowPlayingRoute(
     LaunchedEffect(closes) {
         if (closes) playingReturn.close(router)
     }
-    // Esc closes the page (C16): page-scoped, standing down in a field and while a dialog (a picker, the palette) is
-    // open, since those close themselves first. PR 6 folds it into one dispatcher with the palette's.
-    DisposableEffect(router, playingReturn) {
-        val onKey: (Event) -> Unit = { event ->
-            val key = event as KeyboardEvent
-            if (key.key == "Escape" && !key.defaultPrevented && !isEditable(key.target) &&
-                document.querySelector("dialog[open]") == null
-            ) {
-                key.preventDefault()
-                playingReturn.close(router)
-            }
-        }
-        window.addEventListener("keydown", onKey)
-        onDispose { window.removeEventListener("keydown", onKey) }
-    }
+    // Esc closes the page (C16): the player's ClosePlayer key, through the shell's one key dispatcher, which stands down
+    // in a field and while a dialog (a picker, the palette) has the keyboard (PlayerShortcutKeys).
     // The store has answered that a book is loaded, but the player has not loaded it: give the restore a moment, then
     // go Home rather than wait on a page with nothing to play.
     val isLoaded = state is PlayerUiState.Loaded
@@ -125,12 +106,6 @@ fun NowPlayingRoute(
  * Home: long enough for the restore's Room read, short enough that a stale entry never strands the reader.
  */
 internal val RESTORE_GRACE = 2.seconds
-
-/** A field the reader is typing in: Esc there is the field's, not the page's. */
-private fun isEditable(target: EventTarget?): Boolean {
-    val element = target as? Element ?: return false
-    return element.closest("input, textarea, select, [contenteditable]:not([contenteditable=false])") != null
-}
 
 /** The page's gestures, from the shell's session and the router. */
 private fun PlaybackSession.pageActions(
@@ -236,6 +211,8 @@ fun NowPlayingPage(
                 // From the More trigger: beside it from 760px, a sheet below (C9).
                 is PlayerMenuItem.VolumeBoost -> pickers.boost = panelPlacementFor(opener)
 
+                PlayerMenuItem.KeyboardShortcuts -> pickers.shortcuts = panelPlacementFor(opener)
+
                 PlayerMenuItem.CloseBook -> actions.onCloseBookAndLeave()
             }
         }
@@ -264,6 +241,8 @@ fun NowPlayingPage(
                 }
             }
         }
+        // §5.4's foot, from 1024px, where a keyboard is likely.
+        P(attrs = { classes("np-foot") }) { Text(NowPlayingWords.PRESS_FOR_SHORTCUTS) }
     }
 }
 
@@ -464,6 +443,7 @@ private class PagePickers {
     var sleep by mutableStateOf<PanelPlacement?>(null)
     var chapters by mutableStateOf<PanelPlacement?>(null)
     var boost by mutableStateOf<PanelPlacement?>(null)
+    var shortcuts by mutableStateOf<PanelPlacement?>(null)
 }
 
 /** The four pickers, each opened over the page and leaving it underneath when it closes. */
@@ -527,6 +507,11 @@ private fun PagePickerDialogs(
         placement = pickers.boost ?: PanelPlacement.Sheet,
         onDismiss = { pickers.boost = null },
     )
+    ShortcutsSheet(
+        open = pickers.shortcuts != null,
+        placement = pickers.shortcuts ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.shortcuts = null },
+    )
 }
 
 /**
@@ -588,7 +573,8 @@ private fun PhoneTransport(
             classes("np-step", "np-prev")
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_LABEL, PREVIOUS_CHAPTER)
-            attr(ATTR_TITLE, PREVIOUS_CHAPTER)
+            attr(ATTR_TITLE, NowPlayingWords.withKey(PREVIOUS_CHAPTER, "Shift+←"))
+            attr(ATTR_KEYS, PlayerKeyAria.PREVIOUS_CHAPTER)
             attr("aria-description", NowPlayingWords.PREVIOUS_HINT)
             onClick { actions.onPreviousChapter() }
         }) { Icon(WebIcon.ChapterPrevious, size = STEP_ICON_SIZE) }
@@ -596,6 +582,7 @@ private fun PhoneTransport(
             WebIcon.SkipBack,
             settings.skipBackSec,
             "Skip back ${settings.skipBackSec} seconds",
+            "←" to PlayerKeyAria.SKIP_BACK,
             "np-skip-back",
             state.showsSkipBack,
             actions.onSkipBack,
@@ -605,6 +592,7 @@ private fun PhoneTransport(
             WebIcon.SkipForward,
             settings.skipForwardSec,
             "Skip forward ${settings.skipForwardSec} seconds",
+            "→" to PlayerKeyAria.SKIP_FORWARD,
             "np-skip-fwd",
             state.showsSkipBack,
             actions.onSkipForward,
@@ -613,7 +601,8 @@ private fun PhoneTransport(
             classes("np-step", "np-next")
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_LABEL, NEXT_CHAPTER)
-            attr(ATTR_TITLE, NEXT_CHAPTER)
+            attr(ATTR_TITLE, NowPlayingWords.withKey(NEXT_CHAPTER, "Shift+→"))
+            attr(ATTR_KEYS, PlayerKeyAria.NEXT_CHAPTER)
             if (!state.canSkipToNextChapter) disabled()
             onClick { actions.onNextChapter() }
         }) { Icon(WebIcon.ChapterNext, size = STEP_ICON_SIZE) }
@@ -632,7 +621,8 @@ internal fun PlayCircle(
         if (state.primary == PrimaryControl.TapToPlay) classes("ring")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_LABEL, label)
-        attr(ATTR_TITLE, label)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label, "Space"))
+        attr(ATTR_KEYS, PlayerKeyAria.PLAY_PAUSE)
         onClick { onPrimary() }
     }) {
         if (state.primary == PrimaryControl.Busy) {
@@ -652,6 +642,8 @@ private fun SkipButton(
     icon: WebIcon,
     seconds: Int,
     label: String,
+    /** The key that presses it, as the tooltip names it, and as `aria-keyshortcuts` spells it. */
+    key: Pair<String, String>,
     extraClass: String,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -660,7 +652,8 @@ private fun SkipButton(
         classes("np-skip", extraClass)
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_LABEL, label)
-        attr(ATTR_TITLE, label)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label, key.first))
+        attr(ATTR_KEYS, key.second)
         if (!enabled) disabled()
         onClick { onClick() }
     }) {
@@ -684,16 +677,27 @@ private fun SettingsPills(
     val countdown =
         SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(PlayerSheetWords::countdown)
     Div(attrs = { classes("np-pills") }) {
-        Pill(text = "$speed\u00D7", label = "Playback speed, $speed times", on = false) { opener ->
-            pickers.speed = panelPlacementFor(opener)
-        }
+        Pill(
+            text = "$speed\u00D7",
+            label = "Playback speed, $speed times",
+            on = false,
+            key = PillKey("< >", PlayerKeyAria.SPEED, presses = false),
+        ) { opener -> pickers.speed = panelPlacementFor(opener) }
         Pill(
             text = countdown ?: "Sleep",
             label = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer",
             on = countdown != null,
+            key = PillKey("T", PlayerKeyAria.SLEEP, presses = true),
         ) { pickers.sleep = panelPlacementFor(it) }
         if (state.chapters.isNotEmpty()) {
-            Pill(text = "Chapters", label = null, on = false) { pickers.chapters = panelPlacementFor(it) }
+            Pill(
+                text = "Chapters",
+                label = null,
+                on = false,
+                key = PillKey("C", PlayerKeyAria.CHAPTERS, presses = true),
+            ) {
+                pickers.chapters = panelPlacementFor(it)
+            }
         }
     }
 }
@@ -703,6 +707,7 @@ private fun Pill(
     text: String,
     label: String?,
     on: Boolean,
+    key: PillKey,
     onClick: (opener: HTMLElement?) -> Unit,
 ) {
     Button(attrs = {
@@ -710,9 +715,22 @@ private fun Pill(
         if (on) classes("on")
         attr(ATTR_TYPE, VALUE_BUTTON)
         label?.let { attr(ATTR_LABEL, it) }
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label ?: text, key.shown))
+        attr(ATTR_KEYS, key.aria)
+        if (key.presses) attr(DATA_PLAYER_KEY, key.aria)
         onClick { event -> onClick(event.currentTarget as? HTMLElement) }
     }) { Text(text) }
 }
+
+/**
+ * A pill's key: [shown] in its tooltip, [aria] in `aria-keyshortcuts`; [presses] when the key presses this very control
+ * (T, C) rather than acting directly (`<` and `>` step the speed without opening the panel).
+ */
+private class PillKey(
+    val shown: String,
+    val aria: String,
+    val presses: Boolean,
+)
 
 private const val PREVIOUS_CHAPTER = "Previous chapter"
 
@@ -745,6 +763,8 @@ private const val VALUE_BUTTON = "button"
 private const val ATTR_LABEL = "aria-label"
 
 private const val ATTR_TITLE = "title"
+
+private const val ATTR_KEYS = "aria-keyshortcuts"
 
 private const val ATTR_HIDDEN = "aria-hidden"
 

@@ -474,11 +474,17 @@ private class KeyTargets(
                     return true
                 }
 
-                "]" -> chapters.getOrNull(if (index < 0) 0 else index + 1)
+                "]" -> {
+                    chapters.getOrNull(if (index < 0) 0 else index + 1)
+                }
 
-                "[" -> chapters.getOrNull(if (index < 0) chapters.lastIndex else index - 1)
+                "[" -> {
+                    chapters.getOrNull(if (index < 0) chapters.lastIndex else index - 1)
+                }
 
-                else -> return false
+                else -> {
+                    return false
+                }
             }
         target?.let { onSelect(it.id) }
         return true

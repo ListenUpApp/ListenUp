@@ -157,6 +157,7 @@ internal fun bindMediaSession(
     scope: CoroutineScope,
 ): () -> Unit {
     val loaded = session.state.map { it as? PlayerUiState.Loaded }
+
     fun isGoing(): Boolean = (session.state.value as? PlayerUiState.Loaded)?.phase?.isGoing() == true
 
     // Not toggles: a headset that repeats "pause", or a browser that sends it while we are already paused, must
@@ -168,7 +169,11 @@ internal fun bindMediaSession(
     bridge.setHandler("seekforward", session.onSkipForward)
     bridge.setHandler("previoustrack", session.onPreviousChapter)
     bridge.setSeekToHandler { offsetMs ->
-        (session.state.value as? PlayerUiState.Loaded)?.let { session.onSeek(bookPositionInChapterMs(it.chapter, offsetMs)) }
+        (session.state.value as? PlayerUiState.Loaded)?.let {
+            session.onSeek(
+                bookPositionInChapterMs(it.chapter, offsetMs),
+            )
+        }
     }
 
     val job =
@@ -187,15 +192,20 @@ internal fun bindMediaSession(
             }
             launch {
                 loaded
-                    .map { state -> state?.let { it.phase == PlayerPhase.Playing || it.phase == PlayerPhase.SleepFading } }
-                    .distinctUntilChanged()
+                    .map { state ->
+                        state?.let { it.phase == PlayerPhase.Playing || it.phase == PlayerPhase.SleepFading }
+                    }.distinctUntilChanged()
                     .collect { playing -> playing?.let(bridge::setPlaying) }
             }
             launch {
                 combine(loaded, session.progress) { state, progress -> state?.let { it to progress } }
                     .collect { pair ->
                         pair?.let { (state, progress) ->
-                            bridge.setPosition(progress.chapterDurationMs, progress.chapterPositionMs, state.settings.speed)
+                            bridge.setPosition(
+                                progress.chapterDurationMs,
+                                progress.chapterPositionMs,
+                                state.settings.speed,
+                            )
                         }
                     }
             }

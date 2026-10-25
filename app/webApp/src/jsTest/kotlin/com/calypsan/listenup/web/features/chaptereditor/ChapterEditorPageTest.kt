@@ -105,30 +105,31 @@ private fun page(
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     hosts += host
-    compositions += renderComposable(root = host) {
-        ChapterEditorPage(
-            state = state,
-            playheadMs = playheadMs,
-            onSelect = onSelect,
-            onNudge = onNudge,
-            onSnapToPlayhead = onSnapToPlayhead,
-            onRetitle = onRetitle,
-            onRemove = onRemove,
-            onAddAt = onAddAt,
-            onRetime = onRetime,
-            onInsertBelow = onInsertBelow,
-            onPlayFrom = onPlayFrom,
-            onToggleLock = onToggleLock,
-            onBeginDrift = onBeginDrift,
-            onPinAnchor = onPinAnchor,
-            onApplyDrift = onApplyDrift,
-            onCancelDrift = onCancelDrift,
-            onUndo = onUndo,
-            onSave = onSave,
-            onLeave = onLeave,
-            problem = problem,
-        )
-    }
+    compositions +=
+        renderComposable(root = host) {
+            ChapterEditorPage(
+                state = state,
+                playheadMs = playheadMs,
+                onSelect = onSelect,
+                onNudge = onNudge,
+                onSnapToPlayhead = onSnapToPlayhead,
+                onRetitle = onRetitle,
+                onRemove = onRemove,
+                onAddAt = onAddAt,
+                onRetime = onRetime,
+                onInsertBelow = onInsertBelow,
+                onPlayFrom = onPlayFrom,
+                onToggleLock = onToggleLock,
+                onBeginDrift = onBeginDrift,
+                onPinAnchor = onPinAnchor,
+                onApplyDrift = onApplyDrift,
+                onCancelDrift = onCancelDrift,
+                onUndo = onUndo,
+                onSave = onSave,
+                onLeave = onLeave,
+                problem = problem,
+            )
+        }
     return host
 }
 

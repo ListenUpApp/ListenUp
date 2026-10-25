@@ -100,21 +100,21 @@ internal fun CommandPaletteHost(
     WindowKeyHandler(
         KeyPriority.Palette,
         paletteKeyDownHandler(
-                isOpen = { isOpen },
-                onOpen = ::openPalette,
-                onClose = { closePalette() },
-                onMoveHighlight = ::moveHighlight,
-                onActivateHighlighted = {
-                    session?.let { activeSession -> highlighted?.let(activeSession.onOpenHit) }
-                },
-                onCommit = {
-                    session?.let { activeSession ->
-                        val query = activeSession.state.value.query
-                        closePalette(returnFocus = false)
-                        router.navigate(paletteSearchRoute(query))
-                    }
-                },
-            ),
+            isOpen = { isOpen },
+            onOpen = ::openPalette,
+            onClose = { closePalette() },
+            onMoveHighlight = ::moveHighlight,
+            onActivateHighlighted = {
+                session?.let { activeSession -> highlighted?.let(activeSession.onOpenHit) }
+            },
+            onCommit = {
+                session?.let { activeSession ->
+                    val query = activeSession.state.value.query
+                    closePalette(returnFocus = false)
+                    router.navigate(paletteSearchRoute(query))
+                }
+            },
+        ),
     )
 
     // Handed back once the palette has actually left the page, not in the close call itself: until
@@ -233,7 +233,6 @@ private fun paletteSearchRoute(query: String): Route = if (query.isBlank()) Rout
 
 /** True while a modal `<dialog>` is showing. Asked only while the palette is shut, so it is never the palette. */
 private fun anotherModalIsOpen(): Boolean = document.querySelector("dialog:modal") != null
-
 
 /** The letter half of the ⌘K / Ctrl+K shortcut. */
 private const val PALETTE_SHORTCUT_KEY = "k"

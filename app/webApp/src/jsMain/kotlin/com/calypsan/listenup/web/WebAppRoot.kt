@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.features.books.LocalSelectionHandOff
 import com.calypsan.listenup.web.features.books.SelectionHandOff
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,8 @@ import com.calypsan.listenup.web.design.LocalCoverThemes
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
+import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.web.features.nowplaying.PlayerShortcutKeys
 import com.calypsan.listenup.web.features.nowplaying.PlayingReturn
 import com.calypsan.listenup.web.features.nowplaying.TransportBarHost
 import com.calypsan.listenup.web.features.sync.DeadLetterNotice
@@ -49,6 +52,8 @@ import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.shell.AccountIdentity
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.CommandPaletteHost
+import com.calypsan.listenup.web.shell.LocalWindowKeys
+import com.calypsan.listenup.web.shell.WindowKeys
 import com.calypsan.listenup.web.shell.RouteContent
 import com.calypsan.listenup.web.shell.Shell
 import com.calypsan.listenup.web.shell.footerNav
@@ -107,6 +112,12 @@ fun WebAppRoot(
     val playback = playbackState(graph.openPlayback)
     // One per window: where Now Playing closes to, and which control gets focus back (S4).
     val playingReturn = remember { PlayingReturn() }
+    // The one window key listener (spec §5.8): the palette, the player and a page's own keys register with it.
+    val windowKeys = remember { WindowKeys() }
+    DisposableEffect(windowKeys) {
+        val remove = windowKeys.install()
+        onDispose { remove() }
+    }
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book, the person behind it, or the series it belongs to all live in the library, so
@@ -127,6 +138,7 @@ fun WebAppRoot(
     val openProfile: (() -> Unit)? = currentUserId?.let { id -> { router.navigate(Routes.profile(id)) } }
 
     CompositionLocalProvider(
+        LocalWindowKeys provides windowKeys,
         LocalRestrictedBookIds provides restrictedBookIds,
         LocalAvatarFrames provides graph.observeAvatarFrame,
         LocalCoverThemes provides graph.coverThemes,
@@ -219,6 +231,16 @@ fun WebAppRoot(
                 onOpenNowPlaying = { opener -> playingReturn.open(router, opener) },
                 onCloseNowPlaying = { playingReturn.close(router) },
                 onFocusChapters = ::focusNowPlayingChapters,
+            )
+
+            // The player's keyboard, on every page while a book is loaded (spec §5.8).
+            PlayerShortcutKeys(
+                playback = playback,
+                onPlayingPage = page == PLAYING_KEY,
+                onTogglePlayer = { opener ->
+                    if (page == PLAYING_KEY) playingReturn.close(router) else playingReturn.open(router, opener)
+                },
+                onClosePlayer = { playingReturn.close(router) },
             )
 
             // Last of all: the palette overlays everything above it, including the transport bar.

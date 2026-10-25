@@ -361,9 +361,8 @@ class TransportBarTest :
             opened shouldBe listOf<HTMLElement?>(body)
         }
 
-        test("the bar's focus order is pinned: body, back, play, forward, scrubber, speed, sleep, chapters, open") {
-            // ⛔ PR 5 must not change this order (spec §11). PR 6's Shortcuts is the one sanctioned insertion,
-            // between Chapters and Open.
+        test("the bar's focus order is pinned: body, back, play, forward, scrubber, speed, sleep, chapters, shortcuts, open") {
+            // ⛔ Pinned (spec §11). Shortcuts was the one sanctioned insertion, between Chapters and Open.
             val host = bar(chaptered(), CHAPTER_PROGRESS)
             val bar = host.querySelector(".tport") as HTMLElement
             val order =
@@ -383,8 +382,42 @@ class TransportBarTest :
                     "Playback speed, 1 times",
                     "Sleep timer",
                     "Chapters",
+                    "Keyboard shortcuts",
                     "Open Now Playing",
                 )
+        }
+
+        test("every control a key presses names its key, to a screen reader and in its tooltip") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+
+            fun control(selector: String) = host.querySelector(selector) as HTMLElement
+
+            mapOf(
+                ".tport-b" to ("Space" to "Pause (Space)"),
+                ".tport-back" to ("ArrowLeft" to "Skip back 10 seconds (←)"),
+                ".tport-fwd" to ("ArrowRight" to "Skip forward 30 seconds (→)"),
+                ".tport-speed" to ("< >" to "Playback speed (< >)"),
+                ".tport-sleep" to ("T" to "Sleep timer (T)"),
+                ".tport-ch" to ("C" to "Chapters (C)"),
+                ".tport-keys" to ("?" to "Keyboard shortcuts (?)"),
+                ".tport-expand" to ("P" to "Open Now Playing (P)"),
+            ).forEach { (selector, expected) ->
+                control(selector).getAttribute("aria-keyshortcuts") shouldBe expected.first
+                control(selector).getAttribute("title") shouldBe expected.second
+            }
+        }
+
+        test("the Shortcuts button opens the keyboard shortcuts, one row per key, as pairs") {
+            val host = bar(chaptered(), CHAPTER_PROGRESS)
+            (host.querySelector(".tport-keys") as HTMLElement).click()
+            awaitFrame()
+
+            val sheet = host.ownerDocument!!.querySelector(".keys-dlg").shouldNotBeNull()
+            sheet.querySelector("h2")!!.textContent shouldBe "Keyboard shortcuts"
+            sheet.querySelectorAll("dl dt").length shouldBe PLAYER_SHORTCUTS.size
+            sheet.querySelectorAll("dl dd").length shouldBe PLAYER_SHORTCUTS.size
+            sheet.querySelector("dt kbd")!!.textContent shouldBe "Space"
+            (host.querySelector(".tport-keys") as HTMLElement).getAttribute("aria-expanded") shouldBe "true"
         }
 
         test("a hidden back N keeps its slot, so the main button never moves, and leaves the tab order") {

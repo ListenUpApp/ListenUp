@@ -56,6 +56,11 @@ data class MenuAction(
      * ("Michael Kramer, 14 books"), so a screen reader hears what the eye sees.
      */
     val detail: String? = null,
+    /**
+     * The key that does the same thing, as `aria-keyshortcuts` spells it ("?"), drawn at the item's trailing edge:
+     * More's Keyboard shortcuts row (spec §5.4).
+     */
+    val keyShortcut: String? = null,
 )
 
 /**
@@ -380,6 +385,7 @@ private fun MenuItem(
         )
         item.checked?.let { attr("aria-checked", it.toString()) }
         item.detailedName()?.let { attr(ATTR_ARIA_LABEL, it) }
+        item.keyShortcut?.let { attr("aria-keyshortcuts", it) }
         if (item.detail != null) classes("has-d")
         // Only the first item is a Tab stop; the arrows are how a menu is walked.
         attr("tabindex", if (index == 0) "0" else "-1")
@@ -413,6 +419,13 @@ private fun MenuItemFace(item: MenuAction) {
             Span { Text(item.label) }
             Span(attrs = { classes("menu-i-d") }) { Text(detail) }
         }
+    }
+    // Hidden from assistive tech: aria-keyshortcuts already says it, and the name stays the label.
+    item.keyShortcut?.let { key ->
+        Span(attrs = {
+            classes("menu-i-k")
+            attr("aria-hidden", "true")
+        }) { Text(key) }
     }
 }
 

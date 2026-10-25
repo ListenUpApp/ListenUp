@@ -29,6 +29,14 @@ internal object NowPlayingWords {
     const val FADING_BODY = "Your sleep timer is ending. Playback pauses in a moment."
     const val BACK = "Back"
     const val CHAPTER_POSITION = "Chapter position"
+    const val KEYBOARD_SHORTCUTS = "Keyboard shortcuts"
+    const val PRESS_FOR_SHORTCUTS = "Press ? for keyboard shortcuts."
+
+    /** A tooltip that names its key (spec §5.8): "Sleep timer (T)". */
+    fun withKey(
+        label: String,
+        key: String,
+    ): String = "$label ($key)"
 
     /** The status slot (§3.1), with the browser's wording for an unreachable server. */
     fun status(source: AudioSource): String =

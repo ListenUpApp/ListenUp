@@ -279,6 +279,23 @@
 .luw .boost-opts .boost-opt + .boost-opt { border-left: 1px solid var(--line); }
 .luw .boost-opts .boost-opt.is-on { background: var(--coral-fill); color: var(--on-coral); }
 
+/* ---- keyboard shortcuts (§5.8, `Shortcuts-WebDesktop`) ---- */
+/* Pairs, keys then what they do: a <dl> a screen reader reads as pairs. */
+.keys-list { margin:0; display:grid; grid-template-columns:auto 1fr; column-gap:var(--sp-16); row-gap:var(--sp-4); }
+.keys-k, .keys-d { margin:0; min-height:44px; display:flex; align-items:center; }
+.keys-k { gap:4px; }
+.keys-d { font-size:var(--fs-ui); color:var(--ink); }
+.keys-list kbd, .menu-i-k {
+  display:inline-flex; align-items:center; justify-content:center; min-width:1.9em; padding:2px 6px;
+  font-family:inherit; font-size:var(--fs-small); font-weight:700; line-height:1.3; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
+}
+/* More's row names its key at the trailing edge. */
+.menu-i-k { margin-left:auto; }
+/* The page foot (§5.4): wide pages only, where a keyboard is likely. */
+.np-foot { display:none; margin:0; font-size:var(--fs-small); color:var(--ink-2); }
+@media (min-width: 1024px) { .np-foot { display:block; } }
+
 /* ---- player panels (§3.8): one shell, two placements ---- */
 /* A heading with its way out beside it (`Sheets-WebPhone`): Close shares the title's row. */
 .dlg-head { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-12); }

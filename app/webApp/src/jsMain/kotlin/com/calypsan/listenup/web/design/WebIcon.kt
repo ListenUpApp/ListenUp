@@ -110,6 +110,10 @@ enum class WebIcon(
     // the standard "a set of things" shape; reconcile if the design project grows one.
     Layers("M12 3l8 4.5-8 4.5-8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5"),
 
+    // The bar's Keyboard shortcuts (spec §5.1, `Shortcuts-WebDesktop`). Not mirrored from the design project, which
+    // draws the button as a "?" key; a keyboard outline is the standard shape for it.
+    Keyboard("M3 6.5h18v11H3z M6.5 10h.01 M10 10h.01 M13.5 10h.01 M17 10h.01 M7.5 14h9"),
+
     // From the keep-off canvas (#1541): a book kept off Hardcover.
     LinkOff(
         "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1 M4 4l16 16",

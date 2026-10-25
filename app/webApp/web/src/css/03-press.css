@@ -34,6 +34,7 @@
 .nav-i:active,
 .ptb-b:active,
 .tport-ch:active,
+.tport-keys:active,
 .tport-b:active,
 .tport-skip:active,
 .tport-sleep:active,
@@ -203,7 +204,7 @@
    finger was on. TouchTargetsTest measures a representative set with the browser's own hit test. */
 @media (pointer: coarse) {
   .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .toast .t-act, .tab, .seg button,
-           .lib-seg-i, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+           .lib-seg-i, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-keys, .tport-sleep,
            .tport-body, .tport-pill, .tport-close, .tport-expand, .tport-speed, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
            .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
@@ -211,7 +212,7 @@
     position: relative;
   }
   .luw :is(.btn, .f-eye, .cbx-hit, .toast .t-x, .toast .t-act, .tab, .seg button,
-           .lib-seg-i, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-sleep,
+           .lib-seg-i, .bulk-b, .bulk-x, .pill, .tport-b, .tport-skip, .tport-ch, .tport-keys, .tport-sleep,
            .tport-body, .tport-pill, .tport-close, .tport-expand, .tport-speed, .rel-x, .bd-pick-x, .lsetup-err-x, .lsetup-up, .lsetup-check,
            .lset-err-x, .lset-x, .lset-up, .shelf-grip, .shelf-book-x, .shelf-notice-x, .shelf-move,
            .inbox-notice-x, .srv-err-x, .cat-twist, .cat-act, .cat-err-x, .coll-err-x, .bkp-err-x,
