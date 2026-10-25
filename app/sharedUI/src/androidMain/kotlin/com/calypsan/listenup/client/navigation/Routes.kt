@@ -531,12 +531,14 @@ data object EditProfile : Route
  * so the path survives round-trips through the back-stack without encoding issues.
  *
  * @property localPath Absolute path to the local PDF file to display.
+ * @property title The reader's title: the book's, as iOS titles its reader — the file's own name is an id.
  * @property opensFromNowPlaying Opened from the expanded Now Playing, which collapsed to show it; leaving the reader
  *   expands it again ([reexpandsNowPlaying]).
  */
 @Serializable
 data class DocumentViewer(
     val localPath: String,
+    val title: String,
     val opensFromNowPlaying: Boolean = false,
 ) : Route
 

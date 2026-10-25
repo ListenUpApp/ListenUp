@@ -10,8 +10,8 @@ import io.kotest.matchers.shouldBe
  */
 class ReaderReturnTest :
     FunSpec({
-        val fromNowPlaying = DocumentViewer(localPath = "/cache/doc.pdf", opensFromNowPlaying = true)
-        val fromBookDetail = DocumentViewer(localPath = "/cache/doc.pdf")
+        val fromNowPlaying = DocumentViewer(localPath = "/cache/doc.pdf", title = "Book", opensFromNowPlaying = true)
+        val fromBookDetail = DocumentViewer(localPath = "/cache/doc.pdf", title = "Book")
 
         test("backing out of a reader opened from Now Playing returns to Now Playing") {
             val stack = listOf<NavKey>(Shell, BookDetail("b1"))

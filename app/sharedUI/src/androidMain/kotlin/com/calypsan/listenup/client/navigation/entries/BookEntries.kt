@@ -88,8 +88,8 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
                 onSeeAllReaders = { id -> backStack.add(BookReaders(id)) },
                 onFindHardcoverMatch = { id -> backStack.add(HardcoverMatch(id)) },
                 onCollectionClick = { id -> backStack.add(AdminCollectionDetail(id)) },
-                onOpenDocumentViewer = { localPath ->
-                    backStack.add(DocumentViewer(localPath))
+                onOpenDocumentViewer = { localPath, bookTitle ->
+                    backStack.add(DocumentViewer(localPath, bookTitle))
                 },
                 onEditChaptersClick = { id ->
                     backStack.add(ChapterEditor(id))
@@ -100,6 +100,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
     entry<DocumentViewer> { args ->
         DocumentViewerScreen(
             path = args.localPath,
+            title = args.title,
             onBack = {
                 backStack.popFrom(args)
             },

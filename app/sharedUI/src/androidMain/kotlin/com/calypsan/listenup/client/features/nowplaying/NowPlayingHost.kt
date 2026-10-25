@@ -238,7 +238,7 @@ internal fun NowPlayingHost(
  */
 internal data class PlayerNavigation(
     val onNavigateToBook: (String) -> Unit,
-    val onNavigateToDocument: (localPath: String, opensFromNowPlaying: Boolean) -> Unit,
+    val onNavigateToDocument: (localPath: String, title: String, opensFromNowPlaying: Boolean) -> Unit,
     val onOpenSignIn: () -> Unit,
     val onOpenInbox: () -> Unit,
 )
@@ -259,7 +259,9 @@ internal fun PlayerEventsEffect(
                     // From the expanded player, it steps aside for the reader and comes back when the reader closes.
                     val opensFromNowPlaying = viewModel.expanded.value
                     if (opensFromNowPlaying) viewModel.collapse()
-                    navigation.onNavigateToDocument(event.localPath, opensFromNowPlaying)
+                    // Titled with the playing book's name, as iOS titles the reader it opens from Now Playing.
+                    val title = (viewModel.uiState.value as? PlayerUiState.Loaded)?.run { book.title }.orEmpty()
+                    navigation.onNavigateToDocument(event.localPath, title, opensFromNowPlaying)
                 }
 
                 is PlayerEvent.NavigateToBook -> {

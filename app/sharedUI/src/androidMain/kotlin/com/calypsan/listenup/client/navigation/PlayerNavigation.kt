@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.features.nowplaying.PlayerNavigation
 internal fun MutableList<NavKey>.playerNavigation(): PlayerNavigation =
     PlayerNavigation(
         onNavigateToBook = { bookId -> add(BookDetail(bookId)) },
-        onNavigateToDocument = { path, fromNowPlaying -> add(DocumentViewer(path, fromNowPlaying)) },
+        onNavigateToDocument = { path, title, fromNowPlaying -> add(DocumentViewer(path, title, fromNowPlaying)) },
         onOpenSignIn = { if (lastOrNull() != Login) add(Login) },
         onOpenInbox = { add(AdminInbox) },
     )

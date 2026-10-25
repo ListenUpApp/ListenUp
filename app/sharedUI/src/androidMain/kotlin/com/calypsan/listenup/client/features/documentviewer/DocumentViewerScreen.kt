@@ -111,6 +111,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * of the one process-wide PlayerSession, so it agrees with the shell's mini player.
  *
  * @param path Absolute path to the local PDF file.
+ * @param title The book's title, shown in the top bar.
  * @param onBack Called when the user taps the navigation-icon back button.
  * @param playerNavigation Where this entry's player events lead (Sign in from the strip, a problem card's way out) —
  *   the same places the mini-player's lead.
@@ -119,6 +120,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 internal fun DocumentViewerScreen(
     path: String,
+    title: String,
     onBack: () -> Unit,
     playerNavigation: PlayerNavigation,
 ) {
@@ -153,7 +155,8 @@ internal fun DocumentViewerScreen(
         chromeVisible = chromeVisible,
         topBar = {
             ReaderTopBar(
-                title = basenameOf(path),
+                // The book's name, as iOS titles its reader; the file name (an id) only if that was unknown.
+                title = title.ifBlank { basenameOf(path) },
                 onBack = onBack,
                 chromeVisible = chromeVisible,
                 onGrid = { showGrid = true },

@@ -10,7 +10,7 @@ import io.kotest.matchers.shouldBe
  */
 class PlayerNavigationTest :
     FunSpec({
-        val reader = DocumentViewer(localPath = "/cache/doc.pdf")
+        val reader = DocumentViewer(localPath = "/cache/doc.pdf", title = "The Salt Roads")
 
         test("Sign in from the reader opens sign-in above it") {
             val stack = mutableListOf<NavKey>(Shell, BookDetail("b1"), reader)
@@ -38,7 +38,14 @@ class PlayerNavigationTest :
 
         test("a document opens the reader, remembering whether Now Playing opened it") {
             val stack = mutableListOf<NavKey>(Shell)
-            stack.playerNavigation().onNavigateToDocument("/cache/doc.pdf", true)
-            stack shouldBe listOf(Shell, DocumentViewer("/cache/doc.pdf", opensFromNowPlaying = true))
+            stack.playerNavigation().onNavigateToDocument("/cache/doc.pdf", "The Salt Roads", true)
+            stack shouldBe
+                listOf(Shell, DocumentViewer("/cache/doc.pdf", title = "The Salt Roads", opensFromNowPlaying = true))
+        }
+
+        test("the reader is titled with the book's name, as iOS titles it, not the file's id") {
+            val stack = mutableListOf<NavKey>(Shell)
+            stack.playerNavigation().onNavigateToDocument("/cache/752953c7.pdf", "The Salt Roads", false)
+            (stack.last() as DocumentViewer).title shouldBe "The Salt Roads"
         }
     })
