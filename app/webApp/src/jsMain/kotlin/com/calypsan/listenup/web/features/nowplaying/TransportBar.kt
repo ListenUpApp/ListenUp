@@ -143,6 +143,11 @@ fun TransportBar(
         placement = PanelPlacement.Sheet,
         onDismiss = { boostOpen = false },
     )
+    ShortcutsSheet(
+        open = panels.shortcuts != null,
+        placement = panels.shortcuts ?: PanelPlacement.Sheet,
+        onDismiss = { panels.shortcuts = null },
+    )
 
     val line = MiniPlayerLines.of(state)
     val tinted = line is MiniPlayerLine.Problem && line.isTinted
@@ -192,20 +197,10 @@ fun TransportBar(
                 },
                 onOpenSleep = { opener -> panels.sleep = panels.sleep.toggledFrom(opener) },
             )
+            ShortcutsButton(panels)
         }
 
-        // Open ↔ Close: on the page it is the way back (§5.1), and says so.
-        val expandLabel = if (isNowPlayingOpen) "Close Now Playing" else "Open Now Playing"
-        Button(attrs = {
-            classes("tport-expand")
-            attr(ATTR_TYPE, VALUE_BUTTON)
-            attr(ATTR_ARIA_LABEL, expandLabel)
-            attr(ATTR_TITLE, expandLabel)
-            attr("aria-expanded", isNowPlayingOpen.toString())
-            onClick { event ->
-                if (isNowPlayingOpen) onCloseNowPlaying() else onOpenNowPlaying(event.currentTarget as? HTMLElement)
-            }
-        }) { Icon(if (isNowPlayingOpen) WebIcon.ChevronDown else WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+        ExpandButton(isNowPlayingOpen, onOpenNowPlaying, onCloseNowPlaying)
     }
 
     // In the same apply that swaps the book in, so its first painted frame is already the motion's first.
@@ -215,11 +210,51 @@ fun TransportBar(
     }
 }
 
+/**
+ * The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
+ * settings group, so it steps aside with them below 760px, where the web phone has none.
+ */
+@Composable
+private fun ShortcutsButton(panels: BarPanels) {
+    Button(attrs = {
+        classes("tport-keys")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, NowPlayingWords.KEYBOARD_SHORTCUTS)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(NowPlayingWords.KEYBOARD_SHORTCUTS, "?"))
+        attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SHORTCUTS)
+        attr(DATA_PLAYER_KEY, PlayerKeyAria.SHORTCUTS)
+        attr(ATTR_EXPANDED, (panels.shortcuts != null).toString())
+        onClick { event -> panels.shortcuts = panels.shortcuts.toggledFrom(event.currentTarget as? HTMLElement) }
+    }) { Icon(WebIcon.Keyboard, size = CHAPTER_ICON_SIZE) }
+}
+
+/** Open ↔ Close: on the page it is the way back (§5.1), and says so; P opens it, and P or Esc closes it. */
+@Composable
+private fun ExpandButton(
+    isNowPlayingOpen: Boolean,
+    onOpenNowPlaying: (opener: HTMLElement?) -> Unit,
+    onCloseNowPlaying: () -> Unit,
+) {
+    val label = if (isNowPlayingOpen) "Close Now Playing" else "Open Now Playing"
+    Button(attrs = {
+        classes("tport-expand")
+        attr(ATTR_TYPE, VALUE_BUTTON)
+        attr(ATTR_ARIA_LABEL, label)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label, if (isNowPlayingOpen) "P, Esc" else "P"))
+        attr(ATTR_KEYSHORTCUTS, if (isNowPlayingOpen) PlayerKeyAria.CLOSE_PLAYER else PlayerKeyAria.OPEN_PLAYER)
+        attr("aria-expanded", isNowPlayingOpen.toString())
+        onClick { event ->
+            if (isNowPlayingOpen) onCloseNowPlaying() else onOpenNowPlaying(event.currentTarget as? HTMLElement)
+        }
+    }) { Icon(if (isNowPlayingOpen) WebIcon.ChevronDown else WebIcon.ChevronUp, size = EXPAND_ICON_SIZE) }
+}
+
 /** Where each of the bar's panels is open, or null when it is closed. */
 private class BarPanels {
     var speed by mutableStateOf<PanelPlacement?>(null)
     var sleep by mutableStateOf<PanelPlacement?>(null)
     var chapters by mutableStateOf<PanelPlacement?>(null)
+    var shortcuts by mutableStateOf<PanelPlacement?>(null)
 }
 
 /** A control's press: closes its panel when open (the opener toggles it), else opens it where [opener] sits. */
@@ -313,6 +348,8 @@ private fun BarTransport(
                 icon = WebIcon.SkipBack,
                 seconds = settings.skipBackSec,
                 label = "Skip back ${settings.skipBackSec} seconds",
+                key = "←",
+                ariaKeys = PlayerKeyAria.SKIP_BACK,
                 extraClass = "tport-back",
                 shown = state.showsSkipBack,
                 onClick = onSkipBack,
@@ -322,6 +359,8 @@ private fun BarTransport(
                 icon = WebIcon.SkipForward,
                 seconds = settings.skipForwardSec,
                 label = "Skip forward ${settings.skipForwardSec} seconds",
+                key = "→",
+                ariaKeys = PlayerKeyAria.SKIP_FORWARD,
                 extraClass = "tport-fwd",
                 onClick = onSkipForward,
             )
@@ -366,7 +405,8 @@ private fun SessionControls(
         classes("tport-speed")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
-        attr(ATTR_TITLE, "Playback speed")
+        attr(ATTR_TITLE, NowPlayingWords.withKey("Playback speed", "< >"))
+        attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SPEED)
         attr(ATTR_EXPANDED, (panels.speed != null).toString())
         onClick { event -> onOpenSpeed(event.currentTarget as? HTMLElement) }
     }) { Text("${formatSpeed(speed)}\u00D7") }
@@ -381,7 +421,9 @@ private fun SessionControls(
         if (countdown != null) classes("armed")
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, sleepLabel)
-        attr(ATTR_TITLE, sleepLabel)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(sleepLabel, "T"))
+        attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SLEEP)
+        attr(DATA_PLAYER_KEY, PlayerKeyAria.SLEEP)
         attr(ATTR_EXPANDED, (panels.sleep != null).toString())
         onClick { event -> onOpenSleep(event.currentTarget as? HTMLElement) }
     }) {
@@ -400,7 +442,9 @@ private fun SessionControls(
             classes("tport-ch")
             attr(ATTR_TYPE, VALUE_BUTTON)
             attr(ATTR_ARIA_LABEL, "Chapters")
-            attr(ATTR_TITLE, "Chapters")
+            attr(ATTR_TITLE, NowPlayingWords.withKey("Chapters", "C"))
+            attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.CHAPTERS)
+            attr(DATA_PLAYER_KEY, PlayerKeyAria.CHAPTERS)
             attr(ATTR_EXPANDED, (panels.chapters != null).toString())
             onClick { event -> onOpenChapters(event.currentTarget as? HTMLElement) }
         }) { Icon(WebIcon.ListOrdered, size = CHAPTER_ICON_SIZE) }
@@ -465,7 +509,8 @@ private fun BarPrimary(
                 if (primary == PrimaryControl.TapToPlay) classes("ring")
                 attr(ATTR_TYPE, VALUE_BUTTON)
                 attr(ATTR_ARIA_LABEL, label)
-                attr(ATTR_TITLE, label)
+                attr(ATTR_TITLE, NowPlayingWords.withKey(label, "Space"))
+                attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.PLAY_PAUSE)
                 onClick { onPrimary() }
             }) {
                 if (primary == PrimaryControl.Busy) {
@@ -542,6 +587,9 @@ private fun SkipButton(
     icon: WebIcon,
     seconds: Int,
     label: String,
+    /** The key that presses it, as the tooltip names it; [ariaKeys] as `aria-keyshortcuts` spells it. */
+    key: String,
+    ariaKeys: String,
     extraClass: String,
     shown: Boolean = true,
     onClick: () -> Unit,
@@ -550,7 +598,8 @@ private fun SkipButton(
         classes("tport-skip", extraClass)
         attr(ATTR_TYPE, VALUE_BUTTON)
         attr(ATTR_ARIA_LABEL, label)
-        attr(ATTR_TITLE, label)
+        attr(ATTR_TITLE, NowPlayingWords.withKey(label, key))
+        attr(ATTR_KEYSHORTCUTS, ariaKeys)
         // Hidden, it keeps its box (`.off` is `visibility:hidden`) and leaves the tab order and the
         // accessibility tree, so the main button beside it never moves.
         if (!shown) {
@@ -708,6 +757,8 @@ private const val ATTR_TITLE = "title"
 private const val ATTR_ARIA_HIDDEN = "aria-hidden"
 
 private const val ATTR_EXPANDED = "aria-expanded"
+
+private const val ATTR_KEYSHORTCUTS = "aria-keyshortcuts"
 
 private const val ATTR_ROLE = "role"
 

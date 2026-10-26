@@ -1,10 +1,11 @@
 package com.calypsan.listenup.web.playback
 
 import com.calypsan.listenup.client.playback.PlayerPhase
-import com.calypsan.listenup.client.presentation.player.PlayerBook
+import com.calypsan.listenup.client.presentation.player.bookPositionInChapterMs
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.web.features.nowplaying.surfaceChapterName
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
@@ -41,6 +42,12 @@ internal interface MediaSessionBridge {
     )
 
     fun setSeekToHandler(handler: ((Long) -> Unit)?)
+
+    /**
+     * Nothing is loaded: no metadata, no position state and a state of "none", so the OS stops offering a closed
+     * book and leaves no stale scrubber behind.
+     */
+    fun clear()
 }
 
 /**
@@ -124,6 +131,13 @@ private class BrowserMediaSession : MediaSessionBridge {
             }
         session.setActionHandler("seekto", bridged)
     }
+
+    override fun clear() {
+        session.metadata = null
+        session.playbackState = "none"
+        // No arguments clears the position state; the browser keeps the last one otherwise.
+        session.setPositionState()
+    }
 }
 
 /** Artwork rung asked of the cover endpoint — big enough for a lock screen. */
@@ -134,47 +148,77 @@ internal const val MEDIA_SESSION_ARTWORK_PX = 512
  *
  * The `<audio>` element is never in the document ([HtmlAudioPlayer]), so the browser has no UI
  * to attach to on its own — a media key, a lock screen and a Bluetooth button all reach the
- * page only through this API. Metadata follows the loaded book (which changes once per book) and
- * the position follows [PlaybackSession.progress] (which changes on every tick), so the two are
- * collected separately and `distinctUntilChanged` keeps the browser from being rewritten a few
- * times a second. The position stays book-scoped until the OS surfaces move to the chapter (PR 6).
+ * page only through this API. Like the Android card and the iOS lock screen (spec §5.7), the OS
+ * sees the chapter as the track: title = the book, artist = the chapter, album = the author, a
+ * chapter-scoped position, and previous / next track = previous / next chapter by the shared rule
+ * (§3.3), with next track removed at the last chapter and previous track in a chapterless book (a
+ * `null` handler hides the button), where previous would only jump to 0:00. The
+ * metadata changes once per chapter and the position on every tick, so the two are collected
+ * separately and `distinctUntilChanged` keeps the browser from being rewritten a few times a
+ * second. Closing the book clears it all, the action handlers too: a media key pressed with
+ * nothing loaded reaches no handler, rather than one that acts on a book that is not there.
  */
 internal fun bindMediaSession(
     session: PlaybackSession,
     bridge: MediaSessionBridge,
     scope: CoroutineScope,
 ): () -> Unit {
-    bridge.setHandler("play", session.onPlayPause)
-    bridge.setHandler("pause", session.onPlayPause)
-    bridge.setHandler("seekbackward", session.onSkipBack)
-    bridge.setHandler("seekforward", session.onSkipForward)
-    // Wired to the skip controls, not to chapters: what a "track" means for an audiobook is a
-    // product call, and a next-chapter jump under a next-track button would surprise anyone whose
-    // headphones use it to move on.
-    bridge.setHandler("previoustrack", session.onSkipBack)
-    bridge.setHandler("nexttrack", session.onSkipForward)
-    bridge.setSeekToHandler(session.onSeek)
-
     val loaded = session.state.map { it as? PlayerUiState.Loaded }
+
+    fun isGoing(): Boolean = (session.state.value as? PlayerUiState.Loaded)?.phase?.isGoing() == true
+
+    /** Registers what the OS may ask of [reach], or unregisters everything when nothing is loaded. */
+    fun answer(reach: TransportReach?) {
+        val loadedNow = reach != null
+        // Not toggles: a headset that repeats "pause", or a browser that sends it while we are already paused, must
+        // not start the book.
+        bridge.setHandler("play", { if (!isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("pause", { if (isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("stop", { if (isGoing()) session.onPlayPause() }.takeIf { loadedNow })
+        bridge.setHandler("seekbackward", session.onSkipBack.takeIf { loadedNow })
+        bridge.setHandler("seekforward", session.onSkipForward.takeIf { loadedNow })
+        bridge.setHandler("previoustrack", session.onPreviousChapter.takeIf { reach?.hasPrevious == true })
+        bridge.setHandler("nexttrack", session.onNextChapter.takeIf { reach?.hasNext == true })
+        bridge.setSeekToHandler(
+            { offsetMs: Long ->
+                (session.state.value as? PlayerUiState.Loaded)?.let {
+                    session.onSeek(bookPositionInChapterMs(it.chapter, offsetMs))
+                }
+                Unit
+            }.takeIf { loadedNow },
+        )
+    }
+
     val job =
         scope.launch {
             launch {
                 loaded
-                    .map { it?.book }
-                    .distinctUntilChanged { old, new -> old?.id == new?.id && old?.title == new?.title }
-                    .collect { book -> book?.let { bridge.publish(it) } }
+                    .map { state -> state?.let(::TrackInfo) }
+                    .distinctUntilChanged()
+                    .collect { track -> if (track == null) bridge.clear() else bridge.publish(track) }
             }
             launch {
                 loaded
-                    .map { it?.phase == PlayerPhase.Playing || it?.phase == PlayerPhase.SleepFading }
+                    .map { state -> state?.let(::TransportReach) }
                     .distinctUntilChanged()
-                    .collect { bridge.setPlaying(it) }
+                    .collect(::answer)
+            }
+            launch {
+                loaded
+                    .map { state ->
+                        state?.let { it.phase == PlayerPhase.Playing || it.phase == PlayerPhase.SleepFading }
+                    }.distinctUntilChanged()
+                    .collect { playing -> playing?.let(bridge::setPlaying) }
             }
             launch {
                 combine(loaded, session.progress) { state, progress -> state?.let { it to progress } }
                     .collect { pair ->
                         pair?.let { (state, progress) ->
-                            bridge.setPosition(progress.bookDurationMs, progress.bookPositionMs, state.settings.speed)
+                            bridge.setPosition(
+                                progress.chapterDurationMs,
+                                progress.chapterPositionMs,
+                                state.settings.speed,
+                            )
                         }
                     }
             }
@@ -187,25 +231,51 @@ internal fun bindMediaSession(
     }
 }
 
-/** Tells the OS what is playing: the book's title, who wrote it (or read it), its first series, its cover. */
-private fun MediaSessionBridge.publish(book: PlayerBook) {
-    setMetadata(
-        title = book.title,
-        artist =
-            book.authors.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }
-                ?: book.narrators.joinToString(", ") { it.name },
-        album =
-            book.series
-                .firstOrNull()
-                ?.name
-                .orEmpty(),
-        artworkUrl = coverUrl(book.id, book.coverHash, MEDIA_SESSION_ARTWORK_PX),
+/** Playing, or about to be: what a "pause" stops and a "play" leaves alone. */
+private fun PlayerPhase.isGoing(): Boolean =
+    this == PlayerPhase.Playing ||
+        this == PlayerPhase.SleepFading ||
+        this == PlayerPhase.Preparing ||
+        this == PlayerPhase.Buffering ||
+        this == PlayerPhase.Reconnecting
+
+/**
+ * Which chapter moves the loaded book offers the OS: previous goes nowhere in a chapterless book, next at the last
+ * chapter.
+ */
+private data class TransportReach(
+    val hasPrevious: Boolean,
+    val hasNext: Boolean,
+) {
+    constructor(state: PlayerUiState.Loaded) : this(
+        hasPrevious = state.canSkipToPreviousChapter,
+        hasNext = state.canSkipToNextChapter,
     )
+}
+
+/** What the OS is told is playing: changes once per chapter, never on a tick. */
+private data class TrackInfo(
+    val book: String,
+    val chapter: String,
+    val authors: String,
+    val artworkUrl: String,
+) {
+    constructor(state: PlayerUiState.Loaded) : this(
+        book = state.book.title,
+        chapter = surfaceChapterName(state.chapter),
+        authors = state.book.authors.joinToString(", ") { it.name },
+        artworkUrl = coverUrl(state.book.id, state.book.coverHash, MEDIA_SESSION_ARTWORK_PX),
+    )
+}
+
+/** Tells the OS what is playing: the book, the chapter as the book names it, who wrote it, its cover. */
+private fun MediaSessionBridge.publish(track: TrackInfo) {
+    setMetadata(title = track.book, artist = track.chapter, album = track.authors, artworkUrl = track.artworkUrl)
 }
 
 /** Every action the OS controls can send that this app answers — registered and cleared together. */
 private val TRANSPORT_ACTIONS =
-    listOf("play", "pause", "seekbackward", "seekforward", "previoustrack", "nexttrack")
+    listOf("play", "pause", "stop", "seekbackward", "seekforward", "previoustrack", "nexttrack")
 
 /** The one artwork rung declared to the OS — the lock-screen size the cover endpoint can serve. */
 private const val ARTWORK_SIZES = "512x512"

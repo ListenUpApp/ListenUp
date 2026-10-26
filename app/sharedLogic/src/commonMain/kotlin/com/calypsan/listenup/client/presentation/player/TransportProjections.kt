@@ -80,11 +80,23 @@ fun skipTargetMs(
     }
 }
 
-/** How much book a skip of [seconds] covers at [speed]: seconds of listening, so it scales with the rate. */
-internal fun skipDistanceMs(
+/**
+ * How much book a skip of [seconds] covers at [speed]: seconds of listening, so it scales with the rate (spec §3.3).
+ * The app and every system skip (notification, lock screen, headset, car) move this far.
+ */
+fun skipDistanceMs(
     seconds: Int,
     speed: Float,
 ): Long = (seconds * speed * 1000).toLong()
+
+/**
+ * The book position [offsetMs] into [chapter], clamped to the chapter. The browser's Media Session reports and seeks
+ * in chapter time (its `seekto` handler is the caller); the player seeks in book time.
+ */
+fun bookPositionInChapterMs(
+    chapter: PlayerChapter,
+    offsetMs: Long,
+): Long = chapter.startMs + offsetMs.coerceIn(0L, chapter.durationMs)
 
 /**
  * One [PLAYBACK_SPEED_INCREMENT] up or down from [speed], clamped to [PLAYBACK_SPEED_MIN]..[PLAYBACK_SPEED_MAX].

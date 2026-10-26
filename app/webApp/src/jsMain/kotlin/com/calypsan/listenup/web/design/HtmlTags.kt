@@ -31,6 +31,7 @@ private val dtBuilder = HtmlElementBuilder("dt")
 private val ddBuilder = HtmlElementBuilder("dd")
 private val detailsBuilder = HtmlElementBuilder("details")
 private val summaryBuilder = HtmlElementBuilder("summary")
+private val kbdBuilder = HtmlElementBuilder("kbd")
 
 /** A description list. */
 @Composable
@@ -94,3 +95,10 @@ fun Summary(
     attrs: AttrBuilderContext<HTMLElement>? = null,
     content: ContentBuilder<HTMLElement>? = null,
 ) = TagElement(summaryBuilder, attrs, content)
+
+/** A key the reader presses, as the keyboard shortcuts sheet names one: a screen reader can say it is a key. */
+@Composable
+fun Kbd(
+    attrs: AttrBuilderContext<HTMLElement>? = null,
+    content: ContentBuilder<HTMLElement>? = null,
+) = TagElement(kbdBuilder, attrs, content)

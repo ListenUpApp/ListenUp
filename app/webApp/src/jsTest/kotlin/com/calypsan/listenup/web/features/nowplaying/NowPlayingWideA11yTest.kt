@@ -96,7 +96,7 @@ class NowPlayingWideA11yTest :
             frame.find(".np-listhead h2").tabIndex shouldBe -1
         }
 
-        test("on /playing the bar keeps its pinned order; only Open turns into Close") {
+        test("on /playing the bar keeps its pinned order, Shortcuts included; only Open turns into Close") {
             val host =
                 mounts.mount {
                     TransportBar(
@@ -127,6 +127,7 @@ class NowPlayingWideA11yTest :
                     "Playback speed, 1 times",
                     "Sleep timer",
                     "Chapters",
+                    "Keyboard shortcuts",
                     "Close Now Playing",
                 )
         }

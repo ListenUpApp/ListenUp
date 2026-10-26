@@ -15,6 +15,7 @@ import com.calypsan.listenup.web.design.LocalCoverThemes
 import com.calypsan.listenup.web.PHONE
 import com.calypsan.listenup.web.ViewportFrames
 import io.kotest.core.spec.style.FunSpec
+import org.w3c.dom.asList
 import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -182,6 +183,26 @@ class NowPlayingPageTest :
             heading.tagName shouldBe "H2"
             heading.textContent shouldBe "Chapters"
             (region.querySelector(".np-row.on .np-row-fill") as HTMLElement).style.width shouldBe "59%"
+        }
+
+        test("the page's foot says how to find the keyboard shortcuts") {
+            val host = page(wayOfKings())
+            host.querySelector(".np-foot")!!.textContent shouldBe "Press ? for keyboard shortcuts."
+        }
+
+        test("More's Keyboard shortcuts opens the shortcuts from the More trigger") {
+            val host = page(wayOfKings())
+            (host.querySelector(".np-more button[aria-haspopup=menu]") as HTMLElement).click()
+            awaitFrame()
+            host
+                .querySelectorAll(".menu-i")
+                .asList()
+                .map { it as HTMLElement }
+                .first { it.textContent.orEmpty().startsWith("Keyboard shortcuts") }
+                .click()
+            awaitFrame()
+
+            host.ownerDocument!!.querySelector(".keys-dlg").shouldNotBeNull()
         }
 
         test("a chapterless book reads Whole book") {

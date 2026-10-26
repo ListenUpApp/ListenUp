@@ -17,7 +17,7 @@ import org.w3c.dom.HTMLElement
 
 /**
  * Now Playing's "More ▾" (§5.5.7), from the shared [PlayerMenus] so the three platforms list the same rows in the same
- * order. Web lists Go to series at every width. Open PDF is a real link into a new tab, so no popup blocker stops it.
+ * order. Web lists Go to series at every width, and Keyboard shortcuts (with its key, ?) before Close book. Open PDF is a real link into a new tab, so no popup blocker stops it.
  * Close book sits apart, in the destructive colour. The trigger is named for the book (WCAG 2.4.6).
  */
 @Composable
@@ -29,7 +29,7 @@ internal fun PlayerMoreMenu(
     val anchor = remember { MoreAnchor() }
     val bookId = state.book.id
     val items =
-        PlayerMenus.moreMenu(state, includesSeries = true).flatMap { group ->
+        PlayerMenus.moreMenu(state, includesSeries = true, includesShortcuts = true).flatMap { group ->
             group.items.map { item ->
                 MenuAction(
                     label = item.label(),
@@ -39,6 +39,7 @@ internal fun PlayerMoreMenu(
                     destructive = group.isDestructive,
                     href = (item as? PlayerMenuItem.OpenPdf)?.let { documentUrl(bookId, it.documentId) },
                     opensNewTab = item is PlayerMenuItem.OpenPdf,
+                    keyShortcut = PlayerKeyAria.SHORTCUTS.takeIf { item == PlayerMenuItem.KeyboardShortcuts },
                 )
             }
         }
@@ -73,6 +74,7 @@ private fun PlayerMenuItem.label(): String =
         is PlayerMenuItem.GoToSeries -> "Go to series"
         is PlayerMenuItem.OpenPdf -> "Open PDF ↗"
         is PlayerMenuItem.VolumeBoost -> NowPlayingWords.boostRow(boostDb)
+        PlayerMenuItem.KeyboardShortcuts -> "Keyboard shortcuts"
         PlayerMenuItem.CloseBook -> "Close book"
     }
 

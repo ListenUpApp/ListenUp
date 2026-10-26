@@ -122,6 +122,8 @@ struct PlayerSnapshot: Equatable {
     var miniLine: MiniLine = .loading
     var showsSkipBack = false
     var canSkipToNextChapter = false
+    /// False in a chapterless book, where previous would only jump to 0:00 (the shared `canSkipToPreviousChapter`).
+    var canSkipToPreviousChapter = false
     var playbackSpeed: Float = 1.0
     /// The user's default speed: the Speed sheet's reset goes back to it.
     var defaultSpeed: Float = 1.0
@@ -180,6 +182,7 @@ struct PlayerSnapshot: Equatable {
         snapshot.miniLine = MiniLine(MiniPlayerLines.shared.of(state: loaded))
         snapshot.showsSkipBack = loaded.showsSkipBack
         snapshot.canSkipToNextChapter = loaded.canSkipToNextChapter
+        snapshot.canSkipToPreviousChapter = loaded.canSkipToPreviousChapter
         let settings = loaded.settings
         snapshot.playbackSpeed = settings.speed
         snapshot.defaultSpeed = settings.defaultSpeed
@@ -402,6 +405,7 @@ final class PlayerObserver {
     var miniLine: MiniLine { snapshot.miniLine }
     var showsSkipBack: Bool { snapshot.showsSkipBack }
     var canSkipToNextChapter: Bool { snapshot.canSkipToNextChapter }
+    var canSkipToPreviousChapter: Bool { snapshot.canSkipToPreviousChapter }
     var playbackSpeed: Float { snapshot.playbackSpeed }
     var defaultSpeed: Float { snapshot.defaultSpeed }
     var volumeBoostDb: Float { snapshot.volumeBoostDb }

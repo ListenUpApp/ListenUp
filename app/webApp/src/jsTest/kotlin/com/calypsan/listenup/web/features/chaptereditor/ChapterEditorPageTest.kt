@@ -11,6 +11,9 @@ import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
 import com.calypsan.listenup.web.awaitFrame
+import com.calypsan.listenup.web.shell.KeyPriority
+import com.calypsan.listenup.web.shell.LocalWindowKeys
+import com.calypsan.listenup.web.shell.WindowKeys
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -18,6 +21,8 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
+import androidx.compose.runtime.Composition
+import androidx.compose.runtime.CompositionLocalProvider
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
@@ -27,6 +32,12 @@ import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 
 private val hosts = mutableListOf<HTMLElement>()
+
+/**
+ * Disposed after the spec, not merely detached: a composition left running keeps the editor's key handler on the
+ * window, where it would answer ← / → for every spec that runs after this one.
+ */
+private val compositions = mutableListOf<Composition>()
 
 internal fun chapter(
     id: String = "c1",
@@ -94,30 +105,31 @@ private fun page(
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     hosts += host
-    renderComposable(root = host) {
-        ChapterEditorPage(
-            state = state,
-            playheadMs = playheadMs,
-            onSelect = onSelect,
-            onNudge = onNudge,
-            onSnapToPlayhead = onSnapToPlayhead,
-            onRetitle = onRetitle,
-            onRemove = onRemove,
-            onAddAt = onAddAt,
-            onRetime = onRetime,
-            onInsertBelow = onInsertBelow,
-            onPlayFrom = onPlayFrom,
-            onToggleLock = onToggleLock,
-            onBeginDrift = onBeginDrift,
-            onPinAnchor = onPinAnchor,
-            onApplyDrift = onApplyDrift,
-            onCancelDrift = onCancelDrift,
-            onUndo = onUndo,
-            onSave = onSave,
-            onLeave = onLeave,
-            problem = problem,
-        )
-    }
+    compositions +=
+        renderComposable(root = host) {
+            ChapterEditorPage(
+                state = state,
+                playheadMs = playheadMs,
+                onSelect = onSelect,
+                onNudge = onNudge,
+                onSnapToPlayhead = onSnapToPlayhead,
+                onRetitle = onRetitle,
+                onRemove = onRemove,
+                onAddAt = onAddAt,
+                onRetime = onRetime,
+                onInsertBelow = onInsertBelow,
+                onPlayFrom = onPlayFrom,
+                onToggleLock = onToggleLock,
+                onBeginDrift = onBeginDrift,
+                onPinAnchor = onPinAnchor,
+                onApplyDrift = onApplyDrift,
+                onCancelDrift = onCancelDrift,
+                onUndo = onUndo,
+                onSave = onSave,
+                onLeave = onLeave,
+                problem = problem,
+            )
+        }
     return host
 }
 
@@ -194,6 +206,8 @@ class ChapterEditorPageTest :
     FunSpec({
 
         afterSpec {
+            compositions.forEach { it.dispose() }
+            compositions.clear()
             hosts.forEach { it.remove() }
             hosts.clear()
         }
@@ -527,6 +541,60 @@ class ChapterEditorPageTest :
             awaitFrame()
 
             nudges shouldContainExactly listOf("c2" to 1_000L, "c2" to -100L)
+        }
+
+        test("inside the shell's key dispatcher the editor's arrows nudge and never reach the player") {
+            val nudges = mutableListOf<Pair<String, Long>>()
+            val playerKeys = mutableListOf<String>()
+            val keys = WindowKeys()
+            val removeListener = keys.install()
+            val removePlayer = keys.register(KeyPriority.Player) { event -> playerKeys.add(event.key) }
+            val host = document.createElement("div") as HTMLElement
+            document.body!!.appendChild(host)
+            hosts += host
+            compositions +=
+                renderComposable(root = host) {
+                    CompositionLocalProvider(LocalWindowKeys provides keys) {
+                        ChapterEditorPage(
+                            state = editingChapters(selectedChapterId = "c2"),
+                            playheadMs = null,
+                            onSelect = {},
+                            onNudge = { id, by -> nudges += id to by },
+                            onSnapToPlayhead = { _, _ -> },
+                            onRetitle = { _, _ -> },
+                            onRemove = {},
+                            onAddAt = { _, _ -> },
+                            onRetime = { _, _ -> },
+                            onInsertBelow = { _, _ -> },
+                            onPlayFrom = {},
+                            onToggleLock = {},
+                            onBeginDrift = {},
+                            onPinAnchor = { _, _ -> },
+                            onApplyDrift = {},
+                            onCancelDrift = {},
+                            onUndo = {},
+                            onSave = {},
+                            onLeave = {},
+                            problem = null,
+                        )
+                    }
+                }
+            try {
+                awaitFrame()
+                (document.activeElement as? HTMLElement)?.blur()
+                document.body!!.dispatchEvent(key("ArrowLeft"))
+                awaitFrame()
+
+                nudges shouldContainExactly listOf("c2" to -1_000L)
+                playerKeys shouldBe emptyList()
+
+                // A key the editor does not own still reaches the player.
+                document.body!!.dispatchEvent(key(" "))
+                playerKeys shouldBe listOf(" ")
+            } finally {
+                removePlayer()
+                removeListener()
+            }
         }
 
         test("the bracket keys step the selection to the neighbouring chapter") {

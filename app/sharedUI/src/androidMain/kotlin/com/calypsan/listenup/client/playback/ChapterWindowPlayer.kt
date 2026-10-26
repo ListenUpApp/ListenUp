@@ -8,6 +8,7 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.localization.SystemStrings
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -52,24 +53,26 @@ private data class ChapterSeekContext(
  * this wrapper always reports a single-item playlist (the current chapter's window), Media3's
  * `BasePlayer.seekToPrevious()`/`seekToNext()` always route through [handleSeek] with
  * `COMMAND_SEEK_TO_PREVIOUS`/`COMMAND_SEEK_TO_NEXT` (there is never a previous/next *media item*
- * to hop to), which is exactly what car head-unit prev/next buttons invoke. "Previous" restarts
- * the current chapter when more than [PREVIOUS_RESTART_THRESHOLD_MS] into it (the default
- * [previousChapterTarget] applies) — standard media-player behavior — otherwise it moves to the
- * previous chapter's start (or, at the first chapter / in a chapterless book, clamps to the
- * window's own start — a harmless restart).
- * `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM` variant) is therefore *always* advertised via
- * [getState] — [hasPreviousChapter] — matching standard Media3/media-player UX where "previous"
- * is never greyed out; it's always at least a restart affordance. `COMMAND_SEEK_TO_NEXT` (and its
- * `_MEDIA_ITEM` variant) stays gated on [hasNextChapter]: past the last chapter there is genuinely
- * nothing to skip to, so the button greys out there.
+ * to hop to), which is exactly what car head-unit prev/next buttons invoke. Where they land is the
+ * shared [ChapterNavigation] rule (spec §3.3), the same one the app, iOS and the web use: "previous"
+ * restarts the current chapter once it has run for more than three seconds, otherwise it moves to the
+ * previous chapter's start, and chapter 1 restarts. `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM`
+ * variant) is gated on [ChapterNavigation.hasPrevious]: in a chaptered book it is always advertised via
+ * [getState], since it is at least a restart; in a chapterless book it greys out rather than jump to 0:00, and a
+ * previous that arrives anyway does nothing. `COMMAND_SEEK_TO_NEXT` (and its `_MEDIA_ITEM` variant) is gated on
+ * [ChapterNavigation.hasNext]: at the last chapter there is nothing to skip to, so the button greys
+ * out there, and a next that arrives anyway does nothing.
+ *
+ * **Metadata.** The title stays the book's; the artist is the chapter and the time left in it
+ * ("Bridge Four · 8m left", [systemTrackLine]), which Android 13+ draws as the card's second line;
+ * the album is the author (spec §5.7).
  *
  * **Invalidation.** [ForwardingSimpleBasePlayer] already invalidates state automatically on
  * every underlying-player event (play/pause, buffering, ExoPlayer-driven position
- * discontinuities). The one case that doesn't cover is a chapter boundary crossed purely by
- * elapsed playback time — no underlying-player event fires for that. [invalidate] is the public
- * hook for it: the service collects `PlaybackManager.currentChapter` and calls [invalidate] on
- * chapter rollover so connected controllers pick up the new chapter title/duration together with
- * a position discontinuity.
+ * discontinuities). Two cases it doesn't cover are crossed purely by elapsed playback time: a
+ * chapter boundary, and the minute the card's "8m left" counts down. [invalidate] is the public
+ * hook for both: the service calls it on chapter rollover and once a minute while playing, so
+ * connected controllers pick up the new chapter and time left.
  *
  * **Chapterless / single-chapter books.** When [chaptersProvider] returns an empty list,
  * [currentChapterWindow] presents the whole book as one window — no special-casing is visible to
@@ -93,12 +96,14 @@ private data class ChapterSeekContext(
  * @param timelineProvider Synchronous snapshot of the file/offset timeline for the currently
  *   playing book, or null before playback has been prepared. The service passes
  *   `playbackManager.currentTimeline.value`.
+ * @param strings The current catalog snapshot, for the card's second line.
  */
 @OptIn(UnstableApi::class)
 class ChapterWindowPlayer(
     player: Player,
     private val chaptersProvider: () -> List<Chapter>,
     private val timelineProvider: () -> PlaybackTimeline?,
+    private val strings: () -> SystemStrings,
 ) : ForwardingSimpleBasePlayer(player) {
     /**
      * Forces every connected controller to re-read [getState] and observe a position
@@ -118,7 +123,6 @@ class ChapterWindowPlayer(
             .setPlaylist(
                 listOf(
                     chapterMediaItemData(
-                        baseState = baseState,
                         window = context.window,
                         chapters = context.chapters,
                         underlyingPlayer = player,
@@ -126,8 +130,9 @@ class ChapterWindowPlayer(
                 ),
             ).setCurrentMediaItemIndex(0)
             .setContentPositionMs(windowPositionSupplier(context.window))
-            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.window))
-            .build()
+            .setAvailableCommands(
+                baseState.availableCommands.withChapterSeekCommands(context.chapters, context.bookPositionMs),
+            ).build()
     }
 
     /**
@@ -171,11 +176,13 @@ class ChapterWindowPlayer(
         val targetBookPositionMs =
             when (seekCommand) {
                 Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
-                    previousChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
+                    ChapterNavigation.previousStartMs(context.bookPositionMs, context.chapters)
+                        ?: return Futures.immediateVoidFuture()
                 }
 
                 Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                    nextChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
+                    ChapterNavigation.nextStartMs(context.bookPositionMs, context.chapters)
+                        ?: return Futures.immediateVoidFuture()
                 }
 
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION -> {
@@ -217,16 +224,18 @@ class ChapterWindowPlayer(
 
     /** Builds the single [SimpleBasePlayer.MediaItemData] representing [window]. */
     private fun chapterMediaItemData(
-        baseState: State,
         window: ChapterWindow,
         chapters: List<Chapter>,
         underlyingPlayer: Player,
     ): SimpleBasePlayer.MediaItemData {
-        val chapterTitle = chapters.getOrNull(window.chapterIndex)?.title
-        val metadataBuilder = baseState.currentMetadata.buildUpon()
-        if (chapterTitle != null) {
-            metadataBuilder.setTitle(chapterTitle)
-        }
+        // Title stays the book, as the media item names it. Android 13+ draws the card's second line from the
+        // artist, so the chapter and its time left go there (spec §5.7), and the author moves to the album.
+        val book = underlyingPlayer.mediaMetadata
+        val metadataBuilder =
+            book
+                .buildUpon()
+                .setArtist(systemTrackLine(window.chapterName(chapters), window.remainingMs, strings()))
+                .setAlbumTitle(book.artist)
         if (window.chapterIndex >= 0) {
             metadataBuilder.setTrackNumber(window.chapterIndex + 1)
             metadataBuilder.setTotalTrackCount(chapters.size)
@@ -244,10 +253,10 @@ class ChapterWindowPlayer(
     /** Adds/removes the chapter-aware seek commands so a controller reflects [window]'s edges. */
     private fun Player.Commands.withChapterSeekCommands(
         chapters: List<Chapter>,
-        window: ChapterWindow,
+        bookPositionMs: Long,
     ): Player.Commands {
-        val hasPrevious = hasPreviousChapter()
-        val hasNext = hasNextChapter(chapters, window)
+        val hasPrevious = ChapterNavigation.hasPrevious(chapters)
+        val hasNext = ChapterNavigation.hasNext(bookPositionMs, chapters)
         return buildUpon()
             .addIf(Player.COMMAND_SEEK_TO_PREVIOUS, hasPrevious)
             .removeIf(Player.COMMAND_SEEK_TO_PREVIOUS, !hasPrevious)

@@ -16,13 +16,16 @@ enum PlayerMenuModel {
         case volumeBoost(Float)
         case closeBook
 
-        init(_ item: any PlayerMenuItem) {
-            self = switch item.sealedType() {
-            case .goToBook: .goToBook
-            case .goToSeries(let series): .goToSeries(series.value.seriesId)
-            case .openPdf: .openPdf
-            case .volumeBoost(let boost): .volumeBoost(boost.value.boostDb)
-            case .closeBook: .closeBook
+        /// Nil only for Keyboard Shortcuts, which iOS never asks for: the iPad lists its keys in the system's
+        /// ⌘-hold overlay, so `sections(for:)` passes `includesShortcuts: false`.
+        init?(_ item: any PlayerMenuItem) {
+            switch item.sealedType() {
+            case .goToBook: self = .goToBook
+            case .goToSeries(let series): self = .goToSeries(series.value.seriesId)
+            case .openPdf: self = .openPdf
+            case .volumeBoost(let boost): self = .volumeBoost(boost.value.boostDb)
+            case .keyboardShortcuts: return nil
+            case .closeBook: self = .closeBook
             }
         }
 
@@ -52,8 +55,10 @@ enum PlayerMenuModel {
     /// The More menu for `state`. Go to Series is in it unless the series is already a link on screen (`includesSeries`
     /// false: iPad's wide player, where the series sits above the title; P10).
     static func sections(for state: PlayerUiStateLoaded, includesSeries: Bool) -> [PlayerMenuSection] {
-        PlayerMenus.shared.moreMenu(state: state, includesSeries: includesSeries).map { group in
-            PlayerMenuSection(rows: group.items.map(Row.init), isDestructive: group.isDestructive)
-        }
+        PlayerMenus.shared
+            .moreMenu(state: state, includesSeries: includesSeries, includesShortcuts: false)
+            .map { group in
+                PlayerMenuSection(rows: group.items.compactMap(Row.init), isDestructive: group.isDestructive)
+            }
     }
 }

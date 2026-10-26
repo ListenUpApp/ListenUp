@@ -31,25 +31,34 @@ import androidx.media3.common.Player
  * straight down to [seekBack]/[seekForward].
  *
  * @param player The local ExoPlayer instance to wrap.
+ * **Speed.** The interval is seconds of *listening*, so a skip covers interval × speed of book, the same distance as
+ * the app's own skip (spec §3.3, `skipDistanceMs`): at 2× "back 10" rewinds 20 s of book. The *reported* increments
+ * stay the interval, the number the buttons are labelled with.
+ *
  * @param forwardMs The currently-configured forward skip, in milliseconds. Read per call.
  * @param backwardMs The currently-configured backward skip, in milliseconds. Read per call.
+ * @param speed The current playback speed. Read per call.
  */
 class SkipIntervalPlayer(
     player: Player,
     private val forwardMs: () -> Long,
     private val backwardMs: () -> Long,
+    private val speed: () -> Float,
 ) : ForwardingPlayer(player) {
     override fun getSeekBackIncrement(): Long = backwardMs()
 
     override fun getSeekForwardIncrement(): Long = forwardMs()
 
     override fun seekBack() {
-        seekToOffset(-backwardMs())
+        seekToOffset(-scaled(backwardMs()))
     }
 
     override fun seekForward() {
-        seekToOffset(forwardMs())
+        seekToOffset(scaled(forwardMs()))
     }
+
+    /** [intervalMs] of listening, in book time at the current speed. */
+    private fun scaled(intervalMs: Long): Long = (intervalMs * speed()).toLong()
 
     /** `BasePlayer.seekToOffset`, re-expressed over the configured increment. */
     private fun seekToOffset(offsetMs: Long) {

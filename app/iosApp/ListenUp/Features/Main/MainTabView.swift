@@ -161,8 +161,10 @@ struct MainTabView: View {
                         if let bookId = playerObserver.currentBookId { shell.open(BookDestination(id: bookId)) }
                     },
                     onViewSeries: { seriesId in shell.open(SeriesDestination(id: seriesId)) },
-                    onViewContributor: { contributorId in shell.open(ContributorDestination(id: contributorId)) }
+                    onViewContributor: { contributorId in shell.open(ContributorDestination(id: contributorId)) },
+                    chapterListRequest: $shell.isChapterListRequested
                 )
+                .environment(\.reportPlayerSheet) { isOpen in shell.playerSheetIsOpen = isOpen }
                 .navigationTransition(.zoom(sourceID: PlayerTransition.coverID, in: playerNamespace))
             }
         }

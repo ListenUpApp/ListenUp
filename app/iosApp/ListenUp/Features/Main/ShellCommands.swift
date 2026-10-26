@@ -50,7 +50,11 @@ struct ListenUpCommands: Commands {
 
     private var state: PlaybackCommandState {
         guard let player else { return .unavailable }
-        return PlaybackCommandState.from(snapshot: player.snapshot)
+        return PlaybackCommandState.from(
+            snapshot: player.snapshot,
+            isPlayerPresented: shell?.isPlayerPresented ?? false,
+            playerSheetIsOpen: shell?.playerSheetIsOpen ?? false
+        )
     }
 
     @ViewBuilder
@@ -86,10 +90,35 @@ struct ListenUpCommands: Commands {
         .keyboardShortcut(.rightArrow, modifiers: [.option, .command])
         .disabled(!state.hasNextChapter)
         Divider()
+        speedAndPlayerCommands(state)
+        Divider()
         sleepTimerMenu
             .disabled(!state.canSeek)
         addSleepTimeMenu
             .disabled(!state.canExtendSleepTimer)
+    }
+
+    /// Slower, Faster, Show Chapters, Show Now Playing and Close Player (spec §5.8, `Shortcuts-iPad`). HIG, Keyboards:
+    /// ⌘[ / ⌘] and ⇧⌘C are standard for aligning text and the Colors window, and may be redefined where those actions
+    /// make no sense — ListenUp has neither. Esc is "cancel the current action", which closing the player is.
+    @ViewBuilder
+    private func speedAndPlayerCommands(_ state: PlaybackCommandState) -> some View {
+        Button(String(localized: "player.menu_slower_ios")) { player?.stepSpeed(up: false) }
+            .keyboardShortcut("[", modifiers: .command)
+            .disabled(!state.canStepSpeedDown)
+        Button(String(localized: "player.menu_faster_ios")) { player?.stepSpeed(up: true) }
+            .keyboardShortcut("]", modifiers: .command)
+            .disabled(!state.canStepSpeedUp)
+        Divider()
+        Button(String(localized: "player.menu_show_chapters_ios")) { shell?.showPlayerChapters() }
+            .keyboardShortcut("c", modifiers: [.shift, .command])
+            .disabled(!state.canShowChapters || shell == nil)
+        Button(String(localized: "player.menu_show_now_playing_ios")) { shell?.showPlayer() }
+            .keyboardShortcut("0", modifiers: .command)
+            .disabled(!state.canShowNowPlaying || shell == nil)
+        Button(String(localized: "player.menu_close_player_ios")) { shell?.closePlayer() }
+            .keyboardShortcut(.escape, modifiers: [])
+            .disabled(!state.canClosePlayer || shell == nil)
     }
 
     private var sleepTimerMenu: some View {

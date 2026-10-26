@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
+import com.calypsan.listenup.client.presentation.player.skipDistanceMs
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.valueOrNull
@@ -81,33 +82,6 @@ internal class ListenUpSessionCallback(
             AudiobookNotificationProvider.getCustomCommands() +
                 listOf(CustomActions.cycleSpeedCommand(), CustomActions.seekToBookPositionCommand())
 
-        // Limited to 3 custom actions by Android Auto guidelines. The two skip buttons carry the
-        // user's configured intervals in both glyph and label — a car is the surface where a
-        // button that says one number and moves another is least correctable (#1300).
-        val backwardSec = skipIntervals.backwardSec
-        val forwardSec = skipIntervals.forwardSec
-        val customLayout =
-            listOf(
-                CommandButton
-                    .Builder(SkipCommandIcons.backward(backwardSec))
-                    .setDisplayName(copy.carBack.format(Locale.getDefault(), backwardSec))
-                    .setSessionCommand(
-                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK, Bundle.EMPTY),
-                    ).build(),
-                CommandButton
-                    .Builder(CommandButton.ICON_UNDEFINED)
-                    .setDisplayName(copy.playerSpeed)
-                    .setCustomIconResId(R.drawable.ic_speed)
-                    .setSessionCommand(CustomActions.cycleSpeedCommand())
-                    .build(),
-                CommandButton
-                    .Builder(SkipCommandIcons.forward(forwardSec))
-                    .setDisplayName(copy.carForward.format(Locale.getDefault(), forwardSec))
-                    .setSessionCommand(
-                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD, Bundle.EMPTY),
-                    ).build(),
-            )
-
         val trust = session.classifyController(controller)
         // controllerVersion is logged because the whole signed-out Auto design rests on it being
         // LEGACY_CONTROLLER_VERSION: Media3 replicates a browse error into the platform playback
@@ -124,7 +98,13 @@ internal class ListenUpSessionCallback(
             controller = controller,
             trust = trust,
             customSessionCommands = customCommands,
-            customLayout = customLayout,
+            mediaButtons =
+                mediaButtonsFor(
+                    trust = trust,
+                    backwardSec = skipIntervals.backwardSec,
+                    forwardSec = skipIntervals.forwardSec,
+                    words = copy,
+                ),
         )
     }
 
@@ -789,8 +769,8 @@ internal class ListenUpSessionCallback(
 
         when (customCommand.customAction) {
             AudiobookNotificationProvider.COMMAND_SKIP_BACK -> {
-                // Get book-relative position, subtract the configured interval, seek.
-                val backwardMs = skipIntervals.backwardMs
+                // Book-relative position, less the interval in seconds of listening (× speed, spec §3.3), then seek.
+                val backwardMs = skipDistanceMs(skipIntervals.backwardSec, p.playbackParameters.speed)
                 val currentBookPosition = transport.bookRelativePositionMs()
                 val newPosition = (currentBookPosition - backwardMs).coerceAtLeast(0)
 
@@ -807,7 +787,7 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_SKIP_FORWARD -> {
-                val forwardMs = skipIntervals.forwardMs
+                val forwardMs = skipDistanceMs(skipIntervals.forwardSec, p.playbackParameters.speed)
                 val currentBookPosition = transport.bookRelativePositionMs()
                 val maxPosition = timeline?.totalDurationMs ?: p.duration
                 val newPosition = (currentBookPosition + forwardMs).coerceAtMost(maxPosition)
@@ -823,12 +803,10 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
-                // Shares its mapping with ChapterWindowPlayer.handleSeek's
-                // COMMAND_SEEK_TO_PREVIOUS branch — one implementation, same
-                // restart-vs-jump threshold everywhere (see previousChapterTarget's KDoc).
-                if (chapters.isNotEmpty() && timeline != null) {
-                    val target =
-                        previousChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
+                // The shared ChapterNavigation rule (spec §3.3), as ChapterWindowPlayer.handleSeek's
+                // COMMAND_SEEK_TO_PREVIOUS branch and every other surface use it.
+                val target = ChapterNavigation.previousStartMs(transport.bookRelativePositionMs(), chapters)
+                if (timeline != null && target != null) {
                     val resolved = timeline.resolve(target)
                     playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }
@@ -842,16 +820,16 @@ internal class ListenUpSessionCallback(
             }
 
             AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER -> {
-                // Shares its mapping with ChapterWindowPlayer.handleSeek's
-                // COMMAND_SEEK_TO_NEXT branch — one implementation everywhere.
-                if (chapters.isNotEmpty() && timeline != null) {
-                    val target =
-                        nextChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
+                // The shared ChapterNavigation rule, as ChapterWindowPlayer.handleSeek's COMMAND_SEEK_TO_NEXT
+                // branch uses it. At the last chapter there is no next: nothing moves, and the head unit is
+                // told so rather than told it worked.
+                val target = ChapterNavigation.nextStartMs(transport.bookRelativePositionMs(), chapters)
+                if (timeline != null && target != null) {
                     val resolved = timeline.resolve(target)
                     playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Next chapter target: ${target}ms" }
                 } else {
-                    logger.debug { "Next chapter requested with no chapter data available — skipping" }
+                    logger.debug { "Next chapter requested at the last chapter or with no chapter data — skipping" }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
                 }
             }
@@ -890,6 +868,58 @@ internal class ListenUpSessionCallback(
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 }
+
+/**
+ * The custom buttons the session offers [trust]'s controller beside previous, play/pause and next (spec §5.7, §3.3).
+ *
+ * Back N and forward N carry the user's configured intervals in both glyph and label: a car is the surface where a
+ * button that says one number and moves another is least correctable (#1300). They sit in the secondary slots, beside
+ * previous and next, never in them, so at the last chapter next's slot stays empty instead of forward sliding into it.
+ * Each falls back to overflow, which is what the platform session (Android Auto, Bluetooth and the Android 13+ system
+ * card) reads. That card shows two custom buttons beside the reserved previous and next, so the order decides what it
+ * keeps: back N and forward N. Speed comes third, kept by Android Auto (limited to three custom actions by its
+ * guidelines), which has room for it and is the car's only way to change speed.
+ */
+internal fun mediaButtonsFor(
+    trust: ControllerTrust,
+    backwardSec: Int,
+    forwardSec: Int,
+    words: SystemStrings,
+): List<CommandButton> =
+    when (trust) {
+        ControllerTrust.OWN_APP,
+        ControllerTrust.AUTO_OR_AUTOMOTIVE,
+        ControllerTrust.MEDIA_NOTIFICATION,
+        -> {
+            listOf(
+                CommandButton
+                    .Builder(SkipCommandIcons.backward(backwardSec))
+                    .setDisplayName(words.carBack.format(Locale.getDefault(), backwardSec))
+                    .setSessionCommand(SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK, Bundle.EMPTY))
+                    .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                    .build(),
+                CommandButton
+                    .Builder(SkipCommandIcons.forward(forwardSec))
+                    .setDisplayName(words.carForward.format(Locale.getDefault(), forwardSec))
+                    .setSessionCommand(SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD, Bundle.EMPTY))
+                    .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
+                    .build(),
+                CommandButton
+                    .Builder(CommandButton.ICON_UNDEFINED)
+                    .setDisplayName(words.playerSpeed)
+                    .setCustomIconResId(R.drawable.ic_speed)
+                    .setSessionCommand(CustomActions.cycleSpeedCommand())
+                    .setSlots(CommandButton.SLOT_OVERFLOW)
+                    .build(),
+            )
+        }
+
+        ControllerTrust.TRUSTED_SYSTEM,
+        ControllerTrust.UNKNOWN,
+        -> {
+            emptyList()
+        }
+    }
 
 /** Convert Android's EXTRA_MEDIA_FOCUS string to our MediaFocus enum. */
 private fun String.toMediaFocus(): MediaFocus? =

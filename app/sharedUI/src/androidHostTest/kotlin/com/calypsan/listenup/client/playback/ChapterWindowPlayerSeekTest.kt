@@ -4,6 +4,7 @@ import androidx.media3.common.Player
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
+import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.core.BookId
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -55,12 +56,15 @@ class ChapterWindowPlayerSeekTest {
             Chapter(id = "ch-10", title = "Part 2: Right Attitude", duration = 156_000L, startTime = nextChapterStartMs),
         )
 
-    private fun wrapperOver(fake: FakeExoPlayer) =
-        ChapterWindowPlayer(
-            player = fake,
-            chaptersProvider = { chapters },
-            timelineProvider = { timeline },
-        )
+    private fun wrapperOver(
+        fake: FakeExoPlayer,
+        bookChapters: List<Chapter> = chapters,
+    ) = ChapterWindowPlayer(
+        player = fake,
+        chaptersProvider = { bookChapters },
+        timelineProvider = { timeline },
+        strings = { SystemStrings.ENGLISH_FALLBACK },
+    )
 
     private fun seekableFake() =
         FakeExoPlayer(
@@ -112,6 +116,60 @@ class ChapterWindowPlayerSeekTest {
 
         assertEquals(listOf(0 to chapterStartMs + 60_000L), fake.seekCalls)
     }
+
+    @Test
+    fun `next at the last chapter leaves the position where it was`() {
+        // 45 s into "Part 2: Right Attitude", the last chapter.
+        val fake = seekableFakeAt(nextChapterStartMs + 45_000L)
+        val wrapper = wrapperOver(fake)
+
+        wrapper.seekToNext()
+
+        assertEquals(emptyList<Pair<Int, Long>>(), fake.seekCalls)
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT))
+    }
+
+    @Test
+    fun `previous within 3 s of a chapter's start goes to the chapter before, past 3 s restarts`() {
+        val early = seekableFakeAt(chapterStartMs + 2_000L)
+        wrapperOver(early).seekToPrevious()
+        assertEquals(listOf(0 to 2_294_000L), early.seekCalls)
+
+        val late = seekableFakeAt(chapterStartMs + 5_000L)
+        wrapperOver(late).seekToPrevious()
+        assertEquals(listOf(0 to chapterStartMs), late.seekCalls)
+    }
+
+    @Test
+    fun `a chapterless book offers no previous, and a previous that arrives anyway moves nothing`() {
+        val fake = seekableFakeAt(bookPositionMs)
+        val wrapper = wrapperOver(fake, bookChapters = emptyList())
+
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
+        assertEquals(false, wrapper.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM))
+        wrapper.seekToPrevious()
+        assertEquals(emptyList<Pair<Int, Long>>(), fake.seekCalls)
+    }
+
+    @Test
+    fun `a chaptered book always offers previous, which restarts chapter 1`() {
+        assertEquals(true, wrapperOver(seekableFakeAt(2_294_000L + 1_000L)).isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS))
+    }
+
+    private fun seekableFakeAt(positionMs: Long) =
+        FakeExoPlayer(
+            stubbedPosition = positionMs,
+            stubbedMediaItemIndex = 0,
+            availableCommands =
+                Player.Commands
+                    .Builder()
+                    .addAll(
+                        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_TO_PREVIOUS,
+                        Player.COMMAND_SEEK_TO_NEXT,
+                    ).build(),
+        )
 }
 
 /** Minimal [PlaybackTransport] over a fake, for the contrast case above. */

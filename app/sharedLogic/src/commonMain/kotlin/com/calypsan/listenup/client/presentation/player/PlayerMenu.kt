@@ -20,6 +20,12 @@ sealed interface PlayerMenuItem {
         val boostDb: Float,
     ) : PlayerMenuItem
 
+    /**
+     * The keyboard shortcuts sheet. Only the web asks for it: Android has no app shortcuts, and the iPad lists its
+     * keys in the system's own ⌘-hold overlay.
+     */
+    data object KeyboardShortcuts : PlayerMenuItem
+
     /** Stop and unload the book. No confirmation: the place is kept (P31). */
     data object CloseBook : PlayerMenuItem
 }
@@ -39,12 +45,14 @@ data class PlayerMenuGroup(
 object PlayerMenus {
     /**
      * The More menu for [state] (§5.5.7): Go to book; Go to series when [includesSeries] and the book has one; Open PDF
-     * when it has one; Volume boost; then Close book apart. [includesSeries] is false where the screen already shows
-     * the series as a link (the native wide layouts, PR 5). Pure.
+     * when it has one; Volume boost; Keyboard shortcuts when [includesShortcuts]; then Close book apart.
+     * [includesSeries] is false where the screen already shows the series as a link (the native wide layouts).
+     * [includesShortcuts] is true only where the platform has app keyboard shortcuts (the web). Pure.
      */
     fun moreMenu(
         state: PlayerUiState.Loaded,
         includesSeries: Boolean,
+        includesShortcuts: Boolean,
     ): List<PlayerMenuGroup> {
         val book = state.book
         val places =
@@ -56,6 +64,7 @@ object PlayerMenus {
                     ?.let { add(PlayerMenuItem.GoToSeries(it.id)) }
                 book.firstPdfDocId?.let { add(PlayerMenuItem.OpenPdf(it)) }
                 add(PlayerMenuItem.VolumeBoost(state.settings.boostDb))
+                if (includesShortcuts) add(PlayerMenuItem.KeyboardShortcuts)
             }
         return listOf(
             PlayerMenuGroup(places),

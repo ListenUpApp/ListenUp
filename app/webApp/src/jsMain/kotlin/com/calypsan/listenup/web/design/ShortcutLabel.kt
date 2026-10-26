@@ -10,11 +10,15 @@ import kotlinx.browser.window
  * browser offers it, else the older `navigator.platform`.
  */
 internal fun paletteShortcutLabel(platform: String = browserPlatform()): String =
-    if (APPLE_PLATFORM.containsMatchIn(platform)) "⌘K" else "Ctrl K"
+    if (isApplePlatform(platform)) "⌘K" else "Ctrl K"
+
+/** Whether [platform] is a Mac, iPhone or iPad, whose keyboards label the command key ⌘. */
+internal fun isApplePlatform(platform: String = browserPlatform()): Boolean = APPLE_PLATFORM.containsMatchIn(platform)
 
 private val APPLE_PLATFORM = Regex("mac|iphone|ipad|ipod", RegexOption.IGNORE_CASE)
 
-private fun browserPlatform(): String {
+/** The browser's platform string: `navigator.userAgentData.platform` where the browser offers it, else `navigator.platform`. */
+internal fun browserPlatform(): String {
     val navigator = window.navigator.asDynamic()
     val hints = navigator.userAgentData
     val fromHints = if (hints != null && hints != undefined) hints.platform as? String else null

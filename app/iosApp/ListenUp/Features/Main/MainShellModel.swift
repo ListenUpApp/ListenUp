@@ -54,6 +54,11 @@ final class MainShellModel {
     private(set) var paths: [ShellTab: NavigationPath] = [:]
     /// Whether the full-screen player covers the shell.
     var isPlayerPresented = false
+    /// Set by Show Chapters (⇧⌘C); the player shows its chapters (the panel on a wide window, the sheet otherwise) and
+    /// clears it.
+    var isChapterListRequested = false
+    /// Whether one of the full player's sheets, or its PDF reader, is open: Esc closes that first, so Close Player waits.
+    var playerSheetIsOpen = false
     /// The Library section the compact Library tab shows (and the sidebar remembers).
     var librarySection: LibraryTab = .books
     /// Bumped by ⌘F; the Search screen focuses its field on every change.
@@ -108,6 +113,22 @@ final class MainShellModel {
     func select(_ tab: ShellTab) {
         isPlayerPresented = false
         selectedTab = (tab == .library && usesSidebar) ? .librarySection(librarySection) : tab
+    }
+
+    /// ⌘0: show the full player.
+    func showPlayer() {
+        isPlayerPresented = true
+    }
+
+    /// ⇧⌘C: show the full player, with its chapters.
+    func showPlayerChapters() {
+        isPlayerPresented = true
+        isChapterListRequested = true
+    }
+
+    /// Esc: close the full player.
+    func closePlayer() {
+        isPlayerPresented = false
     }
 
     /// ⌘F: show Search and put the cursor in its field.

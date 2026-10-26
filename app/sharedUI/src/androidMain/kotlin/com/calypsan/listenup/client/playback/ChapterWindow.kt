@@ -1,6 +1,12 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.presentation.player.ChapterName
+import com.calypsan.listenup.client.presentation.player.ChapterNaming
+import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A single-chapter view of book-relative playback position.
@@ -71,69 +77,37 @@ internal fun currentChapterWindow(
 internal fun ChapterWindow.seekTargetToBookPosition(chapterRelativePositionMs: Long): Long =
     windowStartMs + chapterRelativePositionMs.coerceIn(0L, windowDurationMs)
 
-/** Default "previous" restart-vs-jump threshold — see [previousChapterTarget]. */
-internal const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
+/** The time left in the window's chapter: content time, never divided by the speed (spec §3.2). */
+internal val ChapterWindow.remainingMs: Long
+    get() = windowDurationMs - positionInWindowMs
 
 /**
- * Book-relative target for a "previous" (skip-to-previous-chapter) command.
- *
- * Standard media-player "restart" behavior: more than [restartThresholdMs] into the
- * current chapter restarts it (returns its start); otherwise the target is the previous
- * chapter's start. Clamped at the first chapter — there is never a previous chapter to
- * move into, but restarting the current (first) chapter is always the fallback. A
- * chapterless book resolves to [ChapterWindow.chapterIndex] `-1`, which is already `<= 0`,
- * so it naturally falls into that same restart-the-window clamp without a separate check.
+ * What the system surfaces call this window's chapter: the book's own title, "Chapter N" when it has none, the
+ * whole book when the book has no chapters. The shared [ChapterNaming] rule, so the card says what the mini
+ * player says.
  */
-internal fun previousChapterTarget(
-    chapters: List<Chapter>,
-    bookPositionMs: Long,
-    totalBookDurationMs: Long,
-    restartThresholdMs: Long = PREVIOUS_RESTART_THRESHOLD_MS,
-): Long {
-    val window = currentChapterWindow(chapters, bookPositionMs, totalBookDurationMs)
-    if (window.chapterIndex <= 0 || window.positionInWindowMs > restartThresholdMs) {
-        return window.windowStartMs
-    }
-    return chapters[window.chapterIndex - 1].startTime
+internal fun ChapterWindow.chapterName(chapters: List<Chapter>): ChapterName =
+    ChapterNaming.of(
+        title = chapters.getOrNull(chapterIndex)?.title,
+        number = chapterIndex + 1,
+        isWholeBook = chapterIndex < 0,
+    )
+
+/**
+ * The system media card's second line (spec §5.7): "Bridge Four · 8m left". Android 13+ draws it from the session's
+ * artist, which is why the chapter, not the author, goes there; the author moves to the album.
+ */
+internal fun systemTrackLine(
+    name: ChapterName,
+    remainingMs: Long,
+    words: SystemStrings,
+): String {
+    val chapter =
+        when (name) {
+            is ChapterName.Titled -> name.title
+            is ChapterName.Untitled -> words.playerMiniChapter.format(Locale.getDefault(), name.number)
+            ChapterName.WholeBook -> words.playerMiniWholeBook
+        }
+    val left = DurationFormatter.hoursMinutesOrUnderMinute(remainingMs.coerceAtLeast(0L).milliseconds)
+    return words.playerSystemTrackLeft.format(Locale.getDefault(), chapter, left)
 }
-
-/**
- * Book-relative target for a "next" (skip-to-next-chapter) command.
- *
- * Clamped at the last chapter — there is no next chapter to move into, so the target
- * stays at the current chapter's own start. A chapterless book has no chapter at
- * `chapterIndex + 1` to find, so it naturally falls into that same clamp.
- */
-internal fun nextChapterTarget(
-    chapters: List<Chapter>,
-    bookPositionMs: Long,
-    totalBookDurationMs: Long,
-): Long {
-    val window = currentChapterWindow(chapters, bookPositionMs, totalBookDurationMs)
-    return chapters.getOrNull(window.chapterIndex + 1)?.startTime ?: window.windowStartMs
-}
-
-/**
- * Always true — `COMMAND_SEEK_TO_PREVIOUS` is never gated on a prior chapter existing.
- *
- * Standard Media3/media-player UX keeps "previous" available as a restart-the-current-window
- * affordance even at the first chapter (or in a chapterless book): [previousChapterTarget]
- * already resolves that case to a harmless clamp at the window's own start. Greying the button
- * out here — the failure mode the design explicitly calls out to avoid — would only be correct
- * if restart were unavailable too, which it never is. Kept as a named predicate (matching
- * [hasNextChapter]'s shape, even though it needs no inputs) so the call site in
- * [ChapterWindowPlayer] reads the same way for both commands, and so a future change to this
- * rule has one place to land.
- */
-internal fun hasPreviousChapter(): Boolean = true
-
-/**
- * True when a chapter follows [window]'s chapter — gates COMMAND_SEEK_TO_NEXT availability.
- *
- * A chapterless book resolves to `chapterIndex` `-1` against `chapters.lastIndex` `-1`,
- * which is already false, so an empty [chapters] list needs no separate check.
- */
-internal fun hasNextChapter(
-    chapters: List<Chapter>,
-    window: ChapterWindow,
-): Boolean = window.chapterIndex < chapters.lastIndex

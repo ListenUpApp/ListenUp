@@ -21361,16 +21361,6 @@
         }
       }
     },
-    "player.chapter_remaining": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ • %2$@ left"
-          }
-        }
-      }
-    },
     "player.chapters": {
       "localizations": {
         "en": {
@@ -21517,6 +21507,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Go to series"
+          }
+        }
+      }
+    },
+    "player.keyboard_shortcuts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keyboard shortcuts"
+          }
+        }
+      }
+    },
+    "player.menu_close_player_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Player"
+          }
+        }
+      }
+    },
+    "player.menu_faster_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faster"
+          }
+        }
+      }
+    },
+    "player.menu_show_chapters_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Chapters"
+          }
+        }
+      }
+    },
+    "player.menu_show_now_playing_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Now Playing"
+          }
+        }
+      }
+    },
+    "player.menu_slower_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slower"
           }
         }
       }
@@ -22161,16 +22211,6 @@
         }
       }
     },
-    "player.playing": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playing..."
-          }
-        }
-      }
-    },
     "player.previous_chapter": {
       "localizations": {
         "en": {
@@ -22731,6 +22771,36 @@
         }
       }
     },
+    "player.sleep_notification_add_ten": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add 10 min"
+          }
+        }
+      }
+    },
+    "player.sleep_notification_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "player.sleep_notification_end_of_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauses at the end of %1$@"
+          }
+        }
+      }
+    },
     "player.sleep_off": {
       "localizations": {
         "en": {
@@ -22817,6 +22887,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "less than a minute"
+          }
+        }
+      }
+    },
+    "player.system_track_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ left"
           }
         }
       }

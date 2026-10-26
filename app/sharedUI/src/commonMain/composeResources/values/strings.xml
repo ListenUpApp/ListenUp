@@ -2137,7 +2137,6 @@ One beautiful library.</string>
     <string name="player_cause_playback_unsupported_format">This device can't decode the book's audio format.</string>
     <string name="player_chapter_number">Chapter %1$d</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
-    <string name="player_chapter_remaining">%1$s • %2$s left</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapters_count_summary">%1$d chapters · %2$s</string>
     <string name="player_close">Close</string>
@@ -2153,6 +2152,12 @@ One beautiful library.</string>
     <string name="player_go_to_narrator">Go to narrator</string>
     <string name="player_go_to_narrator_multiple">Go to narrator…</string>
     <string name="player_go_to_series">Go to series</string>
+    <string name="player_keyboard_shortcuts">Keyboard shortcuts</string>
+    <string name="player_menu_close_player_ios">Close Player</string>
+    <string name="player_menu_faster_ios">Faster</string>
+    <string name="player_menu_show_chapters_ios">Show Chapters</string>
+    <string name="player_menu_show_now_playing_ios">Show Now Playing</string>
+    <string name="player_menu_slower_ios">Slower</string>
     <string name="player_mini_auth_session_expired">Signed out · place saved</string>
     <string name="player_mini_book_held_for_review">Not playable</string>
     <string name="player_mini_busy_a11y">Loading. Pause</string>
@@ -2217,7 +2222,6 @@ One beautiful library.</string>
     <string name="player_place_saved">Your place is saved.</string>
     <string name="player_play">Play</string>
     <string name="player_playback_speed">Playback speed</string>
-    <string name="player_playing">Playing...</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_reconnecting">Reconnecting…</string>
     <string name="player_reference">Reference %1$s</string>
@@ -2274,6 +2278,9 @@ One beautiful library.</string>
     <string name="player_skip_backward">Skip back %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_sleep">Sleep</string>
+    <string name="player_sleep_notification_add_ten">Add 10 min</string>
+    <string name="player_sleep_notification_cancel">Cancel</string>
+    <string name="player_sleep_notification_end_of_chapter">Pauses at the end of %1$s</string>
     <string name="player_sleep_off">Off</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>
@@ -2283,6 +2290,7 @@ One beautiful library.</string>
     <string name="player_spoken_minutes">%1$d minutes</string>
     <string name="player_spoken_minutes_one">1 minute</string>
     <string name="player_spoken_under_a_minute">less than a minute</string>
+    <string name="player_system_track_left">%1$s · %2$s left</string>
     <string name="player_timer_active">Timer active</string>
     <string name="player_title_auth_session_expired">Your session expired. Please sign in again.</string>
     <string name="player_title_book_held_for_review">Waiting in the Inbox.</string>

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
@@ -49,6 +50,7 @@ import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
 import listenup.composeapp.generated.resources.player_go_to_book
 import listenup.composeapp.generated.resources.player_go_to_series
+import listenup.composeapp.generated.resources.player_keyboard_shortcuts
 import listenup.composeapp.generated.resources.player_more_options
 import listenup.composeapp.generated.resources.player_now_playing
 import listenup.composeapp.generated.resources.player_np_volume_boost_row
@@ -180,7 +182,7 @@ private fun MoreMenu(
             shape = MenuShape,
             containerColor = colors.surfaceContainer,
         ) {
-            PlayerMenus.moreMenu(state, includesSeries).forEachIndexed { index, group ->
+            PlayerMenus.moreMenu(state, includesSeries, includesShortcuts = false).forEachIndexed { index, group ->
                 if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 val itemColors =
                     if (group.isDestructive) {
@@ -230,6 +232,11 @@ private fun PlayerMenuItem.label(): String =
             stringResource(Res.string.player_np_volume_boost_row, value)
         }
 
+        // Never offered here (includesShortcuts = false: Android has no app shortcuts); named for exhaustiveness.
+        PlayerMenuItem.KeyboardShortcuts -> {
+            stringResource(Res.string.player_keyboard_shortcuts)
+        }
+
         PlayerMenuItem.CloseBook -> {
             stringResource(Res.string.player_close_book)
         }
@@ -241,5 +248,6 @@ private fun PlayerMenuItem.icon(): ImageVector =
         is PlayerMenuItem.GoToSeries -> Icons.AutoMirrored.Filled.LibraryBooks
         is PlayerMenuItem.OpenPdf -> Icons.Default.Description
         is PlayerMenuItem.VolumeBoost -> Icons.AutoMirrored.Filled.VolumeUp
+        PlayerMenuItem.KeyboardShortcuts -> Icons.Default.Keyboard
         PlayerMenuItem.CloseBook -> Icons.Default.Close
     }

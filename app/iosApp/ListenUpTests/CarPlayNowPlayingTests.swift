@@ -36,11 +36,20 @@ struct CarPlayNowPlayingTests {
 
     /// The car's custom chapter buttons are glyph-only; VoiceOver in the car reads these labels,
     /// where it used to read nothing.
-    @Test func theChapterButtonsAreNamedAndStepOneChapter() {
+    @Test func theChapterButtonsAreNamedAndMoveByChapter() {
         #expect(CarPlayChapterButton.all == [.previous, .next])
         #expect(CarPlayChapterButton.previous.accessibilityLabel == String(localized: "player.previous_chapter"))
         #expect(CarPlayChapterButton.next.accessibilityLabel == String(localized: "player.next_chapter"))
-        #expect(CarPlayChapterButton.previous.chapterOffset == -1)
-        #expect(CarPlayChapterButton.next.chapterOffset == 1)
+        #expect(CarPlayChapterButton.previous.action == .previous)
+        #expect(CarPlayChapterButton.next.action == .next)
+    }
+
+    /// The shared rule (§3.3): in a chaptered book previous can always restart the chapter, so it greys out only in a
+    /// chapterless book; next greys out at the last chapter.
+    @Test func nextIsDisabledAtTheLastChapterAndPreviousOnlyWithoutChapters() {
+        #expect(CarPlayChapterButton.previous.isEnabled(hasPreviousChapter: true, hasNextChapter: false))
+        #expect(!CarPlayChapterButton.previous.isEnabled(hasPreviousChapter: false, hasNextChapter: false))
+        #expect(CarPlayChapterButton.next.isEnabled(hasPreviousChapter: true, hasNextChapter: true))
+        #expect(!CarPlayChapterButton.next.isEnabled(hasPreviousChapter: true, hasNextChapter: false))
     }
 }

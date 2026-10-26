@@ -44,6 +44,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -221,6 +223,9 @@ class PlaybackService :
         // UI-rate position poll interval — matches MediaControllerHolder's former poll cadence
         // (see startPositionUpdates' KDoc for why this now lives here instead).
         private const val POSITION_UI_UPDATE_INTERVAL = 250L
+
+        /** One minute: how often the system card's time left can change. */
+        private const val MS_PER_MINUTE = 60_000L
     }
 
     override fun onCreate() {
@@ -244,6 +249,7 @@ class PlaybackService :
             // the new chapter window (see ChapterWindowPlayer's "Invalidation" KDoc).
             chapterWindowPlayer?.invalidate()
         }
+        refreshCardTimeLeft()
 
         // Auto-rewind-on-resume actuator (#1220): PlaybackManagerImpl.setPlaying feeds every
         // Playing/Paused transition (from the Player.Listener below, via MediaControllerHolder)
@@ -364,7 +370,13 @@ class PlaybackService :
         // exactly where the configured-interval wrapper needs to sit. Not held as a field —
         // it owns nothing to release, and [activeTransportPlayer] must keep handing out the raw
         // player, whose coordinates every position calculation in this service speaks.
-        val skipAware = SkipIntervalPlayer(activePlayer, { skipIntervals.forwardMs }, { skipIntervals.backwardMs })
+        val skipAware =
+            SkipIntervalPlayer(
+                player = activePlayer,
+                forwardMs = { skipIntervals.forwardMs },
+                backwardMs = { skipIntervals.backwardMs },
+                speed = { activePlayer.playbackParameters.speed },
+            )
 
         // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
         // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
@@ -379,6 +391,7 @@ class PlaybackService :
                 player = skipAware,
                 chaptersProvider = { playbackManager.chapters.value },
                 timelineProvider = { playbackManager.currentTimeline.value },
+                strings = { systemStrings.current },
             )
         chapterWindowPlayer = wrapper
 
@@ -432,15 +445,30 @@ class PlaybackService :
         logger.info { "MediaLibrarySession initialized" }
     }
 
+    /**
+     * Re-presents the session once a minute while playing, so the system card's "8m left" counts down (spec §5.7).
+     * No player event fires as a minute passes; a per-tick invalidate would rebuild every controller's state a few
+     * times a second for a number that changes once a minute.
+     */
+    private fun refreshCardTimeLeft() {
+        serviceScope.launch {
+            combine(playbackManager.playing, playbackManager.currentPositionMs) { playing, positionMs ->
+                if (playing) minutesLeftOnCard(positionMs) else null
+            }.distinctUntilChanged()
+                .collect { minutesLeft -> if (minutesLeft != null) chapterWindowPlayer?.invalidate() }
+        }
+    }
+
+    /** The whole minutes the card's line shows as left in the chapter at [positionMs]. */
+    private fun minutesLeftOnCard(positionMs: Long): Long =
+        currentChapterWindow(playbackManager.chapters.value, positionMs, playbackManager.totalDurationMs.value)
+            .remainingMs / MS_PER_MINUTE
+
     private fun initializeNotificationProvider() {
         notificationProvider =
             AudiobookNotificationProvider(
                 context = this,
-                playbackManager = playbackManager,
                 skipIntervals = skipIntervals,
-                // Read off the transport player, never the session player: the session is
-                // presented by ChapterWindowPlayer, whose title is the current chapter.
-                bookTitle = { activeTransportPlayer()?.run { mediaMetadata.title } },
                 strings = systemStrings,
             )
         val provider = notificationProvider ?: return

@@ -12,6 +12,7 @@ struct PlaybackCommandStateTests {
         showsSkipBack: Bool = true,
         chapterIndex: Int = 0,
         canSkipToNextChapter: Bool = true,
+        canSkipToPreviousChapter: Bool = true,
         sleepTimerActive: Bool = false,
         sleepTimerIsEndOfChapter: Bool = false
     ) -> PlayerSnapshot {
@@ -23,6 +24,7 @@ struct PlaybackCommandStateTests {
         snapshot.showsSkipBack = showsSkipBack
         snapshot.chapterIndex = chapterIndex
         snapshot.canSkipToNextChapter = canSkipToNextChapter
+        snapshot.canSkipToPreviousChapter = canSkipToPreviousChapter
         snapshot.sleepTimerActive = sleepTimerActive
         snapshot.sleepTimerIsEndOfChapter = sleepTimerIsEndOfChapter
         return snapshot
@@ -50,6 +52,68 @@ struct PlaybackCommandStateTests {
         #expect(state.hasNextChapter)
     }
 
+    /// §3.3: previous in chapter 1 restarts chapter 1, so ⌥⌘← is live there (it used to grey out).
+    @Test func previousChapterIsLiveInChapterOne() {
+        #expect(PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0)).hasPreviousChapter)
+    }
+
+    /// A chapterless book has no previous chapter: ⌥⌘← dims rather than jump to 0:00.
+    @Test func previousChapterIsOffInAChapterlessBook() {
+        let chapterless = snapshot(canSkipToNextChapter: false, canSkipToPreviousChapter: false)
+        let state = PlaybackCommandState.from(snapshot: chapterless)
+        #expect(!state.hasPreviousChapter)
+        #expect(state.canSeek)
+    }
+
+    @Test func speedStepsStopAtTheEndsOfTheRange() {
+        var slowest = snapshot()
+        slowest.playbackSpeed = 0.5
+        var fastest = snapshot()
+        fastest.playbackSpeed = 3.0
+        #expect(!PlaybackCommandState.from(snapshot: slowest).canStepSpeedDown)
+        #expect(PlaybackCommandState.from(snapshot: slowest).canStepSpeedUp)
+        #expect(!PlaybackCommandState.from(snapshot: fastest).canStepSpeedUp)
+        #expect(PlaybackCommandState.from(snapshot: fastest).canStepSpeedDown)
+    }
+
+    @Test func showChaptersNeedsChapters() {
+        var chaptered = snapshot()
+        chaptered.chapterRows = [ChapterRowModel(id: "c1", title: "Prelude", startMs: 0, durationMs: 1_000)]
+        #expect(PlaybackCommandState.from(snapshot: chaptered).canShowChapters)
+        #expect(!PlaybackCommandState.from(snapshot: snapshot()).canShowChapters)
+    }
+
+    /// ⌘0 opens the player when it is not showing; Esc closes it only once none of its sheets is open.
+    @Test func showAndCloseFollowThePlayerAndItsSheets() {
+        let closed = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: false)
+        #expect(closed.canShowNowPlaying)
+        #expect(!closed.canClosePlayer)
+
+        let open = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true)
+        #expect(!open.canShowNowPlaying)
+        #expect(open.canClosePlayer)
+
+        let sheet = PlaybackCommandState.from(snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: true)
+        #expect(!sheet.canClosePlayer)
+    }
+
+    /// The PDF reader covers the player as a sheet does, so Esc must not close the player behind it: Close Player waits.
+    @Test func theDocumentReaderHoldsClosePlayerLikeASheet() {
+        func covered(boost: Bool = false, chapters: Bool = false, reader: Bool = false) -> Bool {
+            FullScreenPlayerView.isCovered(
+                showsBoostPicker: boost, showsChapterList: chapters, isReadingDocument: reader)
+        }
+        let readerUp = covered(reader: true)
+        #expect(readerUp)
+        let state = PlaybackCommandState.from(
+            snapshot: snapshot(), isPlayerPresented: true, playerSheetIsOpen: readerUp)
+        #expect(!state.canClosePlayer)
+
+        #expect(!covered())
+        #expect(covered(boost: true))
+        #expect(covered(chapters: true))
+    }
+
     @Test func playingAndBufferingOfferPause() {
         #expect(PlaybackCommandState.from(snapshot: snapshot(primary: .pause, isPlaying: true)).showsPause)
         // Buffering draws the busy spinner, and pressing it pauses: the command stays live.
@@ -58,9 +122,11 @@ struct PlaybackCommandStateTests {
         #expect(buffering.canTogglePlayback)
     }
 
-    @Test func chapterJumpsStopAtTheEnds() {
+    /// Next stops at the last chapter. Previous does not stop at the first: there it restarts chapter 1 (§3.3), which
+    /// is why this test changed from expecting it dimmed.
+    @Test func nextStopsAtTheLastChapterAndPreviousRestartsTheFirst() {
         let first = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 0, canSkipToNextChapter: true))
-        #expect(!first.hasPreviousChapter)
+        #expect(first.hasPreviousChapter)
         #expect(first.hasNextChapter)
         let last = PlaybackCommandState.from(snapshot: snapshot(chapterIndex: 2, canSkipToNextChapter: false))
         #expect(last.hasPreviousChapter)

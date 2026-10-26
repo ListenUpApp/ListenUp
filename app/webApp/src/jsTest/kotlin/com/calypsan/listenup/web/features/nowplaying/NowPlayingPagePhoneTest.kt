@@ -72,10 +72,17 @@ class NowPlayingPagePhoneTest :
             frame.find(".np-mob .np-ch").textContent shouldBe "Chapter 6 of 75 · Chapter 6"
         }
 
-        test("Next is disabled in the last chapter; Previous never is") {
+        test("Next is disabled in the last chapter; Previous is not, even in chapter 1") {
             val frame = phonePage(wayOfKings(chapters = chapterRows(3), currentChapterIndex = 2))
             (frame.find(".np-mob .np-next") as HTMLButtonElement).disabled shouldBe true
             (frame.find(".np-mob .np-prev") as HTMLButtonElement).disabled shouldBe false
+            val first = phonePage(wayOfKings(chapters = chapterRows(3), currentChapterIndex = 0))
+            (first.find(".np-mob .np-prev") as HTMLButtonElement).disabled shouldBe false
+        }
+
+        test("a chapterless book disables Previous rather than jump to 0:00") {
+            val frame = phonePage(wayOfKings())
+            (frame.find(".np-mob .np-prev") as HTMLButtonElement).disabled shouldBe true
         }
 
         test("previous and next report one press each to the shared model, which decides where they land") {

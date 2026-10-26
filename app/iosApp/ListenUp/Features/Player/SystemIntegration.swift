@@ -9,7 +9,9 @@ import os
 /// Every position field here is WINDOW-relative — scoped to the current chapter (or the whole
 /// book when chapterless). Nothing on this type carries a book-relative value.
 struct NowPlayingInfo: Equatable, Sendable {
+    /// The book (spec §5.7): the Lock Screen and CarPlay's headline.
     let title: String
+    /// The chapter, as the book names it (`ChapterNaming`): the track line under the book.
     let artist: String
     /// Duration of the presented WINDOW in milliseconds — the current chapter's length, or the
     /// whole book when the book has no chapters.
@@ -32,6 +34,12 @@ struct NowPlayingInfo: Equatable, Sendable {
     /// The listener's chosen speed — what `rate` becomes when playing. Published separately because
     /// `rate` is 0 while paused, and the lock screen and CarPlay's rate button show this one.
     var defaultRate: Double = 1.0
+    /// The author, in the album slot (spec §5.7: title = book, artist = chapter, album = author).
+    var album: String = ""
+    /// Whether next track goes anywhere: false at the last chapter, where the system greys it out (§3.3).
+    var hasNextChapter: Bool = true
+    /// Whether previous track goes anywhere: false only in a chapterless book, where it would jump to 0:00.
+    var hasPreviousChapter: Bool = true
 }
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
@@ -43,6 +51,11 @@ protocol RemoteCommandHandler: AnyObject {
     func remotePause()
     func remoteSkipForward()
     func remoteSkipBackward()
+    /// Previous track: the previous chapter by the shared rule (§3.3: restart after 3 s; chapter 1 restarts) — AirPods,
+    /// CarPlay and headsets. False in a chapterless book, where there is none, so the system is told nothing moved.
+    func remotePreviousTrack() -> Bool
+    /// Next track: the next chapter. False when there is none (the last chapter), so the system is told nothing moved.
+    func remoteNextTrack() -> Bool
     /// Seek to a position within the CURRENTLY PRESENTED WINDOW (the current chapter, or the whole
     /// book when chapterless) in milliseconds — which is what `changePlaybackPositionCommand`
     /// reports once the info center is chapter-scoped. The handler owns translating it back to a
@@ -95,6 +108,10 @@ final class SystemIntegration {
     /// Push a fresh lock-screen snapshot.
     func update(_ info: NowPlayingInfo) {
         infoCenter.nowPlayingInfo = Self.dictionary(from: info)
+        // Next track greys out at the last chapter (§3.3). Previous greys out only in a chapterless book: in a chaptered
+        // one it can always restart the chapter.
+        commandCenter.nextTrackCommand.isEnabled = info.hasNextChapter
+        commandCenter.previousTrackCommand.isEnabled = info.hasPreviousChapter
     }
 
     /// Set the lock-screen skip intervals the system shows on its skip controls.
@@ -117,6 +134,7 @@ final class SystemIntegration {
         var dict: [String: Any] = [
             MPMediaItemPropertyTitle: info.title,
             MPMediaItemPropertyArtist: info.artist,
+            MPMediaItemPropertyAlbumTitle: info.album,
             MPMediaItemPropertyPlaybackDuration: Double(info.windowDurationMs) / 1000.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.windowElapsedMs) / 1000.0,
             MPNowPlayingInfoPropertyPlaybackRate: info.rate,
@@ -169,6 +187,18 @@ final class SystemIntegration {
         center.skipBackwardCommand.addTarget { [weak self] _ in
             self?.handler?.remoteSkipBackward()
             return .success
+        }
+        // Chapter as the track (§3.3, §5.7), for AirPods, CarPlay and headsets. Registering these may change what the
+        // Lock Screen draws beside play (track arrows instead of the interval skips); that is checked on a device.
+        center.previousTrackCommand.isEnabled = true
+        center.previousTrackCommand.addTarget { [weak self] _ in
+            guard let handler = self?.handler else { return .noActionableNowPlayingItem }
+            return handler.remotePreviousTrack() ? .success : .commandFailed
+        }
+        center.nextTrackCommand.isEnabled = true
+        center.nextTrackCommand.addTarget { [weak self] _ in
+            guard let handler = self?.handler else { return .noActionableNowPlayingItem }
+            return handler.remoteNextTrack() ? .success : .commandFailed
         }
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else {

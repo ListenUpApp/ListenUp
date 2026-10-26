@@ -2,15 +2,13 @@ package com.calypsan.listenup.web.features.chaptereditor
 
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.shell.KeyPriority
+import com.calypsan.listenup.web.shell.WindowKeyHandler
+import com.calypsan.listenup.web.shell.isEditableTarget
 import org.w3c.dom.events.KeyboardEvent
-import org.w3c.dom.events.Event
-import org.w3c.dom.HTMLElement
-import kotlinx.browser.window
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
@@ -445,12 +443,9 @@ private fun EditorKeys(
     onNudge: (String, Long) -> Unit,
     onSelect: (String?) -> Unit,
 ) {
-    val latest = rememberUpdatedState(KeyTargets(chapters, selectedChapterId, enabled, onNudge, onSelect))
-    DisposableEffect(Unit) {
-        val listener: (Event) -> Unit = { event -> latest.value.handle(event as KeyboardEvent) }
-        window.addEventListener("keydown", listener)
-        onDispose { window.removeEventListener("keydown", listener) }
-    }
+    val targets = KeyTargets(chapters, selectedChapterId, enabled, onNudge, onSelect)
+    // Page priority: on this page ← / → nudge a boundary, never skip the audio (spec §5.8's one dispatcher).
+    WindowKeyHandler(KeyPriority.Page) { event -> targets.handle(event) }
 }
 
 /** What a key press acts on, read fresh for every press. */
@@ -461,34 +456,39 @@ private class KeyTargets(
     val onNudge: (String, Long) -> Unit,
     val onSelect: (String?) -> Unit,
 ) {
-    fun handle(event: KeyboardEvent) {
-        if (!enabled || event.isTyping()) return
+    /** Acts on [event]; true when the press was the editor's. */
+    fun handle(event: KeyboardEvent): Boolean {
+        if (!enabled || isEditableTarget(event.target)) return false
         val selected = selectedChapterId
         val index = chapters.indexOfFirst { it.id == selected }
         val step = if (event.shiftKey) FINE_NUDGE_MS else NUDGE_MS
-        when (event.key) {
-            "ArrowLeft", "ArrowRight" -> {
-                if (selected == null) return
-                onNudge(selected, if (event.key == "ArrowLeft") -step else step)
-                event.preventDefault()
-            }
+        val target =
+            when (event.key) {
+                "ArrowLeft", "ArrowRight" -> {
+                    // The editor's keys while it is open, even with nothing selected: an arrow here never skips the
+                    // audio. With nothing to nudge, the browser keeps its own use of the key (scrolling).
+                    selected?.let {
+                        onNudge(it, if (event.key == "ArrowLeft") -step else step)
+                        event.preventDefault()
+                    }
+                    return true
+                }
 
-            "]" -> {
-                chapters.getOrNull(if (index < 0) 0 else index + 1)?.let { onSelect(it.id) }
-            }
+                "]" -> {
+                    chapters.getOrNull(if (index < 0) 0 else index + 1)
+                }
 
-            "[" -> {
-                chapters.getOrNull(if (index < 0) chapters.lastIndex else index - 1)?.let { onSelect(it.id) }
-            }
-        }
-    }
+                "[" -> {
+                    chapters.getOrNull(if (index < 0) chapters.lastIndex else index - 1)
+                }
 
-    private fun KeyboardEvent.isTyping(): Boolean {
-        val element = target as? HTMLElement ?: return false
-        return element.tagName in TYPING_TAGS || element.isContentEditable
+                else -> {
+                    return false
+                }
+            }
+        target?.let { onSelect(it.id) }
+        return true
     }
 }
-
-private val TYPING_TAGS = setOf("INPUT", "TEXTAREA", "SELECT")
 
 private const val EDIT_CHAPTERS = "Edit chapters"

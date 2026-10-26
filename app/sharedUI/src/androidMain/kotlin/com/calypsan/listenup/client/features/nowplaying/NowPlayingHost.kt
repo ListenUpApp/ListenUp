@@ -408,6 +408,10 @@ private fun PlayerViewModel.onMenuItem(
             showBoostPicker()
         }
 
+        PlayerMenuItem.KeyboardShortcuts -> {
+            // Android asks the menu for no shortcuts row; there is nothing to open.
+        }
+
         PlayerMenuItem.CloseBook -> {
             closeBook()
         }

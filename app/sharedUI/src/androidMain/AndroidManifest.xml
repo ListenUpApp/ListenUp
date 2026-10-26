@@ -113,6 +113,14 @@
             android:name="com.calypsan.listenup.client.push.PushActionReceiver"
             android:exported="false" />
 
+        <!--
+            Add 10 min, Cancel and Keep listening from the sleep timer notification. NOT exported: these
+            intents come from our own PendingIntent and nowhere else.
+        -->
+        <receiver
+            android:name="com.calypsan.listenup.client.playback.SleepTimerActionReceiver"
+            android:exported="false" />
+
         <service
             android:name="com.calypsan.listenup.client.push.ListenUpMessagingService"
             android:exported="false">

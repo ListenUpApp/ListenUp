@@ -42,7 +42,7 @@ class PlayerMoreMenuTest :
                 )
             openMenu(host)
             items(host).map { it.textContent } shouldBe
-                listOf("Go to book", "Go to series", "Open PDF ↗", "Volume boost · +6 dB", "Close book")
+                listOf("Go to book", "Go to series", "Open PDF ↗", "Volume boost · +6 dB", "Keyboard shortcuts?", "Close book")
             items(host).last().classList.contains("is-danger") shouldBe true
             items(host).last().closest(".menu-g-danger").shouldNotBeNull()
         }
@@ -50,7 +50,18 @@ class PlayerMoreMenuTest :
         test("with no series, no PDF and no boost: Go to book, Volume boost · Off, Close book") {
             val host = menu(wayOfKings(series = emptyList()))
             openMenu(host)
-            items(host).map { it.textContent } shouldBe listOf("Go to book", "Volume boost · Off", "Close book")
+            items(host).map { it.textContent } shouldBe
+                listOf("Go to book", "Volume boost · Off", "Keyboard shortcuts?", "Close book")
+        }
+
+        test("Keyboard shortcuts names its key, ?, and reports its item") {
+            val chosen = mutableListOf<PlayerMenuItem>()
+            val host = menu(wayOfKings(series = emptyList()), chosen)
+            openMenu(host)
+            val row = items(host).first { it.textContent.orEmpty().startsWith("Keyboard shortcuts") }
+            row.getAttribute("aria-keyshortcuts") shouldBe "?"
+            row.click()
+            chosen shouldBe listOf(PlayerMenuItem.KeyboardShortcuts)
         }
 
         test("Open PDF is a link to the document, in a new tab") {

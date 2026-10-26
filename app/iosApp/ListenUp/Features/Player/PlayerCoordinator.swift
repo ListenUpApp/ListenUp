@@ -559,14 +559,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         Task { await play() }
     }
     func remotePause() { if isPlaybackActive { Task { await pause() } } }
-    func remoteSkipForward() {
-        let target = min(bookPositionMs + Int64(skipForwardSec) * 1000, bookDurationMs)
-        Task { await seek(toMs: target) }
-    }
-    func remoteSkipBackward() {
-        let target = max(bookPositionMs - Int64(skipBackwardSec) * 1000, 0)
-        Task { await seek(toMs: target) }
-    }
+    /// The lock screen's, AirPods' and CarPlay's skips move what the app's do: the interval in seconds of listening,
+    /// so interval × speed of book (§3.3, the shared `skipTargetMs`).
+    func remoteSkipForward() { Task { await seek(toMs: remoteSkipTarget(forward: true)) } }
+    func remoteSkipBackward() { Task { await seek(toMs: remoteSkipTarget(forward: false)) } }
     func remoteSetRate(_ rate: Float) {
         facts.rate(rate, generation: factGeneration)
         Task { await setRate(rate, isReset: false) }
@@ -689,5 +685,40 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// downloads yield only during the stalls that matter (a local book never asks them to).
     private func updateBandwidthSignal() {
         bandwidthCoordinator?.setStreamingBuffering(active: isBuffering && isCurrentBookStreaming)
+    }
+}
+
+// MARK: - Remote track commands and skip distance
+
+// In this file so they reach the private `seek(toMs:)`; outside the class body, which is long enough.
+extension PlayerCoordinator {
+    /// Previous chapter by the shared rule (§3.3), the one every surface uses; nothing in a chapterless book, and the
+    /// system is told so.
+    func remotePreviousTrack() -> Bool {
+        guard let target = ChapterNavigation.shared.previousStartMs(positionMs: bookPositionMs, chapters: chapters)
+        else { return false }
+        Task { await seek(toMs: target) }
+        return true
+    }
+
+    /// Next chapter by the shared rule; nothing at the last chapter, and the system is told so.
+    func remoteNextTrack() -> Bool {
+        guard let target = ChapterNavigation.shared.nextStartMs(positionMs: bookPositionMs, chapters: chapters) else {
+            return false
+        }
+        Task { await seek(toMs: target) }
+        return true
+    }
+
+    /// Where a remote skip lands: the interval in seconds of listening, so interval × speed of book, as the app's own
+    /// skip moves (§3.3, the shared `skipTargetMs`).
+    func remoteSkipTarget(forward: Bool) -> Int64 {
+        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.skipTargetMs(
+            currentPositionMs: bookPositionMs,
+            seconds: Int32(forward ? skipForwardSec : skipBackwardSec),
+            speed: playbackSpeed,
+            totalDurationMs: bookDurationMs,
+            forward: forward
+        )
     }
 }

@@ -113,8 +113,8 @@
 .tport-scrub { flex:1; min-width:60px; height:24px; margin:0; accent-color:var(--coral); cursor:pointer; }
 /* Quieter than the main button on purpose: the same size would make the bar read as equal actions.
    `position:relative` anchors the skip's interval numeral over the arrow. */
-.tport-skip, .tport-ch, .tport-sleep, .tport-expand, .tport-close { position:relative; width:44px; height:44px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:inherit; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
-@media (hover: hover) { .tport-skip:hover, .tport-ch:hover, .tport-sleep:hover, .tport-expand:hover, .tport-close:hover { background:var(--surface-2); } }
+.tport-skip, .tport-ch, .tport-keys, .tport-sleep, .tport-expand, .tport-close { position:relative; width:44px; height:44px; flex:none; border:none; border-radius:50%; cursor:pointer; background:transparent; color:inherit; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+@media (hover: hover) { .tport-skip:hover, .tport-ch:hover, .tport-keys:hover, .tport-sleep:hover, .tport-expand:hover, .tport-close:hover { background:var(--surface-2); } }
 /* A hidden back N keeps its box (§3.5's stalls), so the main button never shifts under the cursor. */
 .tport-back.off { visibility:hidden; }
 /* Centred inside the arrow's loop. 9px because the glyph leaves barely more room than that, and a

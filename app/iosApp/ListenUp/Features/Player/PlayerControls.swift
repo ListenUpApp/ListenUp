@@ -23,6 +23,7 @@ struct PlayerTransportControls: View {
     @ScaledMetric(relativeTo: .title) private var playButtonSize: CGFloat = 76
 
     private var hasNextChapter: Bool { observer.canSkipToNextChapter }
+    private var hasPreviousChapter: Bool { observer.canSkipToPreviousChapter }
     private var canSkip: Bool { observer.showsSkipBack }
 
     var body: some View {
@@ -31,7 +32,8 @@ struct PlayerTransportControls: View {
                 systemImage: "backward.end.fill",
                 font: .title3,
                 label: String(localized: "player.previous_chapter"),
-                hint: String(localized: "player.np_previous_chapter_hint")
+                hint: String(localized: "player.np_previous_chapter_hint"),
+                isEnabled: hasPreviousChapter
             ) {
                 observer.previousChapter()
             }
@@ -204,6 +206,7 @@ struct PlayerSecondaryControls: View {
         }
         .sheet(isPresented: $showsSpeed) { SpeedSheet(observer: observer) }
         .sheet(isPresented: $showsSleep) { SleepSheet(observer: observer) }
+        .reportsPlayerSheet(showsSpeed || showsSleep)
     }
 
     private func item(

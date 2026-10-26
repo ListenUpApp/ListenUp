@@ -307,6 +307,19 @@ struct SkipIntervalTests {
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
     }
 
+    /// §3.3: a lock-screen, AirPods or CarPlay skip moves what the app's does — the interval × speed.
+    @Test func remoteSkipsMoveTheIntervalTimesTheSpeed() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(durationMs: 600_000, resumeSpeed: 2.0))
+        harness.engine.emit(.position(ms: 300_000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 300_000 }
+
+        harness.coordinator.remoteSkipBackward()
+        // 10 s of listening at 2× is 20 s of book.
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 280_000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 280_000 })
+    }
+
     /// The provider's seeded values flow into the coordinator.
     @Test func seededIntervalsApply() async {
         let skip = FakeSkipIntervalProviding(initialForward: 45, initialBackward: 15)
@@ -450,5 +463,75 @@ struct PlaybackLifecycleTests {
 
         await awaitUntil(timeout: .milliseconds(300)) { !harness.facts.failures.isEmpty }
         #expect(harness.facts.failures.isEmpty, "stop() left engine observation live — a late event was reported")
+    }
+}
+
+/// Next and previous track from the lock screen, AirPods and CarPlay move by chapter, by the shared rule (§3.3).
+@Suite("Remote track commands")
+@MainActor
+struct RemoteTrackCommandTests {
+    private static func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
+        Chapter(id: id, title: id, duration: duration, startTime: start, partTitle: nil, bookTitle: nil)
+    }
+
+    /// Chapters at 0, 100 and 250 s of a 300 s book.
+    private static let chapters = [
+        chapter("one", start: 0, duration: 100_000),
+        chapter("two", start: 100_000, duration: 150_000),
+        chapter("three", start: 250_000, duration: 50_000)
+    ]
+
+    private func loaded(at positionMs: Int64) async -> PlayerHarness {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(durationMs: 300_000, chapters: Self.chapters))
+        harness.engine.emit(.position(ms: positionMs, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == positionMs }
+        return harness
+    }
+
+    @Test func previousWithinThreeSecondsGoesToThePreviousChapter() async {
+        let harness = await loaded(at: 101_000)
+        #expect(harness.coordinator.remotePreviousTrack())
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 0)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 0 })
+    }
+
+    @Test func previousLaterInAChapterRestartsIt() async {
+        let harness = await loaded(at: 120_000)
+        #expect(harness.coordinator.remotePreviousTrack())
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 100_000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 100_000 })
+    }
+
+    @Test func previousInChapterOneRestartsIt() async {
+        let harness = await loaded(at: 500)
+        #expect(harness.coordinator.remotePreviousTrack())
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 0)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 0 })
+    }
+
+    /// A chapterless book has no previous: nothing moves, and the system is told so rather than sent to 0:00.
+    @Test func previousInAChapterlessBookDoesNothing() async {
+        let harness = PlayerHarness()
+        await harness.loadAndStart("book1", .fixture(durationMs: 300_000))
+        harness.engine.emit(.position(ms: 120_000, rate: 0.0))
+        await awaitObservation { harness.coordinator.bookPositionMs == 120_000 }
+        let seeksBefore = harness.progress.seeks.count
+        #expect(!harness.coordinator.remotePreviousTrack())
+        #expect(harness.progress.seeks.count == seeksBefore)
+    }
+
+    @Test func nextGoesToTheNextChapter() async {
+        let harness = await loaded(at: 50_000)
+        #expect(harness.coordinator.remoteNextTrack())
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 100_000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 100_000 })
+    }
+
+    @Test func nextAtTheLastChapterDoesNothing() async {
+        let harness = await loaded(at: 260_000)
+        let seeksBefore = harness.progress.seeks.count
+        #expect(!harness.coordinator.remoteNextTrack())
+        #expect(harness.progress.seeks.count == seeksBefore)
     }
 }

@@ -8,7 +8,11 @@ import io.kotest.matchers.shouldBe
 class PlayerMenusTest :
     FunSpec({
         test("a book in a series with a PDF and a boost: every row, in order, Close book apart") {
-            PlayerMenus.moreMenu(loaded(series = true, pdf = "doc-1", boostDb = 6f), includesSeries = true) shouldBe
+            PlayerMenus.moreMenu(
+                loaded(series = true, pdf = "doc-1", boostDb = 6f),
+                includesSeries = true,
+                includesShortcuts = false,
+            ) shouldBe
                 listOf(
                     PlayerMenuGroup(
                         listOf(
@@ -23,7 +27,11 @@ class PlayerMenusTest :
         }
 
         test("no series, no PDF: Go to book and Volume boost, then Close book") {
-            PlayerMenus.moreMenu(loaded(series = false, pdf = null, boostDb = 0f), includesSeries = true) shouldBe
+            PlayerMenus.moreMenu(
+                loaded(series = false, pdf = null, boostDb = 0f),
+                includesSeries = true,
+                includesShortcuts = false,
+            ) shouldBe
                 listOf(
                     PlayerMenuGroup(listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))),
                     PlayerMenuGroup(listOf(PlayerMenuItem.CloseBook), isDestructive = true),
@@ -32,14 +40,39 @@ class PlayerMenusTest :
 
         test("a wide layout that shows the series link leaves Go to series out") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false)
+                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false, includesShortcuts = false)
                 .first()
                 .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
         }
 
+        test("the web asks for Keyboard shortcuts: last of the first group, Close book still apart") {
+            PlayerMenus.moreMenu(
+                loaded(series = false, pdf = null, boostDb = 0f),
+                includesSeries = true,
+                includesShortcuts = true,
+            ) shouldBe
+                listOf(
+                    PlayerMenuGroup(
+                        listOf(
+                            PlayerMenuItem.GoToBook,
+                            PlayerMenuItem.VolumeBoost(0f),
+                            PlayerMenuItem.KeyboardShortcuts,
+                        ),
+                    ),
+                    PlayerMenuGroup(listOf(PlayerMenuItem.CloseBook), isDestructive = true),
+                )
+        }
+
+        test("a platform without app shortcuts never sees the row") {
+            PlayerMenus
+                .moreMenu(loaded(series = true, pdf = "doc-1", boostDb = 6f), includesSeries = true, includesShortcuts = false)
+                .flatMap { it.items }
+                .contains(PlayerMenuItem.KeyboardShortcuts) shouldBe false
+        }
+
         test("Go to series names the first series, the one the phone shows") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true)
+                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true, includesShortcuts = false)
                 .first()
                 .items[1] shouldBe PlayerMenuItem.GoToSeries("s1")
         }
