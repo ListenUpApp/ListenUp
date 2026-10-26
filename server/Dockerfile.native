@@ -87,7 +87,7 @@ RUN mkdir -p /curl-deps \
 # decoded by GStreamer's fdkaacdec and only ENCODED by FFmpeg. FFmpeg itself stays stock: linking
 # FDK into it would require `--enable-nonfree`, and such builds may not be redistributed.
 #
-# Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2 only in
+# Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2t64 only in
 # non-free — so the plugin is built here. `-Dauto_features=disabled -Dfdkaac=enabled` builds that
 # one plugin rather than all of gst-plugins-bad, which takes about eight seconds.
 FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS media
@@ -150,7 +150,7 @@ RUN curl -fsSL -o ff.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION
 #
 # Fraunhofer FDK decodes them exactly (0.000% loss, verified against two real books), so xHE-AAC is
 # decoded here and only ENCODED by FFmpeg. Debian ships neither piece — no fdkaacdec in
-# gstreamer1.0-plugins-bad, and libfdk-aac2 only in non-free — so the plugin is built from source.
+# gstreamer1.0-plugins-bad, and libfdk-aac2t64 only in non-free — so the plugin is built from source.
 # `-Dauto_features=disabled -Dfdkaac=enabled` builds that one plugin rather than all of
 # gst-plugins-bad, which takes about eight seconds.
 RUN curl -fsSL -o bad.tar.xz \
@@ -185,10 +185,10 @@ RUN gst-launch-1.0 -q fakesrc num-buffers=0 ! fdkaacdec ! fakesink \
 # licence texts travel with them too. ListenUp itself is AGPL-3.0 and is unaffected: none of these
 # are linked into the server, which spawns them as separate programs over OS pipes.
 RUN set -eu; mkdir -p /stage/licenses; \
-    cp /usr/share/doc/libfdk-aac2/copyright     /stage/licenses/fdk-aac.LICENSE.txt; \
+    cp /usr/share/doc/libfdk-aac2t64/copyright    /stage/licenses/fdk-aac.LICENSE.txt; \
     cp /usr/share/doc/libgstreamer1.0-0/copyright /stage/licenses/gstreamer.LICENSE.txt; \
     cp "/ffmpeg-${FFMPEG_VERSION}/COPYING.LGPLv2.1" /stage/licenses/ffmpeg.LICENSE.txt; \
-    FDK_VERSION="$(dpkg-query -W -f='${Version}' libfdk-aac2)"; \
+    FDK_VERSION="$(dpkg-query -W -f='${Version}' libfdk-aac2t64)"; \
     GST_RUNTIME="$(dpkg-query -W -f='${Version}' libgstreamer1.0-0)"; \
     { \
       echo "Third-party components redistributed in this image"; \
@@ -198,7 +198,7 @@ RUN set -eu; mkdir -p /stage/licenses; \
       echo "server over OS pipes and never linked into it. Each is redistributed under its own"; \
       echo "licence, the full text of which is in this directory."; \
       echo; \
-      echo "1. Fraunhofer FDK AAC Codec Library  (libfdk-aac2 ${FDK_VERSION})"; \
+      echo "1. Fraunhofer FDK AAC Codec Library  (libfdk-aac2t64 ${FDK_VERSION})"; \
       echo "   Licence : fdk-aac.LICENSE.txt"; \
       echo "   Source  : https://sources.debian.org/src/fdk-aac/  (Debian source package)"; \
       echo "             https://github.com/mstorsjo/fdk-aac      (upstream)"; \
