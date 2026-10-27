@@ -53,6 +53,8 @@ internal fun ViewportFrames.morphRig(
     compositionProbe: (String) -> Unit = {},
 ): MorphRig {
     val frame = host(width, height)
+    // Measured rects (the cover the morph flies from) must not shift as the web fonts arrive: pin the fallback faces.
+    frame.withoutWebFonts()
     val (_, router, composition) =
         mountAt(path, openPlayback = playback, into = frame, compositionProbe = compositionProbe)
     return MorphRig(frame, router, composition)
