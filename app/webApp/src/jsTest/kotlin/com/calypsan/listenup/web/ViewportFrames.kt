@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import com.calypsan.listenup.web.design.WebAppSurface
 import kotlinx.browser.document
+import kotlinx.coroutines.await
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.css.CSSStyleDeclaration
 import org.w3c.dom.css.CSSStyleSheet
@@ -13,6 +14,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLIFrameElement
 import org.w3c.dom.Window
 import org.w3c.dom.asList
+import kotlin.js.Promise
 
 /**
  * A composition rendered at a chosen viewport width, with the real design sheet applied.
@@ -115,6 +117,31 @@ internal class ViewportFrame(
     fun isShown(element: HTMLElement): Boolean = element.getClientRects().length > 0
 
     fun rect(element: Element): DOMRect = element.getBoundingClientRect()
+
+    /**
+     * Resolves once every web font the frame's layout has asked for has arrived (or failed), then a frame
+     * for the reflow. The sheet's fonts swap in (`font-display: swap`), so a measurement taken before this
+     * reads the fallback face's metrics, and on a busy runner that is a different layout every run.
+     */
+    suspend fun awaitFonts() {
+        host.ownerDocument
+            .asDynamic()
+            .fonts.ready
+            .unsafeCast<Promise<Any?>>()
+            .await()
+        awaitFrame()
+    }
+
+    /**
+     * Lays the frame out in the fallback faces the sheet names after its web fonts, as a reader sees it
+     * before the fonts have arrived, or for good when they never do. Call [awaitFrame] before measuring.
+     */
+    fun withoutWebFonts() {
+        val document = host.ownerDocument!!
+        val style = document.createElement("style")
+        style.textContent = "* { font-family: ui-sans-serif, system-ui, sans-serif !important; }"
+        document.head!!.appendChild(style)
+    }
 
     /** How far the frame's page scrolls sideways. Zero is the only right answer on a phone. */
     fun horizontalOverflow(): Int {

@@ -1195,7 +1195,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 }
 @media (max-width: 759px) {
   /* The count, then Select and Sort, on one row (spec §3.1.7). The header's count line is the desktop's. */
-  .lib-controls-end { flex-basis: 100%; }
+  /* Wraps rather than runs past the edge: at 320px the row has no slack in the fallback face, which the web font
+     swaps out of only once it has arrived (`font-display: swap`), so Sort drops a line until then. */
+  .lib-controls-end { flex-basis: 100%; flex-wrap: wrap; justify-content: flex-end; row-gap: 8px; }
   .lib-count { display: block; margin-right: auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
   .lib-header .page-sub { display: none; }
 }
