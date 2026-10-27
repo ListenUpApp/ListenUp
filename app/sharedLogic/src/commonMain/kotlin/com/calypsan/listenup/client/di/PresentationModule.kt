@@ -572,7 +572,6 @@ internal val discoverPresentationModule =
                 inbox = get(),
                 nextInSeries = get<com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase>()::invoke,
                 books = get(),
-                availability = get(),
                 ratings = get(),
                 activities = get(),
                 authSession = get(),

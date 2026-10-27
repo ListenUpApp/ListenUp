@@ -277,7 +277,6 @@ import com.calypsan.listenup.web.features.home.HomeActions
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.home.continuing
 import com.calypsan.listenup.web.features.home.readyHome
-import com.calypsan.listenup.web.features.home.resumeSlot
 import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.weekStats
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
@@ -1276,11 +1275,10 @@ class ClassContractTest :
                             weekStats(),
                             HomeActions.None,
                         )
-                        // Resume, alone and beside the stats on a wide page, with and without a stream; the
-                        // interim empty state; and a private shelf with its lock and mosaic.
-                        HomePage(readyHome(slot = resumeSlot("wok")), weekStats(), HomeActions.None)
+                        // A slot beside the stats on a wide page; the interim empty state; and a private shelf
+                        // with its lock and mosaic.
                         HomePage(
-                            readyHome(slot = resumeSlot("wok", canPlay = false), everythingInProgress = emptyList()),
+                            readyHome(slot = finishedSlot(), everythingInProgress = emptyList()),
                             weekStats(),
                             HomeActions.None,
                             isWide = true,

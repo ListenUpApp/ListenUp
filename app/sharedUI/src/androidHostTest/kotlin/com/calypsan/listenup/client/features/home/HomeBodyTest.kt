@@ -5,15 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -26,9 +20,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import kotlin.math.absoluteValue
 
-/** Spec §2.1–§2.2 on screen: a loaded book is never drawn; nothing loaded leads with Resume. */
+/** Spec §2.1–§2.2 on screen: books in progress are Everything in progress, never a Resume hero (Simon, 2026-10-27). */
 @RunWith(RobolectricTestRunner::class)
 class HomeBodyTest {
     @get:Rule
@@ -52,10 +45,18 @@ class HomeBodyTest {
     }
 
     @Test
-    fun `a loaded book leaves no Resume and Home starts with Everything in progress`() {
+    fun `books in progress open Home with Everything in progress, and there is no Resume hero`() {
         render(homeReady(slot = HomeSlot.Absent, everythingInProgress = listOf(readyItem("babel"))))
-        composeRule.onAllNodesWithTag(HOME_RESUME_BUTTON_TAG).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
         composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
+    }
+
+    @Test
+    fun `one book in progress is a one-card Everything in progress`() {
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = listOf(readyItem("babel", title = "Babel"))))
+        composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Babel", substring = true).assertExists()
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
     }
 
     @Test
@@ -72,40 +73,11 @@ class HomeBodyTest {
     }
 
     @Test
-    fun `one book in progress with nothing loaded draws the centred hero and no section`() {
-        val alone = homeReady(slot = resumeSlot("wok"), everythingInProgress = emptyList())
-        alone.isOnlyBookInProgress shouldBe true
-        render(alone)
-        composeRule.onAllNodesWithText("Everything in progress").assertCountEquals(0)
-        val identity = composeRule.onNodeWithTag(HOME_RESUME_IDENTITY_TAG).getUnclippedBoundsInRoot()
-        val bounds =
-            composeRule
-                .onAllNodes(hasText("Resume wok") and hasAnyAncestor(hasTestTag(HOME_RESUME_IDENTITY_TAG)), useUnmergedTree = true)
-                .onFirst()
-                .getUnclippedBoundsInRoot()
-        ((bounds.left + bounds.right) / 2 - (identity.left + identity.right) / 2).value.absoluteValue shouldBeLessThan 1f
-    }
-
-    @Test
     fun `nothing in progress while loaded leaves no Everything in progress section`() {
         render(homeReady(slot = HomeSlot.Absent, everythingInProgress = emptyList()))
         composeRule.onAllNodesWithText("Everything in progress").assertCountEquals(0)
         composeRule.onAllNodesWithText("Nothing playing yet").assertCountEquals(0)
         composeRule.onNodeWithText("Your last 7 days").assertExists()
-    }
-
-    @Test
-    fun `nothing loaded leads with Resume, and Resume calls the play entry`() {
-        var played: String? = null
-        render(
-            homeReady(slot = resumeSlot("wok"), everythingInProgress = listOf(readyItem("babel"))),
-            actions = HomeActions.None.copy(onPlay = { played = it }),
-        )
-        val resume = composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).getUnclippedBoundsInRoot()
-        val also = composeRule.onNodeWithText("Everything in progress").getUnclippedBoundsInRoot()
-        resume.top shouldBeLessThan also.top
-        composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).performScrollTo().performClick()
-        played shouldBe "wok"
     }
 
     @Test

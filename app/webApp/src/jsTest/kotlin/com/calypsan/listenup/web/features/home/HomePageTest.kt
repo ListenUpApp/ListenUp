@@ -177,10 +177,10 @@ class HomePageTest :
 
         // ── the blocks (§2.1, §3.4) ─────────────────────────────────────────────
 
-        test("nothing loaded on a wide page sets Resume beside the stats, before Also in progress (§3.4)") {
+        test("a slot on a wide page sits beside the stats, before Everything in progress (§3.4)") {
             val host =
                 homePage(
-                    readyHome(slot = resumeSlot("wok"), everythingInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(slot = finishedSlot(), everythingInProgress = listOf(continuing("b1", "Babel"))),
                     stats = weekStats(),
                     isWide = true,
                 )
@@ -192,10 +192,10 @@ class HomePageTest :
                 listOf("home-row", "home-section", "home-section")
         }
 
-        test("a phone keeps the fixed order: Resume, Also in progress, stats, shelves") {
+        test("a phone keeps the fixed order: the slot, Everything in progress, stats, shelves") {
             val host =
                 homePage(
-                    readyHome(slot = resumeSlot("wok"), everythingInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(slot = finishedSlot(), everythingInProgress = listOf(continuing("b1", "Babel"))),
                     stats = weekStats(),
                 )
             host.count(".home-row") shouldBe 0
@@ -203,12 +203,12 @@ class HomePageTest :
             (0 until sections.length).map { index ->
                 val classes = (sections.item(index) as HTMLElement).classList
                 when {
-                    classes.contains("home-hero") -> "resume"
+                    classes.contains("home-hero") -> "slot"
                     classes.contains("home-also") -> "also"
                     classes.contains("home-stats-card") -> "stats"
                     else -> "shelves"
                 }
-            } shouldBe listOf("resume", "also", "stats", "shelves")
+            } shouldBe listOf("slot", "also", "stats", "shelves")
         }
 
         test("a loaded book on a wide page sets stats beside shelves after Also in progress") {
@@ -222,13 +222,10 @@ class HomePageTest :
             (host.querySelector(".home-row") as HTMLElement).querySelector(".home-shelves-section") shouldNotBe null
         }
 
-        test("Resume on the page plays the book through the play entry") {
-            var played: String? = null
-            homePage(
-                readyHome(slot = resumeSlot("wok")),
-                actions = HomeActions.None.copy(onPlay = { played = it }),
-            ).let { (it.querySelector(".home-hero-resume") as HTMLElement).click() }
-            played shouldBe "wok"
+        test("books in progress and nothing loaded: no Resume hero, Everything in progress holds them, one book too") {
+            val host = homePage(readyHome(slot = HomeSlot.Absent, everythingInProgress = listOf(continuing("b1", "Babel"))))
+            host.count(".home-hero") shouldBe 0
+            host.count(".home-card") shouldBe 1
         }
 
         test("nothing in progress offers a way into the library") {
@@ -503,7 +500,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        slot = resumeSlot("wok"),
+                        slot = finishedSlot(),
                         scanProgress = scanning(),
                         connectivity = HomeConnectivity.ServerUnreachable,
                     ),
@@ -558,16 +555,14 @@ class HomePageTest :
 
         // ── first sync, loading, the server notice, the failures and the stats states ─────────
 
-        test("first sync: a status strip in Home's words over a skeleton slot with a disabled Resume") {
+        test("first sync: a status strip in Home's words over a skeleton slot, with no Resume") {
             val page = homePage(readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true))
             val strip = page.querySelector(".lib-status") as HTMLElement
             strip.getAttribute("role") shouldBe "status"
             strip.textContent.orEmpty() shouldContain "Your place in each book is already here; covers and titles are arriving."
             page.count(".lib-status") shouldBe 1
             page.querySelector("[aria-label='Up next, loading']") shouldNotBe null
-            val resume = page.querySelector("[aria-label='Up next, loading'] button") as HTMLElement
-            resume.textContent shouldBe "Resume"
-            resume.hasAttribute("disabled") shouldBe true
+            page.count("[aria-label='Up next, loading'] button") shouldBe 0
         }
 
         test("page loading draws the slot and rail skeletons and no strip") {

@@ -17,28 +17,11 @@ import io.kotest.matchers.shouldBe
 import kotlinx.datetime.TimeZone
 import org.w3c.dom.HTMLElement
 
-/** Home spec F8, §8 D3: the hero slot and the just-finished card sit on the cover's wash, as Book Detail does. */
+/** Home spec F8, §8 D3: the just-finished card sits on the cover's wash, as Book Detail does. */
 class HomeCoverThemeTest :
     FunSpec({
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
-
-        fun resume(
-            source: CoverThemeRepository?,
-            coverHash: String? = "h1",
-        ): HTMLElement =
-            mounts
-                .mount {
-                    CompositionLocalProvider(LocalCoverThemes provides source) {
-                        ResumeHero(
-                            resumeSlot("wok").let { it.copy(book = it.book.copy(coverHash = coverHash)) },
-                            isOnlyBook = false,
-                            nowMs = BOARD_NOW,
-                            onOpenBook = {},
-                            onPlay = {},
-                        )
-                    }
-                }.querySelector(".home-hero") as HTMLElement
 
         fun finished(source: CoverThemeRepository?): HTMLElement =
             mounts
@@ -52,18 +35,6 @@ class HomeCoverThemeTest :
                         )
                     }
                 }.querySelector(".home-hero") as HTMLElement
-
-        test("the Resume hero takes the cover's colours") {
-            val hero = resume(FakeCoverThemes(known = KINGS_THEMES))
-            hero.classList.contains("cover-themed") shouldBe true
-            hero.style.getPropertyValue("--cover-wash-l") shouldBe "#E4E4E6"
-        }
-
-        test("the Resume hero with no source is untouched") {
-            val hero = resume(null)
-            hero.classList.contains("cover-themed") shouldBe false
-            hero.style.getPropertyValue("--cover-wash-l") shouldBe ""
-        }
 
         test("the just-finished card takes the cover's colours") {
             val card = finished(FakeCoverThemes(known = KINGS_THEMES))
@@ -90,7 +61,16 @@ class HomeCoverThemeTest :
                         return flowOf(null)
                     }
                 }
-            resume(source, coverHash = null)
+            mounts.mount {
+                CompositionLocalProvider(LocalCoverThemes provides source) {
+                    HomeFinishedCard(
+                        finishedSlot().card.let { it.copy(book = it.book.copy(coverHash = null)) },
+                        nowMs = BOARD_NOW,
+                        actions = HomeActions.None,
+                        zone = TimeZone.UTC,
+                    )
+                }
+            }
             awaitFrame()
             requested shouldBe emptyList()
         }

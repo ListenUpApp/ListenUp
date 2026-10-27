@@ -524,7 +524,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-row > .home-stats-card { flex: 1 1 300px; min-width: 0; }
 .luw .home-row > .home-shelves-section { flex: 2 1 520px; min-width: 0; }
 
-/* The Resume kind (spec §2.3): nothing is loaded, so the book last played leads. */
+/* The slot's surface (spec §2.3): the finished card, the quiet slots and the error share it. */
 .luw .home-hero {
   display: flex; flex-direction: column; gap: var(--sp-12);
   padding: var(--sp-16); border-radius: var(--r-xl); background: var(--bd-hero-wash);
@@ -535,15 +535,11 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   font: inherit;
 }
 .luw .home-hero-id:focus-visible, .luw .home-hero-next:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
-.luw .home-hero.is-only .home-hero-id { flex-direction: column; text-align: center; }
 .luw .home-hero-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .luw .home-hero-eyebrow { font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
 .luw .home-hero-t { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
 .luw .home-hero-a { font-size: var(--fs-ui); font-weight: 600; }
-.luw .home-hero-n, .luw .home-hero-of { font-size: var(--fs-small); color: var(--ink-2); }
-.luw .home-hero-progress { display: flex; flex-direction: column; gap: 6px; }
-.luw .home-hero-line { display: flex; justify-content: space-between; gap: var(--sp-12); font-size: var(--fs-ui); font-weight: 700; }
-.luw .home-hero-left { font-size: var(--fs-small); color: var(--coral-text); }
+.luw .home-hero-n { font-size: var(--fs-small); color: var(--ink-2); }
 .luw .home-hero-next {
   display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; font: inherit;
   padding: 6px 8px; border: 0; border-radius: var(--r-md); background: var(--surface); color: inherit;
@@ -551,8 +547,7 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .home-hero-next-text { display: flex; flex-direction: column; }
 .luw .home-hero-next-k { font-size: var(--fs-caption); color: var(--ink-2); }
 .luw .home-hero-next-t { font-size: var(--fs-ui); font-weight: 700; }
-/* Resume spans the hero, one size on every width (spec §2.3). */
-/* Spec §2.4: Resume is a 52px pill (`.btn-lg`'s height), not the rounded rectangle every other button is. */
+/* Spec §2.4: the slot's primary is a 52px pill (`.btn-lg`'s height), spanning the card, one size on every width. */
 .luw .home-hero-resume { align-self: stretch; border-radius: var(--r-pill); }
 .luw .home-hero-why { margin: 0; font-size: var(--fs-small); color: var(--ink-2); }
 

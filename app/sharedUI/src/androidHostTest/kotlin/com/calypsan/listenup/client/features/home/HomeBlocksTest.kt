@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.home
 
-import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
@@ -10,21 +9,6 @@ import io.kotest.matchers.shouldBe
 /** Spec §2.1 (the order never changes), §3.1/§3.3 (notices) and §3.4 (wide arrangements), in one place. */
 class HomeBlocksTest :
     FunSpec({
-        val book =
-            ContinueListeningBook(
-                bookId = "a",
-                title = "The Way of Kings",
-                authorNames = "Brandon Sanderson",
-                narratorNames = null,
-                coverPath = null,
-                progress = 0.11f,
-                currentPositionMs = 1L,
-                totalDurationMs = 2L,
-                lastPlayedAtMs = 0L,
-                isDownloaded = false,
-            )
-        val resume = HomeSlot.Resume(book = book, next = null, chapter = null, canPlay = true)
-
         fun blocks(
             slot: HomeSlot,
             hasEverythingInProgress: Boolean,
@@ -50,14 +34,9 @@ class HomeBlocksTest :
             blocks(HomeSlot.Absent, hasEverythingInProgress = false) shouldBe listOf(HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("nothing loaded on a phone: Resume first, then the fixed order") {
-            blocks(resume, hasEverythingInProgress = true) shouldBe
-                listOf(HomeBlock.Resume, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
-        }
-
         test("a medium window keeps the phone order") {
-            blocks(resume, hasEverythingInProgress = true, width = HomeWidth.Medium) shouldBe
-                listOf(HomeBlock.Resume, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(finishedSlot(), hasEverythingInProgress = true, width = HomeWidth.Medium) shouldBe
+                listOf(HomeBlock.Finished, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("a loaded book on a tablet: everything in progress, then stats beside shelves") {
@@ -65,12 +44,12 @@ class HomeBlocksTest :
                 listOf(HomeBlock.EverythingInProgress, HomeBlock.StatsBesideShelves)
         }
 
-        test("nothing loaded on a tablet: the slot beside stats, then everything in progress, then shelves") {
-            blocks(resume, hasEverythingInProgress = true, width = HomeWidth.Expanded) shouldBe
+        test("a slot on a tablet: beside stats, then everything in progress, then shelves") {
+            blocks(finishedSlot(), hasEverythingInProgress = true, width = HomeWidth.Expanded) shouldBe
                 listOf(HomeBlock.SlotBesideStats, HomeBlock.EverythingInProgress, HomeBlock.Shelves)
         }
 
-        test("every nothing-loaded kind leads, in the Resume position") {
+        test("every slot kind leads, in the slot position") {
             blocks(finishedSlot(), hasEverythingInProgress = true) shouldBe
                 listOf(HomeBlock.Finished, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
             blocks(nothingSlot(), hasEverythingInProgress = false) shouldBe
@@ -91,8 +70,8 @@ class HomeBlocksTest :
         }
 
         test("a scan or an arriving library shows the strip above any slot, and with no slot at all (H5)") {
-            blocks(resume, hasEverythingInProgress = false, showsStrip = true) shouldBe
-                listOf(HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(finishedSlot(), hasEverythingInProgress = false, showsStrip = true) shouldBe
+                listOf(HomeBlock.FirstSyncStrip, HomeBlock.Finished, HomeBlock.Stats, HomeBlock.Shelves)
             blocks(HomeSlot.Absent, hasEverythingInProgress = true, showsStrip = true) shouldBe
                 listOf(HomeBlock.FirstSyncStrip, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
         }
@@ -100,8 +79,8 @@ class HomeBlocksTest :
         test("the offline pill sits under the greeting, above the strip, and never reorders the rest") {
             blocks(HomeSlot.Absent, hasEverythingInProgress = true, isOffline = true) shouldBe
                 listOf(HomeBlock.Offline, HomeBlock.EverythingInProgress, HomeBlock.Stats, HomeBlock.Shelves)
-            blocks(resume, hasEverythingInProgress = false, isOffline = true, showsStrip = true) shouldBe
-                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(finishedSlot(), hasEverythingInProgress = false, isOffline = true, showsStrip = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Finished, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("a failed Continue Listening takes the slot position as one line") {
@@ -114,7 +93,7 @@ class HomeBlocksTest :
                 listOf(HomeBlock.Offline, HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("on a tablet every slot sits beside the stats, as Resume does") {
+        test("on a tablet every slot sits beside the stats") {
             listOf(finishedSlot(), nothingSlot(), welcomeSlot(), HomeSlot.FirstSync).forEach { slot ->
                 blocks(slot, hasEverythingInProgress = true, width = HomeWidth.Expanded).first() shouldBe
                     HomeBlock.SlotBesideStats

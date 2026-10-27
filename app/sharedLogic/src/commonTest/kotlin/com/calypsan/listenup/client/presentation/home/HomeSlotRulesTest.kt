@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.home
 
-import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.LoadedBook
@@ -17,8 +16,8 @@ private const val HOUR = 3_600_000L
 class HomeSlotRulesTest :
     FunSpec({
         context("precedence (spec §2.2)") {
-            test("nothing loaded and a book in progress: Resume the most recent ready book") {
-                slotKindFor(inputs(cl = listOf(ready("a"), ready("b")), hasHistory = true)) shouldBe SlotKind.Resume("a")
+            test("nothing loaded and a book in progress: no slot, Everything in progress lists them (no Resume hero)") {
+                slotKindFor(inputs(cl = listOf(ready("a"), ready("b")), hasHistory = true)) shouldBe SlotKind.Absent
             }
 
             test("nothing loaded, nothing in progress, but history: NothingInProgress") {
@@ -39,7 +38,7 @@ class HomeSlotRulesTest :
                     SlotKind.JustFinished("done")
             }
 
-            test("a just-finished book wins over Resume") {
+            test("a just-finished book wins over books in progress") {
                 slotKindFor(inputs(cl = listOf(ready("a")), justFinished = "done", hasHistory = true)) shouldBe
                     SlotKind.JustFinished("done")
             }
@@ -57,16 +56,16 @@ class HomeSlotRulesTest :
                     SlotKind.FirstSync
             }
 
-            test("first sync once a ready book leads: Resume (FirstSync vs Resume)") {
-                slotKindFor(inputs(cl = listOf(ready("a")), building = true, hasHistory = true)) shouldBe SlotKind.Resume("a")
+            test("first sync once a ready book leads: no slot, the list shows it") {
+                slotKindFor(inputs(cl = listOf(ready("a")), building = true, hasHistory = true)) shouldBe SlotKind.Absent
             }
 
             test("first sync with a book loaded: Absent, not FirstSync") {
                 slotKindFor(inputs(loaded = loaded("a"), building = true)) shouldBe SlotKind.Absent
             }
 
-            test("after first sync a leading book still arriving is passed over for the first ready one (C13)") {
-                slotKindFor(inputs(cl = listOf(loading("a"), ready("b")), hasHistory = true)) shouldBe SlotKind.Resume("b")
+            test("after first sync a leading book still arriving is no reason for a slot: a ready one is in progress") {
+                slotKindFor(inputs(cl = listOf(loading("a"), ready("b")), hasHistory = true)) shouldBe SlotKind.Absent
             }
         }
 
@@ -127,23 +126,23 @@ class HomeSlotRulesTest :
             val point = DecisionPoint(runs = 0, loaded = LoadedKey.NothingLoaded)
 
             test("the first decision takes the fresh kind") {
-                latch(null, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+                latch(null, point, SlotKind.JustFinished("a")) shouldBe LatchedSlot(point, SlotKind.JustFinished("a"))
             }
 
             test("a position tick, a sync landing or the 72-hour expiry does not change the kind") {
                 val held = LatchedSlot(point, SlotKind.JustFinished("a"))
-                latch(held, point, SlotKind.Resume("b")) shouldBe held
+                latch(held, point, SlotKind.Absent) shouldBe held
                 latch(held, point, SlotKind.NothingInProgress) shouldBe held
             }
 
             test("a refresh or a dismissal (a new run) re-decides") {
                 val held = LatchedSlot(point, SlotKind.JustFinished("a"))
                 val next = point.copy(runs = 1)
-                latch(held, next, SlotKind.Resume("b")) shouldBe LatchedSlot(next, SlotKind.Resume("b"))
+                latch(held, next, SlotKind.Absent) shouldBe LatchedSlot(next, SlotKind.Absent)
             }
 
             test("a loaded-book change re-decides") {
-                val held = LatchedSlot(point, SlotKind.Resume("a"))
+                val held = LatchedSlot(point, SlotKind.JustFinished("a"))
                 val next = point.copy(loaded = LoadedKey.Loaded("a", isFinished = false))
                 latch(held, next, SlotKind.Absent) shouldBe LatchedSlot(next, SlotKind.Absent)
             }
@@ -162,18 +161,18 @@ class HomeSlotRulesTest :
 
             test("a FirstSync skeleton resolves in place (rule 4)") {
                 val held = LatchedSlot(point, SlotKind.FirstSync)
-                latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+                latch(held, point, SlotKind.JustFinished("a")) shouldBe LatchedSlot(point, SlotKind.JustFinished("a"))
             }
 
             test("any playback position ends the welcome: a new listener resolves in place when history arrives") {
                 val held = LatchedSlot(point, SlotKind.NewListener)
-                latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+                latch(held, point, SlotKind.JustFinished("a")) shouldBe LatchedSlot(point, SlotKind.JustFinished("a"))
                 latch(held, point, SlotKind.NothingInProgress) shouldBe LatchedSlot(point, SlotKind.NothingInProgress)
             }
 
             test("a decision made while the leading book was still arriving resolves in place too") {
                 val held = LatchedSlot(point, SlotKind.NothingInProgress, isProvisional = true)
-                latch(held, point, SlotKind.Resume("a")) shouldBe LatchedSlot(point, SlotKind.Resume("a"))
+                latch(held, point, SlotKind.JustFinished("a")) shouldBe LatchedSlot(point, SlotKind.JustFinished("a"))
             }
 
             test("a decision is provisional only while the leading book is still arriving") {
@@ -215,29 +214,24 @@ class HomeSlotRulesTest :
             val cl = listOf(ready("a"), ready("b"), ready("c"))
 
             test("puts the loaded book first and keeps the rest in their order") {
-                everythingInProgressOf(cl, loaded("b"), SlotKind.Absent).map { it.bookId } shouldBe listOf("b", "a", "c")
+                everythingInProgressOf(cl, loaded("b")).map { it.bookId } shouldBe listOf("b", "a", "c")
             }
 
             test("a loaded book that is already first stays first") {
-                everythingInProgressOf(cl, loaded("a"), SlotKind.Absent).map { it.bookId } shouldBe listOf("a", "b", "c")
+                everythingInProgressOf(cl, loaded("a")).map { it.bookId } shouldBe listOf("a", "b", "c")
             }
 
             test("a loaded book that is not in progress is not added") {
-                everythingInProgressOf(cl, loaded("done"), SlotKind.JustFinished("done")).map { it.bookId } shouldBe
-                    listOf("a", "b", "c")
+                everythingInProgressOf(cl, loaded("done")).map { it.bookId } shouldBe listOf("a", "b", "c")
             }
 
-            test("with nothing loaded, the Resume book is in the list, first") {
-                everythingInProgressOf(cl, LoadedKey.NothingLoaded, SlotKind.Resume("a")).map { it.bookId } shouldBe
-                    listOf("a", "b", "c")
+            test("with nothing loaded it is every book in progress, most recent first") {
+                everythingInProgressOf(cl, LoadedKey.NothingLoaded).map { it.bookId } shouldBe listOf("a", "b", "c")
             }
 
-            test("the only book in progress, loaded, is the whole list") {
-                everythingInProgressOf(listOf(ready("a")), loaded("a"), SlotKind.Absent).map { it.bookId } shouldBe listOf("a")
-            }
-
-            test("when the Resume book is the only book in progress the list is empty: the hero is the whole story") {
-                everythingInProgressOf(listOf(ready("a")), LoadedKey.NothingLoaded, SlotKind.Resume("a")) shouldBe emptyList()
+            test("one book in progress is the whole list, loaded or not") {
+                everythingInProgressOf(listOf(ready("a")), loaded("a")).map { it.bookId } shouldBe listOf("a")
+                everythingInProgressOf(listOf(ready("a")), LoadedKey.NothingLoaded).map { it.bookId } shouldBe listOf("a")
             }
         }
 
@@ -270,12 +264,6 @@ class HomeSlotRulesTest :
             test("also finished: two names, the rest counted; a nameless finisher is counted, never shown") {
                 alsoFinishedOf(listOf("Maya", "", "Tom", "Ana")) shouldBe AlsoFinished(names = listOf("Maya", "Tom"), othersCount = 2)
                 alsoFinishedOf(emptyList()) shouldBe AlsoFinished(names = emptyList(), othersCount = 0)
-            }
-
-            test("the hero chapter is one-based and follows the position") {
-                val chapters = listOf(chapter("c1", 0L, "Prelude"), chapter("c2", 1_000L, "Bridge Four"))
-                heroChapterOf(chapters, 1_500L) shouldBe HeroChapter(number = 2, title = "Bridge Four")
-                heroChapterOf(emptyList(), 1_500L).shouldBeNull()
             }
 
             test("time-of-day bands are 5–11, 12–16, 17–20, and night") {
@@ -386,9 +374,3 @@ private fun next(id: String) =
         sequenceLabel = "2",
         durationMs = 1_000L,
     )
-
-private fun chapter(
-    id: String,
-    startMs: Long,
-    title: String,
-) = Chapter(id = id, title = title, duration = 1_000L, startTime = startMs)

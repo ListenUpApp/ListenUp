@@ -15,7 +15,7 @@ import io.kotest.matchers.shouldBe
 /** A reader's default font at 1.3× — what the browser's own text-size setting changes. */
 private const val LARGE_TEXT_ROOT = "20.8px"
 
-/** Spec §2.4's Resume height. */
+/** Spec §2.4's slot primary height. */
 private const val RESUME_HEIGHT = 52.0
 
 /** Rounding slack for comparing two laid-out edges. */
@@ -41,12 +41,12 @@ class HomePhoneGeometryTest :
                 .style.fontSize = LARGE_TEXT_ROOT
         }
 
-        test("Resume is a 52px pill (§2.4)") {
+        test("the slot's primary is a 52px pill (§2.4)") {
             val frame =
                 frames.mount(PHONE) {
                     InShell {
                         HomePage(
-                            readyHome(slot = resumeSlot("wok")),
+                            readyHome(slot = finishedSlot()),
                             weekStats(),
                             HomeActions.None,
                             isWide = false,

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.presentation.home
 
-import com.calypsan.listenup.client.domain.chapter.currentChapterIndex
-import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.model.NextInSeries
@@ -89,13 +87,8 @@ internal sealed interface SlotKind {
     /** The library's first sync is still arriving. */
     data object FirstSync : SlotKind
 
-    /** A book is loaded, so the mini player owns it. */
+    /** No slot: a book is loaded, or books are in progress (Everything in progress lists them). */
     data object Absent : SlotKind
-
-    /** Resume [bookId], the most recent book in progress. */
-    data class Resume(
-        val bookId: String,
-    ) : SlotKind
 
     /** The just-finished card for [bookId]. */
     data class JustFinished(
@@ -121,13 +114,12 @@ internal data class SlotInputs(
 /** Spec §2.2, top to bottom; the first that applies wins. Pure. */
 internal fun slotKindFor(inputs: SlotInputs): SlotKind {
     val first = inputs.continueListening.firstOrNull()
-    val firstReady = inputs.continueListening.firstOrNull { it is ContinueListeningItem.Ready }
+    val anyReady = inputs.continueListening.any { it is ContinueListeningItem.Ready }
     val stillArriving = first == null || first is ContinueListeningItem.Loading
     return when {
         inputs.loaded == LoadedKey.NothingLoaded && inputs.isLibraryArriving && stillArriving -> SlotKind.FirstSync
         inputs.justFinishedBookId != null -> SlotKind.JustFinished(inputs.justFinishedBookId)
-        inputs.loaded is LoadedKey.Loaded -> SlotKind.Absent
-        firstReady != null -> SlotKind.Resume(firstReady.bookId)
+        inputs.loaded is LoadedKey.Loaded || anyReady -> SlotKind.Absent
         inputs.hasHistory -> SlotKind.NothingInProgress
         else -> SlotKind.NewListener
     }
@@ -221,17 +213,14 @@ private val SlotKind.resolvesInPlace: Boolean
 
 /**
  * Everything in progress (Simon, 2026-10-27): Continue Listening with the loaded book moved to the front, so the book
- * in the mini player is never missing from the list. With nothing loaded the Resume book stays in (it is already
- * first: Continue Listening is most recent first) unless it is the only book in progress, when the hero alone says it.
- * A loaded book that Continue Listening does not hold (finished, held) is not added. Pure.
+ * in the mini player is never missing from the list. With nothing loaded it is every book in progress, most recent
+ * first, one book or many: Home has no Resume hero. A loaded book that Continue Listening does not hold (finished,
+ * held) is not added. Pure.
  */
 internal fun everythingInProgressOf(
     continueListening: List<ContinueListeningItem>,
     loaded: LoadedKey,
-    kind: SlotKind,
 ): List<ContinueListeningItem> {
-    val resumeId = (kind as? SlotKind.Resume)?.bookId
-    if (resumeId != null && continueListening.all { it.bookId == resumeId }) return emptyList()
     val loadedId = (loaded as? LoadedKey.Loaded)?.bookId ?: return continueListening
     val (front, rest) = continueListening.partition { it.bookId == loadedId }
     return front + rest
@@ -264,15 +253,6 @@ internal fun alsoFinishedOf(otherFinishers: List<String>): AlsoFinished {
     val names = otherFinishers.filter { it.isNotBlank() }.take(ALSO_FINISHED_NAMES)
     return AlsoFinished(names = names, othersCount = otherFinishers.size - names.size)
 }
-
-/** The chapter [positionMs] sits in, one-based, or null when there are no chapters. Pure. */
-internal fun heroChapterOf(
-    chapters: List<Chapter>,
-    positionMs: Long,
-): HeroChapter? =
-    currentChapterIndex(chapters.map { it.startTime }, positionMs)?.let { index ->
-        HeroChapter(number = index + 1, title = chapters[index].title)
-    }
 
 /** The greeting's band for [hour] (0–23): 5–11, 12–16, 17–20, else night. Pure. */
 internal fun timeOfDayAt(hour: Int): TimeOfDay =

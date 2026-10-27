@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.test.fake.FakeBookAvailability
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
@@ -37,7 +36,7 @@ internal const val RIG_HOUR = 3_600_000L
 
 /**
  * Everything [HomeSlotPresenter] reads, as in-memory state a test moves by hand: the loaded book, positions, held
- * books, series, chapters, availability, ratings, fellow finishers and the library showcase. [now] is the clock.
+ * books, series, chapters, ratings, fellow finishers and the library showcase. [now] is the clock.
  */
 internal class HomeSlotRig(
     failWrites: Boolean = false,
@@ -48,7 +47,6 @@ internal class HomeSlotRig(
     val inbox = FakeInboxRepository()
     val nextByBook = MutableStateFlow<Map<String, NextInSeries>>(emptyMap())
     val books = FakeBookRepository()
-    val availability = FakeBookAvailability()
     val ratingsFlow = MutableStateFlow<List<ListenerRating>>(emptyList())
     val finishers = MutableStateFlow<List<String>>(emptyList())
     val showcase = MutableStateFlow(LibraryShowcase(covers = emptyList()))
@@ -89,7 +87,6 @@ internal class HomeSlotRig(
             inbox = inbox,
             nextInSeries = { bookId -> nextByBook.map { it[bookId] } },
             books = books,
-            availability = availability,
             ratings = ratings,
             activities = activities,
             authSession = FakeAuthSession(userId = "me"),

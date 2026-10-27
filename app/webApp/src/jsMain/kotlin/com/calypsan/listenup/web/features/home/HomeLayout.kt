@@ -71,7 +71,6 @@ internal enum class HomeBlock {
 
     /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
     FirstSyncStrip,
-    Resume,
     Finished,
     NothingInProgress,
     Welcome,
@@ -135,7 +134,6 @@ internal fun homeBlocks(
 /** The block that draws [slot], or null when there is no slot. */
 internal fun slotBlockFor(slot: HomeSlot): HomeBlock? =
     when (slot) {
-        is HomeSlot.Resume -> HomeBlock.Resume
         is HomeSlot.JustFinished -> HomeBlock.Finished
         is HomeSlot.NothingInProgress -> HomeBlock.NothingInProgress
         is HomeSlot.NewListener -> HomeBlock.Welcome

@@ -54,8 +54,8 @@ private val RowCardMinWidth = 140.dp
 private const val ROW_CARD_CAP = 6
 
 /**
- * "Everything in progress": every book in progress, the loaded one first (Simon, 2026-10-27). Absent entirely when there
- * are none, or when the Resume hero's book is the only one (the caller drops the block). The header ends with In
+ * "Everything in progress": every book in progress, the loaded one first (Simon, 2026-10-27; Home has no Resume hero).
+ * Absent entirely when there are none (the caller drops the block). The header ends with In
  * Library, which opens the Library filtered to In progress (spec §6.4).
  */
 @Composable

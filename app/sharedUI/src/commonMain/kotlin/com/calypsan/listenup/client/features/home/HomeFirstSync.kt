@@ -11,17 +11,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,7 +39,6 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.groupedCount
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_resume
 import listenup.composeapp.generated.resources.home_everything_in_progress
 import listenup.composeapp.generated.resources.home_arriving_body
 import listenup.composeapp.generated.resources.home_arriving_count
@@ -54,7 +49,6 @@ import listenup.composeapp.generated.resources.library_setup_building_title
 import org.jetbrains.compose.resources.stringResource
 
 private val SkeletonCover = 120.dp
-private val SkeletonButtonHeight = 56.dp
 private val SkeletonRailCard = 156.dp
 private val GreetingBarWidth = 200.dp
 private val GreetingBarHeight = 40.dp
@@ -105,16 +99,9 @@ internal fun FirstSyncStrip(
     }
 }
 
-/**
- * The slot's skeleton, in the Resume card's geometry (H14). First sync draws its Resume disabled ([withResume], board
- * panel 2); page loading does not.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading. */
 @Composable
-internal fun HomeSkeletonSlot(
-    withResume: Boolean,
-    modifier: Modifier = Modifier,
-) {
+internal fun HomeSkeletonSlot(modifier: Modifier = Modifier) {
     val label = stringResource(Res.string.home_up_next_loading_a11y)
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -133,16 +120,6 @@ internal fun HomeSkeletonSlot(
                     SkeletonLineWidths.forEach { fraction ->
                         SkeletonBox(Modifier.fillMaxWidth(fraction).height(Spacing.md))
                     }
-                }
-            }
-            if (withResume) {
-                Button(
-                    onClick = {},
-                    enabled = false,
-                    shapes = ButtonDefaults.shapes(),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = SkeletonButtonHeight),
-                ) {
-                    Text(stringResource(Res.string.book_detail_resume))
                 }
             }
         }
@@ -186,7 +163,6 @@ internal fun HomeLoadingBody(
         appHeader { SkeletonBox(Modifier.size(GreetingBarWidth, GreetingBarHeight)) }
         val margin = Modifier.padding(horizontal = Spacing.screenMargin)
         HomeSkeletonSlot(
-            withResume = false,
             modifier =
                 if (width ==
                     HomeWidth.Expanded

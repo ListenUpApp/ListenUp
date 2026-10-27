@@ -663,9 +663,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.slot
-                    .shouldBeInstanceOf<HomeSlot.Resume>()
-                    .book.bookId shouldBe "a"
+                ready.slot shouldBe HomeSlot.Absent
                 ready.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
                 ready.timeOfDay shouldBe TimeOfDay.Morning
                 ready.firstName shouldBe "John"
@@ -685,31 +683,19 @@ class HomeViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
                 ready.slot shouldBe HomeSlot.Absent
                 ready.everythingInProgress.map { it.bookId } shouldBe listOf("b", "a")
-                ready.isOnlyBookInProgress shouldBe false
             }
         }
 
-        test("the hero is the only-book variant exactly when no other book is in progress") {
+        test("nothing loaded and one book in progress: no hero, Everything in progress holds it") {
             runTest {
-                val one = createFixture()
-                one.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"))
-                one.rig.play("a", hoursAgo = 1)
-                val alone = one.build().also { keepStateHot(it) }
+                val fixture = createFixture()
+                fixture.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"))
+                fixture.rig.play("a", hoursAgo = 1)
+                val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
-                val onlyBook = alone.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                onlyBook.slot.shouldBeInstanceOf<HomeSlot.Resume>()
-                onlyBook.isOnlyBookInProgress shouldBe true
-                onlyBook.everythingInProgress shouldBe emptyList()
-
-                val two = createFixture()
-                two.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"), createReadyItem(bookId = "b"))
-                two.rig.play("a", hoursAgo = 1)
-                two.rig.play("b", hoursAgo = 2)
-                val both = two.build().also { keepStateHot(it) }
-                advanceUntilIdle()
-                val twoBooks = both.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                twoBooks.isOnlyBookInProgress shouldBe false
-                twoBooks.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
+                val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                ready.slot shouldBe HomeSlot.Absent
+                ready.everythingInProgress.map { it.bookId } shouldBe listOf("a")
             }
         }
 
@@ -726,8 +712,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .slot
-                    .shouldBeInstanceOf<HomeSlot.Resume>()
+                    .slot shouldBe HomeSlot.Absent
 
                 viewModel.refresh()
                 advanceUntilIdle()
@@ -946,7 +931,7 @@ class HomeViewModelTest :
             }
         }
 
-        test("first sync resolves in place into Resume when the book lands and the catch-up ends") {
+        test("first sync resolves in place when the book lands and the catch-up ends: it is in the rail") {
             runTest {
                 val fixture = createFixture()
                 fixture.firstCatchUpFlow.value = true
@@ -963,9 +948,8 @@ class HomeViewModelTest :
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.slot
-                    .shouldBeInstanceOf<HomeSlot.Resume>()
-                    .book.bookId shouldBe "wok"
+                ready.slot shouldBe HomeSlot.Absent
+                ready.everythingInProgress.map { it.bookId } shouldBe listOf("wok")
                 ready.isLibraryArriving shouldBe false
             }
         }

@@ -25,7 +25,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_couldnt_load_listening
 import org.jetbrains.compose.resources.stringResource
 
-/** The stats card's width beside shelves or Resume on a tablet (spec §3.4). */
+/** The stats card's width beside shelves or a slot on a tablet (spec §3.4). */
 private val WideStatsWidth = 400.dp
 
 /**
@@ -94,10 +94,6 @@ private fun HomeBlockContent(
 ) {
     val margin = Modifier.padding(horizontal = Spacing.screenMargin)
     when (block) {
-        HomeBlock.Resume -> {
-            ResumeHero(state, actions, margin)
-        }
-
         HomeBlock.SlotBesideStats -> {
             Row(margin, horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
                 SlotContent(state, actions, Modifier.weight(1f))
@@ -183,29 +179,12 @@ private fun SlotContent(
     modifier: Modifier,
 ) {
     when (val slot = state.slot) {
-        is HomeSlot.Resume -> ResumeHero(state, actions, modifier)
         is HomeSlot.NothingInProgress -> HomeNothingInProgress(slot, actions, modifier)
         is HomeSlot.NewListener -> HomeWelcome(slot, actions, modifier)
         is HomeSlot.JustFinished -> HomeFinishedCard(slot.card, actions, modifier)
-        HomeSlot.FirstSync -> HomeSkeletonSlot(withResume = true, modifier = modifier)
+        HomeSlot.FirstSync -> HomeSkeletonSlot(modifier = modifier)
         HomeSlot.Absent -> Unit
     }
-}
-
-@Composable
-private fun ResumeHero(
-    state: HomeUiState.Ready,
-    actions: HomeActions,
-    modifier: Modifier,
-) {
-    val resume = state.slot as? HomeSlot.Resume ?: return
-    HomeResumeHero(
-        resume = resume,
-        isOnlyBook = state.isOnlyBookInProgress,
-        onOpenBook = actions.onOpenBook,
-        onResume = actions.onPlay,
-        modifier = modifier,
-    )
 }
 
 @Composable

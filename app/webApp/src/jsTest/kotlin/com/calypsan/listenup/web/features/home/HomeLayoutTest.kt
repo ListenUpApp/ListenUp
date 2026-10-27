@@ -8,8 +8,6 @@ import io.kotest.matchers.shouldBe
 /** Spec §2.1 (the order never changes), §3.1/§3.3 (notices) and §3.4 (wide arrangements) — Android's twin. */
 class HomeLayoutTest :
     FunSpec({
-        val resume = resumeSlot("wok")
-
         fun blocks(
             slot: HomeSlot,
             hasAlsoInProgress: Boolean,
@@ -35,22 +33,17 @@ class HomeLayoutTest :
             blocks(HomeSlot.Absent, hasAlsoInProgress = false) shouldBe listOf(HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("nothing loaded on a phone: Resume first, then the fixed order") {
-            blocks(resume, hasAlsoInProgress = true) shouldBe
-                listOf(HomeBlock.Resume, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
-        }
-
         test("a loaded book on a wide page: also in progress, then stats beside shelves") {
             blocks(HomeSlot.Absent, hasAlsoInProgress = true, isWide = true) shouldBe
                 listOf(HomeBlock.AlsoInProgress, HomeBlock.StatsBesideShelves)
         }
 
-        test("nothing loaded on a wide page: the slot beside stats, then also in progress, then shelves") {
-            blocks(resume, hasAlsoInProgress = true, isWide = true) shouldBe
+        test("a slot on a wide page: beside stats, then also in progress, then shelves") {
+            blocks(finishedSlot(), hasAlsoInProgress = true, isWide = true) shouldBe
                 listOf(HomeBlock.SlotBesideStats, HomeBlock.AlsoInProgress, HomeBlock.Shelves)
         }
 
-        test("every nothing-loaded kind leads, in the Resume position") {
+        test("every slot kind leads, in the slot position") {
             blocks(finishedSlot(), hasAlsoInProgress = true) shouldBe
                 listOf(HomeBlock.Finished, HomeBlock.AlsoInProgress, HomeBlock.Stats, HomeBlock.Shelves)
             blocks(nothingSlot(), hasAlsoInProgress = false) shouldBe
@@ -68,8 +61,8 @@ class HomeLayoutTest :
                     HomeBlock.Stats,
                     HomeBlock.Shelves,
                 )
-            blocks(resume, hasAlsoInProgress = false, isOffline = true, showsStrip = true) shouldBe
-                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Resume, HomeBlock.Stats, HomeBlock.Shelves)
+            blocks(finishedSlot(), hasAlsoInProgress = false, isOffline = true, showsStrip = true) shouldBe
+                listOf(HomeBlock.Offline, HomeBlock.FirstSyncStrip, HomeBlock.Finished, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
         test("offline and a failed Continue Listening are separate signals") {
@@ -79,7 +72,7 @@ class HomeLayoutTest :
                 listOf(HomeBlock.Offline, HomeBlock.ContinueListeningFailed, HomeBlock.Stats, HomeBlock.Shelves)
         }
 
-        test("on a wide page every slot sits beside the stats, as Resume does") {
+        test("on a wide page every slot sits beside the stats") {
             listOf(finishedSlot(), nothingSlot(), welcomeSlot(), HomeSlot.FirstSync).forEach { slot ->
                 blocks(slot, hasAlsoInProgress = true, isWide = true).first() shouldBe HomeBlock.SlotBesideStats
             }

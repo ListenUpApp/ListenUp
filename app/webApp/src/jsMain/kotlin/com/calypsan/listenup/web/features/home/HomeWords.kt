@@ -18,7 +18,6 @@ internal object HomeWords {
     const val BROWSE_LIBRARY = "Browse the Library"
     const val DISCOVER = "Discover"
     const val PLAY = "Play"
-    const val RESUME = "Resume"
     const val YOU_FINISHED_A_BOOK = "You finished a book"
     const val DISMISS_EVERYWHERE = "Dismiss on all your devices"
     const val PLAY_NEXT_BOOK = "Play next book"
