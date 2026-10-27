@@ -85,7 +85,7 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
-    private val seriesRepository: SeriesRepository,
+    seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
     loadedBookRepository: LoadedBookRepository,
