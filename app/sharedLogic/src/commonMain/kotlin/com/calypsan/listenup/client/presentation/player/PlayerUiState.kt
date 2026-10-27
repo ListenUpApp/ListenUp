@@ -34,6 +34,9 @@ sealed interface PlayerUiState {
          * already has.
          */
         val canSkipToPreviousChapter: Boolean get() = !chapter.isWholeBook
+
+        /** The status slot's news, or null to hide it. */
+        val status: SourceStatus? get() = sourceStatusOf(source)
     }
 }
 

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** Where the audio comes from or goes to: the status slot (§3.1, §4.7). */
+/** Where the audio comes from or goes to (§3.1, §4.7); the status slot reads [SourceStatus]. */
 sealed interface AudioSource {
     /** Every file is on this device. */
     data object Downloaded : AudioSource
