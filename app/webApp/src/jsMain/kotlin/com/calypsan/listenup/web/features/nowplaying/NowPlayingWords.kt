@@ -15,6 +15,8 @@ internal object NowPlayingWords {
     const val NOW_PLAYING = "Now playing"
     const val BY = "by"
     const val READ_BY = "Read by"
+    const val NARRATED_BY = "Narrated by"
+    const val GO_TO_AUTHOR = "Go to author"
     const val PREVIOUS_HINT = "Goes to the start of this chapter first."
     const val PLACE_SAVED = "Your place is saved."
     const val HOW_WAS_IT = "How was it?"
@@ -43,6 +45,9 @@ internal object NowPlayingWords {
             SourceStatus.StreamingTranscoded -> "Streaming · transcoded"
             SourceStatus.NotPlayable -> "Not playable"
         }
+
+    /** The chapter's own title, or "Chapter 6 of 75" when it has none: the phone's chapter line and the sleep picker's. */
+    fun chapterTitle(chapter: PlayerChapter): String = chapter.title.ifBlank { counter(chapter.number, chapter.total) }
 
     /** "Chapter 6 of 75". */
     fun counter(

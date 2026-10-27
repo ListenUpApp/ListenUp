@@ -138,6 +138,9 @@ enum class WebIcon(
     LogOut("M10 3H5v18h5 M9 12h11 M16 8l4 4-4 4"),
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
+
+    /** A microphone: the phone Now Playing's "Narrated by" line. */
+    Mic("M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5.5 11a6.5 6.5 0 0 0 13 0 M12 17.5V21"),
     Minus("M5 12h14"),
 
     // The board's sleep-timer glyph (Mini-WebDesktop): a crescent, what every platform's sleep control wears.

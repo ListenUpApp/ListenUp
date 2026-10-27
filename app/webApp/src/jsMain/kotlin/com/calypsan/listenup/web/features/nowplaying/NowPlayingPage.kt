@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerBook
+import com.calypsan.listenup.client.presentation.player.PlayerChapter
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -195,11 +196,17 @@ fun NowPlayingPage(
     val pickers = remember { PagePickers() }
     val card = PlayerCards.of(state)
     PagePickerDialogs(state, progress, pickers, actions, boostUnavailable)
+    var pageElement by remember { mutableStateOf<HTMLElement?>(null) }
+    val compact = rememberIsCompactAt(pageElement)
     Div(attrs = {
         classes("np-page")
         coverThemed(arrival)
+        ref { element ->
+            pageElement = element
+            onDispose { pageElement = null }
+        }
     }) {
-        NowPlayingHeader(state, actions) { item, opener ->
+        NowPlayingHeader(state, actions, compact) { item, opener ->
             when (item) {
                 PlayerMenuItem.GoToBook -> actions.onOpenBook(book.id)
 
@@ -207,8 +214,8 @@ fun NowPlayingPage(
 
                 is PlayerMenuItem.GoToAuthor -> actions.onOpenContributor(item.authorId)
 
-                // Task 16 wires the chooser.
-                PlayerMenuItem.ChooseAuthor -> Unit
+                // Several authors: a chooser of links, hung from More (a sheet below 760px), as Volume boost is.
+                PlayerMenuItem.ChooseAuthor -> pickers.authors = panelPlacementFor(opener)
 
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
@@ -223,7 +230,7 @@ fun NowPlayingPage(
         }
         Div(attrs = { classes("np-cols") }) {
             Section(attrs = { classes("np-bookcol") }) {
-                BookIdentity(book, actions)
+                BookIdentity(book, state.chapter, actions)
                 BookCard(state, progress)
                 PhoneControls(state, progress, actions, pickers, card)
                 // Wider, the bar is the transport; the card sits at the foot of the book column (§5.6).
@@ -270,6 +277,8 @@ private fun WaitingPage(onCollapse: () -> Unit) {
 private fun NowPlayingHeader(
     state: PlayerUiState.Loaded,
     actions: NowPlayingActions,
+    /** At the phone width: More then carries Go to series and Go to author. */
+    compact: Boolean,
     onMenuItem: (PlayerMenuItem, opener: HTMLElement?) -> Unit,
 ) {
     PageHeader(
@@ -286,7 +295,7 @@ private fun NowPlayingHeader(
                     attr(ATTR_ROLE, "status")
                 }) { Text(NowPlayingWords.status(news)) }
             }
-            PlayerMoreMenu(state = state, onItem = onMenuItem)
+            PlayerMoreMenu(state = state, compact = compact, onItem = onMenuItem)
         },
     )
 }
@@ -311,6 +320,7 @@ private fun HeaderButton(
 @Composable
 private fun BookIdentity(
     book: PlayerBook,
+    chapter: PlayerChapter,
     actions: NowPlayingActions,
 ) {
     val bookHref = Routes.Book.detail(book.id).toUrl()
@@ -336,17 +346,31 @@ private fun BookIdentity(
             eager = true,
         )
     }
+    // Wider, the series, the authors and the narrators each have a line; a phone keeps the title, the chapter and who
+    // narrates it, centred on the cover (Simon, 2026-10-27), and More carries Go to series and Go to author.
     SeriesLine(book.series, actions.onOpenSeries)
     H2(attrs = { classes("np-title") }) {
         AppLink(href = bookHref, onOpen = { actions.onOpenBook(book.id) }, attrs = {
             attr(ATTR_LABEL, NowPlayingWords.goToBook(book.title))
         }) {
-            Text(book.title)
+            // The words in their own span, so the chevron can hang outside them on a phone and they alone sit centred.
+            Span(attrs = { classes("np-title-t") }) { Text(book.title) }
             Icon(WebIcon.ChevronRight, size = TITLE_ICON_SIZE)
         }
     }
-    People(NowPlayingWords.BY, "np-by", book.authors, actions.onOpenContributor)
-    People(NowPlayingWords.READ_BY, "np-read-by", book.narrators, actions.onOpenContributor)
+    P(attrs = { classes("np-ch-title", MOB) }) {
+        Text(if (chapter.isWholeBook) NowPlayingWords.WHOLE_BOOK else NowPlayingWords.chapterTitle(chapter))
+    }
+    People(NowPlayingWords.BY, "np-by", book.authors, actions.onOpenContributor, widthClass = DESK)
+    People(NowPlayingWords.READ_BY, "np-read-by", book.narrators, actions.onOpenContributor, widthClass = DESK)
+    People(
+        NowPlayingWords.NARRATED_BY,
+        "np-narrated",
+        book.narrators,
+        actions.onOpenContributor,
+        widthClass = MOB,
+        icon = WebIcon.Mic,
+    )
 }
 
 /** Every series the book is in, in the book's order, each with its place in that one. Absent for a standalone book. */
@@ -356,7 +380,7 @@ private fun SeriesLine(
     onOpenSeries: (String) -> Unit,
 ) {
     if (series.isEmpty()) return
-    P(attrs = { classes("np-series") }) {
+    P(attrs = { classes("np-series", DESK) }) {
         series.forEachIndexed { index, membership ->
             key(membership.id) {
                 if (index > 0) Span(attrs = { classes("np-sep") }) { Text(", ") }
@@ -378,9 +402,14 @@ private fun People(
     lineClass: String,
     people: List<PlayerContributor>,
     onOpenContributor: (String) -> Unit,
+    /** [MOB] or [DESK]: which widths draw this line. */
+    widthClass: String,
+    /** A glyph before the lead, in the line's own ink: the phone's mic. */
+    icon: WebIcon? = null,
 ) {
     if (people.isEmpty()) return
-    P(attrs = { classes(lineClass) }) {
+    P(attrs = { classes(lineClass, widthClass) }) {
+        icon?.let { glyph -> Span(attrs = { classes("np-by-i") }) { Icon(glyph, size = NARRATED_ICON_SIZE) } }
         Span(attrs = { classes("np-by-k") }) { Text("$lead ") }
         if (people.size > FOLD_AFTER) {
             val text = NowPlayingWords.fold(people.first().name, people.size - 1)
@@ -450,6 +479,7 @@ private class PagePickers {
     var chapters by mutableStateOf<PanelPlacement?>(null)
     var boost by mutableStateOf<PanelPlacement?>(null)
     var shortcuts by mutableStateOf<PanelPlacement?>(null)
+    var authors by mutableStateOf<PanelPlacement?>(null)
 }
 
 /** The four pickers, each opened over the page and leaving it underneath when it closes. */
@@ -518,11 +548,21 @@ private fun PagePickerDialogs(
         placement = pickers.shortcuts ?: PanelPlacement.Sheet,
         onDismiss = { pickers.shortcuts = null },
     )
+    AuthorChooser(
+        open = pickers.authors != null,
+        authors = state.book.authors,
+        onOpenContributor = { id ->
+            pickers.authors = null
+            actions.onOpenContributor(id)
+        },
+        placement = pickers.authors ?: PanelPlacement.Sheet,
+        onDismiss = { pickers.authors = null },
+    )
 }
 
 /**
- * Below 760px, where the bar is hidden: the chapter line, the chapter's scrubber with the book sentence between its
- * times, the transport, and the settings as pills (§5.2's web phone column).
+ * Below 760px, where the bar is hidden: the chapter's scrubber over its times, the transport, and the settings as pills
+ * (§5.2's web phone column). The chapter's own title is in the book's identity, under the title.
  */
 @Composable
 private fun PhoneControls(
@@ -533,7 +573,6 @@ private fun PhoneControls(
     card: PlayerCard?,
 ) {
     Div(attrs = { classes("np-phone", MOB) }) {
-        P(attrs = { classes("np-ch") }) { Text(NowPlayingWords.chapterLine(state.chapter)) }
         Div(attrs = { classes("np-scrubber") }) {
             Playhead(
                 positionMs = progress.chapterPositionMs,
@@ -751,6 +790,9 @@ private const val PLAY_ICON_SIZE = 32
 
 /** 2× the desktop cover's 380px. */
 private const val COVER_RUNG = 760
+
+/** The mic before "Narrated by", at the line's text size. */
+private const val NARRATED_ICON_SIZE = 16
 
 private const val COVER_RADIUS = 16
 

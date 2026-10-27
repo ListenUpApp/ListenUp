@@ -256,14 +256,16 @@ class NowPlayingBylineTest :
                             )
                         }
                     }
-                val fold = frame.find(".np-read-by .np-fold")
+                // The phone's narrators are its "Narrated by" line; the desktop's, its "Read by" byline.
+                val line = if (width == PHONE) ".np-narrated" else ".np-read-by"
+                val fold = frame.find("$line .np-fold")
                 fold.textContent shouldBe "Michael Kramer & 4 more"
                 frame.rect(fold).height shouldBeGreaterThanOrEqual 44.0
 
                 fold.click()
                 awaitFrame()
 
-                val links = frame.findAll(".np-read-by .menu a")
+                val links = frame.findAll("$line .menu a")
                 links.size shouldBe 5
                 links.forEach { link -> frame.rect(link).height shouldBeGreaterThanOrEqual 44.0 }
                 links.first().querySelector(".menu-i-d")?.textContent shouldBe "14 books"
@@ -280,7 +282,8 @@ class NowPlayingBylineTest :
                             NowPlayingPage(state = wayOfKings(), progress = PlayerProgress.Zero, actions = NowPlayingActions())
                         }
                     }
-                frame.findAll(".np-by a, .np-read-by a").forEach { link ->
+                val links = if (width == PHONE) ".np-narrated a" else ".np-by a, .np-read-by a"
+                frame.findAll(links).forEach { link ->
                     frame.rect(link).height shouldBeGreaterThanOrEqual 44.0
                 }
             }

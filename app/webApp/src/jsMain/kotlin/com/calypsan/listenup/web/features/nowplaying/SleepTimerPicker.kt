@@ -254,8 +254,7 @@ private fun timerMinutes(
 ): Int = if (state.totalMs > 0) (state.totalMs / MS_PER_MINUTE).toInt() else mode.minutes
 
 /** The chapter as its lines name it: its own title, or "Chapter 6" for an untitled one. */
-private fun chapterName(chapter: PlayerChapter): String =
-    chapter.title.ifBlank { NowPlayingWords.counter(chapter.number, chapter.total) }
+private fun chapterName(chapter: PlayerChapter): String = NowPlayingWords.chapterTitle(chapter)
 
 /** Named once: several buttons in this file set the same attribute. */
 private const val VALUE_BUTTON = "button"

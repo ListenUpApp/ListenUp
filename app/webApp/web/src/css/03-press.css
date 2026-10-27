@@ -122,6 +122,7 @@
    of rows presses the same way whether it happens to be a table or a stack of divs. */
 .tbl tbody tr:not(.sel):active,
 .menu-i:active,
+.author-link:active,
 .rel-result:active,
 .lic-link:active,
 .contrib-row:active,
