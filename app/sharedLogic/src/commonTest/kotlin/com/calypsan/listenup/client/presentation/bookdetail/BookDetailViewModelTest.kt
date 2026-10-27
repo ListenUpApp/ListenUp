@@ -98,7 +98,6 @@ class BookDetailViewModelTest :
             val seriesRepository: SeriesRepository =
                 mock {
                     every { observeHierarchy() } returns hierarchy
-                    every { observeSeriesWithBooks(any()) } returns flowOf(null)
                 }
 
             fun setup() {

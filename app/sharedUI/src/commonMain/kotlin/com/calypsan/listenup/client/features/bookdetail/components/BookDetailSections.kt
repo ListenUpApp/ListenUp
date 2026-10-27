@@ -104,18 +104,6 @@ internal fun BookDetailSectionContent(
             )
         }
 
-        BookDetailSection.Series -> {
-            state.seriesShelf?.let { shelf ->
-                SeriesShelfSection(
-                    shelf = shelf,
-                    stage = state.readingStage,
-                    onBookClick = actions.onBookClick,
-                    onSeriesClick = actions.onSeriesClick,
-                    modifier = modifier,
-                )
-            }
-        }
-
         BookDetailSection.Readers -> {
             BookReadersSection(
                 bookId = bookId,

@@ -128,8 +128,6 @@ sealed interface BookDetailUiState {
         val finishedSpan: FinishedSpan? = null,
         /** The size of every audio file together, in bytes: what a download costs. */
         val downloadSizeBytes: Long = 0L,
-        /** The book's first series as a shelf, or null when it is in no series. */
-        val seriesShelf: SeriesShelf? = null,
         /** [hasScanWarning], for an admin only: members are never shown the scanner's flag. */
         val showScanWarning: Boolean = false,
     ) : BookDetailUiState {

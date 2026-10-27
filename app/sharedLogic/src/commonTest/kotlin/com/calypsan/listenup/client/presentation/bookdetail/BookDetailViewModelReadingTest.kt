@@ -1,17 +1,13 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.TestData
-import com.calypsan.listenup.client.domain.model.Series
-import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.playback.BookPlayhead
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -243,36 +239,24 @@ class BookDetailViewModelReadingTest :
             }
         }
 
-        test("the series shelf comes from the book's first series, live") {
-            runTest {
-                val f = BookDetailFixture()
-                f.detail("book-1").value =
-                    TestData.bookDetail(id = "book-1", seriesId = "s1", seriesName = "Mistborn", seriesSequence = 1.0)
-                f.series["s1"] =
-                    MutableStateFlow(
-                        SeriesWithBooks(
-                            series = Series(id = SeriesId("s1"), name = "Mistborn"),
-                            books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2")),
-                            bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
-                        ),
-                    )
-                val vm = watch(f.build())
-                vm.loadBook("book-1")
-                advanceUntilIdle()
-
-                vm.ready().seriesShelf?.nextBookId shouldBe "book-2"
-            }
-        }
-
-        test("a book in no series has no shelf and no Series section") {
+        test("a book in a series has no series shelf: the path line under the cover is the way there") {
             runTest {
                 val f = BookDetailFixture().withChapters()
+                f.detail("book-1").value =
+                    TestData.bookDetail(id = "book-1", seriesId = "s1", seriesName = "Mistborn", seriesSequence = 1.0)
                 val vm = watch(f.build())
                 vm.loadBook("book-1")
                 advanceUntilIdle()
 
-                vm.ready().seriesShelf shouldBe null
-                vm.ready().sectionOrder.contains(BookDetailSection.Series) shouldBe false
+                vm.ready().sectionOrder shouldBe
+                    listOf(
+                        BookDetailSection.About,
+                        BookDetailSection.Ratings,
+                        BookDetailSection.Hardcover,
+                        BookDetailSection.Readers,
+                        BookDetailSection.Chapters,
+                        BookDetailSection.Details,
+                    )
             }
         }
 

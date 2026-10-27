@@ -52,9 +52,6 @@ sealed interface BookDetailSection {
     /** Who else is reading. Platforms skip it when nobody is. */
     data object Readers : BookDetailSection
 
-    /** The series shelf ([BookDetailUiState.Ready.seriesShelf]). */
-    data object Series : BookDetailSection
-
     /** The chapter list, collapsed to [BookDetailUiState.Ready.chapterPreview]. */
     data object Chapters : BookDetailSection
 
@@ -80,38 +77,4 @@ data class CurrentChapter(
     val startMs: Long,
     val elapsedInChapterMs: Long,
     val isInPlayer: Boolean = false,
-)
-
-/**
- * The book's first series as a shelf of square covers in sequence, with this book marked.
- *
- * @property seriesId The series this shelf shows (the book's first membership).
- * @property name The series name.
- * @property books The series' books in sequence order; unnumbered books last.
- * @property thisIndex Index of this book in [books].
- * @property nextBookId The book after this one, or null when this is the last.
- */
-data class SeriesShelf(
-    val seriesId: String,
-    val name: String,
-    val books: List<SeriesShelfBook>,
-    val thisIndex: Int,
-    val nextBookId: String?,
-)
-
-/**
- * One cover on a [SeriesShelf].
- *
- * @property id The book id, as a plain string for the Swift boundary.
- * @property coverPath Local cover path, or null when there is none.
- * @property coverHash The cover's content hash, for caching; null when unknown.
- * @property sequenceLabel The book's place in the series as a person writes it ("1", "1.5"), or null when unnumbered.
- * @property isThis True for the book this page is about.
- */
-data class SeriesShelfBook(
-    val id: String,
-    val coverPath: String?,
-    val coverHash: String?,
-    val sequenceLabel: String?,
-    val isThis: Boolean,
 )

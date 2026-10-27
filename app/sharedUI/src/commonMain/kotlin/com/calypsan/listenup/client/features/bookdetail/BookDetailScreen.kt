@@ -128,8 +128,6 @@ fun BookDetailScreen(
     onTagClick: (tagId: String, tagName: String) -> Unit,
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
-    /** Opens another book: a cover on the series shelf. */
-    onBookClick: (bookId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onFindHardcoverMatch: ((bookId: String) -> Unit)? = null,
     /** Opens an admin collection from the Visibility card; null shows the names as plain labels. */
@@ -246,7 +244,6 @@ fun BookDetailScreen(
                         onTagClick = onTagClick,
                         onMoodClick = onMoodClick,
                         onUserProfileClick = onUserProfileClick,
-                        onBookClick = onBookClick,
                         onSeeAllReaders = onSeeAllReaders,
                         onFindHardcoverMatch = onFindHardcoverMatch,
                         onCollectionClick = onCollectionClick,
@@ -349,7 +346,6 @@ private fun BookDetailReadyContent(
     onTagClick: (tagId: String, tagName: String) -> Unit,
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
-    onBookClick: (bookId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onFindHardcoverMatch: ((bookId: String) -> Unit)?,
     onCollectionClick: ((collectionId: String) -> Unit)?,
@@ -392,7 +388,6 @@ private fun BookDetailReadyContent(
             onTagClick,
             onMoodClick,
             onUserProfileClick,
-            onBookClick,
             onSeeAllReaders,
             onFindHardcoverMatch,
             onCollectionClick,
@@ -448,7 +443,6 @@ private fun BookDetailReadyContent(
                 onRestoreToAllBooksClick = { viewModel.restoreToAllBooks() },
                 onCollectionClick = onCollectionClick,
                 onPlayFromChapter = { startMs -> platformActions.playFromChapter(BookId(bookId), startMs) },
-                onBookClick = onBookClick,
             )
         }
 
@@ -759,7 +753,6 @@ private fun BookDetailSection.itemKey(): String =
         BookDetailSection.Ratings -> "ratings"
         BookDetailSection.Hardcover -> "hardcover"
         BookDetailSection.Readers -> READERS_ITEM_KEY
-        BookDetailSection.Series -> "series"
         BookDetailSection.Chapters -> "chapters"
         BookDetailSection.Details -> "details"
     }

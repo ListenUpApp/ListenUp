@@ -168,7 +168,6 @@ class BookDetailReleaseConfirmationTest {
                         onTagClick = { _, _ -> },
                         onMoodClick = { _, _ -> },
                         onUserProfileClick = {},
-                        onBookClick = {},
                         viewModel = viewModel,
                     )
                 }

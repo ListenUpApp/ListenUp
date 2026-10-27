@@ -492,8 +492,8 @@ class ClassContractTest :
                             onPlay = {},
                             onRetryConnection = {},
                         )
-                        // The one page in progress, with readers and a series shelf: the social line, the
-                        // chapter rows and the shelf each draw classes of their own.
+                        // The one page in progress, with readers and a series: the social line, the chapter
+                        // rows and the series path each draw classes of their own.
                         BookDetailPage(
                             state =
                                 readyBook(

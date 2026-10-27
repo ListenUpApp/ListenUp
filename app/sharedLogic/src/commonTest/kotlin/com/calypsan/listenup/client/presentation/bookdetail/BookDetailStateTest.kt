@@ -8,10 +8,7 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.client.domain.model.Series
-import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.BookAvailability
-import com.calypsan.listenup.core.SeriesId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -50,8 +47,7 @@ internal fun snapshot(
     availability: BookAvailability.State = available,
     isHeld: Boolean = false,
     visibility: BookVisibility? = null,
-    series: SeriesWithBooks? = null,
-) = BookSnapshot(detail, chapters, position, availability, isHeld, visibility, series)
+) = BookSnapshot(detail, chapters, position, availability, isHeld, visibility)
 
 class BookDetailStateTest :
     FunSpec({
@@ -300,16 +296,6 @@ class BookDetailStateTest :
                 flagged.toReady(BookDetailAmbient(isAdmin = false)).showScanWarning shouldBe false
                 flagged.toReady(BookDetailAmbient(isAdmin = true)).showScanWarning shouldBe true
                 flagged.toReady(BookDetailAmbient(isAdmin = false)).hasScanWarning shouldBe true // kept for today's UIs
-            }
-
-            test("the series shelf comes from the snapshot's series") {
-                val series =
-                    SeriesWithBooks(
-                        series = Series(id = SeriesId("s1"), name = "Mistborn"),
-                        books = listOf(TestData.bookListItem(id = "book-1"), TestData.bookListItem(id = "book-2")),
-                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
-                    )
-                snapshot(series = series).toReady(BookDetailAmbient()).seriesShelf?.nextBookId shouldBe "book-2"
             }
 
             test("an unlatched page orders sections by its live stage") {
