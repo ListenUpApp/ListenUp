@@ -180,8 +180,9 @@ class MorphController {
         pending = null
         val shell = shell ?: return
         val bar = shell.querySelector(".tport") as? HTMLElement
+        // Nothing to fly (the book was closed as the page left, say): the morph simply ends where it was going.
         if (slot.querySelector(".np-morph") == null || bar == null) {
-            land(MorphEnd.NowPlaying)
+            land(heading)
             return
         }
         if (barRects.isEmpty()) measureBar(shell, bar)
@@ -196,8 +197,41 @@ class MorphController {
         val wasPlaying = from.page() == PLAYING_KEY
         val isPlaying = to.page() == PLAYING_KEY
         when {
+            // Back while the bar is still growing: turn round from wherever it has got to.
+            isRunning && heading == MorphEnd.NowPlaying && !isPlaying -> settle(MorphEnd.Bar)
             isRunning -> Unit
             !wasPlaying && isPlaying -> open(from, arrivedInApp = true)
+            wasPlaying && !isPlaying -> close()
+        }
+    }
+
+    /**
+     * History has just left `/playing` (Collapse, Esc and P go back; so does the browser): hold the page as a layer
+     * over the destination and play it back into the bar, which is measured once it is drawn again.
+     */
+    private fun close() {
+        val shell = shell ?: return
+        val bar = shell.querySelector(".tport") as? HTMLElement
+        if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return
+        shell.style.setProperty(MORPH_PROGRESS, "1")
+        heading = MorphEnd.Bar
+        underRoute = null
+        frozenScrollRoute = null
+        barRects = emptyMap()
+        start(Pending.Settle(target = 0f, spring = PlayerMorph.SETTLE_SPRING, velocity = 0f))
+    }
+
+    /** Heads for [end] on the default spatial spring: now if the morph is playing, or as soon as it is measured. */
+    private fun settle(
+        end: MorphEnd,
+        velocity: Float = 0f,
+    ) {
+        heading = end
+        val target = if (end == MorphEnd.NowPlaying) 1f else 0f
+        if (pending != null) {
+            pending = Pending.Settle(target, PlayerMorph.SETTLE_SPRING, velocity)
+        } else {
+            animateTo(target, PlayerMorph.SETTLE_SPRING, velocity)
         }
     }
 
@@ -276,6 +310,18 @@ class MorphController {
         // Landing on Now Playing swaps the page underneath for `/playing` in the page region: that is not an arrival.
         quietArrivalPage = if (end == MorphEnd.NowPlaying) PLAYING_KEY else null
         heading = end
+        if (end == MorphEnd.Bar) returnFocusToBar()
+    }
+
+    /**
+     * Never stranded (canvas `Edges`): closed back into the bar, focus is on the bar's book, the control the page grew
+     * out of. A control in the bar that already has it (the one that opened the page, given back by PlayingReturn)
+     * keeps it; anywhere else (nothing, the document, the page that just left, the destination's heading) it moves.
+     */
+    private fun returnFocusToBar() {
+        val shell = shell ?: return
+        val focused = shell.ownerDocument?.activeElement
+        if (focused?.closest(".tport") == null) (shell.querySelector(".tport-body") as? HTMLElement)?.focus()
     }
 
     private fun measureBar(
