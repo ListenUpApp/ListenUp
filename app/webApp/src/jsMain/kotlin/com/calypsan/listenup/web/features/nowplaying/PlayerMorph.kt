@@ -199,7 +199,7 @@ class MorphController {
     /** A finger has pulled Now Playing down past the slop: hold it as a layer over the page it would close onto. */
     internal fun beginDragClose(): Boolean {
         val shell = shell ?: return false
-        val bar = shell.querySelector(".tport") as? HTMLElement
+        val bar = shell.querySelector(BAR_SELECTOR) as? HTMLElement
         if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return false
         shell.style.setProperty(MORPH_PROGRESS, "1")
         heading = MorphEnd.Bar
@@ -256,7 +256,7 @@ class MorphController {
         val todo = pending ?: return
         pending = null
         val shell = shell ?: return
-        val bar = shell.querySelector(".tport") as? HTMLElement
+        val bar = shell.querySelector(BAR_SELECTOR) as? HTMLElement
         // Nothing to fly (the book was closed as the page left, say): the morph simply ends where it was going.
         if (slot.querySelector(".np-morph") == null || bar == null) {
             land(heading)
@@ -312,7 +312,7 @@ class MorphController {
      */
     private fun close() {
         val shell = shell ?: return
-        val bar = shell.querySelector(".tport") as? HTMLElement
+        val bar = shell.querySelector(BAR_SELECTOR) as? HTMLElement
         if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return
         shell.style.setProperty(MORPH_PROGRESS, "1")
         heading = MorphEnd.Bar
@@ -347,7 +347,7 @@ class MorphController {
             fadeThroughPending = true
             return
         }
-        val bar = shell.querySelector(".tport") as? HTMLElement
+        val bar = shell.querySelector(BAR_SELECTOR) as? HTMLElement
         if (!morphApplies(isPhone = true, barMounted = bar != null, arrivedInApp = arrivedInApp) || bar == null) return
         measureBar(shell, bar)
         shell.style.setProperty(MORPH_PROGRESS, "0")
@@ -431,7 +431,7 @@ class MorphController {
     private fun returnFocusToBar() {
         val shell = shell ?: return
         val focused = shell.ownerDocument?.activeElement
-        if (focused?.closest(".tport") == null) (shell.querySelector(".tport-body") as? HTMLElement)?.focus()
+        if (focused?.closest(BAR_SELECTOR) == null) (shell.querySelector(".tport-body") as? HTMLElement)?.focus()
     }
 
     /** Measures the bar where it rests: at progress 0, since mid-morph it rides the sheet. */
@@ -487,9 +487,10 @@ class MorphController {
                 box
             }
         val scale =
-            when (part) {
-                MorphPart.Title -> fontSizeOf(shell, MorphPart.Title.barSelector) / fontSizeOf(element)
-                else -> from.width / target.width
+            if (part == MorphPart.Title) {
+                fontSizeOf(shell, MorphPart.Title.barSelector) / fontSizeOf(element)
+            } else {
+                from.width / target.width
             }
         val stem = "--mp-${part.stem}"
         shell.style.setProperty("$stem-dx", px(from.left - target.left))
@@ -614,6 +615,9 @@ private fun px(value: Number): String = "${value}px"
 private fun ratio(value: Number): String = if (value.toDouble().isFinite()) value.toString() else "1"
 
 private val FLIGHT_VARS = listOf("dx", "dy", "ox", "oy", "s", "sx", "sy")
+
+/** The mini player's transport bar. */
+private const val BAR_SELECTOR = ".tport"
 
 private const val SHELL_MORPHING = "shell-morphing"
 

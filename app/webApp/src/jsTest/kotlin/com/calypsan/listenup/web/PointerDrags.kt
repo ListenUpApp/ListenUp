@@ -63,5 +63,5 @@ internal class PointerDrag(
 /** A [pointerType] press at the middle of this element. */
 internal fun HTMLElement.press(pointerType: String = "touch"): PointerDrag {
     val box = getBoundingClientRect()
-    return PointerDrag(this, pointerType, box.left + box.width / 2, box.top + box.height / 2).also { it.down() }
+    return PointerDrag(this, pointerType, box.left + box.width / 2, box.top + box.height / 2).apply { down() }
 }

@@ -136,14 +136,7 @@ fun WebAppRoot(
     val contentRoute = morph.contentRoute(route)
     val contentPage = contentRoute.segments.firstOrNull() ?: HOME_KEY
     SideEffect { morph.observe(route) }
-    // A book, the person behind it, or the series it belongs to all live in the library, so
-    // every one of those deep links keeps Library lit in the sidebar.
-    val active =
-        when (contentPage) {
-            in LIBRARY_DEEP_LINKS -> LIBRARY_KEY
-            in HOME_DEEP_LINKS -> HOME_KEY
-            else -> contentPage
-        }
+    val active = litTabFor(contentPage)
 
     // Shell-lifetime, like the unread count: the phone header and the sidebar both say it.
     val sync = rememberSession { graph.openSyncIndicator() }
@@ -192,26 +185,14 @@ fun WebAppRoot(
             morphClasses = morph.shellClasses,
         ) {
             LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
-            // The desktop's account menu; a phone's lives in its header (see PhoneTopBar).
-            Div(attrs = {
-                classes("shell-account")
-                // The shell's root, for the morph to draw on: always there, and the first element inside it.
-                ref { element ->
-                    val shell = element.closest(".shell") as? HTMLElement
-                    val detach =
-                        shell?.let {
-                            morph.attach(
-                                shell = it,
-                                router = router,
-                                openFromDrag = { opener -> playingReturn.open(router, opener) },
-                                closeFromDrag = { playingReturn.close(router) },
-                            )
-                        }
-                    onDispose { detach?.invoke() }
-                }
-            }) {
-                AccountMenu(onSignOut = onSignOut, onOpenProfile = openProfile, account = account)
-            }
+            ShellAccount(
+                router = router,
+                morph = morph,
+                playingReturn = playingReturn,
+                onSignOut = onSignOut,
+                onOpenProfile = openProfile,
+                account = account,
+            )
             // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
             // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
             // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
@@ -364,4 +345,48 @@ internal fun phoneTitleFor(route: Route): String? =
         listOf(DISCOVER_KEY) -> "Discover"
 
         else -> null
+    }
+
+/**
+ * The desktop's account menu (a phone's lives in its header, see PhoneTopBar). Its element is also where the mini
+ * player morph finds the shell's root to draw on: always there, and the first element inside it.
+ */
+@Composable
+private fun ShellAccount(
+    router: Router,
+    morph: MorphController,
+    playingReturn: PlayingReturn,
+    onSignOut: () -> Unit,
+    onOpenProfile: (() -> Unit)?,
+    account: AccountIdentity?,
+) {
+    Div(attrs = {
+        classes("shell-account")
+        ref { element ->
+            val shell = element.closest(".shell") as? HTMLElement
+            val detach =
+                shell?.let {
+                    morph.attach(
+                        shell = it,
+                        router = router,
+                        openFromDrag = { opener -> playingReturn.open(router, opener) },
+                        closeFromDrag = { playingReturn.close(router) },
+                    )
+                }
+            onDispose { detach?.invoke() }
+        }
+    }) {
+        AccountMenu(onSignOut = onSignOut, onOpenProfile = onOpenProfile, account = account)
+    }
+}
+
+/**
+ * The sidebar entry lit for [page]. A book, the person behind it, or the series it belongs to all live in the library,
+ * so every one of those deep links keeps Library lit. Pure.
+ */
+private fun litTabFor(page: String): String =
+    when (page) {
+        in LIBRARY_DEEP_LINKS -> LIBRARY_KEY
+        in HOME_DEEP_LINKS -> HOME_KEY
+        else -> page
     }
