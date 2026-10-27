@@ -8,14 +8,22 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
+import io.kotest.matchers.shouldBe
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -162,5 +170,79 @@ class LibrarySortCardTest {
         assertEquals(0, toggles)
         composeRule.onNodeWithText("Z–A").performClick()
         assertEquals(1, toggles)
+    }
+
+    private fun booksCard(
+        status: LibraryStatusChoice?,
+        categories: List<SortCategory> = listOf(SortCategory.TITLE, SortCategory.AUTHOR),
+    ) = composeRule.setContent {
+        MaterialTheme {
+            LibrarySortCard(
+                state = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
+                categories = categories,
+                count = 248,
+                unit = "books",
+                ignoreArticles = true,
+                showArticleToggle = true,
+                onCategorySelected = {},
+                onDirectionToggle = {},
+                onToggleArticles = {},
+                visible = true,
+                status = status,
+            )
+        }
+    }
+
+    private fun choice(onSelect: (BookStatusFilter) -> Unit = {}) =
+        LibraryStatusChoice(
+            selected = BookStatusFilter.ALL,
+            counts = BookStatusCounts(all = 248, inProgress = 4, notStarted = 183, finished = 61),
+            onSelect = onSelect,
+        )
+
+    @Test
+    fun `Books - the trigger reads the status and the sort, behind a filter glyph`() {
+        booksCard(status = choice())
+
+        composeRule
+            .onNodeWithContentDescription("Filter and sort: All, Title, A–Z")
+            .assertIsDisplayed()
+            .assert(hasClickAction())
+        composeRule.onNodeWithText("All · Title, A–Z", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("Sort: Title, A–Z").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the menu opens on Show, with each status's count, above Sort by`() {
+        val picked = mutableListOf<BookStatusFilter>()
+        booksCard(status = choice { picked += it })
+        composeRule.onNodeWithContentDescription("Filter and sort: All, Title, A–Z").performClick()
+
+        val show = composeRule.onNode(isHeading() and hasText("Show")).getUnclippedBoundsInRoot()
+        val sortBy = composeRule.onNode(isHeading() and hasText("Sort by")).getUnclippedBoundsInRoot()
+        (show.top < sortBy.top) shouldBe true
+        listOf("All" to "248", "In progress" to "4", "Not started" to "183", "Finished" to "61").forEach { (label, count) ->
+            composeRule
+                .onNode(hasText(label) and hasText(count))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+        }
+        composeRule.onNode(hasText("All") and hasText("248")).assertIsSelected()
+        composeRule.onNode(hasText("In progress") and hasText("4")).assertIsNotSelected()
+        val inProgress = composeRule.onNode(hasText("In progress") and hasText("4")).getUnclippedBoundsInRoot()
+        (inProgress.top < sortBy.top) shouldBe true
+
+        composeRule.onNode(hasText("In progress") and hasText("4")).performClick()
+        picked shouldBe listOf(BookStatusFilter.IN_PROGRESS)
+        composeRule.onNode(isHeading() and hasText("Show")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Series, Authors and Narrators keep the plain sort, with no Show group`() {
+        booksCard(status = null)
+
+        composeRule.onNodeWithContentDescription("Sort: Title, A–Z").performClick()
+        composeRule.onNode(isHeading() and hasText("Show")).assertDoesNotExist()
+        composeRule.onNodeWithText("In progress").assertDoesNotExist()
+        composeRule.onNodeWithText("Title, A–Z", useUnmergedTree = true).assertExists()
     }
 }

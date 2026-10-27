@@ -41,7 +41,6 @@ import com.calypsan.listenup.client.features.library.components.rememberBookSele
 import com.calypsan.listenup.client.presentation.library.bookMenuPrimary
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
-import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
 import com.calypsan.listenup.client.features.library.components.SelectAllAction
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
 import com.calypsan.listenup.client.features.library.components.SeriesContent
@@ -292,6 +291,8 @@ internal fun LibraryLoadedContent(
             isFilteredEmpty = state.isFilteredEmpty,
             statusFilter = state.statusFilter,
             onShowAllBooks = { onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL)) },
+            statusCounts = state.statusCounts,
+            onStatusSelected = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
             statusStrip = state.statusStrip,
             showSortControl = !isExpanded,
             // Books view only (canvas): Series, Authors and Narrators do not carry it,
@@ -341,16 +342,6 @@ internal fun LibraryLoadedContent(
                     onSelect = { selectedSection = it },
                     modifier = Modifier.padding(top = if (isWide) 20.dp else 8.dp, bottom = 6.dp),
                 )
-
-                // Status filters belong to Books, and step aside while books are being picked.
-                if (selectedSection == LibrarySection.Books && !isInSelectionMode) {
-                    LibraryStatusChips(
-                        selected = state.statusFilter,
-                        counts = state.statusCounts,
-                        onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
             }
 
             // Pull-to-refresh wraps the active filter's content (syncs all data).

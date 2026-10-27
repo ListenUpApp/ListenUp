@@ -16,8 +16,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.features.library.components.LibrarySortCard
+import com.calypsan.listenup.client.features.library.components.LibraryStatusChoice
 import com.calypsan.listenup.client.features.settings.SettingsActions
 import com.calypsan.listenup.client.features.settings.SettingsContent
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
+import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -111,6 +114,40 @@ class ChoiceSemanticsTest {
         composeRule
             .onNode(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox))
+    }
+
+    @Test
+    fun `the Books menu's status rows are radios too, the current one selected`() {
+        composeRule.setContent {
+            MaterialTheme {
+                LibrarySortCard(
+                    state = SortState(SortCategory.TITLE, SortDirection.ASCENDING),
+                    categories = listOf(SortCategory.TITLE, SortCategory.AUTHOR),
+                    count = 3,
+                    unit = "books",
+                    ignoreArticles = true,
+                    showArticleToggle = true,
+                    onCategorySelected = {},
+                    onDirectionToggle = {},
+                    onToggleArticles = {},
+                    visible = true,
+                    status =
+                        LibraryStatusChoice(
+                            selected = BookStatusFilter.FINISHED,
+                            counts = BookStatusCounts(all = 3, inProgress = 1, notStarted = 1, finished = 1),
+                            onSelect = {},
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Filter and sort", substring = true).performClick()
+
+        composeRule
+            .onNode(isSelectable() and hasText("Finished"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assertIsSelected()
+        composeRule.onNode(isSelectable() and hasText("All")).assertIsNotSelected()
     }
 
     private fun isNotSelectableOption() = SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected)
