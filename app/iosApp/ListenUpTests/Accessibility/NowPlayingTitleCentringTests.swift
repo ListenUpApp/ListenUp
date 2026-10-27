@@ -21,19 +21,20 @@ struct NowPlayingTitleCentringTests {
             dynamicTypeSize: size)
     }
 
+    /// Within a point of the axis: a 2× screen rounds a centred odd width to the pixel, so 1pt is the tolerance.
     private func assertCentred(_ hosted: HostedView, title: String) throws {
         let axis = hosted.usableBounds.midX
         let titleStop = try #require(hosted.stop(labelled: title), "\(hosted.tree)")
         let chapter = try #require(hosted.stop(labelled: "Bridge Four"), "\(hosted.tree)")
         let narrated = try #require(hosted.stop(labelled: String(localized: "book.detail_narrated_by")), "\(hosted.tree)")
         let narrator = try #require(hosted.stop(labelled: "Michael Kramer"), "\(hosted.tree)")
-        #expect(abs(titleStop.frame.midX - axis) < 1, "title \(titleStop.frame) on \(axis)")
-        #expect(abs(chapter.frame.midX - axis) < 1, "chapter \(chapter.frame) on \(axis)")
+        #expect(abs(titleStop.frame.midX - axis) <= 1, "title \(titleStop.frame) on \(axis)")
+        #expect(abs(chapter.frame.midX - axis) <= 1, "chapter \(chapter.frame) on \(axis)")
         // A name's stop includes its 44pt hit area (`minimumTapTarget`, an outset on every side); the line is what is
         // drawn, so the name is measured inside that outset.
         let outset = TapTarget.outset(forVisualSize: 20)
         let line = narrated.frame.union(narrator.frame.insetBy(dx: outset, dy: outset))
-        #expect(abs(line.midX - axis) < 1, "narrator line \(line) on \(axis)")
+        #expect(abs(line.midX - axis) <= 1, "narrator line \(line) on \(axis)")
         #expect(titleStop.frame.maxY <= chapter.frame.minY + 1)
         #expect(chapter.frame.maxY <= line.minY + 1)
     }
