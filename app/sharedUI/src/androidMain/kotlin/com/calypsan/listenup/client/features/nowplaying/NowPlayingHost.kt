@@ -1,13 +1,11 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
+import com.calypsan.listenup.client.features.nowplaying.morph.BarHome
+import com.calypsan.listenup.client.features.nowplaying.morph.NowPlayingStage
+import com.calypsan.listenup.client.features.nowplaying.morph.rememberEntryMotion
 import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
-import com.calypsan.listenup.client.features.nowplaying.morph.PlayerMorphFlight
-import com.calypsan.listenup.client.features.nowplaying.morph.PlayerMorphScrim
-import com.calypsan.listenup.client.features.nowplaying.morph.PlayerMorphSync
 import com.calypsan.listenup.client.features.nowplaying.morph.morphHost
-import com.calypsan.listenup.client.features.nowplaying.morph.rememberMorphShowsPlayer
 import com.calypsan.listenup.client.foldable.LocalFold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.animation.AnimatedVisibility
@@ -117,9 +115,21 @@ internal fun NowPlayingHost(
     // everywhere else (EntryMotion).
     val morph = LocalPlayerMorph.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, LocalFold.current)
-    val entryMotion = nowPlayingEntryMotion(usesPhoneBar = !useToolbar, layout = layout, destinationChanged = false)
-    if (morph != null) PlayerMorphSync(morph = morph, isExpanded = isExpanded, entryMotion = entryMotion)
-    val morphShowsPlayer = morph != null && rememberMorphShowsPlayer(morph)
+    val playerVisibility = remember { MutableTransitionState(false) }
+    val barHome =
+        when {
+            isReaderShowing -> BarHome.Reader
+            isShellShowing -> BarHome.Shell
+            else -> BarHome.Detail
+        }
+    val entryMotion =
+        rememberEntryMotion(
+            usesPhoneBar = !useToolbar,
+            layout = layout,
+            home = barHome,
+            isExpanded = isExpanded,
+            isPresented = playerVisibility.currentState || playerVisibility.targetState,
+        )
 
     // A chapter sheet left open as the window grows (a phone unfolded, a tablet rotated) gives way to the panel.
     var showsChapterPanel by remember { mutableStateOf(false) }
@@ -194,70 +204,42 @@ internal fun NowPlayingHost(
             )
         }
 
-        // Full screen. Only renders when a book is loaded — expanding into nothing has no meaningful UI. Drawn above
-        // the mini player, which it rises out of.
-        // On the morph path Now Playing is drawn whenever the morph is off the bar, and the morph is its whole motion;
-        // otherwise it fades through.
-        val morphs = morph != null && entryMotion == EntryMotion.Morph
-        if (morphs && loaded != null) PlayerMorphScrim(requireNotNull(morph))
-        AnimatedVisibility(
-            visible = loaded != null && (isExpanded || (morphs && morphShowsPlayer)),
-            enter =
-                if (morphs) {
-                    EnterTransition.None
-                } else {
-                    slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = motion.slowSpatialSpec(),
-                    ) + fadeIn(motion.defaultEffectsSpec())
-                },
-            exit =
-                if (morphs) {
-                    ExitTransition.None
-                } else {
-                    slideOutVertically(
-                        targetOffsetY = { it },
-                        animationSpec = motion.fastSpatialSpec(),
-                    ) + fadeOut(motion.fastEffectsSpec())
-                },
-        ) {
-            if (loaded != null) {
-                NowPlayingScreen(
-                    state = loaded,
-                    progress = provideProgress,
-                    onCollapse = viewModel::collapse,
-                    onPrimary = viewModel::onPrimary,
-                    onSeek = viewModel::seekWithinChapter,
-                    onSkipBack = { viewModel.skipBack() },
-                    onSkipForward = { viewModel.skipForward() },
-                    onPreviousChapter = viewModel::previousChapter,
-                    onNextChapter = viewModel::nextChapter,
-                    onSpeedClick = viewModel::showSpeedPicker,
-                    onChaptersClick = viewModel::showChapterPicker,
-                    onSeekToChapter = viewModel::seekToChapter,
-                    onSleepTimerClick = viewModel::showSleepTimer,
-                    onGoToContributor = { contributorId ->
-                        viewModel.collapse()
-                        onNavigateToContributor(contributorId)
-                    },
-                    onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
-                    onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
-                    onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries, onNavigateToContributor) },
-                    onCardAction = viewModel::onCardAction,
-                    onRate = viewModel::rate,
-                    isTv = isTv,
-                    onChapterPanelShown = { showsChapterPanel = it },
-                )
-            }
-        }
-
-        // The parts that fly between the bar and Now Playing, above both.
-        if (morph != null && loaded != null) {
-            PlayerMorphFlight(
-                morph = morph,
-                state = loaded,
+        // Now Playing over the bar, which it rises out of (or fades through over), with the flying parts above both.
+        // Only when a book is loaded: expanding into nothing has no meaningful UI.
+        NowPlayingStage(
+            morph = morph,
+            entryMotion = entryMotion,
+            isExpanded = isExpanded,
+            loaded = loaded,
+            progress = provideProgress,
+            skipBackwardSec = skipBackwardSec,
+            visibility = playerVisibility,
+        ) { shown ->
+            NowPlayingScreen(
+                state = shown,
                 progress = provideProgress,
-                skipBackwardSec = skipBackwardSec,
+                onCollapse = viewModel::collapse,
+                onPrimary = viewModel::onPrimary,
+                onSeek = viewModel::seekWithinChapter,
+                onSkipBack = { viewModel.skipBack() },
+                onSkipForward = { viewModel.skipForward() },
+                onPreviousChapter = viewModel::previousChapter,
+                onNextChapter = viewModel::nextChapter,
+                onSpeedClick = viewModel::showSpeedPicker,
+                onChaptersClick = viewModel::showChapterPicker,
+                onSeekToChapter = viewModel::seekToChapter,
+                onSleepTimerClick = viewModel::showSleepTimer,
+                onGoToContributor = { contributorId ->
+                    viewModel.collapse()
+                    onNavigateToContributor(contributorId)
+                },
+                onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
+                onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
+                onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries, onNavigateToContributor) },
+                onCardAction = viewModel::onCardAction,
+                onRate = viewModel::rate,
+                isTv = isTv,
+                onChapterPanelShown = { showsChapterPanel = it },
             )
         }
 

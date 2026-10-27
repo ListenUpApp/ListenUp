@@ -10,6 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.MutableTransitionState
+import com.calypsan.listenup.client.features.nowplaying.NowPlayingLayout
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -45,6 +49,11 @@ internal class MorphRig(
     var primaryPresses = 0
     var tapOpens = 0
     val compositions = mutableMapOf<String, Int>()
+    val visibility = MutableTransitionState(false)
+    var usesPhoneBar = true
+    var layout = NowPlayingLayout.Stacked
+    var home by mutableStateOf(BarHome.Shell)
+    var entryMotion = EntryMotion.Morph
 
     fun show(
         state: PlayerUiState.Loaded,
@@ -77,8 +86,14 @@ internal class MorphRig(
             )
         val isExpanded by sheet.expanded.collectAsState()
         CompositionLocalProvider(LocalPlayerMorph provides morph) {
-            PlayerMorphSync(morph = morph, isExpanded = isExpanded, entryMotion = EntryMotion.Morph)
-            val showsPlayer = rememberMorphShowsPlayer(morph)
+            entryMotion =
+                rememberEntryMotion(
+                    usesPhoneBar = usesPhoneBar,
+                    layout = layout,
+                    home = home,
+                    isExpanded = isExpanded,
+                    isPresented = visibility.currentState || visibility.targetState,
+                )
             Box(Modifier.fillMaxSize().morphHost()) {
                 Column(Modifier.align(Alignment.BottomCenter)) {
                     ShellBottomBar(
@@ -107,10 +122,17 @@ internal class MorphRig(
                         )
                     }
                 }
-                PlayerMorphScrim(morph)
-                if (isExpanded || showsPlayer) {
+                NowPlayingStage(
+                    morph = morph,
+                    entryMotion = entryMotion,
+                    isExpanded = isExpanded,
+                    loaded = state,
+                    progress = { samplePlayerProgress },
+                    skipBackwardSec = 10,
+                    visibility = visibility,
+                ) { shown ->
                     NowPlayingScreen(
-                        state = state,
+                        state = shown,
                         progress = { samplePlayerProgress },
                         onCollapse = sheet::collapse,
                         onPrimary = { primaryPresses++ },
@@ -131,12 +153,6 @@ internal class MorphRig(
                         onRate = {},
                     )
                 }
-                PlayerMorphFlight(
-                    morph = morph,
-                    state = state,
-                    progress = { samplePlayerProgress },
-                    skipBackwardSec = 10,
-                )
             }
         }
     }
