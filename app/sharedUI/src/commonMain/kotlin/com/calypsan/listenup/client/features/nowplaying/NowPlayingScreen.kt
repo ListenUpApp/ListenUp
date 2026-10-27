@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableFloatStateOf
+import com.calypsan.listenup.client.features.nowplaying.morph.drivesSheet
+import com.calypsan.listenup.client.presentation.player.MorphMode
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.presentation.player.BackPreviewWeight
 import com.calypsan.listenup.client.features.nowplaying.morph.dragToClose
 import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
@@ -91,6 +98,9 @@ fun NowPlayingScreen(
     // let a back gesture fire before the screen is presented, creating a jarring mid-slide
     // dismiss. Flipping `presented` on the first composition frame is the lightest safe guard.
     var presented by remember { mutableStateOf(false) }
+    val morph = LocalPlayerMorph.current
+    var sheetWidthPx by remember { mutableFloatStateOf(0f) }
+    val edgeMarginPx = with(LocalDensity.current) { PredictiveBackEdgeMargin.toPx() }
     LaunchedEffect(Unit) { presented = true }
     PlatformPredictiveBackHandler(enabled = presented) { gesture ->
         var committed = false
@@ -100,7 +110,18 @@ fun NowPlayingScreen(
                 backProgress.snapTo(frame.progress)
             }
             committed = true
-            onCollapse()
+            val handsToMorph = morph?.let { it.entryMotion == EntryMotion.Morph && it.mode == MorphMode.Morph } == true
+            if (morph != null && handsToMorph) {
+                // The morph runs from the shrunken player into the bar: the preview becomes its weight, and the
+                // close writes the destination when it lands.
+                val preview =
+                    predictiveBackPreview(backProgress.value, backEdge, sheetWidthPx, edgeMarginPx)
+                morph.backPreview = BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
+                backProgress.snapTo(0f)
+                morph.animateTo(MorphEnd.Bar)
+            } else {
+                onCollapse()
+            }
         } finally {
             // Gesture abandoned (the progress flow ends in cancellation) — rewind the dismissal
             // animation, NonCancellable so the rewind still runs inside the cancelled handler. On
@@ -146,7 +167,6 @@ fun NowPlayingScreen(
     val fold = LocalFold.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
     val nowPlaying = stringResource(Res.string.player_now_playing)
-    val morph = LocalPlayerMorph.current
     val surfaceColour = MaterialTheme.colorScheme.surface
     val barColour =
         if (sheetStartsTinted(state)) {
@@ -159,6 +179,7 @@ fun NowPlayingScreen(
         modifier =
             modifier
                 .fillMaxSize()
+                .onSizeChanged { sheetWidthPx = it.width.toFloat() }
                 .semantics { paneTitle = nowPlaying }
                 .onKeyEvent {
                     if (isTv) resetAmbient()
@@ -171,11 +192,16 @@ fun NowPlayingScreen(
                             widthPx = size.width,
                             edgeMarginPx = PredictiveBackEdgeMargin.toPx(),
                         )
-                    translationX = preview.translationX
-                    scaleX = preview.scale
-                    scaleY = preview.scale
-                    shape = RoundedCornerShape(backPreviewCorner.toPx(size, this) * preview.cornerFraction)
-                    clip = preview.cornerFraction > 0f
+                    // A committed back hands its preview to the morph, which weighs it away as it lands.
+                    val carried = morph?.takeIf { it.backPreview != BackPreviewWeight.None && it.drivesSheet }
+                    val weight =
+                        carried?.backPreview?.at(carried.progress)
+                            ?: BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
+                    translationX = weight.translationX
+                    scaleX = weight.scale
+                    scaleY = weight.scale
+                    shape = RoundedCornerShape(backPreviewCorner.toPx(size, this) * weight.cornerFraction)
+                    clip = weight.cornerFraction > 0f
                     // Ambient fade (TV idle) only; the back preview stays opaque, so the page beneath
                     // never shows through the player. With no TV ambient this is 1f.
                     alpha = ambientAlpha * preview.alpha
