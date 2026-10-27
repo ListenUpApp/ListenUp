@@ -118,7 +118,11 @@ class PlayerMorphCssParityTest :
             val sheet = frame.find(".np-morph")
             PROGRESSES.forEach { p ->
                 frame.at(p)
-                val tint = frame.window.getComputedStyle(sheet, "::before").getPropertyValue("opacity").toDouble()
+                val tint =
+                    frame.window
+                        .getComputedStyle(sheet, "::before")
+                        .getPropertyValue("opacity")
+                        .toDouble()
                 tint shouldBe (fade(MorphElement.SheetColour, p.toFloat()).toDouble() plusOrMinus TOLERANCE)
             }
         }
@@ -146,7 +150,11 @@ class PlayerMorphCssParityTest :
             val layer = frame.find(".np-layer")
             PROGRESSES.forEach { p ->
                 frame.at(p)
-                val scrim = frame.window.getComputedStyle(layer, "::before").getPropertyValue("opacity").toDouble()
+                val scrim =
+                    frame.window
+                        .getComputedStyle(layer, "::before")
+                        .getPropertyValue("opacity")
+                        .toDouble()
                 scrim shouldBe (SCRIM * p.coerceIn(0.0, 1.0) plusOrMinus TOLERANCE)
             }
         }
@@ -174,7 +182,15 @@ private fun translateY(transform: String): Double = matrixValues(transform)?.get
 private fun scaleX(transform: String): Double = matrixValues(transform)?.get(0) ?: 1.0
 
 private fun matrixValues(transform: String): List<Double>? =
-    if (transform == "none") null else transform.substringAfter("(").substringBefore(")").split(",").map { it.trim().toDouble() }
+    if (transform == "none") {
+        null
+    } else {
+        transform
+            .substringAfter("(")
+            .substringBefore(")")
+            .split(",")
+            .map { it.trim().toDouble() }
+    }
 
 /**
  * Every declaration in the loaded sheets that mentions `--mp-p` (directly, or through the clamped `--mp-q` and the

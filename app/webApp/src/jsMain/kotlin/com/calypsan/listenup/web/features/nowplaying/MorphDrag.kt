@@ -89,7 +89,8 @@ internal class MorphDrag(
             if (abs(dy) < PlayerMorph.TOUCH_SLOP_DP) return
             // Down on the bar, or up on Now Playing, is not this gesture: let the press be whatever else it is.
             val wrongWay = if (current.opens) dy > 0 else dy < 0
-            val started = !wrongWay && if (current.opens) morph.beginDragOpen(current.origin) else morph.beginDragClose()
+            val started =
+                !wrongWay && if (current.opens) morph.beginDragOpen(current.origin) else morph.beginDragClose()
             if (!started) {
                 drag = null
                 return

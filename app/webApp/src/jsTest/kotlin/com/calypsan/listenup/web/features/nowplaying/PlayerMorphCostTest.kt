@@ -53,7 +53,11 @@ class PlayerMorphCostTest :
                 options.childList = true
                 options.attributes = true
                 options.attributeOldValue = true
-                observer.observe(rig.frame.host.ownerDocument!!.documentElement!!, options.unsafeCast<MutationObserverInit>())
+                observer.observe(
+                    rig.frame.host.ownerDocument!!
+                        .documentElement!!,
+                    options.unsafeCast<MutationObserverInit>(),
+                )
                 finger.moveBy(-150.0, steps = 30, stepMs = 16)
                 awaitFrame()
                 records += observer.takeRecords()
@@ -61,7 +65,8 @@ class PlayerMorphCostTest :
 
                 records.shouldNotBeEmpty()
                 records.filter { it.type == "childList" }.shouldBeEmpty()
-                records.filterNot { it.type == "attributes" && it.attributeName == "style" && it.target == rig.shell }
+                records
+                    .filterNot { it.type == "attributes" && it.attributeName == "style" && it.target == rig.shell }
                     .map { "${it.type} ${it.attributeName} on ${(it.target as? Element)?.className}" }
                     .shouldBeEmpty()
                 styleValuesAcross(records, rig.shell.getAttribute("style").orEmpty())

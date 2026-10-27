@@ -286,8 +286,14 @@ class MorphController {
         val isPlaying = to.page() == PLAYING_KEY
         when {
             // Back while the bar is still growing: turn round from wherever it has got to.
-            isRunning && heading == MorphEnd.NowPlaying && !isPlaying -> settle(MorphEnd.Bar)
-            isRunning -> Unit
+            isRunning && heading == MorphEnd.NowPlaying && !isPlaying -> {
+                settle(MorphEnd.Bar)
+            }
+
+            isRunning -> {
+                Unit
+            }
+
             !wasPlaying && isPlaying -> {
                 // Forward counts as a deep link for closing (PlayingReturn), so a drag down shows Home underneath.
                 returnRoute = null
@@ -589,7 +595,12 @@ private fun fontSizeOf(
 
 private fun HTMLElement.morphRect(): MorphRect {
     val box = getBoundingClientRect()
-    return MorphRect(left = box.left.toFloat(), top = box.top.toFloat(), width = box.width.toFloat(), height = box.height.toFloat())
+    return MorphRect(
+        left = box.left.toFloat(),
+        top = box.top.toFloat(),
+        width = box.width.toFloat(),
+        height = box.height.toFloat(),
+    )
 }
 
 private fun progressFrame(value: Float): dynamic {

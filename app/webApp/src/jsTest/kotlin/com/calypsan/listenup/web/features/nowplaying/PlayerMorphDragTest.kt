@@ -117,7 +117,8 @@ class PlayerMorphDragTest :
                 awaitFrame()
                 rig.isMorphing() shouldBe false
                 rig.frame.findAll(".np-slot").size shouldBe 0
-                rig.frame.host.ownerDocument!!.activeElement shouldBe rig.frame.find(".tport-body")
+                rig.frame.host.ownerDocument!!
+                    .activeElement shouldBe rig.frame.find(".tport-body")
             } finally {
                 rig.dispose()
             }

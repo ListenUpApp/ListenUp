@@ -66,7 +66,13 @@ internal fun switchablePlayback(state: MutableStateFlow<PlayerUiState>): OpenPla
             progress = MutableStateFlow(PlayerProgress.Zero),
             loadedBook =
                 state.map { current ->
-                    (current as? PlayerUiState.Loaded)?.let { LoadedBook.Loaded(it.book.id, isPlaying = true, isFinished = false) }
+                    (current as? PlayerUiState.Loaded)?.let {
+                        LoadedBook.Loaded(
+                            it.book.id,
+                            isPlaying = true,
+                            isFinished = false,
+                        )
+                    }
                         ?: LoadedBook.NothingLoaded
                 },
             overlay = MutableStateFlow(PlayerOverlay.None),
