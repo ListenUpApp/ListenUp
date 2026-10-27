@@ -47,6 +47,38 @@ struct PlayerZoomTransitionTests {
         #expect(!flight.slidUp, "\(flight)")
         try await PlayerFlight.close(in: hosted)
     }
+
+    /// Reduce Motion: the system swaps the zoom for a dissolve. Off unless LU_REDUCE_MOTION_CHECK=1 (xcodebuild passes
+    /// TEST_RUNNER_LU_REDUCE_MOTION_CHECK through) on a simulator with Reduce Motion switched on, so it never runs in CI.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["LU_REDUCE_MOTION_CHECK"] == "1"))
+    func underReduceMotionThePlayerDissolvesIn() async throws {
+        // A toggle that did not take fails here, loudly, instead of passing on the zoom.
+        try #require(UIAccessibility.isReduceMotionEnabled)
+        let shell = MainShellModel()
+        let hosted = await HostedView(ObservableFlagStage(shell: shell, model: Self.model()), size: Self.windowSize)
+        defer { hosted.close() }
+        let flight = try await PlayerFlight.open(in: hosted)
+        print("ZOOMPROBE ReduceMotion \(flight)")
+        #expect(flight.dissolved, "\(flight)")
+        #expect(!flight.slidUp, "\(flight)")
+        try await PlayerFlight.close(in: hosted)
+    }
+
+    /// When the player closes, VoiceOver focus goes back to the mini player's book, the control that opened it.
+    @Test func closingThePlayerHandsFocusBackToTheBook() async throws {
+        let probe = FocusProbe()
+        let shell = MainShellModel()
+        let hosted = await HostedView(
+            ObservableFlagStage(shell: shell, model: Self.model(), probe: probe), size: Self.windowSize)
+        defer { hosted.close() }
+        _ = try await PlayerFlight.open(in: hosted)
+        #expect(probe.focusedBook == 0)
+        try await PlayerFlight.close(in: hosted)
+        try await PlayerFlight.waitUntil { probe.dismissals == 1 }
+        try? await PlayerFlight.waitUntil { probe.focusedBook > 0 }
+        #expect(probe.dismissals == 1)
+        #expect(probe.focusedBook == 1, "the book's focus binding never flipped on dismiss")
+    }
 }
 
 /// What the presented player's view did while it arrived: its on-screen rect and opacity, sampled each frame.
@@ -139,16 +171,28 @@ struct PlayerFlight: CustomStringConvertible {
     }
 }
 
+/// Counts what the focus-return test watches: the cover's dismissals and each time the book's focus binding turned on.
+@MainActor
+final class FocusProbe {
+    var dismissals = 0
+    var focusedBook = 0
+}
+
 /// The production shape: the flag is a property of an `@Observable` shell model the view holds in `@State`, bound
-/// through `@Bindable`, exactly as `MainTabView` binds `MainShellModel.isPlayerPresented`.
+/// through `@Bindable`, exactly as `MainTabView` binds `MainShellModel.isPlayerPresented`. Focus returns to the book
+/// through the same request and `returnsFocus` the mini player uses.
 private struct ObservableFlagStage: View {
     @State private var shell: MainShellModel
     let model: MiniPlayerAccessoryModel
+    let probe: FocusProbe?
+    @State private var focusReturnRequest = 0
+    @AccessibilityFocusState private var isBookFocused: Bool
     @Namespace private var namespace
 
-    init(shell: MainShellModel, model: MiniPlayerAccessoryModel) {
+    init(shell: MainShellModel, model: MiniPlayerAccessoryModel, probe: FocusProbe? = nil) {
         _shell = State(initialValue: shell)
         self.model = model
+        self.probe = probe
     }
 
     var body: some View {
@@ -157,9 +201,18 @@ private struct ObservableFlagStage: View {
             .tabViewBottomAccessory {
                 MiniPlayerAccessoryContent(
                     model: model, isInline: false, transitionNamespace: namespace,
-                    onOpen: { shell.isPlayerPresented = true }, onSkipBack: {}, onSkipForward: {}, onPrimary: {})
+                    onOpen: { shell.isPlayerPresented = true }, onSkipBack: {}, onSkipForward: {}, onPrimary: {},
+                    bookFocus: $isBookFocused)
+                    .returnsFocus($isBookFocused, on: focusReturnRequest)
+                    .onChange(of: isBookFocused) { _, focused in if focused { probe?.focusedBook += 1 } }
             }
-            .playerPresentation(isPresented: $shell.isPlayerPresented, namespace: namespace) {
+            .playerPresentation(
+                isPresented: $shell.isPlayerPresented, namespace: namespace,
+                onDismiss: {
+                    probe?.dismissals += 1
+                    focusReturnRequest += 1
+                }
+            ) {
                 if PlayerStageContent.isLoaded { PlayerStageContent(isPresented: $shell.isPlayerPresented) }
             }
     }

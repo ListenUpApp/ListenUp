@@ -36,6 +36,8 @@ struct MainTabView: View {
     /// Identifies this window to the process-wide `PushTapRouter`, so a tap lands in one window.
     @State private var sceneID = UUID()
     @State private var hasRestoredNavigation = false
+    /// Bumped when the full player closes, so VoiceOver returns to the mini player's book.
+    @State private var miniPlayerFocusRequest = 0
 
     /// The window's tab and stacks, restored when the system brings the window back.
     @SceneStorage("shell.navigation") private var storedNavigation: Data?
@@ -146,12 +148,16 @@ struct MainTabView: View {
                 MiniPlayerBar(
                     observer: playerObserver,
                     transitionNamespace: playerNamespace,
-                    onOpen: { shell.isPlayerPresented = true }
+                    onOpen: { shell.isPlayerPresented = true },
+                    focusReturnRequest: miniPlayerFocusRequest
                 )
             }
         })
         // The full player is a system full-screen modal that zooms out of the mini player's cover.
-        .playerPresentation(isPresented: $shell.isPlayerPresented, namespace: playerNamespace) {
+        .playerPresentation(
+            isPresented: $shell.isPlayerPresented, namespace: playerNamespace,
+            onDismiss: { miniPlayerFocusRequest += 1 }
+        ) {
             if let playerObserver {
                 FullScreenPlayerView(
                     observer: playerObserver,
