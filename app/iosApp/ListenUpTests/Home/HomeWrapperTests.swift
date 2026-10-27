@@ -212,7 +212,7 @@ struct HomeWrapperTests {
             slot: HomeSlotAbsent.shared,
             everythingInProgress: [
                 ContinueListeningItemReady(bookId: "loaded", book: clBook("loaded")),
-                ContinueListeningItemReady(bookId: "other", book: clBook("other")),
+                ContinueListeningItemReady(bookId: "other", book: clBook("other"))
             ],
             connectivity: HomeConnectivity.Online,
             continueListeningError: nil
@@ -260,7 +260,8 @@ struct HomeWrapperTests {
             myShelves: [], isSyncing: false,
             isBuildingInitialLibrary: false, isLibraryArriving: false,
             scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
-            slot: HomeSlotAbsent.shared, everythingInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
+            slot: HomeSlotAbsent.shared,
+            everythingInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,
             continueListeningError: UnexpectedClientError(correlationId: nil, debugInfo: nil)
         )

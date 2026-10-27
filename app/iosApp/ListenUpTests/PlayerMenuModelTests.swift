@@ -10,7 +10,8 @@ struct PlayerMenuModelTests {
     func rows() {
         let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(firstPdfDocId: "d1", boostDb: 6))
         #expect(snapshot.menu.map(\.isDestructive) == [false, true])
-        #expect(snapshot.menu.first?.rows == [.goToBook, .goToSeries("series-1"), .goToAuthor("a1"), .openPdf, .volumeBoost(6)])
+        #expect(snapshot.menu.first?.rows
+            == [.goToBook, .goToSeries("series-1"), .goToAuthor("a1"), .openPdf, .volumeBoost(6)])
         #expect(snapshot.menu.last?.rows == [.closeBook])
     }
 
@@ -28,7 +29,7 @@ struct PlayerMenuModelTests {
     func severalAuthors() {
         let state = PlayerUiStateLoaded.fixture(authors: [
             PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 14),
-            PlayerContributor(id: "a2", name: "Dan Wells", bookCount: 6),
+            PlayerContributor(id: "a2", name: "Dan Wells", bookCount: 6)
         ])
         let rows = PlayerSnapshot.from(state).menu.flatMap(\.rows)
         #expect(rows.contains(.chooseAuthor))

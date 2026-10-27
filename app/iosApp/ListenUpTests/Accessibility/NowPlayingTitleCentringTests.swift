@@ -17,7 +17,8 @@ struct NowPlayingTitleCentringTests {
 
     private func phone(_ state: PlayerUiStateLoaded, size: DynamicTypeSize = .large) async -> HostedView {
         await HostedView(
-            FullScreenPlayerView(observer: .detached(state)), size: CGSize(width: 393, height: 852), dynamicTypeSize: size)
+            FullScreenPlayerView(observer: .detached(state)), size: CGSize(width: 393, height: 852),
+            dynamicTypeSize: size)
     }
 
     private func assertCentred(_ hosted: HostedView, title: String) throws {

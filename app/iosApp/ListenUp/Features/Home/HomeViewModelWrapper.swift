@@ -117,7 +117,9 @@ struct HomeReady: Equatable {
         self.firstName = ready.firstName
         self.slot = HomeSlotItem(from: ready.slot)
         let connectivity = ready.connectivity
-        self.everythingInProgress = ready.everythingInProgress.map { ContinueItem(from: $0, connectivity: connectivity) }
+        self.everythingInProgress = ready.everythingInProgress.map {
+            ContinueItem(from: $0, connectivity: connectivity)
+        }
         self.connectivity = HomeConnectivityState(kmp: ready.connectivity)
         self.continueListeningError = ready.continueListeningError?.message
     }

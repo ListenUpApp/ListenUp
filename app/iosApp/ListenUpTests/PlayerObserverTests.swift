@@ -172,7 +172,7 @@ struct PlayerObserverTests {
     @Test("Downloaded, Streaming and downloaded-offline have no status; Offline says Offline")
     func quietSources() {
         let quiet: [any AudioSource] = [
-            AudioSourceDownloaded.shared, AudioSourceStreaming.shared, AudioSourceDownloadedOffline.shared,
+            AudioSourceDownloaded.shared, AudioSourceStreaming.shared, AudioSourceDownloadedOffline.shared
         ]
         for source in quiet {
             #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(source: source)).statusText == nil)

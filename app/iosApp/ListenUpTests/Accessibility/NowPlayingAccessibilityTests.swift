@@ -30,7 +30,8 @@ struct NowPlayingAccessibilityTests {
 
     @Test func offlineTheHeaderReadsCollapseTheStatusThenMore() async throws {
         let hosted = await host(.fixture(
-            phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four", source: AudioSourceOffline.shared))
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four",
+            source: AudioSourceOffline.shared))
         defer { hosted.close() }
         let first = hosted.stops.prefix(3).map(\.label)
         #expect(first == [
