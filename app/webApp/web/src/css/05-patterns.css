@@ -612,7 +612,12 @@ div.panel-pop {
 .np-page .np-scrubber > .np-time:first-child { grid-column:1; grid-row:2; }
 .np-page .np-scrubber > .np-time:last-child { grid-column:3; grid-row:2; }
 .np-page .np-time { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
-.np-page .np-transport { display:flex; align-items:center; justify-content:center; gap:18px; padding:0; }
+/* The gaps give way on a narrow phone so the five controls fit with their 48px targets and the play circle intact:
+   18px from 390px up, down to 5px at 320px. */
+.np-page .np-transport {
+  display:flex; align-items:center; justify-content:center; padding:0;
+  gap:clamp(4px, calc((100% - 4 * 48px - 76px) / 4), 18px);
+}
 .np-page .np-play {
   width:76px; height:76px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; background:var(--coral-fill); color:var(--on-coral);
