@@ -807,12 +807,7 @@ private fun AuthenticatedNavigation(
         // AuthenticatedNavOverlays and latches its footprint back up here).
         // One morph progress for the player host and the shell's bar and navigation bar, which live on either side of
         // NavDisplay; the host animates it toward the shared destination.
-        val playerMorph =
-            rememberPlayerMorph(
-                isExpanded = { nowPlayingViewModel.expanded.value },
-                onExpand = nowPlayingViewModel::expand,
-                onCollapse = nowPlayingViewModel::collapse,
-            )
+        val playerMorph = rememberPlayerMorph(nowPlayingViewModel)
         ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
             CompositionLocalProvider(
                 LocalPlayerMorph provides playerMorph,

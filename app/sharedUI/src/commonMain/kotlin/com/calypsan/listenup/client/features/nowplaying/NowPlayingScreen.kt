@@ -115,7 +115,12 @@ fun NowPlayingScreen(
                 // The morph runs from the shrunken player into the bar: the preview becomes its weight, and the
                 // close writes the destination when it lands.
                 val preview =
-                    predictiveBackPreview(backProgress.value, backEdge, sheetWidthPx, edgeMarginPx)
+                    predictiveBackPreview(
+                        progress = backProgress.value,
+                        edge = backEdge,
+                        widthPx = sheetWidthPx,
+                        edgeMarginPx = edgeMarginPx,
+                    )
                 morph.backPreview = BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
                 backProgress.snapTo(0f)
                 morph.animateTo(MorphEnd.Bar)
@@ -195,7 +200,7 @@ fun NowPlayingScreen(
                     // A committed back hands its preview to the morph, which weighs it away as it lands.
                     val carried = morph?.takeIf { it.backPreview != BackPreviewWeight.None && it.drivesSheet }
                     val weight =
-                        carried?.backPreview?.at(carried.progress)
+                        carried?.let { it.backPreview.at(it.progress) }
                             ?: BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
                     translationX = weight.translationX
                     scaleX = weight.scale

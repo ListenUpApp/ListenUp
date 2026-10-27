@@ -52,7 +52,7 @@ internal fun PlayerMorphState.dragBy(
     risePx: Float,
     haptics: Haptics,
 ) {
-    val travel = anchors.barBounds?.top?.takeIf { it > 0f } ?: return
+    val travel = anchors.barBounds?.run { top.takeIf { it > 0f } } ?: return
     val before = progress
     snapDrag(before + risePx / travel)
     if (crossesHalfway(before, progress)) haptics.thresholdActivate()

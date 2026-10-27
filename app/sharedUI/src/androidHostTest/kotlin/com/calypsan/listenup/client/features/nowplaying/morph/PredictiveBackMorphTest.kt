@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.features.nowplaying.morph
 import androidx.activity.BackEventCompat
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.calypsan.listenup.client.features.nowplaying.NO_COVER
 import com.calypsan.listenup.client.features.nowplaying.loadedPlayerState
 import com.calypsan.listenup.client.presentation.player.BackPreviewWeight

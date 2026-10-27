@@ -59,7 +59,11 @@ fun settleTarget(
 fun crossesHalfway(
     previous: Float,
     next: Float,
-): Boolean = (previous > PlayerMorph.HALFWAY) != (next > PlayerMorph.HALFWAY)
+): Boolean {
+    val wasPast = previous > PlayerMorph.HALFWAY
+    val isPast = next > PlayerMorph.HALFWAY
+    return wasPast != isPast
+}
 
 /** The share of a flight's horizontal ([x]) and vertical ([y]) travel covered at one progress. */
 internal data class Arc(

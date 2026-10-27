@@ -103,7 +103,7 @@ internal fun PlayerMorphFlight(
         TitleFlight(morph, state.book.title, isPage = false)
         TitleFlight(morph, state.book.title, isPage = true)
         if (playFlies(state, line)) PlayFlight(morph, state.primary)
-        BarRiders(morph, state, line, progress, skipBackwardSec)
+        BarRiders(morph = morph, state = state, line = line, progress = progress, skipBackwardSec = skipBackwardSec)
     }
 }
 
@@ -184,7 +184,7 @@ private fun TitleFlight(
                         } else {
                             morph.anchors.barRect(MorphPart.Title)
                         }
-                    val width = own?.width?.roundToInt() ?: 0
+                    val width = own?.run { width.roundToInt() } ?: 0
                     val placeable = measurable.measure(Constraints(minWidth = width, maxWidth = width))
                     layout(placeable.width, placeable.height) { placeable.place(0, 0) }
                 }.graphicsLayer {
@@ -220,8 +220,8 @@ private fun PlayFlight(
                 .testTag(MORPH_PLAY_TAG)
                 .layout { measurable, _ ->
                     val at = morph.playRect()
-                    val width = at?.width?.roundToInt()?.coerceAtLeast(0) ?: 0
-                    val height = at?.height?.roundToInt()?.coerceAtLeast(0) ?: 0
+                    val width = at?.run { width.roundToInt().coerceAtLeast(0) } ?: 0
+                    val height = at?.run { height.roundToInt().coerceAtLeast(0) } ?: 0
                     val placeable = measurable.measure(Constraints.fixed(width, height))
                     layout(width, height) { placeable.place(0, 0) }
                 }.graphicsLayer {
@@ -289,9 +289,19 @@ private fun LineFlight(
                 lerp(BarLineThickness.toPx(), PageTrackThickness.toPx(), reveal(MorphElement.ScrubberThickness, p))
             val radius = CornerRadius(thickness / 2f * MorphElement.ScrubberThickness.window.of(p))
             val top = centreY - thickness / 2f
-            drawRoundRect(colors.surfaceContainerHighest, Offset(at.left, top), Size(at.width, thickness), radius)
+            drawRoundRect(
+                color = colors.surfaceContainerHighest,
+                topLeft = Offset(at.left, top),
+                size = Size(at.width, thickness),
+                cornerRadius = radius,
+            )
             val filled = at.width * progress().chapterFraction
-            drawRoundRect(colors.primary, Offset(at.left, top), Size(filled, thickness), radius)
+            drawRoundRect(
+                color = colors.primary,
+                topLeft = Offset(at.left, top),
+                size = Size(filled, thickness),
+                cornerRadius = radius,
+            )
             val thumbAlpha = reveal(MorphElement.ScrubberThumb, p)
             if (thumbAlpha > 0f) {
                 val thumb = Size(ThumbWidth.toPx(), ThumbHeight.toPx())
@@ -348,8 +358,8 @@ private fun Modifier.ridesSheet(
     layout { measurable, _ ->
         morph.progress
         val rect = morph.anchors.barRect(detail)
-        val width = rect?.width?.roundToInt() ?: 0
-        val height = rect?.height?.roundToInt() ?: 0
+        val width = rect?.run { width.roundToInt() } ?: 0
+        val height = rect?.run { height.roundToInt() } ?: 0
         val placeable = measurable.measure(Constraints.fixed(width, height))
         layout(width, height) { placeable.place(0, 0) }
     }.graphicsLayer {
@@ -376,8 +386,8 @@ private fun Modifier.fixedToPage(
     layout { measurable, _ ->
         morph.progress
         val page = morph.anchors.pageRect(part)
-        val width = page?.width?.roundToInt() ?: 0
-        val height = page?.height?.roundToInt() ?: 0
+        val width = page?.run { width.roundToInt() } ?: 0
+        val height = page?.run { height.roundToInt() } ?: 0
         val placeable = measurable.measure(Constraints.fixed(width, height))
         layout(width, height) { placeable.place(0, 0) }
     }

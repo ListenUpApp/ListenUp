@@ -49,18 +49,7 @@ internal fun rememberEntryMotion(
     // recomposes nothing.
     val record = remember { OpenRecord(home) }
     var leftReaderTick by remember { mutableIntStateOf(0) }
-    if (record.lastHome != home) {
-        if (record.lastHome == BarHome.Reader) {
-            record.leftReader = true
-            leftReaderTick++
-        }
-        record.lastHome = home
-    }
-    if (isExpanded && !record.wasExpanded) {
-        record.homeAtOpen = if (record.leftReader) BarHome.Reader else home
-        record.leftReader = false
-    }
-    record.wasExpanded = isExpanded
+    if (record.observe(home, isExpanded)) leftReaderTick++
     LaunchedEffect(leftReaderTick) {
         // The reader's re-expand lands within a frame or two of the reader closing; after that an open is the bar's.
         withFrameNanos {}
@@ -72,13 +61,30 @@ internal fun rememberEntryMotion(
     return nowPlayingEntryMotion(usesPhoneBar = usesPhoneBar, layout = layout, destinationChanged = changed)
 }
 
-/** What [rememberEntryMotion] remembers between compositions. */
+/** What [rememberEntryMotion] remembers between compositions: the bar's home now, and when Now Playing opened. */
 private class OpenRecord(
-    var lastHome: BarHome,
+    private var lastHome: BarHome,
 ) {
     var homeAtOpen: BarHome? = null
-    var wasExpanded: Boolean = false
+        private set
     var leftReader: Boolean = false
+    private var wasExpanded: Boolean = false
+
+    /** Takes in this composition's [home] and [isExpanded]; true when the reader has just closed. */
+    fun observe(
+        home: BarHome,
+        isExpanded: Boolean,
+    ): Boolean {
+        val leavesReader = lastHome != home && lastHome == BarHome.Reader
+        if (leavesReader) leftReader = true
+        lastHome = home
+        if (isExpanded && !wasExpanded) {
+            homeAtOpen = if (leftReader) BarHome.Reader else home
+            leftReader = false
+        }
+        wasExpanded = isExpanded
+        return leavesReader
+    }
 }
 
 /**

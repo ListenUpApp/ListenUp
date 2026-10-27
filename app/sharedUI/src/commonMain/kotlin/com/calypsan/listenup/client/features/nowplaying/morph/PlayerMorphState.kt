@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.input.InputMode
@@ -118,7 +119,12 @@ internal class PlayerMorphState(
         velocity: Float,
     ): Job {
         isDragging = false
-        return settle(end, velocity, if (mode == MorphMode.Crossfade) null else settleSpec, byDrag = true)
+        return settle(
+            end = end,
+            velocity = velocity,
+            spec = if (mode == MorphMode.Crossfade) null else settleSpec,
+            byDrag = true,
+        )
     }
 
     /** Settle at [end] as a tap or Collapse does: the slow spatial spring opens, the default spatial spring closes. */
@@ -152,7 +158,12 @@ internal class PlayerMorphState(
         val job =
             scope.launch {
                 if (spec != null) {
-                    animate(progress, end.progress, velocity, spec) { value, _ -> progress = value }
+                    animate(
+                        initialValue = progress,
+                        targetValue = end.progress,
+                        initialVelocity = velocity,
+                        animationSpec = spec,
+                    ) { value, _ -> progress = value }
                 }
                 progress = end.progress
                 isInFlight = false
@@ -192,8 +203,24 @@ internal fun rememberPlayerMorph(
     val expanded by rememberUpdatedState(isExpanded)
     val expand by rememberUpdatedState(onExpand)
     val collapse by rememberUpdatedState(onCollapse)
-    return remember(scope) { PlayerMorphState(scope, { expanded() }, { expand() }, { collapse() }) }
+    return remember(scope) {
+        PlayerMorphState(
+            scope = scope,
+            isExpanded = { expanded() },
+            onExpand = { expand() },
+            onCollapse = { collapse() },
+        )
+    }
 }
+
+/** The player's [PlayerMorphState], writing back to [viewModel]'s shared destination. */
+@Composable
+internal fun rememberPlayerMorph(viewModel: PlayerViewModel): PlayerMorphState =
+    rememberPlayerMorph(
+        isExpanded = { viewModel.expanded.value },
+        onExpand = viewModel::expand,
+        onCollapse = viewModel::collapse,
+    )
 
 /**
  * Keeps [morph] moving toward the destination [isExpanded]: a change from anywhere (the bar's tap, Collapse, a

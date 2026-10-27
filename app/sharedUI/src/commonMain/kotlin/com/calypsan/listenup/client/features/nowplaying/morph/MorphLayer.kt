@@ -85,7 +85,8 @@ internal fun GraphicsLayerScope.scrimLayer(morph: PlayerMorphState) {
 }
 
 /** Clips to everything above [bottom]. */
-private fun bottomClip(bottom: Float): Shape = GenericShape { size, _ -> addRect(Rect(0f, 0f, size.width, bottom)) }
+private fun bottomClip(bottom: Float): Shape =
+    GenericShape { size, _ -> addRect(Rect(left = 0f, top = 0f, right = size.width, bottom = bottom)) }
 
 /**
  * Now Playing's sheet, along the morph: its top edge rises from the bar's, its top corners round and flatten, its

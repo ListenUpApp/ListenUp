@@ -23,6 +23,7 @@ object SpringCurve {
     const val SETTLE_VELOCITY: Float = 0.01f
 
     private const val MAX_MILLIS = 10_000
+    private const val MILLIS_PER_SECOND = 1000.0
 
     /**
      * How long [spring] takes to settle from 0 at rest, or launched at [initialVelocity] progress per second (a
@@ -61,8 +62,6 @@ object SpringCurve {
             if (index == steps) 1f else motion.position(index * stepMs / MILLIS_PER_SECOND).toFloat()
         }
     }
-
-    private const val MILLIS_PER_SECOND = 1000.0
 }
 
 /** The closed-form solution of a unit-mass spring pulled from 0 towards 1, under-, critically or over-damped. */

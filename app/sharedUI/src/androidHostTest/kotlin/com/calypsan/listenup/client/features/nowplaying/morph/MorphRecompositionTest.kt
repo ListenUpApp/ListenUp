@@ -31,7 +31,7 @@ class MorphRecompositionTest {
         val baseline = rig.compositions.toMap()
         (baseline["CompactNowPlaying"] ?: 0) shouldBeGreaterThan 0
 
-        (1..30).forEach { step ->
+        for (step in 1..30) {
             rig.morph.snapDrag(step / 31f)
             composeRule.waitForIdle()
         }
