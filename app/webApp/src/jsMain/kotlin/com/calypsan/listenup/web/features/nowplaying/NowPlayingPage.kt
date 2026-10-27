@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.PageTitle
@@ -206,6 +207,7 @@ fun NowPlayingPage(
     actions: NowPlayingActions,
     boostUnavailable: Boolean = false,
 ) {
+    LocalCompositionProbe.current(NOW_PLAYING_PAGE_PROBE)
     val book = state.book
     val arrival = rememberCoverThemes(book.id, book.coverHash)
     val pickers = remember { PagePickers() }
@@ -273,6 +275,9 @@ fun NowPlayingPage(
         P(attrs = { classes("np-foot") }) { Text(NowPlayingWords.PRESS_FOR_SHORTCUTS) }
     }
 }
+
+/** What [NowPlayingPage] reports to [LocalCompositionProbe] each time it runs: a drag must not run it (the morph). */
+internal const val NOW_PLAYING_PAGE_PROBE = "now-playing-page"
 
 /** The page before its book is loaded: the heading and Collapse / Back, on the wash. */
 @Composable

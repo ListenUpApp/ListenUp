@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerBook
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.isPlainPrimaryClick
@@ -84,6 +85,7 @@ fun TransportBar(
     onCloseNowPlaying: () -> Unit = {},
     onFocusChapters: (() -> Unit)? = null,
 ) {
+    LocalCompositionProbe.current(TRANSPORT_BAR_PROBE)
     // Where each panel is open, or null: the bar's controls hang popovers from themselves (§5.1), or open sheets where
     // the window is narrower than PANEL_POPOVER_MIN_WIDTH_PX (panelPlacementFor).
     val panels = remember { BarPanels() }
@@ -209,6 +211,9 @@ fun TransportBar(
         onDispose { }
     }
 }
+
+/** What [TransportBar] reports to [LocalCompositionProbe] each time it runs: a drag must not run it (the morph). */
+internal const val TRANSPORT_BAR_PROBE = "transport-bar"
 
 /**
  * The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
