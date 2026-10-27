@@ -30,7 +30,7 @@ enum BookPrimaryActionKind: Equatable {
 
 /// A section below the action unit. Native projection of the shared `BookDetailSection`.
 enum BookDetailSectionKind: Equatable, Hashable {
-    case about, ratings, hardcover, readers, series, chapters, details
+    case about, ratings, hardcover, readers, chapters, details
 
     init(_ section: BookDetailSection) {
         switch section.sealedType() {
@@ -38,7 +38,6 @@ enum BookDetailSectionKind: Equatable, Hashable {
         case .ratings: self = .ratings
         case .hardcover: self = .hardcover
         case .readers: self = .readers
-        case .series: self = .series
         case .chapters: self = .chapters
         case .details: self = .details
         }
@@ -82,37 +81,8 @@ struct BookFinishedSpan: Equatable {
     }
 }
 
-/// One cover on the series shelf.
-struct BookSeriesShelfItem: Identifiable, Equatable {
-    let id: String
-    let coverPath: String?
-    let coverHash: String?
-    let sequenceLabel: String?
-    let isThis: Bool
-}
-
-/// The book's series as a shelf of covers in sequence.
-struct BookSeriesShelf: Equatable {
-    let seriesId: String
-    let name: String
-    let books: [BookSeriesShelfItem]
-    let thisIndex: Int
-    let nextBookId: String?
-
-    init(_ shelf: SeriesShelf) {
-        seriesId = shelf.seriesId
-        name = shelf.name
-        books = shelf.books.map {
-            BookSeriesShelfItem(id: $0.id, coverPath: $0.coverPath, coverHash: $0.coverHash,
-                                sequenceLabel: $0.sequenceLabel, isThis: $0.isThis)
-        }
-        thisIndex = Int(shelf.thisIndex)
-        nextBookId = shelf.nextBookId
-    }
-}
-
 /// Book Detail's reading state — stage, the visit's section order, the primary action, the current chapter and its
-/// window, time left, the finished span, the download size, the series shelf and the admin-only scan flag —
+/// window, time left, the finished span, the download size and the admin-only scan flag —
 /// projected to native values once, at the observer, from the shared `Ready`.
 struct BookReadingState: Equatable {
     var stage: BookReadingStage = .notStarted
@@ -123,7 +93,6 @@ struct BookReadingState: Equatable {
     var timeRemainingMs: Int64?
     var finishedSpan: BookFinishedSpan?
     var downloadSizeBytes: Int64 = 0
-    var seriesShelf: BookSeriesShelf?
     var showScanWarning = false
 
     init() {}
@@ -137,7 +106,6 @@ struct BookReadingState: Equatable {
         timeRemainingMs = ready.timeRemainingMs
         finishedSpan = ready.finishedSpan.map(BookFinishedSpan.init)
         downloadSizeBytes = ready.downloadSizeBytes
-        seriesShelf = ready.seriesShelf.map(BookSeriesShelf.init)
         showScanWarning = ready.showScanWarning
     }
 }

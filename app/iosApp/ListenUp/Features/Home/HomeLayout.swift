@@ -4,8 +4,8 @@ import CoreGraphics
 /// and spec §2.1's fixed order are tested rather than buried in view code (iosApp rule 12).
 ///
 /// A window narrower than `minimumWideWidth` is one column with a scrolling rail. A wider one (an iPad with its
-/// sidebar is ~860pt of content) sets the stats card first at 380pt beside the shelves, or beside Resume when nothing
-/// is loaded, and draws Also in Progress as one row of up to five columns that flow with the width (board Home-iPad).
+/// sidebar is ~860pt of content) sets the stats card first at 380pt beside the shelves, or beside the slot when there
+/// is one, and draws Everything in Progress as one row of up to five columns that flow with the width (board Home-iPad).
 struct HomeLayout: Equatable {
     enum Arrangement: Equatable {
         case column
@@ -48,14 +48,14 @@ struct HomeLayout: Equatable {
     /// Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The offline pill sits under
     /// the greeting, then the library-arriving strip (H5), then the slot (or, when Continue Listening failed and there
     /// is no slot, the one-line failure in its place). Offline and the failure are separate signals, so both can show.
-    /// Below it: Also in Progress → Your Last 7 Days → My Shelves.
+    /// Below it: Everything in Progress → Your Last 7 Days → My Shelves.
     /// A wide window puts the slot beside the stats, and the stats beside the shelves when there is no slot.
     func blocks(
         slot: HomeSlotShape,
         isOffline: Bool,
         continueListeningFailed: Bool,
         showsStrip: Bool,
-        hasAlsoInProgress: Bool
+        hasEverythingInProgress: Bool
     ) -> [HomeBlock] {
         var blocks: [HomeBlock] = []
         if isOffline { blocks.append(.offline) }
@@ -65,7 +65,7 @@ struct HomeLayout: Equatable {
         } else if continueListeningFailed {
             blocks.append(.continueListeningFailed)
         }
-        if hasAlsoInProgress { blocks.append(.alsoInProgress) }
+        if hasEverythingInProgress { blocks.append(.everythingInProgress) }
         if blocks.contains(.slotBesideStats) {
             blocks.append(.shelves)
         } else if isWide {
@@ -80,13 +80,12 @@ struct HomeLayout: Equatable {
 /// What the slot needs from the layout.
 /// (`empty`, not `none`: `.none` reads as `Optional.none` in every comparison, as PR 1 found with `HomeSlot.None`.)
 enum HomeSlotShape: Equatable {
-    case empty, resume, finished, nothingInProgress, welcome, firstSync
+    case empty, finished, nothingInProgress, welcome, firstSync
 
     /// The block that draws this slot, or nil when there is none.
     var block: HomeBlock? {
         switch self {
         case .empty: nil
-        case .resume: .resume
         case .finished: .finished
         case .nothingInProgress: .nothingInProgress
         case .welcome: .welcome
@@ -97,15 +96,14 @@ enum HomeSlotShape: Equatable {
 
 /// One section of Home.
 enum HomeBlock: Hashable {
-    case offline, firstSyncStrip, resume, finished, nothingInProgress, welcome, firstSync, continueListeningFailed
-    case slotBesideStats, alsoInProgress, stats, shelves, statsBesideShelves
+    case offline, firstSyncStrip, finished, nothingInProgress, welcome, firstSync, continueListeningFailed
+    case slotBesideStats, everythingInProgress, stats, shelves, statsBesideShelves
 }
 
 extension HomeSlotItem {
     var shape: HomeSlotShape {
         switch self {
         case .absent: .empty
-        case .resume: .resume
         case .justFinished: .finished
         case .nothingInProgress: .nothingInProgress
         case .newListener: .welcome

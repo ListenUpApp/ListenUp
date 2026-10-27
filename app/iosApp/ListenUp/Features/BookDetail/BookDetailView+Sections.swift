@@ -9,7 +9,7 @@ extension BookDetailView {
     static let readersAnchor = "readers"
 
     /// The sections this page shows. A held book is triage-only (spec §3.2.3): About, Chapters and Details stay; the
-    /// social sections and Series are hidden (`BookDetailLayout.showsSocial`).
+    /// social sections are hidden (`BookDetailLayout.showsSocial`).
     func shownSections(_ observer: BookDetailObserver) -> [BookDetailSectionKind] {
         Self.shown(observer.reading.sectionOrder, layout: observer.layout)
     }
@@ -44,10 +44,6 @@ extension BookDetailView {
                 moods: observer.moods,
                 lineLimit: isWide ? nil : (observer.reading.stage == .notStarted ? 4 : 2)
             )
-        case .series:
-            if let shelf = observer.reading.seriesShelf {
-                SeriesShelfSection(shelf: shelf, stage: observer.reading.stage)
-            }
         case .readers:
             readersSection
         case .ratings:

@@ -33,30 +33,31 @@ struct HomeLayoutTests {
     @Test func aLoadedBookOnAPhoneHasNoSlot() {
         let phone = HomeLayout.forWidth(390)
         #expect(
-            phone.blocks(slot: .empty, alsoInProgress: true)
-                == [.alsoInProgress, .stats, .shelves]
+            phone.blocks(slot: .empty, everythingInProgress: true)
+                == [.everythingInProgress, .stats, .shelves]
         )
         #expect(
-            phone.blocks(slot: .empty, alsoInProgress: false)
+            phone.blocks(slot: .empty, everythingInProgress: false)
                 == [.stats, .shelves]
         )
     }
 
-    @Test func nothingLoadedLeadsWithResume() {
+    @Test func booksInProgressWithNothingLoadedLeadWithEverythingInProgressNotAHero() {
+        // Home has no Resume hero (Simon, 2026-10-27): the slot is empty and the list leads.
         #expect(
-            HomeLayout.forWidth(390).blocks(slot: .resume, alsoInProgress: true)
-                == [.resume, .alsoInProgress, .stats, .shelves]
+            HomeLayout.forWidth(390).blocks(slot: .empty, everythingInProgress: true)
+                == [.everythingInProgress, .stats, .shelves]
         )
         #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .resume, alsoInProgress: true)
-                == [.slotBesideStats, .alsoInProgress, .shelves]
+            HomeLayout.forWidth(1032).blocks(slot: .finished, everythingInProgress: true)
+                == [.slotBesideStats, .everythingInProgress, .shelves]
         )
     }
 
     @Test func aLoadedBookOnAnIPadPutsStatsBesideShelves() {
         #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .empty, alsoInProgress: true)
-                == [.alsoInProgress, .statsBesideShelves]
+            HomeLayout.forWidth(1032).blocks(slot: .empty, everythingInProgress: true)
+                == [.everythingInProgress, .statsBesideShelves]
         )
     }
 
@@ -64,31 +65,31 @@ struct HomeLayoutTests {
         let narrow = HomeLayout.forWidth(390)
         let wide = HomeLayout.forWidth(1024)
         #expect(
-            narrow.blocks(slot: .finished, alsoInProgress: true)
-                == [.finished, .alsoInProgress, .stats, .shelves]
+            narrow.blocks(slot: .finished, everythingInProgress: true)
+                == [.finished, .everythingInProgress, .stats, .shelves]
         )
         #expect(
-            narrow.blocks(slot: .nothingInProgress, alsoInProgress: false)
+            narrow.blocks(slot: .nothingInProgress, everythingInProgress: false)
                 == [.nothingInProgress, .stats, .shelves]
         )
         #expect(
-            narrow.blocks(slot: .welcome, alsoInProgress: false)
+            narrow.blocks(slot: .welcome, everythingInProgress: false)
                 == [.welcome, .stats, .shelves]
         )
         #expect(
-            narrow.blocks(slot: .firstSync, alsoInProgress: false, strip: true)
+            narrow.blocks(slot: .firstSync, everythingInProgress: false, strip: true)
                 == [.firstSyncStrip, .firstSync, .stats, .shelves]
         )
         #expect(
-            narrow.blocks(slot: .empty, alsoInProgress: true, offline: true)
-                == [.offline, .alsoInProgress, .stats, .shelves]
+            narrow.blocks(slot: .empty, everythingInProgress: true, offline: true)
+                == [.offline, .everythingInProgress, .stats, .shelves]
         )
         #expect(
-            narrow.blocks(slot: .empty, alsoInProgress: false, failed: true)
+            narrow.blocks(slot: .empty, everythingInProgress: false, failed: true)
                 == [.continueListeningFailed, .stats, .shelves]
         )
-        for slot in [HomeSlotShape.finished, .nothingInProgress, .welcome, .firstSync, .resume] {
-            let first = wide.blocks(slot: slot, alsoInProgress: true).first
+        for slot in [HomeSlotShape.finished, .nothingInProgress, .welcome, .firstSync] {
+            let first = wide.blocks(slot: slot, everythingInProgress: true).first
             #expect(first == .slotBesideStats)
         }
     }
@@ -103,12 +104,12 @@ struct HomeLayoutTests {
     @Test func offlineAndAFailedRowShowTogetherAndTheStripSitsAboveAnySlot() {
         let phone = HomeLayout.forWidth(390)
         #expect(
-            phone.blocks(slot: .empty, alsoInProgress: false, offline: true, failed: true)
+            phone.blocks(slot: .empty, everythingInProgress: false, offline: true, failed: true)
                 == [.offline, .continueListeningFailed, .stats, .shelves]
         )
         #expect(
-            phone.blocks(slot: .resume, alsoInProgress: false, offline: true, strip: true)
-                == [.offline, .firstSyncStrip, .resume, .stats, .shelves]
+            phone.blocks(slot: .finished, everythingInProgress: false, offline: true, strip: true)
+                == [.offline, .firstSyncStrip, .finished, .stats, .shelves]
         )
     }
 }
@@ -117,7 +118,7 @@ private extension HomeLayout {
     /// The block order with every signal off unless a test turns it on.
     func blocks(
         slot: HomeSlotShape,
-        alsoInProgress: Bool,
+        everythingInProgress: Bool,
         offline: Bool = false,
         failed: Bool = false,
         strip: Bool = false
@@ -127,7 +128,7 @@ private extension HomeLayout {
             isOffline: offline,
             continueListeningFailed: failed,
             showsStrip: strip,
-            hasAlsoInProgress: alsoInProgress
+            hasEverythingInProgress: everythingInProgress
         )
     }
 }

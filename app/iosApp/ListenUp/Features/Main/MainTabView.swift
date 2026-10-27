@@ -211,7 +211,7 @@ struct MainTabView: View {
         }
         // Discover's "Recently Added" link: Books newest first, for this session only (plan Q6).
         .onChange(of: shell.libraryNewestRequest) { _, _ in libraryObserver?.showNewestFirst() }
-        // Home's "Also in Progress" link: Books filtered to In Progress.
+        // Home's "Everything in Progress" link: Books filtered to In Progress.
         .onChange(of: shell.libraryInProgressRequest) { _, _ in libraryObserver?.setStatusFilter(.inProgress) }
         .onChange(of: shell.selectedTab) { _, _ in saveNavigation() }
         .onChange(of: shell.paths) { _, _ in saveNavigation() }

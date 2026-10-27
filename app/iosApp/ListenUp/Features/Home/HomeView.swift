@@ -10,14 +10,14 @@ import Shared
 /// cancel their flows when the user pushes a detail and pops back (`@State` keeps the same dead
 /// instances). This mirrors `LibraryView`/`SeriesDetailView`: observation is live whenever visible.
 ///
-/// Layout follows the measured width (`HomeLayout`), which also decides the sections' order: the loaded book is never
-/// drawn (the mini player has it); with nothing loaded, Resume leads. A wide window sets the week's stats first, beside
-/// the shelves (or beside Resume).
+/// Layout follows the measured width (`HomeLayout`), which also decides the sections' order: every book in progress is
+/// in Everything in Progress, the loaded one first; there is no Resume hero (Simon, 2026-10-27). A wide window sets the
+/// week's stats first, beside the shelves (or beside the slot).
 struct HomeView: View {
     /// Selects a shell tab: Browse the Library and the quiet slots' Discover leave Home here.
     var onSelectTab: (ShellTab) -> Void = { _ in }
 
-    /// The Also in Progress header: Library's Books filtered to In Progress (spec §6.4).
+    /// The Everything in Progress header: Library's Books filtered to In Progress (spec §6.4).
     @Environment(\.openLibraryInProgress) private var openLibraryInProgress
     /// The stats card's Leaderboard link: Discover's board on Week (spec §6.4).
     @Environment(\.openDiscoverLeaderboard) private var openDiscoverLeaderboard
@@ -129,7 +129,7 @@ struct HomeView: View {
     /// Page loading (spec §3.3, H14): the slot and rail skeletons, no strip, no spinner.
     private var loadingContent: some View {
         VStack(alignment: .leading, spacing: 28) {
-            HomeSkeletonView(withResume: false)
+            HomeSkeletonView()
                 .padding(.horizontal, layout.margin)
             HomeSkeletonRail(margin: layout.margin)
         }
@@ -144,7 +144,7 @@ struct HomeView: View {
                 isOffline: ready.isOffline,
                 continueListeningFailed: ready.continueListeningError != nil,
                 showsStrip: ready.showsArrivalStrip,
-                hasAlsoInProgress: !ready.alsoInProgress.isEmpty
+                hasEverythingInProgress: !ready.everythingInProgress.isEmpty
             ),
             id: \.self
         ) { block in
@@ -155,7 +155,7 @@ struct HomeView: View {
             case .firstSyncStrip:
                 FirstSyncStrip(count: ready.arrivalCount)
                     .padding(.horizontal, layout.margin)
-            case .resume, .finished, .nothingInProgress, .welcome, .firstSync:
+            case .finished, .nothingInProgress, .welcome, .firstSync:
                 slotContent(ready, home: home)
                     .padding(.horizontal, layout.margin)
             case .slotBesideStats:
@@ -167,8 +167,8 @@ struct HomeView: View {
             case .continueListeningFailed:
                 ContinueListeningFailedLine(onRetry: { home.refresh() })
                     .padding(.horizontal, layout.margin)
-            case .alsoInProgress:
-                alsoInProgress(ready.alsoInProgress, layout: layout)
+            case .everythingInProgress:
+                everythingInProgress(ready.everythingInProgress, layout: layout)
             case .stats:
                 statsCard(stats)
                     .padding(.horizontal, layout.margin)
@@ -195,10 +195,6 @@ struct HomeView: View {
     @ViewBuilder
     private func slotContent(_ ready: HomeReady, home: HomeViewModelWrapper) -> some View {
         switch ready.slot {
-        case .resume(let resume):
-            ResumeHeroView(resume: resume, isOnlyBook: ready.alsoInProgress.isEmpty) {
-                deps.playerObserver.play(bookId: resume.book.id)
-            }
         case .justFinished(let finished):
             JustFinishedCard(
                 slot: finished,
@@ -216,7 +212,7 @@ struct HomeView: View {
         case .newListener(let covers):
             WelcomeView(covers: covers, onBrowse: { onSelectTab(.library) }, onDiscover: { onSelectTab(.discover) })
         case .firstSync:
-            HomeSkeletonView(withResume: true)
+            HomeSkeletonView()
         case .absent:
             EmptyView()
         }
@@ -230,17 +226,17 @@ struct HomeView: View {
         )
     }
 
-    // MARK: - Also in Progress
+    // MARK: - Everything in Progress
 
-    /// "Also in Progress ›" opens the Library's Books filtered to In Progress (spec §6.4); the rail scrolls on iPhone and
-    /// is one row of width-driven columns on iPad.
-    private func alsoInProgress(_ items: [ContinueItem], layout: HomeLayout) -> some View {
+    /// "Everything in Progress ›" opens the Library's Books filtered to In Progress (spec §6.4); the rail scrolls on
+    /// iPhone and is one row of width-driven columns on iPad.
+    private func everythingInProgress(_ items: [ContinueItem], layout: HomeLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
                 openLibraryInProgress()
             } label: {
                 HStack(spacing: 4) {
-                    Text(String(localized: "home.also_in_progress_ios"))
+                    Text(String(localized: "home.everything_in_progress_ios"))
                         .font(.title3.weight(.semibold))
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.semibold))

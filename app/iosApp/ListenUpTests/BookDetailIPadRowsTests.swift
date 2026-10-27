@@ -7,13 +7,13 @@ import Testing
 @Suite("Book Detail iPad rows")
 struct BookDetailIPadRowsTests {
     private let inProgress: [BookDetailSectionKind] = [
-        .chapters, .about, .series, .readers, .ratings, .hardcover, .details
+        .chapters, .about, .readers, .ratings, .hardcover, .details
     ]
 
     @Test func inProgressOnAWideMainColumnPairsChaptersWithRatings() {
         let rows = BookDetailIPadRows.rows(order: inProgress, stage: .inProgress, mainWidth: 760)
         #expect(rows.first == [.chapters, .ratings])
-        #expect(rows.dropFirst().flatMap { $0 } == [.about, .series, .readers, .hardcover, .details])
+        #expect(rows.dropFirst().flatMap { $0 } == [.about, .readers, .hardcover, .details])
     }
 
     @Test func aNarrowMainColumnIsOneColumn() {
@@ -23,7 +23,7 @@ struct BookDetailIPadRowsTests {
     }
 
     @Test func notStartedFollowsTheOrderUnpaired() {
-        let order: [BookDetailSectionKind] = [.about, .ratings, .hardcover, .readers, .series, .chapters, .details]
+        let order: [BookDetailSectionKind] = [.about, .ratings, .hardcover, .readers, .chapters, .details]
         #expect(BookDetailIPadRows.rows(order: order, stage: .notStarted, mainWidth: 760).flatMap { $0 } == order)
     }
 
