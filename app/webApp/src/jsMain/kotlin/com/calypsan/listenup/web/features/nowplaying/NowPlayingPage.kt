@@ -288,13 +288,13 @@ private fun NowPlayingHeader(
             HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, actions.onCollapse)
         },
         actions = {
-            // Only with news, and outside the heading, so the heading is never re-announced when it changes (verify 6.12).
-            state.status?.let { news ->
-                Span(attrs = {
-                    classes("np-status")
-                    attr(ATTR_ROLE, "status")
-                }) { Text(NowPlayingWords.status(news)) }
-            }
+            // Outside the heading, so the heading is never re-announced when it changes (verify 6.12). Always mounted and
+            // empty without news: a live region inserted with its words already in it often goes unannounced, so only
+            // the words change.
+            Span(attrs = {
+                classes("np-status")
+                attr(ATTR_ROLE, "status")
+            }) { state.status?.let { news -> Text(NowPlayingWords.status(news)) } }
             PlayerMoreMenu(state = state, compact = compact, onItem = onMenuItem)
         },
     )

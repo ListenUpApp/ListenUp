@@ -556,6 +556,11 @@ div.panel-pop {
   font-size:var(--fs-small); font-weight:600; color:var(--ink-2);
   border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
 }
+/* Without news the live region stays in the tree, empty, out of sight and out of the header's flow. */
+.np-page .np-status:empty {
+  position:absolute; width:1px; height:1px; min-height:0; margin:-1px; padding:0; border:0;
+  overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+}
 
 .np-more .btn { min-height:44px; }
 .np-cols { display:grid; gap:var(--sp-32); align-items:start; }

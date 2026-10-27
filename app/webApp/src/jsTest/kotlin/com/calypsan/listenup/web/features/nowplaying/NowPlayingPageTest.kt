@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
 import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
@@ -98,9 +101,30 @@ class NowPlayingPageTest :
             status.closest("h1") shouldBe null
         }
 
-        test("Streaming, Downloaded, downloaded-offline and casting show no status") {
+        test("Streaming, Downloaded, downloaded-offline and casting say nothing, from a live region that is already there") {
             listOf(AudioSource.Streaming, AudioSource.Downloaded, AudioSource.DownloadedOffline, AudioSource.Casting("Living Room"))
-                .forEach { quiet -> page(wayOfKings().copy(source = quiet)).querySelector(".np-status") shouldBe null }
+                .forEach { quiet ->
+                    val status = page(wayOfKings().copy(source = quiet)).querySelector("[role=status].np-status") as HTMLElement
+                    status.textContent shouldBe ""
+                    (status.getBoundingClientRect().width <= 1.0) shouldBe true
+                }
+        }
+
+        test("the live region stays mounted and only its words change when the source flips, so the news is announced") {
+            var state by mutableStateOf(wayOfKings().copy(source = AudioSource.Streaming))
+            val host =
+                mounts.mount {
+                    CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
+                        NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                    }
+                }
+            val before = host.querySelector("[role=status].np-status") as HTMLElement
+            before.textContent shouldBe ""
+            state = state.copy(source = AudioSource.ServerUnreachable)
+            awaitFrame()
+            val after = host.querySelector("[role=status].np-status") as HTMLElement
+            (after === before) shouldBe true
+            after.textContent shouldBe "Can't reach your server"
         }
 
         test("every author and narrator is a link to that person") {
