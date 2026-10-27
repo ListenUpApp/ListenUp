@@ -21,6 +21,7 @@ class PlayerBookBlockTest {
     val composeRule = createComposeRule()
 
     private val opened = mutableListOf<String>()
+    private var narratorPickers = 0
 
     private fun block(state: com.calypsan.listenup.client.presentation.player.PlayerUiState.Loaded) {
         composeRule.setContent {
@@ -30,21 +31,23 @@ class PlayerBookBlockTest {
                     coverSide = com.calypsan.listenup.client.features.nowplaying.components.PlayerCoverSide,
                     onContributor = { opened += it },
                     onShowAuthors = {},
-                    onShowNarrators = {},
+                    onShowNarrators = { narratorPickers++ },
                 )
             }
         }
     }
 
     @Test
-    fun `the counter, the chapter's own title, the book title and both bylines`() {
+    fun `the phone block is the title, the chapter, and who narrates it`() {
         block(loadedPlayerState(coverPath = NO_COVER))
-        composeRule.onNodeWithText("Chapter 6 of 75").assertExists()
-        composeRule.onNodeWithText("Bridge Four").assertExists()
-        composeRule.onNodeWithText("The Way of Kings").assertExists()
-        composeRule.onNodeWithText("Brandon Sanderson").performClick()
+        val title = composeRule.onNodeWithText("The Way of Kings").fetchSemanticsNode().boundsInRoot
+        val chapter = composeRule.onNodeWithText("Bridge Four").fetchSemanticsNode().boundsInRoot
+        (title.top < chapter.top) shouldBe true
+        composeRule.onNodeWithText("Narrated by", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Chapter 6 of 75").assertDoesNotExist()
+        composeRule.onNodeWithText("Brandon Sanderson").assertDoesNotExist()
         composeRule.onNodeWithText("Kate Reading").performClick()
-        opened shouldBe listOf("a1", "n2")
+        opened shouldBe listOf("n2")
     }
 
     @Test
@@ -69,6 +72,7 @@ class PlayerBookBlockTest {
                 narrators = (1..5).map { PlayerContributor("n$it", "Narrator $it", 1) },
             ),
         )
-        composeRule.onNodeWithText("Narrator 1 & 4 more").assertExists()
+        composeRule.onNodeWithText("Narrator 1 & 4 more", substring = true).performClick()
+        narratorPickers shouldBe 1
     }
 }

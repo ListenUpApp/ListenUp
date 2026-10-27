@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.nowplaying.isBusy
+import com.calypsan.listenup.client.features.nowplaying.components.PLAYER_COVER_TAG
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSettingsRow
@@ -113,7 +114,7 @@ internal fun ReaderListeningPane(
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PlayerCover(state = state, side = PANE_COVER_SIZE)
+            PlayerCover(state = state, side = PANE_COVER_SIZE, modifier = Modifier.testTag(PLAYER_COVER_TAG))
             PlayerTitleBlock(
                 state = state,
                 onContributor = {},

@@ -410,7 +410,6 @@ private fun WideControls(
         alignment = Alignment.Start,
         titleLines = if (isShort) 1 else 2,
         showsBylines = !isShort,
-        showsCounter = !isShort,
         arrangement = if (isShort) TitleArrangement.Phone else TitleArrangement.Wide,
         onSeries = onSeries,
     )

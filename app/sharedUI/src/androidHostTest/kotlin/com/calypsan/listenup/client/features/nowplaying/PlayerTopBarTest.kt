@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.nowplaying.components.CastConnectedButton
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
@@ -48,6 +49,7 @@ class PlayerTopBarTest {
     private var collapses = 0
 
     private var source by mutableStateOf<AudioSource>(AudioSource.StreamingTranscoded)
+    private var authors by mutableStateOf(listOf(PlayerContributor("a1", "Brandon Sanderson", 14)))
 
     private fun bar(
         wide: Boolean = false,
@@ -62,6 +64,7 @@ class PlayerTopBarTest {
                             series = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
                             firstPdfDocId = "doc-1",
                             boostDb = 6f,
+                            authors = authors,
                         ),
                     onCollapse = { collapses++ },
                     onMenuItem = { picked += it },
@@ -134,17 +137,34 @@ class PlayerTopBarTest {
     }
 
     @Test
-    fun `More lists the shared rows, Go to author, the boost with its value, and no narrator row`() {
+    fun `More lists Go to author after Go to series, the boost with its value, and no narrator row`() {
         bar()
         composeRule.onNodeWithContentDescription("More options").performClick()
+        val series = composeRule.onNodeWithText("Go to series").fetchSemanticsNode().boundsInRoot
+        val author = composeRule.onNodeWithText("Go to author").fetchSemanticsNode().boundsInRoot
+        (series.bottom <= author.top) shouldBe true
         composeRule.onNodeWithText("Go to book").assertExists()
-        composeRule.onNodeWithText("Go to series").assertExists()
         composeRule.onNodeWithText("Open PDF").assertExists()
         composeRule.onNodeWithText("Volume boost · +6 dB").assertExists()
-        composeRule.onNodeWithText("Go to author").assertExists()
         composeRule.onNodeWithText("Go to narrator").assertDoesNotExist()
-        composeRule.onNodeWithText("Close book").performClick()
-        picked shouldBe listOf(PlayerMenuItem.CloseBook)
+        composeRule.onNodeWithText("Go to author").performClick()
+        picked shouldBe listOf(PlayerMenuItem.GoToAuthor("a1"))
+    }
+
+    @Test
+    fun `with several authors, Go to author… opens the author picker`() {
+        authors = listOf(PlayerContributor("a1", "Brandon Sanderson", 14), PlayerContributor("a2", "Dan Wells", 6))
+        bar()
+        composeRule.onNodeWithContentDescription("More options").performClick()
+        composeRule.onNodeWithText("Go to author…").performClick()
+        picked shouldBe listOf(PlayerMenuItem.ChooseAuthor)
+    }
+
+    @Test
+    fun `the wide bar's More has no author row, as the byline shows the authors`() {
+        bar(wide = true)
+        composeRule.onNodeWithContentDescription("More options").performClick()
+        composeRule.onNodeWithText("Go to author").assertDoesNotExist()
     }
 
     @Test
