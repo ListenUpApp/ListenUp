@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -69,6 +73,18 @@ internal class PlayerMorphState(
     /** Now Playing's Collapse, which takes focus after a keyboard open. */
     val collapseFocus: FocusRequester = FocusRequester()
 
+    /** Counts the settles that came to rest, so focus can follow each one ([MorphFocusEffect]). */
+    var settles: Int by mutableIntStateOf(0)
+        private set
+
+    /** Where the last settle came to rest. */
+    var lastSettle: MorphEnd = MorphEnd.Bar
+        private set
+
+    /** Whether a finger let the last settle go. */
+    var lastSettleWasDrag: Boolean = false
+        private set
+
     /** True while a finger holds the progress. */
     var isDragging: Boolean = false
         private set
@@ -102,24 +118,19 @@ internal class PlayerMorphState(
         velocity: Float,
     ): Job {
         isDragging = false
-        return settle(end, velocity, if (mode == MorphMode.Crossfade) null else settleSpec)
+        return settle(end, velocity, if (mode == MorphMode.Crossfade) null else settleSpec, byDrag = true)
     }
 
     /** Settle at [end] as a tap or Collapse does: the slow spatial spring opens, the default spatial spring closes. */
-    fun animateTo(end: MorphEnd): Job =
-        settle(
-            end,
-            0f,
-            if (mode ==
-                MorphMode.Crossfade
-            ) {
-                null
-            } else if (end == MorphEnd.NowPlaying) {
-                tapSpec
-            } else {
-                settleSpec
-            },
-        )
+    fun animateTo(end: MorphEnd): Job {
+        val spec =
+            when {
+                mode == MorphMode.Crossfade -> null
+                end == MorphEnd.NowPlaying -> tapSpec
+                else -> settleSpec
+            }
+        return settle(end = end, velocity = 0f, spec = spec, byDrag = false)
+    }
 
     /** Jump to [end] with no motion (a fade-through carries the change itself). */
     fun snapTo(end: MorphEnd) {
@@ -134,6 +145,7 @@ internal class PlayerMorphState(
         end: MorphEnd,
         velocity: Float,
         spec: AnimationSpec<Float>?,
+        byDrag: Boolean,
     ): Job {
         settling?.cancel()
         isInFlight = true
@@ -146,6 +158,9 @@ internal class PlayerMorphState(
                 isInFlight = false
                 backPreview = BackPreviewWeight.None
                 writeDestination(end)
+                lastSettle = end
+                lastSettleWasDrag = byDrag
+                settles++
             }
         settling = job
         return job
@@ -206,5 +221,23 @@ internal fun PlayerMorphSync(
         val end = if (isExpanded) MorphEnd.NowPlaying else MorphEnd.Bar
         if (!morph.isInFlight && morph.progress == end.progress) return@LaunchedEffect
         if (morph.entryMotion == EntryMotion.Morph) morph.animateTo(end) else morph.snapTo(end)
+    }
+}
+
+/**
+ * Focus follows a keyboard: an open that came to rest gives it to Collapse, a close gives it back to the bar's open
+ * target (canvas `Edges`, never stranded). A drag in touch mode moves no input focus.
+ */
+@Composable
+internal fun MorphFocusEffect(morph: PlayerMorphState) {
+    val inputMode = LocalInputModeManager.current
+    val settles = morph.settles
+    LaunchedEffect(morph, settles) {
+        if (settles == 0 || morph.lastSettleWasDrag || inputMode.inputMode != InputMode.Keyboard) return@LaunchedEffect
+        // A frame for the destination's recomposition: the bar takes focus only once Now Playing has left it.
+        withFrameNanos {}
+        withFrameNanos {}
+        val target = if (morph.lastSettle == MorphEnd.NowPlaying) morph.collapseFocus else morph.barFocus
+        target.requestFocus()
     }
 }

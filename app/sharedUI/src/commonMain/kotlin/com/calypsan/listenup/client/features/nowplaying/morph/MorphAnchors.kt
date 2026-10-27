@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -132,4 +133,18 @@ internal fun Modifier.morphSheet(): Modifier {
 internal fun Modifier.morphNavigationBar(): Modifier {
     val morph = LocalPlayerMorph.current ?: return this
     return onSizeChanged { morph.anchors.navigationHeightPx = it.height.toFloat() }
+}
+
+/** Where focus returns when Now Playing closes from a keyboard: the bar's open target. */
+@Composable
+internal fun Modifier.morphBarFocus(): Modifier {
+    val morph = LocalPlayerMorph.current ?: return this
+    return focusRequester(morph.barFocus)
+}
+
+/** Where focus lands when Now Playing opens from a keyboard: Collapse. */
+@Composable
+internal fun Modifier.morphCollapseFocus(): Modifier {
+    val morph = LocalPlayerMorph.current ?: return this
+    return focusRequester(morph.collapseFocus)
 }

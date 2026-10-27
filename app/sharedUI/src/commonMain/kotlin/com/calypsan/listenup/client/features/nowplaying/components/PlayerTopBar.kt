@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.features.nowplaying.morph.morphCollapseFocus
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -133,6 +134,7 @@ private fun CompactTopBar(
                 haptics.press()
                 onCollapse()
             },
+            modifier = Modifier.morphCollapseFocus(),
         ) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
         }

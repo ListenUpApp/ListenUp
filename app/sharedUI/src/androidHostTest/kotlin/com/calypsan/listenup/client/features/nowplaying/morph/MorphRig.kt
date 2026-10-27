@@ -59,8 +59,10 @@ internal class MorphRig(
         state: PlayerUiState.Loaded,
         reduceMotion: Boolean = false,
         haptics: Haptics? = null,
+        probeInputMode: @Composable () -> Unit = {},
     ) {
         composeRule.setContent {
+            probeInputMode()
             val probe: (String) -> Unit = { compositions[it] = (compositions[it] ?: 0) + 1 }
             CompositionLocalProvider(LocalReduceMotion provides reduceMotion, LocalCompositionProbe provides probe) {
                 MaterialTheme {

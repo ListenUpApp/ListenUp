@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.features.nowplaying.morph.morphBarFocus
 import com.calypsan.listenup.client.features.nowplaying.morph.dragToOpen
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
@@ -266,6 +267,7 @@ internal fun RowScope.MiniBody(
                 .weight(1f)
                 .heightIn(min = MinTouchTarget)
                 .clip(MaterialTheme.shapes.medium)
+                .morphBarFocus()
                 .clickable(
                     onClickLabel = stringResource(Res.string.player_mini_open),
                     role = Role.Button,

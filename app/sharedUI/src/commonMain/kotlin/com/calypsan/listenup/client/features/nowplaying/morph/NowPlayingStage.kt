@@ -98,7 +98,10 @@ internal fun BoxScope.NowPlayingStage(
     visibility: MutableTransitionState<Boolean>,
     player: @Composable (PlayerUiState.Loaded) -> Unit,
 ) {
-    if (morph != null) PlayerMorphSync(morph = morph, isExpanded = isExpanded, entryMotion = entryMotion)
+    if (morph != null) {
+        PlayerMorphSync(morph = morph, isExpanded = isExpanded, entryMotion = entryMotion)
+        MorphFocusEffect(morph)
+    }
     val morphs = morph != null && entryMotion == EntryMotion.Morph
     val morphShowsPlayer = morph != null && rememberMorphShowsPlayer(morph)
     val motion = MaterialTheme.motionScheme
