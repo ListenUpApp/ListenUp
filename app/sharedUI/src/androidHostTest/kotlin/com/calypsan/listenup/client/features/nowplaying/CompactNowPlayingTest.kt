@@ -4,6 +4,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -60,14 +62,19 @@ class CompactNowPlayingTest {
     }
 
     @Test
-    fun `playing - the transport, the scrubber with the book sentence, the settings row, and the pane title`() {
+    fun `playing - the transport, the scrubber, the settings row, and the pane title`() {
         screen(loadedPlayerState(coverPath = NO_COVER))
         composeRule.onNodeWithContentDescription("Pause").assertExists()
-        composeRule.onNodeWithText("Book 10% · 40h 30m left").assertExists()
         composeRule.onNodeWithText("1.0×").assertExists()
         composeRule
             .onNode(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Now playing"))
             .assertExists()
+    }
+
+    @Test
+    fun `under the scrubber only the chapter's times - no book sentence`() {
+        screen(loadedPlayerState(coverPath = NO_COVER))
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
     }
 
     @Test

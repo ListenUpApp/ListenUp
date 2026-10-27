@@ -22,7 +22,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCard
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTitleBlock
@@ -163,7 +162,6 @@ internal fun TabletopNowPlaying(
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = controlsWidth,
-                center = { BookSentence(progress) },
             )
             if (card != null) {
                 PlayerStateCard(card = card, onAction = onCardAction, onRate = onRate, modifier = controlsWidth)

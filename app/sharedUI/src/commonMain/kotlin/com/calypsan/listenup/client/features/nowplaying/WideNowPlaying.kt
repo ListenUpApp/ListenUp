@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.NowPlayingChapterPanel
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
@@ -378,7 +377,7 @@ private fun CoverBesideControls(
 }
 
 /**
- * The controls: the title block, the scrubber with the book sentence, and the transport or the state card in its place
+ * The controls: the title block, the scrubber, and the transport or the state card in its place
  * (C5). Under the wide header the book takes the board's order, the series a link above the title
  * ([TitleArrangement.Wide]). When [isShort] (a phone on its side, under the phone bar) the title drops to one line, the
  * counter and the bylines go (the cover and the More menu still lead to the book), and the play button shrinks to 64 dp.
@@ -423,7 +422,6 @@ private fun WideControls(
         isBusy = state.isBusy || card is PlayerCard.Problem,
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),
-        center = { BookSentence(progress) },
     )
 
     Spacer(Modifier.height(if (isShort) 8.dp else 24.dp))

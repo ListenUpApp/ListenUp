@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -58,6 +60,13 @@ class ReaderListeningPaneTest {
         val pane = composeRule.onNodeWithTag(READER_LISTENING_PANE_TAG).getUnclippedBoundsInRoot()
         pages.right shouldBeLessThanOrEqualTo pane.left
         pane.right - pane.left shouldBe 360.dp
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `under the pane's scrubber only the chapter's times - no book sentence`() {
+        setContent({ Fold.None })
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
     }
 
     @Test

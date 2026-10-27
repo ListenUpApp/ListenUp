@@ -7,6 +7,8 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -60,6 +62,12 @@ class TabletopNowPlayingTest {
         skipForward.top shouldBeGreaterThanOrEqualTo 424.dp
         chapters.top shouldBeGreaterThanOrEqualTo 424.dp
         chapters.bottom shouldBeLessThanOrEqualTo WINDOW_HEIGHT
+    }
+
+    @Test
+    fun `under the scrubber only the chapter's times - no book sentence`() {
+        setContent(hingeTop = 400.dp, hingeBottom = 424.dp)
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
     }
 
     @Test

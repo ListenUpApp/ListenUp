@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerBookBlock
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import io.kotest.matchers.shouldBe
@@ -14,7 +13,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** P4–P9 and the book sentence (§3.1–§3.2). */
+/** P4–P9 (§3.1–§3.2). */
 @Config(qualifiers = "w412dp-h915dp")
 @RunWith(RobolectricTestRunner::class)
 class PlayerBookBlockTest {
@@ -71,12 +70,5 @@ class PlayerBookBlockTest {
             ),
         )
         composeRule.onNodeWithText("Narrator 1 & 4 more").assertExists()
-    }
-
-    @Test
-    fun `the book sentence floors the percent and states content time left`() {
-        composeRule.setContent { MaterialTheme { BookSentence(progress = { samplePlayerProgress }) } }
-        // 18,000,000 of 163,800,000 ms = 10.99% → 10; 145,800,000 ms left = 40h 30m.
-        composeRule.onNodeWithText("Book 10% · 40h 30m left").assertExists()
     }
 }

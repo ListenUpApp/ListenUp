@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.isBusy
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
@@ -129,7 +128,6 @@ internal fun ReaderListeningPane(
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = actions.onSeek,
                 modifier = Modifier.fillMaxWidth(),
-                center = { BookSentence(progress) },
             )
             if (card != null) {
                 PlayerStateCard(

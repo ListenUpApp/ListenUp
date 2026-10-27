@@ -51,8 +51,7 @@ private const val BYLINE_FOLD_LIMIT = 3
 
 /**
  * Now Playing's book (spec §3.1.1, P4–P9): the flat square cover, the "Chapter 6 of 75" counter, the chapter's own
- * title, the book title, and both bylines with every name a link. The book sentence is not here: it sits between the
- * scrubber's times, a progress leaf.
+ * title, the book title, and both bylines with every name a link.
  */
 @Composable
 fun PlayerBookBlock(

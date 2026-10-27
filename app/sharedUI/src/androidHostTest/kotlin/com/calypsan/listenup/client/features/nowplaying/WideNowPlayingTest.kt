@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.features.nowplaying
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -84,6 +86,12 @@ class WideNowPlayingTest {
         composeRule.onNodeWithText("Downloaded").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("More options").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Collapse player").assertIsDisplayed()
+    }
+
+    @Test
+    fun `under the scrubber only the chapter's times - no book sentence`() {
+        wide()
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
     }
 
     @Test
