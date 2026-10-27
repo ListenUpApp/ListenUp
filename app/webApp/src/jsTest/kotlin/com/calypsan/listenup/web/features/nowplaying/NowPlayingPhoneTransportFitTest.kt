@@ -52,7 +52,7 @@ class NowPlayingPhoneTransportFitTest :
                         .filter {
                             it.getBoundingClientRect().right > edge + 0.5
                         }.map { "${it.tagName}.${it.getAttribute("class")}@${it.getBoundingClientRect().right}" }
-                withClue(past.take(12)) { (root.scrollWidth - root.clientWidth) shouldBe 0 }
+                withClue(past.take(12)) { root.scrollWidth - root.clientWidth shouldBe 0 }
             }
         }
     })
