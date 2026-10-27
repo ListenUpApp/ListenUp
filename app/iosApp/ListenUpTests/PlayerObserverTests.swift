@@ -241,7 +241,9 @@ extension PlayerUiStateLoaded {
         chapterDurationMs: Int64 = 60_000,
         speed: Float = 1.5,
         defaultSpeed: Float = 1.0,
-        numberOffset: Int = 0
+        numberOffset: Int = 0,
+        title: String = "The Way of Kings",
+        authors: [PlayerContributor] = [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)]
     ) -> PlayerUiStateLoaded {
         let total = wholeBook ? 1 : chapterCount
         let bookMs = Int64(chapterCount) * chapterDurationMs
@@ -253,8 +255,8 @@ extension PlayerUiStateLoaded {
         }
         return PlayerUiStateLoaded(
             book: PlayerBook(
-                id: "book-1", title: "The Way of Kings",
-                authors: [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)],
+                id: "book-1", title: title,
+                authors: authors,
                 narrators: narrators,
                 coverPath: nil, coverHash: nil,
                 series: [PlayerSeriesRef(id: "series-1", name: "The Stormlight Archive", sequenceLabel: "1")],

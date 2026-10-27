@@ -155,7 +155,8 @@ struct PlayerSnapshot: Equatable {
     var card: PlayerCardModel?
     /// The More menu (§5.5.7), from the shared builder.
     var menu: [PlayerMenuSection] = []
-    /// The same menu where the series is already a link on screen (iPad's wide player, P10): no Go to Series.
+    /// The same menu where the series and the authors are already links on screen (iPad's wide player, P10): no Go to
+    /// Series, no Go to Author.
     var menuWithoutSeries: [PlayerMenuSection] = []
     /// Now Playing closes: nothing is loaded, or the book was revoked (§5.6).
     var closesNowPlaying = false
@@ -194,8 +195,8 @@ struct PlayerSnapshot: Equatable {
         snapshot.applySleepTimer(loaded.sleepTimer)
         snapshot.applySource(loaded.source, status: loaded.status)
         snapshot.card = PlayerCards.shared.of(state: loaded).map(PlayerCardModel.init)
-        snapshot.menu = PlayerMenuModel.sections(for: loaded, includesSeries: true)
-        snapshot.menuWithoutSeries = PlayerMenuModel.sections(for: loaded, includesSeries: false)
+        snapshot.menu = PlayerMenuModel.sections(for: loaded, includesSeries: true, includesAuthor: true)
+        snapshot.menuWithoutSeries = PlayerMenuModel.sections(for: loaded, includesSeries: false, includesAuthor: false)
         snapshot.closesNowPlaying = PlayerCards.shared.closesNowPlaying(state: loaded)
         return snapshot
     }

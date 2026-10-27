@@ -8,9 +8,10 @@ struct BylineMenuRow: Equatable, Identifiable {
     let books: String?
 }
 
-/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` and `NP-iPad` boards): on iPad's wide player the
-/// series as a link above the title (P10), then the book's title, the author and "Read by"
-/// line whose names are links, then the chapter line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
+/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` and `NP-iPad` boards). On iPhone (`.phone`) three
+/// centred lines: the title, the chapter's own title and who narrates it. On iPad's wide player the series as a link
+/// above the title (P10), then the book's title, the author and "Read by" line whose names are links, then the chapter
+/// line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
 /// Pull-down buttons: a menu for a navigation choice). Titles wrap rather than truncate as text grows (HIG,
 /// Typography: "aim to display as much useful text at the largest accessibility font size as you do at the largest
 /// standard size").
@@ -28,8 +29,11 @@ struct NowPlayingTitleBlock: View {
 
     /// How much of the title block shows.
     enum Form {
-        /// Title, bylines and chapter line, leading.
+        /// iPad's wide player: the series, title, bylines and chapter line, leading.
         case full
+        /// The iPhone's three lines, centred on the cover (Simon, 2026-10-27): the bold title, the chapter's own title,
+        /// and the mic with "Narrated by …". The authors are in More.
+        case phone
         /// One line each of title and chapter, centred, no bylines: read at a distance on a tabletop fold's standing
         /// half, as Android's tabletop player does.
         case oneLine
@@ -47,6 +51,11 @@ struct NowPlayingTitleBlock: View {
         guard !title.isEmpty else { return String(format: String(localized: "player.chapter_number"), number) }
         guard showsCounter else { return title }
         return String(format: String(localized: "player.chapter_of"), "\(number)", "\(total)") + " · " + title
+    }
+
+    /// The phone's chapter line: the chapter's own title, with no counter; "Chapter 6" untitled; "Whole Book" chapterless.
+    static func phoneChapterLine(number: Int, title: String, isWholeBook: Bool) -> String {
+        chapterLine(number: number, total: number, title: title, showsCounter: false, isWholeBook: isWholeBook)
     }
 
     /// "The Stormlight Archive · Book 1", or the series alone when the book has no place in it.
@@ -79,6 +88,87 @@ struct NowPlayingTitleBlock: View {
     }
 
     var body: some View {
+        if form == .phone { phoneBlock } else { block }
+    }
+
+    /// The iPhone's block: three centred lines, the title the screen's heading.
+    private var phoneBlock: some View {
+        VStack(alignment: .center, spacing: 6) {
+            Text(observer.bookTitle)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                .accessibilityAddTraits(.isHeader)
+            Text(Self.phoneChapterLine(
+                number: observer.chapterIndex + 1,
+                title: observer.chapterTitle ?? "",
+                isWholeBook: observer.isWholeBook
+            ))
+            .font(.subheadline)
+            .foregroundStyle(Color.luOnWashSecondary)
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            narratedBy(observer.narrators)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The mic and "Narrated by", then each narrator a link; more than three fold to a menu of them. One row, centred,
+    /// that stacks its names under the lead when the text is too large for one line.
+    @ViewBuilder
+    private func narratedBy(_ people: [ContributorNavRef]) -> some View {
+        if !people.isEmpty {
+            let lead = Label(String(localized: "book.detail_narrated_by"), systemImage: "music.mic")
+                .font(.subheadline)
+                .foregroundStyle(Color.luOnWashSecondary)
+                .labelStyle(.titleAndIcon)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) {
+                    lead
+                    narratorNames(people)
+                }
+                VStack(spacing: 2) {
+                    lead
+                    narratorNames(people)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func narratorNames(_ people: [ContributorNavRef]) -> some View {
+        if let folded = Self.folded(people) {
+            Menu {
+                Section(Self.menuHeader(isAuthors: false)) {
+                    ForEach(Self.menuRows(people)) { row in
+                        Button { onViewContributor(row.id) } label: {
+                            Text(row.name)
+                            if let books = row.books { Text(books) }
+                        }
+                    }
+                }
+            } label: {
+                link(folded, isAuthor: false)
+            }
+        } else {
+            HStack(spacing: 4) {
+                ForEach(Array(people.enumerated()), id: \.element.id) { offset, person in
+                    Button { onViewContributor(person.id) } label: {
+                        link(person.name + Self.separator(after: offset, of: people.count), isAuthor: false)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(person.name)
+                    .accessibilityAddTraits(.isLink)
+                }
+            }
+        }
+    }
+
+    /// iPad's block (`.full`) and the tabletop and PDF pane's (`.oneLine`).
+    @ViewBuilder
+    private var block: some View {
         let isLarge = dynamicTypeSize.isAccessibilitySize
         let isOneLine = form == .oneLine
         VStack(alignment: isOneLine ? .center : .leading, spacing: 3) {
