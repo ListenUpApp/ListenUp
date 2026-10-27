@@ -211,23 +211,33 @@ class HomeSlotRulesTest :
             }
         }
 
-        context("Also in progress (spec §2.5)") {
+        context("Everything in progress") {
             val cl = listOf(ready("a"), ready("b"), ready("c"))
 
-            test("leaves out the loaded book") {
-                alsoInProgressOf(cl, loaded("b"), SlotKind.Absent).map { it.bookId } shouldBe listOf("a", "c")
+            test("puts the loaded book first and keeps the rest in their order") {
+                everythingInProgressOf(cl, loaded("b"), SlotKind.Absent).map { it.bookId } shouldBe listOf("b", "a", "c")
             }
 
-            test("leaves out the Resume book") {
-                alsoInProgressOf(cl, LoadedKey.NothingLoaded, SlotKind.Resume("a")).map { it.bookId } shouldBe listOf("b", "c")
+            test("a loaded book that is already first stays first") {
+                everythingInProgressOf(cl, loaded("a"), SlotKind.Absent).map { it.bookId } shouldBe listOf("a", "b", "c")
             }
 
-            test("is empty when the only book in progress is loaded") {
-                alsoInProgressOf(listOf(ready("a")), loaded("a"), SlotKind.Absent) shouldBe emptyList()
+            test("a loaded book that is not in progress is not added") {
+                everythingInProgressOf(cl, loaded("done"), SlotKind.JustFinished("done")).map { it.bookId } shouldBe
+                    listOf("a", "b", "c")
             }
 
-            test("beside a just-finished card it leaves out only the loaded book") {
-                alsoInProgressOf(cl, loaded("c"), SlotKind.JustFinished("done")).map { it.bookId } shouldBe listOf("a", "b")
+            test("with nothing loaded, the Resume book is in the list, first") {
+                everythingInProgressOf(cl, LoadedKey.NothingLoaded, SlotKind.Resume("a")).map { it.bookId } shouldBe
+                    listOf("a", "b", "c")
+            }
+
+            test("the only book in progress, loaded, is the whole list") {
+                everythingInProgressOf(listOf(ready("a")), loaded("a"), SlotKind.Absent).map { it.bookId } shouldBe listOf("a")
+            }
+
+            test("when the Resume book is the only book in progress the list is empty: the hero is the whole story") {
+                everythingInProgressOf(listOf(ready("a")), LoadedKey.NothingLoaded, SlotKind.Resume("a")) shouldBe emptyList()
             }
         }
 

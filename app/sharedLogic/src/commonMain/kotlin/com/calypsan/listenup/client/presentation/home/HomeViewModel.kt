@@ -78,8 +78,11 @@ sealed interface HomeUiState {
         val firstName: String?,
         /** The one slot under the greeting (spec §2.2), held per §2.1. */
         val slot: HomeSlot,
-        /** Continue Listening without the loaded book and the slot's book (spec §2.5). */
-        val alsoInProgress: List<ContinueListeningItem>,
+        /**
+         * Continue Listening, the loaded book first (Home's Everything in progress). Empty while the Resume hero's book
+         * is the only one.
+         */
+        val everythingInProgress: List<ContinueListeningItem>,
         /** Whether this device and the server can be reached (spec §3.1). */
         val connectivity: HomeConnectivity,
         /**
@@ -94,6 +97,10 @@ sealed interface HomeUiState {
          */
         val isOffline: Boolean
             get() = connectivity != HomeConnectivity.Online
+
+        /** The Resume hero's one-book variant: the hero shows and no other book is in progress (a larger, centred cover). */
+        val isOnlyBookInProgress: Boolean
+            get() = slot is HomeSlot.Resume && everythingInProgress.isEmpty()
 
         /** Whether Home shows the library-arriving strip above the slot (spec H5): arriving, or a scan is running. */
         val showsArrivalStrip: Boolean
@@ -241,7 +248,7 @@ class HomeViewModel internal constructor(
                         // A failed read leaves Continue Listening empty, which the slot rules would read as a new
                         // listener or nothing in progress. The slot is the failure instead (spec §3.3).
                         slot = if (read.error == null) slotState.slot else HomeSlot.Absent,
-                        alsoInProgress = if (read.error == null) slotState.alsoInProgress else emptyList(),
+                        everythingInProgress = if (read.error == null) slotState.everythingInProgress else emptyList(),
                         connectivity = shell.connectivity,
                         continueListeningError = read.error,
                     )

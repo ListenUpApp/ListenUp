@@ -77,7 +77,7 @@ fun HomePage(
                         isOffline = state.isOffline,
                         continueListeningFailed = state.continueListeningError != null,
                         showsStrip = state.showsArrivalStrip,
-                        hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+                        hasAlsoInProgress = state.everythingInProgress.isNotEmpty(),
                         isWide = isWide,
                     )
                 blocks.forEach { block ->
@@ -144,7 +144,7 @@ private fun HomeBlockContent(
         }
 
         HomeBlock.AlsoInProgress -> {
-            AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
+            AlsoInProgress(state.everythingInProgress, isWide, actions, selection)
         }
 
         HomeBlock.Stats -> {
@@ -173,7 +173,7 @@ private fun SlotContent(
 ) {
     when (val slot = state.slot) {
         is HomeSlot.Resume -> {
-            ResumeHero(slot, state.alsoInProgress.isEmpty(), nowMs, actions.onOpenBook, actions.onPlay)
+            ResumeHero(slot, state.isOnlyBookInProgress, nowMs, actions.onOpenBook, actions.onPlay)
         }
 
         is HomeSlot.JustFinished -> {

@@ -100,7 +100,7 @@ internal fun readyHome(
     continueListeningError: AppError? = null,
     timeOfDay: TimeOfDay = TimeOfDay.Afternoon,
     firstName: String? = "Simon",
-    alsoInProgress: List<ContinueListeningItem> = emptyList(),
+    everythingInProgress: List<ContinueListeningItem> = emptyList(),
 ): HomeUiState.Ready =
     HomeUiState.Ready(
         myShelves = myShelves,
@@ -111,7 +111,7 @@ internal fun readyHome(
         timeOfDay = timeOfDay,
         firstName = firstName,
         slot = slot,
-        alsoInProgress = alsoInProgress,
+        everythingInProgress = everythingInProgress,
         connectivity = connectivity,
         continueListeningError = continueListeningError,
     )

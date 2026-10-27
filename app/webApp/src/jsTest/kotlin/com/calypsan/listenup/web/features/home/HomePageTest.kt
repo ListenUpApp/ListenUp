@@ -86,7 +86,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        alsoInProgress = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
+                        everythingInProgress = listOf(continuing("b1", "The Institute", progress = 0.5f, totalHours = 10)),
                     ),
                 )
 
@@ -101,7 +101,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(
-                        alsoInProgress =
+                        everythingInProgress =
                             listOf(
                                 continuing("b1", "The Institute"),
                                 ContinueListeningItem.Loading("b2"),
@@ -117,7 +117,7 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                    readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                     actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
@@ -130,7 +130,7 @@ class HomePageTest :
             var opened: String? = null
             val host =
                 homePage(
-                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                    readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                     actions = HomeActions.None.copy(onOpenBook = { opened = it }),
                 )
 
@@ -141,7 +141,7 @@ class HomePageTest :
 
         test("Also in progress names each card once, with author, percent and time left (§2.5, §8.2)") {
             val host =
-                homePage(readyHome(alsoInProgress = listOf(continuing("b1", "Babel", progress = 0.11f, totalHours = 21))))
+                homePage(readyHome(everythingInProgress = listOf(continuing("b1", "Babel", progress = 0.11f, totalHours = 21))))
             val card = host.querySelector(".home-card") as HTMLElement
             card.getAttribute("aria-label") shouldBe "Babel, by A. Writer, 11% listened, 18h 41m left"
             card.querySelector(".home-card-a")?.textContent shouldBe "A. Writer"
@@ -152,7 +152,7 @@ class HomePageTest :
             var opened = false
             val host =
                 homePage(
-                    readyHome(alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(everythingInProgress = listOf(continuing("b1", "Babel"))),
                     actions = HomeActions.None.copy(onOpenInProgress = { opened = true }),
                 )
             host.textOf(".home-also-h") shouldBe "Also in progress"
@@ -162,17 +162,17 @@ class HomePageTest :
 
         test("only a wide page says who reads each book") {
             val narrated = continuing("b1", "Babel", narrators = "Chris Lew Kum Hoi")
-            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = true).textOf(".home-card-n") shouldBe
+            homePage(readyHome(everythingInProgress = listOf(narrated)), isWide = true).textOf(".home-card-n") shouldBe
                 "Read by Chris Lew Kum Hoi"
-            homePage(readyHome(alsoInProgress = listOf(narrated)), isWide = false).count(".home-card-n") shouldBe 0
+            homePage(readyHome(everythingInProgress = listOf(narrated)), isWide = false).count(".home-card-n") shouldBe 0
         }
 
         test("a loaded book's absence means no Also in progress section at all") {
-            homePage(readyHome(alsoInProgress = emptyList())).count(".home-also") shouldBe 0
+            homePage(readyHome(everythingInProgress = emptyList())).count(".home-also") shouldBe 0
         }
 
         test("at most six cards") {
-            homePage(readyHome(alsoInProgress = (1..9).map { continuing("b$it", "Book $it") })).count(".home-card") shouldBe 6
+            homePage(readyHome(everythingInProgress = (1..9).map { continuing("b$it", "Book $it") })).count(".home-card") shouldBe 6
         }
 
         // ── the blocks (§2.1, §3.4) ─────────────────────────────────────────────
@@ -180,7 +180,7 @@ class HomePageTest :
         test("nothing loaded on a wide page sets Resume beside the stats, before Also in progress (§3.4)") {
             val host =
                 homePage(
-                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(slot = resumeSlot("wok"), everythingInProgress = listOf(continuing("b1", "Babel"))),
                     stats = weekStats(),
                     isWide = true,
                 )
@@ -195,7 +195,7 @@ class HomePageTest :
         test("a phone keeps the fixed order: Resume, Also in progress, stats, shelves") {
             val host =
                 homePage(
-                    readyHome(slot = resumeSlot("wok"), alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(slot = resumeSlot("wok"), everythingInProgress = listOf(continuing("b1", "Babel"))),
                     stats = weekStats(),
                 )
             host.count(".home-row") shouldBe 0
@@ -214,7 +214,7 @@ class HomePageTest :
         test("a loaded book on a wide page sets stats beside shelves after Also in progress") {
             val host =
                 homePage(
-                    readyHome(slot = HomeSlot.Absent, alsoInProgress = listOf(continuing("b1", "Babel"))),
+                    readyHome(slot = HomeSlot.Absent, everythingInProgress = listOf(continuing("b1", "Babel"))),
                     stats = weekStats(),
                     isWide = true,
                 )
@@ -234,7 +234,7 @@ class HomePageTest :
         test("nothing in progress offers a way into the library") {
             var opened = false
             homePage(
-                readyHome(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
+                readyHome(slot = HomeSlot.NothingInProgress(candidate = null), everythingInProgress = emptyList()),
                 actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
             ).buttonsLabelled("Browse the Library").single().click()
             opened shouldBe true
@@ -259,7 +259,7 @@ class HomePageTest :
         test("Select in the Also in progress header starts selecting, and hides while selecting (H16)") {
             var started = false
             val idle = BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = {}, onStart = { started = true })
-            homePage(readyHome(alsoInProgress = listOf(continuing("babel", "Babel"))), selection = idle)
+            homePage(readyHome(everythingInProgress = listOf(continuing("babel", "Babel"))), selection = idle)
                 .buttonsLabelled("Select")
                 .single()
                 .click()
@@ -267,7 +267,7 @@ class HomePageTest :
 
             val page =
                 homePage(
-                    readyHome(alsoInProgress = listOf(continuing("babel", "Babel"), continuing("dcc", "DCC"))),
+                    readyHome(everythingInProgress = listOf(continuing("babel", "Babel"), continuing("dcc", "DCC"))),
                     selection = selecting(selected = setOf("babel")),
                 )
             page.querySelectorAll("[role=checkbox]").asList().map { (it as HTMLElement).getAttribute("aria-checked") } shouldBe
@@ -276,7 +276,7 @@ class HomePageTest :
         }
 
         test("a Home that cannot select offers no Select") {
-            homePage(readyHome(alsoInProgress = listOf(continuing("babel", "Babel")))).buttonsLabelled("Select").size shouldBe
+            homePage(readyHome(everythingInProgress = listOf(continuing("babel", "Babel")))).buttonsLabelled("Select").size shouldBe
                 0
         }
 
@@ -427,7 +427,7 @@ class HomePageTest :
         test("failing stats do not take the rest of Home down with them") {
             val host =
                 homePage(
-                    readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                    readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                     stats = HomeStatsUiState.Error(isRetryable = true),
                 )
 
@@ -706,6 +706,6 @@ private fun selecting(
 ) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
 
 /** A Home with exactly one Continue Listening card, which is what the selection specs press. */
-private fun withOneBook() = readyHome(alsoInProgress = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
+private fun withOneBook() = readyHome(everythingInProgress = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))
 
 private const val CONTINUE_BOOK_ID = "b7"

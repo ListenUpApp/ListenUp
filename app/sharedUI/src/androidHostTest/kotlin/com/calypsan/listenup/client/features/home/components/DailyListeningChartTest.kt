@@ -55,7 +55,7 @@ class DailyListeningChartTest {
                 density = LocalDensity.current
                 MaterialTheme {
                     HomeBody(
-                        state = homeReady(slot = HomeSlot.Absent, alsoInProgress = emptyList()),
+                        state = homeReady(slot = HomeSlot.Absent, everythingInProgress = emptyList()),
                         stats = weekWithStreak(),
                         width = HomeWidth.Compact,
                         actions = HomeActions.None,

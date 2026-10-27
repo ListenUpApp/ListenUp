@@ -1253,13 +1253,13 @@ class ClassContractTest :
                             HomeActions.None,
                         )
                         HomePage(
-                            readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                            readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
                             HomeActions.None,
                         )
                         // A slot whose book has not synced yet — the skeleton card's own classes.
                         HomePage(
-                            readyHome(alsoInProgress = listOf(ContinueListeningItem.Loading("b2"))),
+                            readyHome(everythingInProgress = listOf(ContinueListeningItem.Loading("b2"))),
                             weekStats(),
                             HomeActions.None,
                         )
@@ -1280,7 +1280,7 @@ class ClassContractTest :
                         // interim empty state; and a private shelf with its lock and mosaic.
                         HomePage(readyHome(slot = resumeSlot("wok")), weekStats(), HomeActions.None)
                         HomePage(
-                            readyHome(slot = resumeSlot("wok", canPlay = false), alsoInProgress = emptyList()),
+                            readyHome(slot = resumeSlot("wok", canPlay = false), everythingInProgress = emptyList()),
                             weekStats(),
                             HomeActions.None,
                             isWide = true,

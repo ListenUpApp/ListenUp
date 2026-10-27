@@ -216,7 +216,7 @@ class HomeViewModelTest :
                 val viewModel = fixture.build().also { keepStateHot(it) }
                 advanceUntilIdle()
                 val initial = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                initial.alsoInProgress.isEmpty() shouldBe true
+                initial.everythingInProgress.isEmpty() shouldBe true
 
                 // When - flow emits new data
                 val items =
@@ -230,12 +230,12 @@ class HomeViewModelTest :
                 // Then - state should update reactively
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
                 ready.isLoading shouldBe false
-                ready.alsoInProgress.size shouldBe 2
-                (ready.alsoInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "Book 1"
+                ready.everythingInProgress.size shouldBe 2
+                (ready.everythingInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "Book 1"
             }
         }
 
-        test("Also in progress updates reactively when a new book is played") {
+        test("Everything in progress updates reactively when a new book is played") {
             runTest {
                 // Given - start with one book, and a loaded book that is not in the list
                 val fixture = createFixture()
@@ -248,7 +248,7 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .alsoInProgress.size shouldBe 1
+                    .everythingInProgress.size shouldBe 1
 
                 // When - new book is played (Flow emits updated list)
                 fixture.continueListeningFlow.value =
@@ -260,8 +260,8 @@ class HomeViewModelTest :
 
                 // Then - UI updates immediately without manual refresh
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.alsoInProgress.size shouldBe 2
-                (ready.alsoInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "New Book"
+                ready.everythingInProgress.size shouldBe 2
+                (ready.everythingInProgress[0] as ContinueListeningItem.Ready).book.title shouldBe "New Book"
             }
         }
 
@@ -448,14 +448,14 @@ class HomeViewModelTest :
                 advanceUntilIdle()
                 viewModel.state.value
                     .shouldBeInstanceOf<HomeUiState.Ready>()
-                    .alsoInProgress
+                    .everythingInProgress
                     .isEmpty() shouldBe true
 
                 viewModel.refresh()
                 advanceUntilIdle()
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
-                ready.alsoInProgress.map { it.bookId } shouldBe listOf("book-1")
+                ready.everythingInProgress.map { it.bookId } shouldBe listOf("book-1")
             }
         }
 
@@ -666,7 +666,7 @@ class HomeViewModelTest :
                 ready.slot
                     .shouldBeInstanceOf<HomeSlot.Resume>()
                     .book.bookId shouldBe "a"
-                ready.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                ready.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
                 ready.timeOfDay shouldBe TimeOfDay.Morning
                 ready.firstName shouldBe "John"
                 ready.connectivity shouldBe HomeConnectivity.Online
@@ -674,7 +674,7 @@ class HomeViewModelTest :
             }
         }
 
-        test("a loaded book leaves no slot and is not on the rail") {
+        test("a loaded book leaves no slot and leads the rail") {
             runTest {
                 val fixture = createFixture()
                 fixture.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"), createReadyItem(bookId = "b"))
@@ -684,7 +684,32 @@ class HomeViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
                 ready.slot shouldBe HomeSlot.Absent
-                ready.alsoInProgress.map { it.bookId } shouldBe listOf("a")
+                ready.everythingInProgress.map { it.bookId } shouldBe listOf("b", "a")
+                ready.isOnlyBookInProgress shouldBe false
+            }
+        }
+
+        test("the hero is the only-book variant exactly when no other book is in progress") {
+            runTest {
+                val one = createFixture()
+                one.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"))
+                one.rig.play("a", hoursAgo = 1)
+                val alone = one.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                val onlyBook = alone.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                onlyBook.slot.shouldBeInstanceOf<HomeSlot.Resume>()
+                onlyBook.isOnlyBookInProgress shouldBe true
+                onlyBook.everythingInProgress shouldBe emptyList()
+
+                val two = createFixture()
+                two.continueListeningFlow.value = listOf(createReadyItem(bookId = "a"), createReadyItem(bookId = "b"))
+                two.rig.play("a", hoursAgo = 1)
+                two.rig.play("b", hoursAgo = 2)
+                val both = two.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                val twoBooks = both.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
+                twoBooks.isOnlyBookInProgress shouldBe false
+                twoBooks.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
             }
         }
 
@@ -835,7 +860,7 @@ class HomeViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<HomeUiState.Ready>()
                 ready.slot shouldBe HomeSlot.Absent
-                ready.alsoInProgress shouldBe emptyList()
+                ready.everythingInProgress shouldBe emptyList()
             }
         }
 

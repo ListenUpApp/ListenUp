@@ -64,7 +64,7 @@ internal fun HomeBody(
             isOffline = state.isOffline,
             continueListeningFailed = state.continueListeningError != null,
             showsStrip = state.showsArrivalStrip,
-            hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+            hasAlsoInProgress = state.everythingInProgress.isNotEmpty(),
             width = width,
         ).forEach { block ->
             HomeBlockContent(
@@ -127,7 +127,7 @@ private fun HomeBlockContent(
 
         HomeBlock.AlsoInProgress -> {
             AlsoInProgressSection(
-                items = state.alsoInProgress,
+                items = state.everythingInProgress,
                 width = width,
                 selection = selection,
                 onOpenBook = actions.onOpenBook,
@@ -201,7 +201,7 @@ private fun ResumeHero(
     val resume = state.slot as? HomeSlot.Resume ?: return
     HomeResumeHero(
         resume = resume,
-        isOnlyBook = state.alsoInProgress.isEmpty(),
+        isOnlyBook = state.isOnlyBookInProgress,
         onOpenBook = actions.onOpenBook,
         onResume = actions.onPlay,
         modifier = modifier,

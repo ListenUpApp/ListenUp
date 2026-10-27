@@ -41,7 +41,7 @@ class HomeTabletGeometryTest {
                         state =
                             homeReady(
                                 slot = HomeSlot.Absent,
-                                alsoInProgress = (1..6).map { readyItem("b$it") },
+                                everythingInProgress = (1..6).map { readyItem("b$it") },
                                 shelves = fourShelves(),
                             ),
                         stats = weekWithStreak(),

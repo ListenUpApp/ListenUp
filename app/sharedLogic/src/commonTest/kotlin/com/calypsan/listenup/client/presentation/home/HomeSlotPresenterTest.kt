@@ -58,7 +58,7 @@ class HomeSlotPresenterTest :
                     resume.next shouldBe nextBook("a2")
                     resume.chapter shouldBe HeroChapter(number = 2, title = "Bridge Four")
                     resume.canPlay shouldBe false
-                    state.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                    state.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -86,13 +86,13 @@ class HomeSlotPresenterTest :
                 rig.slots().test {
                     awaitSlot<HomeSlot.Resume>().book.bookId shouldBe "a"
                     rig.continueListening.value = emptyList()
-                    awaitState<HomeSlot.Resume>().alsoInProgress shouldBe emptyList()
+                    awaitState<HomeSlot.Resume>().everythingInProgress shouldBe emptyList()
                     cancelAndIgnoreRemainingEvents()
                 }
             }
         }
 
-        test("a loaded book: Absent, and the rail leaves the loaded book out (K8)") {
+        test("a loaded book: Absent, and the rail lists the loaded book first") {
             runTest {
                 val rig = HomeSlotRig()
                 rig.play("a", hoursAgo = 1)
@@ -101,7 +101,7 @@ class HomeSlotPresenterTest :
                 rig.continueListening.value = listOf(readyItem("a"), readyItem("b"))
                 rig.slots().test {
                     val state = awaitState<HomeSlot.Absent>()
-                    state.alsoInProgress.map { it.bookId } shouldBe listOf("b")
+                    state.everythingInProgress.map { it.bookId } shouldBe listOf("a", "b")
                     cancelAndIgnoreRemainingEvents()
                 }
             }

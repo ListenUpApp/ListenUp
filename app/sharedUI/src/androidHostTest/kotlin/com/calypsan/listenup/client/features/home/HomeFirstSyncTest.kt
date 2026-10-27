@@ -84,7 +84,7 @@ class HomeFirstSyncTest {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
-                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    state = homeReady(slot = HomeSlot.FirstSync, everythingInProgress = emptyList(), isLibraryArriving = true),
                     stats = HomeStatsUiState.Loading,
                     width = HomeWidth.Compact,
                     actions = HomeActions.None,
@@ -106,7 +106,7 @@ class HomeFirstSyncTest {
                     state =
                         homeReady(
                             slot = resumeSlot("wok"),
-                            alsoInProgress = emptyList(),
+                            everythingInProgress = emptyList(),
                             scanProgress = scanning(books = 40, booksTotal = 100),
                         ),
                     stats = HomeStatsUiState.Loading,
@@ -127,7 +127,7 @@ class HomeFirstSyncTest {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
-                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    state = homeReady(slot = HomeSlot.FirstSync, everythingInProgress = emptyList(), isLibraryArriving = true),
                     stats = HomeStatsUiState.Loading,
                     width = HomeWidth.Compact,
                     actions = HomeActions.None,

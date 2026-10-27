@@ -36,7 +36,7 @@ import com.calypsan.listenup.core.ShelfId
 /** A Home in its Ready state, every constructor argument named. */
 internal fun homeReady(
     slot: HomeSlot,
-    alsoInProgress: List<ContinueListeningItem>,
+    everythingInProgress: List<ContinueListeningItem>,
     shelves: List<Shelf> = emptyList(),
     connectivity: HomeConnectivity = HomeConnectivity.Online,
     isLibraryArriving: Boolean = false,
@@ -51,7 +51,7 @@ internal fun homeReady(
     timeOfDay = TimeOfDay.Evening,
     firstName = "Simon",
     slot = slot,
-    alsoInProgress = alsoInProgress,
+    everythingInProgress = everythingInProgress,
     connectivity = connectivity,
     continueListeningError = continueListeningError,
 )

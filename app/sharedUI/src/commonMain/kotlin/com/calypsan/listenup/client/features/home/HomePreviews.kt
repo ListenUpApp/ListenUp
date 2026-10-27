@@ -157,7 +157,7 @@ private fun mockReady(slot: HomeSlot) =
         timeOfDay = TimeOfDay.Evening,
         firstName = PREVIEW_USER_NAME,
         slot = slot,
-        alsoInProgress = mockContinue(),
+        everythingInProgress = mockContinue(),
         connectivity = HomeConnectivity.Online,
         continueListeningError = null,
     )

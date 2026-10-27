@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.stateIn
 /** The slot and the rail beside it, as Home's ViewModel folds them into `Ready`. */
 internal data class HomeSlotState(
     val slot: HomeSlot,
-    val alsoInProgress: List<ContinueListeningItem>,
+    val everythingInProgress: List<ContinueListeningItem>,
 )
 
 /**
@@ -147,7 +147,7 @@ internal class HomeSlotPresenter(
                         fresh = fresh,
                         isProvisional = isStillArriving(c.items),
                     )
-                Decided(latched, c.items, alsoInProgressOf(c.items, c.view.key, latched.kind))
+                Decided(latched, c.items, everythingInProgressOf(c.items, c.view.key, latched.kind))
             }
         }
     }
@@ -159,11 +159,11 @@ internal class HomeSlotPresenter(
         val current = decided.filterNotNull().filter { it.latched.kind == kind }
         return when (kind) {
             SlotKind.Absent -> {
-                current.map { HomeSlotState(HomeSlot.Absent, it.alsoInProgress) }
+                current.map { HomeSlotState(HomeSlot.Absent, it.everythingInProgress) }
             }
 
             SlotKind.FirstSync -> {
-                current.map { HomeSlotState(HomeSlot.FirstSync, it.alsoInProgress) }
+                current.map { HomeSlotState(HomeSlot.FirstSync, it.everythingInProgress) }
             }
 
             is SlotKind.Resume -> {
@@ -172,19 +172,19 @@ internal class HomeSlotPresenter(
 
             is SlotKind.JustFinished -> {
                 combine(current, finishedCard(kind.bookId)) { d, card ->
-                    HomeSlotState(card?.let(HomeSlot::JustFinished) ?: HomeSlot.Absent, d.alsoInProgress)
+                    HomeSlotState(card?.let(HomeSlot::JustFinished) ?: HomeSlot.Absent, d.everythingInProgress)
                 }
             }
 
             SlotKind.NothingInProgress -> {
                 combine(current, seriesCandidate()) { d, candidate ->
-                    HomeSlotState(HomeSlot.NothingInProgress(candidate), d.alsoInProgress)
+                    HomeSlotState(HomeSlot.NothingInProgress(candidate), d.everythingInProgress)
                 }
             }
 
             SlotKind.NewListener -> {
                 combine(current, home.observeLibraryShowcase(NEW_LISTENER_COVERS)) { d, showcase ->
-                    HomeSlotState(HomeSlot.NewListener(showcase.covers), d.alsoInProgress)
+                    HomeSlotState(HomeSlot.NewListener(showcase.covers), d.everythingInProgress)
                 }
             }
         }
@@ -213,7 +213,7 @@ internal class HomeSlotPresenter(
                         chapter = heroChapterOf(x.chapters, book.currentPositionMs),
                         canPlay = x.canPlay,
                     ),
-                    d.alsoInProgress,
+                    d.everythingInProgress,
                 )
             }.filterNotNull()
     }
@@ -291,7 +291,7 @@ private data class Candidate(
 private data class Decided(
     val latched: LatchedSlot,
     val continueListening: List<ContinueListeningItem>,
-    val alsoInProgress: List<ContinueListeningItem>,
+    val everythingInProgress: List<ContinueListeningItem>,
 ) {
     fun readyBook(bookId: String): ContinueListeningBook? =
         continueListening

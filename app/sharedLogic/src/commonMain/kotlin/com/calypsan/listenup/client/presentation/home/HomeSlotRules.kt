@@ -219,14 +219,22 @@ internal fun latch(
 private val SlotKind.resolvesInPlace: Boolean
     get() = this == SlotKind.FirstSync || this == SlotKind.NewListener
 
-/** Continue Listening without the loaded book (F1) and without the book the slot shows (spec §4.1). Pure. */
-internal fun alsoInProgressOf(
+/**
+ * Everything in progress (Simon, 2026-10-27): Continue Listening with the loaded book moved to the front, so the book
+ * in the mini player is never missing from the list. With nothing loaded the Resume book stays in (it is already
+ * first: Continue Listening is most recent first) unless it is the only book in progress, when the hero alone says it.
+ * A loaded book that Continue Listening does not hold (finished, held) is not added. Pure.
+ */
+internal fun everythingInProgressOf(
     continueListening: List<ContinueListeningItem>,
     loaded: LoadedKey,
     kind: SlotKind,
 ): List<ContinueListeningItem> {
-    val excluded = setOfNotNull((loaded as? LoadedKey.Loaded)?.bookId, (kind as? SlotKind.Resume)?.bookId)
-    return continueListening.filterNot { it.bookId in excluded }
+    val resumeId = (kind as? SlotKind.Resume)?.bookId
+    if (resumeId != null && continueListening.all { it.bookId == resumeId }) return emptyList()
+    val loadedId = (loaded as? LoadedKey.Loaded)?.bookId ?: return continueListening
+    val (front, rest) = continueListening.partition { it.bookId == loadedId }
+    return front + rest
 }
 
 /** Finished books, newest finish first, at most [SERIES_CANDIDATE_WALK]. Pure. */

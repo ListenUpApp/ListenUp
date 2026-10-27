@@ -47,14 +47,14 @@ class HomeBodyTest {
 
     @Test
     fun `a loaded book leaves no Resume and Home starts with Also in progress`() {
-        render(homeReady(slot = HomeSlot.Absent, alsoInProgress = listOf(readyItem("babel"))))
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = listOf(readyItem("babel"))))
         composeRule.onAllNodesWithTag(HOME_RESUME_BUTTON_TAG).assertCountEquals(0)
         composeRule.onNodeWithText("Also in progress").assertIsDisplayed()
     }
 
     @Test
     fun `one book in progress and loaded leaves no Also in progress section`() {
-        render(homeReady(slot = HomeSlot.Absent, alsoInProgress = emptyList()))
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = emptyList()))
         composeRule.onAllNodesWithText("Also in progress").assertCountEquals(0)
         composeRule.onAllNodesWithText("Nothing playing yet").assertCountEquals(0)
         composeRule.onNodeWithText("Your last 7 days").assertExists()
@@ -64,7 +64,7 @@ class HomeBodyTest {
     fun `nothing loaded leads with Resume, and Resume calls the play entry`() {
         var played: String? = null
         render(
-            homeReady(slot = resumeSlot("wok"), alsoInProgress = listOf(readyItem("babel"))),
+            homeReady(slot = resumeSlot("wok"), everythingInProgress = listOf(readyItem("babel"))),
             actions = HomeActions.None.copy(onPlay = { played = it }),
         )
         val resume = composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).getUnclippedBoundsInRoot()
@@ -78,7 +78,7 @@ class HomeBodyTest {
     fun `nothing in progress takes the slot with Browse the Library, and the interim empty state is gone`() {
         var opened = false
         render(
-            homeReady(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
+            homeReady(slot = HomeSlot.NothingInProgress(candidate = null), everythingInProgress = emptyList()),
             actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
         )
         composeRule.onNodeWithText("Nothing in progress").assertIsDisplayed()
@@ -91,7 +91,7 @@ class HomeBodyTest {
     fun `In Library opens In progress, Browse the Library opens the Library, and the finishers open the readers`() {
         val asked = mutableListOf<String>()
         render(
-            homeReady(slot = finishedSlot(), alsoInProgress = listOf(readyItem("babel"))),
+            homeReady(slot = finishedSlot(), everythingInProgress = listOf(readyItem("babel"))),
             actions =
                 HomeActions.None.copy(
                     onOpenLibrary = { asked += "library" },
@@ -106,7 +106,7 @@ class HomeBodyTest {
 
     @Test
     fun `a new listener is welcomed in the greeting and the slot`() {
-        render(homeReady(slot = welcomeSlot(), alsoInProgress = emptyList()))
+        render(homeReady(slot = welcomeSlot(), everythingInProgress = emptyList()))
         composeRule.onNodeWithText("Welcome,").assertIsDisplayed()
         composeRule.onNodeWithText("Pick something new").assertIsDisplayed()
     }
