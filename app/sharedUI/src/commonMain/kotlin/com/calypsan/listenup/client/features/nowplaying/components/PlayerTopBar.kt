@@ -33,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,7 +98,12 @@ fun PlayerTopBar(
         )
     },
 ) {
-    val status: @Composable () -> Unit = { state.status?.let { StatusChip(text = it.statusText()) } }
+    // One polite live region that is always there; only the chip inside it comes and goes, so TalkBack announces it.
+    val status: @Composable () -> Unit = {
+        Box(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+            state.status?.let { StatusChip(text = it.statusText()) }
+        }
+    }
     val more: @Composable () -> Unit = {
         MoreMenu(state = state, includesSeries = !wide, includesAuthor = !wide, onMenuItem = onMenuItem)
     }

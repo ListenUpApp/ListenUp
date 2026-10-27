@@ -9,7 +9,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -77,16 +79,39 @@ class PlayerTopBarTest {
 
     private fun statusNodes() = composeRule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.LiveRegion)).fetchSemanticsNodes()
 
+    private fun statusWords(): List<String> =
+        statusNodes()
+            .single()
+            .config
+            .getOrNull(SemanticsProperties.Text)
+            .orEmpty()
+            .map { it.text }
+
     @Test
-    fun `Downloaded, Streaming and downloaded-offline show no status`() {
+    fun `Downloaded, Streaming and downloaded-offline say nothing, from a polite live region that is already there`() {
         bar()
         listOf(AudioSource.Downloaded, AudioSource.Streaming, AudioSource.DownloadedOffline).forEach { quiet ->
             source = quiet
             composeRule.waitForIdle()
-            statusNodes().size shouldBe 0
+            statusNodes().size shouldBe 1
+            statusWords() shouldBe emptyList()
         }
         composeRule.onNodeWithContentDescription("Collapse player").assertExists()
         composeRule.onNodeWithContentDescription("More options").assertExists()
+    }
+
+    @Test
+    fun `the live region stays and only its words change when the source flips, so the news is announced`() {
+        source = AudioSource.Streaming
+        bar()
+        val region = statusNodes().single()
+        region.config[SemanticsProperties.LiveRegion] shouldBe LiveRegionMode.Polite
+        statusWords() shouldBe emptyList()
+
+        source = AudioSource.Offline
+        composeRule.waitForIdle()
+        statusNodes().single().id shouldBe region.id
+        statusWords() shouldBe listOf("Offline")
     }
 
     @Test
@@ -106,7 +131,7 @@ class PlayerTopBarTest {
     fun `casting shows no chip`() {
         source = AudioSource.Casting("Living Room")
         bar(castSlot = { CastConnectedButton(deviceName = "Living Room", onOpenRoutes = {}) })
-        statusNodes().size shouldBe 0
+        statusWords() shouldBe emptyList()
         composeRule.onNodeWithText("Playing on Living Room").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Cast. Playing on Living Room. Change output").assertExists()
     }

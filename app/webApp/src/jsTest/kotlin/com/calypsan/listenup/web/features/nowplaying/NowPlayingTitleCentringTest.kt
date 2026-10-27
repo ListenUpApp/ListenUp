@@ -104,11 +104,18 @@ class NowPlayingTitleCentringTest :
                         true
                 }
                 // Nothing in the title block reaches past the window's edge, so the title adds no sideways scroll.
-                val edge = frame.window.document.documentElement!!.clientWidth
+                val edge =
+                    frame.window.document.documentElement!!
+                        .clientWidth
                 val past =
-                    frame.find(".np-title").querySelectorAll("*").asList().map { it as Element }.filter {
-                        it.getBoundingClientRect().right > edge + 0.5
-                    }.map { "${it.tagName}.${it.getAttribute("class")}@${it.getBoundingClientRect().right}" }
+                    frame
+                        .find(".np-title")
+                        .querySelectorAll("*")
+                        .asList()
+                        .map { it as Element }
+                        .filter {
+                            it.getBoundingClientRect().right > edge + 0.5
+                        }.map { "${it.tagName}.${it.getAttribute("class")}@${it.getBoundingClientRect().right}" }
                 past shouldBe emptyList()
             }
         }

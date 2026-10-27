@@ -16,7 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** The status slot (§3.1, §6): one sentence per status with news, announced politely, never a button. */
+/** The status chip (§3.1, §6): one sentence per status with news, never a button; Now Playing's slot announces it. */
 @RunWith(RobolectricTestRunner::class)
 class StatusChipTest {
     @get:Rule
@@ -44,11 +44,11 @@ class StatusChipTest {
     }
 
     @Test
-    fun `the chip is a polite live region and not a button`() {
+    fun `the chip is not a button, and leaves announcing to the slot that holds it`() {
         chip(SourceStatus.Offline)
         composeRule
             .onNodeWithText("Offline")
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.LiveRegion))
             .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
     }
 }
