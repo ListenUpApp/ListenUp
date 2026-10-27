@@ -188,7 +188,10 @@ private fun MoreMenu(
             shape = MenuShape,
             containerColor = colors.surfaceContainer,
         ) {
-            PlayerMenus.moreMenu(state, includesSeries, includesAuthor, includesShortcuts = false).forEachIndexed { index, group ->
+            PlayerMenus.moreMenu(state, includesSeries, includesAuthor, includesShortcuts = false).forEachIndexed {
+                index,
+                group,
+                ->
                 if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 val itemColors =
                     if (group.isDestructive) {

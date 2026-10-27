@@ -42,8 +42,12 @@ class PlayerMenusTest :
 
         test("a wide layout that shows the series link leaves Go to series out") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false, includesAuthor = true, includesShortcuts = false)
-                .first()
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f),
+                    includesSeries = false,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
                 .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
         }
 
@@ -68,15 +72,23 @@ class PlayerMenusTest :
 
         test("a platform without app shortcuts never sees the row") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = "doc-1", boostDb = 6f), includesSeries = true, includesAuthor = true, includesShortcuts = false)
-                .flatMap { it.items }
+                .moreMenu(
+                    loaded(series = true, pdf = "doc-1", boostDb = 6f),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).flatMap { it.items }
                 .contains(PlayerMenuItem.KeyboardShortcuts) shouldBe false
         }
 
         test("Go to series names the first series, the one the phone shows") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true, includesAuthor = true, includesShortcuts = false)
-                .first()
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
                 .items[1] shouldBe PlayerMenuItem.GoToSeries("s1")
         }
 
