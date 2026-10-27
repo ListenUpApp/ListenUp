@@ -1456,6 +1456,8 @@ One beautiful library.</string>
     <string name="home_couldnt_load_stats">Couldn't load your stats.</string>
     <string name="home_date_range">%1$s – %2$s</string>
     <string name="home_dismiss_everywhere_a11y">Dismiss on all your devices</string>
+    <string name="home_everything_in_progress">Everything in progress</string>
+    <string name="home_everything_in_progress_ios">Everything in Progress</string>
     <string name="home_finished_days_ago">Finished %1$d days ago</string>
     <string name="home_finished_days_ago_ios">Finished %1$d Days Ago</string>
     <string name="home_finished_line_no_range">%1$s · %2$s</string>
@@ -1681,6 +1683,8 @@ One beautiful library.</string>
     <string name="library_empty_title">Your library is empty</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_filter_and_sort">Filter and sort</string>
+    <string name="library_filter_sort_trigger">%1$s · %2$s, %3$s</string>
+    <string name="library_filter_sort_trigger_a11y">Filter and sort: %1$s, %2$s, %3$s</string>
     <string name="library_filtered_empty_finished">No finished books yet.</string>
     <string name="library_filtered_empty_in_progress">Nothing in progress right now.</string>
     <string name="library_filtered_empty_not_started">You've started every book.</string>
@@ -1728,8 +1732,9 @@ One beautiful library.</string>
     <string name="library_sort_author">Author</string>
     <string name="library_sort_book_count">Number of books</string>
     <string name="library_sort_book_count_ios">Number of Books</string>
-    <string name="library_sort_by">Sort By</string>
+    <string name="library_sort_by">Sort by</string>
     <string name="library_sort_by_a11y">Sort by %1$s</string>
+    <string name="library_sort_by_ios">Sort By</string>
     <string name="library_sort_duration">Length</string>
     <string name="library_sort_listener_rating">Your listeners' rating</string>
     <string name="library_sort_listener_rating_ios">Your Listeners' Rating</string>
@@ -2147,7 +2152,9 @@ One beautiful library.</string>
     <string name="player_expand">Expand</string>
     <string name="player_extend_minutes">+%1$d min</string>
     <string name="player_go_to_author">Go to author</string>
+    <string name="player_go_to_author_ios">Go to Author</string>
     <string name="player_go_to_author_multiple">Go to author…</string>
+    <string name="player_go_to_author_multiple_ios">Go to Author…</string>
     <string name="player_go_to_book">Go to book</string>
     <string name="player_go_to_narrator">Go to narrator</string>
     <string name="player_go_to_narrator_multiple">Go to narrator…</string>

@@ -14551,6 +14551,26 @@
         }
       }
     },
+    "home.everything_in_progress": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything in progress"
+          }
+        }
+      }
+    },
+    "home.everything_in_progress_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything in Progress"
+          }
+        }
+      }
+    },
     "home.finished_days_ago": {
       "localizations": {
         "en": {
@@ -16801,6 +16821,26 @@
         }
       }
     },
+    "library.filter_sort_trigger": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "library.filter_sort_trigger_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter and sort: %1$@, %2$@, %3$@"
+          }
+        }
+      }
+    },
     "library.filtered_empty_finished": {
       "localizations": {
         "en": {
@@ -17276,7 +17316,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sort By"
+            "value": "Sort by"
           }
         }
       }
@@ -17287,6 +17327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort by %1$@"
+          }
+        }
+      }
+    },
+    "library.sort_by_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort By"
           }
         }
       }
@@ -21461,12 +21511,32 @@
         }
       }
     },
+    "player.go_to_author_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Author"
+          }
+        }
+      }
+    },
     "player.go_to_author_multiple": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Go to author…"
+          }
+        }
+      }
+    },
+    "player.go_to_author_multiple_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to Author…"
           }
         }
       }
