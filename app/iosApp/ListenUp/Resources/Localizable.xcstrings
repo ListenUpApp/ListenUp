@@ -6431,72 +6431,12 @@
         }
       }
     },
-    "book.detail_series_cover_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %1$@"
-          }
-        }
-      }
-    },
-    "book.detail_series_cover_this_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %1$@, this book"
-          }
-        }
-      }
-    },
-    "book.detail_series_heading": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Series · %1$@"
-          }
-        }
-      }
-    },
-    "book.detail_series_next": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Next: book %1$@"
-          }
-        }
-      }
-    },
     "book.detail_series_pill_a11y": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Series, %1$@"
-          }
-        }
-      }
-    },
-    "book.detail_series_position": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %1$@ of %2$d"
-          }
-        }
-      }
-    },
-    "book.detail_series_start_here": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %1$@ of %2$d · start here"
           }
         }
       }
@@ -14371,26 +14311,6 @@
         }
       }
     },
-    "home.also_in_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Also in progress"
-          }
-        }
-      }
-    },
-    "home.also_in_progress_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Also in Progress"
-          }
-        }
-      }
-    },
     "home.arriving_body": {
       "localizations": {
         "en": {
@@ -14971,26 +14891,6 @@
         }
       }
     },
-    "home.progress_of_length": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ of %2$@"
-          }
-        }
-      }
-    },
-    "home.resume_unavailable_offline": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can't reach your server. This book isn't downloaded, so it can't play right now."
-          }
-        }
-      }
-    },
     "home.see_all_ios": {
       "localizations": {
         "en": {
@@ -15117,26 +15017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Top genres"
-          }
-        }
-      }
-    },
-    "home.up_next": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up next · %1$@"
-          }
-        }
-      }
-    },
-    "home.up_next_ios": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Up Next · %1$@"
           }
         }
       }
@@ -17467,16 +17347,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "All"
-          }
-        }
-      }
-    },
-    "library.status_chip": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ %2$d"
           }
         }
       }
@@ -21961,16 +21831,6 @@
         }
       }
     },
-    "player.np_book_sentence": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book %1$d%% · %2$@ left"
-          }
-        }
-      }
-    },
     "player.np_by": {
       "localizations": {
         "en": {
@@ -22111,26 +21971,6 @@
         }
       }
     },
-    "player.np_status_downloaded": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Downloaded"
-          }
-        }
-      }
-    },
-    "player.np_status_downloaded_offline": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Downloaded · offline"
-          }
-        }
-      }
-    },
     "player.np_status_not_playable": {
       "localizations": {
         "en": {
@@ -22167,16 +22007,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can't reach your server"
-          }
-        }
-      }
-    },
-    "player.np_status_streaming": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Streaming"
           }
         }
       }
