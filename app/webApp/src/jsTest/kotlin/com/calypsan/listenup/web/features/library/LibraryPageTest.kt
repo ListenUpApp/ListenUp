@@ -21,6 +21,10 @@ import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.home.scanning
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import org.w3c.dom.asList
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -75,7 +79,8 @@ class LibraryPageTest :
                 }
 
             val trigger = root.querySelector(".lib-sort-trigger") as HTMLElement
-            trigger.textContent shouldBe "Sort: Title, A–Z"
+            trigger.textContent shouldBe "All · Title, A–Z"
+            trigger.getAttribute("aria-label") shouldBe "Filter and sort: All, Title, A–Z"
             trigger.click()
             awaitFrame()
             (root.querySelector("[role=menuitemcheckbox]") as HTMLElement).click()
@@ -83,9 +88,8 @@ class LibraryPageTest :
             events shouldBe listOf(LibraryUiEvent.ToggleIgnoreTitleArticles)
         }
 
-        // Board `Library-WebDesktop`: Select and Sort sit at the right end of the status-chip row,
-        // not in the page header.
-        test("Select and Sort sit at the end of the status-chip row") {
+        // Board `Lib-Web-After`: status moved into the Sort menu; Count and Select stay beside it.
+        test("Count, Select and Sort share one row, and there are no status pills") {
             val root =
                 mounts.mount {
                     LibraryPage(
@@ -97,10 +101,66 @@ class LibraryPageTest :
                     )
                 }
             val row = root.querySelector(".lib-controls") as HTMLElement
-            (row.querySelector(".lib-filters") != null) shouldBe true
+            root.querySelector(".lib-filters") shouldBe null
+            (row.querySelector(".lib-count") != null) shouldBe true
             (row.querySelector(".lib-select") != null) shouldBe true
             (row.querySelector(".lib-sort-trigger") != null) shouldBe true
             root.querySelector(".page-h .lib-sort-trigger") shouldBe null
+        }
+
+        test("the Sort menu opens on Show, with counts, above Sort by") {
+            val events = mutableListOf<LibraryUiEvent>()
+            var state by mutableStateOf(
+                loadedWith(
+                    listOf(bookItem("b1", "Dune")),
+                    statusCounts = BookStatusCounts(all = 248, inProgress = 4, notStarted = 183, finished = 61),
+                ),
+            )
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = state,
+                        onEvent = { event ->
+                            events += event
+                            if (event is LibraryUiEvent.StatusFilterChanged) state = state.copy(statusFilter = event.filter)
+                        },
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                    )
+                }
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
+            awaitFrame()
+
+            val groups = root.querySelectorAll("[role=menu] [role=group]").asList().map { it as HTMLElement }
+            groups.map { it.getAttribute("aria-label") }.take(2) shouldBe listOf("Show", "Sort by")
+            val show =
+                groups
+                    .first()
+                    .querySelectorAll("[role=menuitemradio]")
+                    .asList()
+                    .map { it as HTMLElement }
+            show.map { it.getAttribute("aria-label") ?: it.textContent } shouldBe
+                listOf("All, 248", "In progress, 4", "Not started, 183", "Finished, 61")
+            show.map { it.getAttribute("aria-checked") } shouldBe listOf("true", "false", "false", "false")
+
+            show[1].click()
+            awaitFrame()
+            events shouldBe listOf(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.IN_PROGRESS))
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).textContent shouldBe "In progress · Title, A–Z"
+        }
+
+        test("while selecting, Sort stays but is still: filtering would change what is being picked") {
+            val root =
+                mounts.mount {
+                    LibraryPage(
+                        state = loadedWith(listOf(bookItem("b1", "Dune"))),
+                        onEvent = {},
+                        onOpenBook = {},
+                        onSelectFacet = {},
+                        selecting = true,
+                    )
+                }
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).hasAttribute("disabled") shouldBe true
         }
 
         test("a length sort offers no Ignore articles") {
@@ -426,7 +486,7 @@ class LibraryPageTest :
 
             root.textContent!! shouldContain "No finished books yet."
             root.textContent!! shouldNotContain "No books yet"
-            root.querySelectorAll(".lib-filters .pill").length shouldBe 4
+            root.querySelector(".lib-filters") shouldBe null
             (root.querySelector(".lib-show-all") as HTMLElement).click()
 
             sent shouldBe listOf(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.ALL))
@@ -438,10 +498,10 @@ class LibraryPageTest :
             root.querySelector(".page-sub")!!.textContent shouldBe "2 books · 2 hours of listening"
         }
 
-        test("an empty library offers no filters and no count") {
+        test("an empty library offers no controls and no count") {
             val root = render(loadedWith(emptyList()))
 
-            (root.querySelector(".lib-filters") == null) shouldBe true
+            (root.querySelector(".lib-controls") == null) shouldBe true
             (root.querySelector(".page-sub") == null) shouldBe true
         }
 

@@ -22,6 +22,8 @@ import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.SortDropdown
+import com.calypsan.listenup.web.design.SortStatusRow
+import com.calypsan.listenup.web.design.SortStatus
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.coverUrl
@@ -111,7 +113,7 @@ fun LibraryPage(
             if (state is LibraryUiState.Loaded && state.isEmpty &&
                 !state.isLibraryArriving
             ) {
-                BookSortControl(state, onEvent)
+                BookSortControl(state, onEvent, enabled = !selecting)
             }
         }
     }
@@ -411,9 +413,9 @@ private fun CardCover(
 }
 
 /**
- * The status chips, then Select and Sort at the row's end (board `Library-WebDesktop`). Only over a
- * library that has books: offering to narrow or reorder nothing is no offer at all. While selecting,
- * the chips and Select step aside; Sort stays.
+ * The count, Select and Filter and sort on one row (board `Lib-Web-After`): the status lives in the Sort menu. Only
+ * over a library that has books: offering to narrow or reorder nothing is no offer at all. While selecting, Select
+ * steps aside and Sort stays, stilled: filtering mid-selection would change what is being picked.
  */
 @Composable
 private fun LibraryControls(
@@ -423,13 +425,6 @@ private fun LibraryControls(
     onStartSelecting: (() -> Unit)?,
 ) {
     Div(attrs = { classes("lib-controls") }) {
-        if (!selecting) {
-            StatusFilterRow(
-                selected = state.statusFilter,
-                counts = state.statusCounts,
-                onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-            )
-        }
         Div(attrs = { classes("lib-controls-end") }) {
             // A phone's count, beside Sort (spec §3.1.7); the desktop says it in the page header instead.
             Span(attrs = { classes("lib-count") }) {
@@ -444,13 +439,13 @@ private fun LibraryControls(
                     attrs = { classes("lib-select") },
                 ) { Text("Select") }
             }
-            BookSortControl(state, onEvent)
+            BookSortControl(state, onEvent, enabled = !selecting)
         }
     }
 }
 
 /**
- * Sort category, direction and Ignore articles for the Books tab.
+ * Filter and sort for the Books tab: the reading state (the Show group), sort category, direction and Ignore articles.
  *
  * All ride [LibraryUiEvent], so the shared ViewModel owns persistence — the browser never stores a
  * sort preference of its own, which is what keeps a reader's ordering the same on every device.
@@ -460,6 +455,7 @@ private fun LibraryControls(
 private fun BookSortControl(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
+    enabled: Boolean,
 ) {
     SortDropdown(
         noun = "books",
@@ -469,6 +465,18 @@ private fun BookSortControl(
         onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
         ignoreArticles = state.ignoreTitleArticles.takeIf { state.booksSortState.category == SortCategory.TITLE },
         onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
+        status =
+            SortStatus(
+                BookStatusFilter.entries.map { filter ->
+                    SortStatusRow(
+                        label = filter.webLabel(),
+                        count = groupedCount(state.statusCounts.countFor(filter)),
+                        isSelected = filter == state.statusFilter,
+                        onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(filter)) },
+                    )
+                },
+            ),
+        enabled = enabled,
     )
 }
 

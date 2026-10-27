@@ -87,6 +87,9 @@ enum class WebIcon(
     FileText(
         "M6 3h7l5 5v13H6z M13 3v5h5 M9 13h6 M9 16.5h6",
     ),
+
+    /** Three lines, shortest last: Filter and sort. */
+    FilterLines("M4 7h16 M7 12h10 M10 17h4"),
     Flame(
         "M12 3c3 3.5 4.5 5.8 4.5 8a4.5 4.5 0 0 1-9 0c0-1.2.4-2.3 1.2-3.4 " +
             "M12 20.5a4 4 0 0 1-2-7.5c.8 1.4 1.5 2 2 2s1.2-.6 2-2a4 4 0 0 1-2 7.5",

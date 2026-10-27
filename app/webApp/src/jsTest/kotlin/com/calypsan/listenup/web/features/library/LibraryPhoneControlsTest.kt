@@ -11,8 +11,7 @@ import io.kotest.matchers.doubles.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 
 /**
- * The phone Library (spec §3.1.7): its count sits beside Sort on one row, and the status chips are one horizontal
- * scroller under them, never a wrapped block.
+ * The phone Library (spec §3.1.7): its count sits beside Filter and sort on one row; the status lives in that menu.
  */
 class LibraryPhoneControlsTest :
     FunSpec({
@@ -25,7 +24,7 @@ class LibraryPhoneControlsTest :
                 InShell { LibraryPage(state = contractLibrary(books), onEvent = {}, onOpenBook = {}, onSelectFacet = {}) }
             }
 
-        test("'6 books' and 'Sort: Title, A–Z' share one row") {
+        test("'6 books' and 'All · Title, A–Z' share one row, and there is no chip row") {
             val frame = phone()
             awaitFrame()
 
@@ -37,18 +36,9 @@ class LibraryPhoneControlsTest :
             val sortBox = frame.rect(sort)
             (countBox.top < sortBox.bottom && sortBox.top < countBox.bottom) shouldBe true
             countBox.right shouldBeLessThan sortBox.left
+            frame.findAll(".lib-filters").size shouldBe 0
             // The page header's count line is the desktop's; a phone says it once, here.
             frame.findAll(".lib-header .page-sub").filter(frame::isShown).size shouldBe 0
-        }
-
-        test("the chip row is one horizontal scroller") {
-            val frame = phone()
-            awaitFrame()
-
-            val chips = frame.findAll(".lib-filters .pill")
-            chips.map { frame.rect(it).top }.distinct().size shouldBe 1
-            frame.css(frame.find(".lib-filters"), "overflow-x") shouldBe "auto"
-            frame.css(frame.find(".lib-filters"), "flex-wrap") shouldBe "nowrap"
         }
 
         test("at 320px the count, Sort and the inbox each keep to their lines, and nothing runs past the edge") {

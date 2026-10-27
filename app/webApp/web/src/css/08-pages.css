@@ -1179,24 +1179,13 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   font-size: var(--fs-small); color: var(--ink-2); }
 .luw .bke-held-note svg { color: var(--warn); flex: none; }
 
-/* Library status filters (board Library-WebDesktop): one row of counted pills under the facets.
-   The pressed pill's colour is `.pill.on`'s coral, the Library's action colour. */
-/* flex: none — in the page's column a scrolling row may otherwise shrink below its own pills. */
-.lib-filters { display: flex; flex: none; gap: 8px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-@media (max-width: 759px) {
-  /* One scrolling row. A scroller clips everything outside its padding box, so the row carries 8px
-     above and below a 28px pill: room for the shared 44px touch extender (03-press.css) to stay whole. */
-  .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 8px; padding-bottom: 14px; }
-  .lib-filters .pill { flex-shrink: 0; }
-}
-/* The chips, then Select and Sort at the row's end (board Library-WebDesktop). The row, not the
-   chips, carries the rule beneath. At phone widths Select and Sort ride above the scrolling chips. */
+/* The count, Select and Filter and sort on one row (board Lib-Web-After); the status lives in the Sort menu. The row
+   carries the rule beneath. */
 .lib-controls { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px 12px;
   padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-.lib-controls .lib-filters { flex: 1 1 auto; min-width: 0; padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
 .lib-controls-end { display: flex; flex: none; align-items: center; gap: 10px; margin-left: auto; }
 .lib-count { display: none; white-space: nowrap; }
-/* "Sort: Title, A–Z" is one control, never broken across lines. */
+/* "All · Title, A–Z" is one control, never broken across lines. */
 .lib-sort-trigger { white-space: nowrap; }
 /* A strip narrower than a phone's (320px screens) gives its words the room the cover fan took. A container query, not
    a breakpoint: it is the strip's own width that runs out. */
@@ -1205,10 +1194,8 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   .luw .lib-inbox-fan { display: none; }
 }
 @media (max-width: 759px) {
-  .lib-controls .lib-filters { flex-basis: 100%; padding-bottom: 8px; }
-  /* The count, then Select and Sort, on one row above the scrolling chips (spec §3.1.7). The header's count line
-     is the desktop's. */
-  .lib-controls-end { order: -1; flex-basis: 100%; }
+  /* The count, then Select and Sort, on one row (spec §3.1.7). The header's count line is the desktop's. */
+  .lib-controls-end { flex-basis: 100%; }
   .lib-count { display: block; margin-right: auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink-2); }
   .lib-header .page-sub { display: none; }
 }

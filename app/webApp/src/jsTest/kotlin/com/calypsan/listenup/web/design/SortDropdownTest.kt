@@ -147,4 +147,12 @@ class SortDropdownTest :
             root.querySelector("button[aria-haspopup=menu]")!!.textContent shouldBe "Sort: Length, Longest"
             root.querySelector("[role=menuitemcheckbox]") shouldBe null
         }
+
+        test("without a status (Series, Authors, Narrators) the trigger reads Sort: and there is no Show group") {
+            val root = open()
+            (root.querySelector(".lib-sort-trigger") as HTMLElement).textContent shouldBe "Sort: Title, A–Z"
+            document.querySelectorAll("[role=menu] [role=group]").asList().none {
+                (it as HTMLElement).getAttribute("aria-label") == "Show"
+            } shouldBe true
+        }
     })
