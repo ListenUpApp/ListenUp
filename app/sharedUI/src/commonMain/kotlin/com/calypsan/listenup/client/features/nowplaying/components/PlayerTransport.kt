@@ -13,6 +13,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.onClick
@@ -108,8 +113,12 @@ fun PlayerTransport(
         )
         customItem(
             buttonGroupContent = {
+                // A stall keeps the shape it settled in: no flicker from the pause square to the round play.
+                var lastChecked by remember { mutableStateOf(state.primary == PrimaryControl.Pause) }
+                val checked = morphCheckedFor(state.primary, lastChecked)
+                SideEffect { lastChecked = checked }
                 PlayMorphButton(
-                    isPlaying = state.primary == PrimaryControl.Pause,
+                    isPlaying = checked,
                     isBusy = state.primary == PrimaryControl.Busy,
                     playLabel = stringResource(Res.string.player_play),
                     pauseLabel = stringResource(Res.string.player_pause),
@@ -154,3 +163,17 @@ fun PlayerTransport(
         )
     }
 }
+
+/**
+ * Whether the play button is drawn checked (the playing square): Pause is, Play and every way out are not, and a stall
+ * ([PrimaryControl.Busy]) keeps [lastChecked], the shape it settled in. Pure.
+ */
+internal fun morphCheckedFor(
+    primary: PrimaryControl,
+    lastChecked: Boolean,
+): Boolean =
+    when (primary) {
+        PrimaryControl.Busy -> lastChecked
+        PrimaryControl.Pause -> true
+        else -> false
+    }

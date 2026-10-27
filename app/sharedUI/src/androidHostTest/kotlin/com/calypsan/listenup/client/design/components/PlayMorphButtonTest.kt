@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import io.kotest.matchers.shouldBe
@@ -17,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** P14: 96dp, square (checked) while playing, round while paused, the contained loading indicator while busy. */
+/** P14: 96dp, square (checked) while playing, round while paused; busy keeps the button and shows an indicator. */
 @RunWith(RobolectricTestRunner::class)
 class PlayMorphButtonTest {
     @get:Rule
@@ -59,6 +60,16 @@ class PlayMorphButtonTest {
         composeRule
             .onNodeWithContentDescription("Play")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.Off))
+    }
+
+    @Test
+    fun `busy keeps the button's size and fill, its indicator uncontained in the glyph's place`() {
+        button(isPlaying = false, isBusy = true)
+        composeRule
+            .onNodeWithContentDescription("Loading. Pause")
+            .assertWidthIsEqualTo(96.dp)
+            .assertHeightIsEqualTo(96.dp)
+        composeRule.onNodeWithTag(PLAY_BUSY_INDICATOR_TAG, useUnmergedTree = true).assertExists()
     }
 
     @Test

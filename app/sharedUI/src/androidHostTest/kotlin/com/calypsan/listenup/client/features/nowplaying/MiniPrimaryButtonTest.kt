@@ -2,7 +2,13 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -31,6 +37,7 @@ class MiniPrimaryButtonTest {
         primary: PrimaryControl,
         playLabel: String? = null,
         isFadingOut: Boolean = false,
+        size: DpSize = DpSize(56.dp, 48.dp),
     ) {
         val keepListening: () -> Unit = { keepListeningPresses++ }
         composeRule.setContent {
@@ -39,7 +46,7 @@ class MiniPrimaryButtonTest {
                     primary = primary,
                     bookTitle = "The Way of Kings",
                     onClick = { presses++ },
-                    size = DpSize(56.dp, 48.dp),
+                    size = size,
                     playLabel = playLabel,
                     onKeepListening = keepListening.takeIf { isFadingOut },
                 )
@@ -71,6 +78,30 @@ class MiniPrimaryButtonTest {
         button(PrimaryControl.Busy)
         composeRule.onNodeWithContentDescription("Loading. Pause").isATarget().performClick()
         presses shouldBe 1
+    }
+
+    @Test
+    fun `busy keeps the play button's footprint at every size - phone bar, tablet toolbar, reader strip`() {
+        var current by mutableStateOf<PrimaryControl>(PrimaryControl.Play)
+        var footprint by mutableStateOf(DpSize(56.dp, 48.dp))
+        composeRule.setContent {
+            MaterialTheme {
+                MiniPrimaryButton(primary = current, bookTitle = "The Way of Kings", onClick = { presses++ }, size = footprint)
+            }
+        }
+        listOf(DpSize(56.dp, 48.dp), DpSize(72.dp, 56.dp), DpSize(48.dp, 48.dp)).forEach { size ->
+            footprint = size
+            current = PrimaryControl.Play
+            composeRule.waitForIdle()
+            val play = composeRule.onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
+            current = PrimaryControl.Busy
+            composeRule.waitForIdle()
+            val busy = composeRule.onNodeWithContentDescription("Loading. Pause")
+            busy.getUnclippedBoundsInRoot() shouldBe play
+            busy.assertWidthIsEqualTo(size.width).assertHeightIsEqualTo(size.height)
+            busy.performClick()
+        }
+        presses shouldBe 3
     }
 
     @Test
