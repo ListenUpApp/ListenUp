@@ -36,6 +36,8 @@ struct PlayerZoomTransitionTests {
         let flight = try await PlayerFlight.open(in: hosted)
         print("ZOOMPROBE @Observable \(flight)")
         #expect(!flight.slidUp, "\(flight)")
+        // With motion on, the arrival is the zoom, never a dissolve; the Reduce Motion check below needs this to hold.
+        if !UIAccessibility.isReduceMotionEnabled { #expect(!flight.dissolved, "\(flight)") }
         try await PlayerFlight.close(in: hosted)
     }
 
@@ -95,8 +97,12 @@ struct PlayerFlight: CustomStringConvertible {
 
     /// Some frame of the arrival was well short of full width: it grew out of the cover.
     var zoomed: Bool { samples.contains { $0.frame.width > 0 && $0.frame.width < windowWidth * 0.9 } }
-    /// Some frame of the arrival was full size but not yet opaque: a dissolve.
-    var dissolved: Bool { samples.contains { $0.frame.width >= windowWidth * 0.9 && $0.opacity < 0.99 } }
+    /// The arrival faded in at full size: several frames part-way between transparent and opaque. The zoom does not
+    /// count: its presented view sits transparent at full size while the system draws the flight elsewhere, then turns
+    /// opaque in one step, so it never shows a part-way opacity.
+    var dissolved: Bool {
+        samples.filter { $0.frame.width >= windowWidth * 0.9 && $0.opacity > 0.05 && $0.opacity < 0.95 }.count >= 2
+    }
     /// The default modal fallback: full width, sliding up from below.
     var slidUp: Bool { samples.contains { $0.frame.width >= windowWidth * 0.9 && $0.frame.minY > 1 } }
 
