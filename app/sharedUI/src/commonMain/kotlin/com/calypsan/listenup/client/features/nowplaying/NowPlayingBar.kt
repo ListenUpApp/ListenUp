@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.features.nowplaying.morph.dragToOpen
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
 import com.calypsan.listenup.client.design.LocalCompositionProbe
@@ -146,7 +147,14 @@ fun NowPlayingBar(
                 Modifier
                     .fillMaxWidth()
                     .morphBarSurface()
-                    .swipeUpToExpand(onTap)
+                    // The morph's drag where the bar becomes Now Playing; the swipe-up trigger where it fades through.
+                    .then(
+                        if (morph?.entryMotion == EntryMotion.Morph) {
+                            Modifier.dragToOpen(morph)
+                        } else {
+                            Modifier.swipeUpToExpand(onTap)
+                        },
+                    )
                     .then(if (coveredByPlayer) Modifier.coveredByPlayer() else Modifier),
         ) {
             // The container stays; only its content moves when the book changes.
