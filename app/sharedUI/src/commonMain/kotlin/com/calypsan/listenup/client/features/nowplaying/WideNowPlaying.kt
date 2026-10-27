@@ -46,7 +46,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTranspo
 import com.calypsan.listenup.client.features.nowplaying.components.TitleArrangement
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.foldable.Posture
-import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -171,7 +170,6 @@ fun WideNowPlaying(
                     PlayerSettingsRow(
                         speed = state.settings.speed,
                         sleepTimer = state.sleepTimer,
-                        castingTo = (state.source as? AudioSource.Casting)?.deviceName,
                         sleepCountdownMs = {
                             SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed)
                         },

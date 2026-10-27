@@ -1,23 +1,41 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.features.nowplaying.components.CastConnectedButton
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
+import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.math.abs
+
+private const val CAST_SLOT = "cast-slot"
 
 /**
- * P1, the status slot and P25: Collapse, the chip, and the More menu from the shared builder. The wide header (P3,
+ * P1, the status slot and P25: Collapse, the chip (only with news), Cast and the More menu from the shared builder. The wide header (P3,
  * `NP-AndroidTablet`) reads just "Now playing": the series is a link in the player column, so More leaves it out.
  */
 @Config(qualifiers = "w412dp-h915dp")
@@ -29,13 +47,18 @@ class PlayerTopBarTest {
     private val picked = mutableListOf<PlayerMenuItem>()
     private var collapses = 0
 
-    private fun bar(wide: Boolean = false) {
+    private var source by mutableStateOf<AudioSource>(AudioSource.StreamingTranscoded)
+
+    private fun bar(
+        wide: Boolean = false,
+        castSlot: @Composable () -> Unit = { Box(Modifier.size(48.dp).testTag(CAST_SLOT)) },
+    ) {
         composeRule.setContent {
             MaterialTheme {
                 PlayerTopBar(
                     state =
                         loadedPlayerState(
-                            source = AudioSource.StreamingTranscoded,
+                            source = source,
                             series = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1")),
                             firstPdfDocId = "doc-1",
                             boostDb = 6f,
@@ -43,9 +66,63 @@ class PlayerTopBarTest {
                     onCollapse = { collapses++ },
                     onMenuItem = { picked += it },
                     wide = wide,
+                    castSlot = castSlot,
                 )
             }
         }
+    }
+
+    private fun statusNodes() = composeRule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.LiveRegion)).fetchSemanticsNodes()
+
+    @Test
+    fun `Downloaded, Streaming and downloaded-offline show no status`() {
+        bar()
+        listOf(AudioSource.Downloaded, AudioSource.Streaming, AudioSource.DownloadedOffline).forEach { quiet ->
+            source = quiet
+            composeRule.waitForIdle()
+            statusNodes().size shouldBe 0
+        }
+        composeRule.onNodeWithContentDescription("Collapse player").assertExists()
+        composeRule.onNodeWithContentDescription("More options").assertExists()
+    }
+
+    @Test
+    fun `Offline shows between Collapse and More`() {
+        source = AudioSource.Offline
+        bar()
+        val collapse = composeRule.onNodeWithContentDescription("Collapse player").getUnclippedBoundsInRoot()
+        val offline = composeRule.onNodeWithText("Offline").getUnclippedBoundsInRoot()
+        val cast = composeRule.onNodeWithTag(CAST_SLOT).getUnclippedBoundsInRoot()
+        val more = composeRule.onNodeWithContentDescription("More options").getUnclippedBoundsInRoot()
+        (collapse.right <= offline.left) shouldBe true
+        (offline.right <= cast.left) shouldBe true
+        (cast.right <= more.left) shouldBe true
+    }
+
+    @Test
+    fun `casting shows no chip`() {
+        source = AudioSource.Casting("Living Room")
+        bar(castSlot = { CastConnectedButton(deviceName = "Living Room", onOpenRoutes = {}) })
+        statusNodes().size shouldBe 0
+        composeRule.onNodeWithText("Playing on Living Room").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Cast. Playing on Living Room. Change output").assertExists()
+    }
+
+    @Test
+    fun `Cast sits beside More`() {
+        bar()
+        val cast = composeRule.onNodeWithTag(CAST_SLOT).getUnclippedBoundsInRoot()
+        val more = composeRule.onNodeWithContentDescription("More options").getUnclippedBoundsInRoot()
+        (cast.right <= more.left) shouldBe true
+        abs(((cast.top + cast.bottom) / 2 - (more.top + more.bottom) / 2).value) shouldBeLessThanOrEqualTo 1f
+    }
+
+    @Test
+    fun `the wide header has Cast beside More too`() {
+        bar(wide = true)
+        val cast = composeRule.onNodeWithTag(CAST_SLOT).getUnclippedBoundsInRoot()
+        val more = composeRule.onNodeWithContentDescription("More options").getUnclippedBoundsInRoot()
+        (cast.right <= more.left) shouldBe true
     }
 
     @Test
@@ -57,14 +134,14 @@ class PlayerTopBarTest {
     }
 
     @Test
-    fun `More lists the shared rows, the boost with its value, and no author or narrator rows`() {
+    fun `More lists the shared rows, Go to author, the boost with its value, and no narrator row`() {
         bar()
         composeRule.onNodeWithContentDescription("More options").performClick()
         composeRule.onNodeWithText("Go to book").assertExists()
         composeRule.onNodeWithText("Go to series").assertExists()
         composeRule.onNodeWithText("Open PDF").assertExists()
         composeRule.onNodeWithText("Volume boost · +6 dB").assertExists()
-        composeRule.onNodeWithText("Go to author").assertDoesNotExist()
+        composeRule.onNodeWithText("Go to author").assertExists()
         composeRule.onNodeWithText("Go to narrator").assertDoesNotExist()
         composeRule.onNodeWithText("Close book").performClick()
         picked shouldBe listOf(PlayerMenuItem.CloseBook)

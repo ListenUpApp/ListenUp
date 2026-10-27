@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.design.components
 
-import com.calypsan.listenup.client.design.theme.primaryInk
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
@@ -19,18 +18,16 @@ import androidx.compose.ui.unit.dp
 /**
  * A status, drawn in an outlined assist chip's shape but never a control (m3.material.io/components/chips: the
  * assist chip's 8dp shape and outline). Announced politely when it changes; it carries no click semantics, so
- * TalkBack never offers it as a button. [emphasized] draws it in the coral (Now Playing's "Playing on …"): the outline
- * in `primary`, the words in [primaryInk], which reads at AA where the brand coral does not.
+ * TalkBack never offers it as a button.
  */
 @Composable
 fun StatusChip(
     text: String,
     modifier: Modifier = Modifier,
-    emphasized: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
-    val ink = if (emphasized) colors.primaryInk else colors.onSurfaceVariant
-    val outline = if (emphasized) colors.primary else colors.outlineVariant
+    val ink = colors.onSurfaceVariant
+    val outline = colors.outlineVariant
     Box(
         modifier =
             modifier

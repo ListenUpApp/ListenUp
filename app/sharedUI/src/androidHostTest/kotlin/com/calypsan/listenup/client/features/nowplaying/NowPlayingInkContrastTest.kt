@@ -13,8 +13,8 @@ import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 /**
  * Now Playing on Android has no cover wash (F6): its ground is `surface`, and the card and menu sit on the surface
  * containers. Every ink the screen sets as text on them clears WCAG AA in both hand-tuned schemes: the status, the
- * narrators, the times and the book sentence (`onSurfaceVariant`), the counter and "Playing on …" (`primaryInk`: the
- * brand coral is 4.48:1 on the light surface, a hair under AA), Close book (`error`),
+ * narrators and the times (`onSurfaceVariant`), the wide counter (`primaryInk`: the brand coral is 4.48:1 on the light
+ * surface, a hair under AA), Close book (`error`),
  * and the error card's words.
  *
  * The sheets (PR 4) add their own pairs: the sleep gold (the armed control, the fade card and Keep listening), the coral
@@ -38,7 +38,7 @@ class NowPlayingInkContrastTest :
                 }
             }
 
-            test("$name: casting's coral, Close book's red and the error card's words read at 4.5:1") {
+            test("$name: the counter's coral, Close book's red and the error card's words read at 4.5:1") {
                 withClue("primaryInk on surface") {
                     contrastRatio(scheme.primaryInk, scheme.surface) shouldBeGreaterThanOrEqual AA_TEXT
                 }

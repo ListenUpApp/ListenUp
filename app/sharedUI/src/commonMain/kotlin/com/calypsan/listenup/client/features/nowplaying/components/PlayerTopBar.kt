@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.StatusChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
@@ -64,15 +66,16 @@ import kotlin.math.roundToInt
 /** The More menu's corners (m3.material.io/components/menus). */
 private val MenuShape = RoundedCornerShape(16.dp)
 
-/** Clears the collapse and More buttons, so the centred status never runs under them. */
-private val StatusSideClearance = 56.dp
-
 /**
  * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
  *
- * **Compact** (`wide = false`): Collapse on the left, the [StatusChip] centred, More on the right.
+ * **Compact** (`wide = false`): Collapse · the [StatusChip] in the space between · Cast · More.
  * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip
- * · More, on a 56dp bar.
+ * · Cast · More, on a 56dp bar.
+ *
+ * The chip shows only with news ([PlayerUiState.Loaded.status]: offline, unreachable, transcoded, not playable); with
+ * none the space is empty. Cast sits beside More ([castSlot], board `Cast-Android-After`); while casting it names the
+ * device, so no chip says it again. The slot is a parameter so a test can draw it where Play Services are absent.
  *
  * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Go to author, Open PDF and
  * Volume boost, then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the
@@ -85,41 +88,49 @@ fun PlayerTopBar(
     onMenuItem: (PlayerMenuItem) -> Unit,
     modifier: Modifier = Modifier,
     wide: Boolean = false,
+    castSlot: @Composable () -> Unit = {
+        CastButton(
+            connectedDeviceName = (state.source as? AudioSource.Casting)?.deviceName,
+            modifier = Modifier.sizeIn(minWidth = MinTouchTarget, minHeight = MinTouchTarget),
+        )
+    },
 ) {
-    val status: @Composable () -> Unit = {
-        StatusChip(text = state.source.statusText(), emphasized = state.source is AudioSource.Casting)
-    }
+    val status: @Composable () -> Unit = { state.status?.let { StatusChip(text = it.statusText()) } }
     val more: @Composable () -> Unit = {
         MoreMenu(state = state, includesSeries = !wide, includesAuthor = !wide, onMenuItem = onMenuItem)
     }
     if (wide) {
-        WideTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
+        WideTopBar(onCollapse = onCollapse, status = status, cast = castSlot, more = more, modifier = modifier)
     } else {
-        CompactTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
+        CompactTopBar(onCollapse = onCollapse, status = status, cast = castSlot, more = more, modifier = modifier)
     }
 }
 
-/** Compact (phone) bar: collapse left, the status centred, More right. */
+/** Compact (phone) bar: Collapse, the status in the space between, Cast, More. */
 @Composable
 private fun CompactTopBar(
     onCollapse: () -> Unit,
     status: @Composable () -> Unit,
+    cast: @Composable () -> Unit,
     more: @Composable () -> Unit,
     modifier: Modifier,
 ) {
     val haptics = LocalHaptics.current
-    Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         IconButton(
             onClick = {
                 haptics.press()
                 onCollapse()
             },
-            modifier = Modifier.align(Alignment.CenterStart),
         ) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
         }
-        Box(Modifier.padding(horizontal = StatusSideClearance)) { status() }
-        Box(Modifier.align(Alignment.CenterEnd)) { more() }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { status() }
+        cast()
+        more()
     }
 }
 
@@ -132,6 +143,7 @@ private fun CompactTopBar(
 private fun WideTopBar(
     onCollapse: () -> Unit,
     status: @Composable () -> Unit,
+    cast: @Composable () -> Unit,
     more: @Composable () -> Unit,
     modifier: Modifier,
 ) {
@@ -158,6 +170,7 @@ private fun WideTopBar(
             modifier = Modifier.weight(1f),
         )
         status()
+        cast()
         more()
     }
 }

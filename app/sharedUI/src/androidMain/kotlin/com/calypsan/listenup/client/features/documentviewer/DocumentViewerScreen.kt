@@ -73,6 +73,10 @@ import com.calypsan.listenup.client.features.nowplaying.PlayerNavigation
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
+import androidx.compose.foundation.layout.sizeIn
+import com.calypsan.listenup.client.design.MinTouchTarget
+import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.features.nowplaying.components.CastButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -160,6 +164,16 @@ internal fun DocumentViewerScreen(
                 onBack = onBack,
                 chromeVisible = chromeVisible,
                 onGrid = { showGrid = true },
+                // Cast beside More, as on Now Playing: the listening pane's settings row no longer carries it.
+                cast =
+                    (playerState as? PlayerUiState.Loaded)?.let { loaded ->
+                        {
+                            CastButton(
+                                connectedDeviceName = (loaded.source as? AudioSource.Casting)?.deviceName,
+                                modifier = Modifier.sizeIn(minWidth = MinTouchTarget, minHeight = MinTouchTarget),
+                            )
+                        }
+                    },
             )
         },
         scrubber = {
@@ -414,15 +428,17 @@ private fun OpeningContent() {
 // ---------------------------------------------------------------------------
 
 /**
- * Animating top bar with back navigation + grid toggle + overflow actions.
+ * Animating top bar with back navigation + grid toggle + [cast] (with a book loaded) + overflow actions. Cast sits
+ * beside More, as on Now Playing; null draws none.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReaderTopBar(
+internal fun ReaderTopBar(
     title: String,
     onBack: () -> Unit,
     chromeVisible: Boolean,
     onGrid: () -> Unit,
+    cast: (@Composable () -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
     var showOverflowMenu by remember { mutableStateOf(false) }
@@ -447,6 +463,7 @@ private fun ReaderTopBar(
                         contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
                     )
                 }
+                cast?.invoke()
                 Box {
                     IconButton(
                         onClick = {

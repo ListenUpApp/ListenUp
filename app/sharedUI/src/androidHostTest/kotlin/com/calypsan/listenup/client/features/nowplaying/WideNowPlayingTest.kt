@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.features.nowplaying.components.CHAPTER_PANEL_TAG
 import com.calypsan.listenup.client.playback.PlayerPhase
+import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -78,11 +79,17 @@ class WideNowPlayingTest {
     }
 
     @Test
-    fun `the header carries the status and More, and no series`() {
+    fun `the header carries More and no series, and Downloaded says nothing`() {
         wide()
-        composeRule.onNodeWithText("Downloaded").assertIsDisplayed()
+        composeRule.onNodeWithText("Downloaded").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("More options").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Collapse player").assertIsDisplayed()
+    }
+
+    @Test
+    fun `Offline appears in the wide header`() {
+        wide(chapteredState(source = AudioSource.Offline))
+        composeRule.onNodeWithText("Offline").assertIsDisplayed()
     }
 
     @Test
