@@ -26,6 +26,11 @@ import org.w3c.dom.Element
  *   - ⛔ Reduced motion is checked HERE, so no call site can forget it. [animateComposited] then
  *     starts nothing and its [Motion] has nothing to run — which is why the end state of every
  *     motion must be the element's own resting style. A fill never holds the last frame.
+ *
+ * THE ONE EXCEPTION — the player morph (`features/nowplaying/PlayerMorph.kt`) is the one sanctioned exception: a
+ * spring-shaped `linear()` because it must continue a finger's release, and an opacity-only crossfade that runs under
+ * reduced motion because the canvas `Reduce` asks for one. It still moves only opacity and transform: it animates the
+ * registered number `--mp-p`, from which the sheet computes every transform and opacity, and no layout property.
  */
 
 /** The three durations. Mirrored as `--motion-*` in `00-base.css`; `MotionTest` holds them equal. */

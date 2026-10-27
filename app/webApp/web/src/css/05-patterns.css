@@ -748,3 +748,123 @@ div.panel-pop {
   .np-page .np-title-chev svg { position:absolute; left:4px; top:50%; translate:0 -50%; }
 
 }
+
+/* ============================================================
+   PLAYER MORPH — the bar grows into Now Playing (canvas "Mini player drag & morph", `MorphWeb`, `Spec`).
+   One number moves: --mp-p, written on the shell (0 at the bar, 1 at Now Playing) by an animation or a finger.
+   Everything below turns it into transforms and opacities, and nothing else: no layout property depends on it
+   (PlayerMorphCssParityTest reads the sheet to hold that). The windows (--mp-<part>-a/-b) come from the shared
+   timeline, written once (MorphCss.kt); the flights' offsets (--mp-<part>-dx/-dy/-s) are measured once per morph
+   (PlayerMorph.kt). Below 760px only: wider, the bar is the page's transport and Now Playing fades through.
+   ============================================================ */
+@property --mp-p { syntax: "<number>"; inherits: true; initial-value: 1; }
+@media (max-width: 759px) {
+  /* Clamped for every position: a spring's overshoot never opens a gap above the sheet or below the bar. */
+  .shell-morphing { --mp-q: clamp(0, var(--mp-p), 1); }
+
+  /* Now Playing as a layer over the page it rose from, which a 32 % scrim dims. */
+  .shell-morphing .np-layer { position:fixed; inset:0; z-index:35; overflow:hidden; pointer-events:none; }
+  .shell-morphing .np-layer::before {
+    content:""; position:absolute; inset:0; background:#000; opacity:calc(.32 * var(--mp-q)); pointer-events:none;
+  }
+  .shell-morphing .np-layer .np-morph { position:relative; isolation:isolate; pointer-events:auto; }
+
+  /* The sheet: its top edge rises from the bar's to the window's, and its colour turns from the bar's to the page's. */
+  .shell-morphing:not(.mp-fade) .np-layer .np-morph { transform:translateY(calc((1 - var(--mp-q)) * var(--mp-travel))); }
+  .shell-morphing:not(.mp-fade) .np-layer .np-morph::before {
+    content:""; position:absolute; inset:0; z-index:-1; background:var(--surface); pointer-events:none;
+    --t:clamp(0, (var(--mp-p) - var(--mp-tint-a)) / (var(--mp-tint-b) - var(--mp-tint-a)), 1);
+    opacity:calc(1 - var(--t));
+  }
+
+  /* The tabs slide away beneath the rising sheet. */
+  .shell-morphing:not(.mp-fade) .sidebar {
+    --t:clamp(0, (var(--mp-p) - var(--mp-nav-a)) / (var(--mp-nav-b) - var(--mp-nav-a)), 1);
+    transform:translateY(calc(84px * (1 - pow(1 - var(--t), 3))));
+  }
+
+  /* The bar: its cover, title, play button and line are flying in the sheet (each hidden only when its twin was
+     measured), so what is left is see-through and rides the sheet while its second line and skip-back fade. */
+  .shell-morphing:not(.mp-fade) .tport {
+    z-index:36; background:transparent; border-top-color:transparent; box-shadow:none; pointer-events:none;
+    transform:translateY(calc(-1 * var(--mp-q) * var(--mp-travel)));
+  }
+  .shell-morphing:not(.mp-fade) .tport-cover { opacity:var(--mp-bar-cover, 1); }
+  .shell-morphing:not(.mp-fade) .tport-t { opacity:var(--mp-bar-title, 1); }
+  .shell-morphing:not(.mp-fade) .tport-b { opacity:var(--mp-bar-play, 1); }
+  .shell-morphing:not(.mp-fade) .tport-line { opacity:var(--mp-bar-line, 1); }
+  .shell-morphing:not(.mp-fade) .tport-sub, .shell-morphing:not(.mp-fade) .tport-pill, .shell-morphing:not(.mp-fade) .tport-close {
+    --t:clamp(0, (var(--mp-p) - var(--mp-sub-a)) / (var(--mp-sub-b) - var(--mp-sub-a)), 1);
+    opacity:calc(pow(1 - var(--t), 3));
+  }
+  .shell-morphing:not(.mp-fade) .tport-back {
+    --t:clamp(0, (var(--mp-p) - var(--mp-skip-a)) / (var(--mp-skip-b) - var(--mp-skip-a)), 1);
+    opacity:calc(pow(1 - var(--t), 3));
+  }
+
+  /* The four flights: from the bar's part to the page's, x easing in (p^1.5) and y easing out, so each swings up
+     before it centres. The sheet's own rise is taken back out of y, since every part rides inside the sheet. */
+  .shell-morphing:not(.mp-fade) .np-layer .np-cover {
+    transform-origin:0 0;
+    transform:
+      translate(calc(var(--mp-cover-dx) * (1 - pow(var(--mp-q), 1.5))),
+        calc(var(--mp-cover-dy) * pow(1 - var(--mp-q), 1.5) - (1 - var(--mp-q)) * var(--mp-travel)))
+      scale(calc(var(--mp-cover-s) + (1 - var(--mp-cover-s)) * var(--mp-q)));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-title {
+    transform-origin:var(--mp-title-ox, 0px) var(--mp-title-oy, 0px);
+    transform:
+      translate(calc(var(--mp-title-dx) * (1 - pow(var(--mp-q), 1.5))),
+        calc(var(--mp-title-dy) * pow(1 - var(--mp-q), 1.5) - (1 - var(--mp-q)) * var(--mp-travel)))
+      scale(calc(var(--mp-title-s) + (1 - var(--mp-title-s)) * var(--mp-q)));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-play {
+    transform-origin:0 0;
+    transform:
+      translate(calc(var(--mp-play-dx) * (1 - pow(var(--mp-q), 1.5))),
+        calc(var(--mp-play-dy) * pow(1 - var(--mp-q), 1.5) - (1 - var(--mp-q)) * var(--mp-travel)))
+      scale(calc(var(--mp-play-s) + (1 - var(--mp-play-s)) * var(--mp-q)));
+  }
+  /* The bar's line becomes the scrubber: its width on the arc's progress, its thickness on its own window. */
+  .shell-morphing:not(.mp-fade) .np-layer .np-scrub {
+    --t:clamp(0, (var(--mp-p) - var(--mp-thick-a)) / (var(--mp-thick-b) - var(--mp-thick-a)), 1);
+    transform-origin:0 0;
+    transform:
+      translate(calc(var(--mp-line-dx) * (1 - pow(var(--mp-q), 1.5))),
+        calc(var(--mp-line-dy) * pow(1 - var(--mp-q), 1.5) - (1 - var(--mp-q)) * var(--mp-travel)))
+      scale(calc(var(--mp-line-sx) + (1 - var(--mp-line-sx)) * var(--mp-q)),
+        calc(var(--mp-line-sy) + (1 - var(--mp-line-sy)) * (1 - pow(1 - var(--t), 3))));
+  }
+
+  /* Everything else fades in on its own window, riding the sheet. */
+  .shell-morphing:not(.mp-fade) .np-layer .np-morph .page-h {
+    --t:clamp(0, (var(--mp-p) - var(--mp-head-a)) / (var(--mp-head-b) - var(--mp-head-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-ch-title {
+    --t:clamp(0, (var(--mp-p) - var(--mp-chapter-a)) / (var(--mp-chapter-b) - var(--mp-chapter-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-narrated {
+    --t:clamp(0, (var(--mp-p) - var(--mp-narrator-a)) / (var(--mp-narrator-b) - var(--mp-narrator-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-time {
+    --t:clamp(0, (var(--mp-p) - var(--mp-times-a)) / (var(--mp-times-b) - var(--mp-times-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-transport > :not(.np-play) {
+    --t:clamp(0, (var(--mp-p) - var(--mp-sides-a)) / (var(--mp-sides-b) - var(--mp-sides-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+    transform:scale(calc(.85 + .15 * (1 - pow(1 - var(--t), 3))));
+  }
+  .shell-morphing:not(.mp-fade) .np-layer .np-pills {
+    --t:clamp(0, (var(--mp-p) - var(--mp-settings-a)) / (var(--mp-settings-b) - var(--mp-settings-a)), 1);
+    opacity:calc(1 - pow(1 - var(--t), 3));
+  }
+
+  /* Reduced motion (canvas `Reduce`): nothing travels. Now Playing fades in over the bar where it sits, and the bar
+     and the tabs fade out under it. */
+  .shell-morphing.mp-fade .np-layer .np-morph { opacity:var(--mp-q); }
+  .shell-morphing.mp-fade .sidebar, .shell-morphing.mp-fade .tport { opacity:calc(1 - var(--mp-q)); }
+}
