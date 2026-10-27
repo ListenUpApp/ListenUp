@@ -115,52 +115,38 @@ struct NowPlayingTitleBlock: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// The mic and "Narrated by", then each narrator a link; more than three fold to a menu of them. One row, centred,
-    /// that stacks its names under the lead when the text is too large for one line.
+    /// The mic and "Narrated by", then each narrator a link; more than three fold to a menu of them. One centred flow:
+    /// the names wrap between names when the text is large, each whole, and a name wider than the line wraps within it.
     @ViewBuilder
     private func narratedBy(_ people: [ContributorNavRef]) -> some View {
         if !people.isEmpty {
-            let lead = Label(String(localized: "book.detail_narrated_by"), systemImage: "music.mic")
-                .font(.subheadline)
-                .foregroundStyle(Color.luOnWashSecondary)
-                .labelStyle(.titleAndIcon)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 4) {
-                    lead
-                    narratorNames(people)
-                }
-                VStack(spacing: 2) {
-                    lead
-                    narratorNames(people)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func narratorNames(_ people: [ContributorNavRef]) -> some View {
-        if let folded = Self.folded(people) {
-            Menu {
-                Section(Self.menuHeader(isAuthors: false)) {
-                    ForEach(Self.menuRows(people)) { row in
-                        Button { onViewContributor(row.id) } label: {
-                            Text(row.name)
-                            if let books = row.books { Text(books) }
+            FlowLayout(spacing: 4, alignment: .center) {
+                Label(String(localized: "book.detail_narrated_by"), systemImage: "music.mic")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.luOnWashSecondary)
+                    .labelStyle(.titleAndIcon)
+                if let folded = Self.folded(people) {
+                    Menu {
+                        Section(Self.menuHeader(isAuthors: false)) {
+                            ForEach(Self.menuRows(people)) { row in
+                                Button { onViewContributor(row.id) } label: {
+                                    Text(row.name)
+                                    if let books = row.books { Text(books) }
+                                }
+                            }
                         }
+                    } label: {
+                        link(folded, isAuthor: false)
                     }
-                }
-            } label: {
-                link(folded, isAuthor: false)
-            }
-        } else {
-            HStack(spacing: 4) {
-                ForEach(Array(people.enumerated()), id: \.element.id) { offset, person in
-                    Button { onViewContributor(person.id) } label: {
-                        link(person.name + Self.separator(after: offset, of: people.count), isAuthor: false)
+                } else {
+                    ForEach(Array(people.enumerated()), id: \.element.id) { offset, person in
+                        Button { onViewContributor(person.id) } label: {
+                            link(person.name + Self.separator(after: offset, of: people.count), isAuthor: false)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(person.name)
+                        .accessibilityAddTraits(.isLink)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(person.name)
-                    .accessibilityAddTraits(.isLink)
                 }
             }
         }

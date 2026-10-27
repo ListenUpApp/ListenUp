@@ -69,4 +69,30 @@ struct NowPlayingTitleCentringTests {
         #expect(abs(title.frame.minX - series.frame.minX) < 1, "title \(title.frame), series \(series.frame)")
         #expect(hosted.stop(labelled: "Brandon Sanderson") != nil, "\(hosted.tree)")
     }
+
+    /// Three long narrators at the largest text size: the names wrap between names, whole, inside the window, and the
+    /// rows stay centred. A row that cannot wrap squeezed each name into a third of the width and broke it mid-word.
+    @Test func threeLongNarratorsWrapWholeAtTheLargestTextSize() async throws {
+        // Long names whose every word still fits one line of the column at this size.
+        let names = ["Christopherson Wolfe", "Maximiliana Fairweather", "Bartholomew Cholmondeley"]
+        let state = PlayerUiStateLoaded.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four",
+            narrators: names.enumerated().map { PlayerContributor(id: "n\($0.offset)", name: $0.element, bookCount: 1) })
+        let hosted = await phone(state, size: .accessibility5)
+        defer { hosted.close() }
+        let usable = hosted.usableBounds
+        let outset = TapTarget.outset(forVisualSize: 20)
+        let font = UIFont.preferredFont(
+            forTextStyle: .subheadline,
+            compatibleWith: UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge))
+        for name in names {
+            let stop = try #require(hosted.stop(labelled: name), "\(hosted.tree)")
+            let drawn = stop.frame.insetBy(dx: outset, dy: outset)
+            #expect(drawn.minX >= usable.minX - 1 && drawn.maxX <= usable.maxX + 1, "\(name) at \(drawn) in \(usable)")
+            // Whole words: each name is drawn at least as wide as its longest word.
+            let longest = name.split(separator: " ").map { String($0) as NSString }
+                .map { $0.size(withAttributes: [.font: font]).width }.max() ?? 0
+            #expect(drawn.width + 1 >= longest, "\(name) drawn \(drawn.width) wide, its longest word \(longest)")
+        }
+    }
 }
