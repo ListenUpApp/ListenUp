@@ -139,7 +139,7 @@ class HomePageTest :
             opened shouldBe "b1"
         }
 
-        test("Also in progress names each card once, with author, percent and time left (§2.5, §8.2)") {
+        test("Everything in progress names each card once, with author, percent and time left (§2.5, §8.2)") {
             val host =
                 homePage(readyHome(everythingInProgress = listOf(continuing("b1", "Babel", progress = 0.11f, totalHours = 21))))
             val card = host.querySelector(".home-card") as HTMLElement
@@ -148,14 +148,20 @@ class HomePageTest :
             (card.querySelector(".progress") as HTMLElement).getAttribute("aria-hidden") shouldBe "true"
         }
 
-        test("the header says Also in progress and In Library leaves for the Library's In progress") {
+        test("the book in the player bar is the first card") {
+            val host =
+                homePage(readyHome(everythingInProgress = listOf(continuing("loaded", "The Loaded Book"), continuing("b1", "Babel"))))
+            (host.querySelector(".home-card") as HTMLElement).getAttribute("aria-label").orEmpty() shouldStartWith "The Loaded Book"
+        }
+
+        test("the header says Everything in progress and In Library leaves for the Library's In progress") {
             var opened = false
             val host =
                 homePage(
                     readyHome(everythingInProgress = listOf(continuing("b1", "Babel"))),
                     actions = HomeActions.None.copy(onOpenInProgress = { opened = true }),
                 )
-            host.textOf(".home-also-h") shouldBe "Also in progress"
+            host.textOf(".home-progress-h") shouldBe "Everything in progress"
             host.buttonsLabelled("In Library →").single().click()
             opened shouldBe true
         }
@@ -167,8 +173,8 @@ class HomePageTest :
             homePage(readyHome(everythingInProgress = listOf(narrated)), isWide = false).count(".home-card-n") shouldBe 0
         }
 
-        test("a loaded book's absence means no Also in progress section at all") {
-            homePage(readyHome(everythingInProgress = emptyList())).count(".home-also") shouldBe 0
+        test("nothing in progress means no Everything in progress section at all") {
+            homePage(readyHome(everythingInProgress = emptyList())).count(".home-progress") shouldBe 0
         }
 
         test("at most six cards") {
@@ -187,7 +193,7 @@ class HomePageTest :
             val row = host.querySelector(".home-row") as HTMLElement
             row.querySelector(".home-hero") shouldNotBe null
             row.querySelector(".home-stats-card") shouldNotBe null
-            val order = host.querySelectorAll(".home-row, .home-also, .home-shelves-section")
+            val order = host.querySelectorAll(".home-row, .home-progress, .home-shelves-section")
             (0 until order.length).map { (order.item(it) as HTMLElement).className.split(" ").first() } shouldBe
                 listOf("home-row", "home-section", "home-section")
         }
@@ -199,19 +205,19 @@ class HomePageTest :
                     stats = weekStats(),
                 )
             host.count(".home-row") shouldBe 0
-            val sections = host.querySelectorAll(".home-hero, .home-also, .home-stats-card, .home-shelves-section")
+            val sections = host.querySelectorAll(".home-hero, .home-progress, .home-stats-card, .home-shelves-section")
             (0 until sections.length).map { index ->
                 val classes = (sections.item(index) as HTMLElement).classList
                 when {
                     classes.contains("home-hero") -> "slot"
-                    classes.contains("home-also") -> "also"
+                    classes.contains("home-progress") -> "progress"
                     classes.contains("home-stats-card") -> "stats"
                     else -> "shelves"
                 }
-            } shouldBe listOf("slot", "also", "stats", "shelves")
+            } shouldBe listOf("slot", "progress", "stats", "shelves")
         }
 
-        test("a loaded book on a wide page sets stats beside shelves after Also in progress") {
+        test("a loaded book on a wide page sets stats beside shelves after Everything in progress") {
             val host =
                 homePage(
                     readyHome(slot = HomeSlot.Absent, everythingInProgress = listOf(continuing("b1", "Babel"))),
@@ -253,7 +259,7 @@ class HomePageTest :
             homePage(readyHome(myShelves = emptyList())).buttonsLabelled("See all").size shouldBe 0
         }
 
-        test("Select in the Also in progress header starts selecting, and hides while selecting (H16)") {
+        test("Select in the Everything in progress header starts selecting, and hides while selecting (H16)") {
             var started = false
             val idle = BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = {}, onStart = { started = true })
             homePage(readyHome(everythingInProgress = listOf(continuing("babel", "Babel"))), selection = idle)

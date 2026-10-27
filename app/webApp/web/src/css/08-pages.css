@@ -503,9 +503,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
   font-size: var(--fs-body); font-weight: 700; letter-spacing: -0.01em; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Also in progress: the section can sit in a wide row, and its heading carries no margin of its own. */
-.luw .home-also { min-width: 0; }
-.luw .home-also-h { margin: 0; }
+/* Everything in progress: the section can sit in a wide row, and its heading carries no margin of its own. */
+.luw .home-progress { min-width: 0; }
+.luw .home-progress-h { margin: 0; }
 .luw .home-card-a, .luw .home-card-n {
   font-size: var(--fs-small); color: var(--ink-2); font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

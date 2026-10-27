@@ -14,6 +14,7 @@ internal object HomeWords {
     const val WELCOME_BODY = "Start one and it lives here, ready to pick up where you left off."
     const val GETTING_STARTED = "Getting started"
     const val NOTHING_IN_PROGRESS = "Nothing in progress"
+    const val EVERYTHING_IN_PROGRESS = "Everything in progress"
     const val NEXT_IN_A_SERIES = "Next in a series you're reading"
     const val BROWSE_LIBRARY = "Browse the Library"
     const val DISCOVER = "Discover"

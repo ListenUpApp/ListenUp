@@ -77,7 +77,7 @@ fun HomePage(
                         isOffline = state.isOffline,
                         continueListeningFailed = state.continueListeningError != null,
                         showsStrip = state.showsArrivalStrip,
-                        hasAlsoInProgress = state.everythingInProgress.isNotEmpty(),
+                        hasEverythingInProgress = state.everythingInProgress.isNotEmpty(),
                         isWide = isWide,
                     )
                 blocks.forEach { block ->
@@ -143,8 +143,8 @@ private fun HomeBlockContent(
             ContinueListeningFailedLine(onRetry = actions.onRetry)
         }
 
-        HomeBlock.AlsoInProgress -> {
-            AlsoInProgress(state.everythingInProgress, isWide, actions, selection)
+        HomeBlock.EverythingInProgress -> {
+            EverythingInProgress(state.everythingInProgress, isWide, actions, selection)
         }
 
         HomeBlock.Stats -> {

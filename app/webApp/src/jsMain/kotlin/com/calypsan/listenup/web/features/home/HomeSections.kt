@@ -38,7 +38,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val TODAY_LABEL = "Today"
 
 /** Spec §2.5 caps: desktop one row of up to six; the phone CSS shows the first four (C10). */
-internal const val ALSO_IN_PROGRESS_CAP = 6
+internal const val EVERYTHING_IN_PROGRESS_CAP = 6
 
 /** The cover rung a card asks the server for, in px. */
 private const val CARD_COVER_RUNG = 168
@@ -54,23 +54,23 @@ private const val ARIA_LABEL = "aria-label"
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
 
-/** "Also in progress" with its header link. Absent when there is nothing else in progress (§2.1). */
+/** "Everything in progress", the loaded book first, with its header link. Absent when nothing is in progress (§2.1). */
 @Composable
-internal fun AlsoInProgress(
+internal fun EverythingInProgress(
     items: List<ContinueListeningItem>,
     isWide: Boolean,
     actions: HomeActions,
     selection: BookSelection?,
 ) {
     Section(attrs = {
-        classes("home-section", "home-also")
-        attr("aria-labelledby", "home-also-h")
+        classes("home-section", "home-progress")
+        attr("aria-labelledby", "home-progress-h")
     }) {
         Div(attrs = { classes("home-section-row") }) {
             H2(attrs = {
-                id("home-also-h")
-                classes("home-section-h", "home-also-h")
-            }) { Text("Also in progress") }
+                id("home-progress-h")
+                classes("home-section-h", "home-progress-h")
+            }) { Text(HomeWords.EVERYTHING_IN_PROGRESS) }
             Div(attrs = { classes("home-section-actions") }) {
                 // The way into selection on web (H16): a pointer has no long-press. Hidden while selecting — the bulk
                 // bar's Done ends it.
@@ -81,7 +81,7 @@ internal fun AlsoInProgress(
             }
         }
         Div(attrs = { classes("home-continue") }) {
-            items.take(ALSO_IN_PROGRESS_CAP).forEach { item ->
+            items.take(EVERYTHING_IN_PROGRESS_CAP).forEach { item ->
                 key(item.bookId) { HomeCard(item, isWide, actions.onOpenBook, selection) }
             }
         }
