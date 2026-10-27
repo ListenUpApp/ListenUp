@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.navigation
 
+import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
+import com.calypsan.listenup.client.features.nowplaying.morph.rememberPlayerMorph
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.background
@@ -803,8 +805,17 @@ private fun AuthenticatedNavigation(
         // ProvideNowPlayingInsets publishes the mini-player clearance to every detail screen below,
         // so NavDisplay content can pad itself clear of the floating bar (the bar measures itself inside
         // AuthenticatedNavOverlays and latches its footprint back up here).
+        // One morph progress for the player host and the shell's bar and navigation bar, which live on either side of
+        // NavDisplay; the host animates it toward the shared destination.
+        val playerMorph =
+            rememberPlayerMorph(
+                isExpanded = { nowPlayingViewModel.expanded.value },
+                onExpand = nowPlayingViewModel::expand,
+                onCollapse = nowPlayingViewModel::collapse,
+            )
         ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
             CompositionLocalProvider(
+                LocalPlayerMorph provides playerMorph,
                 LocalSnackbarHostState provides snackbarHostState,
                 LocalUnsavedWorkHolds provides unsavedWork,
                 LocalDeviceContext provides koinInject<DeviceContext>(),
