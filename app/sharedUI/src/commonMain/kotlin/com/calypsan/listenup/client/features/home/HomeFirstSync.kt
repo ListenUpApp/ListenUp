@@ -44,7 +44,7 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.groupedCount
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_resume
-import listenup.composeapp.generated.resources.home_also_in_progress
+import listenup.composeapp.generated.resources.home_everything_in_progress
 import listenup.composeapp.generated.resources.home_arriving_body
 import listenup.composeapp.generated.resources.home_arriving_count
 import listenup.composeapp.generated.resources.home_arriving_title
@@ -149,13 +149,13 @@ internal fun HomeSkeletonSlot(
     }
 }
 
-/** "Also in progress" over three card-sized skeletons, read as one "Loading books". */
+/** "Everything in progress" over three card-sized skeletons, read as one "Loading books". */
 @Composable
 internal fun HomeSkeletonRail(modifier: Modifier = Modifier) {
     val label = stringResource(Res.string.home_loading_books_a11y)
     Column(modifier.fillMaxWidth()) {
         SectionTitle(
-            title = stringResource(Res.string.home_also_in_progress),
+            title = stringResource(Res.string.home_everything_in_progress),
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
         )
         Spacer(Modifier.height(Spacing.titleGap))

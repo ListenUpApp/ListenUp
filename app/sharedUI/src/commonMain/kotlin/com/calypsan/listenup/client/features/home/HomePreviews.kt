@@ -295,8 +295,8 @@ fun HomePreviewGallery() {
                 modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             )
 
-            GalleryLabel("Also in progress")
-            AlsoInProgressSection(
+            GalleryLabel("Everything in progress")
+            EverythingInProgressSection(
                 items = mockContinue(),
                 width = HomeWidth.Compact,
                 selection = HomeSelection.None,

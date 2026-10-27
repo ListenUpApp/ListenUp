@@ -73,7 +73,7 @@ private fun book(
     isDownloaded = false,
 )
 
-/** A ready Also in progress card: author, narrators, 11% through. */
+/** A ready Everything in progress card: author, narrators, 11% through. */
 internal fun readyItem(
     id: String,
     title: String = "Book $id",

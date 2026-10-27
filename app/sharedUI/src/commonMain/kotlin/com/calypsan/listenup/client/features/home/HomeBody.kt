@@ -64,7 +64,7 @@ internal fun HomeBody(
             isOffline = state.isOffline,
             continueListeningFailed = state.continueListeningError != null,
             showsStrip = state.showsArrivalStrip,
-            hasAlsoInProgress = state.everythingInProgress.isNotEmpty(),
+            hasEverythingInProgress = state.everythingInProgress.isNotEmpty(),
             width = width,
         ).forEach { block ->
             HomeBlockContent(
@@ -125,8 +125,8 @@ private fun HomeBlockContent(
             )
         }
 
-        HomeBlock.AlsoInProgress -> {
-            AlsoInProgressSection(
+        HomeBlock.EverythingInProgress -> {
+            EverythingInProgressSection(
                 items = state.everythingInProgress,
                 width = width,
                 selection = selection,

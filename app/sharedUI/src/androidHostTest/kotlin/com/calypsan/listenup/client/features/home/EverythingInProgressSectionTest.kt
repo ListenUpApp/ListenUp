@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 
 /** Spec §2.5 on Android: one label per card, author always, narrator only on wide windows, no now-playing marker. */
 @RunWith(RobolectricTestRunner::class)
-class AlsoInProgressSectionTest {
+class EverythingInProgressSectionTest {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -46,7 +46,7 @@ class AlsoInProgressSectionTest {
         onOpenInProgress: () -> Unit = {},
     ) = composeRule.setContent {
         MaterialTheme {
-            AlsoInProgressSection(
+            EverythingInProgressSection(
                 items = listOf(babel(), ContinueListeningItem.Loading("pending")),
                 width = width,
                 selection = HomeSelection.None,
@@ -61,7 +61,7 @@ class AlsoInProgressSectionTest {
         var opened: String? = null
         show(HomeWidth.Compact, onOpenBook = { opened = it })
 
-        composeRule.onNodeWithText("Also in progress").assertIsDisplayed()
+        composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
         composeRule
             .onNodeWithContentDescription("Babel, by R. F. Kuang, 11 percent listened, 18h 40m left")
             .performClick()
@@ -78,9 +78,10 @@ class AlsoInProgressSectionTest {
     }
 
     @Test
-    fun `In Library leaves for the Library filtered to In progress`() {
+    fun `the header says Everything in progress and In Library opens the In progress Library`() {
         var opened = false
         show(HomeWidth.Compact, onOpenInProgress = { opened = true })
+        composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
         composeRule.onNodeWithText("In Library").performClick()
         opened shouldBe true
     }
