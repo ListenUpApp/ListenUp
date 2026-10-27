@@ -58,7 +58,7 @@ class NowPlayingPagePhoneTest :
             frame.find(".np-mob .np-skip-fwd").getAttribute("aria-label") shouldBe "Skip forward 30 seconds"
         }
 
-        test("the scrubber is the chapter's, with the book sentence between its times") {
+        test("the scrubber is the chapter's, with only its times: no book sentence") {
             val frame =
                 phonePage(
                     wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
@@ -68,7 +68,7 @@ class NowPlayingPagePhoneTest :
             range.getAttribute("aria-label") shouldBe "Chapter position"
             range.max shouldBe "1235000"
             range.getAttribute("aria-valuetext") shouldBe "12:04 of 20:35"
-            frame.find(".np-mob .np-sentence").textContent shouldBe "Book 10% · 40h 30m left"
+            frame.host.querySelector(".np-sentence") shouldBe null
             frame.find(".np-mob .np-ch").textContent shouldBe "Chapter 6 of 75 · Chapter 6"
         }
 
@@ -112,6 +112,13 @@ class NowPlayingPagePhoneTest :
             val frame = phonePage(wayOfKings(phase = PlayerPhase.Reconnecting))
             frame.find(".np-mob .np-play .tport-wait").shouldNotBeNull()
             frame.find(".np-mob .np-play").getAttribute("aria-label") shouldBe "Reconnecting. Pause"
+        }
+
+        test("buffering keeps the play circle's size") {
+            val playing = phonePage(wayOfKings(phase = PlayerPhase.Playing)).find(".np-mob .np-play").getBoundingClientRect()
+            val busy = phonePage(wayOfKings(phase = PlayerPhase.Buffering)).find(".np-mob .np-play").getBoundingClientRect()
+            busy.width shouldBe playing.width
+            busy.height shouldBe playing.height
         }
 
         test("playing shows no spinner") {

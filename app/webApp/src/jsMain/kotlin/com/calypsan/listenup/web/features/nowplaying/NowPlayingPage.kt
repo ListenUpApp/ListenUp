@@ -279,11 +279,13 @@ private fun NowPlayingHeader(
             HeaderButton(NowPlayingWords.BACK, WebIcon.ChevronLeft, DESK, actions.onCollapse)
         },
         actions = {
-            // Outside the heading, so the heading is never re-announced when the source changes (verify 6.12).
-            Span(attrs = {
-                classes("np-status")
-                attr(ATTR_ROLE, "status")
-            }) { Text(NowPlayingWords.status(state.source)) }
+            // Only with news, and outside the heading, so the heading is never re-announced when it changes (verify 6.12).
+            state.status?.let { news ->
+                Span(attrs = {
+                    classes("np-status")
+                    attr(ATTR_ROLE, "status")
+                }) { Text(NowPlayingWords.status(news)) }
+            }
             PlayerMoreMenu(state = state, onItem = onMenuItem)
         },
     )
@@ -435,7 +437,6 @@ private fun BookCard(
                 style { width((progress.bookFraction * PERCENT).percent) }
             })
         }
-        P(attrs = { classes("np-sentence") }) { Text(NowPlayingWords.bookSentence(progress)) }
     }
 }
 
@@ -543,7 +544,6 @@ private fun PhoneControls(
                 label = NowPlayingWords.CHAPTER_POSITION,
                 showsRemaining = true,
                 onSeek = actions.onSeek,
-                center = { Span(attrs = { classes("np-sentence") }) { Text(NowPlayingWords.bookSentence(progress)) } },
                 enabled = card !is PlayerCard.Problem,
             )
         }

@@ -583,16 +583,15 @@ div.panel-pop {
   border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
 }
 .np-page .np-ch { display:block; font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
-.np-left, .np-sentence { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-left { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
 .np-bookbar { height:4px; border-radius:var(--r-pill); background:var(--cover-track, var(--line)); overflow:hidden; }
 .np-bookbar-fill { height:100%; border-radius:inherit; background:var(--coral-fill); }
 
-/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · sentence · remaining, the transport, the pills. */
+/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · remaining, the transport, the pills. */
 .np-phone { flex-direction:column; align-items:stretch; gap:var(--sp-16); width:100%; }
 .np-scrubber { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:var(--sp-8) var(--sp-8); }
 .np-page .np-scrub { grid-column:1 / -1; grid-row:1; width:100%; height:20px; margin:0; accent-color:var(--coral-fill); cursor:pointer; }
 .np-page .np-scrubber > .np-time:first-child { grid-column:1; grid-row:2; }
-.np-page .np-scrubber > .np-sentence { grid-column:2; grid-row:2; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .np-page .np-scrubber > .np-time:last-child { grid-column:3; grid-row:2; }
 .np-page .np-time { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .np-page .np-transport { display:flex; align-items:center; justify-content:center; gap:18px; padding:0; }

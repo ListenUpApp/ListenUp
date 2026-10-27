@@ -685,8 +685,6 @@ internal fun Playhead(
     label: String = "Seek",
     showsRemaining: Boolean = false,
     onSeek: (Long) -> Unit,
-    /** Drawn between the range and the trailing time: the Now Playing page's book sentence. */
-    center: (@Composable () -> Unit)? = null,
     /** False under a problem card: there is nothing to seek in a book that cannot play. */
     enabled: Boolean = true,
 ) {
@@ -719,7 +717,6 @@ internal fun Playhead(
             onSeek(startMs + target)
         }
     }
-    center?.invoke()
 
     // The chapter's remaining, counted down; otherwise its length.
     val trailing =

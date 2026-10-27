@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
+import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
@@ -87,14 +88,19 @@ class NowPlayingPageTest :
             cover.src shouldContain "v=deadbeef"
         }
 
-        test("the heading is Now playing, and the status is a live region outside it") {
-            val host = page(wayOfKings())
+        test("the heading is Now playing, and with news the status is a live region outside it") {
+            val host = page(wayOfKings().copy(source = AudioSource.ServerUnreachable))
             (host.querySelector("h1") as HTMLElement).textContent shouldBe "Now playing"
             // The page's one H1 is the shared PageHeader's, so focus-on-navigation and the tab name find it.
             (host.querySelector("h1") as HTMLElement).className shouldBe "page-t"
             val status = host.querySelector("[role=status].np-status") as HTMLElement
-            status.textContent shouldBe "Streaming"
+            status.textContent shouldBe "Can't reach your server"
             status.closest("h1") shouldBe null
+        }
+
+        test("Streaming, Downloaded, downloaded-offline and casting show no status") {
+            listOf(AudioSource.Streaming, AudioSource.Downloaded, AudioSource.DownloadedOffline, AudioSource.Casting("Living Room"))
+                .forEach { quiet -> page(wayOfKings().copy(source = quiet)).querySelector(".np-status") shouldBe null }
         }
 
         test("every author and narrator is a link to that person") {
@@ -153,7 +159,7 @@ class NowPlayingPageTest :
             page(wayOfKings(series = emptyList())).querySelector(".np-series") shouldBe null
         }
 
-        test("the book card states the chapter, the time left in it, a passive book bar and the sentence") {
+        test("the book card states the chapter, the time left in it and a passive book bar, and no book sentence") {
             val host =
                 page(
                     wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
@@ -163,7 +169,7 @@ class NowPlayingPageTest :
             (host.querySelector(".np-bookcard .np-left") as HTMLElement).textContent shouldBe "8m left in chapter"
             (host.querySelector(".np-bookcard [role=img]") as HTMLElement).getAttribute("aria-label") shouldBe
                 "Book progress 10 percent"
-            (host.querySelector(".np-bookcard .np-sentence") as HTMLElement).textContent shouldBe "Book 10% · 40h 30m left"
+            host.querySelector(".np-sentence") shouldBe null
         }
 
         test("a generic chapter title stands alone, with no counter to disagree with it") {

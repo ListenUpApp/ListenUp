@@ -160,6 +160,15 @@ class TransportBarTest :
             host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
         }
 
+        test("buffering keeps the bar's primary button its size") {
+            val playing = bar(chaptered(phase = PlayerPhase.Playing, primary = PrimaryControl.Pause), CHAPTER_PROGRESS)
+            val playRect = (playing.querySelector(".tport-b") as HTMLElement).getBoundingClientRect()
+            val busy = bar(chaptered(phase = PlayerPhase.Buffering, primary = PrimaryControl.Busy), CHAPTER_PROGRESS)
+            val busyRect = (busy.querySelector(".tport-b") as HTMLElement).getBoundingClientRect()
+            busyRect.width shouldBe playRect.width
+            busyRect.height shouldBe playRect.height
+        }
+
         test("a refused autoplay offers Play with a ring, and the press goes to the model") {
             var clicks = 0
             val host =

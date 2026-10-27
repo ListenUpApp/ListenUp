@@ -65,7 +65,7 @@ class NowPlayingWashContrastTest :
     })
 
 /** The page's quieter text, ink-2 and ink-3 alike. */
-private val QUIET_INK = listOf("np-time", "np-sentence", "np-by-k", "np-row-n")
+private val QUIET_INK = listOf("np-time", "np-by-k", "np-row-n")
 
 /** The shared cover rule's washes around the hue circle: tone 91 (light) and tone 20 (dark) fix the luminance. */
 internal val LIGHT_COVER_WASHES = listOf("#F1E1E5", "#EAE5DA", "#D9E9E5", "#E0E6F1")
