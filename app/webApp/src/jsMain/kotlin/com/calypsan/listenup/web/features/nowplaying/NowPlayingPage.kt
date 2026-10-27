@@ -353,9 +353,10 @@ private fun BookIdentity(
         AppLink(href = bookHref, onOpen = { actions.onOpenBook(book.id) }, attrs = {
             attr(ATTR_LABEL, NowPlayingWords.goToBook(book.title))
         }) {
-            // The words in their own span, so the chevron can hang outside them on a phone and they alone sit centred.
+            // The words in their own span, and the chevron in a zero-width one after them: on a phone it hangs off the end
+            // of the last line, so the words alone sit centred.
             Span(attrs = { classes("np-title-t") }) { Text(book.title) }
-            Icon(WebIcon.ChevronRight, size = TITLE_ICON_SIZE)
+            Span(attrs = { classes("np-title-chev") }) { Icon(WebIcon.ChevronRight, size = TITLE_ICON_SIZE) }
         }
     }
     P(attrs = { classes("np-ch-title", MOB) }) {

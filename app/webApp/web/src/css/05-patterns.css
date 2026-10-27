@@ -573,6 +573,7 @@ div.panel-pop {
 .np-title { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; }
 /* The title's words, apart from its chevron: what the phone centres on the cover. */
 .np-title-t { overflow-wrap:anywhere; }
+.np-title-chev { display:inline-flex; }
 .np-page a { color:inherit; text-decoration:none; border-radius:var(--r-xs); }
 .np-page .np-title a, .np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a {
   display:inline-flex; align-items:center; gap:2px; min-height:44px; color:var(--ink);
@@ -733,7 +734,12 @@ div.panel-pop {
   .np-page .np-narrated a { display:inline-flex; align-items:center; min-height:44px; color:inherit; }
   .np-by-i { display:inline-flex; vertical-align:middle; margin-right:4px; }
   /* The chevron hangs outside the words, so the words alone sit on the cover's axis; the link keeps a 44px target. */
-  .np-page .np-title a { position:relative; display:inline; padding:10px 0; }
-  .np-page .np-title a svg { position:absolute; left:100%; top:50%; translate:4px -50%; }
+  /* The chevron hangs off the end of the last line from a zero-width box that follows the words wherever they wrap; the
+     title keeps room for it on both sides, so the words stay centred and the chevron inside the column. The link keeps
+     a 44px target. */
+  .np-page .np-title { padding:0 24px; }
+  .np-page .np-title a { display:inline; padding:10px 0; }
+  .np-page .np-title-chev { position:relative; display:inline-block; width:0; height:1.2em; vertical-align:text-bottom; }
+  .np-page .np-title-chev svg { position:absolute; left:4px; top:50%; translate:0 -50%; }
 
 }

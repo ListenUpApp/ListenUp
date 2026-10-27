@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.web.NoCoverThemes
 import com.calypsan.listenup.web.PHONE
+import com.calypsan.listenup.web.SMALL_PHONE
 import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.design.LocalCoverThemes
@@ -27,8 +28,11 @@ class NowPlayingTitleCentringTest :
         val frames = ViewportFrames()
         afterTest { frames.disposeAll() }
 
-        fun phonePage(state: PlayerUiState.Loaded): ViewportFrame =
-            frames.mount(width = PHONE, height = PHONE_HEIGHT) {
+        fun phonePage(
+            state: PlayerUiState.Loaded,
+            width: Int = PHONE,
+        ): ViewportFrame =
+            frames.mount(width = width, height = PHONE_HEIGHT) {
                 CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
                     NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = NowPlayingActions())
                 }
@@ -74,6 +78,39 @@ class NowPlayingTitleCentringTest :
             val link = frame.find(".np-title a")
             val chevron = frame.rect(link.lastElementChild ?: error("no chevron in ${link.outerHTML}"))
             (chevron.left >= words.right) shouldBe true
+        }
+
+        listOf(SMALL_PHONE, PHONE).forEach { width ->
+            test("at ${width}px a two-line title's chevron follows its last line, inside the column, and the title runs past no edge") {
+                val long =
+                    wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5).let {
+                        it.copy(book = it.book.copy(title = "The Way of Kings, Being the First Book of the Stormlight Archive"))
+                    }
+                val frame = phonePage(long, width = width)
+                val lines = frame.lineRects(frame.find(".np-title a .np-title-t"))
+                (lines.size >= 2) shouldBe true
+                val last = lines.last()
+                val link = frame.find(".np-title a")
+                val chevron = frame.rect(link.querySelector("svg") ?: error("no chevron in ${link.outerHTML}"))
+                withClue(
+                    "chevron ${chevron.left}..${chevron.right} x ${chevron.top}..${chevron.bottom}, last line ${last.left}..${last.right} x ${last.top}..${last.bottom}",
+                ) {
+                    (chevron.top < last.bottom && chevron.bottom > last.top) shouldBe true
+                    (chevron.left >= last.right - 1) shouldBe true
+                }
+                val column = frame.rect(frame.find(".np-bookcol"))
+                withClue("chevron right ${chevron.right}, column right ${column.right}") {
+                    (chevron.right <= column.right + 0.5) shouldBe
+                        true
+                }
+                // Nothing in the title block reaches past the window's edge, so the title adds no sideways scroll.
+                val edge = frame.window.document.documentElement!!.clientWidth
+                val past =
+                    frame.find(".np-title").querySelectorAll("*").asList().map { it as Element }.filter {
+                        it.getBoundingClientRect().right > edge + 0.5
+                    }.map { "${it.tagName}.${it.getAttribute("class")}@${it.getBoundingClientRect().right}" }
+                past shouldBe emptyList()
+            }
         }
     })
 
