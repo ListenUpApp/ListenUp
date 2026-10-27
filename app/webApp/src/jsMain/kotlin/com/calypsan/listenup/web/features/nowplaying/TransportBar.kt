@@ -296,6 +296,9 @@ private fun BarBook(
     A(href = PLAYING_HREF, attrs = {
         classes("tport-body")
         attr(ATTR_ARIA_LABEL, "Open Now Playing: ${book.title}, ${miniLineLabel(line, progress, sleepRemainingMs)}")
+        // Below 760px a finger, pen or mouse drags the bar up into Now Playing (MorphDrag): never the browser's own
+        // link drag, which would carry off the URL instead.
+        attr("draggable", "false")
         onClick { event ->
             if (event.isPlainPrimaryClick()) {
                 event.preventDefault()

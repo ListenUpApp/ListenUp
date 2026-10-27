@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.presentation.player.MorphEnd
 import com.calypsan.listenup.client.presentation.player.MorphRect
 import com.calypsan.listenup.client.presentation.player.PlayerMorph
 import com.calypsan.listenup.client.presentation.player.SpringParameters
+import com.calypsan.listenup.client.presentation.player.progressVelocity
+import com.calypsan.listenup.client.presentation.player.settleTarget
 import com.calypsan.listenup.web.motion.Keyframe
 import com.calypsan.listenup.web.motion.MotionToken
 import com.calypsan.listenup.web.motion.animateComposited
@@ -18,6 +20,8 @@ import com.calypsan.listenup.web.nav.HOME_KEY
 import com.calypsan.listenup.web.nav.PLAYING_KEY
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.nav.Routes
+import com.calypsan.listenup.web.nav.savedScrollFor
 import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.Div
 import org.w3c.dom.Element
@@ -104,6 +108,15 @@ class MorphController {
     private var animation: dynamic = null
     private var quietArrivalPage: String? = null
 
+    /** The page `/playing` was opened from inside the app, for a drag down to show underneath; null for a deep link. */
+    private var returnRoute: Route? = null
+
+    /** Set while a finger's open is being started, so the open waits for the finger rather than playing. */
+    private var openingByDrag = false
+
+    private var openFromDrag: (HTMLElement) -> Unit = {}
+    private var closeFromDrag: () -> Unit = {}
+
     /** Where the running morph is heading. */
     private var heading: MorphEnd = MorphEnd.NowPlaying
 
@@ -122,20 +135,28 @@ class MorphController {
     fun scrollRoute(route: Route): Route = frozenScrollRoute ?: route
 
     /**
-     * Takes the [shell] this morph draws on and the [router] whose history it follows: writes the timeline once and
-     * listens for Back and Forward. Returns the call that lets go.
+     * Takes the [shell] this morph draws on and the [router] whose history it follows: writes the timeline once,
+     * listens for Back and Forward, and lets a finger drag the bar ([MorphDrag]). A drag opens and closes the page the
+     * way a click and Collapse do: [openFromDrag] with the bar's book as the opener, and [closeFromDrag]. Returns the
+     * call that lets go.
      */
     fun attach(
         shell: HTMLElement,
         router: Router,
+        openFromDrag: (opener: HTMLElement) -> Unit,
+        closeFromDrag: () -> Unit,
     ): () -> Unit {
         this.shell = shell
         this.router = router
+        this.openFromDrag = openFromDrag
+        this.closeFromDrag = closeFromDrag
         writeMorphTimeline(shell)
         // After the router's own listener (it was made first), so the route has already moved when this runs.
         val onPopstate: (Event) -> Unit = { onHistoryStep(router.current) }
         window.addEventListener("popstate", onPopstate)
+        val releaseDrag = MorphDrag(this).install(shell)
         return {
+            releaseDrag()
             window.removeEventListener("popstate", onPopstate)
             animation?.cancel()
             animation = null
@@ -151,7 +172,63 @@ class MorphController {
 
     /** Called just before `/playing` is pushed from [from] (a click, P, Expand): measure the bar while it is drawn. */
     fun beforeOpen(from: Route) {
+        returnRoute = from
         open(from, arrivedInApp = true)
+    }
+
+    /** Whether a drag can start here and now: below 760px, with no morph already moving. */
+    internal fun acceptsDrag(): Boolean = !isRunning && shell?.let(::isPhone) == true
+
+    /** Whether the page on show is Now Playing, which a drag closes; anything else, the bar's drag opens it. */
+    internal fun isOnPlaying(): Boolean = router?.current?.page() == PLAYING_KEY
+
+    /** The drag's full travel: the bar's top edge, last measured. */
+    internal val travel: Double get() = travelPx
+
+    /** A finger has pulled the bar's book [opener] past the slop: push `/playing` and hold the morph for the finger. */
+    internal fun beginDragOpen(opener: HTMLElement): Boolean {
+        openingByDrag = true
+        try {
+            openFromDrag(opener)
+        } finally {
+            openingByDrag = false
+        }
+        return isRunning
+    }
+
+    /** A finger has pulled Now Playing down past the slop: hold it as a layer over the page it would close onto. */
+    internal fun beginDragClose(): Boolean {
+        val shell = shell ?: return false
+        val bar = shell.querySelector(".tport") as? HTMLElement
+        if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return false
+        shell.style.setProperty(MORPH_PROGRESS, "1")
+        heading = MorphEnd.Bar
+        underRoute = returnRoute ?: Routes.home
+        frozenScrollRoute = null
+        barRects = emptyMap()
+        start(Pending.Hold(restoresUnderScroll = true))
+        return true
+    }
+
+    /** The finger is at [progress]: the one write a drag makes per move. */
+    internal fun dragTo(progress: Float) {
+        shell?.style?.setProperty(MORPH_PROGRESS, progress.toString())
+    }
+
+    /**
+     * The finger let go at [velocityPxPerSec] (positive downward): the shared rule picks the end (velocity first, then
+     * the halfway line), history follows it, and the default spatial spring carries the release's speed there.
+     */
+    internal fun release(velocityPxPerSec: Float) {
+        val shell = shell ?: return
+        val end = settleTarget(currentProgress(shell), velocityPxPerSec)
+        val velocity = progressVelocity(velocityPxPerSec, travelPx.toFloat())
+        if (end == MorphEnd.Bar) {
+            // The URL first, as Collapse does: back into history, or Home for a deep link.
+            heading = MorphEnd.Bar
+            closeFromDrag()
+        }
+        settle(end, velocity)
     }
 
     /**
@@ -188,7 +265,18 @@ class MorphController {
         if (barRects.isEmpty()) measureBar(shell, bar)
         if (!isCrossfade) writeFlights(shell, slot)
         when (todo) {
-            is Pending.Settle -> animateTo(todo.target, todo.spring, todo.velocity)
+            is Pending.Settle -> {
+                animateTo(todo.target, todo.spring, todo.velocity)
+            }
+
+            is Pending.Hold -> {
+                // A drag down shows the page it would close onto, where the reader left it.
+                if (todo.restoresUnderScroll) {
+                    val under = underRoute
+                    (shell.querySelector(".shell-main") as? HTMLElement)?.scrollTop =
+                        under?.let(::savedScrollFor) ?: 0.0
+                }
+            }
         }
     }
 
@@ -200,8 +288,15 @@ class MorphController {
             // Back while the bar is still growing: turn round from wherever it has got to.
             isRunning && heading == MorphEnd.NowPlaying && !isPlaying -> settle(MorphEnd.Bar)
             isRunning -> Unit
-            !wasPlaying && isPlaying -> open(from, arrivedInApp = true)
-            wasPlaying && !isPlaying -> close()
+            !wasPlaying && isPlaying -> {
+                // Forward counts as a deep link for closing (PlayingReturn), so a drag down shows Home underneath.
+                returnRoute = null
+                open(from, arrivedInApp = true)
+            }
+
+            wasPlaying && !isPlaying -> {
+                close()
+            }
         }
     }
 
@@ -229,6 +324,7 @@ class MorphController {
         heading = end
         val target = if (end == MorphEnd.NowPlaying) 1f else 0f
         if (pending != null) {
+            // Not measured yet (a flick quicker than a frame): play as soon as it is.
             pending = Pending.Settle(target, PlayerMorph.SETTLE_SPRING, velocity)
         } else {
             animateTo(target, PlayerMorph.SETTLE_SPRING, velocity)
@@ -252,7 +348,13 @@ class MorphController {
         heading = MorphEnd.NowPlaying
         underRoute = from
         frozenScrollRoute = from
-        start(Pending.Settle(target = 1f, spring = PlayerMorph.TAP_SPRING, velocity = 0f))
+        start(
+            if (openingByDrag) {
+                Pending.Hold(restoresUnderScroll = false)
+            } else {
+                Pending.Settle(target = 1f, spring = PlayerMorph.TAP_SPRING, velocity = 0f)
+            },
+        )
     }
 
     private fun start(todo: Pending) {
@@ -311,6 +413,8 @@ class MorphController {
         quietArrivalPage = if (end == MorphEnd.NowPlaying) PLAYING_KEY else null
         heading = end
         if (end == MorphEnd.Bar) returnFocusToBar()
+        // Back on Now Playing after a drag down: the region scrolled the page underneath, and now holds Now Playing.
+        if (end == MorphEnd.NowPlaying) (shell?.querySelector(".shell-main") as? HTMLElement)?.scrollTop = 0.0
     }
 
     /**
@@ -324,17 +428,21 @@ class MorphController {
         if (focused?.closest(".tport") == null) (shell.querySelector(".tport-body") as? HTMLElement)?.focus()
     }
 
+    /** Measures the bar where it rests: at progress 0, since mid-morph it rides the sheet. */
     private fun measureBar(
         shell: HTMLElement,
         bar: HTMLElement,
     ) {
+        val held = shell.style.getPropertyValue(MORPH_PROGRESS)
+        shell.style.setProperty(MORPH_PROGRESS, "0")
         travelPx = bar.getBoundingClientRect().top
-        shell.style.setProperty(MORPH_TRAVEL, px(travelPx))
         barRects =
             MorphPart.entries
                 .mapNotNull { part ->
                     (shell.querySelector(part.barSelector) as? HTMLElement)?.let { part to it.morphRect() }
                 }.toMap()
+        shell.style.setProperty(MORPH_PROGRESS, held)
+        shell.style.setProperty(MORPH_TRAVEL, px(travelPx))
     }
 
     /** Measures the page's parts at rest (progress 1) and writes each part's offsets from the bar's, once. */
@@ -397,6 +505,11 @@ class MorphController {
             val target: Float,
             val spring: SpringParameters,
             val velocity: Float,
+        ) : Pending
+
+        /** A finger has the morph: measure, then follow it. [restoresUnderScroll] for a drag down over a page. */
+        class Hold(
+            val restoresUnderScroll: Boolean,
         ) : Pending
     }
 }

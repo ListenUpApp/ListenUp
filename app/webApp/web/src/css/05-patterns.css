@@ -746,6 +746,8 @@ div.panel-pop {
   .np-page .np-title a { display:inline; padding:10px 0; }
   .np-page .np-title-chev { position:relative; display:inline-block; width:0; height:1.2em; vertical-align:text-bottom; }
   .np-page .np-title-chev svg { position:absolute; left:4px; top:50%; translate:0 -50%; }
+  /* Now Playing drags down into the bar from its header and its cover (MorphDrag); the rest scrolls first. */
+  .np-page .page-h, .np-page .np-cover { touch-action:none; }
 
 }
 

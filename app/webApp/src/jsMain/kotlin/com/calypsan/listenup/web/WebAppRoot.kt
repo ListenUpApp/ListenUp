@@ -198,7 +198,15 @@ fun WebAppRoot(
                 // The shell's root, for the morph to draw on: always there, and the first element inside it.
                 ref { element ->
                     val shell = element.closest(".shell") as? HTMLElement
-                    val detach = shell?.let { morph.attach(it, router) }
+                    val detach =
+                        shell?.let {
+                            morph.attach(
+                                shell = it,
+                                router = router,
+                                openFromDrag = { opener -> playingReturn.open(router, opener) },
+                                closeFromDrag = { playingReturn.close(router) },
+                            )
+                        }
                     onDispose { detach?.invoke() }
                 }
             }) {
