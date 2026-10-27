@@ -91,9 +91,11 @@ private class SpringMotion(
                 val sinPart = (v0 + zeta * omega * start) / damped
                 exp(-zeta * omega * t) * (start * cos(damped * t) + sinPart * sin(damped * t))
             }
+
             zeta == 1.0 -> {
                 exp(-omega * t) * (start + (v0 + omega * start) * t)
             }
+
             else -> {
                 val root = sqrt(zeta * zeta - 1.0)
                 val r1 = -omega * (zeta - root)
