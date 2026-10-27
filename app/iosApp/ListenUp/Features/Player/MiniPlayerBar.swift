@@ -358,7 +358,14 @@ private struct BookFocus: ViewModifier {
 extension View {
     /// Moves VoiceOver focus to `focus` on every change of `request`. The full player bumps the request when it closes,
     /// so focus lands on the mini player's book, the control that opened it, rather than wherever the system restores.
-    func returnsFocus(_ focus: AccessibilityFocusState<Bool>.Binding, on request: Int) -> some View {
-        onChange(of: request) { focus.wrappedValue = true }
+    /// `didRequest` runs after each request: SwiftUI only holds accessibility focus while VoiceOver runs, so a test
+    /// without it observes the request here rather than the focus.
+    func returnsFocus(
+        _ focus: AccessibilityFocusState<Bool>.Binding, on request: Int, didRequest: @escaping () -> Void = {}
+    ) -> some View {
+        onChange(of: request) {
+            focus.wrappedValue = true
+            didRequest()
+        }
     }
 }

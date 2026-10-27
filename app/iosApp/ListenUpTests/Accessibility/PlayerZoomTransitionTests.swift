@@ -66,7 +66,9 @@ struct PlayerZoomTransitionTests {
         try await PlayerFlight.close(in: hosted)
     }
 
-    /// When the player closes, VoiceOver focus goes back to the mini player's book, the control that opened it.
+    /// When the player closes, the mini player asks VoiceOver to focus its book, the control that opened it. SwiftUI holds
+    /// accessibility focus only while VoiceOver runs, which a test host cannot switch on, so this pins the request: the
+    /// cover's dismissal reaches the book's focus binding once. Where focus lands is checked by hand with VoiceOver.
     @Test func closingThePlayerHandsFocusBackToTheBook() async throws {
         let probe = FocusProbe()
         let shell = MainShellModel()
@@ -77,9 +79,9 @@ struct PlayerZoomTransitionTests {
         #expect(probe.focusedBook == 0)
         try await PlayerFlight.close(in: hosted)
         try await PlayerFlight.waitUntil { probe.dismissals == 1 }
-        try? await PlayerFlight.waitUntil { probe.focusedBook > 0 }
+        try await PlayerFlight.waitUntil { probe.focusRequests == 1 }
         #expect(probe.dismissals == 1)
-        #expect(probe.focusedBook == 1, "the book's focus binding never flipped on dismiss")
+        #expect(probe.focusRequests == 1, "the cover's dismissal never asked for the book's focus")
     }
 }
 
@@ -182,6 +184,7 @@ struct PlayerFlight: CustomStringConvertible {
 final class FocusProbe {
     var dismissals = 0
     var focusedBook = 0
+    var focusRequests = 0
 }
 
 /// The production shape: the flag is a property of an `@Observable` shell model the view holds in `@State`, bound
@@ -209,7 +212,7 @@ private struct ObservableFlagStage: View {
                     model: model, isInline: false, transitionNamespace: namespace,
                     onOpen: { shell.isPlayerPresented = true }, onSkipBack: {}, onSkipForward: {}, onPrimary: {},
                     bookFocus: $isBookFocused)
-                    .returnsFocus($isBookFocused, on: focusReturnRequest)
+                    .returnsFocus($isBookFocused, on: focusReturnRequest) { probe?.focusRequests += 1 }
                     .onChange(of: isBookFocused) { _, focused in if focused { probe?.focusedBook += 1 } }
             }
             .playerPresentation(
