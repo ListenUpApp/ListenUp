@@ -1,0 +1,143 @@
+package com.calypsan.listenup.client.features.nowplaying.morph
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.LocalCompositionProbe
+import com.calypsan.listenup.client.design.haptics.Haptics
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.motion.LocalReduceMotion
+import com.calypsan.listenup.client.features.nowplaying.EntryMotion
+import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
+import com.calypsan.listenup.client.features.nowplaying.NowPlayingScreen
+import com.calypsan.listenup.client.features.nowplaying.samplePlayerProgress
+import com.calypsan.listenup.client.features.shell.ShellBottomBar
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
+
+/** The stand-in navigation bar under the phone bar. */
+internal const val RIG_NAVIGATION_TAG = "rig-navigation"
+
+/**
+ * The phone shell around the morph, built from the same pieces `NowPlayingHost` stacks: the bar above a navigation
+ * bar, the scrim, Now Playing while the morph is off the bar, and the flying parts above it. The destination is a real
+ * [PlayerSheetState].
+ */
+internal class MorphRig(
+    private val composeRule: ComposeContentTestRule,
+) {
+    val sheet = PlayerSheetState()
+    lateinit var morph: PlayerMorphState
+    var density = 1f
+    var primaryPresses = 0
+    var tapOpens = 0
+    val compositions = mutableMapOf<String, Int>()
+
+    fun show(
+        state: PlayerUiState.Loaded,
+        reduceMotion: Boolean = false,
+        haptics: Haptics? = null,
+    ) {
+        composeRule.setContent {
+            val probe: (String) -> Unit = { compositions[it] = (compositions[it] ?: 0) + 1 }
+            CompositionLocalProvider(LocalReduceMotion provides reduceMotion, LocalCompositionProbe provides probe) {
+                MaterialTheme {
+                    if (haptics != null) {
+                        CompositionLocalProvider(LocalHaptics provides haptics) { Stage(state) }
+                    } else {
+                        Stage(state)
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Composable
+    private fun Stage(state: PlayerUiState.Loaded) {
+        density = LocalDensity.current.density
+        morph =
+            rememberPlayerMorph(
+                isExpanded = { sheet.expanded.value },
+                onExpand = sheet::expand,
+                onCollapse = sheet::collapse,
+            )
+        val isExpanded by sheet.expanded.collectAsState()
+        CompositionLocalProvider(LocalPlayerMorph provides morph) {
+            PlayerMorphSync(morph = morph, isExpanded = isExpanded, entryMotion = EntryMotion.Morph)
+            val showsPlayer = rememberMorphShowsPlayer(morph)
+            Box(Modifier.fillMaxSize().morphHost()) {
+                Column(Modifier.align(Alignment.BottomCenter)) {
+                    ShellBottomBar(
+                        nowPlayingContent = {
+                            NowPlayingBar(
+                                state = state,
+                                progress = { samplePlayerProgress },
+                                isExpanded = isExpanded,
+                                onTap = {
+                                    tapOpens++
+                                    sheet.expand()
+                                },
+                                onPrimary = { primaryPresses++ },
+                                onSkipBack = {},
+                                onKeepListening = {},
+                                skipBackwardSec = 10,
+                            )
+                        },
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .morphNavigationSlide()
+                                .testTag(RIG_NAVIGATION_TAG),
+                        )
+                    }
+                }
+                PlayerMorphScrim(morph)
+                if (isExpanded || showsPlayer) {
+                    NowPlayingScreen(
+                        state = state,
+                        progress = { samplePlayerProgress },
+                        onCollapse = sheet::collapse,
+                        onPrimary = { primaryPresses++ },
+                        onSeek = {},
+                        onSkipBack = {},
+                        onSkipForward = {},
+                        onPreviousChapter = {},
+                        onNextChapter = {},
+                        onSpeedClick = {},
+                        onChaptersClick = {},
+                        onSeekToChapter = {},
+                        onSleepTimerClick = {},
+                        onGoToContributor = {},
+                        onShowAuthorPicker = {},
+                        onShowNarratorPicker = {},
+                        onMenuItem = {},
+                        onCardAction = {},
+                        onRate = {},
+                    )
+                }
+                PlayerMorphFlight(
+                    morph = morph,
+                    state = state,
+                    progress = { samplePlayerProgress },
+                    skipBackwardSec = 10,
+                )
+            }
+        }
+    }
+}

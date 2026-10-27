@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphElement
+import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
 import com.calypsan.listenup.client.presentation.player.MorphEnd
 import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
 import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
@@ -196,7 +198,7 @@ internal fun PlayerTitleBlock(
             textAlign = textAlign,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = lineWidth,
+            modifier = lineWidth.morphReveal(MorphElement.Chapter),
         )
         if (showsBylines && state.book.narrators.isNotEmpty()) {
             Spacer(Modifier.height(PhoneLineGap))
@@ -230,7 +232,7 @@ private fun NarratedBy(
         style = MaterialTheme.typography.bodyMedium,
         nameColor = ink,
         separatorColor = ink,
-        modifier = Modifier.fillMaxWidth().testTag(NARRATOR_LINE_TAG),
+        modifier = Modifier.fillMaxWidth().testTag(NARRATOR_LINE_TAG).morphReveal(MorphElement.Narrator),
         horizontalArrangement = arrangement,
         leadingIcon = {
             Icon(

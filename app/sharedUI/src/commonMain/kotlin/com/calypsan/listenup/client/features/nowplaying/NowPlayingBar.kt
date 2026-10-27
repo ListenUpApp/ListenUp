@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
+import com.calypsan.listenup.client.design.LocalCompositionProbe
+import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
 import com.calypsan.listenup.client.presentation.player.MorphEnd
 import com.calypsan.listenup.client.features.nowplaying.morph.morphBarSurface
 import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
@@ -121,8 +125,12 @@ fun NowPlayingBar(
     modifier: Modifier = Modifier,
     bottomInset: WindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
 ) {
+    // Under a player host's morph the bar stays laid out while Now Playing covers it: the sheet rises out of it and
+    // lands back on it, so it must neither slide away nor reflow the shell. It leaves semantics and focus instead.
+    val morph = LocalPlayerMorph.current
+    val coveredByPlayer = isExpanded && morph != null
     AnimatedVisibility(
-        visible = state is PlayerUiState.Loaded && !isExpanded,
+        visible = state is PlayerUiState.Loaded && (!isExpanded || morph != null),
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier,
@@ -134,7 +142,12 @@ fun NowPlayingBar(
             shape = RectangleShape,
             color = if (tinted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = if (tinted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth().morphBarSurface().swipeUpToExpand(onTap),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .morphBarSurface()
+                    .swipeUpToExpand(onTap)
+                    .then(if (coveredByPlayer) Modifier.coveredByPlayer() else Modifier),
         ) {
             // The container stays; only its content moves when the book changes.
             MiniBookSwitch(loaded, Modifier.windowInsetsPadding(bottomInset)) { shown ->
@@ -162,6 +175,7 @@ private fun PhoneBarContent(
     onKeepListening: () -> Unit,
     skipBackwardSec: Int,
 ) {
+    LocalCompositionProbe.current("PhoneBarContent")
     val line = MiniPlayerLines.of(state)
     Column {
         MiniProgressLine(
@@ -323,3 +337,9 @@ private fun MiniProgressLine(
         }
     }
 }
+
+/** Out of reach while Now Playing covers it: no semantics for a screen reader, no stop for the keyboard. */
+private fun Modifier.coveredByPlayer(): Modifier =
+    clearAndSetSemantics {}
+        .focusProperties { onEnter = { cancelFocusChange() } }
+        .focusGroup()

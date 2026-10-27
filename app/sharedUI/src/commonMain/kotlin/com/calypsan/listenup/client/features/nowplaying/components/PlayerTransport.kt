@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphElement
+import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
 import com.calypsan.listenup.client.presentation.player.MorphEnd
 import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
 import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
@@ -85,7 +87,7 @@ fun PlayerTransport(
                     enabled = state.canSkipToPreviousChapter,
                     shapes = IconButtonDefaults.shapes(),
                     modifier =
-                        Modifier.semantics {
+                        Modifier.morphReveal(MorphElement.TransportSides).semantics {
                             onClick(label = hint) {
                                 previous()
                                 true
@@ -104,7 +106,7 @@ fun PlayerTransport(
                     },
                     enabled = state.showsSkipBack,
                     shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.size(SkipSize),
+                    modifier = Modifier.morphReveal(MorphElement.TransportSides).size(SkipSize),
                 ) {
                     Icon(
                         SkipGlyphs.backward(settings.skipBackSec),
@@ -142,7 +144,7 @@ fun PlayerTransport(
                     },
                     enabled = state.showsSkipBack,
                     shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.size(SkipSize),
+                    modifier = Modifier.morphReveal(MorphElement.TransportSides).size(SkipSize),
                 ) {
                     Icon(
                         SkipGlyphs.forward(settings.skipForwardSec),
@@ -161,6 +163,7 @@ fun PlayerTransport(
                     },
                     enabled = state.canSkipToNextChapter,
                     shapes = IconButtonDefaults.shapes(),
+                    modifier = Modifier.morphReveal(MorphElement.TransportSides),
                 ) { Icon(Icons.Filled.SkipNext, stringResource(Res.string.player_next_chapter)) }
             },
             menuContent = {},

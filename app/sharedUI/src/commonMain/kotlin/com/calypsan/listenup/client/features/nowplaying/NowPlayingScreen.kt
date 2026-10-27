@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.graphics.Color
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.features.nowplaying.morph.morphSheetLayer
+import com.calypsan.listenup.client.features.nowplaying.morph.morphSheet
+import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -164,6 +170,14 @@ fun NowPlayingScreen(
     val fold = LocalFold.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
     val nowPlaying = stringResource(Res.string.player_now_playing)
+    val morph = LocalPlayerMorph.current
+    val surfaceColour = MaterialTheme.colorScheme.surface
+    val barColour =
+        if (sheetStartsTinted(state)) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
 
     Surface(
         modifier =
@@ -190,7 +204,9 @@ fun NowPlayingScreen(
                     // Ambient fade (TV idle) only; the back preview stays opaque, so the page beneath
                     // never shows through the player. With no TV ambient this is 1f.
                     alpha = ambientAlpha * preview.alpha
-                }.pointerInput(Unit) {
+                }.morphSheetLayer(morph, barColour = barColour, surfaceColour = surfaceColour)
+                .morphSheet()
+                .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = {
                             scope.launch {
@@ -226,7 +242,9 @@ fun NowPlayingScreen(
                         },
                     )
                 },
-        color = MaterialTheme.colorScheme.surface,
+        // The sheet draws its own colour (morphSheetLayer), which runs from the bar's while it morphs.
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         when (layout) {
             NowPlayingLayout.Tabletop -> {
@@ -304,3 +322,7 @@ fun NowPlayingScreen(
         }
     }
 }
+
+/** Whether the bar Now Playing rises out of is tinted for a problem, so the sheet starts from `errorContainer`. Pure. */
+internal fun sheetStartsTinted(state: PlayerUiState.Loaded): Boolean =
+    (MiniPlayerLines.of(state) as? MiniPlayerLine.Problem)?.isTinted == true
