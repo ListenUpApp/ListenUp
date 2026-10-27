@@ -205,6 +205,11 @@ fun NowPlayingPage(
 
                 is PlayerMenuItem.GoToSeries -> actions.onOpenSeries(item.seriesId)
 
+                is PlayerMenuItem.GoToAuthor -> actions.onOpenContributor(item.authorId)
+
+                // Task 16 wires the chooser.
+                PlayerMenuItem.ChooseAuthor -> Unit
+
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
 

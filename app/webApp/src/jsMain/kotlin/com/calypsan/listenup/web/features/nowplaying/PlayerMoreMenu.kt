@@ -29,7 +29,7 @@ internal fun PlayerMoreMenu(
     val anchor = remember { MoreAnchor() }
     val bookId = state.book.id
     val items =
-        PlayerMenus.moreMenu(state, includesSeries = true, includesShortcuts = true).flatMap { group ->
+        PlayerMenus.moreMenu(state, includesSeries = true, includesAuthor = true, includesShortcuts = true).flatMap { group ->
             group.items.map { item ->
                 MenuAction(
                     label = item.label(),
@@ -72,6 +72,8 @@ private fun PlayerMenuItem.label(): String =
     when (this) {
         PlayerMenuItem.GoToBook -> "Go to book"
         is PlayerMenuItem.GoToSeries -> "Go to series"
+        is PlayerMenuItem.GoToAuthor -> "Go to author"
+        PlayerMenuItem.ChooseAuthor -> "Go to author…"
         is PlayerMenuItem.OpenPdf -> "Open PDF ↗"
         is PlayerMenuItem.VolumeBoost -> NowPlayingWords.boostRow(boostDb)
         PlayerMenuItem.KeyboardShortcuts -> "Keyboard shortcuts"

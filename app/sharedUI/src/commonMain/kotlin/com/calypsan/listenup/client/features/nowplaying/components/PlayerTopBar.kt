@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -48,6 +49,8 @@ import listenup.composeapp.generated.resources.player_boost_db
 import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
+import listenup.composeapp.generated.resources.player_go_to_author
+import listenup.composeapp.generated.resources.player_go_to_author_multiple
 import listenup.composeapp.generated.resources.player_go_to_book
 import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_keyboard_shortcuts
@@ -71,9 +74,9 @@ private val StatusSideClearance = 56.dp
  * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip
  * · More, on a 56dp bar.
  *
- * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Open PDF and Volume boost,
- * then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the series as a link
- * above the title (P10), so their menu leaves Go to series out.
+ * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Go to author, Open PDF and
+ * Volume boost, then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the
+ * series as a link above the title (P10) and the authors on the byline, so their menu leaves both out.
  */
 @Composable
 fun PlayerTopBar(
@@ -86,7 +89,9 @@ fun PlayerTopBar(
     val status: @Composable () -> Unit = {
         StatusChip(text = state.source.statusText(), emphasized = state.source is AudioSource.Casting)
     }
-    val more: @Composable () -> Unit = { MoreMenu(state = state, includesSeries = !wide, onMenuItem = onMenuItem) }
+    val more: @Composable () -> Unit = {
+        MoreMenu(state = state, includesSeries = !wide, includesAuthor = !wide, onMenuItem = onMenuItem)
+    }
     if (wide) {
         WideTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
     } else {
@@ -162,6 +167,7 @@ private fun WideTopBar(
 private fun MoreMenu(
     state: PlayerUiState.Loaded,
     includesSeries: Boolean,
+    includesAuthor: Boolean,
     onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
     val haptics = LocalHaptics.current
@@ -182,7 +188,7 @@ private fun MoreMenu(
             shape = MenuShape,
             containerColor = colors.surfaceContainer,
         ) {
-            PlayerMenus.moreMenu(state, includesSeries, includesShortcuts = false).forEachIndexed { index, group ->
+            PlayerMenus.moreMenu(state, includesSeries, includesAuthor, includesShortcuts = false).forEachIndexed { index, group ->
                 if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 val itemColors =
                     if (group.isDestructive) {
@@ -218,6 +224,14 @@ private fun PlayerMenuItem.label(): String =
             stringResource(Res.string.player_go_to_series)
         }
 
+        is PlayerMenuItem.GoToAuthor -> {
+            stringResource(Res.string.player_go_to_author)
+        }
+
+        PlayerMenuItem.ChooseAuthor -> {
+            stringResource(Res.string.player_go_to_author_multiple)
+        }
+
         is PlayerMenuItem.OpenPdf -> {
             stringResource(Res.string.player_open_pdf)
         }
@@ -246,6 +260,7 @@ private fun PlayerMenuItem.icon(): ImageVector =
     when (this) {
         PlayerMenuItem.GoToBook -> Icons.Default.Book
         is PlayerMenuItem.GoToSeries -> Icons.AutoMirrored.Filled.LibraryBooks
+        is PlayerMenuItem.GoToAuthor, PlayerMenuItem.ChooseAuthor -> Icons.Default.Person
         is PlayerMenuItem.OpenPdf -> Icons.Default.Description
         is PlayerMenuItem.VolumeBoost -> Icons.AutoMirrored.Filled.VolumeUp
         PlayerMenuItem.KeyboardShortcuts -> Icons.Default.Keyboard
