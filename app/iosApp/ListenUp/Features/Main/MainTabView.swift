@@ -150,10 +150,8 @@ struct MainTabView: View {
                 )
             }
         })
-        // The full player is a system full-screen modal (HIG, Modality: "a full-screen modal style
-        // for in-depth content"), which brings VoiceOver modality, swipe-down dismissal and the
-        // zoom back into the mini player with it.
-        .fullScreenCover(isPresented: $shell.isPlayerPresented) {
+        // The full player is a system full-screen modal that zooms out of the mini player's cover.
+        .playerPresentation(isPresented: $shell.isPlayerPresented, namespace: playerNamespace) {
             if let playerObserver {
                 FullScreenPlayerView(
                     observer: playerObserver,
@@ -165,7 +163,6 @@ struct MainTabView: View {
                     chapterListRequest: $shell.isChapterListRequested
                 )
                 .environment(\.reportPlayerSheet) { isOpen in shell.playerSheetIsOpen = isOpen }
-                .navigationTransition(.zoom(sourceID: PlayerTransition.coverID, in: playerNamespace))
             }
         }
         // The menu bar's Playback and View commands act on the focused window's shell and player.
