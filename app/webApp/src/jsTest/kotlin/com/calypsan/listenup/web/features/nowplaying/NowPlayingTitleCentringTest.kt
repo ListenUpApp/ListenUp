@@ -92,9 +92,10 @@ class NowPlayingTitleCentringTest :
                 val last = lines.last()
                 val link = frame.find(".np-title a")
                 val chevron = frame.rect(link.querySelector("svg") ?: error("no chevron in ${link.outerHTML}"))
-                withClue(
-                    "chevron ${chevron.left}..${chevron.right} x ${chevron.top}..${chevron.bottom}, last line ${last.left}..${last.right} x ${last.top}..${last.bottom}",
-                ) {
+                val where =
+                    "chevron ${chevron.left}..${chevron.right} x ${chevron.top}..${chevron.bottom}, " +
+                        "last line ${last.left}..${last.right} x ${last.top}..${last.bottom}"
+                withClue(where) {
                     (chevron.top < last.bottom && chevron.bottom > last.top) shouldBe true
                     (chevron.left >= last.right - 1) shouldBe true
                 }

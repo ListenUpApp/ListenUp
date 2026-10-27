@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
