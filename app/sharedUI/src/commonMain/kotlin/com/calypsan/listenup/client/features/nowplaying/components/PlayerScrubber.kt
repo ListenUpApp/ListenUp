@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.calypsan.listenup.client.design.components.PlaybackSlider
@@ -30,5 +33,6 @@ fun PlayerScrubber(
         onSeek = onSeek,
         enabled = !isBusy,
         modifier = modifier,
+        trackModifier = Modifier.morphAnchor(MorphEnd.NowPlaying, MorphPart.Line),
     )
 }

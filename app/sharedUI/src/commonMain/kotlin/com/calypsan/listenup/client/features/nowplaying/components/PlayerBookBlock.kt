@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,7 +85,11 @@ fun PlayerBookBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        PlayerCover(state = state, side = coverSide, modifier = Modifier.testTag(PLAYER_COVER_TAG))
+        PlayerCover(
+            state = state,
+            side = coverSide,
+            modifier = Modifier.testTag(PLAYER_COVER_TAG).morphAnchor(MorphEnd.NowPlaying, MorphPart.Cover),
+        )
         Spacer(Modifier.height(Spacing.xl))
         PlayerTitleBlock(
             state = state,
@@ -179,7 +186,7 @@ internal fun PlayerTitleBlock(
             textAlign = textAlign,
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
-            modifier = lineWidth,
+            modifier = lineWidth.morphAnchor(MorphEnd.NowPlaying, MorphPart.Title),
         )
         Spacer(Modifier.height(PhoneLineGap))
         Text(

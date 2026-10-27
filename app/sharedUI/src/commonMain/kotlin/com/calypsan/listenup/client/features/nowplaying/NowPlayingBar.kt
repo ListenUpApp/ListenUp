@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphBarSurface
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
+import com.calypsan.listenup.client.features.nowplaying.morph.BarDetail
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -129,7 +134,7 @@ fun NowPlayingBar(
             shape = RectangleShape,
             color = if (tinted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = if (tinted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth().swipeUpToExpand(onTap),
+            modifier = Modifier.fillMaxWidth().morphBarSurface().swipeUpToExpand(onTap),
         ) {
             // The container stays; only its content moves when the book changes.
             MiniBookSwitch(loaded, Modifier.windowInsetsPadding(bottomInset)) { shown ->
@@ -178,14 +183,16 @@ private fun PhoneBarContent(
                 coverSize = MiniPhoneCoverSize,
             )
             if (state.showsSkipBack) {
-                Ctrl(
-                    icon = SkipGlyphs.backward(skipBackwardSec),
-                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-                    onClick = onSkipBack,
-                    size = MinTouchTarget,
-                    iconSize = MiniPlayerGlyphSize,
-                    tint = LocalContentColor.current,
-                )
+                Box(Modifier.morphAnchor(BarDetail.SkipBack)) {
+                    Ctrl(
+                        icon = SkipGlyphs.backward(skipBackwardSec),
+                        contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                        onClick = onSkipBack,
+                        size = MinTouchTarget,
+                        iconSize = MiniPlayerGlyphSize,
+                        tint = LocalContentColor.current,
+                    )
+                }
             }
             MiniPrimaryButton(
                 primary = state.primary,
@@ -195,6 +202,7 @@ private fun PhoneBarContent(
                 playLabel = miniPlayLabel(line),
                 busyLabel = miniBusyLabel(line),
                 onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
+                modifier = Modifier.morphAnchor(MorphEnd.Bar, MorphPart.Play),
             )
         }
     }
@@ -259,6 +267,7 @@ internal fun RowScope.MiniBody(
                         .size(coverSize)
                         .clip(MaterialTheme.shapes.medium)
                         .testTag(MINI_COVER_TAG)
+                        .morphAnchor(MorphEnd.Bar, MorphPart.Cover)
                         .clearAndSetSemantics {},
             )
         }
@@ -268,12 +277,14 @@ internal fun RowScope.MiniBody(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.morphAnchor(MorphEnd.Bar, MorphPart.Title),
             )
             MiniPlayerLineText(
                 line = line,
                 progress = progress,
                 sleepRemainingMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 fit = fit,
+                modifier = Modifier.morphAnchor(BarDetail.SecondLine),
                 color =
                     if (tinted) {
                         MaterialTheme.colorScheme.onErrorContainer
@@ -293,7 +304,7 @@ private fun MiniProgressLine(
     progress: () -> PlayerProgress,
     modifier: Modifier,
 ) {
-    Box(modifier, contentAlignment = Alignment.Center) {
+    Box(modifier.morphAnchor(MorphEnd.Bar, MorphPart.Line), contentAlignment = Alignment.Center) {
         if (isPlaying) {
             LinearWavyProgressIndicator(
                 progress = { progress().chapterFraction },

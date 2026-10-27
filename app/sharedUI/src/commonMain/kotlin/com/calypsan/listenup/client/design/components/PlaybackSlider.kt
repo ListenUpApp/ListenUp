@@ -42,6 +42,7 @@ private val HandleSize = DpSize(width = 4.dp, height = 44.dp)
  *
  * [fraction], [elapsedMs] and [durationMs] are the chapter's (§3.2: everything that moves is chapter-scoped).
  * [timesBeside] puts the times either side of the track on one row instead of under it, for a one-row toolbar.
+ * [trackModifier] decorates the slider alone, not its times (Now Playing's morph measures the track).
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -53,6 +54,7 @@ fun PlaybackSlider(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     timesBeside: Boolean = false,
+    trackModifier: Modifier = Modifier,
 ) {
     var drag by remember { mutableStateOf<Float?>(null) }
     val interaction = remember { MutableInteractionSource() }
@@ -70,7 +72,7 @@ fun PlaybackSlider(
             thumbColor = MaterialTheme.colorScheme.primary,
         )
     val timeStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
-    val track: @Composable (Modifier) -> Unit = { trackModifier ->
+    val track: @Composable (Modifier) -> Unit = { sliderModifier ->
         Slider(
             value = shownFraction,
             onValueChange = { drag = it },
@@ -98,7 +100,7 @@ fun PlaybackSlider(
                 )
             },
             modifier =
-                trackModifier.semantics {
+                trackModifier.then(sliderModifier).semantics {
                     contentDescription = label
                     stateDescription = value
                 },

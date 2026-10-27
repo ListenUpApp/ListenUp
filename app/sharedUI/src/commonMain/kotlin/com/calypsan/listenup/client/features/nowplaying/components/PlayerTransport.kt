@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -125,6 +128,7 @@ fun PlayerTransport(
                     busyLabel = stringResource(Res.string.player_mini_busy_a11y),
                     onClick = onPrimary,
                     size = playSize,
+                    modifier = Modifier.morphAnchor(MorphEnd.NowPlaying, MorphPart.Play),
                 )
             },
             menuContent = {},
