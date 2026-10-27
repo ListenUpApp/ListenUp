@@ -201,30 +201,33 @@ private fun MoreMenu(
             shape = MenuShape,
             containerColor = colors.surfaceContainer,
         ) {
-            PlayerMenus.moreMenu(state, includesSeries, includesAuthor, includesShortcuts = false).forEachIndexed {
-                index,
-                group,
-                ->
-                if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                val itemColors =
-                    if (group.isDestructive) {
-                        MenuDefaults.itemColors(textColor = colors.error, leadingIconColor = colors.error)
-                    } else {
-                        MenuDefaults.itemColors()
+            PlayerMenus
+                .moreMenu(
+                    state = state,
+                    includesSeries = includesSeries,
+                    includesAuthor = includesAuthor,
+                    includesShortcuts = false,
+                ).forEachIndexed { index, group ->
+                    if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    val itemColors =
+                        if (group.isDestructive) {
+                            MenuDefaults.itemColors(textColor = colors.error, leadingIconColor = colors.error)
+                        } else {
+                            MenuDefaults.itemColors()
+                        }
+                    group.items.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item.label()) },
+                            leadingIcon = { Icon(item.icon(), contentDescription = null) },
+                            colors = itemColors,
+                            onClick = {
+                                haptics.press()
+                                expanded = false
+                                onMenuItem(item)
+                            },
+                        )
                     }
-                group.items.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item.label()) },
-                        leadingIcon = { Icon(item.icon(), contentDescription = null) },
-                        colors = itemColors,
-                        onClick = {
-                            haptics.press()
-                            expanded = false
-                            onMenuItem(item)
-                        },
-                    )
                 }
-            }
         }
     }
 }

@@ -174,6 +174,15 @@ internal fun morphCheckedFor(
 ): Boolean =
     when (primary) {
         PrimaryControl.Busy -> lastChecked
+
         PrimaryControl.Pause -> true
-        else -> false
+
+        PrimaryControl.Play,
+        PrimaryControl.Retry,
+        PrimaryControl.ListenAgain,
+        PrimaryControl.SignIn,
+        PrimaryControl.OpenInbox,
+        PrimaryControl.Close,
+        PrimaryControl.TapToPlay,
+        -> false
     }

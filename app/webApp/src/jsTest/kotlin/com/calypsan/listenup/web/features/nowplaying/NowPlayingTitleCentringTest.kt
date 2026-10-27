@@ -52,7 +52,7 @@ class NowPlayingTitleCentringTest :
             withClue("chapter") { lineRects(find(".np-mob.np-ch-title")).single().centre() shouldBe (axis plusOrMinus 1.0) }
             withClue("narrator line, mic included") {
                 val parts = find(".np-mob.np-narrated").children.asList().map { rect(it) }
-                ((parts.minOf { it.left } + parts.maxOf { it.right }) / 2) shouldBe (axis plusOrMinus 1.0)
+                (parts.minOf { it.left } + parts.maxOf { it.right }) / 2 shouldBe (axis plusOrMinus 1.0)
             }
         }
 
