@@ -38,7 +38,8 @@ struct MiniPlayerBar: View {
                 onOpen: onOpen,
                 onSkipBack: { observer.skipBackward() },
                 onSkipForward: { observer.skipForward() },
-                onPrimary: { observer.miniPrimary(model.primaryAction) })
+                onPrimary: { observer.miniPrimary(model.primaryAction) },
+                opensOnSwipe: MiniPlayerSwipe.isEnabled(placement: placement))
         }
         // Said once, politely, when a dropped connection starts recovering; never per second (HIG, Accessibility).
         .onChange(of: model.isReconnecting) { _, isReconnecting in
@@ -111,6 +112,8 @@ struct MiniPlayerAccessoryContent: View {
     let onSkipBack: () -> Void
     let onSkipForward: () -> Void
     let onPrimary: () -> Void
+    /// Whether a swipe up opens the full player (`MiniPlayerSwipe`): the expanded capsule only.
+    var opensOnSwipe = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -147,6 +150,17 @@ struct MiniPlayerAccessoryContent: View {
         .padding(.trailing, model.primary.isPill && !model.showsSkipForward ? Spacing.s : Spacing.xxs)
         .containerShape(Capsule())
         .overlay(alignment: .bottom) { if model.showsProgress { progressLine } }
+        // A trigger, not a drag: the swipe opens the same zoom a tap does and never follows the finger. Simultaneous,
+        // so the book, skip and play buttons keep their taps; a gesture adds no VoiceOver stop or action (the book
+        // button already opens the player).
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8).onEnded { drag in
+                if MiniPlayerSwipe.opens(
+                    translation: drag.translation.height, predictedEnd: drag.predictedEndTranslation.height) {
+                    onOpen()
+                }
+            },
+            including: opensOnSwipe ? .all : .subviews)
         // The accessory is system chrome of a fixed height, like the tab bar: its text stops growing at xLarge, and
         // the large content viewer shows each control instead (HIG, Accessibility). MiniPlayerAccessibilityTests
         // pins the height.
