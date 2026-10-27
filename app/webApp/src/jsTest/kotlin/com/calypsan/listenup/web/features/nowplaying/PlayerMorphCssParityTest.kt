@@ -33,7 +33,7 @@ class PlayerMorphCssParityTest :
 
         fun mountFixture(): ViewportFrame {
             val frame =
-                frames.mount(PHONE_WIDTH, PHONE_HEIGHT) {
+                frames.mount(MORPH_PHONE_WIDTH, MORPH_PHONE_HEIGHT) {
                     Div(attrs = { classes("shell", "shell-morphing") }) {
                         Aside(attrs = { classes("sidebar") }) {}
                         Div(attrs = { classes("tport") }) {
@@ -218,10 +218,6 @@ private val PROGRESS_NAMES = listOf("--mp-p", "--mp-q", "var(--t)")
 private val ALLOWED_ON_PROGRESS = setOf("transform", "opacity")
 
 private val PROGRESSES = listOf(0.0, 0.3, 0.6, 0.825, 1.0)
-
-private const val PHONE_WIDTH = 390
-
-private const val PHONE_HEIGHT = 844
 
 private const val NAV_SLIDE_PX = 84.0
 

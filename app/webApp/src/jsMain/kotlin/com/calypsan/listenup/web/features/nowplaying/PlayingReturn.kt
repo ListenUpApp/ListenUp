@@ -12,8 +12,12 @@ import org.w3c.dom.events.Event
  * and focus returns to the control that opened it; reached by a deep link, closing replaces the entry with Home, since
  * there is nothing inside the app to go back to. Arriving by the browser's Forward also counts as a deep link: closing
  * then goes Home, which never leaves the app.
+ *
+ * [morph] is told just before `/playing` is pushed, while the bar it grows from is still drawn.
  */
-class PlayingReturn {
+class PlayingReturn(
+    private val morph: MorphController? = null,
+) {
     private var opener: HTMLElement? = null
     private var openedInApp = false
 
@@ -32,6 +36,7 @@ class PlayingReturn {
         opener = from
         openedInApp = true
         isClosing = false
+        morph?.beforeOpen(router.current)
         router.navigate(Routes.playing)
     }
 

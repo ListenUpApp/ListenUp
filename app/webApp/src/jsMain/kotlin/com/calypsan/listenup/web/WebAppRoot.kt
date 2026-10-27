@@ -16,6 +16,8 @@ import com.calypsan.listenup.web.design.LocalCoverThemes
 import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.LocalRestrictedBookIds
 import com.calypsan.listenup.web.design.ShowActionToast
+import com.calypsan.listenup.web.features.nowplaying.MorphController
+import com.calypsan.listenup.web.features.nowplaying.NowPlayingSlot
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.PlayerShortcutKeys
 import com.calypsan.listenup.web.features.nowplaying.PlayingReturn
@@ -115,8 +117,10 @@ fun WebAppRoot(
     // Shell-lifetime too: the lock on every book card, on every page, reads this one set.
     val restrictedBookIds = restrictedBooks(graph.admin.restrictedBooks)
     val playback = playbackState(graph.openPlayback)
-    // One per window: where Now Playing closes to, and which control gets focus back (S4).
-    val playingReturn = remember { PlayingReturn() }
+    // One per window: the bar growing into Now Playing below 760px (PlayerMorph.kt), and where Now Playing closes to
+    // and which control gets focus back (S4).
+    val morph = remember { MorphController() }
+    val playingReturn = remember { PlayingReturn(morph) }
     // The one window key listener (spec §5.8): the palette, the player and a page's own keys register with it.
     val windowKeys = remember { WindowKeys() }
     // The tab's one title (spec §5.7): the page's name, or what is playing while it plays.
@@ -127,13 +131,18 @@ fun WebAppRoot(
     }
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
+    // While the bar grows into Now Playing (or Now Playing shrinks back), the page underneath stays the one it rose
+    // from: the region, its scroll, its title and the lit tab all keep showing it until the morph lands.
+    val contentRoute = morph.contentRoute(route)
+    val contentPage = contentRoute.segments.firstOrNull() ?: HOME_KEY
+    SideEffect { morph.observe(route) }
     // A book, the person behind it, or the series it belongs to all live in the library, so
     // every one of those deep links keeps Library lit in the sidebar.
     val active =
-        when (page) {
+        when (contentPage) {
             in LIBRARY_DEEP_LINKS -> LIBRARY_KEY
             in HOME_DEEP_LINKS -> HOME_KEY
-            else -> page
+            else -> contentPage
         }
 
     // Shell-lifetime, like the unread count: the phone header and the sidebar both say it.
@@ -141,7 +150,7 @@ fun WebAppRoot(
     val syncState by sync.state.collectAsState()
     val now = rememberMinuteClock()
     // The phone header names the top-level pages it heads; Home's greeting is its own title.
-    val phoneTitle = phoneTitleFor(route)
+    val phoneTitle = phoneTitleFor(contentRoute)
     val openProfile: (() -> Unit)? = currentUserId?.let { id -> { router.navigate(Routes.profile(id)) } }
 
     CompositionLocalProvider(
@@ -178,11 +187,21 @@ fun WebAppRoot(
                 )
             },
             sidebarStatus = { SyncStatusLine(state = syncState, now = now, onRefresh = sync.onRefresh) },
-            immersive = page == PLAYING_KEY,
+            // Not while a morph runs: the tabs and the bar stay drawn, and move with it, until it lands.
+            immersive = page == PLAYING_KEY && !morph.isRunning,
+            morphClasses = morph.shellClasses,
         ) {
             LocalCompositionProbe.current(SHELL_CONTENT_PROBE)
             // The desktop's account menu; a phone's lives in its header (see PhoneTopBar).
-            Div(attrs = { classes("shell-account") }) {
+            Div(attrs = {
+                classes("shell-account")
+                // The shell's root, for the morph to draw on: always there, and the first element inside it.
+                ref { element ->
+                    val shell = element.closest(".shell") as? HTMLElement
+                    val detach = shell?.let { morph.attach(it, router) }
+                    onDispose { detach?.invoke() }
+                }
+            }) {
                 AccountMenu(onSignOut = onSignOut, onOpenProfile = openProfile, account = account)
             }
             // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
@@ -191,15 +210,15 @@ fun WebAppRoot(
             // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
             // makes going back instant instead of merely fast.
             val librarySession = libraryState(graph.openLibrary)
-            ScrollRestoration(route)
+            ScrollRestoration(morph.scrollRoute(route))
             // One per window: carries a selection to the bulk editor and back.
             val selectionHandOff = remember { SelectionHandOff() }
-            PageArrival(page) {
+            PageArrival(contentPage, standsDown = morph::arrivalStandsDown) {
                 CompositionLocalProvider(LocalSelectionHandOff provides selectionHandOff) {
                     RouteContent(
                         router = router,
-                        route = route,
-                        page = page,
+                        route = contentRoute,
+                        page = contentPage,
                         active = active,
                         graph = graph,
                         currentUserId = currentUserId,
@@ -208,11 +227,11 @@ fun WebAppRoot(
                         librarySession = librarySession,
                         inbox = inbox,
                         playback = playback,
-                        playingReturn = playingReturn,
                         heroBookId = heroBookId,
                         onHeroBookIdChange = { heroBookId = it },
                     )
                 }
+                NowPlayingSlot(morph, router, playback, playingReturn, onPlayingPage = page == PLAYING_KEY)
             }
 
             // Above the player bar, and unlike a playback problem it is not dismissible: a failed edit stays

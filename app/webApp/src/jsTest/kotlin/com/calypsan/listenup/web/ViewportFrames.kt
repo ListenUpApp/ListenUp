@@ -33,6 +33,7 @@ import kotlin.js.Promise
 internal class ViewportFrames {
     private val mounted = mutableListOf<Pair<HTMLIFrameElement, Composition>>()
     private val handles = mutableListOf<ViewportFrame>()
+    private val bare = mutableListOf<HTMLIFrameElement>()
 
     /**
      * Renders [content] (inside the app surface) into a fresh [width]×[height] frame.
@@ -48,6 +49,31 @@ internal class ViewportFrames {
         pointer: Pointer = Pointer.Mouse,
         content: @Composable () -> Unit,
     ): ViewportFrame {
+        val (frame, handle) = open(width, height, pointer)
+        mounted += frame to renderComposable(root = handle.host) { WebAppSurface { content() } }
+        return handle
+    }
+
+    /**
+     * A fresh [width]×[height] frame with the real sheet and an empty host, for a spec that renders its own
+     * composition into it (the whole shell, through `mountAt(into = …)`). The frame goes with [disposeAll]; the
+     * composition is the caller's to dispose.
+     */
+    fun host(
+        width: Int,
+        height: Int = DEFAULT_HEIGHT,
+        pointer: Pointer = Pointer.Mouse,
+    ): ViewportFrame {
+        val (frame, handle) = open(width, height, pointer)
+        bare += frame
+        return handle
+    }
+
+    private fun open(
+        width: Int,
+        height: Int,
+        pointer: Pointer,
+    ): Pair<HTMLIFrameElement, ViewportFrame> {
         val frame = document.createElement("iframe") as HTMLIFrameElement
         frame.style.cssText = "width:${width}px;height:${height}px;border:0;display:block"
         document.body!!.appendChild(frame)
@@ -62,8 +88,7 @@ internal class ViewportFrames {
         // window's prototypes and every `as HTMLElement` in the code under test still holds.
         val host = document.createElement("div") as HTMLElement
         frameDocument.body!!.appendChild(host)
-        mounted += frame to renderComposable(root = host) { WebAppSurface { content() } }
-        return ViewportFrame(host, frame.contentWindow!!, width, height).also { handles += it }
+        return frame to ViewportFrame(host, frame.contentWindow!!, width, height).also { handles += it }
     }
 
     /** The frame mounted most recently. */
@@ -76,6 +101,8 @@ internal class ViewportFrames {
             frame.remove()
         }
         mounted.clear()
+        bare.forEach { it.remove() }
+        bare.clear()
         handles.clear()
     }
 

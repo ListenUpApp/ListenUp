@@ -758,12 +758,14 @@ div.panel-pop {
    (PlayerMorph.kt). Below 760px only: wider, the bar is the page's transport and Now Playing fades through.
    ============================================================ */
 @property --mp-p { syntax: "<number>"; inherits: true; initial-value: 1; }
+/* Now Playing's own slot in the page region: no box of its own at rest, so the page lays out as if it were not there. */
+.np-slot { display:contents; }
 @media (max-width: 759px) {
   /* Clamped for every position: a spring's overshoot never opens a gap above the sheet or below the bar. */
   .shell-morphing { --mp-q: clamp(0, var(--mp-p), 1); }
 
   /* Now Playing as a layer over the page it rose from, which a 32 % scrim dims. */
-  .shell-morphing .np-layer { position:fixed; inset:0; z-index:35; overflow:hidden; pointer-events:none; }
+  .shell-morphing .np-layer { display:block; position:fixed; inset:0; z-index:35; overflow:hidden; pointer-events:none; }
   .shell-morphing .np-layer::before {
     content:""; position:absolute; inset:0; background:#000; opacity:calc(.32 * var(--mp-q)); pointer-events:none;
   }

@@ -91,7 +91,7 @@ enum class NavBadgeKind { Unread, Held }
  * [sidebarStatus] sits above the footer in the full sidebar (the sync line); the rail and the phone hide it.
  * [titled] says the phone header is showing the page's name, so the page's own heading steps out of sight there.
  * [immersive] is a page that takes the whole phone screen (Now Playing, S4): below 760px the tabs, the header and the
- * player bar step aside; wider, nothing changes.
+ * player bar step aside; wider, nothing changes. [morphClasses] are the player morph's, while it runs.
  */
 @Composable
 fun Shell(
@@ -106,6 +106,7 @@ fun Shell(
     titled: Boolean = false,
     sidebarStatus: (@Composable () -> Unit)? = null,
     immersive: Boolean = false,
+    morphClasses: List<String> = emptyList(),
     content: @Composable () -> Unit,
 ) {
     val main = remember { MainHolder() }
@@ -116,6 +117,7 @@ fun Shell(
         classes("shell")
         if (titled) classes("ptb-titled")
         if (immersive) classes("shell-immersive")
+        classes(morphClasses)
     }) {
         // First in the document order, so it is the first Tab stop: without it a keyboard reader
         // walks eight sidebar links before every page. Visually hidden until focused. Handled in
