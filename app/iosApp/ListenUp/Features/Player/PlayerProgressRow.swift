@@ -7,8 +7,6 @@ struct PlayerProgressRow: Equatable {
     var chapterDurationMs: Int64 = 0
     var bookPositionMs: Int64 = 0
     var bookDurationMs: Int64 = 0
-    /// Whole percent through the book, floored, for the book sentence: the shared rule, so every platform agrees.
-    var bookPercent = 0
 
     init() {}
 
@@ -17,7 +15,6 @@ struct PlayerProgressRow: Equatable {
         chapterDurationMs = progress.chapterDurationMs
         bookPositionMs = progress.bookPositionMs
         bookDurationMs = progress.bookDurationMs
-        bookPercent = Int(progress.bookPercent)
     }
 
     var chapterRemainingMs: Int64 { max(0, chapterDurationMs - chapterPositionMs) }

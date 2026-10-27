@@ -30,20 +30,11 @@ enum ScrubberAccessibility {
     }
 }
 
-/// The chapter slider over elapsed · the book sentence · −remaining ("12:04 · Book 11% · 40h 31m left · −8:31"; player
-/// spec §3.2: everything that moves is chapter-scoped, the book is a sentence). Its own view so the per-frame position
-/// reads that drive the moving thumb re-evaluate only this small view, not the whole player.
+/// The chapter slider over elapsed · −remaining (player spec §3.2: everything that moves is chapter-scoped). Its own
+/// view so the per-frame position reads that drive the moving thumb re-evaluate only this small view, not the whole
+/// player.
 struct ChapterScrubberSection: View {
     let observer: PlayerObserver
-
-    /// "Book 11% · 40 hr, 31 min left": the shared, floored percent and the time left in the book.
-    static func bookSentence(percent: Int, remainingMs: Int64) -> String {
-        String(
-            format: String(localized: "player.np_book_sentence"),
-            percent,
-            DurationFormatting.abbreviated(ms: remainingMs)
-        )
-    }
 
     @State private var sliderPosition: Double = 0
     @State private var isDraggingSlider: Bool = false
@@ -77,10 +68,6 @@ struct ChapterScrubberSection: View {
             HStack {
                 let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
                 Text(DurationFormatting.clock(ms: elapsed))
-                Spacer(minLength: Spacing.xs)
-                Text(Self.bookSentence(percent: observer.bookPercent, remainingMs: observer.displayBookRemainingMs))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
                 Spacer(minLength: Spacing.xs)
                 Text("-" + DurationFormatting.clock(ms: observer.chapterDurationMs - elapsed))
             }

@@ -367,13 +367,15 @@ struct FullScreenPlayerView: View {
 
             Spacer(minLength: Spacing.xs)
 
-            // Where the audio comes from or goes to (§3.1): plain status text, not a chip (HIG; plan F7). Casting reads
-            // in the tint's text ink.
-            Text(observer.statusText)
-                .font(.footnote)
-                .foregroundStyle(observer.isCasting ? Color.luTintInk : Color.luOnWashSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
+            // Only news (§3.1, Simon 2026-10-27): plain status text, not a chip (HIG; plan F7). Downloaded, streaming
+            // and casting say nothing; AirPlay's caption names a device.
+            if let statusText = observer.statusText {
+                Text(statusText)
+                    .font(.footnote)
+                    .foregroundStyle(Color.luOnWashSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+            }
 
             Spacer(minLength: Spacing.xs)
 

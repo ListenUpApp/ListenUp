@@ -60,7 +60,7 @@ extension Color {
     /// Secondary text on Now Playing's wash — the `OnWashSecondary` Color Set: `#57514D` light, `#ABA6A2` dark
     /// (`#3F3A37` / `#CFCAC6` under Increase Contrast). The system's secondary label is ~3.2:1 on the warm neutral and
     /// on a cover's tone-91 wash; this holds 4.5:1 on the neutral and every wash the shared cover rule can give
-    /// (`NowPlayingWashTests`). For the status, the narrators, the times and the book sentence.
+    /// (`NowPlayingWashTests`). For the status, the narrators and the times.
     static let luOnWashSecondary = Color(ColorResource.onWashSecondary)
     /// The iPad chapter panel's card on Now Playing's wash — the `PlayerPanel` Color Set: white at 60% in light,
     /// `#1C1C1E` at 70% in dark (the `NP-iPad` board's translucent card), and opaque in both under Increase Contrast.
