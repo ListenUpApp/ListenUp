@@ -11,12 +11,14 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import com.calypsan.listenup.client.design.components.LocalScrubberWavePhase
 import com.calypsan.listenup.client.features.nowplaying.EntryMotion
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingLayout
 import com.calypsan.listenup.client.features.nowplaying.nowPlayingEntryMotion
@@ -130,7 +132,10 @@ internal fun BoxScope.NowPlayingStage(
                     scaleOut(targetScale = FADE_THROUGH_SCALE, animationSpec = motion.defaultSpatialSpec())
             },
     ) {
-        if (loaded != null) player(loaded)
+        // The scrubber travels on the morph's wave phase, which the bar's line and the flying line share.
+        CompositionLocalProvider(LocalScrubberWavePhase provides morph?.wavePhase) {
+            if (loaded != null) player(loaded)
+        }
     }
     if (morph != null && loaded != null) {
         PlayerMorphFlight(morph = morph, state = loaded, progress = progress, skipBackwardSec = skipBackwardSec)

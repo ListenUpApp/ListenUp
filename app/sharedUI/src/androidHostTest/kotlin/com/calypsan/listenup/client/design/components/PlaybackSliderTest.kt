@@ -114,6 +114,14 @@ class PlaybackSliderTest {
     }
 
     @Test
+    fun `a disabled scrubber lies flat even while the book plays`() {
+        composeRule.mainClock.autoAdvance = false
+        slider(enabled = false, playing = true)
+        settle()
+        waveAmplitude() shouldBe 0f
+    }
+
+    @Test
     fun `the wave lies flat while paused`() {
         composeRule.mainClock.autoAdvance = false
         slider(playing = false)
@@ -169,7 +177,7 @@ class PlaybackSliderTest {
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             CompositionLocalProvider(LocalReduceMotion provides reduceMotion) {
-                phase = rememberScrubberWavePhase().value
+                phase = rememberScrubberWavePhase(travels = true).current()
             }
         }
         composeRule.mainClock.advanceTimeByFrame()

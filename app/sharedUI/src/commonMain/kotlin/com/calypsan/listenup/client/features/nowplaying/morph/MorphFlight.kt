@@ -31,14 +31,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.PLAY_BUSY_INDICATOR_TAG
 import com.calypsan.listenup.client.design.components.PlayMorphPlayingCorner
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import com.calypsan.listenup.client.design.components.ScrubberTrackThickness
+import com.calypsan.listenup.client.design.components.ScrubberHandleGap
+import com.calypsan.listenup.client.design.components.ScrubberHandleWidth
+import com.calypsan.listenup.client.design.components.ScrubberTrackGeometry
 import com.calypsan.listenup.client.design.components.drawScrubberWave
+import com.calypsan.listenup.client.design.components.scrubberTrackGeometry
+import com.calypsan.listenup.client.design.components.scrubberWaveAmplitude
 import com.calypsan.listenup.client.features.nowplaying.isAudible
 import com.calypsan.listenup.client.features.nowplaying.authorLine
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
@@ -72,8 +78,7 @@ internal const val MORPH_LINE_TAG = "morph-line"
 private val BarCoverCorner = 20.dp
 private val PageCoverCorner = 28.dp
 
-/** The scrubber's handle. */
-private val ThumbWidth = 4.dp
+/** The scrubber's handle height; its width is [ScrubberHandleWidth]. */
 private val ThumbHeight = 44.dp
 
 /** The play glyph on the bar (M3 icon button) and on Now Playing (96 × 0.42). */
@@ -278,9 +283,10 @@ private fun PlayerMorphState.playRect(): Rect? {
 }
 
 /**
- * The progress line in flight: the inactive track, then the filled part drawn as the scrubber's own wave while
- * [isPlaying] (flat when paused), so the bar's wavy line lands on the wave it becomes. The wave holds its phase in
- * flight; the flight is too short for travel to read.
+ * The progress line in flight, drawn from [lineFlightParts]: the inactive track, the filled part as the scrubber's own
+ * wave while [isPlaying] (flat when paused, and by M3's rule near either end), and the handle fading in. It waves on
+ * the morph's shared phase ([PlayerMorphState.wavePhase]), so the bar's wave, the flying line and the scrubber are one
+ * wave that never jumps. Mirrored in right-to-left layouts.
  */
 @Composable
 private fun LineFlight(
@@ -290,47 +296,84 @@ private fun LineFlight(
 ) {
     val colors = MaterialTheme.colorScheme
     val wavePath = remember { Path() }
+    val inactivePath = remember { Path() }
     Spacer(
         Modifier.fillMaxSize().testTag(MORPH_LINE_TAG).drawBehind {
-            val p = morph.progress
-            val bar = morph.anchors.barRect(MorphPart.Line) ?: return@drawBehind
-            val page = morph.pageTarget(MorphPart.Line) ?: return@drawBehind
-            if (!morph.anchors.isReady) return@drawBehind
-            val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
-            val centreY = flight(bar.centreRect(), page.centreRect(), p).top
-            // The bar's line and Now Playing's track are both [ScrubberTrackThickness] (canvas: 3 → 4; the M3
-            // indicator's 4dp here), so the line holds its thickness and only its corners round in flight.
-            val thickness = ScrubberTrackThickness.toPx()
-            val radius = CornerRadius(thickness / 2f * MorphElement.ScrubberThickness.window.of(p))
-            val top = centreY - thickness / 2f
-            drawRoundRect(
+            val fraction = progress().chapterFraction
+            val line =
+                morph.lineFlightParts(fraction, isRtl = layoutDirection == LayoutDirection.Rtl, density = this)
+                    ?: return@drawBehind
+            val parts = line.geometry
+            drawScrubberWave(
+                path = inactivePath,
+                from = parts.inactiveStart,
+                to = parts.trackEnd,
+                amplitude = 0f,
+                phase = 0f,
                 color = colors.surfaceContainerHighest,
-                topLeft = Offset(at.left, top),
-                size = Size(at.width, thickness),
-                cornerRadius = radius,
+                centreY = line.centreY,
             )
-            val filled = at.width * progress().chapterFraction
             drawScrubberWave(
                 path = wavePath,
-                length = filled,
-                amplitude = if (isPlaying) 1f else 0f,
-                phase = 0f,
+                from = parts.trackStart,
+                to = parts.waveEnd,
+                amplitude = if (isPlaying) scrubberWaveAmplitude(fraction) else 0f,
+                phase = morph.wavePhase.current(),
                 color = colors.primary,
-                startX = at.left,
-                centreY = centreY,
+                centreY = line.centreY,
             )
-            val thumbAlpha = reveal(MorphElement.ScrubberThumb, p)
-            if (thumbAlpha > 0f) {
-                val thumb = Size(ThumbWidth.toPx(), ThumbHeight.toPx())
+            if (line.handleShown > 0f) {
+                val thumb = Size(ScrubberHandleWidth.toPx(), ThumbHeight.toPx())
                 drawRoundRect(
                     color = colors.primary,
-                    topLeft = Offset(at.left + filled - thumb.width / 2f, centreY - thumb.height / 2f),
+                    topLeft = Offset(parts.handleCentre - thumb.width / 2f, line.centreY - thumb.height / 2f),
                     size = thumb,
                     cornerRadius = CornerRadius(thumb.width / 2f),
-                    alpha = thumbAlpha,
+                    alpha = line.handleShown,
                 )
             }
         },
+    )
+}
+
+/** Where the flying line's parts are now, in host px: its [geometry] along x, its [centreY], how far its handle shows. */
+internal data class LineFlightParts(
+    val geometry: ScrubberTrackGeometry,
+    val centreY: Float,
+    val handleShown: Float,
+)
+
+/**
+ * The flying line at the current progress, or null before both ends are measured: the rect flies from the bar's line
+ * to Now Playing's slider, and the slider's inset and handle gaps ease in with the handle, so at 1 every part stands
+ * where the slider draws it ([scrubberTrackGeometry]) and at 0 the line is the bar's, edge to edge.
+ */
+internal fun PlayerMorphState.lineFlightParts(
+    fraction: Float,
+    isRtl: Boolean,
+    density: Density,
+): LineFlightParts? {
+    val bar = anchors.barRect(MorphPart.Line) ?: return null
+    val page = pageTarget(MorphPart.Line) ?: return null
+    if (!anchors.isReady) return null
+    val p = progress
+    val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
+    val handleShown = reveal(MorphElement.ScrubberThumb, p)
+    val geometry =
+        with(density) {
+            scrubberTrackGeometry(
+                width = at.width,
+                fraction = fraction,
+                handleWidth = ScrubberHandleWidth.toPx(),
+                handleGap = ScrubberHandleGap.toPx(),
+                handleShown = handleShown,
+                isRtl = isRtl,
+            )
+        }.offsetBy(at.left)
+    return LineFlightParts(
+        geometry = geometry,
+        centreY = flight(bar.centreRect(), page.centreRect(), p).top,
+        handleShown = handleShown,
     )
 }
 

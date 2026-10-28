@@ -11,6 +11,11 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.DriveScrubberWavePhase
+import com.calypsan.listenup.client.design.components.ScrubberWavePhase
+import com.calypsan.listenup.client.features.nowplaying.isAudible
+import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -66,6 +71,12 @@ internal class PlayerMorphState(
 
     /** Material's back preview carried into a committed close, weighted away as it lands. */
     var backPreview: BackPreviewWeight by mutableStateOf(BackPreviewWeight.None)
+
+    /**
+     * The one wave phase the bar's line, the morph's flying line and Now Playing's scrubber travel on, so the wave never
+     * jumps as it passes between them. Still unless something drives it ([rememberPlayerMorph] does, from the player).
+     */
+    val wavePhase: ScrubberWavePhase = ScrubberWavePhase()
 
     /** Where both ends were last measured. A plain holder: measuring never recomposes. */
     val anchors: MorphAnchors = MorphAnchors()
@@ -224,14 +235,31 @@ internal fun rememberPlayerMorph(
     }
 }
 
-/** The player's [PlayerMorphState], writing back to [viewModel]'s shared destination. */
+/**
+ * The player's [PlayerMorphState], writing back to [viewModel]'s shared destination, with its [PlayerMorphState.wavePhase]
+ * travelling while [viewModel]'s book is audible.
+ */
 @Composable
-internal fun rememberPlayerMorph(viewModel: PlayerViewModel): PlayerMorphState =
-    rememberPlayerMorph(
-        isExpanded = { viewModel.expanded.value },
-        onExpand = viewModel::expand,
-        onCollapse = viewModel::collapse,
-    )
+internal fun rememberPlayerMorph(viewModel: PlayerViewModel): PlayerMorphState {
+    val morph =
+        rememberPlayerMorph(
+            isExpanded = { viewModel.expanded.value },
+            onExpand = viewModel::expand,
+            onCollapse = viewModel::collapse,
+        )
+    PlayerWaveTravel(morph.wavePhase, viewModel)
+    return morph
+}
+
+/** Drives [phase] while [viewModel]'s book is audible. Its own scope, so a state change recomposes only this. */
+@Composable
+private fun PlayerWaveTravel(
+    phase: ScrubberWavePhase,
+    viewModel: PlayerViewModel,
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    DriveScrubberWavePhase(phase, travels = (state as? PlayerUiState.Loaded)?.isAudible == true)
+}
 
 /**
  * Keeps [morph] moving toward the destination [isExpanded]: a change from anywhere (the bar's tap, Collapse, a

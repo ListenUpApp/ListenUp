@@ -29,14 +29,32 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
+import com.calypsan.listenup.client.design.components.ScrubberHandleGap
+import com.calypsan.listenup.client.design.components.ScrubberHandleWidth
+import com.calypsan.listenup.client.design.components.ScrubberTrackThickness
+import com.calypsan.listenup.client.design.components.drawScrubberWave
+import com.calypsan.listenup.client.design.components.rememberScrubberWavePhase
+import com.calypsan.listenup.client.design.components.scrubberTrackGeometry
+import com.calypsan.listenup.client.design.components.scrubberWaveAmplitude
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -321,8 +339,10 @@ internal fun RowScope.MiniBody(
     }
 }
 
-/** The chapter line along the bar's top edge: the wave only for the book that is playing (F6), flat otherwise. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * The chapter line along the bar's top edge: the wave only for the book that is playing (F6), flat otherwise. The wave
+ * is Now Playing's scrubber wave ([PlayerWaveLine]), so the morph flies one wave from here into the scrubber.
+ */
 @Composable
 private fun MiniProgressLine(
     isPlaying: Boolean,
@@ -331,11 +351,9 @@ private fun MiniProgressLine(
 ) {
     Box(modifier.morphAnchor(MorphEnd.Bar, MorphPart.Line), contentAlignment = Alignment.Center) {
         if (isPlaying) {
-            LinearWavyProgressIndicator(
-                progress = { progress().chapterFraction },
+            PlayerWaveLine(
+                progress = progress,
                 modifier = Modifier.fillMaxWidth().testTag(MINI_PROGRESS_WAVY_TAG),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         } else {
             LinearProgressIndicator(
@@ -347,6 +365,65 @@ private fun MiniProgressLine(
             )
         }
     }
+}
+
+/**
+ * The bar's playing line: the morph's flying line at rest on the bar ([scrubberTrackGeometry] with no handle shown),
+ * waving on the morph's shared phase (its own where no morph is hosted) with M3's amplitude rule eased in and out, the way M3's wavy indicator eases it.
+ * A progress bar to TalkBack, as that indicator was. Reads progress and phase only while drawing, so neither a tick nor
+ * the wave's travel recomposes it.
+ */
+@Composable
+private fun PlayerWaveLine(
+    progress: () -> PlayerProgress,
+    modifier: Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val phase = LocalPlayerMorph.current?.wavePhase ?: rememberScrubberWavePhase(travels = true)
+    // The first value is read once, unobserved: a read while composing would recompose this on every tick.
+    val amplitude = remember {
+        Animatable(Snapshot.withoutReadObservation { scrubberWaveAmplitude(progress().chapterFraction) })
+    }
+    val amplitudeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    LaunchedEffect(amplitude) {
+        snapshotFlow { scrubberWaveAmplitude(progress().chapterFraction) }
+            .collectLatest { target -> amplitude.animateTo(target, amplitudeSpec) }
+    }
+    val wavePath = remember { Path() }
+    val trackPath = remember { Path() }
+    Spacer(
+        modifier
+            .height(ScrubberTrackThickness)
+            .semantics(mergeDescendants = true) {
+                progressBarRangeInfo = ProgressBarRangeInfo(progress().chapterFraction.coerceIn(0f, 1f), 0f..1f)
+            }.drawBehind {
+                val parts =
+                    scrubberTrackGeometry(
+                        width = size.width,
+                        fraction = progress().chapterFraction,
+                        handleWidth = ScrubberHandleWidth.toPx(),
+                        handleGap = ScrubberHandleGap.toPx(),
+                        handleShown = 0f,
+                        isRtl = layoutDirection == LayoutDirection.Rtl,
+                    )
+                drawScrubberWave(
+                    path = trackPath,
+                    from = parts.inactiveStart,
+                    to = parts.trackEnd,
+                    amplitude = 0f,
+                    phase = 0f,
+                    color = colors.surfaceContainerHighest,
+                )
+                drawScrubberWave(
+                    path = wavePath,
+                    from = parts.trackStart,
+                    to = parts.waveEnd,
+                    amplitude = amplitude.value,
+                    phase = phase.current(),
+                    color = colors.primary,
+                )
+            },
+    )
 }
 
 /** Out of reach while Now Playing covers it: no semantics for a screen reader, no stop for the keyboard. */

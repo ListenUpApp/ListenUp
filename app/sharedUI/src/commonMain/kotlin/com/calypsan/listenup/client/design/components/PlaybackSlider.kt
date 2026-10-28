@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -19,7 +16,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,14 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,32 +32,14 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.motion.rememberAmbientLoop
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_scrubber_a11y
 import listenup.composeapp.generated.resources.player_scrubber_value_a11y
 import org.jetbrains.compose.resources.stringResource
-import kotlin.math.PI
-import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-/** The track's thickness, active and inactive alike; the active one waves about its centre line. */
-internal val ScrubberTrackThickness = 4.dp
-
-/** The wave's crest height either side of the centre line, at full amplitude. */
-internal val ScrubberWaveAmplitudeHeight = 3.dp
-
-/** One crest to the next (the deleted `WavySeekBar`'s `wavelength = 24.dp`). */
-internal val ScrubberWavelength = 24.dp
-
-/** One wavelength's travel: 24dp at the deleted `WavySeekBar`'s `waveSpeed = 15.dp` per second. */
-private const val WAVE_TRAVEL_MILLIS = 1_600
-
-private val HandleSize = DpSize(width = 4.dp, height = 44.dp)
-
-/** M3's gap either side of the handle (`SliderTokens.ActiveHandleLeadingSpace`); the wave stops where M3's bar did. */
-private val HandleTrackGap = 6.dp
+private val HandleSize = DpSize(width = ScrubberHandleWidth, height = 44.dp)
 
 /** The wave's amplitude, 0 (flat) to 1 (full), as the slider states it for tests: the wave is drawn, not composed. */
 internal val ScrubberWaveAmplitude = SemanticsPropertyKey<Float>("ScrubberWaveAmplitude")
@@ -75,8 +47,11 @@ internal val ScrubberWaveAmplitude = SemanticsPropertyKey<Float>("ScrubberWaveAm
 /**
  * The player's scrubber (spec §6): the M3 Expressive slider whose 4dp `primary` active track is M3 Expressive's
  * wave, a 4dp handle with gaps, a flat 4dp `surfaceContainerHighest` inactive track and its stop dot, over
- * elapsed · −remaining. The wave travels while [isPlaying], and its amplitude eases to flat (and still) when paused
- * or while the handle is held, so the track never wobbles under a finger; with animations removed it waves in place.
+ * elapsed · −remaining. The wave travels while [isPlaying], and its amplitude eases to flat when paused, disabled or
+ * while the handle is held, so the track never wobbles under a finger, and follows M3's rule of no wave near either
+ * end ([scrubberWaveAmplitude]); with animations removed it waves in place. It travels on the player's shared phase
+ * ([LocalScrubberWavePhase]) where Now Playing provides one, so the mini bar's wave and the morph's flying line land
+ * on it.
  * Holds its own drag and calls [onSeek] once, on release, so a position tick never yanks the thumb and a drag never
  * issues a seek per frame (m3.material.io/components/sliders/guidelines).
  *
@@ -117,13 +92,13 @@ fun PlaybackSlider(
     val isPressed by interaction.collectIsPressedAsState()
     val isDragged by interaction.collectIsDraggedAsState()
     val isHeld = drag != null || isPressed || isDragged
+    val waves = enabled && isPlaying && !isHeld && scrubberWaveAmplitude(shownFraction) > 0f
     val amplitude by animateFloatAsState(
-        targetValue = if (isPlaying && !isHeld) 1f else 0f,
+        targetValue = if (waves) 1f else 0f,
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "scrubber-wave-amplitude",
     )
-    // The loop lives only while there is a wave to move, so a paused scrubber asks for no frames.
-    val phase = if (amplitude > 0f) rememberScrubberWavePhase() else null
+    val phase = rememberSharedOrOwnWavePhase(travels = amplitude > 0f)
     val wavePath = remember { Path() }
     val timeStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     val track: @Composable (Modifier) -> Unit = { sliderModifier ->
@@ -152,17 +127,25 @@ fun PlaybackSlider(
                     modifier =
                         Modifier.height(ScrubberTrackThickness).drawWithContent {
                             drawContent()
-                            val handleGap = HandleSize.width.toPx() / 2f + HandleTrackGap.toPx()
-                            val mirror = if (layoutDirection == LayoutDirection.Rtl) -1f else 1f
-                            scale(scaleX = mirror, scaleY = 1f) {
-                                drawScrubberWave(
-                                    path = wavePath,
-                                    length = size.width * state.coercedValueAsFraction - handleGap,
-                                    amplitude = amplitude,
-                                    phase = phase?.value ?: 0f,
-                                    color = waveColor,
-                                )
-                            }
+                            // This canvas is M3's track, inset half the handle inside the slider; the geometry is the
+                            // slider's, so shift it back by that inset.
+                            val handleWidth = ScrubberHandleWidth.toPx()
+                            val parts =
+                                scrubberTrackGeometry(
+                                    width = size.width + handleWidth,
+                                    fraction = state.coercedValueAsFraction,
+                                    handleWidth = handleWidth,
+                                    handleGap = ScrubberHandleGap.toPx(),
+                                    isRtl = layoutDirection == LayoutDirection.Rtl,
+                                ).offsetBy(-handleWidth / 2f)
+                            drawScrubberWave(
+                                path = wavePath,
+                                from = parts.trackStart,
+                                to = parts.waveEnd,
+                                amplitude = amplitude,
+                                phase = phase.current(),
+                                color = waveColor,
+                            )
                         },
                     colors = trackColors,
                     enabled = enabled,
@@ -203,61 +186,6 @@ fun PlaybackSlider(
         }
     }
 }
-
-/**
- * The wave's travel, 0 to 1 of a wavelength, looping at the deleted `WavySeekBar`'s speed; held at 0 while
- * animations are removed, so the wave stays but does not move.
- */
-@Composable
-internal fun rememberScrubberWavePhase(): State<Float> =
-    rememberAmbientLoop(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(WAVE_TRAVEL_MILLIS, easing = LinearEasing)),
-        restValue = 0f,
-        label = "scrubber-wave-phase",
-    )
-
-/**
- * Draws the scrubber's active track: a [ScrubberTrackThickness] line from the start edge, [length] px long and
- * centred on this scope's centre line, waving at [amplitude] (0 flat to 1 full) and shifted [phase] of a wavelength
- * rightwards from [startX]. Round caps, so a flat wave is M3's rounded bar. Draws nothing shorter than its own cap.
- * Reuses [path] so a frame allocates nothing. Now Playing's morph draws its flying line with this too, so the line
- * lands on the very wave it becomes.
- */
-internal fun DrawScope.drawScrubberWave(
-    path: Path,
-    length: Float,
-    amplitude: Float,
-    phase: Float,
-    color: Color,
-    startX: Float = 0f,
-    centreY: Float = center.y,
-) {
-    val stroke = ScrubberTrackThickness.toPx()
-    val cap = stroke / 2f
-    if (length <= cap) return
-    val crest = ScrubberWaveAmplitudeHeight.toPx() * amplitude
-    val wavelength = ScrubberWavelength.toPx()
-    val step = wavelength / WAVE_SAMPLES_PER_WAVELENGTH
-
-    fun pointAt(distance: Float) =
-        Offset(startX + distance, centreY + crest * sin(2f * PI.toFloat() * (distance / wavelength - phase)))
-
-    val end = (length - cap).coerceAtLeast(cap)
-    path.reset()
-    pointAt(cap).let { path.moveTo(it.x, it.y) }
-    var distance = cap + step
-    while (distance < end) {
-        pointAt(distance).let { path.lineTo(it.x, it.y) }
-        distance += step
-    }
-    pointAt(end).let { path.lineTo(it.x, it.y) }
-    drawPath(path, color, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-}
-
-/** Enough points per wavelength that the sampled line reads as a curve at any density. */
-private const val WAVE_SAMPLES_PER_WAVELENGTH = 16
 
 /** A playback position or length as a clock: "12:04", or "1:02:03" past an hour. */
 fun Duration.formatPlaybackTime(): String {
