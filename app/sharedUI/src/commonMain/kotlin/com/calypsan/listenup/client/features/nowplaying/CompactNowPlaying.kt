@@ -116,6 +116,7 @@ fun CompactNowPlaying(
             FlexibleGap(weight = 1.4f, fallback = 24.dp)
             PlayerScrubber(
                 progress = progress,
+                isPlaying = state.isAudible,
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxWidth().morphReveal(MorphElement.Times),

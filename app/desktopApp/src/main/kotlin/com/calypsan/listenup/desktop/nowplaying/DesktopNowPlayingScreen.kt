@@ -402,6 +402,7 @@ private fun TallLayout(
 
         SeekSection(
             progress = progress,
+            isPlaying = state.isPlaying,
             onSeek = onSeek,
         )
 
@@ -492,6 +493,7 @@ private fun WideLayout(
 
             SeekSection(
                 progress = progress,
+                isPlaying = state.isPlaying,
                 onSeek = onSeek,
             )
 
@@ -723,6 +725,7 @@ private fun TitleSection(
 @Composable
 private fun SeekSection(
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -731,6 +734,7 @@ private fun SeekSection(
         fraction = p.chapterFraction.coerceIn(0f, 1f),
         elapsedMs = p.chapterPositionMs,
         durationMs = p.chapterDurationMs,
+        isPlaying = isPlaying,
         onSeek = onSeek,
         modifier = modifier.fillMaxWidth().widthIn(max = 480.dp),
     )

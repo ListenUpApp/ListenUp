@@ -418,6 +418,7 @@ private fun WideControls(
 
     PlayerScrubber(
         progress = progress,
+        isPlaying = state.isAudible,
         isBusy = state.isBusy || card is PlayerCard.Problem,
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),

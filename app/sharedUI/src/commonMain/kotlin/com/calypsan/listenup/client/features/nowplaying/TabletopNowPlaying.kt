@@ -159,6 +159,7 @@ internal fun TabletopNowPlaying(
             val controlsWidth = Modifier.widthIn(max = CONTROLS_MAX_WIDTH).fillMaxWidth()
             PlayerScrubber(
                 progress = progress,
+                isPlaying = state.isAudible,
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = controlsWidth,

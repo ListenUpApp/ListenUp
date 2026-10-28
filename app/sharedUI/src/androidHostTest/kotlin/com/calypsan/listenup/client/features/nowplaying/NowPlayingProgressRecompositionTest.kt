@@ -55,6 +55,7 @@ class NowPlayingProgressRecompositionTest {
                 // Leaf — reads progress through the deferred lambda.
                 PlayerScrubber(
                     progress = { progress },
+                    isPlaying = false,
                     isBusy = false,
                     onSeek = {},
                 )

@@ -237,7 +237,12 @@ private fun RowScope.ToolbarContent(
         tint = LocalContentColor.current,
     )
     if (fullSet) {
-        ToolbarScrubber(progress = progress, onSeek = actions.onSeek, modifier = Modifier.weight(1f))
+        ToolbarScrubber(
+            progress = progress,
+            isPlaying = state.isAudible,
+            onSeek = actions.onSeek,
+            modifier = Modifier.weight(1f),
+        )
         SpeedButton(speed = state.settings.speed, onClick = actions.onSpeedClick)
         SleepSettingButton(
             timer = state.sleepTimer,
@@ -308,6 +313,7 @@ private fun ToolbarBody(
 @Composable
 private fun ToolbarScrubber(
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -316,6 +322,7 @@ private fun ToolbarScrubber(
         fraction = current.chapterFraction,
         elapsedMs = current.chapterPositionMs,
         durationMs = current.chapterDurationMs,
+        isPlaying = isPlaying,
         onSeek = onSeek,
         modifier = modifier,
         timesBeside = true,

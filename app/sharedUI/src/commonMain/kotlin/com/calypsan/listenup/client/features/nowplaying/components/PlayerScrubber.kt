@@ -15,12 +15,14 @@ import com.calypsan.listenup.client.presentation.player.PlayerProgress
  * around it (cover, title, transport), which reads nothing from it.
  *
  * @param progress Deferred read of the fast-changing playback progress.
+ * @param isPlaying Audio is advancing: the track waves.
  * @param isBusy When true (a stall, or a problem card), the scrubber holds still and takes no seek.
  * @param onSeek Called once, on release, with the chapter fraction to seek to.
  */
 @Composable
 fun PlayerScrubber(
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
     isBusy: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -30,6 +32,7 @@ fun PlayerScrubber(
         fraction = p.chapterFraction,
         elapsedMs = p.chapterPositionMs,
         durationMs = p.chapterDurationMs,
+        isPlaying = isPlaying,
         onSeek = onSeek,
         enabled = !isBusy,
         modifier = modifier,
