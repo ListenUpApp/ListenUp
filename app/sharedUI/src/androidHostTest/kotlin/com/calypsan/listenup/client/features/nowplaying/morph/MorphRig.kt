@@ -17,6 +17,9 @@ import com.calypsan.listenup.client.features.nowplaying.NowPlayingLayout
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.dp
@@ -65,6 +68,7 @@ internal class MorphRig(
         reduceMotion: Boolean = false,
         haptics: Haptics? = null,
         probeInputMode: @Composable () -> Unit = {},
+        inputMode: InputMode? = null,
     ) {
         this.state = state
         composeRule.setContent {
@@ -74,6 +78,7 @@ internal class MorphRig(
                 LocalReduceMotion provides reduceMotion,
                 LocalCompositionProbe provides probe,
                 LocalTouchExplorationActive provides touchExploration,
+                LocalInputModeManager provides (inputMode?.let(::FixedInputMode) ?: LocalInputModeManager.current),
             ) {
                 MaterialTheme {
                     if (haptics != null) {
@@ -169,4 +174,11 @@ internal class MorphRig(
             }
         }
     }
+}
+
+/** An input mode that stays put, for specs that need touch mode, which Robolectric never enters. */
+private class FixedInputMode(
+    override val inputMode: InputMode,
+) : InputModeManager {
+    override fun requestInputMode(inputMode: InputMode): Boolean = false
 }

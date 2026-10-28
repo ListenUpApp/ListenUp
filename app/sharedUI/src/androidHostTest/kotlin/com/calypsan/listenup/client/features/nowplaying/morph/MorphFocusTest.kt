@@ -4,6 +4,8 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -42,6 +44,28 @@ class MorphFocusTest {
         rig.sheet.collapse()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(MINI_BODY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun `with TalkBack on, closing gives focus back to the bar in touch mode too`() {
+        rig.touchExploration = true
+        rig.show(loadedPlayerState(coverPath = NO_COVER), inputMode = InputMode.Touch)
+        rig.sheet.expand()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Collapse player").performClick()
+        composeRule.waitForIdle()
+        rig.sheet.expanded.value shouldBe false
+        composeRule.onNodeWithTag(MINI_BODY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun `without TalkBack or a keyboard, a touch close moves no focus`() {
+        rig.show(loadedPlayerState(coverPath = NO_COVER), inputMode = InputMode.Touch)
+        rig.sheet.expand()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Collapse player").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(MINI_BODY_TAG).assertIsNotFocused()
     }
 
     @Test

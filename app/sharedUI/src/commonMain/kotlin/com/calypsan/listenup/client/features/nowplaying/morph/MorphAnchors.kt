@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -163,11 +165,14 @@ internal fun Modifier.morphNavigationBar(): Modifier {
     return onSizeChanged { morph.anchors.navigationHeightPx = it.height.toFloat() }
 }
 
-/** Where focus returns when Now Playing closes from a keyboard: the bar's open target. */
+/** Where focus returns when Now Playing closes from a keyboard or with TalkBack on: the bar's open target. */
 @Composable
 internal fun Modifier.morphBarFocus(): Modifier {
     val morph = LocalPlayerMorph.current ?: return this
+    // In touch mode a clickable takes no input focus; with TalkBack on it must, so the close can hand focus back.
+    val touchExploration = LocalTouchExplorationActive.current
     return focusRequester(morph.barFocus)
+        .then(if (touchExploration) Modifier.focusProperties { canFocus = true } else Modifier)
 }
 
 /** Where focus lands when Now Playing opens from a keyboard: Collapse. */

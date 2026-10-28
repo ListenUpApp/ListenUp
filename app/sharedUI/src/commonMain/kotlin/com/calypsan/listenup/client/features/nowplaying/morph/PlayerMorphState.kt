@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.focus.FocusRequester
 import com.calypsan.listenup.client.design.motion.LocalReduceMotion
+import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import com.calypsan.listenup.client.features.nowplaying.EntryMotion
 import com.calypsan.listenup.client.presentation.player.BackPreviewWeight
 import com.calypsan.listenup.client.presentation.player.MorphEnd
@@ -269,18 +270,22 @@ internal fun PlayerMorphSync(
 
 /**
  * Focus follows a keyboard: an open that came to rest gives it to Collapse, a close gives it back to the bar's open
- * target (canvas `Edges`, never stranded). A drag in touch mode moves no input focus.
+ * target (canvas `Edges`, never stranded). With TalkBack exploring by touch, a close gives it back to the bar too, so
+ * the screen reader is not left on whatever the system picks. A drag in touch mode moves no input focus.
  */
 @Composable
 internal fun MorphFocusEffect(morph: PlayerMorphState) {
     val inputMode = LocalInputModeManager.current
+    val touchExploration = LocalTouchExplorationActive.current
     val settles = morph.settles
     LaunchedEffect(morph, settles) {
-        if (settles == 0 || morph.lastSettleWasDrag || inputMode.inputMode != InputMode.Keyboard) return@LaunchedEffect
+        if (settles == 0 || morph.lastSettleWasDrag) return@LaunchedEffect
+        val opened = morph.lastSettle == MorphEnd.NowPlaying
+        val keyboard = inputMode.inputMode == InputMode.Keyboard
+        if (!keyboard && !(touchExploration && !opened)) return@LaunchedEffect
         // A frame for the destination's recomposition: the bar takes focus only once Now Playing has left it.
         withFrameNanos {}
         withFrameNanos {}
-        val target = if (morph.lastSettle == MorphEnd.NowPlaying) morph.collapseFocus else morph.barFocus
-        target.requestFocus()
+        (if (opened) morph.collapseFocus else morph.barFocus).requestFocus()
     }
 }
