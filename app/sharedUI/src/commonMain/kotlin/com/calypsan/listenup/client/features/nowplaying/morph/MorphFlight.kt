@@ -68,6 +68,9 @@ import kotlin.math.roundToInt
 /** Test tag: the cover that flies between the bar and Now Playing. */
 internal const val MORPH_COVER_TAG = "morph-cover"
 
+/** Test tag: the two titles that cross-fade as they fly (the bar's out, Now Playing's in). */
+internal const val MORPH_TITLE_TAG = "morph-title"
+
 /** Test tag: the play button that flies between the bar and Now Playing. */
 internal const val MORPH_PLAY_TAG = "morph-play"
 
@@ -182,6 +185,7 @@ private fun TitleFlight(
         overflow = TextOverflow.Ellipsis,
         modifier =
             Modifier
+                .testTag(MORPH_TITLE_TAG)
                 .layout { measurable, _ ->
                     morph.progress
                     val own =

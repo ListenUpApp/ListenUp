@@ -5,7 +5,10 @@ import androidx.compose.ui.focus.focusRequester
 import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -53,6 +56,8 @@ internal sealed interface AnchorKey {
  * with it and the other's answer again, so a bar that left never takes the one that stays with it.
  *
  * A plain holder, not snapshot state: measuring never recomposes, and the frames that read it are already redrawing.
+ * The one exception is [isReadyState], which changes only when an end appears or goes, so the layers that hide Now
+ * Playing's own parts learn the moment both ends are measured.
  */
 internal class MorphAnchors {
     private val slots = HashMap<AnchorKey, LinkedHashMap<Any, LayoutCoordinates>>()
@@ -69,11 +74,26 @@ internal class MorphAnchors {
         val slot = slots.getOrPut(key) { LinkedHashMap() }
         slot.remove(owner)
         slot[owner] = coordinates
+        refreshReadiness()
     }
 
     /** [owner]'s node has left: whatever it measured goes, and any other node measuring the same keys answers again. */
     fun release(owner: Any) {
         slots.values.forEach { it.remove(owner) }
+        refreshReadiness()
+    }
+
+    /**
+     * [isReady] as snapshot state, for a layer to read: it flips only when an end is first measured or leaves. Without
+     * it, a layer that first ran before Now Playing was measured (a drag composes Now Playing mid-gesture) would never
+     * run again, and would draw the page's parts under the flying ones for the whole drag.
+     */
+    var isReadyState: Boolean by mutableStateOf(false)
+        private set
+
+    private fun refreshReadiness() {
+        val ready = isReady
+        if (ready != isReadyState) isReadyState = ready
     }
 
     /** The node answering for [key]: the last placed of those still attached. */
@@ -139,7 +159,7 @@ internal fun Modifier.morphAnchor(
 ): Modifier {
     val morph = LocalPlayerMorph.current ?: return this
     return measuresAs(AnchorKey.Part(end, part))
-        .graphicsLayer { alpha = if (morph.isMorphing && morph.anchors.isReady) 0f else 1f }
+        .graphicsLayer { alpha = if (morph.isMorphing && morph.anchors.isReadyState) 0f else 1f }
 }
 
 /** Measures this node as one of the bar's riding [detail]s. Inert without a [LocalPlayerMorph]. */
