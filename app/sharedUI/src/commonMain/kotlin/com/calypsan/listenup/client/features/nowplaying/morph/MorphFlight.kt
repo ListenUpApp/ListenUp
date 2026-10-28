@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -107,12 +109,15 @@ internal fun PlayerMorphFlight(
 ) {
     if (!rememberShowsFlight(morph)) return
     val line = MiniPlayerLines.of(state)
-    Box(Modifier.fillMaxSize().clearAndSetSemantics {}) {
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    // Every part is placed by host px measured from the left, in either layout direction: anchored top-left, not
+    // top-start, so a right-to-left layout does not mirror the origin and send the parts off the right edge.
+    Box(Modifier.fillMaxSize().clearAndSetSemantics {}, contentAlignment = AbsoluteAlignment.TopLeft) {
         LineFlight(morph, progress, isPlaying = state.isAudible)
-        CoverFlight(morph, state)
+        CoverFlight(morph, state, isRtl)
         TitleFlight(morph, state.book.title, isPage = false)
         TitleFlight(morph, state.book.title, isPage = true)
-        if (playFlies(state, line)) PlayFlight(morph, state.primary)
+        if (playFlies(state, line)) PlayFlight(morph, state.primary, isRtl)
         BarRiders(morph = morph, state = state, line = line, progress = progress, skipBackwardSec = skipBackwardSec)
     }
 }
@@ -133,6 +138,7 @@ internal fun playFlies(
 private fun CoverFlight(
     morph: PlayerMorphState,
     state: PlayerUiState.Loaded,
+    isRtl: Boolean,
 ) {
     BookCoverImage(
         bookId = state.book.id,
@@ -153,7 +159,7 @@ private fun CoverFlight(
                         alpha = 0f
                         return@graphicsLayer
                     }
-                    val at = flight(bar.toMorphRect(), target.toMorphRect(), p)
+                    val at = flightFromStart(bar.toMorphRect(), target.toMorphRect(), p, isRtl)
                     alpha = 1f
                     transformOrigin = TransformOrigin(0f, 0f)
                     translationX = at.left
@@ -225,6 +231,7 @@ private fun TitleFlight(
 private fun PlayFlight(
     morph: PlayerMorphState,
     primary: PrimaryControl,
+    isRtl: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val isPause = primary == PrimaryControl.Pause
@@ -234,13 +241,13 @@ private fun PlayFlight(
             Modifier
                 .testTag(MORPH_PLAY_TAG)
                 .layout { measurable, _ ->
-                    val at = morph.playRect()
+                    val at = morph.playRect(isRtl)
                     val width = at?.run { width.roundToInt().coerceAtLeast(0) } ?: 0
                     val height = at?.run { height.roundToInt().coerceAtLeast(0) } ?: 0
                     val placeable = measurable.measure(Constraints.fixed(width, height))
                     layout(width, height) { placeable.place(0, 0) }
                 }.graphicsLayer {
-                    val at = morph.playRect()
+                    val at = morph.playRect(isRtl)
                     val bar = morph.anchors.barRect(MorphPart.Play)
                     if (at == null || bar == null || !morph.anchors.isReady) {
                         alpha = 0f
@@ -279,10 +286,10 @@ private fun PlayFlight(
 }
 
 /** The play button's rect at the current progress, host px, or null before both ends are measured. */
-private fun PlayerMorphState.playRect(): Rect? {
+private fun PlayerMorphState.playRect(isRtl: Boolean): Rect? {
     val bar = anchors.barRect(MorphPart.Play) ?: return null
     val page = pageTarget(MorphPart.Play) ?: return null
-    val at = flight(bar.toMorphRect(), page.toMorphRect(), progress)
+    val at = flightFromStart(bar.toMorphRect(), page.toMorphRect(), progress, isRtl)
     return Rect(Offset(at.left, at.top), Size(at.width, at.height))
 }
 
@@ -361,7 +368,7 @@ internal fun PlayerMorphState.lineFlightParts(
     val page = pageTarget(MorphPart.Line) ?: return null
     if (!anchors.isReady) return null
     val p = progress
-    val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
+    val at = flightFromStart(bar.toMorphRect(), page.toMorphRect(), p, isRtl)
     val handleShown = reveal(MorphElement.ScrubberThumb, p)
     val geometry =
         with(density) {

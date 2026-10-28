@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
 import androidx.compose.ui.platform.testTag
@@ -69,6 +71,7 @@ internal class MorphRig(
         haptics: Haptics? = null,
         probeInputMode: @Composable () -> Unit = {},
         inputMode: InputMode? = null,
+        layoutDirection: LayoutDirection? = null,
     ) {
         this.state = state
         composeRule.setContent {
@@ -79,6 +82,7 @@ internal class MorphRig(
                 LocalCompositionProbe provides probe,
                 LocalTouchExplorationActive provides touchExploration,
                 LocalInputModeManager provides (inputMode?.let(::FixedInputMode) ?: LocalInputModeManager.current),
+                LocalLayoutDirection provides (layoutDirection ?: LocalLayoutDirection.current),
             ) {
                 MaterialTheme {
                     if (haptics != null) {

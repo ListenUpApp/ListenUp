@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.features.nowplaying.EntryMotion
 import com.calypsan.listenup.client.presentation.player.MorphElement
 import com.calypsan.listenup.client.presentation.player.MorphMode
 import com.calypsan.listenup.client.presentation.player.MorphRect
+import com.calypsan.listenup.client.presentation.player.flight
 import com.calypsan.listenup.client.presentation.player.reveal
 import com.calypsan.listenup.client.presentation.player.sheetCornerFraction
 import com.calypsan.listenup.client.presentation.player.sidesScale
@@ -196,6 +197,25 @@ internal fun rememberShowsFlight(morph: PlayerMorphState): Boolean {
     val shows by remember(morph) { derivedStateOf { morph.isMorphing } }
     return shows
 }
+
+/**
+ * [flight] read from the layout's start edge. The arc swings a part's start edge while its size grows linearly, so in
+ * a right-to-left layout ([isRtl]) the right edge must take the arc, or the growing part overshoots past both ends
+ * towards the right. Mirroring about x = 0, flying, and mirroring back does exactly that. Pure.
+ */
+internal fun flightFromStart(
+    from: MorphRect,
+    to: MorphRect,
+    p: Float,
+    isRtl: Boolean,
+): MorphRect {
+    if (!isRtl) return flight(from, to, p)
+    val mirrored = flight(from.mirrored(), to.mirrored(), p)
+    return mirrored.mirrored()
+}
+
+/** This rect mirrored about x = 0. */
+private fun MorphRect.mirrored(): MorphRect = copy(left = -(left + width))
 
 internal fun Rect.toMorphRect(): MorphRect = MorphRect(left = left, top = top, width = width, height = height)
 
