@@ -83,19 +83,6 @@ internal class MorphAnchors {
         refreshReadiness()
     }
 
-    /**
-     * [isReady] as snapshot state, for a layer to read: it flips only when an end is first measured or leaves. Without
-     * it, a layer that first ran before Now Playing was measured (a drag composes Now Playing mid-gesture) would never
-     * run again, and would draw the page's parts under the flying ones for the whole drag.
-     */
-    var isReadyState: Boolean by mutableStateOf(false)
-        private set
-
-    private fun refreshReadiness() {
-        val ready = isReady
-        if (ready != isReadyState) isReadyState = ready
-    }
-
     /** The node answering for [key]: the last placed of those still attached. */
     fun coordinates(key: AnchorKey): LayoutCoordinates? = slots[key]?.run { values.lastOrNull { it.isAttached } }
 
@@ -124,6 +111,19 @@ internal class MorphAnchors {
     /** Whether both ends of the parts every frame needs are measured. The play button is optional: a card replaces it. */
     val isReady: Boolean
         get() = barBounds != null && REQUIRED.all { barRect(it) != null && pageRect(it) != null }
+
+    /**
+     * [isReady] as snapshot state, for a layer to read: it flips only when an end is first measured or leaves. Without
+     * it, a layer that first ran before Now Playing was measured (a drag composes Now Playing mid-gesture) would never
+     * run again, and would draw the page's parts under the flying ones for the whole drag.
+     */
+    var isReadyState: Boolean by mutableStateOf(false)
+        private set
+
+    private fun refreshReadiness() {
+        val ready = isReady
+        if (ready != isReadyState) isReadyState = ready
+    }
 
     private fun inHost(coordinates: LayoutCoordinates?): Rect? {
         val host = host ?: return null
