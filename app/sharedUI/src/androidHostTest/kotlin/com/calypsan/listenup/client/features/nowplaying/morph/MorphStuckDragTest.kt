@@ -33,7 +33,10 @@ class MorphStuckDragTest {
 
     private val rig = MorphRig(composeRule)
 
-    private val barTop: Float get() = rig.morph.anchors.barBounds.shouldNotBeNull().top
+    private val barTop: Float get() =
+        rig.morph.anchors.barBounds
+            .shouldNotBeNull()
+            .top
 
     private fun holdBarAt(fraction: Float) {
         composeRule.onNodeWithTag(MINI_BODY_TAG).performTouchInput {

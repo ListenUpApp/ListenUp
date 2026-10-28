@@ -39,6 +39,7 @@ import com.calypsan.listenup.client.features.nowplaying.authorLine
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
+import com.calypsan.listenup.client.presentation.player.BackPreviewWeight
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.MorphElement
@@ -138,11 +139,12 @@ private fun CoverFlight(
                     val p = morph.progress
                     val bar = morph.anchors.barRect(MorphPart.Cover)
                     val page = morph.anchors.pageRect(MorphPart.Cover)
-                    if (bar == null || page == null || page.width <= 0f || !morph.anchors.isReady) {
+                    val target = morph.pageTarget(MorphPart.Cover)
+                    if (bar == null || page == null || target == null || page.width <= 0f || !morph.anchors.isReady) {
                         alpha = 0f
                         return@graphicsLayer
                     }
-                    val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
+                    val at = flight(bar.toMorphRect(), target.toMorphRect(), p)
                     alpha = 1f
                     transformOrigin = TransformOrigin(0f, 0f)
                     translationX = at.left
@@ -191,14 +193,17 @@ private fun TitleFlight(
                     val p = morph.progress
                     val bar = morph.anchors.barRect(MorphPart.Title)
                     val page = morph.anchors.pageRect(MorphPart.Title)
-                    if (bar == null || page == null || !morph.anchors.isReady) {
+                    val target = morph.pageTarget(MorphPart.Title)
+                    if (bar == null || page == null || target == null || page.width <= 0f || !morph.anchors.isReady) {
                         alpha = 0f
                         return@graphicsLayer
                     }
-                    val centre = flight(bar.centreRect(), page.centreRect(), p)
+                    val centre = flight(bar.centreRect(), target.centreRect(), p)
                     translationX = centre.left - size.width / 2f
                     translationY = centre.top - size.height / 2f
-                    val scale = if (isPage) lerp(1f / ratio, 1f, p) else lerp(1f, ratio, p)
+                    // A committed back's shrink, carried at the page end.
+                    val carried = lerp(1f, target.width / page.width, p)
+                    val scale = carried * if (isPage) lerp(1f / ratio, 1f, p) else lerp(1f, ratio, p)
                     scaleX = scale
                     scaleY = scale
                     alpha = if (isPage) PageTitleIn.of(p) else 1f - BarTitleOut.of(p)
@@ -266,7 +271,7 @@ private fun PlayFlight(
 /** The play button's rect at the current progress, host px, or null before both ends are measured. */
 private fun PlayerMorphState.playRect(): Rect? {
     val bar = anchors.barRect(MorphPart.Play) ?: return null
-    val page = anchors.pageRect(MorphPart.Play) ?: return null
+    val page = pageTarget(MorphPart.Play) ?: return null
     val at = flight(bar.toMorphRect(), page.toMorphRect(), progress)
     return Rect(Offset(at.left, at.top), Size(at.width, at.height))
 }
@@ -281,7 +286,7 @@ private fun LineFlight(
         Modifier.fillMaxSize().testTag(MORPH_LINE_TAG).drawBehind {
             val p = morph.progress
             val bar = morph.anchors.barRect(MorphPart.Line) ?: return@drawBehind
-            val page = morph.anchors.pageRect(MorphPart.Line) ?: return@drawBehind
+            val page = morph.pageTarget(MorphPart.Line) ?: return@drawBehind
             if (!morph.anchors.isReady) return@drawBehind
             val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
             val centreY = flight(bar.centreRect(), page.centreRect(), p).top
@@ -393,3 +398,21 @@ private fun Modifier.fixedToPage(
     }
 
 private const val MIN_SCALE = 0.01f
+
+/**
+ * Where Now Playing's [part] is drawn now, as the flight's page end: its sheet-space rect under the back preview a
+ * committed back carried into the close (scaled about the sheet's centre and drifted, as the sheet's own layer draws
+ * it), so the flying parts start from the shrunken page rather than jumping to where the page would be at full size.
+ */
+internal fun PlayerMorphState.pageTarget(part: MorphPart): Rect? {
+    val page = anchors.pageRect(part) ?: return null
+    val weight = backPreview.takeIf { it != BackPreviewWeight.None }?.at(progress) ?: return page
+    val sheet = anchors.sheet?.takeIf { it.isAttached } ?: return page
+    val centreX = sheet.size.width / 2f
+    val centreY = sheet.size.height / 2f
+
+    fun x(value: Float) = centreX + (value - centreX) * weight.scale + weight.translationX
+
+    fun y(value: Float) = centreY + (value - centreY) * weight.scale
+    return Rect(left = x(page.left), top = y(page.top), right = x(page.right), bottom = y(page.bottom))
+}
