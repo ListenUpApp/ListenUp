@@ -13,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -20,6 +21,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
@@ -35,6 +37,9 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.PLAY_BUSY_INDICATOR_TAG
 import com.calypsan.listenup.client.design.components.PlayMorphPlayingCorner
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.ScrubberTrackThickness
+import com.calypsan.listenup.client.design.components.drawScrubberWave
+import com.calypsan.listenup.client.features.nowplaying.isAudible
 import com.calypsan.listenup.client.features.nowplaying.authorLine
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
@@ -67,10 +72,6 @@ internal const val MORPH_LINE_TAG = "morph-line"
 private val BarCoverCorner = 20.dp
 private val PageCoverCorner = 28.dp
 
-/** The bar's line and Now Playing's track (canvas: 3 → 16; the M3 indicator's 4dp here). */
-private val BarLineThickness = 4.dp
-private val PageTrackThickness = 16.dp
-
 /** The scrubber's handle. */
 private val ThumbWidth = 4.dp
 private val ThumbHeight = 44.dp
@@ -99,7 +100,7 @@ internal fun PlayerMorphFlight(
     if (!rememberShowsFlight(morph)) return
     val line = MiniPlayerLines.of(state)
     Box(Modifier.fillMaxSize().clearAndSetSemantics {}) {
-        LineFlight(morph, progress)
+        LineFlight(morph, progress, isPlaying = state.isAudible)
         CoverFlight(morph, state)
         TitleFlight(morph, state.book.title, isPage = false)
         TitleFlight(morph, state.book.title, isPage = true)
@@ -276,12 +277,19 @@ private fun PlayerMorphState.playRect(): Rect? {
     return Rect(Offset(at.left, at.top), Size(at.width, at.height))
 }
 
+/**
+ * The progress line in flight: the inactive track, then the filled part drawn as the scrubber's own wave while
+ * [isPlaying] (flat when paused), so the bar's wavy line lands on the wave it becomes. The wave holds its phase in
+ * flight; the flight is too short for travel to read.
+ */
 @Composable
 private fun LineFlight(
     morph: PlayerMorphState,
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
+    val wavePath = remember { Path() }
     Spacer(
         Modifier.fillMaxSize().testTag(MORPH_LINE_TAG).drawBehind {
             val p = morph.progress
@@ -290,8 +298,9 @@ private fun LineFlight(
             if (!morph.anchors.isReady) return@drawBehind
             val at = flight(bar.toMorphRect(), page.toMorphRect(), p)
             val centreY = flight(bar.centreRect(), page.centreRect(), p).top
-            val thickness =
-                lerp(BarLineThickness.toPx(), PageTrackThickness.toPx(), reveal(MorphElement.ScrubberThickness, p))
+            // The bar's line and Now Playing's track are both [ScrubberTrackThickness] (canvas: 3 → 4; the M3
+            // indicator's 4dp here), so the line holds its thickness and only its corners round in flight.
+            val thickness = ScrubberTrackThickness.toPx()
             val radius = CornerRadius(thickness / 2f * MorphElement.ScrubberThickness.window.of(p))
             val top = centreY - thickness / 2f
             drawRoundRect(
@@ -301,11 +310,14 @@ private fun LineFlight(
                 cornerRadius = radius,
             )
             val filled = at.width * progress().chapterFraction
-            drawRoundRect(
+            drawScrubberWave(
+                path = wavePath,
+                length = filled,
+                amplitude = if (isPlaying) 1f else 0f,
+                phase = 0f,
                 color = colors.primary,
-                topLeft = Offset(at.left, top),
-                size = Size(filled, thickness),
-                cornerRadius = radius,
+                startX = at.left,
+                centreY = centreY,
             )
             val thumbAlpha = reveal(MorphElement.ScrubberThumb, p)
             if (thumbAlpha > 0f) {
