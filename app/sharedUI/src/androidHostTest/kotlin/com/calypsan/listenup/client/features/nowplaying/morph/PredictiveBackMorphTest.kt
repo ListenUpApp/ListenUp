@@ -105,7 +105,7 @@ class PredictiveBackMorphTest {
         }
         composeRule.waitForIdle()
         // The preview really shrank the sheet, so the check below can fail.
-        (bounds(PLAYER_COVER_TAG)[2] - bounds(PLAYER_COVER_TAG)[0]) shouldBeLessThan (atRest[2] - atRest[0]) - 2f
+        bounds(PLAYER_COVER_TAG)[2] - bounds(PLAYER_COVER_TAG)[0] shouldBeLessThan atRest[2] - atRest[0] - 2f
         composeRule.runOnIdle { dispatcher.dispatchOnBackCancelled() }
         composeRule.waitForIdle()
         rig.morph.backPreview shouldBe BackPreviewWeight.None

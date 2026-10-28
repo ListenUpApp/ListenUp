@@ -77,7 +77,7 @@ internal class MorphAnchors {
     }
 
     /** The node answering for [key]: the last placed of those still attached. */
-    fun coordinates(key: AnchorKey): LayoutCoordinates? = slots[key]?.values?.lastOrNull { it.isAttached }
+    fun coordinates(key: AnchorKey): LayoutCoordinates? = slots[key]?.run { values.lastOrNull { it.isAttached } }
 
     /** The player host. */
     val host: LayoutCoordinates? get() = coordinates(AnchorKey.Host)

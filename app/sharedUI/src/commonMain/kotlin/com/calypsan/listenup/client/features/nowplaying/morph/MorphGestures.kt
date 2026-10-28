@@ -122,14 +122,15 @@ private class CloseGesture(
     /** False where Now Playing fades through rather than morphs: the content scrolls, and nothing closes. */
     var enabled: Boolean = true
 
+    /** Whether this gesture moves the morph at all. */
+    private val follows: Boolean get() = enabled && !excluded
+
     override fun onPreScroll(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
         // Reversing mid-close: the finger's rise goes back to the morph before the content scrolls.
-        if (!enabled || excluded || source != NestedScrollSource.UserInput || !morph.isDragging ||
-            available.y >= 0f
-        ) {
+        if (!follows || source != NestedScrollSource.UserInput || !morph.isDragging || available.y >= 0f) {
             return Offset.Zero
         }
         haptics?.let { morph.dragBy(-available.y, it) }
@@ -141,7 +142,7 @@ private class CloseGesture(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
-        if (!enabled || excluded || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
+        if (!follows || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
         haptics?.let { morph.dragBy(-available.y, it) }
         return Offset(0f, available.y)
     }

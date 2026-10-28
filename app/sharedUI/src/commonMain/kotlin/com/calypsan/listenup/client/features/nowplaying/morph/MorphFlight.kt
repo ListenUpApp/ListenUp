@@ -138,9 +138,9 @@ private fun CoverFlight(
                 .graphicsLayer {
                     val p = morph.progress
                     val bar = morph.anchors.barRect(MorphPart.Cover)
-                    val page = morph.anchors.pageRect(MorphPart.Cover)
+                    val page = morph.anchors.pageRect(MorphPart.Cover)?.takeIf { it.width > 0f }
                     val target = morph.pageTarget(MorphPart.Cover)
-                    if (bar == null || page == null || target == null || page.width <= 0f || !morph.anchors.isReady) {
+                    if (bar == null || page == null || target == null || !morph.anchors.isReady) {
                         alpha = 0f
                         return@graphicsLayer
                     }
@@ -192,9 +192,9 @@ private fun TitleFlight(
                 }.graphicsLayer {
                     val p = morph.progress
                     val bar = morph.anchors.barRect(MorphPart.Title)
-                    val page = morph.anchors.pageRect(MorphPart.Title)
+                    val page = morph.anchors.pageRect(MorphPart.Title)?.takeIf { it.width > 0f }
                     val target = morph.pageTarget(MorphPart.Title)
-                    if (bar == null || page == null || target == null || page.width <= 0f || !morph.anchors.isReady) {
+                    if (bar == null || page == null || target == null || !morph.anchors.isReady) {
                         alpha = 0f
                         return@graphicsLayer
                     }

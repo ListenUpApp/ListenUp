@@ -172,7 +172,13 @@ class PlayerMorphDragTest :
                         .removePrefix("linear(")
                         .removeSuffix(")")
                         .split(",")
-                        .map { it.trim().split(" ").first().toDouble() }
+                        .map {
+                            it
+                                .trim()
+                                .split(" ")
+                                .first()
+                                .toDouble()
+                        }
                 } finally {
                     rig.dispose()
                 }

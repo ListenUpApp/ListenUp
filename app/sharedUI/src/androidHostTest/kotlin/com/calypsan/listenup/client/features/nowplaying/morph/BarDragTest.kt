@@ -179,6 +179,7 @@ class BarDragTest {
     fun `a fast release carries its speed into the spring`() {
         show()
         composeRule.mainClock.autoAdvance = false
+
         fun progressAfterRelease(velocityDpPerSec: Float): Float {
             rig.morph.snapTo(MorphEnd.Bar)
             rig.morph.snapDrag(0.6f)
