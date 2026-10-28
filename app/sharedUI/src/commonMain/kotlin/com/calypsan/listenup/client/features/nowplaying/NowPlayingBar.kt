@@ -148,14 +148,15 @@ fun NowPlayingBar(
                 Modifier
                     .fillMaxWidth()
                     .morphBarSurface()
-                    // The morph's drag where the bar becomes Now Playing; the swipe-up trigger where it fades through.
+                    // The morph's drag where the bar becomes Now Playing; the swipe-up trigger where it fades through. Both
+                    // stay attached and are switched by `enabled`, so a change of window mid-drag cannot strand it.
                     .then(
-                        if (morph?.entryMotion == EntryMotion.Morph) {
-                            Modifier.dragToOpen(morph)
+                        if (morph != null) {
+                            Modifier.dragToOpen(morph, enabled = morph.entryMotion == EntryMotion.Morph)
                         } else {
-                            Modifier.swipeUpToExpand(onTap)
+                            Modifier
                         },
-                    )
+                    ).swipeUpToExpand(onTap, enabled = morph?.entryMotion != EntryMotion.Morph)
                     .then(if (coveredByPlayer) Modifier.coveredByPlayer() else Modifier),
         ) {
             // The container stays; only its content moves when the book changes.

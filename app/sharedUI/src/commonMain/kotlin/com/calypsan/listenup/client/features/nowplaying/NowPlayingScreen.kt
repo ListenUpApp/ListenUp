@@ -212,8 +212,15 @@ fun NowPlayingScreen(
                     alpha = ambientAlpha * preview.alpha
                 }.morphSheetLayer(morph, barColour = barColour, surfaceColour = surfaceColour)
                 .morphSheet()
-                // The morph's drag-to-close where Now Playing morphs; wide windows fade through and do not drag.
-                .then(if (morph?.entryMotion == EntryMotion.Morph) Modifier.dragToClose(morph) else Modifier),
+                // The morph's drag-to-close where Now Playing morphs; wide windows fade through and do not drag. Switched
+                // by `enabled`, not attached and removed, so a change of window mid-close cannot strand it.
+                .then(
+                    if (morph != null) {
+                        Modifier.dragToClose(morph, enabled = morph.entryMotion == EntryMotion.Morph)
+                    } else {
+                        Modifier
+                    },
+                ),
         // The sheet draws its own colour (morphSheetLayer), which runs from the bar's while it morphs.
         color = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,

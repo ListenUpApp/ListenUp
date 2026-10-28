@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.remember
@@ -32,13 +33,19 @@ import com.calypsan.listenup.client.presentation.player.settleTarget
  * Screen readers never reach it: a drag has no semantics, and the bar's click stays the way in.
  */
 @Composable
-internal fun Modifier.dragToOpen(morph: PlayerMorphState): Modifier {
+internal fun Modifier.dragToOpen(
+    morph: PlayerMorphState,
+    enabled: Boolean,
+): Modifier {
     val haptics = LocalHaptics.current
     val density = LocalDensity.current.density
     val state = rememberDraggableState { deltaPx -> morph.dragBy(-deltaPx, haptics) }
+    // The bar leaving mid-drag (a book unloading) must not strand the morph half risen.
+    DisposableEffect(morph) { onDispose { morph.cancelDrag() } }
     return draggable(
         state = state,
         orientation = Orientation.Vertical,
+        enabled = enabled,
         onDragStarted = { morph.snapDrag(morph.progress) },
         onDragStopped = { velocityPx -> morph.releaseDrag(velocityPx / density, density) },
     )
@@ -74,13 +81,19 @@ internal fun PlayerMorphState.releaseDrag(
  * the top, so the scroll's leftover downward travel moves the morph and a reversal gives it back first.
  */
 @Composable
-internal fun Modifier.dragToClose(morph: PlayerMorphState): Modifier {
+internal fun Modifier.dragToClose(
+    morph: PlayerMorphState,
+    enabled: Boolean,
+): Modifier {
     val haptics = LocalHaptics.current
     val density = LocalDensity.current.density
     val gesture = remember(morph) { CloseGesture(morph) }
     gesture.haptics = haptics
     gesture.density = density
+    gesture.enabled = enabled
     val state = rememberDraggableState { deltaPx -> if (!gesture.excluded) morph.dragBy(-deltaPx, haptics) }
+    // Now Playing (or the scrolling content whose fling would have released it) leaving mid-close settles the morph.
+    DisposableEffect(morph) { onDispose { morph.cancelDrag() } }
     return nestedScroll(gesture)
         .pointerInput(morph) {
             awaitEachGesture {
@@ -90,6 +103,7 @@ internal fun Modifier.dragToClose(morph: PlayerMorphState): Modifier {
         }.draggable(
             state = state,
             orientation = Orientation.Vertical,
+            enabled = enabled,
             onDragStarted = { if (!gesture.excluded) morph.snapDrag(morph.progress) },
             onDragStopped = { velocityPx -> if (!gesture.excluded) morph.releaseDrag(velocityPx / density, density) },
         )
@@ -105,12 +119,15 @@ private class CloseGesture(
     /** True while the current press began on the scrubber, whose drag is its own. */
     var excluded: Boolean = false
 
+    /** False where Now Playing fades through rather than morphs: the content scrolls, and nothing closes. */
+    var enabled: Boolean = true
+
     override fun onPreScroll(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
         // Reversing mid-close: the finger's rise goes back to the morph before the content scrolls.
-        if (excluded || source != NestedScrollSource.UserInput || !morph.isDragging ||
+        if (!enabled || excluded || source != NestedScrollSource.UserInput || !morph.isDragging ||
             available.y >= 0f
         ) {
             return Offset.Zero
@@ -124,7 +141,7 @@ private class CloseGesture(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
-        if (excluded || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
+        if (!enabled || excluded || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
         haptics?.let { morph.dragBy(-available.y, it) }
         return Offset(0f, available.y)
     }
@@ -133,5 +150,14 @@ private class CloseGesture(
         if (!morph.isDragging) return Velocity.Zero
         morph.releaseDrag(available.y / density, density)
         return available
+    }
+
+    // A scroll that ends without a fling still lets go of the morph it was moving.
+    override suspend fun onPostFling(
+        consumed: Velocity,
+        available: Velocity,
+    ): Velocity {
+        morph.cancelDrag()
+        return Velocity.Zero
     }
 }

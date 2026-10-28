@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.morph
 
+import com.calypsan.listenup.client.presentation.player.settleTarget
 import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalInputModeManager
@@ -127,6 +128,15 @@ internal class PlayerMorphState(
         )
     }
 
+    /**
+     * The surface a finger was dragging has gone (the bar unloaded, the window changed under it): let go where it is,
+     * settling by position as a release with no velocity would. Nothing when no drag is held.
+     */
+    fun cancelDrag() {
+        if (!isDragging) return
+        release(settleTarget(progress, velocityDpPerSec = 0f), velocity = 0f)
+    }
+
     /** Settle at [end] as a tap or Collapse does: the slow spatial spring opens, the default spatial spring closes. */
     fun animateTo(end: MorphEnd): Job {
         val spec =
@@ -243,11 +253,17 @@ internal fun PlayerMorphSync(
         morph.settleSpec = settleSpec
         morph.tapSpec = tapSpec
     }
-    LaunchedEffect(morph, isExpanded) {
-        if (morph.isDragging) return@LaunchedEffect
+    LaunchedEffect(morph, isExpanded, entryMotion) {
         val end = if (isExpanded) MorphEnd.NowPlaying else MorphEnd.Bar
+        // Away from the morph's geometry (a wider window, a fold), progress follows the destination at once, a held
+        // drag included: the surface it was dragging may be gone, and nothing may be left half risen.
+        if (entryMotion != EntryMotion.Morph) {
+            morph.snapTo(end)
+            return@LaunchedEffect
+        }
+        if (morph.isDragging) return@LaunchedEffect
         if (!morph.isInFlight && morph.progress == end.progress) return@LaunchedEffect
-        if (morph.entryMotion == EntryMotion.Morph) morph.animateTo(end) else morph.snapTo(end)
+        morph.animateTo(end)
     }
 }
 

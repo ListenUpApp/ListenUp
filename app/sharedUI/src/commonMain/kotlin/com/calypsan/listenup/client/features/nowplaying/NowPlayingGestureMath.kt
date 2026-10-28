@@ -63,7 +63,10 @@ object NowPlayingGestureMath {
  * press — the same arrangement iOS reaches with `simultaneousGesture`.
  */
 @Composable
-fun Modifier.swipeUpToExpand(onExpand: () -> Unit): Modifier {
+fun Modifier.swipeUpToExpand(
+    onExpand: () -> Unit,
+    enabled: Boolean = true,
+): Modifier {
     val density = LocalDensity.current
     var travelDp by remember { mutableFloatStateOf(0f) }
     val dragState =
@@ -73,6 +76,7 @@ fun Modifier.swipeUpToExpand(onExpand: () -> Unit): Modifier {
     return draggable(
         state = dragState,
         orientation = Orientation.Vertical,
+        enabled = enabled,
         onDragStarted = { travelDp = 0f },
         onDragStopped = { velocityPxPerSec ->
             val velocityDpPerSec = with(density) { velocityPxPerSec.toDp().value }

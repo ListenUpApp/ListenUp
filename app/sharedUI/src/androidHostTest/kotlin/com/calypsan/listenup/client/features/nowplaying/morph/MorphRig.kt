@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.design.LocalCompositionProbe
 import com.calypsan.listenup.client.design.haptics.Haptics
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.motion.LocalReduceMotion
+import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import com.calypsan.listenup.client.features.nowplaying.EntryMotion
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingScreen
@@ -50,8 +51,12 @@ internal class MorphRig(
     var tapOpens = 0
     val compositions = mutableMapOf<String, Int>()
     val visibility = MutableTransitionState(false)
-    var usesPhoneBar = true
-    var layout = NowPlayingLayout.Stacked
+    var usesPhoneBar by mutableStateOf(true)
+    var layout by mutableStateOf(NowPlayingLayout.Stacked)
+
+    /** What the player shows; a spec can unload the book mid-gesture. */
+    var state: PlayerUiState by mutableStateOf(PlayerUiState.NothingLoaded)
+    var touchExploration by mutableStateOf(false)
     var home by mutableStateOf(BarHome.Shell)
     var entryMotion = EntryMotion.Morph
 
@@ -61,15 +66,20 @@ internal class MorphRig(
         haptics: Haptics? = null,
         probeInputMode: @Composable () -> Unit = {},
     ) {
+        this.state = state
         composeRule.setContent {
             probeInputMode()
             val probe: (String) -> Unit = { compositions[it] = (compositions[it] ?: 0) + 1 }
-            CompositionLocalProvider(LocalReduceMotion provides reduceMotion, LocalCompositionProbe provides probe) {
+            CompositionLocalProvider(
+                LocalReduceMotion provides reduceMotion,
+                LocalCompositionProbe provides probe,
+                LocalTouchExplorationActive provides touchExploration,
+            ) {
                 MaterialTheme {
                     if (haptics != null) {
-                        CompositionLocalProvider(LocalHaptics provides haptics) { Stage(state) }
+                        CompositionLocalProvider(LocalHaptics provides haptics) { Stage() }
                     } else {
-                        Stage(state)
+                        Stage()
                     }
                 }
             }
@@ -78,7 +88,8 @@ internal class MorphRig(
     }
 
     @Composable
-    private fun Stage(state: PlayerUiState.Loaded) {
+    private fun Stage() {
+        val state = state
         density = LocalDensity.current.density
         morph =
             rememberPlayerMorph(
@@ -128,7 +139,7 @@ internal class MorphRig(
                     morph = morph,
                     entryMotion = entryMotion,
                     isExpanded = isExpanded,
-                    loaded = state,
+                    loaded = state as? PlayerUiState.Loaded,
                     progress = { samplePlayerProgress },
                     skipBackwardSec = 10,
                     visibility = visibility,
