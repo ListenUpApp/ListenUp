@@ -81,6 +81,14 @@ class NowPlayingBarTest {
     }
 
     @Test
+    fun `a sleep fade still waves, as Now Playing's scrubber and the flying line do`() {
+        // The book is still audible while the sleep timer fades it out; the flat line would mean it had stopped.
+        bar(loadedPlayerState(phase = PlayerPhase.SleepFading))
+        composeRule.onNodeWithTag(MINI_PROGRESS_WAVY_TAG).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertDoesNotExist()
+    }
+
+    @Test
     fun `paused offers back and Play, on a flat line`() {
         bar(loadedPlayerState(phase = PlayerPhase.Paused, primary = PrimaryControl.Play))
         backShown(true)
@@ -129,7 +137,7 @@ class NowPlayingBarTest {
         bar(loadedPlayerState(phase = PlayerPhase.SleepFading))
         backShown(true)
         composeRule.onNodeWithText("Sleep timer · fading out", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(MINI_PROGRESS_FLAT_TAG).assertExists()
+        composeRule.onNodeWithTag(MINI_PROGRESS_WAVY_TAG).assertExists()
         composeRule.onNodeWithContentDescription("Pause").assertDoesNotExist()
         composeRule.onNode(hasText("Keep listening")).performClick()
         keepListeningPresses shouldBe 1

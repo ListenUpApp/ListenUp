@@ -76,7 +76,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
-import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -207,7 +206,7 @@ private fun PhoneBarContent(
     val line = MiniPlayerLines.of(state)
     Column {
         MiniProgressLine(
-            isPlaying = state.phase == PlayerPhase.Playing,
+            isPlaying = state.isAudible,
             progress = progress,
             modifier = Modifier.fillMaxWidth().height(MiniProgressSlotHeight),
         )
@@ -340,8 +339,9 @@ internal fun RowScope.MiniBody(
 }
 
 /**
- * The chapter line along the bar's top edge: the wave only for the book that is playing (F6), flat otherwise. The wave
- * is Now Playing's scrubber wave ([PlayerWaveLine]), so the morph flies one wave from here into the scrubber.
+ * The chapter line along the bar's top edge: the wave only while the book is audible (F6; a sleep fade still waves),
+ * flat otherwise. The wave is Now Playing's scrubber wave ([PlayerWaveLine]), so the morph flies one wave from here
+ * into the scrubber.
  */
 @Composable
 private fun MiniProgressLine(
