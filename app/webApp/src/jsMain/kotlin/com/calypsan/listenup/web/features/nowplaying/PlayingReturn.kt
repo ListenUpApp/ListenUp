@@ -10,7 +10,7 @@ import org.w3c.dom.events.Event
 /**
  * Where Now Playing closes to, and who gets focus back (S4, R7). Opened from inside the app, closing is history back
  * and focus returns to the control that opened it; reached by a deep link, closing replaces the entry with Home, since
- * there is nothing inside the app to go back to. Arriving by the browser's Forward also counts as a deep link: closing
+ * there is nothing inside the app to go back to, and the morph still plays back into the bar, which takes focus. Arriving by the browser's Forward also counts as a deep link: closing
  * then goes Home, which never leaves the app.
  *
  * [morph] is told just before `/playing` is pushed, while the bar it grows from is still drawn.
@@ -54,6 +54,8 @@ class PlayingReturn(
             window.addEventListener("popstate", onPop, AddEventListenerOptions(once = true))
             window.history.back()
         } else {
+            // No history step will follow, so the morph is told first: it plays the reverse into the bar over Home.
+            morph?.beforeReplaceClose(Routes.home)
             router.replace(Routes.home)
         }
     }

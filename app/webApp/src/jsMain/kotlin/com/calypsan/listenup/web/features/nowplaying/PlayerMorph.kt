@@ -307,16 +307,26 @@ class MorphController {
     }
 
     /**
-     * History has just left `/playing` (Collapse, Esc and P go back; so does the browser): hold the page as a layer
-     * over the destination and play it back into the bar, which is measured once it is drawn again.
+     * Now Playing is about to close by replacing its entry with [to] (after a deep link or a Forward arrival there is
+     * nothing in the app to go back to, so no history step will tell this controller): play the same reverse into the
+     * bar a Back would, over [to], and give the bar's book focus when it lands.
      */
-    private fun close() {
+    fun beforeReplaceClose(to: Route) {
+        close(under = to)
+    }
+
+    /**
+     * History has just left `/playing` (Collapse, Esc and P go back; so does the browser), or is about to replace it
+     * ([under] is then the destination, drawn underneath until the route moves): hold the page as a layer over the
+     * destination and play it back into the bar, which is measured once it is drawn again.
+     */
+    private fun close(under: Route? = null) {
         val shell = shell ?: return
         val bar = shell.querySelector(BAR_SELECTOR) as? HTMLElement
         if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return
         shell.style.setProperty(MORPH_PROGRESS, "1")
         heading = MorphEnd.Bar
-        underRoute = null
+        underRoute = under
         frozenScrollRoute = null
         barRects = emptyMap()
         start(Pending.Settle(target = 0f, spring = PlayerMorph.SETTLE_SPRING, velocity = 0f))

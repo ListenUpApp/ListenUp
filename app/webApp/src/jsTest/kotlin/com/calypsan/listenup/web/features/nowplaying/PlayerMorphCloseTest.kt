@@ -134,15 +134,50 @@ class PlayerMorphCloseTest :
             }
         }
 
-        test("closing after a deep link goes Home, with no reverse") {
+        /** The close replaced the entry with Home and is playing back into the bar; finishing it gives the bar focus. */
+        suspend fun MorphRig.assertReverseHomeThenFocus() {
+            window.location.pathname shouldBe "/"
+            isMorphing() shouldBe true
+            hasMorphAnimation() shouldBe true
+            morphAnimation().finish()
+            awaitFrame()
+            isMorphing() shouldBe false
+            frame.findAll(".np-slot").size shouldBe 0
+            frame.host.ownerDocument!!.activeElement shouldBe frame.find(".tport-body")
+        }
+
+        test("closing after a deep link goes Home, playing the reverse into the bar, with focus on its book") {
             val rig = frames.morphRig("/playing")
             try {
                 awaitFrame()
+                rig.isMorphing() shouldBe false
                 rig.frame.find(".np-morph [aria-label='Collapse player']").click()
                 awaitFrame()
-                window.location.pathname shouldBe "/"
+                rig.assertReverseHomeThenFocus()
+            } finally {
+                rig.dispose()
+            }
+        }
+
+        test("after a Forward arrival, Collapse goes Home playing the reverse, with focus on the bar's book") {
+            val rig = frames.morphRig("/library")
+            try {
+                rig.openFully()
+                // Closed with Collapse, so the page that Forward returns to counts as a deep link for closing.
+                rig.frame.find(".np-morph [aria-label='Collapse player']").click()
+                awaitPopstate()
+                rig.morphAnimation()?.finish()
+                awaitFrame()
+                window.history.forward()
+                awaitPopstate()
+                awaitFrame()
+                rig.morphAnimation()?.finish()
+                awaitFrame()
+                window.location.pathname shouldBe "/playing"
                 rig.isMorphing() shouldBe false
-                rig.hasMorphAnimation() shouldBe false
+                rig.frame.find(".np-morph [aria-label='Collapse player']").click()
+                awaitFrame()
+                rig.assertReverseHomeThenFocus()
             } finally {
                 rig.dispose()
             }
