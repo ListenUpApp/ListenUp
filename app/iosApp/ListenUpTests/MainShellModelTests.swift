@@ -36,6 +36,43 @@ struct MainShellModelTests {
         #expect(!MainShellModel.usesSidebar(horizontalSizeClass: .regular, verticalSizeClass: nil))
     }
 
+    // MARK: - Focus after the player closes
+
+    /// A plain close (Collapse, the swipe down, Esc) hands VoiceOver back to the mini player's book.
+    @Test func aPlainCloseReturnsFocusToTheMiniPlayer() {
+        let shell = MainShellModel()
+        shell.isPlayerPresented = true
+        shell.isPlayerPresented = false
+        #expect(shell.takeFocusReturn())
+        shell.showPlayer()
+        shell.closePlayer()
+        #expect(shell.takeFocusReturn())
+    }
+
+    /// A close that leads somewhere (Go to book, series or author, Inbox, a tab) leaves focus to the destination.
+    @Test func aCloseThatNavigatesLeavesFocusToTheDestination() {
+        let shell = MainShellModel()
+        shell.showPlayer()
+        shell.open(BookDestination(id: "b1"))
+        #expect(!shell.takeFocusReturn())
+        shell.showPlayer()
+        shell.select(.library)
+        #expect(!shell.takeFocusReturn())
+        shell.showPlayer()
+        shell.focusSearch()
+        #expect(!shell.takeFocusReturn())
+    }
+
+    /// Reopening forgets why it last closed: the next plain close returns focus again.
+    @Test func reopeningForgetsTheLastClose() {
+        let shell = MainShellModel()
+        shell.showPlayer()
+        shell.open(BookDestination(id: "b1"))
+        shell.showPlayer()
+        shell.isPlayerPresented = false
+        #expect(shell.takeFocusReturn())
+    }
+
     // MARK: - Opening destinations
 
     @Test func aDeepLinkWhileThePlayerIsOpenClosesItAndPushesUnderneath() {

@@ -156,7 +156,9 @@ struct MainTabView: View {
         // The full player is a system full-screen modal that zooms out of the mini player's cover.
         .playerPresentation(
             isPresented: $shell.isPlayerPresented, namespace: playerNamespace,
-            onDismiss: { miniPlayerFocusRequest += 1 }
+            // Focus goes back to the mini player only after a plain close; a close that navigates leaves it to the
+            // destination.
+            onDismiss: { if shell.takeFocusReturn() { miniPlayerFocusRequest += 1 } }
         ) {
             if let playerObserver {
                 FullScreenPlayerView(

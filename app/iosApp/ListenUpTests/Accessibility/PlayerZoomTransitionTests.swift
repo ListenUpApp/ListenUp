@@ -66,6 +66,20 @@ struct PlayerZoomTransitionTests {
         try await PlayerFlight.close(in: hosted)
     }
 
+    /// A close that navigates (Go to book here) leaves VoiceOver to the destination: the book is not asked for focus.
+    @Test func aCloseThatNavigatesDoesNotPullFocusToTheMiniPlayer() async throws {
+        let probe = FocusProbe()
+        let shell = MainShellModel()
+        let hosted = await HostedView(
+            ObservableFlagStage(shell: shell, model: Self.model(), probe: probe), size: Self.windowSize)
+        defer { hosted.close() }
+        _ = try await PlayerFlight.open(in: hosted)
+        shell.open(BookDestination(id: "book-1"))
+        try await PlayerFlight.waitUntil { probe.dismissals == 1 }
+        await hosted.settle()
+        #expect(probe.focusRequests == 0, "a navigating close asked for the mini player's focus")
+    }
+
     /// When the player closes, the mini player asks VoiceOver to focus its book, the control that opened it. SwiftUI holds
     /// accessibility focus only while VoiceOver runs, which a test host cannot switch on, so this pins the request: the
     /// cover's dismissal reaches the book's focus binding once. Where focus lands is checked by hand with VoiceOver.
@@ -219,7 +233,7 @@ private struct ObservableFlagStage: View {
                 isPresented: $shell.isPlayerPresented, namespace: namespace,
                 onDismiss: {
                     probe?.dismissals += 1
-                    focusReturnRequest += 1
+                    if shell.takeFocusReturn() { focusReturnRequest += 1 }
                 }
             ) {
                 if PlayerStageContent.isLoaded { PlayerStageContent(isPresented: $shell.isPlayerPresented) }

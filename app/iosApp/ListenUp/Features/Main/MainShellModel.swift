@@ -53,7 +53,11 @@ final class MainShellModel {
     /// Per-tab navigation paths, so each tab keeps its own history.
     private(set) var paths: [ShellTab: NavigationPath] = [:]
     /// Whether the full-screen player covers the shell.
-    var isPlayerPresented = false
+    var isPlayerPresented = false {
+        didSet { if isPlayerPresented { playerCloseNavigates = false } }
+    }
+    /// Whether the player last closed to go somewhere (a destination, a tab, Search), rather than a plain close.
+    private var playerCloseNavigates = false
     /// Set by Show Chapters (⇧⌘C); the player shows its chapters (the panel on a wide window, the sheet otherwise) and
     /// clears it.
     var isChapterListRequested = false
@@ -86,7 +90,7 @@ final class MainShellModel {
     /// encodable only when the *static* type is `Codable`, and a path holding one opaque element
     /// cannot be saved to scene storage at all.
     func open<Destination: Hashable & Codable>(_ destination: Destination, on tab: ShellTab? = nil) {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         paths[tab ?? selectedTab, default: NavigationPath()].append(destination)
     }
 
@@ -111,7 +115,7 @@ final class MainShellModel {
 
     /// Selects a tab from the menu bar. Library means the remembered section's entry in the sidebar.
     func select(_ tab: ShellTab) {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         selectedTab = (tab == .library && usesSidebar) ? .librarySection(librarySection) : tab
     }
 
@@ -131,9 +135,24 @@ final class MainShellModel {
         isPlayerPresented = false
     }
 
+    /// Whether the cover that just closed should hand VoiceOver back to the mini player's book: yes after a plain close
+    /// (Collapse, the swipe down, Esc), no after one that navigates, whose destination takes focus instead. Answers
+    /// once per close.
+    func takeFocusReturn() -> Bool {
+        defer { playerCloseNavigates = false }
+        return !playerCloseNavigates
+    }
+
+    /// Closes the full player on the way somewhere else. Marked even when a caller has already cleared the flag (the
+    /// player's Go to book does, before opening the book): the cover's dismissal runs after this either way.
+    private func closePlayerToNavigate() {
+        playerCloseNavigates = true
+        isPlayerPresented = false
+    }
+
     /// ⌘F: show Search and put the cursor in its field.
     func focusSearch() {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         selectedTab = .search
         searchFocusRequest += 1
     }
@@ -142,14 +161,14 @@ final class MainShellModel {
 
     /// Opens Discover at its leaderboard, on Week (spec §6.4). Discover answers each bump once.
     func landOnLeaderboard() {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         selectedTab = .discover
         leaderboardLandingRequest += 1
     }
 
     /// Opens the Library's Books sorted Added, newest first, for this session (spec §6.3, plan Q6).
     func openLibraryNewestFirst() {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         librarySection = .books
         selectedTab = usesSidebar ? .librarySection(.books) : .library
         libraryNewestRequest += 1
@@ -157,7 +176,7 @@ final class MainShellModel {
 
     /// Opens the Library's Books filtered to In Progress (spec §6.4). The filter is the Library's session state.
     func openLibraryInProgress() {
-        isPlayerPresented = false
+        closePlayerToNavigate()
         librarySection = .books
         selectedTab = usesSidebar ? .librarySection(.books) : .library
         libraryInProgressRequest += 1
