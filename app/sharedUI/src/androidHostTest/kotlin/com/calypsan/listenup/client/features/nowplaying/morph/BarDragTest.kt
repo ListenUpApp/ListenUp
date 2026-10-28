@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.design.haptics.Haptics
 import com.calypsan.listenup.client.features.nowplaying.MINI_BODY_TAG
 import com.calypsan.listenup.client.features.nowplaying.NO_COVER
 import com.calypsan.listenup.client.features.nowplaying.loadedPlayerState
+import com.calypsan.listenup.client.presentation.player.MorphEnd
 import com.calypsan.listenup.client.presentation.player.PlayerMorph
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.floats.shouldBeGreaterThan
@@ -172,6 +173,23 @@ class BarDragTest {
         composeRule.waitForIdle()
         rig.sheet.expanded.value shouldBe true
         rig.tapOpens shouldBe 1
+    }
+
+    @Test
+    fun `a fast release carries its speed into the spring`() {
+        show()
+        composeRule.mainClock.autoAdvance = false
+        fun progressAfterRelease(velocityDpPerSec: Float): Float {
+            rig.morph.snapTo(MorphEnd.Bar)
+            rig.morph.snapDrag(0.6f)
+            rig.morph.releaseDrag(velocityDpPerSec, rig.density)
+            repeat(3) { composeRule.mainClock.advanceTimeByFrame() }
+            return rig.morph.progress
+        }
+        val still = progressAfterRelease(0f)
+        val flung = progressAfterRelease(-2_000f)
+        // The same start and end; only the carried velocity differs, so the flung release is further along.
+        flung shouldBeGreaterThan still + 0.02f
     }
 
     @Test
