@@ -82,6 +82,7 @@ AuthState
 AuthState_SealedType
 AvatarChange
 AvatarChange_SealedType
+BackPreviewWeight
 BackgroundSyncScheduler
 BackupError
 BackupError_SealedType
@@ -629,6 +630,11 @@ MoodError
 MoodError_SealedType
 MoodId
 MoodRepository
+MorphElement
+MorphEnd
+MorphMode
+MorphRect
+MorphWindow
 MyShelvesUiState
 MyShelvesUiState_SealedType
 MyShelvesViewModel
@@ -759,6 +765,7 @@ PlayerMenuGroup
 PlayerMenuItem
 PlayerMenuItem_SealedType
 PlayerMenus
+PlayerMorph
 PlayerOverlay
 PlayerOverlay_SealedType
 PlayerPhase
@@ -971,6 +978,8 @@ SortDirection
 SortState
 SourceStatus
 SourceStatus_SealedType
+SpringCurve
+SpringParameters
 StatsRepository
 StoragePaths
 StorageSpaceProvider
