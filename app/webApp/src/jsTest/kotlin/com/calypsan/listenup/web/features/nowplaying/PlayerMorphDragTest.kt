@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import io.kotest.assertions.withClue
+import com.calypsan.listenup.web.timingOf
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.awaitPopstate
@@ -144,6 +146,41 @@ class PlayerMorphDragTest :
                 rig.isMorphing() shouldBe false
             } finally {
                 rig.dispose()
+            }
+        }
+
+        test("a fast release carries its speed into the spring: it starts steeper than a still one from the same place") {
+            /** Drags the bar up to 60 % of the travel, the last [flick] of it fast, and returns the release's easing. */
+            suspend fun releaseEasing(flick: Boolean): List<Double> {
+                val rig = frames.morphRig("/library")
+                try {
+                    awaitFrame()
+                    val travel = rig.travel()
+                    val finger = rig.frame.find(".tport-body").press("touch")
+                    finger.moveBy(-20.0)
+                    awaitFrame()
+                    val slowTo = if (flick) 0.45 else 0.6
+                    finger.moveBy(-(slowTo * travel - 20), steps = 30, stepMs = 20)
+                    delay(STILL_MS)
+                    if (flick) finger.moveBy(-(0.15 * travel), steps = 3, stepMs = 10)
+                    finger.up()
+                    awaitFrame()
+                    val easing = timingOf(rig.morphAnimation(), "easing") as String
+                    rig.morphAnimation().finish()
+                    awaitFrame()
+                    return easing
+                        .removePrefix("linear(")
+                        .removeSuffix(")")
+                        .split(",")
+                        .map { it.trim().split(" ").first().toDouble() }
+                } finally {
+                    rig.dispose()
+                }
+            }
+            val still = releaseEasing(flick = false)
+            val flung = releaseEasing(flick = true)
+            withClue("still ${still.take(4)}, flung ${flung.take(4)}") {
+                (flung[1] > still[1] + 0.02) shouldBe true
             }
         }
 
