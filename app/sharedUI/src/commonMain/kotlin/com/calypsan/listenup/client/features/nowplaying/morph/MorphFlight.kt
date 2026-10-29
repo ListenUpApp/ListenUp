@@ -156,7 +156,7 @@ private fun CoverFlight(
                     val bar = morph.anchors.barRect(MorphPart.Cover)
                     val page = morph.anchors.pageRect(MorphPart.Cover)?.takeIf { it.width > 0f }
                     val target = morph.pageTarget(MorphPart.Cover)
-                    if (bar == null || page == null || target == null || !morph.anchors.isReady) {
+                    if (bar == null || page == null || target == null || !morph.anchors.isReadyState) {
                         alpha = 0f
                         return@graphicsLayer
                     }
@@ -211,7 +211,7 @@ private fun TitleFlight(
                     val bar = morph.anchors.barRect(MorphPart.Title)
                     val page = morph.anchors.pageRect(MorphPart.Title)?.takeIf { it.width > 0f }
                     val target = morph.pageTarget(MorphPart.Title)
-                    if (bar == null || page == null || target == null || !morph.anchors.isReady) {
+                    if (bar == null || page == null || target == null || !morph.anchors.isReadyState) {
                         alpha = 0f
                         return@graphicsLayer
                     }
@@ -250,7 +250,7 @@ private fun PlayFlight(
                 }.graphicsLayer {
                     val at = morph.playRect(isRtl)
                     val bar = morph.anchors.barRect(MorphPart.Play)
-                    if (at == null || bar == null || !morph.anchors.isReady) {
+                    if (at == null || bar == null || !morph.anchors.isReadyState) {
                         alpha = 0f
                         return@graphicsLayer
                     }
@@ -367,7 +367,7 @@ internal fun PlayerMorphState.lineFlightParts(
 ): LineFlightParts? {
     val bar = anchors.barRect(MorphPart.Line) ?: return null
     val page = pageTarget(MorphPart.Line) ?: return null
-    if (!anchors.isReady) return null
+    if (!anchors.isReadyState) return null
     val p = progress
     val at = flightFromStart(from = bar.toMorphRect(), to = page.toMorphRect(), p = p, isRtl = isRtl)
     val handleShown = reveal(MorphElement.ScrubberThumb, p)
@@ -438,7 +438,7 @@ private fun Modifier.ridesSheet(
         val p = morph.progress
         val rect = morph.anchors.barRect(detail)
         val barTop = morph.anchors.barBounds?.top
-        if (rect == null || barTop == null || !morph.anchors.isReady) {
+        if (rect == null || barTop == null || !morph.anchors.isReadyState) {
             alpha = 0f
             return@graphicsLayer
         }

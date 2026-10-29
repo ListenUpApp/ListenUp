@@ -92,6 +92,27 @@ class MorphDragHidesPageTest {
         }
     }
 
+    @Test
+    fun `a drag re-places the parts every frame without re-checking whether both ends are measured`() {
+        rig.show(loadedPlayerState(coverPath = NO_COVER))
+        val barTop =
+            rig.morph.anchors.barBounds
+                .shouldNotBeNull()
+                .top
+        val body = composeRule.onNodeWithTag(MINI_BODY_TAG)
+        // Rise past the first frames, where Now Playing composes and its ends are first measured.
+        body.performTouchInput {
+            down(center)
+            repeat(DRAG_STEPS) { moveBy(Offset(0f, -barTop * 0.3f / DRAG_STEPS)) }
+        }
+        composeRule.waitForIdle()
+        val checks = rig.morph.anchors.readinessChecks
+        body.performTouchInput { repeat(DRAG_STEPS) { moveBy(Offset(0f, -barTop * 0.3f / DRAG_STEPS)) } }
+        composeRule.waitForIdle()
+        // Every frame re-placed the moving parts, but no end appeared or went: readiness cannot have changed.
+        rig.morph.anchors.readinessChecks shouldBe checks
+    }
+
     /** Where the flying parts are drawn: their nodes, and the line's band (its handle's height). */
     private fun flyingRects(): List<Rect> {
         val parts =

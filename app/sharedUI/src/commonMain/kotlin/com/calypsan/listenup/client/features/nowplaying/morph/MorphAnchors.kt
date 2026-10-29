@@ -56,8 +56,8 @@ internal sealed interface AnchorKey {
  * with it and the other's answer again, so a bar that left never takes the one that stays with it.
  *
  * A plain holder, not snapshot state: measuring never recomposes, and the frames that read it are already redrawing.
- * The one exception is [isReadyState], which changes only when an end appears or goes, so the layers that hide Now
- * Playing's own parts learn the moment both ends are measured.
+ * The one exception is [isReadyState], which changes only when an end appears or goes. The layers that hide Now
+ * Playing's own parts and the parts that fly in their place both read it, so on no frame are both copies drawn.
  */
 internal class MorphAnchors {
     private val slots = HashMap<AnchorKey, LinkedHashMap<Any, LayoutCoordinates>>()
@@ -72,9 +72,12 @@ internal class MorphAnchors {
         coordinates: LayoutCoordinates,
     ) {
         val slot = slots.getOrPut(key) { LinkedHashMap() }
-        slot.remove(owner)
+        val answering = slot.keys.lastOrNull()
+        val previous = slot.remove(owner)
         slot[owner] = coordinates
-        refreshReadiness()
+        // A node re-placed where it already answered (every frame of a drag) changes nothing readiness reads; only a
+        // new node, new coordinates or a new answerer for the key can.
+        if (previous !== coordinates || answering !== owner) refreshReadiness()
     }
 
     /** [owner]'s node has left: whatever it measured goes, and any other node measuring the same keys answers again. */
@@ -108,7 +111,10 @@ internal class MorphAnchors {
     /** The bar's container in host space: its top is where the sheet's top edge starts. */
     val barBounds: Rect? get() = inHost(coordinates(AnchorKey.BarSurface))
 
-    /** Whether both ends of the parts every frame needs are measured. The play button is optional: a card replaces it. */
+    /**
+     * Whether both ends of the parts every frame needs are measured, computed now. The play button is optional: a card
+     * replaces it. Read [isReadyState] to draw by it, so the hidden and the flying copies agree.
+     */
     val isReady: Boolean
         get() = barBounds != null && REQUIRED.all { barRect(it) != null && pageRect(it) != null }
 
@@ -120,7 +126,12 @@ internal class MorphAnchors {
     var isReadyState: Boolean by mutableStateOf(false)
         private set
 
+    /** How many times [isReadyState] has been re-checked, for the spec that pins placement alone never does. */
+    internal var readinessChecks: Int = 0
+        private set
+
     private fun refreshReadiness() {
+        readinessChecks++
         val ready = isReady
         if (ready != isReadyState) isReadyState = ready
     }
