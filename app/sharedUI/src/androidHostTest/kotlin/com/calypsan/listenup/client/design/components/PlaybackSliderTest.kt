@@ -16,7 +16,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.style.TextDirection
 import com.calypsan.listenup.client.design.motion.LocalReduceMotion
+import com.calypsan.listenup.client.design.text.RightToLeft
+import com.calypsan.listenup.client.design.text.textDirection
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -97,6 +100,18 @@ class PlaybackSliderTest {
         composeRule.waitForIdle()
         seeks.size shouldBe 1
         seeks.single() shouldBe (0.25f plusOrMinus 0.001f)
+    }
+
+    @Test
+    fun `in a right-to-left layout the remaining time keeps its minus before the digits`() {
+        composeRule.setContent {
+            RightToLeft {
+                PlaybackSlider(fraction = 0.586f, elapsedMs = 724_000, durationMs = 1_235_000, isPlaying = false, onSeek = {})
+            }
+        }
+        // Digits and a minus have no direction of their own: laid out right to left, the minus lands after them.
+        composeRule.onNodeWithText("-8:31").textDirection() shouldBe TextDirection.Ltr
+        composeRule.onNodeWithText("12:04").textDirection() shouldBe TextDirection.Ltr
     }
 
     @Test
