@@ -32,7 +32,9 @@ internal fun SemanticsNodeInteraction.textDirection(): TextDirection {
 internal fun SemanticsNodeInteraction.textAlign(): TextAlign {
     val layouts = mutableListOf<TextLayoutResult>()
     performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-    return layouts.first().layoutInput.style.textAlign
+    return layouts
+        .first()
+        .layoutInput.style.textAlign
 }
 
 /** [content] under the app's theme in a right-to-left layout: an Arabic or Hebrew locale with English strings. */

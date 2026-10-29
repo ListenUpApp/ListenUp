@@ -35,7 +35,10 @@ internal fun firstStrongDirection(text: String): LayoutDirection? {
 private fun supplementaryCodePoint(
     high: Char,
     low: Char,
-): Int = ((high.code - HIGH_SURROGATE_START) shl SURROGATE_BITS) + (low.code - LOW_SURROGATE_START) + SUPPLEMENTARY_START
+): Int {
+    val highBits = high.code - HIGH_SURROGATE_START shl SURROGATE_BITS
+    return highBits + (low.code - LOW_SURROGATE_START) + SUPPLEMENTARY_START
+}
 
 /** The direction [codePoint] decides, or null for one that is neutral (a digit, a symbol, a space, an emoji). */
 private fun strongDirection(

@@ -68,7 +68,10 @@ class MorphRtlTest {
     fun `halfway, the flying play button lies between the bar's and Now Playing's`() {
         show()
         at(0.5f)
-        val bar = rig.morph.anchors.barRect(MorphPart.Play).shouldNotBeNull()
+        val bar =
+            rig.morph.anchors
+                .barRect(MorphPart.Play)
+                .shouldNotBeNull()
         val page = rig.morph.pageTarget(MorphPart.Play).shouldNotBeNull()
         val flying = composeRule.onNodeWithTag(MORPH_PLAY_TAG, useUnmergedTree = true).getBoundsInRoot()
 
@@ -80,7 +83,10 @@ class MorphRtlTest {
     fun `halfway, the flying line lies between the bar's line and the scrubber, and fills from the right`() {
         show()
         at(0.5f)
-        val bar = rig.morph.anchors.barRect(MorphPart.Line).shouldNotBeNull()
+        val bar =
+            rig.morph.anchors
+                .barRect(MorphPart.Line)
+                .shouldNotBeNull()
         val page = rig.morph.pageTarget(MorphPart.Line).shouldNotBeNull()
         val line =
             rig.morph

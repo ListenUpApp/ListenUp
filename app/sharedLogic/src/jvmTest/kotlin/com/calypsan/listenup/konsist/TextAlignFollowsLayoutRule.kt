@@ -3,7 +3,8 @@ package com.calypsan.listenup.konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
-private val paragraphRelativeAlign = Regex("""\bTextAlign\.(Start|End|Justify)\b|\bTextAlign\.Companion\.(Start|End)\b""")
+private val paragraphRelativeAlign =
+    Regex("""\bTextAlign\.(Start|End|Justify)\b|\bTextAlign\.Companion\.(Start|End)\b""")
 
 /** True when [source] aligns text by the paragraph's own start or end ([paragraphRelativeAlign]). */
 internal fun alignsByParagraph(source: String): Boolean = paragraphRelativeAlign.containsMatchIn(source)
@@ -13,7 +14,10 @@ private const val DIRECTION_RULE_FILE = "design/text/ContentTextDirection.kt"
 
 /** The Compose UI's production sources: the shared screens, the Android and desktop shells, not their tests. */
 private fun isComposeUiSource(path: String): Boolean =
-    (path.startsWith("app/sharedUI/src/") || path.startsWith("app/androidApp/src/") || path.startsWith("app/desktopApp/src/")) &&
+    (
+        path.startsWith("app/sharedUI/src/") || path.startsWith("app/androidApp/src/") ||
+            path.startsWith("app/desktopApp/src/")
+    ) &&
         "Test/" !in path
 
 /**
@@ -59,16 +63,18 @@ private val textStyleConstructor = Regex("""(?<![\w.])TextStyle\(""")
  * right to left. Derive styles from the theme (`MaterialTheme.typography.x.copy(...)`) instead.
  */
 internal fun rawTextStylesWithoutDirection(source: String): List<String> =
-    textStyleConstructor.findAll(source).mapNotNull { match ->
-        val open = match.range.last
-        var depth = 0
-        val close =
-            (open until source.length).firstOrNull { index ->
-                when (source[index]) {
-                    '(' -> depth++
-                    ')' -> depth--
-                }
-                depth == 0
-            } ?: return@mapNotNull null
-        source.substring(open + 1, close).takeUnless { "textDirection" in it }
-    }.toList()
+    textStyleConstructor
+        .findAll(source)
+        .mapNotNull { match ->
+            val open = match.range.last
+            var depth = 0
+            val close =
+                (open until source.length).firstOrNull { index ->
+                    when (source[index]) {
+                        '(' -> depth++
+                        ')' -> depth--
+                    }
+                    depth == 0
+                } ?: return@mapNotNull null
+            source.substring(open + 1, close).takeUnless { "textDirection" in it }
+        }.toList()

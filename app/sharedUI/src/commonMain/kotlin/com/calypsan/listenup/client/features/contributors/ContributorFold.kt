@@ -91,7 +91,7 @@ fun ClickableContributorLine(
         }
     val tokens: @Composable (Modifier, Arrangement.Horizontal) -> Unit = { rowModifier, arrangement ->
         // [style] was resolved where the caller stands; inside the words' own direction their side is this one's.
-        val style = style.copy(textAlign = TextAlign.LayoutStart)
+        val tokenStyle = style.copy(textAlign = TextAlign.LayoutStart)
         FlowRow(
             modifier = rowModifier,
             horizontalArrangement = arrangement,
@@ -107,7 +107,7 @@ fun ClickableContributorLine(
             }
 
             if (prefix != null) {
-                Text(text = prefix, style = style, color = separatorColor)
+                Text(text = prefix, style = tokenStyle, color = separatorColor)
             }
 
             if (foldedText != null) {
@@ -115,7 +115,7 @@ fun ClickableContributorLine(
                 // than the lead (the whole line is the affordance into the full cast).
                 Text(
                     text = foldedText,
-                    style = style,
+                    style = tokenStyle,
                     color = nameColor,
                 )
                 return@FlowRow
@@ -124,14 +124,14 @@ fun ClickableContributorLine(
             contributors.forEachIndexed { index, contributor ->
                 Text(
                     text = contributor.name,
-                    style = style,
+                    style = tokenStyle,
                     color = nameColor,
                     modifier = Modifier.clickable { onContributorClick(contributor.id) },
                 )
 
                 if (index < contributors.lastIndex) {
                     val separator = if (index == contributors.size - 2) " & " else ", "
-                    Text(text = separator, style = style, color = separatorColor)
+                    Text(text = separator, style = tokenStyle, color = separatorColor)
                 }
             }
         }

@@ -51,7 +51,11 @@ class ContentTextDirectionTest :
         }
 
         test("prose aligns to its own paragraph's start, whatever the layout") {
-            Typography().readingFromContent(LayoutDirection.Rtl).bodyLarge.forProse().textAlign shouldBe TextAlign.Start
+            Typography()
+                .readingFromContent(LayoutDirection.Rtl)
+                .bodyLarge
+                .forProse()
+                .textAlign shouldBe TextAlign.Start
         }
 
         test("every text style the typography has is one the theme re-reads, found by reflection") {
@@ -73,7 +77,6 @@ class ContentTextDirectionTest :
             }
         }
     })
-
 
 /** Every text style this typography exposes, read through its getters, so no role is missed by a hand-kept list. */
 private fun Typography.reflectedStyles(): List<TextStyle> =
