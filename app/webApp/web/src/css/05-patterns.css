@@ -281,6 +281,16 @@
 
 /* ---- keyboard shortcuts (§5.8, `Shortcuts-WebDesktop`) ---- */
 /* Pairs, keys then what they do: a <dl> a screen reader reads as pairs. */
+/* Go to author…: each author a full-width 44px link, their books beside the name. */
+.author-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; }
+.author-link {
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-12); min-height:44px;
+  padding:0 var(--sp-8); border-radius:var(--r-sm); color:var(--ink); text-decoration:none; font-weight:600;
+}
+@media (hover: hover) { .author-link:hover { background:color-mix(in srgb, var(--ink) 6%, transparent); } }
+.author-link:focus { outline:none; }
+.author-link:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+.author-d { font-size:var(--fs-small); font-weight:500; color:var(--ink-2); }
 .keys-list { margin:0; display:grid; grid-template-columns:auto 1fr; column-gap:var(--sp-16); row-gap:var(--sp-4); }
 .keys-k, .keys-d { margin:0; min-height:44px; display:flex; align-items:center; }
 .keys-k { gap:4px; }
@@ -546,6 +556,11 @@ div.panel-pop {
   font-size:var(--fs-small); font-weight:600; color:var(--ink-2);
   border:1px solid color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r-sm);
 }
+/* Without news the live region stays in the tree, empty, out of sight and out of the header's flow. */
+.np-page .np-status:empty {
+  position:absolute; width:1px; height:1px; min-height:0; margin:-1px; padding:0; border:0;
+  overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+}
 
 .np-more .btn { min-height:44px; }
 .np-cols { display:grid; gap:var(--sp-32); align-items:start; }
@@ -556,6 +571,9 @@ div.panel-pop {
 .np-page .np-series { display:block; font-size:var(--fs-small); font-weight:600; color:var(--ink-2); }
 .np-page .np-sep { color:var(--ink-3); }
 .np-title { margin:0; font-size:var(--fs-h2); font-weight:800; letter-spacing:-.02em; line-height:1.2; }
+/* The title's words, apart from its chevron: what the phone centres on the cover. */
+.np-title-t { overflow-wrap:anywhere; }
+.np-title-chev { display:inline-flex; }
 .np-page a { color:inherit; text-decoration:none; border-radius:var(--r-xs); }
 .np-page .np-title a, .np-page .np-series a, .np-page .np-by a, .np-page .np-read-by a {
   display:inline-flex; align-items:center; gap:2px; min-height:44px; color:var(--ink);
@@ -583,19 +601,23 @@ div.panel-pop {
   border-radius:var(--r-lg); background:color-mix(in srgb, var(--surface) 70%, transparent);
 }
 .np-page .np-ch { display:block; font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
-.np-left, .np-sentence { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.np-left { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; }
 .np-bookbar { height:4px; border-radius:var(--r-pill); background:var(--cover-track, var(--line)); overflow:hidden; }
 .np-bookbar-fill { height:100%; border-radius:inherit; background:var(--coral-fill); }
 
-/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · sentence · remaining, the transport, the pills. */
+/* The phone's own controls (.np-mob): the chapter scrubber over elapsed · remaining, the transport, the pills. */
 .np-phone { flex-direction:column; align-items:stretch; gap:var(--sp-16); width:100%; }
 .np-scrubber { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; gap:var(--sp-8) var(--sp-8); }
 .np-page .np-scrub { grid-column:1 / -1; grid-row:1; width:100%; height:20px; margin:0; accent-color:var(--coral-fill); cursor:pointer; }
 .np-page .np-scrubber > .np-time:first-child { grid-column:1; grid-row:2; }
-.np-page .np-scrubber > .np-sentence { grid-column:2; grid-row:2; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .np-page .np-scrubber > .np-time:last-child { grid-column:3; grid-row:2; }
 .np-page .np-time { font-size:var(--fs-small); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
-.np-page .np-transport { display:flex; align-items:center; justify-content:center; gap:18px; padding:0; }
+/* The gaps give way on a narrow phone so the five controls fit with their 48px targets and the play circle intact:
+   18px from 390px up, down to 5px at 320px. */
+.np-page .np-transport {
+  display:flex; align-items:center; justify-content:center; padding:0;
+  gap:clamp(4px, calc((100% - 4 * 48px - 76px) / 4), 18px);
+}
 .np-page .np-play {
   width:76px; height:76px; flex:none; padding:0; border:none; border-radius:50%; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center; background:var(--coral-fill); color:var(--on-coral);
@@ -706,5 +728,23 @@ div.panel-pop {
   }
   .np-bookcol { align-items:center; text-align:center; gap:var(--sp-8); }
   .np-cover { width:300px; margin-bottom:var(--sp-8); }
+  /* The phone's identity is the title, the chapter and who narrates it (Simon, 2026-10-27): the wider page's series and
+     bylines step aside, and More carries Go to series and Go to author. Equal specificity to their own rules, later. */
+  .np-page .np-desk { display:none; }
+  .np-page .np-ch-title.np-mob {
+    display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-size:var(--fs-ui); font-weight:600; color:var(--ink-2);
+  }
+  .np-page .np-narrated.np-mob { display:block; font-size:var(--fs-ui); font-weight:600; color:var(--ink-2); line-height:1.3; }
+  .np-page .np-narrated a { display:inline-flex; align-items:center; min-height:44px; color:inherit; }
+  .np-by-i { display:inline-flex; vertical-align:middle; margin-right:4px; }
+  /* The chevron hangs outside the words, so the words alone sit on the cover's axis; the link keeps a 44px target. */
+  /* The chevron hangs off the end of the last line from a zero-width box that follows the words wherever they wrap; the
+     title keeps room for it on both sides, so the words stay centred and the chevron inside the column. The link keeps
+     a 44px target. */
+  .np-page .np-title { padding:0 24px; }
+  .np-page .np-title a { display:inline; padding:10px 0; }
+  .np-page .np-title-chev { position:relative; display:inline-block; width:0; height:1.2em; vertical-align:text-bottom; }
+  .np-page .np-title-chev svg { position:absolute; left:4px; top:50%; translate:0 -50%; }
 
 }

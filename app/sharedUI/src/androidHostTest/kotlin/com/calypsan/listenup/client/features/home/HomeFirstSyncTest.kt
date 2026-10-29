@@ -8,16 +8,16 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,10 +61,10 @@ class HomeFirstSyncTest {
     }
 
     @Test
-    fun `first sync draws a skeleton slot with a disabled Resume`() {
-        composeRule.setContent { MaterialTheme { HomeSkeletonSlot(withResume = true) } }
+    fun `first sync draws a skeleton slot with no Resume, as Home has no Resume hero`() {
+        composeRule.setContent { MaterialTheme { HomeSkeletonSlot() } }
         composeRule.onNodeWithContentDescription("Up next, loading").assertIsDisplayed()
-        composeRule.onNodeWithText("Resume").assertIsNotEnabled()
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
     }
 
     @Test
@@ -84,7 +84,7 @@ class HomeFirstSyncTest {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
-                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    state = homeReady(slot = HomeSlot.FirstSync, everythingInProgress = emptyList(), isLibraryArriving = true),
                     stats = HomeStatsUiState.Loading,
                     width = HomeWidth.Compact,
                     actions = HomeActions.None,
@@ -99,14 +99,14 @@ class HomeFirstSyncTest {
     }
 
     @Test
-    fun `a scan behind Resume still shows the strip, above the slot`() {
+    fun `a scan behind a slot still shows the strip, above it`() {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
                     state =
                         homeReady(
-                            slot = resumeSlot("wok"),
-                            alsoInProgress = emptyList(),
+                            slot = finishedSlot(),
+                            everythingInProgress = emptyList(),
                             scanProgress = scanning(books = 40, booksTotal = 100),
                         ),
                     stats = HomeStatsUiState.Loading,
@@ -118,8 +118,9 @@ class HomeFirstSyncTest {
                 )
             }
         }
-        composeRule.onNodeWithText("Building your library · 40 of 100 books").assertIsDisplayed()
-        composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).assertExists()
+        val strip = composeRule.onNodeWithText("Building your library · 40 of 100 books").getUnclippedBoundsInRoot()
+        val slot = composeRule.onNodeWithText("Maya and Tom finished it too").getUnclippedBoundsInRoot()
+        (strip.bottom <= slot.top) shouldBe true
     }
 
     @Test
@@ -127,7 +128,7 @@ class HomeFirstSyncTest {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
-                    state = homeReady(slot = HomeSlot.FirstSync, alsoInProgress = emptyList(), isLibraryArriving = true),
+                    state = homeReady(slot = HomeSlot.FirstSync, everythingInProgress = emptyList(), isLibraryArriving = true),
                     stats = HomeStatsUiState.Loading,
                     width = HomeWidth.Compact,
                     actions = HomeActions.None,

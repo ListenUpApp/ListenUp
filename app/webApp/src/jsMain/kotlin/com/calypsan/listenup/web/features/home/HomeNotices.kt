@@ -54,12 +54,9 @@ internal fun HomeErrorSlot(onRetry: () -> Unit) {
     }
 }
 
-/**
- * The slot's skeleton, in the Resume hero's geometry (H14). First sync draws its Resume disabled ([withResume], board
- * panel 2); page loading does not.
- */
+/** The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading. */
 @Composable
-internal fun ResumeSkeleton(withResume: Boolean) {
+internal fun SlotSkeleton() {
     Section(attrs = {
         classes("home-hero")
         attr("aria-label", HomeWords.UP_NEXT_LOADING)
@@ -73,15 +70,6 @@ internal fun ResumeSkeleton(withResume: Boolean) {
             Div(attrs = { classes("home-skel-lines") }) {
                 repeat(SKELETON_RAIL_CARDS) { Div(attrs = { classes("skel", "home-skel-line") }) }
             }
-        }
-        if (withResume) {
-            Button(
-                kind = ButtonKind.Primary,
-                size = ButtonSize.Lg,
-                fill = true,
-                enabled = false,
-                attrs = { classes("home-hero-resume") },
-            ) { Text(HomeWords.RESUME) }
         }
     }
 }

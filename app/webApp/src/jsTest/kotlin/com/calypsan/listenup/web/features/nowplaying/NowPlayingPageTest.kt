@@ -1,7 +1,11 @@
 package com.calypsan.listenup.web.features.nowplaying
 
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.domain.repository.CoverThemeRepository
+import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
@@ -87,14 +91,40 @@ class NowPlayingPageTest :
             cover.src shouldContain "v=deadbeef"
         }
 
-        test("the heading is Now playing, and the status is a live region outside it") {
-            val host = page(wayOfKings())
+        test("the heading is Now playing, and with news the status is a live region outside it") {
+            val host = page(wayOfKings().copy(source = AudioSource.ServerUnreachable))
             (host.querySelector("h1") as HTMLElement).textContent shouldBe "Now playing"
             // The page's one H1 is the shared PageHeader's, so focus-on-navigation and the tab name find it.
             (host.querySelector("h1") as HTMLElement).className shouldBe "page-t"
             val status = host.querySelector("[role=status].np-status") as HTMLElement
-            status.textContent shouldBe "Streaming"
+            status.textContent shouldBe "Can't reach your server"
             status.closest("h1") shouldBe null
+        }
+
+        test("Streaming, Downloaded, downloaded-offline and casting say nothing, from a live region that is already there") {
+            listOf(AudioSource.Streaming, AudioSource.Downloaded, AudioSource.DownloadedOffline, AudioSource.Casting("Living Room"))
+                .forEach { quiet ->
+                    val status = page(wayOfKings().copy(source = quiet)).querySelector("[role=status].np-status") as HTMLElement
+                    status.textContent shouldBe ""
+                    (status.getBoundingClientRect().width <= 1.0) shouldBe true
+                }
+        }
+
+        test("the live region stays mounted and only its words change when the source flips, so the news is announced") {
+            var state by mutableStateOf(wayOfKings().copy(source = AudioSource.Streaming))
+            val host =
+                mounts.mount {
+                    CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
+                        NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                    }
+                }
+            val before = host.querySelector("[role=status].np-status") as HTMLElement
+            before.textContent shouldBe ""
+            state = state.copy(source = AudioSource.ServerUnreachable)
+            awaitFrame()
+            val after = host.querySelector("[role=status].np-status") as HTMLElement
+            (after === before) shouldBe true
+            after.textContent shouldBe "Can't reach your server"
         }
 
         test("every author and narrator is a link to that person") {
@@ -153,7 +183,7 @@ class NowPlayingPageTest :
             page(wayOfKings(series = emptyList())).querySelector(".np-series") shouldBe null
         }
 
-        test("the book card states the chapter, the time left in it, a passive book bar and the sentence") {
+        test("the book card states the chapter, the time left in it and a passive book bar, and no book sentence") {
             val host =
                 page(
                     wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
@@ -163,7 +193,7 @@ class NowPlayingPageTest :
             (host.querySelector(".np-bookcard .np-left") as HTMLElement).textContent shouldBe "8m left in chapter"
             (host.querySelector(".np-bookcard [role=img]") as HTMLElement).getAttribute("aria-label") shouldBe
                 "Book progress 10 percent"
-            (host.querySelector(".np-bookcard .np-sentence") as HTMLElement).textContent shouldBe "Book 10% · 40h 30m left"
+            host.querySelector(".np-sentence") shouldBe null
         }
 
         test("a generic chapter title stands alone, with no counter to disagree with it") {
@@ -250,14 +280,16 @@ class NowPlayingBylineTest :
                             )
                         }
                     }
-                val fold = frame.find(".np-read-by .np-fold")
+                // The phone's narrators are its "Narrated by" line; the desktop's, its "Read by" byline.
+                val line = if (width == PHONE) ".np-narrated" else ".np-read-by"
+                val fold = frame.find("$line .np-fold")
                 fold.textContent shouldBe "Michael Kramer & 4 more"
                 frame.rect(fold).height shouldBeGreaterThanOrEqual 44.0
 
                 fold.click()
                 awaitFrame()
 
-                val links = frame.findAll(".np-read-by .menu a")
+                val links = frame.findAll("$line .menu a")
                 links.size shouldBe 5
                 links.forEach { link -> frame.rect(link).height shouldBeGreaterThanOrEqual 44.0 }
                 links.first().querySelector(".menu-i-d")?.textContent shouldBe "14 books"
@@ -274,7 +306,8 @@ class NowPlayingBylineTest :
                             NowPlayingPage(state = wayOfKings(), progress = PlayerProgress.Zero, actions = NowPlayingActions())
                         }
                     }
-                frame.findAll(".np-by a, .np-read-by a").forEach { link ->
+                val links = if (width == PHONE) ".np-narrated a" else ".np-by a, .np-read-by a"
+                frame.findAll(links).forEach { link ->
                     frame.rect(link).height shouldBeGreaterThanOrEqual 44.0
                 }
             }

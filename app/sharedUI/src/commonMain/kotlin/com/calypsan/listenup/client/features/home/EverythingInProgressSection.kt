@@ -36,7 +36,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_needs_connection
 import listenup.composeapp.generated.resources.home_needs_connection_a11y
 import listenup.composeapp.generated.resources.book_time_left
-import listenup.composeapp.generated.resources.home_also_in_progress
+import listenup.composeapp.generated.resources.home_everything_in_progress
 import listenup.composeapp.generated.resources.home_card_by_author
 import listenup.composeapp.generated.resources.home_in_library
 import listenup.composeapp.generated.resources.library_card_progress_a11y
@@ -54,12 +54,12 @@ private val RowCardMinWidth = 140.dp
 private const val ROW_CARD_CAP = 6
 
 /**
- * "Also in progress" (spec §2.5): the books in progress that are neither loaded nor in the slot. Absent entirely when
- * there are none (the caller drops the block). The header ends with In Library, which opens the Library filtered to In
- * progress (spec §6.4).
+ * "Everything in progress": every book in progress, the loaded one first (Simon, 2026-10-27; Home has no Resume hero).
+ * Absent entirely when there are none (the caller drops the block). The header ends with In
+ * Library, which opens the Library filtered to In progress (spec §6.4).
  */
 @Composable
-internal fun AlsoInProgressSection(
+internal fun EverythingInProgressSection(
     items: List<ContinueListeningItem>,
     width: HomeWidth,
     selection: HomeSelection,
@@ -70,7 +70,7 @@ internal fun AlsoInProgressSection(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         SectionTitle(
-            title = stringResource(Res.string.home_also_in_progress),
+            title = stringResource(Res.string.home_everything_in_progress),
             modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             trailing = {
                 TextButton(onClick = onOpenInProgress) { Text(stringResource(Res.string.home_in_library)) }

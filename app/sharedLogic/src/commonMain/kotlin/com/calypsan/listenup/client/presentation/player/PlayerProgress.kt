@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.presentation.player
 
 /**
  * The fast-changing position (~4 Hz), split out so a tick never re-emits [PlayerUiState] (§4.2). Only scrubbers,
- * time labels and passive progress lines subscribe. Everything that moves is chapter-scoped; the book is a sentence.
+ * time labels and passive progress lines subscribe. Everything that moves is chapter-scoped.
  */
 data class PlayerProgress(
     val chapterPositionMs: Long,
@@ -35,7 +35,7 @@ data class PlayerProgress(
             bookRemainingMs
         }
 
-    /** Whole percent through the book, floored (0..100), for the book sentence "Book 11% · …" (§3.2). */
+    /** Whole percent through the book, floored (0..100), for the web player bar's book label. */
     val bookPercent: Int
         get() =
             if (bookDurationMs <= 0) {

@@ -24,10 +24,8 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.core.ShelfId
-import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
-import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -129,24 +127,6 @@ private val zeroStats =
         topGenres = emptyList(),
     )
 
-private fun mockResume() =
-    HomeSlot.Resume(
-        book = mockBook(id = "wok", title = "The Way of Kings", author = "Brandon Sanderson", progress = 0.11f),
-        next =
-            NextInSeries(
-                bookId = "wor",
-                title = "Words of Radiance",
-                coverPath = null,
-                coverHash = null,
-                narratorNames = "Michael Kramer, Kate Reading",
-                seriesName = "The Stormlight Archive",
-                sequenceLabel = "2",
-                durationMs = 172_800_000L,
-            ),
-        chapter = HeroChapter(number = 6, title = "Bridge Four"),
-        canPlay = true,
-    )
-
 private fun mockReady(slot: HomeSlot) =
     HomeUiState.Ready(
         myShelves = mockShelves(),
@@ -157,7 +137,7 @@ private fun mockReady(slot: HomeSlot) =
         timeOfDay = TimeOfDay.Evening,
         firstName = PREVIEW_USER_NAME,
         slot = slot,
-        alsoInProgress = mockContinue(),
+        everythingInProgress = mockContinue(),
         connectivity = HomeConnectivity.Online,
         continueListeningError = null,
     )
@@ -203,32 +183,11 @@ private fun BodyPreview(
 @Composable
 private fun HomeLoadedCompactPreview() = BodyPreview(HomeSlot.Absent, HomeWidth.Compact)
 
-@Preview(heightDp = 1600)
-@Composable
-private fun HomeResumeCompactPreview() = BodyPreview(mockResume(), HomeWidth.Compact)
-
-@Preview(widthDp = 1280, heightDp = 1000)
-@Composable
-private fun HomeResumeExpandedPreview() = BodyPreview(mockResume(), HomeWidth.Expanded)
-
 @Preview
 @Composable
 private fun GreetingPreview() =
     PreviewSurface {
         HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
-    }
-
-@Preview
-@Composable
-private fun ResumeHeroPreview() =
-    PreviewSurface {
-        HomeResumeHero(
-            resume = mockResume(),
-            isOnlyBook = false,
-            onOpenBook = {},
-            onResume = {},
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-        )
     }
 
 @Preview
@@ -286,17 +245,8 @@ fun HomePreviewGallery() {
             GalleryLabel("Greeting")
             HomeHeader(timeOfDay = TimeOfDay.Evening, firstName = PREVIEW_USER_NAME, isWide = false)
 
-            GalleryLabel("Resume")
-            HomeResumeHero(
-                resume = mockResume(),
-                isOnlyBook = false,
-                onOpenBook = {},
-                onResume = {},
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-            )
-
-            GalleryLabel("Also in progress")
-            AlsoInProgressSection(
+            GalleryLabel("Everything in progress")
+            EverythingInProgressSection(
                 items = mockContinue(),
                 width = HomeWidth.Compact,
                 selection = HomeSelection.None,

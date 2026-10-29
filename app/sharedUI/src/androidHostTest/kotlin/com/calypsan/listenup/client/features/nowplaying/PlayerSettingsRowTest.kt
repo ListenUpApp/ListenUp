@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -17,7 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** §5.2's settings row: Speed with its rate, Sleep (armed: the countdown), Chapters; no Boost. */
+/** §5.2's settings row: Speed with its rate, Sleep (armed: the countdown), Chapters; no Boost, no Cast. */
 @Config(qualifiers = "w412dp-h915dp")
 @RunWith(RobolectricTestRunner::class)
 class PlayerSettingsRowTest {
@@ -36,7 +37,6 @@ class PlayerSettingsRowTest {
                 PlayerSettingsRow(
                     speed = 1.25f,
                     sleepTimer = sleep,
-                    castingTo = null,
                     sleepCountdownMs = { SleepCountdowns.remainingMs(sleep, progress, speed = 1f) },
                     showsChapters = showsChapters,
                     onSpeedClick = { opened += "speed" },
@@ -54,6 +54,16 @@ class PlayerSettingsRowTest {
         composeRule.onNodeWithContentDescription("Sleep timer").performClick()
         composeRule.onNodeWithContentDescription("Chapters").performClick()
         opened shouldBe listOf("speed", "sleep", "chapters")
+    }
+
+    @Test
+    fun `the row is Speed, Sleep and Chapters, with no Cast, which lives beside More`() {
+        row()
+        val speed = composeRule.onNodeWithText("1.25×").getUnclippedBoundsInRoot()
+        val sleep = composeRule.onNodeWithContentDescription("Sleep timer").getUnclippedBoundsInRoot()
+        val chapters = composeRule.onNodeWithContentDescription("Chapters").getUnclippedBoundsInRoot()
+        (speed.right <= sleep.left && sleep.right <= chapters.left) shouldBe true
+        composeRule.onNodeWithContentDescription("Cast", substring = true).assertDoesNotExist()
     }
 
     @Test

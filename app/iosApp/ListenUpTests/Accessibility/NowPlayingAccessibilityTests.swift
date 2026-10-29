@@ -21,13 +21,22 @@ struct NowPlayingAccessibilityTests {
     private static let playing = PlayerUiStateLoaded.fixture(
         phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four")
 
-    @Test func theHeaderReadsCollapseTheStatusThenMore() async throws {
+    @Test func streamingTheHeaderReadsCollapseThenMore() async throws {
         let hosted = await host(Self.playing)
+        defer { hosted.close() }
+        let first = hosted.stops.prefix(2).map(\.label)
+        #expect(first == [String(localized: "player.collapse"), String(localized: "player.more_options")], "\(hosted.tree)")
+    }
+
+    @Test func offlineTheHeaderReadsCollapseTheStatusThenMore() async throws {
+        let hosted = await host(.fixture(
+            phase: PlayerPhasePlaying.shared, currentIndex: 5, chapterTitle: "Bridge Four",
+            source: AudioSourceOffline.shared))
         defer { hosted.close() }
         let first = hosted.stops.prefix(3).map(\.label)
         #expect(first == [
             String(localized: "player.collapse"),
-            String(localized: "player.np_status_streaming"),
+            String(localized: "player.np_status_offline"),
             String(localized: "player.more_options")
         ], "\(hosted.tree)")
     }

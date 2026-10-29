@@ -7,6 +7,8 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,6 +23,8 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
+import io.kotest.matchers.floats.plusOrMinus
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +64,24 @@ class TabletopNowPlayingTest {
         skipForward.top shouldBeGreaterThanOrEqualTo 424.dp
         chapters.top shouldBeGreaterThanOrEqualTo 424.dp
         chapters.bottom shouldBeLessThanOrEqualTo WINDOW_HEIGHT
+    }
+
+    @Test
+    fun `under the scrubber only the chapter's times - no book sentence`() {
+        setContent(hingeTop = 400.dp, hingeBottom = 424.dp)
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the title and the chapter sit on the cover's axis`() {
+        setContent(hingeTop = 400.dp, hingeBottom = 424.dp)
+        val axis = composeRule.onNodeWithTag(NOW_PLAYING_COVER_TAG, useUnmergedTree = true).centreXPx()
+        val words = { text: String -> hasText(text) and !hasAnyAncestor(hasTestTag(NOW_PLAYING_COVER_TAG)) }
+        listOf(activeState.book.title, "Prologue: To Kill").forEach { text ->
+            composeRule.onNode(words(text), useUnmergedTree = true).lineCentresPx().forEach { centre ->
+                centre shouldBe (axis plusOrMinus composeRule.density.density)
+            }
+        }
     }
 
     @Test

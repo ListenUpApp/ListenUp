@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
-import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryLength
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
@@ -12,37 +11,8 @@ import com.calypsan.listenup.client.presentation.library.libraryLengthOf
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
-import org.jetbrains.compose.web.dom.Button as DomButton
-import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
-
-/** Status filters with whole-library counts (board `Library-WebDesktop`): one row, scrolling on a phone. */
-@Composable
-internal fun StatusFilterRow(
-    selected: BookStatusFilter,
-    counts: BookStatusCounts,
-    onSelect: (BookStatusFilter) -> Unit,
-) {
-    Div(attrs = {
-        classes("lib-filters")
-        attr("role", "group")
-        attr("aria-label", "Show")
-    }) {
-        // Real buttons in the shared pill look: the browser gives them focus, Enter and Space, and
-        // aria-pressed says which filter is on.
-        BookStatusFilter.entries.forEach { filter ->
-            val isSelected = filter == selected
-            DomButton(attrs = {
-                classes("pill")
-                if (isSelected) classes("on")
-                attr("type", "button")
-                attr("aria-pressed", isSelected.toString())
-                onClick { onSelect(filter) }
-            }) { Text("${filter.webLabel()} · ${groupedCount(counts.countFor(filter))}") }
-        }
-    }
-}
 
 /** The library has books, but [filter] matches none of them: say so, and offer the way back. */
 @Composable

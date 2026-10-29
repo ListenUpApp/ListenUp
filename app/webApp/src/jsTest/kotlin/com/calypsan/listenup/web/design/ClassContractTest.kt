@@ -277,7 +277,6 @@ import com.calypsan.listenup.web.features.home.HomeActions
 import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.home.continuing
 import com.calypsan.listenup.web.features.home.readyHome
-import com.calypsan.listenup.web.features.home.resumeSlot
 import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.weekStats
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
@@ -492,8 +491,8 @@ class ClassContractTest :
                             onPlay = {},
                             onRetryConnection = {},
                         )
-                        // The one page in progress, with readers and a series shelf: the social line, the
-                        // chapter rows and the shelf each draw classes of their own.
+                        // The one page in progress, with readers and a series: the social line, the chapter
+                        // rows and the series path each draw classes of their own.
                         BookDetailPage(
                             state =
                                 readyBook(
@@ -1253,13 +1252,13 @@ class ClassContractTest :
                             HomeActions.None,
                         )
                         HomePage(
-                            readyHome(alsoInProgress = listOf(continuing("b1", "The Institute"))),
+                            readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                             weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
                             HomeActions.None,
                         )
                         // A slot whose book has not synced yet — the skeleton card's own classes.
                         HomePage(
-                            readyHome(alsoInProgress = listOf(ContinueListeningItem.Loading("b2"))),
+                            readyHome(everythingInProgress = listOf(ContinueListeningItem.Loading("b2"))),
                             weekStats(),
                             HomeActions.None,
                         )
@@ -1276,11 +1275,10 @@ class ClassContractTest :
                             weekStats(),
                             HomeActions.None,
                         )
-                        // Resume, alone and beside the stats on a wide page, with and without a stream; the
-                        // interim empty state; and a private shelf with its lock and mosaic.
-                        HomePage(readyHome(slot = resumeSlot("wok")), weekStats(), HomeActions.None)
+                        // A slot beside the stats on a wide page; the interim empty state; and a private shelf
+                        // with its lock and mosaic.
                         HomePage(
-                            readyHome(slot = resumeSlot("wok", canPlay = false), alsoInProgress = emptyList()),
+                            readyHome(slot = finishedSlot(), everythingInProgress = emptyList()),
                             weekStats(),
                             HomeActions.None,
                             isWide = true,

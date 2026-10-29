@@ -15,6 +15,10 @@ import com.calypsan.listenup.client.presentation.library.SortState
  *
  * [ignoreArticles] null means the toggle is not offered for this sort. Choosing a category closes the
  * menu; a direction or the checkbox keep it open, so the reader sees the list re-order beneath it.
+ *
+ * [status] is Books' reading-state filter (Simon, 2026-10-27): with it the control is Filter and sort, its trigger
+ * "All · Title, A–Z" behind a filter glyph, and its menu opens on a "Show" group with each state's count, above
+ * "Sort by", as on iPhone. Series, Authors and Narrators pass none. [enabled] false stills the trigger.
  */
 @Composable
 @Suppress("LongParameterList")
@@ -26,12 +30,27 @@ internal fun SortDropdown(
     onToggleDirection: () -> Unit,
     ignoreArticles: Boolean?,
     onToggleIgnoreArticles: () -> Unit,
+    status: SortStatus? = null,
+    enabled: Boolean = true,
 ) {
-    val summary = "Sort: ${state.category.webLabel()}, ${state.category.webDirectionLabel(
-        state.direction,
-    ).asTriggerText()}"
+    val sortWords = "${state.category.webLabel()}, ${state.category.webDirectionLabel(state.direction).asTriggerText()}"
+    val shown = status?.rows?.firstOrNull { it.isSelected }?.label
+    val summary = if (shown == null) "Sort: $sortWords" else "$shown · $sortWords"
+    val label = if (shown == null) "$summary. Sort $noun" else "Filter and sort: $shown, $sortWords"
     val items =
         buildList {
+            status?.rows?.forEach { row ->
+                add(
+                    MenuAction(
+                        label = row.label,
+                        icon = null,
+                        onSelect = { if (!row.isSelected) row.onSelect() },
+                        checked = row.isSelected,
+                        group = SHOW_GROUP,
+                        detail = row.count,
+                    ),
+                )
+            }
             categories.forEach { category ->
                 add(
                     MenuAction(
@@ -71,12 +90,39 @@ internal fun SortDropdown(
     PopupMenu(
         items = items,
         // Starts with the words on the trigger (WCAG 2.5.3), so a voice command can say them.
-        label = "$summary. Sort $noun",
-        icon = WebIcon.ChevronDown,
+        label = label,
+        icon = if (status == null) WebIcon.ChevronDown else WebIcon.FilterLines,
         triggerClasses = arrayOf(*buttonClasses(ButtonKind.Secondary, ButtonSize.Md), "lib-sort-trigger"),
+        enabled = enabled,
         triggerText = summary,
     )
 }
+
+/**
+ * Books' reading-state filter, carried by its Sort control, already in words: the design layer knows no feature.
+ *
+ * @property rows One per reading state, in order; exactly one [SortStatusRow.isSelected].
+ */
+internal data class SortStatus(
+    val rows: List<SortStatusRow>,
+)
+
+/**
+ * One reading state in the Show group: "In progress" with "4".
+ *
+ * @property label The state's word, which the trigger leads with when it is selected.
+ * @property count The state's count, grouped ("1,286").
+ * @property isSelected Whether it is the filter in force.
+ * @property onSelect Chooses it.
+ */
+internal data class SortStatusRow(
+    val label: String,
+    val count: String,
+    val isSelected: Boolean,
+    val onSelect: () -> Unit,
+)
+
+private const val SHOW_GROUP = "Show"
 
 /** The trigger's compact direction: "A → Z" reads "A–Z" there, as on the board. */
 private fun String.asTriggerText(): String = replace(" → ", "–")

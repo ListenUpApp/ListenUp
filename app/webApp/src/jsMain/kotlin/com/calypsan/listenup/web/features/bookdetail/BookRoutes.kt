@@ -351,7 +351,6 @@ private fun BookDetailRoute(
         onPlayFromChapter = { startMs -> playback.onPlayBook(BookId(bookId), startMs) },
         onOpenChapterMap = { router.navigate(Routes.Book.chapterMap(bookId)) },
         onOpenFiles = { router.navigate(Routes.Book.files(bookId)) },
-        onOpenBook = { id -> router.navigate(Routes.Book.detail(id)) },
         isPreparing = playback.preparingBookId.collectAsState().value == bookId,
         onMarkComplete = detailSession.onMarkComplete,
         onDiscardProgress = detailSession.onDiscardProgress,

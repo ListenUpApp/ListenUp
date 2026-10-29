@@ -19,6 +19,16 @@ struct NowPlayingTitleBlockTests {
             == String(localized: "player.np_whole_book"))
     }
 
+    @Test("the phone's chapter line is the chapter's own title, with no counter")
+    func phoneChapterLine() {
+        #expect(
+            NowPlayingTitleBlock.phoneChapterLine(number: 6, title: "Bridge Four", isWholeBook: false) == "Bridge Four")
+        #expect(NowPlayingTitleBlock.phoneChapterLine(number: 6, title: "", isWholeBook: false)
+            == String(format: String(localized: "player.chapter_number"), 6))
+        #expect(NowPlayingTitleBlock.phoneChapterLine(number: 1, title: "", isWholeBook: true)
+            == String(localized: "player.np_whole_book"))
+    }
+
     @Test("more than three people fold to the lead and a count")
     func fold() {
         let people = (1...5).map { ContributorNavRef(id: "n\($0)", name: "Narrator \($0)") }

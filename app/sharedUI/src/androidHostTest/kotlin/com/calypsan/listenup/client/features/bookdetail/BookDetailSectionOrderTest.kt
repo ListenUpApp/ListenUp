@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.navigation.PaneSized
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
@@ -248,6 +249,19 @@ class BookDetailSectionOrderTest {
     }
 
     @Test
+    @Config(qualifiers = TALL_PHONE)
+    fun `a book in a series has no series shelf, and the path line still opens the series`() {
+        val opened = mutableListOf<String>()
+        val inSeries =
+            ready(ReadingStage.InProgress, inProgressOrder)
+                .copy(seriesPaths = listOf(BookSeriesPath("s1", "Mistborn", "1", emptyList())))
+        setScreen(inSeries, actions = noActions().copy(onSeriesClick = { opened += it }))
+        composeRule.onNodeWithText("Series ·", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Mistborn #1").performClick()
+        opened shouldBe listOf("s1")
+    }
+
+    @Test
     fun `nobody else reading draws no social line`() {
         setScreen(ready(ReadingStage.InProgress, inProgressOrder))
         composeRule.onNodeWithContentDescription("is listening", substring = true).assertDoesNotExist()
@@ -310,6 +324,7 @@ class BookDetailSectionOrderTest {
         readers: List<Reader> = emptyList(),
         readersFlow: Flow<BookReaders> = flowOf(BookReaders(readers = readers)),
         landOnReaders: Boolean = false,
+        actions: BookDetailActions = noActions().copy(onPlayFromChapter = { started = it }),
         frame: @Composable (@Composable () -> Unit) -> Unit = { it() },
     ) {
         val readersRepo =
@@ -361,7 +376,7 @@ class BookDetailSectionOrderTest {
                             BookDetailContent(
                                 bookId = "b1",
                                 state = state,
-                                actions = noActions().copy(onPlayFromChapter = { started = it }),
+                                actions = actions,
                                 landOnReaders = landOnReaders,
                             )
                         }

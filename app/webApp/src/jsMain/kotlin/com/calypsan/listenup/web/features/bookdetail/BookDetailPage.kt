@@ -149,8 +149,6 @@ fun BookDetailPage(
     onOpenChapterMap: () -> Unit = {},
     /** The files page (`/book/{id}/files`), from the Details panel. */
     onOpenFiles: () -> Unit = {},
-    /** Another book: a cover on the series shelf. */
-    onOpenBook: (String) -> Unit = {},
     bookId: String? = null,
     /**
      * Delete this book's folder from the server (admin-only; the menu gates it). The confirm dialog
@@ -285,7 +283,6 @@ fun BookDetailPage(
                             onPlayFromChapter = onPlayFromChapter,
                             onOpenChapterMap = onOpenChapterMap,
                             onOpenFiles = onOpenFiles,
-                            onOpenBook = onOpenBook,
                             onOpenSeries = onOpenSeries,
                             documents = documents,
                             onOpenContributor = onOpenContributor,
@@ -566,7 +563,6 @@ internal class SectionPanes(
     val onPlayFromChapter: (Long) -> Unit,
     val onOpenChapterMap: () -> Unit,
     val onOpenFiles: () -> Unit,
-    val onOpenBook: (String) -> Unit,
     val onOpenSeries: (String) -> Unit,
     /** The book's documents, for the Details panel's Maps & illustrations row. */
     val documents: List<BookDocument> = emptyList(),
@@ -663,10 +659,6 @@ private fun BookSection(
 
         BookDetailSection.About -> {
             AboutPanel(state, wide, panes)
-        }
-
-        BookDetailSection.Series -> {
-            state.seriesShelf?.let { SeriesShelfSection(it, state.readingStage, panes.onOpenBook, panes.onOpenSeries) }
         }
 
         BookDetailSection.Readers -> {

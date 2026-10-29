@@ -1,15 +1,12 @@
 package com.calypsan.listenup.client.presentation.home
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.signedInUserId
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
@@ -36,7 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 /** The slot and the rail beside it, as Home's ViewModel folds them into `Ready`. */
 internal data class HomeSlotState(
     val slot: HomeSlot,
-    val alsoInProgress: List<ContinueListeningItem>,
+    val everythingInProgress: List<ContinueListeningItem>,
 )
 
 /**
@@ -51,7 +48,6 @@ internal class HomeSlotPresenter(
     private val inbox: InboxRepository,
     private val nextInSeries: (bookId: String) -> Flow<NextInSeries?>,
     private val books: BookRepository,
-    private val availability: BookAvailability,
     private val ratings: BookRatingRepository,
     private val activities: ActivityRepository,
     private val authSession: AuthSession,
@@ -59,7 +55,7 @@ internal class HomeSlotPresenter(
     private val nowMs: () -> Long = { currentEpochMilliseconds() },
 ) {
     /**
-     * The slot and its rail, or null until the loaded book has been restored — so no Resume flashes in on a cold start
+     * The slot and its rail, or null until the loaded book has been restored — so no slot flashes in on a cold start
      * and then vanishes (spec §4.1 loading guard). [isLibraryArriving] is true while the library's first population or
      * this device's first catch-up is running. [decisionRuns] moves on every refresh and dismissal (§2.1 rules 1,
      * 3); [dismissedHere] maps a book to the finish dismissed this visit, before Room has caught up.
@@ -147,7 +143,7 @@ internal class HomeSlotPresenter(
                         fresh = fresh,
                         isProvisional = isStillArriving(c.items),
                     )
-                Decided(latched, c.items, alsoInProgressOf(c.items, c.view.key, latched.kind))
+                Decided(latched, everythingInProgressOf(c.items, c.view.key))
             }
         }
     }
@@ -159,63 +155,31 @@ internal class HomeSlotPresenter(
         val current = decided.filterNotNull().filter { it.latched.kind == kind }
         return when (kind) {
             SlotKind.Absent -> {
-                current.map { HomeSlotState(HomeSlot.Absent, it.alsoInProgress) }
+                current.map { HomeSlotState(HomeSlot.Absent, it.everythingInProgress) }
             }
 
             SlotKind.FirstSync -> {
-                current.map { HomeSlotState(HomeSlot.FirstSync, it.alsoInProgress) }
-            }
-
-            is SlotKind.Resume -> {
-                resume(kind.bookId, current)
+                current.map { HomeSlotState(HomeSlot.FirstSync, it.everythingInProgress) }
             }
 
             is SlotKind.JustFinished -> {
                 combine(current, finishedCard(kind.bookId)) { d, card ->
-                    HomeSlotState(card?.let(HomeSlot::JustFinished) ?: HomeSlot.Absent, d.alsoInProgress)
+                    HomeSlotState(card?.let(HomeSlot::JustFinished) ?: HomeSlot.Absent, d.everythingInProgress)
                 }
             }
 
             SlotKind.NothingInProgress -> {
                 combine(current, seriesCandidate()) { d, candidate ->
-                    HomeSlotState(HomeSlot.NothingInProgress(candidate), d.alsoInProgress)
+                    HomeSlotState(HomeSlot.NothingInProgress(candidate), d.everythingInProgress)
                 }
             }
 
             SlotKind.NewListener -> {
                 combine(current, home.observeLibraryShowcase(NEW_LISTENER_COVERS)) { d, showcase ->
-                    HomeSlotState(HomeSlot.NewListener(showcase.covers), d.alsoInProgress)
+                    HomeSlotState(HomeSlot.NewListener(showcase.covers), d.everythingInProgress)
                 }
             }
         }
-    }
-
-    /** Resume's live contents. Its book follows Continue Listening, and keeps the last one seen if it leaves before the next decision. */
-    private fun resume(
-        bookId: String,
-        current: Flow<Decided>,
-    ): Flow<HomeSlotState?> {
-        val extras =
-            combine(
-                nextInSeries(bookId),
-                books.observeChapters(bookId),
-                availability.observe(BookId(bookId)),
-            ) { next, chapters, state ->
-                ResumeExtras(next, chapters, state.canPlay)
-            }
-        return combine(current, extras) { d, x -> d to x }
-            .scan<Pair<Decided, ResumeExtras>, HomeSlotState?>(null) { previous, (d, x) ->
-                val book = d.readyBook(bookId) ?: (previous?.slot as? HomeSlot.Resume)?.book ?: return@scan previous
-                HomeSlotState(
-                    HomeSlot.Resume(
-                        book = book,
-                        next = x.next,
-                        chapter = heroChapterOf(x.chapters, book.currentPositionMs),
-                        canPlay = x.canPlay,
-                    ),
-                    d.alsoInProgress,
-                )
-            }.filterNotNull()
     }
 
     private fun finishedCard(bookId: String): Flow<FinishedCard?> {
@@ -287,21 +251,8 @@ private data class Candidate(
     val runs: Int,
 )
 
-/** The held kind, and the live lists its contents read. */
+/** The held kind, and the live list its contents read. */
 private data class Decided(
     val latched: LatchedSlot,
-    val continueListening: List<ContinueListeningItem>,
-    val alsoInProgress: List<ContinueListeningItem>,
-) {
-    fun readyBook(bookId: String): ContinueListeningBook? =
-        continueListening
-            .filterIsInstance<ContinueListeningItem.Ready>()
-            .firstOrNull { it.bookId == bookId }
-            ?.book
-}
-
-private data class ResumeExtras(
-    val next: NextInSeries?,
-    val chapters: List<Chapter>,
-    val canPlay: Boolean,
+    val everythingInProgress: List<ContinueListeningItem>,
 )

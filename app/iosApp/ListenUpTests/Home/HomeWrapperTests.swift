@@ -174,7 +174,7 @@ struct HomeWrapperTests {
             timeOfDay: TimeOfDay.Evening,
             firstName: "Simon",
             slot: HomeSlotAbsent.shared,
-            alsoInProgress: [],
+            everythingInProgress: [],
             connectivity: HomeConnectivity.Online,
             continueListeningError: nil
         )
@@ -203,18 +203,21 @@ struct HomeWrapperTests {
         )
     }
 
-    @Test func slotMapsResume() {
-        let slot = HomeSlotItem(from: HomeSlotResume(
-            book: clBook("a"), next: next("b"), chapter: HeroChapter(number: 6, title: "Bridge Four"), canPlay: false
-        ))
-        guard case .resume(let resume) = slot else { Issue.record("expected resume"); return }
-        #expect(resume.book.id == "a")
-        #expect(resume.next?.id == "b")
-        #expect(resume.next?.seriesName == "The Stormlight Archive")
-        #expect(resume.chapterNumber == 6)
-        #expect(resume.chapterTitle == "Bridge Four")
-        #expect(resume.canPlay == false)
-        #expect(slot.shape == .resume)
+    @Test func theLoadedBookIsFirstInEverythingInProgress() {
+        // The shared rule puts the loaded book first (`everythingInProgressOf`); the wrapper keeps that order.
+        let ready = HomeUiStateReady(
+            myShelves: [], isSyncing: false,
+            isBuildingInitialLibrary: false, isLibraryArriving: false,
+            scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
+            slot: HomeSlotAbsent.shared,
+            everythingInProgress: [
+                ContinueListeningItemReady(bookId: "loaded", book: clBook("loaded")),
+                ContinueListeningItemReady(bookId: "other", book: clBook("other"))
+            ],
+            connectivity: HomeConnectivity.Online,
+            continueListeningError: nil
+        )
+        #expect(HomeReady(from: ready).everythingInProgress.map(\.id) == ["loaded", "other"])
     }
 
     @Test func slotMapsJustFinished() {
@@ -257,13 +260,14 @@ struct HomeWrapperTests {
             myShelves: [], isSyncing: false,
             isBuildingInitialLibrary: false, isLibraryArriving: false,
             scanProgress: nil, timeOfDay: TimeOfDay.Morning, firstName: nil,
-            slot: HomeSlotAbsent.shared, alsoInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
+            slot: HomeSlotAbsent.shared,
+            everythingInProgress: [ContinueListeningItemReady(bookId: "b", book: clBook("b"))],
             connectivity: HomeConnectivity.ServerUnreachable,
             continueListeningError: UnexpectedClientError(correlationId: nil, debugInfo: nil)
         )
         let mapped = HomeReady(from: ready)
         #expect(mapped.continueListeningError == "Something went wrong in the app.")
-        #expect(mapped.alsoInProgress.map(\.id) == ["b"])
+        #expect(mapped.everythingInProgress.map(\.id) == ["b"])
         #expect(mapped.connectivity == .serverUnreachable)
     }
 
@@ -289,14 +293,14 @@ struct HomeWrapperTests {
     private func ready(
         isLibraryArriving: Bool = false,
         scanProgress: ScanProgressState? = nil,
-        alsoInProgress: [ContinueListeningItem] = [],
+        everythingInProgress: [ContinueListeningItem] = [],
         connectivity: HomeConnectivity = HomeConnectivity.Online
     ) -> HomeUiStateReady {
         HomeUiStateReady(
             myShelves: [], isSyncing: false,
             isBuildingInitialLibrary: false, isLibraryArriving: isLibraryArriving,
             scanProgress: scanProgress, timeOfDay: TimeOfDay.Morning, firstName: nil,
-            slot: HomeSlotFirstSync.shared, alsoInProgress: alsoInProgress,
+            slot: HomeSlotFirstSync.shared, everythingInProgress: everythingInProgress,
             connectivity: connectivity,
             continueListeningError: nil
         )
@@ -321,8 +325,8 @@ struct HomeWrapperTests {
         #expect(ContinueItem(from: item, connectivity: HomeConnectivity.Offline).needsConnection)
         #expect(ContinueItem(from: item, connectivity: HomeConnectivity.ServerUnreachable).needsConnection)
         #expect(!ContinueItem(from: item, connectivity: HomeConnectivity.Online).needsConnection)
-        let mapped = HomeReady(from: ready(alsoInProgress: [item], connectivity: HomeConnectivity.Offline))
-        #expect(mapped.alsoInProgress.first?.needsConnection == true)
+        let mapped = HomeReady(from: ready(everythingInProgress: [item], connectivity: HomeConnectivity.Offline))
+        #expect(mapped.everythingInProgress.first?.needsConnection == true)
     }
 
     @Test func readyCarriesTheSharedOfflineAndStripSignals() {

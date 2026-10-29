@@ -147,7 +147,7 @@ internal fun NowPlayingHost(
                     },
                     onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
                     onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
-                    onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries) },
+                    onMenuItem = { item -> viewModel.onMenuItem(item, onNavigateToSeries, onNavigateToContributor) },
                     onCardAction = viewModel::onCardAction,
                     onRate = viewModel::rate,
                     isTv = isTv,
@@ -389,6 +389,7 @@ internal fun closesChapterSheet(
 private fun PlayerViewModel.onMenuItem(
     item: PlayerMenuItem,
     onNavigateToSeries: (String) -> Unit,
+    onNavigateToContributor: (String) -> Unit,
 ) {
     when (item) {
         PlayerMenuItem.GoToBook -> {
@@ -398,6 +399,15 @@ private fun PlayerViewModel.onMenuItem(
         is PlayerMenuItem.GoToSeries -> {
             collapse()
             onNavigateToSeries(item.seriesId)
+        }
+
+        is PlayerMenuItem.GoToAuthor -> {
+            collapse()
+            onNavigateToContributor(item.authorId)
+        }
+
+        PlayerMenuItem.ChooseAuthor -> {
+            showContributorPicker(ContributorPickerType.AUTHORS)
         }
 
         is PlayerMenuItem.OpenPdf -> {

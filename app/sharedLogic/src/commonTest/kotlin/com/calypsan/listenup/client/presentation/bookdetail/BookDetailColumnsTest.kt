@@ -5,12 +5,11 @@ import io.kotest.matchers.shouldBe
 
 class BookDetailColumnsTest :
     FunSpec({
-        test("in progress: Chapters, About and Series in the main column; the rest in the side, each in stage order") {
+        test("in progress: Chapters and About in the main column; the rest in the side, each in stage order") {
             val order =
                 listOf(
                     BookDetailSection.Chapters,
                     BookDetailSection.About,
-                    BookDetailSection.Series,
                     BookDetailSection.Readers,
                     BookDetailSection.Ratings,
                     BookDetailSection.Hardcover,
@@ -18,7 +17,7 @@ class BookDetailColumnsTest :
                 )
             bookDetailColumns(order) shouldBe
                 BookDetailColumns(
-                    main = listOf(BookDetailSection.Chapters, BookDetailSection.About, BookDetailSection.Series),
+                    main = listOf(BookDetailSection.Chapters, BookDetailSection.About),
                     side =
                         listOf(
                             BookDetailSection.Readers,
@@ -36,7 +35,6 @@ class BookDetailColumnsTest :
                     BookDetailSection.Ratings,
                     BookDetailSection.Hardcover,
                     BookDetailSection.Readers,
-                    BookDetailSection.Series,
                     BookDetailSection.Chapters,
                     BookDetailSection.Details,
                 )
@@ -51,12 +49,11 @@ class BookDetailColumnsTest :
                     BookDetailSection.Ratings,
                     BookDetailSection.Hardcover,
                     BookDetailSection.Readers,
-                    BookDetailSection.Series,
                     BookDetailSection.Chapters,
                     BookDetailSection.About,
                     BookDetailSection.Details,
                 )
             bookDetailColumns(finished).main shouldBe
-                listOf(BookDetailSection.Series, BookDetailSection.Chapters, BookDetailSection.About)
+                listOf(BookDetailSection.Chapters, BookDetailSection.About)
         }
     })

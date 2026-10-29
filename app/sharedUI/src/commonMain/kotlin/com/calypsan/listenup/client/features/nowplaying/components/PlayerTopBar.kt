@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -31,10 +33,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.StatusChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
@@ -48,6 +54,8 @@ import listenup.composeapp.generated.resources.player_boost_db
 import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
+import listenup.composeapp.generated.resources.player_go_to_author
+import listenup.composeapp.generated.resources.player_go_to_author_multiple
 import listenup.composeapp.generated.resources.player_go_to_book
 import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_keyboard_shortcuts
@@ -61,19 +69,20 @@ import kotlin.math.roundToInt
 /** The More menu's corners (m3.material.io/components/menus). */
 private val MenuShape = RoundedCornerShape(16.dp)
 
-/** Clears the collapse and More buttons, so the centred status never runs under them. */
-private val StatusSideClearance = 56.dp
-
 /**
  * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
  *
- * **Compact** (`wide = false`): Collapse on the left, the [StatusChip] centred, More on the right.
+ * **Compact** (`wide = false`): Collapse · the [StatusChip] in the space between · Cast · More.
  * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip
- * · More, on a 56dp bar.
+ * · Cast · More, on a 56dp bar.
  *
- * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Open PDF and Volume boost,
- * then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the series as a link
- * above the title (P10), so their menu leaves Go to series out.
+ * The chip shows only with news ([PlayerUiState.Loaded.status]: offline, unreachable, transcoded, not playable); with
+ * none the space is empty. Cast sits beside More ([castSlot], board `Cast-Android-After`); while casting it names the
+ * device, so no chip says it again. The slot is a parameter so a test can draw it where Play Services are absent.
+ *
+ * More is the shared builder's menu ([PlayerMenus.moreMenu]): Go to book, Go to series, Go to author, Open PDF and
+ * Volume boost, then Close book apart in the error colour (m3.material.io/components/menus). Wide layouts show the
+ * series as a link above the title (P10) and the authors on the byline, so their menu leaves both out.
  */
 @Composable
 fun PlayerTopBar(
@@ -82,39 +91,54 @@ fun PlayerTopBar(
     onMenuItem: (PlayerMenuItem) -> Unit,
     modifier: Modifier = Modifier,
     wide: Boolean = false,
+    castSlot: @Composable () -> Unit = {
+        CastButton(
+            connectedDeviceName = (state.source as? AudioSource.Casting)?.deviceName,
+            modifier = Modifier.sizeIn(minWidth = MinTouchTarget, minHeight = MinTouchTarget),
+        )
+    },
 ) {
+    // One polite live region that is always there; only the chip inside it comes and goes, so TalkBack announces it.
     val status: @Composable () -> Unit = {
-        StatusChip(text = state.source.statusText(), emphasized = state.source is AudioSource.Casting)
+        Box(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+            state.status?.let { StatusChip(text = it.statusText()) }
+        }
     }
-    val more: @Composable () -> Unit = { MoreMenu(state = state, includesSeries = !wide, onMenuItem = onMenuItem) }
+    val more: @Composable () -> Unit = {
+        MoreMenu(state = state, includesSeries = !wide, includesAuthor = !wide, onMenuItem = onMenuItem)
+    }
     if (wide) {
-        WideTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
+        WideTopBar(onCollapse = onCollapse, status = status, cast = castSlot, more = more, modifier = modifier)
     } else {
-        CompactTopBar(onCollapse = onCollapse, status = status, more = more, modifier = modifier)
+        CompactTopBar(onCollapse = onCollapse, status = status, cast = castSlot, more = more, modifier = modifier)
     }
 }
 
-/** Compact (phone) bar: collapse left, the status centred, More right. */
+/** Compact (phone) bar: Collapse, the status in the space between, Cast, More. */
 @Composable
 private fun CompactTopBar(
     onCollapse: () -> Unit,
     status: @Composable () -> Unit,
+    cast: @Composable () -> Unit,
     more: @Composable () -> Unit,
     modifier: Modifier,
 ) {
     val haptics = LocalHaptics.current
-    Box(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         IconButton(
             onClick = {
                 haptics.press()
                 onCollapse()
             },
-            modifier = Modifier.align(Alignment.CenterStart),
         ) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
         }
-        Box(Modifier.padding(horizontal = StatusSideClearance)) { status() }
-        Box(Modifier.align(Alignment.CenterEnd)) { more() }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { status() }
+        cast()
+        more()
     }
 }
 
@@ -127,6 +151,7 @@ private fun CompactTopBar(
 private fun WideTopBar(
     onCollapse: () -> Unit,
     status: @Composable () -> Unit,
+    cast: @Composable () -> Unit,
     more: @Composable () -> Unit,
     modifier: Modifier,
 ) {
@@ -153,6 +178,7 @@ private fun WideTopBar(
             modifier = Modifier.weight(1f),
         )
         status()
+        cast()
         more()
     }
 }
@@ -162,6 +188,7 @@ private fun WideTopBar(
 private fun MoreMenu(
     state: PlayerUiState.Loaded,
     includesSeries: Boolean,
+    includesAuthor: Boolean,
     onMenuItem: (PlayerMenuItem) -> Unit,
 ) {
     val haptics = LocalHaptics.current
@@ -182,27 +209,33 @@ private fun MoreMenu(
             shape = MenuShape,
             containerColor = colors.surfaceContainer,
         ) {
-            PlayerMenus.moreMenu(state, includesSeries, includesShortcuts = false).forEachIndexed { index, group ->
-                if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                val itemColors =
-                    if (group.isDestructive) {
-                        MenuDefaults.itemColors(textColor = colors.error, leadingIconColor = colors.error)
-                    } else {
-                        MenuDefaults.itemColors()
+            PlayerMenus
+                .moreMenu(
+                    state = state,
+                    includesSeries = includesSeries,
+                    includesAuthor = includesAuthor,
+                    includesShortcuts = false,
+                ).forEachIndexed { index, group ->
+                    if (index > 0) HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    val itemColors =
+                        if (group.isDestructive) {
+                            MenuDefaults.itemColors(textColor = colors.error, leadingIconColor = colors.error)
+                        } else {
+                            MenuDefaults.itemColors()
+                        }
+                    group.items.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item.label()) },
+                            leadingIcon = { Icon(item.icon(), contentDescription = null) },
+                            colors = itemColors,
+                            onClick = {
+                                haptics.press()
+                                expanded = false
+                                onMenuItem(item)
+                            },
+                        )
                     }
-                group.items.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item.label()) },
-                        leadingIcon = { Icon(item.icon(), contentDescription = null) },
-                        colors = itemColors,
-                        onClick = {
-                            haptics.press()
-                            expanded = false
-                            onMenuItem(item)
-                        },
-                    )
                 }
-            }
         }
     }
 }
@@ -216,6 +249,14 @@ private fun PlayerMenuItem.label(): String =
 
         is PlayerMenuItem.GoToSeries -> {
             stringResource(Res.string.player_go_to_series)
+        }
+
+        is PlayerMenuItem.GoToAuthor -> {
+            stringResource(Res.string.player_go_to_author)
+        }
+
+        PlayerMenuItem.ChooseAuthor -> {
+            stringResource(Res.string.player_go_to_author_multiple)
         }
 
         is PlayerMenuItem.OpenPdf -> {
@@ -246,6 +287,7 @@ private fun PlayerMenuItem.icon(): ImageVector =
     when (this) {
         PlayerMenuItem.GoToBook -> Icons.Default.Book
         is PlayerMenuItem.GoToSeries -> Icons.AutoMirrored.Filled.LibraryBooks
+        is PlayerMenuItem.GoToAuthor, PlayerMenuItem.ChooseAuthor -> Icons.Default.Person
         is PlayerMenuItem.OpenPdf -> Icons.Default.Description
         is PlayerMenuItem.VolumeBoost -> Icons.AutoMirrored.Filled.VolumeUp
         PlayerMenuItem.KeyboardShortcuts -> Icons.Default.Keyboard

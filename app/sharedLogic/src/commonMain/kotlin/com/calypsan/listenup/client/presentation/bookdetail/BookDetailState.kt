@@ -9,7 +9,6 @@ import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
-import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import kotlin.time.Duration.Companion.milliseconds
@@ -26,8 +25,6 @@ internal data class BookSnapshot(
     val availability: BookAvailability.State,
     val isHeld: Boolean,
     val visibility: BookVisibility?,
-    /** The book's first series and its books; null when it is in none. */
-    val series: SeriesWithBooks? = null,
 )
 
 /** What Book Detail shows that does not depend on which book is open: who you are, and the library's shape. */
@@ -90,7 +87,6 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
     val timeRemainingMs = if (hasMeaningfulProgress) (detail.duration - positionMs).coerceAtLeast(0L) else null
     val canPlay = availability.canPlay && !isHeld
     val showServerWarning = availability.showServerWarning && !isHeld
-    val shelf = seriesShelfOf(series, detail.id.value)
 
     return BookDetailUiState.Ready(
         book = detail,
@@ -124,7 +120,7 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         sectionOrder =
             sectionOrderFor(
                 stage,
-                SectionPresence(hasSeries = shelf != null, hasChapters = chapters.isNotEmpty()),
+                SectionPresence(hasChapters = chapters.isNotEmpty()),
             ),
         primaryAction = primaryActionFor(stage, showServerWarning, canPlay),
         currentChapter = current,
@@ -137,7 +133,6 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
                     isComplete
                 }?.let { FinishedSpan(startedAtMs = position.startedAtMs, finishedAtMs = it) },
         downloadSizeBytes = detail.audioFiles.sumOf { it.size },
-        seriesShelf = shelf,
         showScanWarning = detail.hasScanWarning && ambient.isAdmin,
     )
 }

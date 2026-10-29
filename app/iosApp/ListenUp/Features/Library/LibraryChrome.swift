@@ -115,8 +115,8 @@ struct LibrarySortMenu: View {
                     .pickerStyle(.inline)
                 }
             }
-            Section(String(localized: "library.sort_by")) {
-                Picker(String(localized: "library.sort_by"), selection: categoryBinding) {
+            Section(String(localized: "library.sort_by_ios")) {
+                Picker(String(localized: "library.sort_by_ios"), selection: categoryBinding) {
                     ForEach(LibrarySortOptions.categories(for: section), id: \.self) { category in
                         Text(SortLabels.category(category)).tag(category)
                     }

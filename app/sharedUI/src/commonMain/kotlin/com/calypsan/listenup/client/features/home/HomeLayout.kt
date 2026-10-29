@@ -26,7 +26,6 @@ internal enum class HomeBlock {
 
     /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
     FirstSyncStrip,
-    Resume,
     Finished,
     NothingInProgress,
     Welcome,
@@ -39,7 +38,7 @@ internal enum class HomeBlock {
 
     /** Whichever slot applies, beside the stats on a tablet (spec §3.4). */
     SlotBesideStats,
-    AlsoInProgress,
+    EverythingInProgress,
     Stats,
     Shelves,
     StatsBesideShelves,
@@ -49,7 +48,7 @@ internal enum class HomeBlock {
  * Home's sections, top to bottom (spec §2.1, §3.4). The offline pill sits under the greeting ([isOffline]), then the
  * library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue Listening failed and there is no
  * slot, the one-line failure in its place. Offline and the failure are separate signals, so both can show. Below the
- * slot the order is always Also in progress → Your last 7 days → My shelves. A tablet puts the slot beside the stats,
+ * slot the order is always Everything in progress → Your last 7 days → My shelves. A tablet puts the slot beside the stats,
  * and the stats beside the shelves when there is no slot.
  */
 internal fun homeBlocks(
@@ -57,7 +56,7 @@ internal fun homeBlocks(
     isOffline: Boolean,
     continueListeningFailed: Boolean,
     showsStrip: Boolean,
-    hasAlsoInProgress: Boolean,
+    hasEverythingInProgress: Boolean,
     width: HomeWidth,
 ): List<HomeBlock> =
     buildList {
@@ -70,7 +69,7 @@ internal fun homeBlocks(
             slotBlock != null -> add(slotBlock)
             continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
         }
-        if (hasAlsoInProgress) add(HomeBlock.AlsoInProgress)
+        if (hasEverythingInProgress) add(HomeBlock.EverythingInProgress)
         when {
             contains(HomeBlock.SlotBesideStats) -> {
                 add(HomeBlock.Shelves)
@@ -90,7 +89,6 @@ internal fun homeBlocks(
 /** The block that draws [slot], or null when there is no slot. */
 internal fun slotBlockFor(slot: HomeSlot): HomeBlock? =
     when (slot) {
-        is HomeSlot.Resume -> HomeBlock.Resume
         is HomeSlot.JustFinished -> HomeBlock.Finished
         is HomeSlot.NothingInProgress -> HomeBlock.NothingInProgress
         is HomeSlot.NewListener -> HomeBlock.Welcome
@@ -106,7 +104,7 @@ internal data class HomeActions(
     val onOpenLeaderboard: () -> Unit,
     val onOpenShelf: (String) -> Unit,
     val onCreateShelf: () -> Unit,
-    /** Opens Library filtered to In progress (Also in progress's "In Library", spec §6.4). */
+    /** Opens Library filtered to In progress (Everything in progress's "In Library", spec §6.4). */
     val onOpenInProgress: () -> Unit = {},
     /** Opens Discover (the quiet slots' second button). */
     val onOpenDiscover: () -> Unit = {},

@@ -100,7 +100,7 @@ class HomeNoticesTest {
                     state =
                         homeReady(
                             slot = HomeSlot.Absent,
-                            alsoInProgress = listOf(babel(downloaded = false)),
+                            everythingInProgress = listOf(babel(downloaded = false)),
                             connectivity = HomeConnectivity.ServerUnreachable,
                         ),
                     stats = HomeStatsUiState.Loading,
@@ -127,7 +127,7 @@ class HomeNoticesTest {
                     state =
                         homeReady(
                             slot = HomeSlot.Absent,
-                            alsoInProgress = emptyList(),
+                            everythingInProgress = emptyList(),
                             continueListeningError = UnexpectedClientError(),
                         ),
                     stats = HomeStatsUiState.Loading,
@@ -171,7 +171,7 @@ class HomeNoticesTest {
                     state =
                         homeReady(
                             slot = HomeSlot.Absent,
-                            alsoInProgress = emptyList(),
+                            everythingInProgress = emptyList(),
                             connectivity = HomeConnectivity.Offline,
                             continueListeningError = UnexpectedClientError(),
                         ),

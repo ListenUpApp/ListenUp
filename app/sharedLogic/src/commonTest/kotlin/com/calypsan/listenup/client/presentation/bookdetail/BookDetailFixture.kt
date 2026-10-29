@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
-import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -89,9 +88,6 @@ internal class BookDetailFixture {
     /** The book's chapters as Room holds them. */
     val chapters = MutableStateFlow<List<Chapter>>(emptyList())
 
-    /** Series rows by id, for the shelf. */
-    val series = mutableMapOf<String, MutableStateFlow<SeriesWithBooks?>>()
-
     var markCompleteGate: CompletableDeferred<AppResult<Unit>>? = null
     var addToShelfGate: CompletableDeferred<AppResult<Int>>? = null
     var addToShelfResult: AppResult<Int> = AppResult.Success(1)
@@ -167,8 +163,6 @@ internal class BookDetailFixture {
     private val seriesRepository: SeriesRepository =
         mock<SeriesRepository> {
             every { observeHierarchy() } returns hierarchy
-            every { observeSeriesWithBooks(any()) } calls
-                { (id: String) -> series.getOrPut(id) { MutableStateFlow(null) } }
         }
 
     fun build(): BookDetailViewModel =

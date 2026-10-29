@@ -13,7 +13,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
@@ -55,7 +54,7 @@ private const val TIMEOUT_MS = 5_000L
 
 /**
  * The Android tablet Library (≥ 840dp, spec §3.1.3) leads with two header bands: the title, its count line, the
- * sections and the Inbox pill on one row; the status chips and Sort on the next. A phone keeps its own header.
+ * sections and the Inbox pill on one row; Filter and sort on the next. A phone keeps its own header.
  */
 @RunWith(RobolectricTestRunner::class)
 class LibraryTabletHeaderTest {
@@ -85,28 +84,31 @@ class LibraryTabletHeaderTest {
 
     @Test
     @Config(qualifiers = Windows.TABLET)
-    fun `band 2 holds the status chips and the sort button on one row`() {
+    fun `band 2 holds the sort, no chips`() {
         render(heldCount = 3)
         awaitText(COUNT_LINE)
 
         val sort = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
-        val all = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
-        abs((sort.top - all.top).value).dp shouldBeLessThanOrEqualTo 8.dp
-        abs((sort.centerY() - all.centerY()).value).dp shouldBeLessThanOrEqualTo 8.dp
+        val books = composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot()
+        // Below band 1, at the end of the row.
+        (sort.top >= books.bottom) shouldBe true
+        val windowRight = composeRule.onRoot().getUnclippedBoundsInRoot().right
+        windowRight - sort.right shouldBeLessThanOrEqualTo Spacing.screenMargin + 1.dp
+        composeRule.onNodeWithText("All 248").assertDoesNotExist()
     }
 
     @Test
     @Config(qualifiers = Windows.PHONE)
-    fun `on a phone there is no count line and the sort stays above the grid`() {
+    fun `on a phone there is no status chip row, and the count leads the sort row`() {
         render(heldCount = 3)
         awaitText(BOOK_TITLE)
 
         composeRule.onNodeWithText(COUNT_LINE).assertDoesNotExist()
         composeRule.onNodeWithTag(INBOX_PILL_TAG).assertDoesNotExist()
+        composeRule.onNodeWithText("All 248").assertDoesNotExist()
         val sort = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
-        val all = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
-        // The phone's sort is its own row under the chips, not beside them.
-        all.bottom shouldBeLessThanOrEqualTo sort.top
+        val count = composeRule.onNodeWithText("248 books").getUnclippedBoundsInRoot()
+        (count.right <= sort.left) shouldBe true
     }
 
     @Test
@@ -129,13 +131,13 @@ class LibraryTabletHeaderTest {
 
     @Test
     @Config(qualifiers = Windows.TABLET)
-    fun `entering selection keeps band 1 still and band 2 full`() {
+    fun `entering selection keeps band 1 and band 2 still`() {
         val multiSelect = multiSelect()
         render(heldCount = 3, multiSelect = multiSelect)
         awaitText(COUNT_LINE)
         val booksBefore = composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot()
         val narratorsBefore = composeRule.onNodeWithText("Narrators").getUnclippedBoundsInRoot()
-        val allBefore = composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot()
+        val sortBefore = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
 
         composeRule.runOnIdle { multiSelect.enterSelectionMode("b1") }
         composeRule.waitForIdle()
@@ -144,12 +146,10 @@ class LibraryTabletHeaderTest {
         composeRule.onNodeWithText("Books").getUnclippedBoundsInRoot() shouldBe booksBefore
         composeRule.onNodeWithText("Narrators").getUnclippedBoundsInRoot() shouldBe narratorsBefore
         composeRule.onNodeWithContentDescription(PILL).assertDoesNotExist()
-        // Band 2 keeps its chips, stilled while books are picked, so it never becomes a row holding Sort alone.
-        composeRule.onNodeWithText("All 248").assertIsNotEnabled()
-        composeRule.onNodeWithText("All 248").getUnclippedBoundsInRoot() shouldBe allBefore
+        // The trigger stays, stilled while books are picked: filtering mid-selection would change what is being picked.
+        composeRule.onNodeWithContentDescription(SORT).assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot() shouldBe sortBefore
     }
-
-    private fun androidx.compose.ui.unit.DpRect.centerY(): Dp = (top + bottom) / 2
 
     private fun render(
         heldCount: Int,
@@ -254,6 +254,6 @@ class LibraryTabletHeaderTest {
         const val BOOK_TITLE = "Piranesi"
         const val COUNT_LINE = "248 books · 41 days of listening"
         const val PILL = "Inbox, 3 books waiting for review"
-        const val SORT = "Sort: Title, A–Z"
+        const val SORT = "Filter and sort: All, Title, A–Z"
     }
 }

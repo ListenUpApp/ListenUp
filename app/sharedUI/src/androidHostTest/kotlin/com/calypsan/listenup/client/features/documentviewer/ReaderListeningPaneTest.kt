@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,6 +29,13 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import io.kotest.matchers.floats.plusOrMinus
+import com.calypsan.listenup.client.features.nowplaying.centreXPx
+import com.calypsan.listenup.client.features.nowplaying.lineCentresPx
+import com.calypsan.listenup.client.features.nowplaying.components.PLAYER_COVER_TAG
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,6 +67,26 @@ class ReaderListeningPaneTest {
         val pane = composeRule.onNodeWithTag(READER_LISTENING_PANE_TAG).getUnclippedBoundsInRoot()
         pages.right shouldBeLessThanOrEqualTo pane.left
         pane.right - pane.left shouldBe 360.dp
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `under the pane's scrubber only the chapter's times - no book sentence`() {
+        setContent({ Fold.None })
+        composeRule.onAllNodesWithText("% · ", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `the pane's title and chapter sit on its cover's axis`() {
+        setContent({ Fold.None })
+        val axis = composeRule.onNodeWithTag(PLAYER_COVER_TAG, useUnmergedTree = true).centreXPx()
+        val words = { text: String -> hasText(text) and !hasAnyAncestor(hasTestTag(PLAYER_COVER_TAG)) }
+        listOf("The Way of Kings", "Bridge Four").forEach { text ->
+            composeRule.onNode(words(text), useUnmergedTree = true).lineCentresPx().forEach { centre ->
+                centre shouldBe (axis plusOrMinus composeRule.density.density)
+            }
+        }
     }
 
     @Test

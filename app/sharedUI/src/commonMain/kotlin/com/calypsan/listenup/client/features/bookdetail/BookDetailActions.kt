@@ -43,8 +43,6 @@ data class BookDetailActions(
     val onCollectionClick: ((collectionId: String) -> Unit)? = null,
     /** Plays this book from a chapter's start, in book milliseconds: a seek when it is loaded, a prepare otherwise. */
     val onPlayFromChapter: (startMs: Long) -> Unit = {},
-    /** Opens another book: a cover on the series shelf. */
-    val onBookClick: (bookId: String) -> Unit = {},
     /** Opens the Files & audio sheet: the Details row, and the scan warning's Review. */
     val onOpenFilesAndAudio: () -> Unit = {},
     /** Opens the Maps & illustrations list, when the book has more than one document. */

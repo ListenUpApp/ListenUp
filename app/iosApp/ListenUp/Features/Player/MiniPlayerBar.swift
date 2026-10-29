@@ -218,8 +218,13 @@ struct MiniPlayerAccessoryContent: View {
 }
 
 /// The accessory's one main button, shared with the reader's strip: the coral glyph (HIG, Playing audio: no fill), a
-/// `ProgressView` while busy, a labelled capsule for a way out (or Keep Listening, Listen Again), or ✕.
+/// `ProgressView` in the glyph's coral while busy, a labelled capsule for a way out (or Keep Listening, Listen Again), or ✕.
 struct MiniPlayerPrimaryButton: View {
+    /// Play and pause's coral (HIG, Playing audio: the glyph in the tint, no fill).
+    static let glyphTint = Color.listenUpOrange
+    /// Buffering keeps the control's look: the spinner in the glyph's own colour (Simon, 2026-10-27).
+    static let busyTint = glyphTint
+
     let model: MiniPlayerAccessoryModel
     let action: () -> Void
 
@@ -249,14 +254,14 @@ struct MiniPlayerPrimaryButton: View {
         case .play, .pause:
             Image(systemName: model.primary == .pause ? "pause.fill" : "play.fill")
                 .font(.title3)
-                .foregroundStyle(Color.listenUpOrange)
+                .foregroundStyle(Self.glyphTint)
                 .contentTransition(.symbolEffect(.replace.downUp))
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         case .busy:
             ProgressView()
                 .controlSize(.small)
-                .tint(Color.secondary)
+                .tint(Self.busyTint)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         case .close:

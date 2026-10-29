@@ -387,7 +387,6 @@ private fun DetailScreen(
                 onTagClick = { tagId, tagName -> navigateTo(DetailDestination.Tag(tagId, tagName)) },
                 onMoodClick = { moodId, moodName -> navigateTo(DetailDestination.Mood(moodId, moodName)) },
                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
-                onBookClick = { navigateTo(DetailDestination.Book(it)) },
             )
         }
 

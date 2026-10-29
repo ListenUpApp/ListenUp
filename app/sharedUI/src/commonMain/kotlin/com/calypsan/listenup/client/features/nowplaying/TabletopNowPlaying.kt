@@ -22,7 +22,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCard
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTitleBlock
@@ -30,7 +29,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubbe
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSettingsRow
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
@@ -164,7 +162,6 @@ internal fun TabletopNowPlaying(
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = controlsWidth,
-                center = { BookSentence(progress) },
             )
             if (card != null) {
                 PlayerStateCard(card = card, onAction = onCardAction, onRate = onRate, modifier = controlsWidth)
@@ -183,7 +180,6 @@ internal fun TabletopNowPlaying(
             PlayerSettingsRow(
                 speed = state.settings.speed,
                 sleepTimer = state.sleepTimer,
-                castingTo = (state.source as? AudioSource.Casting)?.deviceName,
                 sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 showsChapters = true,
                 onSpeedClick = onSpeedClick,

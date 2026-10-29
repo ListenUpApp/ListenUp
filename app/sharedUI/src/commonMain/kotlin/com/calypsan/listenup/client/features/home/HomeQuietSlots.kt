@@ -228,7 +228,7 @@ private fun QuietButtons(
     }
 }
 
-/** The 56dp primary pill Resume uses (spec §2.4). */
+/** The 56dp primary pill (spec §2.4). */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PrimaryButton(

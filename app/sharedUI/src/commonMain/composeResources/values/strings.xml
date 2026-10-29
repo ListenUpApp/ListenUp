@@ -644,13 +644,7 @@ One beautiful library.</string>
     <string name="book_detail_scan_review">Review</string>
     <string name="book_detail_see_all_readers">See all %1$d readers</string>
     <string name="book_detail_see_all_readers_ios">See All %1$d Readers</string>
-    <string name="book_detail_series_cover_a11y">Book %1$s</string>
-    <string name="book_detail_series_cover_this_a11y">Book %1$s, this book</string>
-    <string name="book_detail_series_heading">Series · %1$s</string>
-    <string name="book_detail_series_next">Next: book %1$s</string>
     <string name="book_detail_series_pill_a11y">Series, %1$s</string>
-    <string name="book_detail_series_position">Book %1$s of %2$d</string>
-    <string name="book_detail_series_start_here">Book %1$s of %2$d · start here</string>
     <string name="book_detail_social_finished_many">%1$s, %2$s and %3$d others finished it</string>
     <string name="book_detail_social_finished_many_one">%1$s, %2$s and 1 other finished it</string>
     <string name="book_detail_social_finished_one">%1$s finished it</string>
@@ -1438,8 +1432,6 @@ One beautiful library.</string>
     <string name="home_also_finished_one_more">%1$s and %2$d more finished it too</string>
     <string name="home_also_finished_two">%1$s and %2$s finished it too</string>
     <string name="home_also_finished_two_more">%1$s, %2$s and %3$d more finished it too</string>
-    <string name="home_also_in_progress">Also in progress</string>
-    <string name="home_also_in_progress_ios">Also in Progress</string>
     <string name="home_arriving_body">Your place in each book is already here; covers and titles are arriving.</string>
     <string name="home_arriving_count">%1$s of %2$s books</string>
     <string name="home_arriving_title">%1$s · %2$s</string>
@@ -1456,6 +1448,8 @@ One beautiful library.</string>
     <string name="home_couldnt_load_stats">Couldn't load your stats.</string>
     <string name="home_date_range">%1$s – %2$s</string>
     <string name="home_dismiss_everywhere_a11y">Dismiss on all your devices</string>
+    <string name="home_everything_in_progress">Everything in progress</string>
+    <string name="home_everything_in_progress_ios">Everything in Progress</string>
     <string name="home_finished_days_ago">Finished %1$d days ago</string>
     <string name="home_finished_days_ago_ios">Finished %1$d Days Ago</string>
     <string name="home_finished_line_no_range">%1$s · %2$s</string>
@@ -1496,8 +1490,6 @@ One beautiful library.</string>
     <string name="home_play_next_book_a11y_ios">Play Next Book: %1$s</string>
     <string name="home_play_next_book_ios">Play Next Book</string>
     <string name="home_private_shelf">Private shelf</string>
-    <string name="home_progress_of_length">%1$s of %2$s</string>
-    <string name="home_resume_unavailable_offline">Can't reach your server. This book isn't downloaded, so it can't play right now.</string>
     <string name="home_see_all_ios">See All</string>
     <string name="home_see_all_shelves_a11y">See all shelves</string>
     <string name="home_series_book_length">%1$s, Book %2$s · %3$s</string>
@@ -1511,8 +1503,6 @@ One beautiful library.</string>
     <string name="home_streak_chip">%1$d-day streak</string>
     <string name="home_today">Today</string>
     <string name="home_top_genres">Top genres</string>
-    <string name="home_up_next">Up next · %1$s</string>
-    <string name="home_up_next_ios">Up Next · %1$s</string>
     <string name="home_up_next_loading_a11y">Up next, loading</string>
     <string name="home_welcome">Welcome</string>
     <string name="home_welcome_body">Start one and it lives here, ready to pick up where you left off.</string>
@@ -1681,6 +1671,8 @@ One beautiful library.</string>
     <string name="library_empty_title">Your library is empty</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_filter_and_sort">Filter and sort</string>
+    <string name="library_filter_sort_trigger">%1$s · %2$s, %3$s</string>
+    <string name="library_filter_sort_trigger_a11y">Filter and sort: %1$s, %2$s, %3$s</string>
     <string name="library_filtered_empty_finished">No finished books yet.</string>
     <string name="library_filtered_empty_in_progress">Nothing in progress right now.</string>
     <string name="library_filtered_empty_not_started">You've started every book.</string>
@@ -1728,8 +1720,9 @@ One beautiful library.</string>
     <string name="library_sort_author">Author</string>
     <string name="library_sort_book_count">Number of books</string>
     <string name="library_sort_book_count_ios">Number of Books</string>
-    <string name="library_sort_by">Sort By</string>
+    <string name="library_sort_by">Sort by</string>
     <string name="library_sort_by_a11y">Sort by %1$s</string>
+    <string name="library_sort_by_ios">Sort By</string>
     <string name="library_sort_duration">Length</string>
     <string name="library_sort_listener_rating">Your listeners' rating</string>
     <string name="library_sort_listener_rating_ios">Your Listeners' Rating</string>
@@ -1743,7 +1736,6 @@ One beautiful library.</string>
     <string name="library_sort_year">Year published</string>
     <string name="library_sort_year_ios">Year Published</string>
     <string name="library_status_all">All</string>
-    <string name="library_status_chip">%1$s %2$d</string>
     <string name="library_status_filters_label">Show</string>
     <string name="library_status_finished">Finished</string>
     <string name="library_status_in_progress">In progress</string>
@@ -2147,7 +2139,9 @@ One beautiful library.</string>
     <string name="player_expand">Expand</string>
     <string name="player_extend_minutes">+%1$d min</string>
     <string name="player_go_to_author">Go to author</string>
+    <string name="player_go_to_author_ios">Go to Author</string>
     <string name="player_go_to_author_multiple">Go to author…</string>
+    <string name="player_go_to_author_multiple_ios">Go to Author…</string>
     <string name="player_go_to_book">Go to book</string>
     <string name="player_go_to_narrator">Go to narrator</string>
     <string name="player_go_to_narrator_multiple">Go to narrator…</string>
@@ -2190,7 +2184,6 @@ One beautiful library.</string>
     <string name="player_now_playing">Now playing</string>
     <string name="player_np_back_to_current">Back to current chapter</string>
     <string name="player_np_back_to_current_ios">Back to Current Chapter</string>
-    <string name="player_np_book_sentence">Book %1$d% · %2$s left</string>
     <string name="player_np_by">by</string>
     <string name="player_np_byline_fold">%1$s &amp; %2$d more</string>
     <string name="player_np_close_book_ios">Close Book</string>
@@ -2205,13 +2198,10 @@ One beautiful library.</string>
     <string name="player_np_series_book">%1$s · Book %2$s</string>
     <string name="player_np_sign_in">Sign in</string>
     <string name="player_np_sign_in_ios">Sign In</string>
-    <string name="player_np_status_downloaded">Downloaded</string>
-    <string name="player_np_status_downloaded_offline">Downloaded · offline</string>
     <string name="player_np_status_not_playable">Not playable</string>
     <string name="player_np_status_offline">Offline</string>
     <string name="player_np_status_playing_on">Playing on %1$s</string>
     <string name="player_np_status_server_unreachable">Can't reach your server</string>
-    <string name="player_np_status_streaming">Streaming</string>
     <string name="player_np_status_streaming_transcoded">Streaming · transcoded</string>
     <string name="player_np_volume_boost_row">Volume boost · %1$s</string>
     <string name="player_np_volume_boost_row_ios">Volume Boost · %1$s</string>

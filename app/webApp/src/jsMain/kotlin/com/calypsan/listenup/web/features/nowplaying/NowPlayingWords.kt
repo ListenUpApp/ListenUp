@@ -1,13 +1,10 @@
 package com.calypsan.listenup.web.features.nowplaying
 
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.presentation.player.AudioSource
+import com.calypsan.listenup.client.presentation.player.SourceStatus
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
-import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * The Now Playing page's words. Web keeps no string catalog; these are the sentences `en.json` gives the native
@@ -18,6 +15,8 @@ internal object NowPlayingWords {
     const val NOW_PLAYING = "Now playing"
     const val BY = "by"
     const val READ_BY = "Read by"
+    const val NARRATED_BY = "Narrated by"
+    const val GO_TO_AUTHOR = "Go to author"
     const val PREVIOUS_HINT = "Goes to the start of this chapter first."
     const val PLACE_SAVED = "Your place is saved."
     const val HOW_WAS_IT = "How was it?"
@@ -38,22 +37,17 @@ internal object NowPlayingWords {
         key: String,
     ): String = "$label ($key)"
 
-    /** The status slot (§3.1), with the browser's wording for an unreachable server. */
-    fun status(source: AudioSource): String =
-        when (source) {
-            AudioSource.Downloaded -> "Downloaded"
-            AudioSource.DownloadedOffline -> "Downloaded · offline"
-            AudioSource.Streaming -> "Streaming"
-            AudioSource.StreamingTranscoded -> "Streaming · transcoded"
-            AudioSource.Offline -> "Offline"
-            AudioSource.ServerUnreachable -> "Can't reach your server"
-            is AudioSource.Casting -> "Playing on ${source.deviceName}"
-            AudioSource.NotPlayable -> "Not playable"
+    /** The status slot's news (§3.1), with the browser's wording for an unreachable server. */
+    fun status(status: SourceStatus): String =
+        when (status) {
+            SourceStatus.Offline -> "Offline"
+            SourceStatus.ServerUnreachable -> "Can't reach your server"
+            SourceStatus.StreamingTranscoded -> "Streaming · transcoded"
+            SourceStatus.NotPlayable -> "Not playable"
         }
 
-    /** "Book 11% · 40h 31m left": the shared floored percent and the content time left in the book (§3.2). */
-    fun bookSentence(progress: PlayerProgress): String =
-        "Book ${progress.bookPercent}% · ${DurationFormatter.hoursMinutes(progress.bookRemainingMs.milliseconds)} left"
+    /** The chapter's own title, or "Chapter 6 of 75" when it has none: the phone's chapter line and the sleep picker's. */
+    fun chapterTitle(chapter: PlayerChapter): String = chapter.title.ifBlank { counter(chapter.number, chapter.total) }
 
     /** "Chapter 6 of 75". */
     fun counter(

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
-import com.calypsan.listenup.client.design.theme.primaryInk
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,11 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import listenup.composeapp.generated.resources.book_detail_narrated_by
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,10 +53,24 @@ internal val PlayerCoverSide = 324.dp
 /** More names than this fold to the lead and a count (P8, P9). */
 private const val BYLINE_FOLD_LIMIT = 3
 
+/** The gap between the phone block's lines. */
+private val PhoneLineGap = 6.dp
+
+/** The mic before "Narrated by". */
+private val NarratorIconSize = 18.dp
+
+/** Test tag on the phone's cover. */
+internal const val PLAYER_COVER_TAG = "player_cover"
+
+/** Test tag on the phone block's narrator line. */
+internal const val NARRATOR_LINE_TAG = "player_narrator_line"
+
+/** Test tag on the narrator line's mic, so a test can measure the whole line. */
+internal const val NARRATOR_ICON_TAG = "player_narrator_icon"
+
 /**
- * Now Playing's book (spec §3.1.1, P4–P9): the flat square cover, the "Chapter 6 of 75" counter, the chapter's own
- * title, the book title, and both bylines with every name a link. The book sentence is not here: it sits between the
- * scrubber's times, a progress leaf.
+ * Now Playing's book on a phone: the flat square cover, then the bold title, the chapter's own title, and the mic
+ * with "Narrated by …", every name a link, all centred on the cover.
  */
 @Composable
 fun PlayerBookBlock(
@@ -64,7 +82,7 @@ fun PlayerBookBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        PlayerCover(state = state, side = coverSide)
+        PlayerCover(state = state, side = coverSide, modifier = Modifier.testTag(PLAYER_COVER_TAG))
         Spacer(Modifier.height(Spacing.xl))
         PlayerTitleBlock(
             state = state,
@@ -102,7 +120,7 @@ internal fun PlayerCover(
 
 /** The order [PlayerTitleBlock] sets the book in. */
 internal enum class TitleArrangement {
-    /** The phone's (§3.1.1): counter · chapter title · book title · bylines. */
+    /** The phone's: title · chapter · narrators (centred on the cover). */
     Phone,
 
     /**
@@ -116,9 +134,10 @@ internal enum class TitleArrangement {
 private val WideChapterGap = 26.dp
 
 /**
- * The counter (in `primary`, only beside a real chapter title: C6), the chapter line, the title at `titleLarge`
- * Medium and the two bylines. [alignment] centres it on a phone and starts it in the wide layout's column; a phone on
- * its side drops the counter and the bylines ([showsCounter], [showsBylines]) so the transport still fits.
+ * The phone's three lines (Simon, 2026-10-27, the block before `b051a06a9`): the bold title, the chapter's own title,
+ * and the mic with "Narrated by …". [alignment] centres it on the cover (the phone, tabletop and the PDF pane) and
+ * starts it in the short wide column; tabletop, the PDF pane and a phone on its side drop the narrator line
+ * ([showsBylines]) so the transport still fits. The authors are in More (Go to author), not here.
  *
  * [TitleArrangement.Wide] is the tablet column's order (P10): the first series as a link above a `headlineMedium` title
  * ("The Stormlight Archive · Book 1", which [onSeries] follows), the bylines, then the counter over the chapter title.
@@ -133,7 +152,6 @@ internal fun PlayerTitleBlock(
     modifier: Modifier = Modifier,
     titleLines: Int = 2,
     showsBylines: Boolean = true,
-    showsCounter: Boolean = true,
     arrangement: TitleArrangement = TitleArrangement.Phone,
     onSeries: (String) -> Unit = {},
 ) {
@@ -149,49 +167,77 @@ internal fun PlayerTitleBlock(
         )
         return
     }
-    val textAlign = if (alignment == Alignment.CenterHorizontally) TextAlign.Center else TextAlign.Start
+    val centred = alignment == Alignment.CenterHorizontally
+    val textAlign = if (centred) TextAlign.Center else TextAlign.Start
+    // A centred line spans the block, so TextAlign.Center puts the words themselves on the cover's axis.
+    val lineWidth = if (centred) Modifier.fillMaxWidth() else Modifier
     Column(modifier = modifier, horizontalAlignment = alignment) {
-        state.chapterCounter()?.takeIf { showsCounter }?.let { counter ->
-            Text(
-                text = counter,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primaryInk,
-                textAlign = textAlign,
-            )
-        }
-        Text(
-            text = state.chapterTitleLine(),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = textAlign,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(Spacing.xs))
         Text(
             text = state.book.title,
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = textAlign,
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
+            modifier = lineWidth,
         )
-        if (showsBylines) {
-            val bylineArrangement =
-                if (alignment == Alignment.CenterHorizontally) {
-                    Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally)
-                } else {
-                    Arrangement.Start
-                }
-            Bylines(
-                state = state,
+        Spacer(Modifier.height(PhoneLineGap))
+        Text(
+            text = state.chapterTitleLine(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = textAlign,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = lineWidth,
+        )
+        if (showsBylines && state.book.narrators.isNotEmpty()) {
+            Spacer(Modifier.height(PhoneLineGap))
+            NarratedBy(
+                narrators = state.book.narrators,
                 onContributor = onContributor,
-                onShowAuthors = onShowAuthors,
                 onShowNarrators = onShowNarrators,
-                arrangement = bylineArrangement,
+                arrangement =
+                    if (centred) {
+                        Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally)
+                    } else {
+                        Arrangement.Start
+                    },
             )
         }
     }
+}
+
+/** The mic, "Narrated by", and every narrator a link; more than three fold to the narrator picker. */
+@Composable
+private fun NarratedBy(
+    narrators: List<PlayerContributor>,
+    onContributor: (String) -> Unit,
+    onShowNarrators: () -> Unit,
+    arrangement: Arrangement.Horizontal,
+) {
+    val ink = MaterialTheme.colorScheme.onSurfaceVariant
+    ClickableContributorLine(
+        contributors = narrators.asBookContributors(),
+        onContributorClick = onContributor,
+        style = MaterialTheme.typography.bodyMedium,
+        nameColor = ink,
+        separatorColor = ink,
+        modifier = Modifier.fillMaxWidth().testTag(NARRATOR_LINE_TAG),
+        horizontalArrangement = arrangement,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.RecordVoiceOver,
+                contentDescription = null,
+                tint = ink,
+                modifier = Modifier.size(NarratorIconSize).testTag(NARRATOR_ICON_TAG),
+            )
+        },
+        prefix = "${stringResource(Res.string.book_detail_narrated_by)} ",
+        foldLimit = BYLINE_FOLD_LIMIT,
+        overflowTextRes = Res.string.player_np_byline_fold,
+        onOverflowClick = onShowNarrators,
+    )
 }
 
 /** The wide column's book: series link · title · bylines · counter over the chapter title (`NP-AndroidTablet`). */

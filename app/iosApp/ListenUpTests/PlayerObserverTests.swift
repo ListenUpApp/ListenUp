@@ -158,7 +158,7 @@ struct PlayerObserverTests {
         #expect(isTinted)
     }
 
-    @Test("the status words, the counter rule and the book percent")
+    @Test("the status speaks only with news, and the counter rule")
     func nowPlayingFacts() {
         let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
             phase: PlayerPhasePlaying.shared, currentIndex: 5, source: AudioSourceStreamingTranscoded.shared))
@@ -167,16 +167,26 @@ struct PlayerObserverTests {
         #expect(snapshot.showsChapterCounter)
         #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(isGenericTitle: true)).showsChapterCounter)
         #expect(!PlayerSnapshot.from(PlayerUiStateLoaded.fixture(wholeBook: true)).showsChapterCounter)
-        #expect(PlayerProgressRow(PlayerProgress(
-            chapterPositionMs: 0, chapterDurationMs: 0, bookPositionMs: 18_000_000, bookDurationMs: 163_800_000
-        )).bookPercent == 10)
     }
 
-    @Test("casting reads Playing on the device, in the tint")
+    @Test("Downloaded, Streaming and downloaded-offline have no status; Offline says Offline")
+    func quietSources() {
+        let quiet: [any AudioSource] = [
+            AudioSourceDownloaded.shared, AudioSourceStreaming.shared, AudioSourceDownloadedOffline.shared
+        ]
+        for source in quiet {
+            #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture(source: source)).statusText == nil)
+        }
+        #expect(
+            PlayerSnapshot.from(PlayerUiStateLoaded.fixture(source: AudioSourceOffline.shared)).statusText
+                == String(localized: "player.np_status_offline"))
+    }
+
+    @Test("casting leaves the status empty and names the device for AirPlay")
     func casting() {
         let snapshot = PlayerSnapshot.from(PlayerUiStateLoaded.fixture(
             phase: PlayerPhasePlaying.shared, source: AudioSourceCasting(deviceName: "Living Room")))
-        #expect(snapshot.statusText == String(format: String(localized: "player.np_status_playing_on"), "Living Room"))
+        #expect(snapshot.statusText == nil)
         #expect(snapshot.isCasting)
         #expect(snapshot.castDeviceName == "Living Room")
         #expect(PlayerSnapshot.from(PlayerUiStateLoaded.fixture()).castDeviceName == nil)
@@ -231,7 +241,9 @@ extension PlayerUiStateLoaded {
         chapterDurationMs: Int64 = 60_000,
         speed: Float = 1.5,
         defaultSpeed: Float = 1.0,
-        numberOffset: Int = 0
+        numberOffset: Int = 0,
+        title: String = "The Way of Kings",
+        authors: [PlayerContributor] = [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)]
     ) -> PlayerUiStateLoaded {
         let total = wholeBook ? 1 : chapterCount
         let bookMs = Int64(chapterCount) * chapterDurationMs
@@ -243,8 +255,8 @@ extension PlayerUiStateLoaded {
         }
         return PlayerUiStateLoaded(
             book: PlayerBook(
-                id: "book-1", title: "The Way of Kings",
-                authors: [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)],
+                id: "book-1", title: title,
+                authors: authors,
                 narrators: narrators,
                 coverPath: nil, coverHash: nil,
                 series: [PlayerSeriesRef(id: "series-1", name: "The Stormlight Archive", sequenceLabel: "1")],

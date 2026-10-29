@@ -97,7 +97,8 @@ struct HomeReady: Equatable {
     let timeOfDay: HomeTimeOfDay
     let firstName: String?
     let slot: HomeSlotItem
-    let alsoInProgress: [ContinueItem]
+    /// Every book in progress, the loaded one first (the shared rule): Everything in Progress.
+    let everythingInProgress: [ContinueItem]
     let connectivity: HomeConnectivityState
     /// The Continue Listening failure's message while the rest of Home loaded, or nil.
     let continueListeningError: String?
@@ -116,7 +117,9 @@ struct HomeReady: Equatable {
         self.firstName = ready.firstName
         self.slot = HomeSlotItem(from: ready.slot)
         let connectivity = ready.connectivity
-        self.alsoInProgress = ready.alsoInProgress.map { ContinueItem(from: $0, connectivity: connectivity) }
+        self.everythingInProgress = ready.everythingInProgress.map {
+            ContinueItem(from: $0, connectivity: connectivity)
+        }
         self.connectivity = HomeConnectivityState(kmp: ready.connectivity)
         self.continueListeningError = ready.continueListeningError?.message
     }
@@ -263,7 +266,6 @@ struct ShelfItem: Identifiable, Equatable {
 enum HomeSlotItem: Equatable {
     case absent
     case firstSync
-    case resume(ResumeSlot)
     case justFinished(FinishedSlot)
     case nothingInProgress(NextBookItem?)
     case newListener(covers: [DiscoverShelfCover])
@@ -274,8 +276,6 @@ enum HomeSlotItem: Equatable {
             self = .absent
         case .firstSync:
             self = .firstSync
-        case .resume(let resumeType):
-            self = .resume(ResumeSlot(from: resumeType.value))
         case .justFinished(let finishedType):
             self = .justFinished(FinishedSlot(from: finishedType.value.card))
         case .nothingInProgress(let nothingType):
@@ -283,23 +283,6 @@ enum HomeSlotItem: Equatable {
         case .newListener(let newType):
             self = .newListener(covers: newType.value.covers.map(DiscoverShelfCover.init(from:)))
         }
-    }
-}
-
-/// The Resume slot: the book, its chapter, the next book, and whether it can play right now.
-struct ResumeSlot: Equatable {
-    let book: ContinueItem
-    let next: NextBookItem?
-    let chapterNumber: Int?
-    let chapterTitle: String?
-    let canPlay: Bool
-
-    init(from resume: HomeSlotResume) {
-        self.book = ContinueItem(book: resume.book)
-        self.next = resume.next.map(NextBookItem.init(from:))
-        self.chapterNumber = resume.chapter.map { Int($0.number) }
-        self.chapterTitle = resume.chapter?.title
-        self.canPlay = resume.canPlay
     }
 }
 
@@ -335,7 +318,7 @@ struct FinishedSlot: Equatable {
     }
 }
 
-/// The next book in a series — Resume's "Next in the series", the card's Play next book, NothingInProgress's candidate.
+/// The next book in a series — the card's Play next book, NothingInProgress's candidate.
 struct NextBookItem: Equatable {
     let id: String
     let title: String

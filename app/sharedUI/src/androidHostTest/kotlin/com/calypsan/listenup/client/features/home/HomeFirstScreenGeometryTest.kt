@@ -35,7 +35,7 @@ class HomeFirstScreenGeometryTest {
         composeRule.setContent {
             MaterialTheme {
                 HomeBody(
-                    state = homeReady(slot = HomeSlot.Absent, alsoInProgress = (1..3).map { readyItem("b$it") }),
+                    state = homeReady(slot = HomeSlot.Absent, everythingInProgress = (1..3).map { readyItem("b$it") }),
                     stats = weekWithStreak(),
                     width = HomeWidth.Compact,
                     actions = HomeActions.None,

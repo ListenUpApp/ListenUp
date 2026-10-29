@@ -547,14 +547,6 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-more { align-self:flex-start; min-height:44px; padding:0; background:none; border:0; font:inherit; font-size:0.875rem; font-weight:700; color:var(--coral-text); cursor:pointer; border-radius:var(--r-xs); }
 .bd-more:focus { outline:none; }
 .bd-more:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-/* The series as square covers in sequence, this book outlined (spec §3.2.2). */
-.bd-series-row { display:flex; gap:var(--sp-12); overflow-x:auto; padding:4px; }
-.bd-series-cover { flex:none; display:block; border-radius:var(--r-md); }
-.bd-series-cover.is-this { outline:2px solid var(--coral-fill); outline-offset:2px; }
-.bd-series-cover:focus { outline:none; }
-.bd-series-cover:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
-.bd-series-caption { margin:var(--sp-8) 0 0; font-size:0.875rem; font-weight:600; color:var(--ink-2); }
-.bd-series-open { font-size:0.875rem; font-weight:600; color:var(--coral-text); }
 /* The chapter map and the files: Book Detail's own sub-pages, the same column rhythm as the page. */
 .bd-map, .bd-files { gap:var(--gap); }
 /* A document row's open/download link: a small secondary ButtonLink, its glyph tucked close. */

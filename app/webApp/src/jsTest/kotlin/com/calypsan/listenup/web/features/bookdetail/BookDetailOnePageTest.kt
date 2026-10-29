@@ -48,12 +48,10 @@ class BookDetailOnePageTest :
             frame.rect(frame.find("#bd-chapters")).top shouldBeLessThan frame.rect(frame.find(".bd-desc")).top
         }
 
-        test("not started on a phone leads with About, and the shelf says start here") {
+        test("not started on a phone leads with About") {
             val frame = page(PHONE, ReadingStage.NotStarted)
             awaitPresent(frame.host, ".bd-flow")
             frame.rect(frame.find(".bd-desc")).top shouldBeLessThan frame.rect(frame.find("#bd-chapters")).top
-            frame.find(".bd-series-caption").textContent shouldBe "Book 1 of 2 · start here"
-            frame.find(".bd-series-cover.is-this").getAttribute("aria-label") shouldBe "Book 1, this book"
         }
 
         test("a desktop splits the order into two columns: Chapters in the main, Readers in the side") {

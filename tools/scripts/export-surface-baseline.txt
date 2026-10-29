@@ -461,7 +461,6 @@ HardcoverSyncStatus
 HardcoverSyncStatus_SealedType
 HardcoverTokenSave
 HardcoverTokenSave_SealedType
-HeroChapter
 HiddenFrom
 HiddenFromNames
 HiddenFromSummary
@@ -899,8 +898,6 @@ SeriesResumeUi
 SeriesSearchResponse
 SeriesSearchResult
 SeriesSectionKind
-SeriesShelf
-SeriesShelfBook
 SeriesUpdate
 SeriesUpdateRequest
 SeriesWithBooks
@@ -972,6 +969,8 @@ SocialError_SealedType
 SortCategory
 SortDirection
 SortState
+SourceStatus
+SourceStatus_SealedType
 StatsRepository
 StoragePaths
 StorageSpaceProvider

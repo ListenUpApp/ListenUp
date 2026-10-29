@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import ListenUp
 
-/// The words Home's cards and hero say (spec §2.3, §2.5, §8.2), as pure functions.
+/// The words Home's cards and stats say (spec §2.5, §2.6, §8.2), as pure functions.
 @Suite("Home text")
 struct HomeTextTests {
     @Test func aCardIsOneLabelWithAuthorPercentAndTimeLeft() {
@@ -23,25 +23,6 @@ struct HomeTextTests {
         let label = HomeCardText.label(title: "Babel", author: "", narrators: nil, percent: 11, remainingMs: 67_200_000)
         #expect(!label.contains("by ,"))
         #expect(label.hasPrefix("Babel, 11 percent"))
-    }
-
-    @Test func theEyebrowSaysWhenYouLastListened() {
-        let now = Date(timeIntervalSince1970: 1_760_000_000)
-        let eyebrow = ResumeHeroText.eyebrow(lastPlayedAt: now.addingTimeInterval(-7_200), now: now)
-        // The system phrases the time ("2h ago" on iOS 27), so pin the composition, not its words.
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        let when = formatter.localizedString(for: now.addingTimeInterval(-7_200), relativeTo: now)
-        #expect(eyebrow == "Up Next · \(when)")
-    }
-
-    @Test func theChapterLineIsBookDetails() {
-        #expect(ResumeHeroText.chapter(number: 6, title: "Bridge Four") == "Ch. 6 · Bridge Four")
-        #expect(ResumeHeroText.chapter(number: nil, title: nil) == nil)
-    }
-
-    @Test func percentOfLength() {
-        #expect(ResumeHeroText.progressOfLength(percent: 11, totalMs: 163_800_000) == "11% of 45 hr, 30 min")
     }
 
     @Test func theStreakChipAndTheBestStreakReadInTheCatalogsWords() {

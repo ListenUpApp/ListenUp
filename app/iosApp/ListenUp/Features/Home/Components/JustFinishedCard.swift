@@ -118,7 +118,7 @@ struct JustFinishedCard: View {
     }
 }
 
-/// "Next in the Series": the book after this one, as a quiet row that opens it. Shared by the Resume and finish cards.
+/// "Next in the Series": the book after this one, as a quiet row that opens it.
 struct NextBookRow: View {
     let next: NextBookItem
 

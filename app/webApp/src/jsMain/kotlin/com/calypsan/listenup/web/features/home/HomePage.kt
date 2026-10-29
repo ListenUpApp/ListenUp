@@ -23,7 +23,7 @@ import kotlin.time.Clock
  * shelves and whether the library is still arriving; [stats] carries the last 7 days' listening. They load and fail
  * separately on purpose (see [HomeSession]), so a slow stats query never holds back the rest.
  *
- * The loaded book is never drawn here — the player bar has it (spec §2.1). With nothing loaded, Resume leads.
+ * Every book in progress is in Everything in progress, the loaded one first; there is no Resume hero (Simon, 2026-10-27).
  * [homeBlocks] decides the sections and their order from the slot and [isWide]; the page draws them in that order.
  *
  * Pure, like every other page here: no routing decisions, no session lifetime. Every gesture leaves through
@@ -46,7 +46,7 @@ fun HomePage(
                 // how a healthy first run ends up reading like a failure. The greeting's place is
                 // held by a skeleton, under an H1 that still names the page.
                 PageHeader(title = HomeWords.HOME, documentTitle = null, display = true, pending = true)
-                ResumeSkeleton(withResume = false)
+                SlotSkeleton()
                 RailSkeleton()
             }
 
@@ -77,7 +77,7 @@ fun HomePage(
                         isOffline = state.isOffline,
                         continueListeningFailed = state.continueListeningError != null,
                         showsStrip = state.showsArrivalStrip,
-                        hasAlsoInProgress = state.alsoInProgress.isNotEmpty(),
+                        hasEverythingInProgress = state.everythingInProgress.isNotEmpty(),
                         isWide = isWide,
                     )
                 blocks.forEach { block ->
@@ -127,7 +127,7 @@ private fun HomeBlockContent(
             }
         }
 
-        HomeBlock.Resume, HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
+        HomeBlock.Finished, HomeBlock.NothingInProgress, HomeBlock.Welcome, HomeBlock.FirstSync -> {
             SlotContent(state, actions, nowMs)
         }
 
@@ -143,8 +143,8 @@ private fun HomeBlockContent(
             ContinueListeningFailedLine(onRetry = actions.onRetry)
         }
 
-        HomeBlock.AlsoInProgress -> {
-            AlsoInProgress(state.alsoInProgress, isWide, actions, selection)
+        HomeBlock.EverythingInProgress -> {
+            EverythingInProgress(state.everythingInProgress, isWide, actions, selection)
         }
 
         HomeBlock.Stats -> {
@@ -172,10 +172,6 @@ private fun SlotContent(
     nowMs: Long,
 ) {
     when (val slot = state.slot) {
-        is HomeSlot.Resume -> {
-            ResumeHero(slot, state.alsoInProgress.isEmpty(), nowMs, actions.onOpenBook, actions.onPlay)
-        }
-
         is HomeSlot.JustFinished -> {
             HomeFinishedCard(slot.card, nowMs, actions)
         }
@@ -189,7 +185,7 @@ private fun SlotContent(
         }
 
         HomeSlot.FirstSync -> {
-            ResumeSkeleton(withResume = true)
+            SlotSkeleton()
         }
 
         HomeSlot.Absent -> {

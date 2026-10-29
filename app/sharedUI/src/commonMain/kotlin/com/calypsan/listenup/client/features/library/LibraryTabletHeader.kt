@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.components.LibraryInboxPill
 import com.calypsan.listenup.client.features.library.components.LibrarySectionGroup
-import com.calypsan.listenup.client.features.library.components.LibraryStatusChips
+import com.calypsan.listenup.client.features.library.components.LibraryStatusChoice
 import com.calypsan.listenup.client.features.library.components.SortTrigger
 import com.calypsan.listenup.client.features.library.components.libraryCountLine
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -27,8 +27,8 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
  * The Android tablet Library's two header bands (spec §3.1.3, board `Library-AndroidTablet`), at ≥ 840dp.
  *
  * - **Band 1:** the title over "248 books · 41 days of listening", the four sections, and the Inbox pill at the end.
- * - **Band 2 (Books only):** the status chips, scrolling sideways rather than wrapping, and the sort trigger at the
- *   end. While books are being picked both bands hold still: the chips and the pill are stilled in place.
+ * - **Band 2 (Books only):** Filter and sort at the end ("All · Title, A–Z"; the status lives in its menu). While
+ *   books are being picked both bands hold still: the trigger and the pill are stilled in place.
  *
  * The title is the one display moment (M3 Expressive, type: emphasis goes to one element); everything else is the
  * phone's own components, laid out wider.
@@ -93,17 +93,10 @@ internal fun LibraryTabletHeader(
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 10.dp, end = Spacing.screenMargin),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.End,
             ) {
-                // The chips stay while books are picked, stilled, so the band never empties to Sort alone and the grid
-                // below never moves: filtering mid-selection would change what is being picked.
-                LibraryStatusChips(
-                    selected = state.statusFilter,
-                    counts = state.statusCounts,
-                    onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
-                    enabled = !isInSelectionMode,
-                    modifier = Modifier.weight(1f),
-                )
+                // Filter and sort stays while books are picked, stilled, so the grid below never moves: filtering
+                // mid-selection would change what is being picked.
                 SortTrigger(
                     state = state.booksSortState,
                     categories = SortCategory.booksCategories,
@@ -112,6 +105,13 @@ internal fun LibraryTabletHeader(
                     onCategorySelected = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
                     onDirectionToggle = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
                     onToggleArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
+                    status =
+                        LibraryStatusChoice(
+                            selected = state.statusFilter,
+                            counts = state.statusCounts,
+                            onSelect = { onEvent(LibraryUiEvent.StatusFilterChanged(it)) },
+                        ),
+                    enabled = !isInSelectionMode,
                 )
             }
         }

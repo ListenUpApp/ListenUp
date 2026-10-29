@@ -12,6 +12,10 @@ enum PlayerMenuModel {
     enum Row: Hashable {
         case goToBook
         case goToSeries(String)
+        /// The book's only author.
+        case goToAuthor(String)
+        /// Several authors: a submenu of them (HIG, Menus: a submenu for a short list of related choices).
+        case chooseAuthor
         case openPdf
         case volumeBoost(Float)
         case closeBook
@@ -22,6 +26,8 @@ enum PlayerMenuModel {
             switch item.sealedType() {
             case .goToBook: self = .goToBook
             case .goToSeries(let series): self = .goToSeries(series.value.seriesId)
+            case .goToAuthor(let author): self = .goToAuthor(author.value.authorId)
+            case .chooseAuthor: self = .chooseAuthor
             case .openPdf: self = .openPdf
             case .volumeBoost(let boost): self = .volumeBoost(boost.value.boostDb)
             case .keyboardShortcuts: return nil
@@ -34,6 +40,8 @@ enum PlayerMenuModel {
             switch self {
             case .goToBook: String(localized: "player.np_go_to_book_ios")
             case .goToSeries: String(localized: "player.np_go_to_series_ios")
+            case .goToAuthor: String(localized: "player.go_to_author_ios")
+            case .chooseAuthor: String(localized: "player.go_to_author_multiple_ios")
             case .openPdf: String(localized: "player.open_pdf")
             case .volumeBoost(let db):
                 String(format: String(localized: "player.np_volume_boost_row_ios"), BoostPickerSheet.formatBoost(db))
@@ -45,6 +53,7 @@ enum PlayerMenuModel {
             switch self {
             case .goToBook: "book"
             case .goToSeries: "books.vertical"
+            case .goToAuthor, .chooseAuthor: "person"
             case .openPdf: "doc.richtext"
             case .volumeBoost: "speaker.wave.3"
             case .closeBook: "xmark"
@@ -52,11 +61,18 @@ enum PlayerMenuModel {
         }
     }
 
-    /// The More menu for `state`. Go to Series is in it unless the series is already a link on screen (`includesSeries`
-    /// false: iPad's wide player, where the series sits above the title; P10).
-    static func sections(for state: PlayerUiStateLoaded, includesSeries: Bool) -> [PlayerMenuSection] {
+    /// The More menu for `state`. Go to Series and Go to Author are in it unless the screen already shows them as links
+    /// (`includesSeries`/`includesAuthor` false: iPad's wide player, the series above the title and the authors on the
+    /// byline; P10).
+    static func sections(
+        for state: PlayerUiStateLoaded,
+        includesSeries: Bool,
+        includesAuthor: Bool
+    ) -> [PlayerMenuSection] {
         PlayerMenus.shared
-            .moreMenu(state: state, includesSeries: includesSeries, includesShortcuts: false)
+            .moreMenu(
+                state: state, includesSeries: includesSeries, includesAuthor: includesAuthor, includesShortcuts: false
+            )
             .map { group in
                 PlayerMenuSection(rows: group.items.compactMap(Row.init), isDestructive: group.isDestructive)
             }

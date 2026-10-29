@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.playback.SleepTimerState
 
 /** What the player surfaces render: one value for the mini player, Now Playing and the reader strip (spec §4.2). */
 sealed interface PlayerUiState {
-    /** Nothing is loaded: no mini player; Home shows its Resume hero. */
+    /** Nothing is loaded: no mini player. */
     data object NothingLoaded : PlayerUiState
 
     /** A book is loaded (§3.4). Never re-emitted on a position tick; ticks are [PlayerProgress]. */
@@ -34,6 +34,9 @@ sealed interface PlayerUiState {
          * already has.
          */
         val canSkipToPreviousChapter: Boolean get() = !chapter.isWholeBook
+
+        /** The status slot's news, or null to hide it. */
+        val status: SourceStatus? get() = sourceStatusOf(source)
     }
 }
 

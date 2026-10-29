@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -18,6 +19,8 @@ import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
 import androidx.compose.runtime.CompositionLocalProvider
+import io.kotest.assertions.withClue
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -25,11 +28,12 @@ import org.jetbrains.compose.web.dom.Div
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.asList
 
 /**
  * Now Playing below 760px (§5.2's web phone column, `NP-WebPhone`): the page is the whole screen and draws its own
- * transport — previous, back N, a 76px play, forward N, next — over the chapter's scrubber with the book sentence
- * between its times, and the settings as pills. Measured in a real 390×844 frame.
+ * transport — previous, back N, a 76px play, forward N, next — over the chapter's scrubber and its times, and the
+ * settings as pills. Measured in a real 390×844 frame.
  */
 class NowPlayingPagePhoneTest :
     FunSpec({
@@ -47,6 +51,54 @@ class NowPlayingPagePhoneTest :
                 }
             }
 
+        test("the phone shows the title, the chapter's own title and who narrates it, and no series or authors") {
+            val frame = phonePage(wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5))
+            frame.isShown(frame.find(".np-title")) shouldBe true
+            frame.find(".np-mob.np-ch-title").textContent shouldBe "Chapter 6"
+            val narrated = frame.find(".np-mob.np-narrated")
+            frame.isShown(narrated) shouldBe true
+            narrated.textContent.orEmpty() shouldStartWith "Narrated by"
+            narrated.querySelector("a")?.getAttribute("href") shouldBe "/contributor/n1"
+            listOf(".np-series", ".np-by", ".np-read-by").forEach { hidden ->
+                withClue(hidden) { frame.isShown(frame.find(hidden)) shouldBe false }
+            }
+            val title = frame.rect(frame.find(".np-title"))
+            val chapter = frame.rect(frame.find(".np-mob.np-ch-title"))
+            (title.bottom <= chapter.top && chapter.bottom <= frame.rect(narrated).top) shouldBe true
+        }
+
+        test("several authors: More's Go to author… opens a chooser of links, each to its person") {
+            val opened = mutableListOf<String>()
+            val two =
+                wayOfKings(
+                    authors =
+                        listOf(
+                            PlayerContributor("c1", "Brandon Sanderson", 14),
+                            PlayerContributor("c2", "Dan Wells", 6),
+                        ),
+                )
+            val frame = phonePage(two, actions = NowPlayingActions(onOpenContributor = { opened += it }))
+            awaitFrame()
+            frame.find(".np-more button[aria-haspopup=menu]").click()
+            awaitFrame()
+            val rows =
+                frame.host.ownerDocument!!
+                    .querySelectorAll(".menu-i")
+                    .asList()
+                    .map { it as HTMLElement }
+            withClue(rows.map { it.textContent }) { rows.any { it.textContent == "Go to author…" } shouldBe true }
+            rows.first { it.textContent == "Go to author…" }.click()
+            awaitFrame()
+            val links =
+                frame.host.ownerDocument!!
+                    .querySelectorAll(".author-dlg a")
+                    .asList()
+                    .map { it as HTMLElement }
+            links.map { it.getAttribute("href") } shouldBe listOf("/contributor/c1", "/contributor/c2")
+            links[1].click()
+            opened shouldBe listOf("c2")
+        }
+
         test("the phone page draws its own transport: previous, back, a 76px play, forward, next") {
             val frame = phonePage(wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5))
             val play = frame.find(".np-mob .np-play")
@@ -58,7 +110,7 @@ class NowPlayingPagePhoneTest :
             frame.find(".np-mob .np-skip-fwd").getAttribute("aria-label") shouldBe "Skip forward 30 seconds"
         }
 
-        test("the scrubber is the chapter's, with the book sentence between its times") {
+        test("the scrubber is the chapter's, with only its times: no book sentence") {
             val frame =
                 phonePage(
                     wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
@@ -68,8 +120,8 @@ class NowPlayingPagePhoneTest :
             range.getAttribute("aria-label") shouldBe "Chapter position"
             range.max shouldBe "1235000"
             range.getAttribute("aria-valuetext") shouldBe "12:04 of 20:35"
-            frame.find(".np-mob .np-sentence").textContent shouldBe "Book 10% · 40h 30m left"
-            frame.find(".np-mob .np-ch").textContent shouldBe "Chapter 6 of 75 · Chapter 6"
+            frame.host.querySelector(".np-sentence") shouldBe null
+            frame.host.querySelector(".np-phone .np-ch") shouldBe null
         }
 
         test("Next is disabled in the last chapter; Previous is not, even in chapter 1") {
@@ -112,6 +164,13 @@ class NowPlayingPagePhoneTest :
             val frame = phonePage(wayOfKings(phase = PlayerPhase.Reconnecting))
             frame.find(".np-mob .np-play .tport-wait").shouldNotBeNull()
             frame.find(".np-mob .np-play").getAttribute("aria-label") shouldBe "Reconnecting. Pause"
+        }
+
+        test("buffering keeps the play circle's size") {
+            val playing = phonePage(wayOfKings(phase = PlayerPhase.Playing)).find(".np-mob .np-play").getBoundingClientRect()
+            val busy = phonePage(wayOfKings(phase = PlayerPhase.Buffering)).find(".np-mob .np-play").getBoundingClientRect()
+            busy.width shouldBe playing.width
+            busy.height shouldBe playing.height
         }
 
         test("playing shows no spinner") {

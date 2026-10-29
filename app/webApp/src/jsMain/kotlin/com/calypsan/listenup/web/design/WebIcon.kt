@@ -87,6 +87,9 @@ enum class WebIcon(
     FileText(
         "M6 3h7l5 5v13H6z M13 3v5h5 M9 13h6 M9 16.5h6",
     ),
+
+    /** Three lines, shortest last: Filter and sort. */
+    FilterLines("M4 7h16 M7 12h10 M10 17h4"),
     Flame(
         "M12 3c3 3.5 4.5 5.8 4.5 8a4.5 4.5 0 0 1-9 0c0-1.2.4-2.3 1.2-3.4 " +
             "M12 20.5a4 4 0 0 1-2-7.5c.8 1.4 1.5 2 2 2s1.2-.6 2-2a4 4 0 0 1-2 7.5",
@@ -135,6 +138,9 @@ enum class WebIcon(
     LogOut("M10 3H5v18h5 M9 12h11 M16 8l4 4-4 4"),
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
+
+    /** A microphone: the phone Now Playing's "Narrated by" line. */
+    Mic("M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M5.5 11a6.5 6.5 0 0 0 13 0 M12 17.5V21"),
     Minus("M5 12h14"),
 
     // The board's sleep-timer glyph (Mini-WebDesktop): a crescent, what every platform's sleep control wears.

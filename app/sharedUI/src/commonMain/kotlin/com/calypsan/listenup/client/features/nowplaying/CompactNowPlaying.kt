@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerBookBlock
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCoverSide
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
@@ -28,7 +27,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerSetting
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCard
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
@@ -42,8 +40,8 @@ private val SCREEN_MARGIN = 24.dp
 
 /**
  * Compact (phone portrait) full-screen Now Playing (spec §5.2, board `NP-AndroidPhone`), top to bottom: the top bar
- * (Collapse · status · More), the book ([PlayerBookBlock]), the chapter scrubber with the book sentence between its
- * times, **the transport, or the state card in its place** (P32, C5), and the settings row.
+ * (Collapse · status · Cast · More), the book ([PlayerBookBlock]), the chapter scrubber over its times, **the
+ * transport, or the state card in its place** (P32, C5), and the settings row.
  *
  * [BoxWithConstraints] scales the cover by both width and available height, and weighted gaps distribute slack. When
  * the content is taller than the screen (large text, a card) it scrolls; when it fits the scroll is off, which leaves
@@ -117,7 +115,6 @@ fun CompactNowPlaying(
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxWidth(),
-                center = { BookSentence(progress) },
             )
             Spacer(Modifier.height(Spacing.xl))
             if (card != null) {
@@ -142,7 +139,6 @@ fun CompactNowPlaying(
             PlayerSettingsRow(
                 speed = state.settings.speed,
                 sleepTimer = state.sleepTimer,
-                castingTo = (state.source as? AudioSource.Casting)?.deviceName,
                 sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 showsChapters = true,
                 onSpeedClick = onSpeedClick,

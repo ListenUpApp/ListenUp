@@ -144,9 +144,10 @@ struct PlayerSnapshot: Equatable {
     var offersEndOfChapter = false
     /// The sleep timer is fading the audio out before it pauses.
     var isSleepFading = false
-    /// Now Playing's status slot (§3.1): where the audio comes from or goes to.
-    var statusText = ""
-    /// Casting: the status reads "Playing on …" in the tint.
+    /// Now Playing's status slot (§3.1): only news (offline, unreachable, transcoded, not playable), from the shared
+    /// `SourceStatus`; nil hides it. Casting says nothing here: AirPlay's caption names the device.
+    var statusText: String?
+    /// The audio is going to another device.
     var isCasting = false
     /// Where the audio is playing while casting, for AirPlay's caption; nil while it plays here.
     var castDeviceName: String?
@@ -154,7 +155,8 @@ struct PlayerSnapshot: Equatable {
     var card: PlayerCardModel?
     /// The More menu (§5.5.7), from the shared builder.
     var menu: [PlayerMenuSection] = []
-    /// The same menu where the series is already a link on screen (iPad's wide player, P10): no Go to Series.
+    /// The same menu where the series and the authors are already links on screen (iPad's wide player, P10): no Go to
+    /// Series, no Go to Author.
     var menuWithoutSeries: [PlayerMenuSection] = []
     /// Now Playing closes: nothing is loaded, or the book was revoked (§5.6).
     var closesNowPlaying = false
@@ -191,27 +193,24 @@ struct PlayerSnapshot: Equatable {
         snapshot.skipForwardSec = Int(settings.skipForwardSec)
         snapshot.skipBackwardSec = Int(settings.skipBackSec)
         snapshot.applySleepTimer(loaded.sleepTimer)
-        snapshot.applySource(loaded.source)
+        snapshot.applySource(loaded.source, status: loaded.status)
         snapshot.card = PlayerCards.shared.of(state: loaded).map(PlayerCardModel.init)
-        snapshot.menu = PlayerMenuModel.sections(for: loaded, includesSeries: true)
-        snapshot.menuWithoutSeries = PlayerMenuModel.sections(for: loaded, includesSeries: false)
+        snapshot.menu = PlayerMenuModel.sections(for: loaded, includesSeries: true, includesAuthor: true)
+        snapshot.menuWithoutSeries = PlayerMenuModel.sections(for: loaded, includesSeries: false, includesAuthor: false)
         snapshot.closesNowPlaying = PlayerCards.shared.closesNowPlaying(state: loaded)
         return snapshot
     }
 
-    private mutating func applySource(_ source: any AudioSource) {
+    private mutating func applySource(_ source: any AudioSource, status: (any SourceStatus)?) {
         isCasting = false
         castDeviceName = nil
-        statusText = switch source.sealedType() {
-        case .downloaded: String(localized: "player.np_status_downloaded")
-        case .downloadedOffline: String(localized: "player.np_status_downloaded_offline")
-        case .streaming: String(localized: "player.np_status_streaming")
-        case .streamingTranscoded: String(localized: "player.np_status_streaming_transcoded")
-        case .offline: String(localized: "player.np_status_offline")
-        case .serverUnreachable: String(localized: "player.np_status_server_unreachable")
-        case .casting(let casting):
-            String(format: String(localized: "player.np_status_playing_on"), casting.value.deviceName)
-        case .notPlayable: String(localized: "player.np_status_not_playable")
+        statusText = status.map { news in
+            switch news.sealedType() {
+            case .offline: String(localized: "player.np_status_offline")
+            case .serverUnreachable: String(localized: "player.np_status_server_unreachable")
+            case .streamingTranscoded: String(localized: "player.np_status_streaming_transcoded")
+            case .notPlayable: String(localized: "player.np_status_not_playable")
+            }
         }
         if case .casting(let casting) = source.sealedType() {
             isCasting = true
@@ -427,7 +426,7 @@ final class PlayerObserver {
         ).bookRemainingAtSpeedMs(speed: snapshot.playbackSpeed)
     }
     var bookDurationMs: Int64 { snapshot.bookDurationMs }
-    var statusText: String { snapshot.statusText }
+    var statusText: String? { snapshot.statusText }
     var isCasting: Bool { snapshot.isCasting }
     var castDeviceName: String? { snapshot.castDeviceName }
     var card: PlayerCardModel? { snapshot.card }
@@ -438,10 +437,6 @@ final class PlayerObserver {
     var showsChapterCounter: Bool { snapshot.showsChapterCounter }
     var isWholeBook: Bool { snapshot.isWholeBook }
     var series: [SeriesNavRef] { snapshot.series }
-    /// Whole percent through the book, for the book sentence (shared rule, floored).
-    var bookPercent: Int { progress.bookPercent }
-    /// Content time left in the book, at the labels' ~1×/sec cadence.
-    var displayBookRemainingMs: Int64 { max(0, bookDurationMs - displayBookPositionMs) }
 
     // MARK: - Position
 

@@ -4,13 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -87,7 +85,7 @@ class BookDetailViewModel(
     private val inboxRepository: InboxRepository,
     private val bookVisibilityRepository: BookVisibilityRepository,
     private val bookEditRepository: BookEditRepository,
-    private val seriesRepository: SeriesRepository,
+    seriesRepository: SeriesRepository,
     undoMatch: UndoMatch,
     userProfileRepository: UserProfileRepository,
     loadedBookRepository: LoadedBookRepository,
@@ -229,22 +227,13 @@ class BookDetailViewModel(
         field = MutableStateFlow<Set<String>>(emptySet())
 
     /**
-     * Room's word on [bookId], all of it live: the row and its first series, the chapters, the saved position, its
+     * Room's word on [bookId], all of it live: the row, the chapters, the saved position, its
      * availability, the held set and its visibility. For the player's loaded book the position is the live playhead,
      * re-emitting only when the chapter or a shown minute moves; the overlay and the section-order latch sit outside
      * the load, so neither notices.
      */
     private fun observeBook(bookId: String): Flow<BookLoad> {
         val id = BookId(bookId)
-        val rowAndSeries: Flow<Pair<BookDetail?, SeriesWithBooks?>> =
-            bookRepository.observeBookDetail(bookId).flatMapLatest { detail ->
-                val seriesId = detail?.series?.firstOrNull()?.seriesId
-                if (seriesId == null) {
-                    flowOf(detail to null)
-                } else {
-                    seriesRepository.observeSeriesWithBooks(seriesId).map { detail to it }
-                }
-            }
         // The player's book reads the player's live playhead rather than the row it saves on a timer (Android: every
         // 30 s), so the current chapter, its minutes and the time left keep up with the mini player. Only what the page
         // shows counts: a tick inside the same chapter and minute changes nothing, so Ready is not rebuilt per tick.
@@ -266,13 +255,13 @@ class BookDetailViewModel(
                 )
             }
         return combine(
-            flow = rowAndSeries,
+            flow = bookRepository.observeBookDetail(bookId),
             flow2 = listening,
             flow3 = bookAvailability.observe(id),
             flow4 = inboxRepository.observeHeldBookIds(),
             // Null on a member's device; live for an admin (share/membership/hold/roster changes).
             flow5 = bookVisibilityRepository.observeBookVisibility(id),
-        ) { (detail, series), (chapters, position), availability, heldIds, visibility ->
+        ) { detail, (chapters, position), availability, heldIds, visibility ->
             if (detail == null) {
                 BookLoad.Missing(bookId)
             } else {
@@ -286,7 +275,6 @@ class BookDetailViewModel(
                             availability = availability,
                             isHeld = id in heldIds,
                             visibility = visibility,
-                            series = series,
                         ),
                 )
             }

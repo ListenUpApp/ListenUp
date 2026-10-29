@@ -15,15 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.isBusy
+import com.calypsan.listenup.client.features.nowplaying.components.PLAYER_COVER_TAG
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSettingsRow
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCard
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTitleBlock
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -115,7 +114,7 @@ internal fun ReaderListeningPane(
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PlayerCover(state = state, side = PANE_COVER_SIZE)
+            PlayerCover(state = state, side = PANE_COVER_SIZE, modifier = Modifier.testTag(PLAYER_COVER_TAG))
             PlayerTitleBlock(
                 state = state,
                 onContributor = {},
@@ -130,7 +129,6 @@ internal fun ReaderListeningPane(
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = actions.onSeek,
                 modifier = Modifier.fillMaxWidth(),
-                center = { BookSentence(progress) },
             )
             if (card != null) {
                 PlayerStateCard(
@@ -160,7 +158,6 @@ internal fun ReaderListeningPane(
             PlayerSettingsRow(
                 speed = state.settings.speed,
                 sleepTimer = state.sleepTimer,
-                castingTo = (state.source as? AudioSource.Casting)?.deviceName,
                 sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 showsChapters = false,
                 onSpeedClick = actions.onSpeedClick,

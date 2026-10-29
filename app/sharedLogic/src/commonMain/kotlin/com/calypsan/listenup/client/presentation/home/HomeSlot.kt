@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.presentation.home
 
-import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ShelfCover
 
@@ -9,26 +8,14 @@ import com.calypsan.listenup.client.domain.model.ShelfCover
  * next (§2.1); what is inside it stays live.
  */
 sealed interface HomeSlot {
-    /** A book is loaded and the mini player owns it, so Home shows no slot (F1). */
+    /**
+     * No slot: a book is loaded (the mini player owns it), or books are in progress, which Everything in progress
+     * lists (Simon, 2026-10-27: Home has no Resume hero).
+     */
     data object Absent : HomeSlot
 
     /** The library's first sync is still arriving: a skeleton slot that resolves in place (§2.3). */
     data object FirstSync : HomeSlot
-
-    /**
-     * Nothing is loaded; [book] is the most recently played book in progress (§2.3 Resume).
-     *
-     * @property next the book after it in its series, or null.
-     * @property chapter the chapter its saved position sits in, or null when it has no chapters.
-     * @property canPlay false only when the server cannot be reached and none of the book is on this device; each
-     *   platform words the reason as Book Detail does.
-     */
-    data class Resume(
-        val book: ContinueListeningBook,
-        val next: NextInSeries?,
-        val chapter: HeroChapter?,
-        val canPlay: Boolean,
-    ) : HomeSlot
 
     /** A book finished in the last 72 hours that the reader has neither dismissed nor moved on from (§2.2 row 2). */
     data class JustFinished(
@@ -53,17 +40,6 @@ sealed interface HomeSlot {
         val covers: List<ShelfCover>,
     ) : HomeSlot
 }
-
-/**
- * The chapter the Resume book's position sits in ("Ch. 6 · Bridge Four").
- *
- * @property number one-based, as a person counts.
- * @property title the chapter's own title.
- */
-data class HeroChapter(
-    val number: Int,
-    val title: String,
-)
 
 /**
  * Everything the just-finished card shows (spec §2.3 JustFinished).

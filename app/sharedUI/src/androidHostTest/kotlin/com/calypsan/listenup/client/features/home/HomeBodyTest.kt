@@ -6,9 +6,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -22,7 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** Spec §2.1–§2.2 on screen: a loaded book is never drawn; nothing loaded leads with Resume. */
+/** Spec §2.1–§2.2 on screen: books in progress are Everything in progress, never a Resume hero (Simon, 2026-10-27). */
 @RunWith(RobolectricTestRunner::class)
 class HomeBodyTest {
     @get:Rule
@@ -46,39 +45,46 @@ class HomeBodyTest {
     }
 
     @Test
-    fun `a loaded book leaves no Resume and Home starts with Also in progress`() {
-        render(homeReady(slot = HomeSlot.Absent, alsoInProgress = listOf(readyItem("babel"))))
-        composeRule.onAllNodesWithTag(HOME_RESUME_BUTTON_TAG).assertCountEquals(0)
-        composeRule.onNodeWithText("Also in progress").assertIsDisplayed()
+    fun `books in progress open Home with Everything in progress, and there is no Resume hero`() {
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = listOf(readyItem("babel"))))
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
+        composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
     }
 
     @Test
-    fun `one book in progress and loaded leaves no Also in progress section`() {
-        render(homeReady(slot = HomeSlot.Absent, alsoInProgress = emptyList()))
-        composeRule.onAllNodesWithText("Also in progress").assertCountEquals(0)
+    fun `one book in progress is a one-card Everything in progress`() {
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = listOf(readyItem("babel", title = "Babel"))))
+        composeRule.onNodeWithText("Everything in progress").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Babel", substring = true).assertExists()
+        composeRule.onAllNodesWithText("Resume").assertCountEquals(0)
+    }
+
+    @Test
+    fun `with a book loaded, its card comes first in Everything in progress`() {
+        render(
+            homeReady(
+                slot = HomeSlot.Absent,
+                everythingInProgress = listOf(readyItem("b", title = "The Loaded Book"), readyItem("a", title = "Another Book")),
+            ),
+        )
+        val loaded = composeRule.onNodeWithContentDescription("The Loaded Book", substring = true).getUnclippedBoundsInRoot()
+        val other = composeRule.onNodeWithContentDescription("Another Book", substring = true).getUnclippedBoundsInRoot()
+        loaded.left shouldBeLessThan other.left
+    }
+
+    @Test
+    fun `nothing in progress while loaded leaves no Everything in progress section`() {
+        render(homeReady(slot = HomeSlot.Absent, everythingInProgress = emptyList()))
+        composeRule.onAllNodesWithText("Everything in progress").assertCountEquals(0)
         composeRule.onAllNodesWithText("Nothing playing yet").assertCountEquals(0)
         composeRule.onNodeWithText("Your last 7 days").assertExists()
-    }
-
-    @Test
-    fun `nothing loaded leads with Resume, and Resume calls the play entry`() {
-        var played: String? = null
-        render(
-            homeReady(slot = resumeSlot("wok"), alsoInProgress = listOf(readyItem("babel"))),
-            actions = HomeActions.None.copy(onPlay = { played = it }),
-        )
-        val resume = composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).getUnclippedBoundsInRoot()
-        val also = composeRule.onNodeWithText("Also in progress").getUnclippedBoundsInRoot()
-        resume.top shouldBeLessThan also.top
-        composeRule.onNodeWithTag(HOME_RESUME_BUTTON_TAG).performScrollTo().performClick()
-        played shouldBe "wok"
     }
 
     @Test
     fun `nothing in progress takes the slot with Browse the Library, and the interim empty state is gone`() {
         var opened = false
         render(
-            homeReady(slot = HomeSlot.NothingInProgress(candidate = null), alsoInProgress = emptyList()),
+            homeReady(slot = HomeSlot.NothingInProgress(candidate = null), everythingInProgress = emptyList()),
             actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
         )
         composeRule.onNodeWithText("Nothing in progress").assertIsDisplayed()
@@ -91,7 +97,7 @@ class HomeBodyTest {
     fun `In Library opens In progress, Browse the Library opens the Library, and the finishers open the readers`() {
         val asked = mutableListOf<String>()
         render(
-            homeReady(slot = finishedSlot(), alsoInProgress = listOf(readyItem("babel"))),
+            homeReady(slot = finishedSlot(), everythingInProgress = listOf(readyItem("babel"))),
             actions =
                 HomeActions.None.copy(
                     onOpenLibrary = { asked += "library" },
@@ -106,7 +112,7 @@ class HomeBodyTest {
 
     @Test
     fun `a new listener is welcomed in the greeting and the slot`() {
-        render(homeReady(slot = welcomeSlot(), alsoInProgress = emptyList()))
+        render(homeReady(slot = welcomeSlot(), everythingInProgress = emptyList()))
         composeRule.onNodeWithText("Welcome,").assertIsDisplayed()
         composeRule.onNodeWithText("Pick something new").assertIsDisplayed()
     }

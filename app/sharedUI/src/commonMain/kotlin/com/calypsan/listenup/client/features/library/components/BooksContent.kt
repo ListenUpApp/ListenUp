@@ -64,6 +64,7 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
+import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LetterSection
 import com.calypsan.listenup.client.presentation.library.SortCategory
@@ -162,6 +163,9 @@ internal fun SectionHeader(
  *   ends in placeholders, and an empty grid is never called empty.
  * @param showSortControl Whether the sort sits above the grid; false where a header band already carries it (the
  *   Android tablet)
+ * @param statusCounts Whole-library counts per reading state: the Sort row leads with the books shown and its menu
+ *   offers the status as a "Show" group. Null leaves the plain sort.
+ * @param onStatusSelected Invoked when a reading state is chosen from the menu
  * @param modifier Optional modifier
  */
 @Suppress("LongParameterList")
@@ -191,9 +195,31 @@ internal fun BooksContent(
     header: (@Composable () -> Unit)? = null,
     statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
     showSortControl: Boolean = true,
+    statusCounts: BookStatusCounts? = null,
+    onStatusSelected: (BookStatusFilter) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isArriving = statusStrip is LibraryStatusStrip.Arriving
+    // The Sort row leads with the books shown and carries the status (board `Lib-Android-After`). The trigger stills
+    // while books are picked: filtering mid-selection would change what is being picked.
+    val sortRow: @Composable () -> Unit = {
+        val shown = statusCounts?.countFor(statusFilter)
+        LibrarySortCard(
+            state = sortState,
+            categories = SortCategory.booksCategories,
+            count = shown,
+            unit = if (shown == 1) "book" else "books",
+            ignoreArticles = ignoreTitleArticles,
+            showArticleToggle = sortState.category == SortCategory.TITLE,
+            onCategorySelected = onCategorySelected,
+            onDirectionToggle = onDirectionToggle,
+            onToggleArticles = onToggleIgnoreArticles,
+            visible = true,
+            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            status = statusCounts?.let { LibraryStatusChoice(statusFilter, it, onStatusSelected) },
+            enabled = !isInSelectionMode,
+        )
+    }
     Box(modifier = modifier.fillMaxSize()) {
         when {
             // Haven't loaded from database yet - show loading
@@ -236,6 +262,8 @@ internal fun BooksContent(
                     header?.let { slot ->
                         Box(modifier = Modifier.padding(horizontal = Spacing.gridMargin, vertical = 12.dp)) { slot() }
                     }
+                    // The menu that chose the filter stays, so another status is one tap away, not only Show all.
+                    if (showSortControl) sortRow()
                     FilteredEmptyState(
                         filter = statusFilter,
                         onShowAll = onShowAllBooks,
@@ -273,22 +301,7 @@ internal fun BooksContent(
                 Column(modifier = Modifier.fillMaxSize()) {
                     PinnedStatusStrip(statusStrip)
                     // The Android tablet draws the sort in its second header band instead.
-                    if (showSortControl) {
-                        LibrarySortCard(
-                            state = sortState,
-                            categories = SortCategory.booksCategories,
-                            // The status chips above already carry the counts (board `Main`).
-                            count = null,
-                            unit = "",
-                            ignoreArticles = ignoreTitleArticles,
-                            showArticleToggle = sortState.category == SortCategory.TITLE,
-                            onCategorySelected = onCategorySelected,
-                            onDirectionToggle = onDirectionToggle,
-                            onToggleArticles = onToggleIgnoreArticles,
-                            visible = true,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-                        )
-                    }
+                    if (showSortControl) sortRow()
                     BookGrid(
                         books = books,
                         bookLetters = bookLetters,

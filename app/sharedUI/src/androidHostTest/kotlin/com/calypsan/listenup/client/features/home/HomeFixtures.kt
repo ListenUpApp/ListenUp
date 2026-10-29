@@ -21,7 +21,6 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.home.AlsoFinished
 import com.calypsan.listenup.client.presentation.home.FinishedBook
 import com.calypsan.listenup.client.presentation.home.FinishedCard
-import com.calypsan.listenup.client.presentation.home.HeroChapter
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
@@ -36,7 +35,7 @@ import com.calypsan.listenup.core.ShelfId
 /** A Home in its Ready state, every constructor argument named. */
 internal fun homeReady(
     slot: HomeSlot,
-    alsoInProgress: List<ContinueListeningItem>,
+    everythingInProgress: List<ContinueListeningItem>,
     shelves: List<Shelf> = emptyList(),
     connectivity: HomeConnectivity = HomeConnectivity.Online,
     isLibraryArriving: Boolean = false,
@@ -51,7 +50,7 @@ internal fun homeReady(
     timeOfDay = TimeOfDay.Evening,
     firstName = "Simon",
     slot = slot,
-    alsoInProgress = alsoInProgress,
+    everythingInProgress = everythingInProgress,
     connectivity = connectivity,
     continueListeningError = continueListeningError,
 )
@@ -73,30 +72,11 @@ private fun book(
     isDownloaded = false,
 )
 
-/** A ready Also in progress card: author, narrators, 11% through. */
+/** A ready Everything in progress card: author, narrators, 11% through. */
 internal fun readyItem(
     id: String,
     title: String = "Book $id",
 ) = ContinueListeningItem.Ready(bookId = id, book = book(id, title))
-
-/** The Resume kind for [id], with a chapter and a next book. */
-internal fun resumeSlot(id: String) =
-    HomeSlot.Resume(
-        book = book(id, "Resume $id"),
-        next =
-            NextInSeries(
-                bookId = "$id-next",
-                title = "Next after $id",
-                coverPath = "/tmp/cover-$id-next.webp",
-                coverHash = null,
-                narratorNames = null,
-                seriesName = "Series",
-                sequenceLabel = "2",
-                durationMs = 3_600_000L,
-            ),
-        chapter = HeroChapter(number = 6, title = "Bridge Four"),
-        canPlay = true,
-    )
 
 /** A week with a live 5-day streak, a 12-day best and three genres. */
 internal fun weekWithStreak() =

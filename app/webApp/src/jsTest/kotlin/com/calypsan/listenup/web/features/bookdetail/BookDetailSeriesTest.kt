@@ -57,6 +57,19 @@ class BookDetailSeriesTest :
                 ancestors = listOf(SeriesCrumb("cosmere", "Cosmere"), SeriesCrumb("mistborn", "Mistborn")),
             )
 
+        test("Book Detail has no series shelf, and the path line still opens the series") {
+            val opened = mutableListOf<String>()
+            val root =
+                bookDetailPage(
+                    series = listOf(BookSeries("series-1", "Mistborn", 1.0)),
+                    onOpenSeries = { opened += it },
+                )
+
+            root.querySelector(".bd-series-row") shouldBe null
+            (root.querySelector(".bd-series-link") as HTMLElement).click()
+            opened shouldContainExactly listOf("series-1")
+        }
+
         test("a book in no series renders no series row") {
             val root = bookDetailPage()
 

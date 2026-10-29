@@ -35,7 +35,11 @@ actual fun CastButton(
     val routeButton = remember(context) { castRouteButton(context) }
     if (connectedDeviceName != null) {
         // showDialog opens the controller dialog for the connected route (androidx.mediarouter's MediaRouteButton).
-        CastConnectedButton(deviceName = connectedDeviceName, onOpenRoutes = { routeButton.showDialog() })
+        CastConnectedButton(
+            deviceName = connectedDeviceName,
+            onOpenRoutes = { routeButton.showDialog() },
+            modifier = modifier,
+        )
     } else {
         AndroidView(modifier = modifier, factory = { routeButton })
     }

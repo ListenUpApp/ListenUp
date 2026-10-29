@@ -9,6 +9,11 @@ import SwiftUI
 /// it restarts it (player spec §3.3). Next is off at the last chapter. Back and forward keep their places and are off
 /// while there is no settled position to skip from (a stall re-buffers; spec S12), so the row never re-flows.
 struct PlayerTransportControls: View {
+    /// Play and pause's glyph colour.
+    static let playGlyphTint = Color.luTint
+    /// Buffering keeps the control's look: the spinner in the glyph's own colour.
+    static let busyTint = playGlyphTint
+
     let observer: PlayerObserver
 
     /// Counts deliberate transport taps so the haptic fires on the tap, never on a state change
@@ -116,11 +121,11 @@ struct PlayerTransportControls: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .controlSize(.large)
-                        .tint(Color.luTint)
+                        .tint(Self.busyTint)
                 } else {
                     Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
                         .font(.system(size: 52)) // decorative fixed size: the glyph fills its 76pt target
-                        .foregroundStyle(Color.luTint)
+                        .foregroundStyle(Self.playGlyphTint)
                         .contentTransition(.symbolEffect(.replace.downUp))
                 }
             }

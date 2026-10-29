@@ -29,11 +29,8 @@ private extension ArrivalCount {
     var percent: Int { total > 0 ? done * 100 / total : 0 }
 }
 
-/// The slot's skeleton, in the Resume hero's geometry (H14). First sync draws its Resume disabled ([withResume], board
-/// panel 2); page loading does not.
+/// The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading.
 struct HomeSkeletonView: View {
-    let withResume: Bool
-
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -49,15 +46,6 @@ struct HomeSkeletonView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(String(localized: "home.up_next_loading_a11y"))
-            if withResume {
-                Button {} label: {
-                    Label(String(localized: "book.detail_resume_ios"), systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .prominentAction()
-                .buttonBorderShape(.capsule)
-                .disabled(true)
-            }
         }
         .padding(Spacing.m)
         .background(
@@ -74,13 +62,13 @@ struct HomeSkeletonView: View {
     }
 }
 
-/// Page loading's rail: "Also in Progress" over three card-sized shimmers, read as one "Loading books".
+/// Page loading's rail: "Everything in Progress" over three card-sized shimmers, read as one "Loading books".
 struct HomeSkeletonRail: View {
     let margin: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "home.also_in_progress_ios"))
+            Text(String(localized: "home.everything_in_progress_ios"))
                 .font(.title3.weight(.semibold))
                 .accessibilityAddTraits(.isHeader)
                 .padding(.horizontal, margin)

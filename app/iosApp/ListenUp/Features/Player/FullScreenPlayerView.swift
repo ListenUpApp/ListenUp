@@ -289,9 +289,10 @@ struct FullScreenPlayerView: View {
     /// More leaves Go to Series out (P10).
     private func controlsColumn(showsChapters: Bool, showsVolume: Bool, showsSeries: Bool = false) -> some View {
         VStack(spacing: 0) {
+            // The phone's centred three lines; iPad's wide player keeps its leading block with the series and bylines.
             NowPlayingTitleBlock(
                 observer: observer, showsSeries: showsSeries, onViewSeries: onViewSeries,
-                onViewContributor: onViewContributor)
+                onViewContributor: onViewContributor, form: showsSeries ? .full : .phone)
             Spacer().frame(height: 18)
             // Chapter-scoped progress — its own view so its per-frame position reads don't
             // re-evaluate the rest of the player. Still under a problem card, live on a finished book (a seek there is
@@ -367,13 +368,15 @@ struct FullScreenPlayerView: View {
 
             Spacer(minLength: Spacing.xs)
 
-            // Where the audio comes from or goes to (§3.1): plain status text, not a chip (HIG; plan F7). Casting reads
-            // in the tint's text ink.
-            Text(observer.statusText)
-                .font(.footnote)
-                .foregroundStyle(observer.isCasting ? Color.luTintInk : Color.luOnWashSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
+            // Only news (§3.1, Simon 2026-10-27): plain status text, not a chip (HIG; plan F7). Downloaded, streaming
+            // and casting say nothing; AirPlay's caption names a device.
+            if let statusText = observer.statusText {
+                Text(statusText)
+                    .font(.footnote)
+                    .foregroundStyle(Color.luOnWashSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+            }
 
             Spacer(minLength: Spacing.xs)
 
@@ -397,17 +400,31 @@ struct FullScreenPlayerView: View {
             .accessibilityShowsLargeContentViewer()
     }
 
-    /// The shared More menu (§5.5.7): the places, then Close Book in its own section, destructive (HIG, Menus). Go to
-    /// Author and Go to Narrator are gone: the byline's names are the way there; Go to Series too, where the series is a
-    /// link above the title.
+    /// The shared More menu (§5.5.7): the places, then Close Book in its own section, destructive (HIG, Menus). The phone's
+    /// title block names the narrators only, so More carries Go to Author (a submenu for several, HIG Menus); iPad's
+    /// wide player shows the authors and the series as links, so its More has neither. Never Go to Narrator: the
+    /// narrator line's names are the way there.
     private func moreMenu(includesSeries: Bool) -> some View {
         Menu {
             let sections = includesSeries ? observer.menu : observer.menuWithoutSeries
             ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
                 Section {
                     ForEach(section.rows, id: \.self) { row in
-                        Button(role: section.isDestructive ? .destructive : nil) { perform(row) } label: {
-                            Label(row.title, systemImage: row.systemImage)
+                        if row == .chooseAuthor {
+                            Menu {
+                                ForEach(NowPlayingTitleBlock.menuRows(observer.authors)) { author in
+                                    Button { onViewContributor(author.id) } label: {
+                                        Text(author.name)
+                                        if let books = author.books { Text(books) }
+                                    }
+                                }
+                            } label: {
+                                Label(row.title, systemImage: row.systemImage)
+                            }
+                        } else {
+                            Button(role: section.isDestructive ? .destructive : nil) { perform(row) } label: {
+                                Label(row.title, systemImage: row.systemImage)
+                            }
                         }
                     }
                 }
@@ -424,6 +441,8 @@ struct FullScreenPlayerView: View {
         switch row {
         case .goToBook: onViewDetails()
         case .goToSeries(let seriesId): onViewSeries(seriesId)
+        case .goToAuthor(let authorId): onViewContributor(authorId)
+        case .chooseAuthor: break // a submenu, never a button
         case .openPdf: observer.openCurrentBookPdf()
         case .volumeBoost: showBoostPicker = true
         case .closeBook: observer.closeBook()

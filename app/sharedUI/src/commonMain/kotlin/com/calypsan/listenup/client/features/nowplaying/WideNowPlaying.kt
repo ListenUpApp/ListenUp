@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.BookSentence
 import com.calypsan.listenup.client.features.nowplaying.components.NowPlayingChapterPanel
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
@@ -46,7 +45,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTranspo
 import com.calypsan.listenup.client.features.nowplaying.components.TitleArrangement
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.foldable.Posture
-import com.calypsan.listenup.client.presentation.player.AudioSource
 import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
@@ -171,7 +169,6 @@ fun WideNowPlaying(
                     PlayerSettingsRow(
                         speed = state.settings.speed,
                         sleepTimer = state.sleepTimer,
-                        castingTo = (state.source as? AudioSource.Casting)?.deviceName,
                         sleepCountdownMs = {
                             SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed)
                         },
@@ -380,7 +377,7 @@ private fun CoverBesideControls(
 }
 
 /**
- * The controls: the title block, the scrubber with the book sentence, and the transport or the state card in its place
+ * The controls: the title block, the scrubber, and the transport or the state card in its place
  * (C5). Under the wide header the book takes the board's order, the series a link above the title
  * ([TitleArrangement.Wide]). When [isShort] (a phone on its side, under the phone bar) the title drops to one line, the
  * counter and the bylines go (the cover and the More menu still lead to the book), and the play button shrinks to 64 dp.
@@ -413,7 +410,6 @@ private fun WideControls(
         alignment = Alignment.Start,
         titleLines = if (isShort) 1 else 2,
         showsBylines = !isShort,
-        showsCounter = !isShort,
         arrangement = if (isShort) TitleArrangement.Phone else TitleArrangement.Wide,
         onSeries = onSeries,
     )
@@ -425,7 +421,6 @@ private fun WideControls(
         isBusy = state.isBusy || card is PlayerCard.Problem,
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),
-        center = { BookSentence(progress) },
     )
 
     Spacer(Modifier.height(if (isShort) 8.dp else 24.dp))

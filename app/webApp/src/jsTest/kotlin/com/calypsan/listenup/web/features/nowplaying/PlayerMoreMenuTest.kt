@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -22,7 +23,8 @@ class PlayerMoreMenuTest :
         fun menu(
             state: PlayerUiState.Loaded,
             chosen: MutableList<PlayerMenuItem> = mutableListOf(),
-        ): HTMLElement = mounts.mount { PlayerMoreMenu(state = state, onItem = { item, _ -> chosen += item }) }
+            compact: Boolean = true,
+        ): HTMLElement = mounts.mount { PlayerMoreMenu(state = state, compact = compact, onItem = { item, _ -> chosen += item }) }
 
         suspend fun openMenu(host: HTMLElement) {
             (host.querySelector(".np-more button[aria-haspopup=menu]") as HTMLElement).click()
@@ -42,16 +44,47 @@ class PlayerMoreMenuTest :
                 )
             openMenu(host)
             items(host).map { it.textContent } shouldBe
-                listOf("Go to book", "Go to series", "Open PDF ↗", "Volume boost · +6 dB", "Keyboard shortcuts?", "Close book")
+                listOf(
+                    "Go to book",
+                    "Go to series",
+                    "Go to author",
+                    "Open PDF ↗",
+                    "Volume boost · +6 dB",
+                    "Keyboard shortcuts?",
+                    "Close book",
+                )
             items(host).last().classList.contains("is-danger") shouldBe true
             items(host).last().closest(".menu-g-danger").shouldNotBeNull()
         }
 
-        test("with no series, no PDF and no boost: Go to book, Volume boost · Off, Close book") {
+        test("with no series, no PDF and no boost: Go to book, Go to author, Volume boost · Off, Close book") {
             val host = menu(wayOfKings(series = emptyList()))
             openMenu(host)
             items(host).map { it.textContent } shouldBe
-                listOf("Go to book", "Volume boost · Off", "Keyboard shortcuts?", "Close book")
+                listOf("Go to book", "Go to author", "Volume boost · Off", "Keyboard shortcuts?", "Close book")
+        }
+
+        test("several authors: Go to author… reports the chooser") {
+            val chosen = mutableListOf<PlayerMenuItem>()
+            val two = listOf(PlayerContributor("c1", "Brandon Sanderson", 14), PlayerContributor("c2", "Dan Wells", 6))
+            val host = menu(wayOfKings(series = emptyList(), authors = two), chosen)
+            openMenu(host)
+            items(host).first { it.textContent == "Go to author…" }.click()
+            chosen shouldBe listOf(PlayerMenuItem.ChooseAuthor)
+        }
+
+        test("one author: Go to author reports that person") {
+            val chosen = mutableListOf<PlayerMenuItem>()
+            val host = menu(wayOfKings(series = emptyList()), chosen)
+            openMenu(host)
+            items(host).first { it.textContent == "Go to author" }.click()
+            chosen shouldBe listOf(PlayerMenuItem.GoToAuthor("c1"))
+        }
+
+        test("the desktop page shows the series and the authors as links, so More leaves both out") {
+            val host = menu(wayOfKings(series = listOf(PlayerSeriesRef("s1", "The Stormlight Archive", "1"))), compact = false)
+            openMenu(host)
+            items(host).map { it.textContent } shouldBe listOf("Go to book", "Volume boost · Off", "Keyboard shortcuts?", "Close book")
         }
 
         test("Keyboard shortcuts names its key, ?, and reports its item") {

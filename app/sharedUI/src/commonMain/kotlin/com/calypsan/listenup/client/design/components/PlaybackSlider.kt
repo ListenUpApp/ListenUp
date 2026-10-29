@@ -36,13 +36,12 @@ private val HandleSize = DpSize(width = 4.dp, height = 44.dp)
 
 /**
  * The player's scrubber (spec §6): the M3 Expressive slider with a 16dp `primary` active track, a 4dp handle with
- * gaps, an inactive `surfaceContainerHighest` track and its stop dot, over elapsed · [center] · −remaining.
+ * gaps, an inactive `surfaceContainerHighest` track and its stop dot, over elapsed · −remaining.
  * Holds its own drag and calls [onSeek] once, on release, so a position tick never yanks the thumb and a drag never
  * issues a seek per frame (m3.material.io/components/sliders/guidelines).
  *
  * [fraction], [elapsedMs] and [durationMs] are the chapter's (§3.2: everything that moves is chapter-scoped).
- * [timesBeside] puts the times either side of the track on one row instead of under it, for a one-row toolbar;
- * [center] is not drawn then.
+ * [timesBeside] puts the times either side of the track on one row instead of under it, for a one-row toolbar.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -53,7 +52,6 @@ fun PlaybackSlider(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    center: (@Composable () -> Unit)? = null,
     timesBeside: Boolean = false,
 ) {
     var drag by remember { mutableStateOf<Float?>(null) }
@@ -126,7 +124,6 @@ fun PlaybackSlider(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(elapsed, style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            center?.invoke()
             Text(remaining, style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

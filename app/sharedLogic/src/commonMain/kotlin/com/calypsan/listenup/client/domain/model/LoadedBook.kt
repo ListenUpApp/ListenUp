@@ -8,7 +8,7 @@ sealed interface LoadedBook {
     /** Launch, before the persisted id has been read. Resolves from local storage, never the network. */
     data object Restoring : LoadedBook
 
-    /** Nothing is loaded: no mini player; Home may show its Resume hero. */
+    /** Nothing is loaded: no mini player. */
     data object NothingLoaded : LoadedBook
 
     /**

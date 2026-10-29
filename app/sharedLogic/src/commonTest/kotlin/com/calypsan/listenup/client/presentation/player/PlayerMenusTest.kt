@@ -11,6 +11,7 @@ class PlayerMenusTest :
             PlayerMenus.moreMenu(
                 loaded(series = true, pdf = "doc-1", boostDb = 6f),
                 includesSeries = true,
+                includesAuthor = true,
                 includesShortcuts = false,
             ) shouldBe
                 listOf(
@@ -30,6 +31,7 @@ class PlayerMenusTest :
             PlayerMenus.moreMenu(
                 loaded(series = false, pdf = null, boostDb = 0f),
                 includesSeries = true,
+                includesAuthor = true,
                 includesShortcuts = false,
             ) shouldBe
                 listOf(
@@ -40,8 +42,12 @@ class PlayerMenusTest :
 
         test("a wide layout that shows the series link leaves Go to series out") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = false, includesShortcuts = false)
-                .first()
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f),
+                    includesSeries = false,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
                 .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
         }
 
@@ -49,6 +55,7 @@ class PlayerMenusTest :
             PlayerMenus.moreMenu(
                 loaded(series = false, pdf = null, boostDb = 0f),
                 includesSeries = true,
+                includesAuthor = true,
                 includesShortcuts = true,
             ) shouldBe
                 listOf(
@@ -65,30 +72,98 @@ class PlayerMenusTest :
 
         test("a platform without app shortcuts never sees the row") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = "doc-1", boostDb = 6f), includesSeries = true, includesShortcuts = false)
-                .flatMap { it.items }
+                .moreMenu(
+                    loaded(series = true, pdf = "doc-1", boostDb = 6f),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).flatMap { it.items }
                 .contains(PlayerMenuItem.KeyboardShortcuts) shouldBe false
         }
 
         test("Go to series names the first series, the one the phone shows") {
             PlayerMenus
-                .moreMenu(loaded(series = true, pdf = null, boostDb = 0f), includesSeries = true, includesShortcuts = false)
-                .first()
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
                 .items[1] shouldBe PlayerMenuItem.GoToSeries("s1")
         }
+
+        test("one author: Go to author goes to them, right after Go to series") {
+            PlayerMenus
+                .moreMenu(
+                    loaded(series = true, pdf = "doc-1", boostDb = 6f, authors = listOf(author("a1"))),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
+                .items shouldBe
+                listOf(
+                    PlayerMenuItem.GoToBook,
+                    PlayerMenuItem.GoToSeries("s1"),
+                    PlayerMenuItem.GoToAuthor("a1"),
+                    PlayerMenuItem.OpenPdf("doc-1"),
+                    PlayerMenuItem.VolumeBoost(6f),
+                )
+        }
+
+        test("several authors: Go to author… chooses") {
+            PlayerMenus
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f, authors = listOf(author("a1"), author("a2"))),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
+                .items shouldBe
+                listOf(
+                    PlayerMenuItem.GoToBook,
+                    PlayerMenuItem.GoToSeries("s1"),
+                    PlayerMenuItem.ChooseAuthor,
+                    PlayerMenuItem.VolumeBoost(0f),
+                )
+        }
+
+        test("no authors: no author row") {
+            PlayerMenus
+                .moreMenu(
+                    loaded(series = false, pdf = null, boostDb = 0f, authors = emptyList()),
+                    includesSeries = true,
+                    includesAuthor = true,
+                    includesShortcuts = false,
+                ).first()
+                .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f))
+        }
+
+        test("includesAuthor false leaves it out, where the screen shows the authors as links") {
+            PlayerMenus
+                .moreMenu(
+                    loaded(series = true, pdf = null, boostDb = 0f, authors = listOf(author("a1"))),
+                    includesSeries = false,
+                    includesAuthor = false,
+                    includesShortcuts = true,
+                ).first()
+                .items shouldBe listOf(PlayerMenuItem.GoToBook, PlayerMenuItem.VolumeBoost(0f), PlayerMenuItem.KeyboardShortcuts)
+        }
     })
+
+private fun author(id: String): PlayerContributor = PlayerContributor(id, "Author $id", bookCount = 3)
 
 private fun loaded(
     series: Boolean,
     pdf: String?,
     boostDb: Float,
+    authors: List<PlayerContributor> = emptyList(),
 ): PlayerUiState.Loaded =
     PlayerUiState.Loaded(
         book =
             PlayerBook(
                 "b1",
                 "The Way of Kings",
-                emptyList(),
+                authors,
                 emptyList(),
                 null,
                 null,

@@ -10,6 +10,14 @@ sealed interface PlayerMenuItem {
         val seriesId: String,
     ) : PlayerMenuItem
 
+    /** The loaded book's only author. */
+    data class GoToAuthor(
+        val authorId: String,
+    ) : PlayerMenuItem
+
+    /** The book has several authors: each platform opens its author chooser over [PlayerBook.authors]. */
+    data object ChooseAuthor : PlayerMenuItem
+
     /** The book's first PDF: the in-app reader on native, a new tab on web. */
     data class OpenPdf(
         val documentId: String,
@@ -44,14 +52,17 @@ data class PlayerMenuGroup(
 /** Builds the More menu. An object, so Swift Export exposes it as `PlayerMenus.shared.moreMenu(...)`. */
 object PlayerMenus {
     /**
-     * The More menu for [state] (§5.5.7): Go to book; Go to series when [includesSeries] and the book has one; Open PDF
+     * The More menu for [state] (§5.5.7): Go to book; Go to series when [includesSeries] and the book has one; Go to
+     * author when [includesAuthor] and the book has one ([PlayerMenuItem.ChooseAuthor] when it has several); Open PDF
      * when it has one; Volume boost; Keyboard shortcuts when [includesShortcuts]; then Close book apart.
      * [includesSeries] is false where the screen already shows the series as a link (the native wide layouts).
-     * [includesShortcuts] is true only where the platform has app keyboard shortcuts (the web). Pure.
+     * [includesAuthor] is false where the screen already shows the authors as links (the tall wide layouts, as
+     * [includesSeries]). [includesShortcuts] is true only where the platform has app keyboard shortcuts (the web). Pure.
      */
     fun moreMenu(
         state: PlayerUiState.Loaded,
         includesSeries: Boolean,
+        includesAuthor: Boolean,
         includesShortcuts: Boolean,
     ): List<PlayerMenuGroup> {
         val book = state.book
@@ -62,6 +73,13 @@ object PlayerMenus {
                     .firstOrNull()
                     ?.takeIf { includesSeries }
                     ?.let { add(PlayerMenuItem.GoToSeries(it.id)) }
+                if (includesAuthor) {
+                    when (book.authors.size) {
+                        0 -> Unit
+                        1 -> add(PlayerMenuItem.GoToAuthor(book.authors.single().id))
+                        else -> add(PlayerMenuItem.ChooseAuthor)
+                    }
+                }
                 book.firstPdfDocId?.let { add(PlayerMenuItem.OpenPdf(it)) }
                 add(PlayerMenuItem.VolumeBoost(state.settings.boostDb))
                 if (includesShortcuts) add(PlayerMenuItem.KeyboardShortcuts)

@@ -23,21 +23,6 @@ struct BookDetailReadingModelsTests {
         #expect(projected.finishedAtMs == 42)
     }
 
-    @Test func seriesShelfProjectsBooksInOrder() {
-        let shelf = SeriesShelf(
-            seriesId: "s1", name: "Mistborn",
-            books: [
-                SeriesShelfBook(id: "b1", coverPath: nil, coverHash: nil, sequenceLabel: "1", isThis: true),
-                SeriesShelfBook(id: "b2", coverPath: "/c.jpg", coverHash: "h", sequenceLabel: "2", isThis: false)
-            ],
-            thisIndex: 0, nextBookId: "b2")
-        let projected = BookSeriesShelf(shelf)
-        #expect(projected.books.map(\.id) == ["b1", "b2"])
-        #expect(projected.books.first?.isThis == true)
-        #expect(projected.thisIndex == 0)
-        #expect(projected.nextBookId == "b2")
-    }
-
     @Test func socialLineFromSummary() {
         let summary = ReadersSummary(
             listening: [ReaderRef(userId: "m", displayName: "Maya")],
