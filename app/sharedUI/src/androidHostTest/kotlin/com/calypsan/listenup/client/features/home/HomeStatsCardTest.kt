@@ -65,7 +65,7 @@ class HomeStatsCardTest {
                 HomeStatsCard(week(current = 1, best = 1), isWide = false, onOpenLeaderboard = {}, onRetry = {})
             }
         }
-        composeRule.onNodeWithText("1-day streak").textDirection() shouldBe TextDirection.Content
+        composeRule.onNodeWithText("1-day streak").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

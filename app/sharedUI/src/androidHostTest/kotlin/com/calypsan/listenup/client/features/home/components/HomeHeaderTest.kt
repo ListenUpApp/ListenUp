@@ -30,7 +30,7 @@ class HomeHeaderTest {
     @Test
     fun `in a right-to-left layout the English greeting keeps its comma at the end`() {
         composeRule.setContent { RightToLeft { HomeHeader(TimeOfDay.Afternoon, firstName = "Simon", isWide = false) } }
-        composeRule.onNodeWithText("Good afternoon,").textDirection() shouldBe TextDirection.Content
+        composeRule.onNodeWithText("Good afternoon,").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

@@ -34,18 +34,18 @@ class ContentTextDirectionTest :
             firstStrongDirection("") shouldBe null
         }
 
-        test("in a right-to-left layout every style reads from its content and aligns to the right") {
+        test("in a right-to-left layout every style reads from its content, else left to right, and aligns right") {
             val styles = Typography().readingFromContent(LayoutDirection.Rtl).allStyles()
             styles shouldHaveSize TYPE_ROLES
             styles.forEach { style ->
-                style.textDirection shouldBe TextDirection.Content
+                style.textDirection shouldBe TextDirection.ContentOrLtr
                 style.textAlign shouldBe TextAlign.Right
             }
         }
 
-        test("in a left-to-right layout every style reads from its content and aligns to the left") {
+        test("in a left-to-right layout every style reads from its content, else left to right, and aligns left") {
             Typography().readingFromContent(LayoutDirection.Ltr).allStyles().forEach { style ->
-                style.textDirection shouldBe TextDirection.Content
+                style.textDirection shouldBe TextDirection.ContentOrLtr
                 style.textAlign shouldBe TextAlign.Left
             }
         }

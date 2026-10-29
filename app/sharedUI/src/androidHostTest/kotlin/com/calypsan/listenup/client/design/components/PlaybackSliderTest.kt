@@ -110,8 +110,8 @@ class PlaybackSliderTest {
             }
         }
         // Digits and a minus have no direction of their own: laid out right to left, the minus lands after them.
-        composeRule.onNodeWithText("-8:31").textDirection() shouldBe TextDirection.Ltr
-        composeRule.onNodeWithText("12:04").textDirection() shouldBe TextDirection.Ltr
+        composeRule.onNodeWithText("-8:31").textDirection() shouldBe TextDirection.ContentOrLtr
+        composeRule.onNodeWithText("12:04").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

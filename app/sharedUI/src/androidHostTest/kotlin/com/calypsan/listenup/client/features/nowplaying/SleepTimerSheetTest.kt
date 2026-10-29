@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -21,6 +20,9 @@ import io.kotest.matchers.shouldBe
 import java.util.TimeZone
 import org.junit.After
 import org.junit.Before
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.textDirection
+import com.calypsan.listenup.client.design.text.ThemedFor
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,9 +42,12 @@ class SleepTimerSheetTest {
     private var keptListening = 0
     private var dismissed = 0
 
-    private fun sheet(state: SleepSheetState = sleepSheetState()) {
+    private fun sheet(
+        state: SleepSheetState = sleepSheetState(),
+        rtl: Boolean = false,
+    ) {
         composeRule.setContent {
-            MaterialTheme {
+            ThemedFor(rtl) {
                 SleepTimerSheet(
                     state = state,
                     onSetTimer = { set += it },
@@ -149,6 +154,12 @@ class SleepTimerSheetTest {
             .fetchSemanticsNode()
             .config[SemanticsProperties.ProgressBarRangeInfo]
             .current shouldBe (0.789f plusOrMinus 0.001f)
+    }
+
+    @Test
+    fun `in a right-to-left layout the countdown reads left to right`() {
+        sheet(sleepSheetState(timer = THIRTY_MINUTES_RUNNING), rtl = true)
+        composeRule.onNodeWithText("23:41").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -101,10 +100,9 @@ fun PlaybackSlider(
     )
     val phase = rememberSharedOrOwnWavePhase(travels = amplitude > 0f)
     val wavePath = remember { Path() }
-    // A clock is digits and a minus, which have no direction of their own: read from the text they would take the
-    // layout's, and an Arabic layout would print "-1:52" as "1:52-". A clock reads left to right in every locale.
-    val timeStyle =
-        MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum", textDirection = TextDirection.Ltr)
+    // A clock is digits and a minus, with no letter to read a direction from: the theme reads such text left to right
+    // (readingFromContent), so "-1:52" keeps its minus before the digits in an Arabic layout too.
+    val timeStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     val track: @Composable (Modifier) -> Unit = { sliderModifier ->
         Slider(
             value = shownFraction,

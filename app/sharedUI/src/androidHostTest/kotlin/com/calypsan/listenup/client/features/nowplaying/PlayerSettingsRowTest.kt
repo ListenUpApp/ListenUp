@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -12,6 +11,9 @@ import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.textDirection
+import com.calypsan.listenup.client.design.text.ThemedFor
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,9 +33,10 @@ class PlayerSettingsRowTest {
         sleep: SleepTimerState = SleepTimerState.Inactive,
         showsChapters: Boolean = true,
         progress: PlayerProgress = samplePlayerProgress,
+        rtl: Boolean = false,
     ) {
         composeRule.setContent {
-            MaterialTheme {
+            ThemedFor(rtl) {
                 PlayerSettingsRow(
                     speed = 1.25f,
                     sleepTimer = sleep,
@@ -71,6 +74,17 @@ class PlayerSettingsRowTest {
         row()
         composeRule.onNodeWithText("0 dB").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Volume boost").assertDoesNotExist()
+    }
+
+    @Test
+    fun `in a right-to-left layout the rate and the countdown still read left to right`() {
+        row(
+            sleep = SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 1_421_000, totalMs = 1_800_000, startedAt = 0),
+            rtl = true,
+        )
+        // "1.25×" and "23:41" have no letters: laid out right to left, the × would land before the digits.
+        composeRule.onNodeWithText("1.25×").textDirection() shouldBe TextDirection.ContentOrLtr
+        composeRule.onNodeWithText("23:41").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

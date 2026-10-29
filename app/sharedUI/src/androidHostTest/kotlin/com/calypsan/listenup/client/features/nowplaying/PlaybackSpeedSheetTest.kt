@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -17,6 +16,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.textDirection
+import com.calypsan.listenup.client.design.text.ThemedFor
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,9 +39,10 @@ class PlaybackSpeedSheetTest {
         onSpeedChange: (Float) -> Unit = {},
         onStep: (Boolean) -> Unit = {},
         onDismiss: () -> Unit = {},
+        rtl: Boolean = false,
     ) {
         composeRule.setContent {
-            MaterialTheme {
+            ThemedFor(rtl) {
                 PlaybackSpeedSheet(
                     currentSpeed = speed,
                     defaultSpeed = default,
@@ -54,6 +57,21 @@ class PlaybackSpeedSheetTest {
     }
 
     private fun radio(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+
+    @Test
+    fun `in a right-to-left layout every speed reads left to right`() {
+        sheet(speed = 1.25f, rtl = true)
+        // The readout, the slider's two ends and the presets: digits and a ×, no letters to read a direction from.
+        composeRule
+            .onNode(hasText("1.25×") and SemanticsMatcher.keyNotDefined(SemanticsProperties.Role))
+            .textDirection() shouldBe TextDirection.ContentOrLtr
+        listOf("0.5×", "3.0×").forEach { bound ->
+            composeRule
+                .onNode(hasText(bound) and SemanticsMatcher.keyNotDefined(SemanticsProperties.Role))
+                .textDirection() shouldBe TextDirection.ContentOrLtr
+        }
+        composeRule.onNode(radio("1.5×")).textDirection() shouldBe TextDirection.ContentOrLtr
+    }
 
     @Test
     fun `the readout, the time at this speed, and the footnote`() {

@@ -28,18 +28,21 @@ private val RightToLeftScripts = listOf(0x0590..0x08FF, 0xFB1D..0xFDFF, 0xFE70..
 private fun Char.isRightToLeftScript(): Boolean = RightToLeftScripts.any { code in it }
 
 /**
- * This typography with every style reading its direction from its own text ([TextDirection.Content]) and aligned to
- * the [layoutDirection]'s start edge: Android's `textDirection="firstStrong"` with gravity-start alignment.
+ * This typography with every style reading its direction from its own text, and left to right when the text has no
+ * letters to read it from ([TextDirection.ContentOrLtr]), aligned to the [layoutDirection]'s start edge.
  *
  * Compose's default lays every paragraph out in the layout's direction, so in an Arabic or Hebrew locale, where the app
  * shows its English strings, "Good afternoon," became ",Good afternoon" and "1-day streak" became "day streak-1".
- * Reading the direction from the text fixes that for every string at once; aligning to the layout's start edge by side
- * (left or right) rather than by the paragraph's own start keeps that English text where the mirrored layout puts it.
+ * Reading the direction from the text fixes that for every string at once. A label of digits and symbols alone (a
+ * clock "-1:52", a speed "1.0×", a countdown) has no letter to decide by; Android's firstStrong would fall back to the
+ * layout and print "1.0×" as "×1.0", so it reads left to right, as numbers do in those locales too. Aligning to the
+ * layout's start edge by side (left or right) rather than by the paragraph's own start keeps text where the mirrored
+ * layout puts it.
  */
 fun Typography.readingFromContent(layoutDirection: LayoutDirection): Typography {
     val align = if (layoutDirection == LayoutDirection.Rtl) TextAlign.Right else TextAlign.Left
 
-    fun TextStyle.reading(): TextStyle = copy(textDirection = TextDirection.Content, textAlign = align)
+    fun TextStyle.reading(): TextStyle = copy(textDirection = TextDirection.ContentOrLtr, textAlign = align)
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     return copy(
