@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.calypsan.listenup.client.features.nowplaying.MINI_BODY_TAG
 import com.calypsan.listenup.client.features.nowplaying.NO_COVER
 import com.calypsan.listenup.client.features.nowplaying.components.PLAYER_COVER_TAG
@@ -49,7 +50,19 @@ class MorphDragHidesPageTest {
 
     @Test
     fun `mid-drag, Now Playing's cover, title and scrubber are not drawn under the flying ones`() {
-        rig.show(loadedPlayerState(coverPath = NO_COVER))
+        assertOnlyTheFlightIsDrawnMidDrag(isRtl = false)
+    }
+
+    @Test
+    fun `right to left too, mid-drag only the flying parts are drawn`() {
+        assertOnlyTheFlightIsDrawnMidDrag(isRtl = true)
+    }
+
+    private fun assertOnlyTheFlightIsDrawnMidDrag(isRtl: Boolean) {
+        rig.show(
+            loadedPlayerState(coverPath = NO_COVER),
+            layoutDirection = if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+        )
         val barTop =
             rig.morph.anchors.barBounds
                 .shouldNotBeNull()
@@ -68,7 +81,7 @@ class MorphDragHidesPageTest {
                 .shouldNotBeNull()
                 .boundsInRoot()
                 .top
-        val flying = flyingRects()
+        val flying = flyingRects(isRtl)
         val pageTitle =
             composeRule
                 .onAllNodesWithText("The Way of Kings")
@@ -114,7 +127,7 @@ class MorphDragHidesPageTest {
     }
 
     /** Where the flying parts are drawn: their nodes, and the line's band (its handle's height). */
-    private fun flyingRects(): List<Rect> {
+    private fun flyingRects(isRtl: Boolean): List<Rect> {
         val parts =
             listOf(MORPH_COVER_TAG, MORPH_TITLE_TAG, MORPH_PLAY_TAG).flatMap { tag ->
                 composeRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().map {
@@ -123,7 +136,7 @@ class MorphDragHidesPageTest {
             }
         val line =
             rig.morph
-                .lineFlightParts(samplePlayerProgress.chapterFraction, isRtl = false, density = Density(rig.density))
+                .lineFlightParts(samplePlayerProgress.chapterFraction, isRtl = isRtl, density = Density(rig.density))
                 .shouldNotBeNull()
         val band = LINE_BAND_DP * rig.density
         return parts + Rect(0f, line.centreY - band, PIXELS_WIDE, line.centreY + band)

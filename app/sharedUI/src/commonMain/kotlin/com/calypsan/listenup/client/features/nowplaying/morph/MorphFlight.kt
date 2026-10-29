@@ -240,7 +240,6 @@ private fun PlayFlight(
         contentAlignment = Alignment.Center,
         modifier =
             Modifier
-                .testTag(MORPH_PLAY_TAG)
                 .layout { measurable, _ ->
                     val at = morph.playRect(isRtl)
                     val width = at?.run { width.roundToInt().coerceAtLeast(0) } ?: 0
@@ -261,7 +260,9 @@ private fun PlayFlight(
                     val barCorner = minOf(bar.width, bar.height) / 2f
                     shape = RoundedCornerShape(lerp(barCorner, pageCorner, morph.progress.coerceIn(0f, 1f)))
                     clip = true
-                }.background(colors.primary),
+                    // Tagged inside its layer, as the cover is, so the tag's bounds are where the button is drawn.
+                }.testTag(MORPH_PLAY_TAG)
+                .background(colors.primary),
     ) {
         val glyphScale =
             Modifier.graphicsLayer {
@@ -288,9 +289,13 @@ private fun PlayFlight(
 
 /** The play button's rect at the current progress, host px, or null before both ends are measured. */
 private fun PlayerMorphState.playRect(isRtl: Boolean): Rect? {
+    // Read before anything can return early: the layout and layer that call this must re-run as the morph moves, or a
+    // drag that starts before Now Playing's button is measured leaves the flying button unsized for the whole flight.
+    val p = progress
+    if (!anchors.isReadyState) return null
     val bar = anchors.barRect(MorphPart.Play) ?: return null
     val page = pageTarget(MorphPart.Play) ?: return null
-    val at = flightFromStart(from = bar.toMorphRect(), to = page.toMorphRect(), p = progress, isRtl = isRtl)
+    val at = flightFromStart(from = bar.toMorphRect(), to = page.toMorphRect(), p = p, isRtl = isRtl)
     return Rect(Offset(at.left, at.top), Size(at.width, at.height))
 }
 

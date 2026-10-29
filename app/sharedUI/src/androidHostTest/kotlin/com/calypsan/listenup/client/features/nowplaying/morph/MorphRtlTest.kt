@@ -14,6 +14,8 @@ import io.kotest.matchers.floats.shouldBeGreaterThan
 import io.kotest.matchers.floats.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.unit.Density
+import com.calypsan.listenup.client.features.nowplaying.samplePlayerProgress
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +62,36 @@ class MorphRtlTest {
 
         left shouldBeGreaterThan min(barLeft, page.left) - 1f
         right shouldBeLessThan max(barRight, page.right) + 1f
+    }
+
+    @Test
+    fun `halfway, the flying play button lies between the bar's and Now Playing's`() {
+        show()
+        at(0.5f)
+        val bar = rig.morph.anchors.barRect(MorphPart.Play).shouldNotBeNull()
+        val page = rig.morph.pageTarget(MorphPart.Play).shouldNotBeNull()
+        val flying = composeRule.onNodeWithTag(MORPH_PLAY_TAG, useUnmergedTree = true).getBoundsInRoot()
+
+        flying.left.value * rig.density shouldBeGreaterThan min(bar.left, page.left) - 1f
+        flying.right.value * rig.density shouldBeLessThan max(bar.right, page.right) + 1f
+    }
+
+    @Test
+    fun `halfway, the flying line lies between the bar's line and the scrubber, and fills from the right`() {
+        show()
+        at(0.5f)
+        val bar = rig.morph.anchors.barRect(MorphPart.Line).shouldNotBeNull()
+        val page = rig.morph.pageTarget(MorphPart.Line).shouldNotBeNull()
+        val line =
+            rig.morph
+                .lineFlightParts(samplePlayerProgress.chapterFraction, isRtl = true, density = Density(rig.density))
+                .shouldNotBeNull()
+                .geometry
+
+        min(line.trackStart, line.trackEnd) shouldBeGreaterThan min(bar.left, page.left) - 1f
+        max(line.trackStart, line.trackEnd) shouldBeLessThan max(bar.right, page.right) + 1f
+        // Right to left, the filled wave starts at the right end and runs leftwards.
+        line.waveEnd shouldBeLessThan line.trackStart
     }
 
     @Test
