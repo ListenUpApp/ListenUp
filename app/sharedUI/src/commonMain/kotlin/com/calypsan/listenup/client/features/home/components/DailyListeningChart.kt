@@ -22,6 +22,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.domain.DayBucket
@@ -78,7 +79,7 @@ fun DailyListeningChart(
     val maxSeconds = chartData.maxOf { it.totalSeconds }.coerceAtLeast(1L).toFloat()
     val labelStyle = TextStyle(fontSize = WeekChartLabelSize, color = labelColor)
 
-    // Bars grow up from the baseline on screen entry, rippling left-to-right (today rises last).
+    // Bars grow up from the baseline on screen entry, rippling from the oldest day to today (today rises last).
     val growth = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         // Bespoke: a linear clock, not a spring; each bar reads its own staggered window of it below.
@@ -107,19 +108,29 @@ fun DailyListeningChart(
                 minBarWidth = MinBarWidth.toPx(),
             )
         val labelResults = dayLabels.map { textMeasurer.measure(it, labelStyle) }
+        // A time axis mirrors with the layout (M3): in a right-to-left layout today stands at the left.
+        val isRtl = layoutDirection == LayoutDirection.Rtl
         val labelSpans =
             weekChartLabelSpans(
                 labelWidths = labelResults.map { it.size.width.toFloat() },
                 chartWidth = size.width,
                 barWidth = barWidth,
                 barSpacing = barSpacing,
+                isRtl = isRtl,
             )
 
         val stubSize = emptyDayStubSize(barWidth, EmptyStubMaxWidth.toPx(), EmptyStubHeight.toPx())
-        // Each bar opens a little after the one to its left, so the row ripples up on entry.
+        // Each bar opens a little after the day before it, so the row ripples up on entry.
         val barStagger = if (barCount > 1) (1f - BAR_GROW_FRACTION) / (barCount - 1) else 0f
         chartData.forEachIndexed { index, bar ->
-            val x = index * (barWidth + barSpacing)
+            val x =
+                weekChartBarLeft(
+                    index = index,
+                    barWidth = barWidth,
+                    barSpacing = barSpacing,
+                    chartWidth = size.width,
+                    isRtl = isRtl,
+                )
             val isToday = bar.isToday
             val isEmpty = bar.totalSeconds <= 0L
             // An empty day is a small stub on the baseline, so the row reads as days with nothing in
@@ -163,18 +174,43 @@ internal fun weekChartBarWidth(
 ): Float = ((chartWidth - barSpacing * (barCount - 1)) / barCount).coerceAtLeast(minBarWidth)
 
 /**
- * Where each day label is drawn, left to right, given each label's measured width: centred under its bar, but never
- * past either edge of the chart. "Today" under the last bar outgrows a narrow phone's column at large text, so it
- * slides inward to end flush with the chart rather than being cut by the card.
+ * Where bar [index] (0 the oldest day) starts, px from the chart's left: the oldest at the layout's start, today at its
+ * end, so the row runs left to right, or right to left when [isRtl], as a time axis mirrors with its layout (M3). Pure.
+ */
+internal fun weekChartBarLeft(
+    index: Int,
+    barWidth: Float,
+    barSpacing: Float,
+    chartWidth: Float,
+    isRtl: Boolean,
+): Float {
+    val fromStart = index * (barWidth + barSpacing)
+    return if (isRtl) chartWidth - fromStart - barWidth else fromStart
+}
+
+/**
+ * Where each day label is drawn, px from the chart's left, given each label's measured width: centred under its bar
+ * ([weekChartBarLeft], so mirrored when [isRtl]), but never past either edge of the chart. "Today" under the last bar
+ * outgrows a narrow phone's column at large text, so it slides inward to end flush with the chart rather than being
+ * cut by the card.
  */
 internal fun weekChartLabelSpans(
     labelWidths: List<Float>,
     chartWidth: Float,
     barWidth: Float,
     barSpacing: Float,
+    isRtl: Boolean = false,
 ): List<ClosedFloatingPointRange<Float>> =
     labelWidths.mapIndexed { index, labelWidth ->
-        val centred = index * (barWidth + barSpacing) + (barWidth - labelWidth) / 2f
+        val barLeft =
+            weekChartBarLeft(
+                index = index,
+                barWidth = barWidth,
+                barSpacing = barSpacing,
+                chartWidth = chartWidth,
+                isRtl = isRtl,
+            )
+        val centred = barLeft + (barWidth - labelWidth) / 2f
         val left = centred.coerceIn(0f, (chartWidth - labelWidth).coerceAtLeast(0f))
         left..(left + labelWidth)
     }
