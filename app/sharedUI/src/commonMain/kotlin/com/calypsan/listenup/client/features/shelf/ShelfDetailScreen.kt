@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import com.calypsan.listenup.client.design.text.forProse
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -718,7 +719,7 @@ private fun ShelfDescription(
         Spacer(Modifier.height(8.dp))
         Text(
             text = description,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.forProse(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (isExpanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,

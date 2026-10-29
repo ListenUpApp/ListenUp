@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributordetail
 
+import com.calypsan.listenup.client.design.text.forProse
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -1147,7 +1148,7 @@ private fun BiographySection(
 
         Text(
             text = description,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.forProse(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (isExpanded) Int.MAX_VALUE else 4,
             overflow = TextOverflow.Ellipsis,

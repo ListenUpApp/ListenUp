@@ -80,7 +80,8 @@ fun ListenUpTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = platformColorScheme(darkTheme, dynamicColor)
-    // Text reads its direction from its own words, and sits where the layout puts it (Android's firstStrong).
+    // Text reads its direction from its own first strong letter (left to right when it has none), and a label sits on
+    // the layout's start side; prose opts into its own paragraphs' side with forProse().
     val layoutDirection = LocalLayoutDirection.current
     val typography = remember(layoutDirection) { ListenUpTypography.readingFromContent(layoutDirection) }
 

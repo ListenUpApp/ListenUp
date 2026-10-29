@@ -14,21 +14,57 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 
 /**
- * The direction [text] reads in, from its first letter that has one (Unicode's "first strong" rule), or null when it
- * has none: digits, punctuation and spaces alone ("-1:52") take their direction from what surrounds them. Pure.
+ * The direction [text] reads in, from its first strong character (Unicode's "first strong" rule): a letter, or one of
+ * the marks LRM (U+200E), RLM (U+200F) and ALM (U+061C) set to decide it. Null when it has none: digits, punctuation,
+ * spaces and emoji alone ("-1:52") take their direction from what surrounds them. Read by code point, so the scripts
+ * past the Basic Multilingual Plane (Adlam, Hanifi Rohingya) count. Pure.
  */
-fun firstStrongDirection(text: String): LayoutDirection? =
-    text.firstOrNull { it.isLetter() }?.let { letter ->
-        if (letter.isRightToLeftScript()) LayoutDirection.Rtl else LayoutDirection.Ltr
+internal fun firstStrongDirection(text: String): LayoutDirection? {
+    var index = 0
+    while (index < text.length) {
+        val char = text[index]
+        val low = text.getOrNull(index + 1)
+        val isPair = char.isHighSurrogate() && low != null && low.isLowSurrogate()
+        val codePoint = if (isPair) supplementaryCodePoint(char, low) else char.code
+        strongDirection(codePoint, isLetter = !isPair && char.isLetter())?.let { return it }
+        index += if (isPair) 2 else 1
+    }
+    return null
+}
+
+private fun supplementaryCodePoint(
+    high: Char,
+    low: Char,
+): Int = ((high.code - HIGH_SURROGATE_START) shl SURROGATE_BITS) + (low.code - LOW_SURROGATE_START) + SUPPLEMENTARY_START
+
+/** The direction [codePoint] decides, or null for one that is neutral (a digit, a symbol, a space, an emoji). */
+private fun strongDirection(
+    codePoint: Int,
+    isLetter: Boolean,
+): LayoutDirection? =
+    when {
+        codePoint == LEFT_TO_RIGHT_MARK -> LayoutDirection.Ltr
+        codePoint == RIGHT_TO_LEFT_MARK || codePoint == ARABIC_LETTER_MARK -> LayoutDirection.Rtl
+        RightToLeftScripts.any { codePoint in it } -> LayoutDirection.Rtl
+        isLetter -> LayoutDirection.Ltr
+        else -> null
     }
 
 /**
- * The code points of the right-to-left scripts: Hebrew, Arabic, Syriac, Thaana, N'Ko, Samaritan and Mandaic, then the
- * Hebrew and Arabic presentation forms.
+ * The code points of the right-to-left scripts: Hebrew, Arabic, Syriac, Thaana, N'Ko, Samaritan and Mandaic; the
+ * Hebrew and Arabic presentation forms; and past the Basic Multilingual Plane, the historic and modern right-to-left
+ * blocks (Hanifi Rohingya at U+10D00, Adlam at U+1E900 among them).
  */
-private val RightToLeftScripts = listOf(0x0590..0x08FF, 0xFB1D..0xFDFF, 0xFE70..0xFEFF)
+private val RightToLeftScripts =
+    listOf(0x0590..0x08FF, 0xFB1D..0xFDFF, 0xFE70..0xFEFF, 0x10800..0x10FFF, 0x1E800..0x1EFFF)
 
-private fun Char.isRightToLeftScript(): Boolean = RightToLeftScripts.any { code in it }
+private const val LEFT_TO_RIGHT_MARK = 0x200E
+private const val RIGHT_TO_LEFT_MARK = 0x200F
+private const val ARABIC_LETTER_MARK = 0x061C
+private const val HIGH_SURROGATE_START = 0xD800
+private const val LOW_SURROGATE_START = 0xDC00
+private const val SUPPLEMENTARY_START = 0x10000
+private const val SURROGATE_BITS = 10
 
 /**
  * This typography with every style reading its direction from its own text, and left to right when the text has no
@@ -108,6 +144,13 @@ fun ProvideLayoutDirection(
         )
     }
 }
+
+/**
+ * This style for prose (a description, a biography, Markdown): aligned to each paragraph's own start, as Android's
+ * TextView aligns by default, so an Arabic description in an English layout runs flush right rather than ragged against
+ * the left edge where the layout's labels sit. UI labels keep the layout's side ([readingFromContent]).
+ */
+fun TextStyle.forProse(): TextStyle = copy(textAlign = TextAlign.Start)
 
 /** Every style of this typography, the fifteen baseline roles then their emphasized twins. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
