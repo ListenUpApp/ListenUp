@@ -13,7 +13,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.design.text.RightToLeft
 import com.calypsan.listenup.client.domain.model.BookContributor
+import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.textAlign
+import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,6 +59,50 @@ class ContributorLineDirectionTest {
         (first.right <= second.left) shouldBe true
     }
 
+    @Test
+    fun `in a left-to-right layout an Arabic byline reads right to left, icon first, its gap towards the names`() {
+        composeRule.setContent {
+            ListenUpTheme(dynamicColor = false) {
+                ClickableContributorLine(
+                    contributors = listOf(narrator("1", ARABIC_NAME), narrator("2", "Someone")),
+                    onContributorClick = {},
+                    style = MaterialTheme.typography.bodyMedium,
+                    nameColor = Color.Black,
+                    separatorColor = Color.Black,
+                    leadingIcon = {
+                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, modifier = Modifier.testTag(ICON))
+                    },
+                )
+            }
+        }
+        val icon = composeRule.onNodeWithTag(ICON, useUnmergedTree = true).getBoundsInRoot()
+        val first = composeRule.onNodeWithText(ARABIC_NAME).getBoundsInRoot()
+        val second = composeRule.onNodeWithText("Someone").getBoundsInRoot()
+
+        (first.right <= icon.left) shouldBe true
+        (second.right <= first.left) shouldBe true
+        // The icon's 6dp gap sits between it and the first name, not on its outer side.
+        (icon.left - first.right).value shouldBe (ICON_GAP_DP plusOrMinus 1f)
+    }
+
+    @Test
+    fun `words laid out against the layout align by their own direction's side, as their layout now reads`() {
+        composeRule.setContent {
+            RightToLeft {
+                ClickableContributorLine(
+                    contributors = listOf(narrator("1", "Richard E. Grant")),
+                    onContributorClick = {},
+                    style = MaterialTheme.typography.bodyMedium,
+                    nameColor = Color.Black,
+                    separatorColor = Color.Black,
+                    prefix = "Narrated by ",
+                )
+            }
+        }
+        // Inside the left-to-right sentence, the theme's "layout start" is the left, as TextAlign.LayoutStart there says.
+        composeRule.onNodeWithText("Narrated by ").textAlign() shouldBe TextAlign.Left
+    }
+
     private fun narrator(
         id: String,
         name: String,
@@ -62,5 +110,7 @@ class ContributorLineDirectionTest {
 
     private companion object {
         const val ICON = "byline-icon"
+        const val ARABIC_NAME = "نجيب محفوظ"
+        const val ICON_GAP_DP = 6f
     }
 }

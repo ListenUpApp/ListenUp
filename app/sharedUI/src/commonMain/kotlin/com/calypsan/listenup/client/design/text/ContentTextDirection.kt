@@ -2,8 +2,11 @@ package com.calypsan.listenup.client.design.text
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Typography
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +80,33 @@ fun Typography.readingFromContent(layoutDirection: LayoutDirection): Typography 
         labelMediumEmphasized = labelMediumEmphasized.reading(),
         labelSmallEmphasized = labelSmallEmphasized.reading(),
     )
+}
+
+/**
+ * Lays [content] out in [direction], with the theme's typography re-aligned to it, so a text style's side
+ * ([readingFromContent]) and [TextAlign.Companion.LayoutStart] agree inside, as they do at the root. The only way this
+ * app gives a subtree its own layout direction.
+ *
+ * The limit: a style read from the theme outside and handed in (a `style` parameter) still carries the outer side; a
+ * component that takes one re-aligns it inside with `style.copy(textAlign = TextAlign.LayoutStart)`, as the byline does.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ProvideLayoutDirection(
+    direction: LayoutDirection,
+    content: @Composable () -> Unit,
+) {
+    val typography = MaterialTheme.typography
+    val aligned = remember(typography, direction) { typography.readingFromContent(direction) }
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme,
+            motionScheme = MaterialTheme.motionScheme,
+            shapes = MaterialTheme.shapes,
+            typography = aligned,
+            content = content,
+        )
+    }
 }
 
 /** Every style of this typography, the fifteen baseline roles then their emphasized twins. */

@@ -7,17 +7,19 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import com.calypsan.listenup.client.design.text.ProvideLayoutDirection
 import com.calypsan.listenup.client.design.text.firstStrongDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -88,6 +90,8 @@ fun ClickableContributorLine(
             null
         }
     val tokens: @Composable (Modifier, Arrangement.Horizontal) -> Unit = { rowModifier, arrangement ->
+        // [style] was resolved where the caller stands; inside the words' own direction their side is this one's.
+        val style = style.copy(textAlign = TextAlign.LayoutStart)
         FlowRow(
             modifier = rowModifier,
             horizontalArrangement = arrangement,
@@ -162,7 +166,7 @@ private fun InReadingOrder(
     }
     val readingOrder = remember(arrangement, layoutDirection) { ReadingOrderArrangement(arrangement, layoutDirection) }
     Box(modifier, propagateMinConstraints = true) {
-        CompositionLocalProvider(LocalLayoutDirection provides readingDirection) { content(Modifier, readingOrder) }
+        ProvideLayoutDirection(readingDirection) { content(Modifier, readingOrder) }
     }
 }
 
@@ -191,13 +195,15 @@ private class ReadingOrderArrangement(
                 outPositions = outPositions,
             )
         }
-        // Left to right as packed; the gaps between neighbours, then the same span with the words in order.
+        // Where the line was packed, left to right, and the gaps between neighbours there; then the same slots filled
+        // in reading order: from the left for a left-to-right sentence, from the right for a right-to-left one.
         val packed = sizes.indices.sortedBy { outPositions[it] }
-        val gaps = packed.zipWithNext { a, b -> outPositions[b] - (outPositions[a] + sizes[a]) }.reversed()
+        val gaps = packed.zipWithNext { a, b -> outPositions[b] - (outPositions[a] + sizes[a]) }
         var x = packed.firstOrNull()?.let { outPositions[it] } ?: return
-        sizes.indices.forEach { index ->
+        val leftToRight = if (layoutDirection == LayoutDirection.Rtl) sizes.indices.reversed() else sizes.indices
+        leftToRight.forEachIndexed { slot, index ->
             outPositions[index] = x
-            x += sizes[index] + (gaps.getOrNull(index) ?: 0)
+            x += sizes[index] + (gaps.getOrNull(slot) ?: 0)
         }
     }
 }

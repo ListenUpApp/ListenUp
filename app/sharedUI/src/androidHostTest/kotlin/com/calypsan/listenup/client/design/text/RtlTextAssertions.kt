@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
@@ -25,6 +26,13 @@ internal fun SemanticsNodeInteraction.textDirection(): TextDirection {
     return layouts
         .first()
         .layoutInput.style.textDirection
+}
+
+/** The alignment this text node was laid out with. */
+internal fun SemanticsNodeInteraction.textAlign(): TextAlign {
+    val layouts = mutableListOf<TextLayoutResult>()
+    performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+    return layouts.first().layoutInput.style.textAlign
 }
 
 /** [content] under the app's theme in a right-to-left layout: an Arabic or Hebrew locale with English strings. */
