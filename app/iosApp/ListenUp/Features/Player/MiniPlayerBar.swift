@@ -19,10 +19,13 @@ struct MiniPlayerBar: View {
     /// The namespace the cover registers in as the full player's zoom source.
     let transitionNamespace: Namespace.ID
     let onOpen: () -> Void
+    /// Bumped each time the full player closes: VoiceOver returns to the book, the control that opened it.
+    var focusReturnRequest = 0
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AccessibilityFocusState private var isBookFocused: Bool
 
     var body: some View {
         let isInline = placement == .inline
@@ -38,8 +41,11 @@ struct MiniPlayerBar: View {
                 onOpen: onOpen,
                 onSkipBack: { observer.skipBackward() },
                 onSkipForward: { observer.skipForward() },
-                onPrimary: { observer.miniPrimary(model.primaryAction) })
+                onPrimary: { observer.miniPrimary(model.primaryAction) },
+                opensOnSwipe: MiniPlayerSwipe.isEnabled(placement: placement),
+                bookFocus: $isBookFocused)
         }
+        .returnsFocus($isBookFocused, on: focusReturnRequest)
         // Said once, politely, when a dropped connection starts recovering; never per second (HIG, Accessibility).
         .onChange(of: model.isReconnecting) { _, isReconnecting in
             guard isReconnecting else { return }
@@ -111,6 +117,10 @@ struct MiniPlayerAccessoryContent: View {
     let onSkipBack: () -> Void
     let onSkipForward: () -> Void
     let onPrimary: () -> Void
+    /// Whether a swipe up opens the full player (`MiniPlayerSwipe`): the expanded capsule only.
+    var opensOnSwipe = false
+    /// VoiceOver focus on the book, which the full player hands back when it closes.
+    var bookFocus: AccessibilityFocusState<Bool>.Binding?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -126,6 +136,7 @@ struct MiniPlayerAccessoryContent: View {
             .accessibilityLabel([model.title, model.line].compactMap(\.self).joined(separator: ", "))
             .accessibilityHint(String(localized: "player.opens_player_hint"))
             .accessibilityShowsLargeContentViewer { Label(model.title, systemImage: "book") }
+            .modifier(BookFocus(binding: bookFocus))
 
             if model.showsSkipBack {
                 skip(symbol: PlayerGlyphs.skipBackward(seconds: model.skipBackSec),
@@ -147,6 +158,17 @@ struct MiniPlayerAccessoryContent: View {
         .padding(.trailing, model.primary.isPill && !model.showsSkipForward ? Spacing.s : Spacing.xxs)
         .containerShape(Capsule())
         .overlay(alignment: .bottom) { if model.showsProgress { progressLine } }
+        // A trigger, not a drag: the swipe opens the same zoom a tap does and never follows the finger. Simultaneous,
+        // so the book, skip and play buttons keep their taps; a gesture adds no VoiceOver stop or action (the book
+        // button already opens the player).
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8).onEnded { drag in
+                if MiniPlayerSwipe.opens(
+                    translation: drag.translation.height, predictedEnd: drag.predictedEndTranslation.height) {
+                    onOpen()
+                }
+            },
+            including: opensOnSwipe ? .all : .subviews)
         // The accessory is system chrome of a fixed height, like the tab bar: its text stops growing at xLarge, and
         // the large content viewer shows each control instead (HIG, Accessibility). MiniPlayerAccessibilityTests
         // pins the height.
@@ -316,6 +338,34 @@ struct MiniPlayerLineText: View {
             .foregroundStyle(model.isFailure ? Color.luPlayerError : Color.secondary)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(model.line ?? lead)
+        }
+    }
+}
+
+/// Ties the book button to VoiceOver focus when the accessory has a focus to hand back; previews and snapshots have none.
+private struct BookFocus: ViewModifier {
+    let binding: AccessibilityFocusState<Bool>.Binding?
+
+    func body(content: Content) -> some View {
+        if let binding {
+            content.accessibilityFocused(binding)
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Moves VoiceOver focus to `focus` on every change of `request`. The full player bumps the request when it closes,
+    /// so focus lands on the mini player's book, the control that opened it, rather than wherever the system restores.
+    /// `didRequest` runs after each request: SwiftUI only holds accessibility focus while VoiceOver runs, so a test
+    /// without it observes the request here rather than the focus.
+    func returnsFocus(
+        _ focus: AccessibilityFocusState<Bool>.Binding, on request: Int, didRequest: @escaping () -> Void = {}
+    ) -> some View {
+        onChange(of: request) {
+            focus.wrappedValue = true
+            didRequest()
         }
     }
 }

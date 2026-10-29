@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.client.design.components.PlaybackSlider
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -121,10 +122,15 @@ fun NowPlayingToolbar(
     skipForwardSec: Int,
     modifier: Modifier = Modifier,
 ) {
+    // Whether the toolbar is coming back from under Now Playing rather than arriving with a book.
+    var coveredByPlayer by remember { mutableStateOf(isExpanded) }
+    LaunchedEffect(isExpanded) { if (isExpanded) coveredByPlayer = true }
+    LaunchedEffect(state is PlayerUiState.Loaded) { if (state !is PlayerUiState.Loaded) coveredByPlayer = false }
     AnimatedVisibility(
         visible = state is PlayerUiState.Loaded && !isExpanded,
-        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+        // Now Playing fades through over the toolbar, so the toolbar fades under it; a book arriving or leaving slides.
+        enter = if (coveredByPlayer) fadeIn() else slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = if (isExpanded) fadeOut() else slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier,
     ) {
         val loaded = state as? PlayerUiState.Loaded ?: return@AnimatedVisibility
@@ -231,7 +237,12 @@ private fun RowScope.ToolbarContent(
         tint = LocalContentColor.current,
     )
     if (fullSet) {
-        ToolbarScrubber(progress = progress, onSeek = actions.onSeek, modifier = Modifier.weight(1f))
+        ToolbarScrubber(
+            progress = progress,
+            isPlaying = state.isAudible,
+            onSeek = actions.onSeek,
+            modifier = Modifier.weight(1f),
+        )
         SpeedButton(speed = state.settings.speed, onClick = actions.onSpeedClick)
         SleepSettingButton(
             timer = state.sleepTimer,
@@ -302,6 +313,7 @@ private fun ToolbarBody(
 @Composable
 private fun ToolbarScrubber(
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -310,6 +322,7 @@ private fun ToolbarScrubber(
         fraction = current.chapterFraction,
         elapsedMs = current.chapterPositionMs,
         durationMs = current.chapterDurationMs,
+        isPlaying = isPlaying,
         onSeek = onSeek,
         modifier = modifier,
         timesBeside = true,

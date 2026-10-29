@@ -1,9 +1,22 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.mutableFloatStateOf
+import com.calypsan.listenup.client.features.nowplaying.morph.drivesSheet
+import com.calypsan.listenup.client.presentation.player.MorphMode
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.presentation.player.BackPreviewWeight
+import com.calypsan.listenup.client.features.nowplaying.morph.dragToClose
+import androidx.compose.ui.graphics.Color
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
+import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
+import com.calypsan.listenup.client.features.nowplaying.morph.morphSheetLayer
+import com.calypsan.listenup.client.features.nowplaying.morph.morphSheet
+import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -15,13 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.motion.PredictiveBackEdgeMargin
@@ -34,14 +44,10 @@ import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_now_playing
 import org.jetbrains.compose.resources.stringResource
-
-// Drag-to-dismiss: release past a third of the screen height collapses the player.
-private const val DRAG_DISMISS_FRACTION = 0.33f
 
 // TV ambient mode: fade controls out after this idle period.
 private const val TV_AMBIENT_DELAY_MS = 15_000L
@@ -92,6 +98,9 @@ fun NowPlayingScreen(
     // let a back gesture fire before the screen is presented, creating a jarring mid-slide
     // dismiss. Flipping `presented` on the first composition frame is the lightest safe guard.
     var presented by remember { mutableStateOf(false) }
+    val morph = LocalPlayerMorph.current
+    var sheetWidthPx by remember { mutableFloatStateOf(0f) }
+    val edgeMarginPx = with(LocalDensity.current) { PredictiveBackEdgeMargin.toPx() }
     LaunchedEffect(Unit) { presented = true }
     PlatformPredictiveBackHandler(enabled = presented) { gesture ->
         var committed = false
@@ -101,7 +110,23 @@ fun NowPlayingScreen(
                 backProgress.snapTo(frame.progress)
             }
             committed = true
-            onCollapse()
+            val handsToMorph = morph?.let { it.entryMotion == EntryMotion.Morph && it.mode == MorphMode.Morph } == true
+            if (morph != null && handsToMorph) {
+                // The morph runs from the shrunken player into the bar: the preview becomes its weight, and the
+                // close writes the destination when it lands.
+                val preview =
+                    predictiveBackPreview(
+                        progress = backProgress.value,
+                        edge = backEdge,
+                        widthPx = sheetWidthPx,
+                        edgeMarginPx = edgeMarginPx,
+                    )
+                morph.backPreview = BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
+                backProgress.snapTo(0f)
+                morph.animateTo(MorphEnd.Bar)
+            } else {
+                onCollapse()
+            }
         } finally {
             // Gesture abandoned (the progress flow ends in cancellation) — rewind the dismissal
             // animation, NonCancellable so the rewind still runs inside the cancelled handler. On
@@ -142,33 +167,24 @@ fun NowPlayingScreen(
         label = "ambientAlpha",
     )
 
-    // Drag-to-dismiss state
-    val scope = rememberCoroutineScope()
-    val screenHeightPx =
-        LocalWindowInfo.current.containerSize.height
-            .toFloat()
-    val dismissThreshold = screenHeightPx * DRAG_DISMISS_FRACTION
-
-    val dragOffset = remember { Animatable(0f) }
-    val motion = MaterialTheme.motionScheme
-
-    // When a predictive-back gesture begins, immediately clear any in-flight drag offset so the
-    // two transforms (translationY from drag + the back preview) never compound. snapTo is
-    // intentional — an animated clear would itself compound with the back animation.
-    LaunchedEffect(backProgress.value != 0f) {
-        if (backProgress.value != 0f && dragOffset.value != 0f) dragOffset.snapTo(0f)
-    }
-
     // The corners the sheet rounds toward as the back preview shrinks it off the window's edges.
     val backPreviewCorner = MaterialTheme.shapes.extraLarge.topStart
     val fold = LocalFold.current
     val layout = nowPlayingLayout(currentWindowAdaptiveInfoV2().windowSizeClass, fold)
     val nowPlaying = stringResource(Res.string.player_now_playing)
+    val surfaceColour = MaterialTheme.colorScheme.surface
+    val barColour =
+        if (sheetStartsTinted(state)) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        }
 
     Surface(
         modifier =
             modifier
                 .fillMaxSize()
+                .onSizeChanged { sheetWidthPx = it.width.toFloat() }
                 .semantics { paneTitle = nowPlaying }
                 .onKeyEvent {
                     if (isTv) resetAmbient()
@@ -181,52 +197,33 @@ fun NowPlayingScreen(
                             widthPx = size.width,
                             edgeMarginPx = PredictiveBackEdgeMargin.toPx(),
                         )
-                    translationX = preview.translationX
-                    translationY = dragOffset.value
-                    scaleX = preview.scale
-                    scaleY = preview.scale
-                    shape = RoundedCornerShape(backPreviewCorner.toPx(size, this) * preview.cornerFraction)
-                    clip = preview.cornerFraction > 0f
+                    // A committed back hands its preview to the morph, which weighs it away as it lands.
+                    val carried = morph?.takeIf { it.backPreview != BackPreviewWeight.None && it.drivesSheet }
+                    val weight =
+                        carried?.let { it.backPreview.at(it.progress) }
+                            ?: BackPreviewWeight(preview.scale, preview.translationX, preview.cornerFraction)
+                    translationX = weight.translationX
+                    scaleX = weight.scale
+                    scaleY = weight.scale
+                    shape = RoundedCornerShape(backPreviewCorner.toPx(size, this) * weight.cornerFraction)
+                    clip = weight.cornerFraction > 0f
                     // Ambient fade (TV idle) only; the back preview stays opaque, so the page beneath
                     // never shows through the player. With no TV ambient this is 1f.
                     alpha = ambientAlpha * preview.alpha
-                }.pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragEnd = {
-                            scope.launch {
-                                if (dragOffset.value > dismissThreshold) {
-                                    // Animate off screen then collapse
-                                    dragOffset.animateTo(
-                                        targetValue = screenHeightPx,
-                                        // Bespoke: a fixed, quick flight so the collapse is not held
-                                        // back by a spring settling off screen.
-                                        animationSpec = tween(200),
-                                    )
-                                    onCollapse()
-                                } else {
-                                    // Snap back to open
-                                    dragOffset.animateTo(
-                                        targetValue = 0f,
-                                        animationSpec = motion.fastSpatialSpec(),
-                                    )
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            scope.launch {
-                                dragOffset.animateTo(0f, motion.fastSpatialSpec())
-                            }
-                        },
-                        onVerticalDrag = { _, dragAmount ->
-                            scope.launch {
-                                // Only allow dragging down (positive values)
-                                val newOffset = (dragOffset.value + dragAmount).coerceAtLeast(0f)
-                                dragOffset.snapTo(newOffset)
-                            }
-                        },
-                    )
-                },
-        color = MaterialTheme.colorScheme.surface,
+                }.morphSheetLayer(morph, barColour = barColour, surfaceColour = surfaceColour)
+                .morphSheet()
+                // The morph's drag-to-close where Now Playing morphs; wide windows fade through and do not drag. Switched
+                // by `enabled`, not attached and removed, so a change of window mid-close cannot strand it.
+                .then(
+                    if (morph != null) {
+                        Modifier.dragToClose(morph, enabled = morph.entryMotion == EntryMotion.Morph)
+                    } else {
+                        Modifier
+                    },
+                ),
+        // The sheet draws its own colour (morphSheetLayer), which runs from the bar's while it morphs.
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         when (layout) {
             NowPlayingLayout.Tabletop -> {
@@ -304,3 +301,7 @@ fun NowPlayingScreen(
         }
     }
 }
+
+/** Whether the bar Now Playing rises out of is tinted for a problem, so the sheet starts from `errorContainer`. Pure. */
+internal fun sheetStartsTinted(state: PlayerUiState.Loaded): Boolean =
+    (MiniPlayerLines.of(state) as? MiniPlayerLine.Problem)?.isTinted == true

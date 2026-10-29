@@ -55,6 +55,7 @@ class NowPlayingProgressRecompositionTest {
                 // Leaf — reads progress through the deferred lambda.
                 PlayerScrubber(
                     progress = { progress },
+                    isPlaying = false,
                     isBusy = false,
                     onSeek = {},
                 )
@@ -74,6 +75,38 @@ class NowPlayingProgressRecompositionTest {
 
         // The chrome probe must not have recomposed on any tick.
         chromeRecompositions shouldBe baseline
+    }
+
+    @Test
+    fun `a playing scrubber's travelling wave recomposes neither the scrubber nor sibling chrome`() {
+        var chromeRecompositions = 0
+        var scrubberReads = 0
+        composeRule.mainClock.autoAdvance = false
+
+        composeRule.setContent {
+            Column {
+                ChromeProbe(onCompose = { chromeRecompositions++ })
+                // The scrubber reads progress while it composes, so counting reads counts its compositions.
+                PlayerScrubber(
+                    progress = {
+                        scrubberReads++
+                        samplePlayerProgress
+                    },
+                    isPlaying = true,
+                    isBusy = false,
+                    onSeek = {},
+                )
+            }
+        }
+
+        // Let the composition and any entry animation land, then watch one whole wavelength of travel.
+        repeat(SETTLE_FRAMES) { composeRule.mainClock.advanceTimeByFrame() }
+        val chromeBefore = chromeRecompositions
+        val readsBefore = scrubberReads
+        repeat(WAVE_TRAVEL_FRAMES) { composeRule.mainClock.advanceTimeByFrame() }
+
+        chromeRecompositions shouldBe chromeBefore
+        scrubberReads shouldBe readsBefore
     }
 
     @Test
@@ -120,6 +153,12 @@ class NowPlayingProgressRecompositionTest {
         (barDraws > drawsBefore) shouldBe true
     }
 }
+
+/** Frames enough for the scrubber's first composition and entry to settle. */
+private const val SETTLE_FRAMES = 30
+
+/** 1,600 ms of 16 ms frames: one wavelength of the scrubber's travel. */
+private const val WAVE_TRAVEL_FRAMES = 100
 
 /**
  * A composable that invokes [onCompose] each time it (re)composes. Reads nothing from playback

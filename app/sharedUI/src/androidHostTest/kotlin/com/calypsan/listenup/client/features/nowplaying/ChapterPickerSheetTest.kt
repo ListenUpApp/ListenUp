@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.nowplaying
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
@@ -13,6 +12,12 @@ import androidx.compose.ui.test.hasTestTag
 import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.textDirection
+import com.calypsan.listenup.client.design.text.ThemedFor
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import org.junit.Rule
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.milliseconds
@@ -33,9 +38,10 @@ class ChapterPickerSheetTest {
     private fun sheet(
         current: Int,
         chapterRemainingMs: Long = 480_000,
+        rtl: Boolean = false,
     ) {
         composeRule.setContent {
-            MaterialTheme {
+            ThemedFor(rtl) {
                 ChapterPickerSheet(
                     chapters = bookChapterRows(current),
                     playingLeft = { chapterRemainingMs.milliseconds.inWholeMinutes.minutes },
@@ -45,6 +51,23 @@ class ChapterPickerSheetTest {
             }
         }
         composeRule.waitForIdle()
+    }
+
+    @Test
+    fun `in a right-to-left layout a chapter's length reads left to right`() {
+        sheet(current = 5, rtl = true)
+        val clock = Regex("""\d+:\d{2}(:\d{2})?""")
+        val length =
+            composeRule.onAllNodes(
+                SemanticsMatcher("a clock") { node ->
+                    node.config
+                        .getOrNull(SemanticsProperties.Text)
+                        .orEmpty()
+                        .any { clock.matches(it.text) }
+                },
+                useUnmergedTree = true,
+            )[0]
+        length.textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

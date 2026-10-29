@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.shell
 
+import com.calypsan.listenup.client.design.LocalCompositionProbe
+import com.calypsan.listenup.client.features.nowplaying.morph.morphNavigationSlide
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Box
@@ -396,14 +398,14 @@ fun AppShell(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                Column {
-                    nowPlayingContent()
+                ShellBottomBar(nowPlayingContent = nowPlayingContent) {
                     AppNavigationSuite(
                         navType = navType,
                         currentDestination = currentDestination,
                         onDestinationSelected = onDestinationChange,
                         onSignOutRequest = signOutConfirmation::request,
                         libraryBadgeCount = heldBookCount,
+                        modifier = Modifier.morphNavigationSlide(),
                     )
                 }
             },
@@ -465,3 +467,19 @@ private fun SearchResultsOverlayHost(
 @Composable
 internal fun railContentInsets(): WindowInsets =
     ScaffoldDefaults.contentWindowInsets.union(LocalNowPlayingInsets.current)
+
+/**
+ * The phone shell's bottom bar: the mini player stacked above the navigation bar. While the mini player morphs into
+ * Now Playing the navigation bar slides away in its layer, so neither this nor the bar recomposes per frame.
+ */
+@Composable
+internal fun ShellBottomBar(
+    nowPlayingContent: @Composable () -> Unit,
+    navigation: @Composable () -> Unit,
+) {
+    LocalCompositionProbe.current("ShellBottomBar")
+    Column {
+        nowPlayingContent()
+        navigation()
+    }
+}

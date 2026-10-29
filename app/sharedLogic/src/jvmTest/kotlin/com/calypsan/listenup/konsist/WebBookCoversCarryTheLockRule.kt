@@ -63,6 +63,8 @@ internal val BARE_COVER_EXEMPTIONS: Map<String, BareCoverExemption> =
         "features/hardcover/HardcoverPage.kt" to BareCoverExemption(1, "a Hardcover matching-task row, not a browse card"),
         "features/hardcover/KeptOffBooksPage.kt" to BareCoverExemption(1, "a kept-off-Hardcover row, not a browse card"),
         "features/nowplaying/NowPlayingPage.kt" to BareCoverExemption(1, "the player's art, for the book you are already playing"),
+        "features/nowplaying/PlayerMorph.kt" to
+            BareCoverExemption(1, "MorphPart.Cover is an enum entry, not a call; the morph moves the bar's own art"),
         "features/nowplaying/PlayerStateCard.kt" to
             BareCoverExemption(1, "the finished card's decorative next-book thumbnail, inside the player, not a browse card"),
         "features/nowplaying/TransportBar.kt" to BareCoverExemption(1, "the player bar's art, for the book you are already playing"),

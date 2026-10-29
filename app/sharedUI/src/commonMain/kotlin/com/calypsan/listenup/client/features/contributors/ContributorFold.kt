@@ -7,10 +7,19 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import com.calypsan.listenup.client.design.text.ProvideLayoutDirection
+import com.calypsan.listenup.client.design.text.firstStrongDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookContributor
@@ -61,55 +70,140 @@ fun ClickableContributorLine(
     // becomes one tap target that opens the full-cast overlay.
     val folded = overflowTextRes != null && onOverflowClick != null && contributors.size > foldLimit
 
-    FlowRow(
-        modifier =
-            if (folded) {
-                modifier.clickable {
-                    haptics.press()
-                    onOverflowClick()
-                }
-            } else {
-                modifier
-            },
-        horizontalArrangement = horizontalArrangement,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        if (leadingIcon != null) {
-            Box(
-                modifier = Modifier.padding(end = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                leadingIcon()
-            }
-        }
-
-        if (prefix != null) {
-            Text(text = prefix, style = style, color = separatorColor)
-        }
-
+    val lineModifier =
         if (folded) {
-            // Lead and "N others" share one colour — secondary names are not made more prominent
-            // than the lead (the whole line is the affordance into the full cast).
-            Text(
-                text = stringResource(overflowTextRes, contributors.first().name, contributors.size - 1),
-                style = style,
-                color = nameColor,
-            )
-            return@FlowRow
-        }
-
-        contributors.forEachIndexed { index, contributor ->
-            Text(
-                text = contributor.name,
-                style = style,
-                color = nameColor,
-                modifier = Modifier.clickable { onContributorClick(contributor.id) },
-            )
-
-            if (index < contributors.lastIndex) {
-                val separator = if (index == contributors.size - 2) " & " else ", "
-                Text(text = separator, style = style, color = separatorColor)
+            modifier.clickable {
+                haptics.press()
+                onOverflowClick()
             }
+        } else {
+            modifier
+        }
+    val foldedText =
+        if (folded) {
+            stringResource(
+                overflowTextRes,
+                contributors.first().name,
+                contributors.size - 1,
+            )
+        } else {
+            null
+        }
+    val tokens: @Composable (Modifier, Arrangement.Horizontal) -> Unit = { rowModifier, arrangement ->
+        // [style] was resolved where the caller stands; inside the words' own direction their side is this one's.
+        val tokenStyle = style.copy(textAlign = TextAlign.LayoutStart)
+        FlowRow(
+            modifier = rowModifier,
+            horizontalArrangement = arrangement,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (leadingIcon != null) {
+                Box(
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    leadingIcon()
+                }
+            }
+
+            if (prefix != null) {
+                Text(text = prefix, style = tokenStyle, color = separatorColor)
+            }
+
+            if (foldedText != null) {
+                // Lead and "N others" share one colour — secondary names are not made more prominent
+                // than the lead (the whole line is the affordance into the full cast).
+                Text(
+                    text = foldedText,
+                    style = tokenStyle,
+                    color = nameColor,
+                )
+                return@FlowRow
+            }
+
+            contributors.forEachIndexed { index, contributor ->
+                Text(
+                    text = contributor.name,
+                    style = tokenStyle,
+                    color = nameColor,
+                    modifier = Modifier.clickable { onContributorClick(contributor.id) },
+                )
+
+                if (index < contributors.lastIndex) {
+                    val separator = if (index == contributors.size - 2) " & " else ", "
+                    Text(text = separator, style = tokenStyle, color = separatorColor)
+                }
+            }
+        }
+    }
+    // The line is one sentence laid out word by word ("Narrated by", each name, each separator): its words must run
+    // in the sentence's own reading order, which can differ from the layout's (English strings in an Arabic locale).
+    InReadingOrder(
+        sentence = prefix.orEmpty() + contributors.joinToString(" ") { it.name },
+        modifier = lineModifier,
+        arrangement = horizontalArrangement,
+        content = tokens,
+    )
+}
+
+/**
+ * Lays out [content], a [sentence]'s words, in the sentence's own reading order. Where that matches the layout's
+ * direction it is the layout itself; where it does not, the words take the sentence's direction while [modifier] and
+ * [arrangement] keep speaking the layout's, so the line still sits where the caller put it.
+ */
+@Composable
+private fun InReadingOrder(
+    sentence: String,
+    modifier: Modifier,
+    arrangement: Arrangement.Horizontal,
+    content: @Composable (Modifier, Arrangement.Horizontal) -> Unit,
+) {
+    val layoutDirection = LocalLayoutDirection.current
+    val readingDirection = firstStrongDirection(sentence) ?: layoutDirection
+    if (readingDirection == layoutDirection) {
+        content(modifier, arrangement)
+        return
+    }
+    val readingOrder = remember(arrangement, layoutDirection) { ReadingOrderArrangement(arrangement, layoutDirection) }
+    Box(modifier, propagateMinConstraints = true) {
+        ProvideLayoutDirection(readingDirection) { content(Modifier, readingOrder) }
+    }
+}
+
+/**
+ * [layout]'s packing (start, centre, end, spacing, as the layout reads them) with the items in reading order: the
+ * arrangement for a sentence whose words run against the layout, laid out in the sentence's direction. [layout] places
+ * the line as the layout would, reversing the words; this keeps where it packs them and puts them back in order.
+ */
+private class ReadingOrderArrangement(
+    private val layout: Arrangement.Horizontal,
+    private val layoutDirection: LayoutDirection,
+) : Arrangement.Horizontal {
+    override val spacing: Dp get() = layout.spacing
+
+    override fun Density.arrange(
+        totalSize: Int,
+        sizes: IntArray,
+        layoutDirection: LayoutDirection,
+        outPositions: IntArray,
+    ) {
+        with(layout) {
+            arrange(
+                totalSize = totalSize,
+                sizes = sizes,
+                layoutDirection = this@ReadingOrderArrangement.layoutDirection,
+                outPositions = outPositions,
+            )
+        }
+        // Where the line was packed, left to right, and the gaps between neighbours there; then the same slots filled
+        // in reading order: from the left for a left-to-right sentence, from the right for a right-to-left one.
+        val packed = sizes.indices.sortedBy { outPositions[it] }
+        val gaps = packed.zipWithNext { a, b -> outPositions[b] - (outPositions[a] + sizes[a]) }
+        var x = packed.firstOrNull()?.let { outPositions[it] } ?: return
+        val leftToRight = if (layoutDirection == LayoutDirection.Rtl) sizes.indices.reversed() else sizes.indices
+        leftToRight.forEachIndexed { slot, index ->
+            outPositions[index] = x
+            x += sizes[index] + (gaps.getOrNull(slot) ?: 0)
         }
     }
 }

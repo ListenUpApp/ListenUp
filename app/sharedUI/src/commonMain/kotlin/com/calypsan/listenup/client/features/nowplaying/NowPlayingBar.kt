@@ -1,5 +1,16 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.features.nowplaying.morph.morphBarFocus
+import com.calypsan.listenup.client.features.nowplaying.morph.dragToOpen
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
+import com.calypsan.listenup.client.design.LocalCompositionProbe
+import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphBarSurface
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
+import com.calypsan.listenup.client.features.nowplaying.morph.BarDetail
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,14 +29,32 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
+import com.calypsan.listenup.client.design.components.ScrubberHandleGap
+import com.calypsan.listenup.client.design.components.ScrubberHandleWidth
+import com.calypsan.listenup.client.design.components.ScrubberTrackThickness
+import com.calypsan.listenup.client.design.components.drawScrubberWave
+import com.calypsan.listenup.client.design.components.rememberScrubberWavePhase
+import com.calypsan.listenup.client.design.components.scrubberTrackGeometry
+import com.calypsan.listenup.client.design.components.scrubberWaveAmplitude
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +76,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
 import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
-import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -116,8 +144,12 @@ fun NowPlayingBar(
     modifier: Modifier = Modifier,
     bottomInset: WindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
 ) {
+    // Under a player host's morph the bar stays laid out while Now Playing covers it: the sheet rises out of it and
+    // lands back on it, so it must neither slide away nor reflow the shell. It leaves semantics and focus instead.
+    val morph = LocalPlayerMorph.current
+    val coveredByPlayer = isExpanded && morph != null
     AnimatedVisibility(
-        visible = state is PlayerUiState.Loaded && !isExpanded,
+        visible = state is PlayerUiState.Loaded && (!isExpanded || morph != null),
         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier,
@@ -129,7 +161,20 @@ fun NowPlayingBar(
             shape = RectangleShape,
             color = if (tinted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = if (tinted) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth().swipeUpToExpand(onTap),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .morphBarSurface()
+                    // The morph's drag where the bar becomes Now Playing; the swipe-up trigger where it fades through. Both
+                    // stay attached and are switched by `enabled`, so a change of window mid-drag cannot strand it.
+                    .then(
+                        if (morph != null) {
+                            Modifier.dragToOpen(morph, enabled = morph.entryMotion == EntryMotion.Morph)
+                        } else {
+                            Modifier
+                        },
+                    ).swipeUpToExpand(onTap, enabled = morph?.entryMotion != EntryMotion.Morph)
+                    .then(if (coveredByPlayer) Modifier.coveredByPlayer() else Modifier),
         ) {
             // The container stays; only its content moves when the book changes.
             MiniBookSwitch(loaded, Modifier.windowInsetsPadding(bottomInset)) { shown ->
@@ -157,10 +202,11 @@ private fun PhoneBarContent(
     onKeepListening: () -> Unit,
     skipBackwardSec: Int,
 ) {
+    LocalCompositionProbe.current("PhoneBarContent")
     val line = MiniPlayerLines.of(state)
     Column {
         MiniProgressLine(
-            isPlaying = state.phase == PlayerPhase.Playing,
+            isPlaying = state.isAudible,
             progress = progress,
             modifier = Modifier.fillMaxWidth().height(MiniProgressSlotHeight),
         )
@@ -178,14 +224,16 @@ private fun PhoneBarContent(
                 coverSize = MiniPhoneCoverSize,
             )
             if (state.showsSkipBack) {
-                Ctrl(
-                    icon = SkipGlyphs.backward(skipBackwardSec),
-                    contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
-                    onClick = onSkipBack,
-                    size = MinTouchTarget,
-                    iconSize = MiniPlayerGlyphSize,
-                    tint = LocalContentColor.current,
-                )
+                Box(Modifier.morphAnchor(BarDetail.SkipBack)) {
+                    Ctrl(
+                        icon = SkipGlyphs.backward(skipBackwardSec),
+                        contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
+                        onClick = onSkipBack,
+                        size = MinTouchTarget,
+                        iconSize = MiniPlayerGlyphSize,
+                        tint = LocalContentColor.current,
+                    )
+                }
             }
             MiniPrimaryButton(
                 primary = state.primary,
@@ -195,6 +243,7 @@ private fun PhoneBarContent(
                 playLabel = miniPlayLabel(line),
                 busyLabel = miniBusyLabel(line),
                 onKeepListening = onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
+                modifier = Modifier.morphAnchor(MorphEnd.Bar, MorphPart.Play),
             )
         }
     }
@@ -236,6 +285,7 @@ internal fun RowScope.MiniBody(
                 .weight(1f)
                 .heightIn(min = MinTouchTarget)
                 .clip(MaterialTheme.shapes.medium)
+                .morphBarFocus()
                 .clickable(
                     onClickLabel = stringResource(Res.string.player_mini_open),
                     role = Role.Button,
@@ -259,6 +309,7 @@ internal fun RowScope.MiniBody(
                         .size(coverSize)
                         .clip(MaterialTheme.shapes.medium)
                         .testTag(MINI_COVER_TAG)
+                        .morphAnchor(MorphEnd.Bar, MorphPart.Cover)
                         .clearAndSetSemantics {},
             )
         }
@@ -268,12 +319,14 @@ internal fun RowScope.MiniBody(
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.morphAnchor(MorphEnd.Bar, MorphPart.Title),
             )
             MiniPlayerLineText(
                 line = line,
                 progress = progress,
                 sleepRemainingMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },
                 fit = fit,
+                modifier = Modifier.morphAnchor(BarDetail.SecondLine),
                 color =
                     if (tinted) {
                         MaterialTheme.colorScheme.onErrorContainer
@@ -285,21 +338,22 @@ internal fun RowScope.MiniBody(
     }
 }
 
-/** The chapter line along the bar's top edge: the wave only for the book that is playing (F6), flat otherwise. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * The chapter line along the bar's top edge: the wave only while the book is audible (F6; a sleep fade still waves),
+ * flat otherwise. The wave is Now Playing's scrubber wave ([PlayerWaveLine]), so the morph flies one wave from here
+ * into the scrubber.
+ */
 @Composable
 private fun MiniProgressLine(
     isPlaying: Boolean,
     progress: () -> PlayerProgress,
     modifier: Modifier,
 ) {
-    Box(modifier, contentAlignment = Alignment.Center) {
+    Box(modifier.morphAnchor(MorphEnd.Bar, MorphPart.Line), contentAlignment = Alignment.Center) {
         if (isPlaying) {
-            LinearWavyProgressIndicator(
-                progress = { progress().chapterFraction },
+            PlayerWaveLine(
+                progress = progress,
                 modifier = Modifier.fillMaxWidth().testTag(MINI_PROGRESS_WAVY_TAG),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             )
         } else {
             LinearProgressIndicator(
@@ -312,3 +366,68 @@ private fun MiniProgressLine(
         }
     }
 }
+
+/**
+ * The bar's playing line: the morph's flying line at rest on the bar ([scrubberTrackGeometry] with no handle shown),
+ * waving on the morph's shared phase (its own where no morph is hosted) with M3's amplitude rule eased in and out, the way M3's wavy indicator eases it.
+ * A progress bar to TalkBack, as that indicator was. Reads progress and phase only while drawing, so neither a tick nor
+ * the wave's travel recomposes it.
+ */
+@Composable
+private fun PlayerWaveLine(
+    progress: () -> PlayerProgress,
+    modifier: Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val phase = LocalPlayerMorph.current?.wavePhase ?: rememberScrubberWavePhase(travels = true)
+    // The first value is read once, unobserved: a read while composing would recompose this on every tick.
+    val amplitude = remember {
+        Animatable(Snapshot.withoutReadObservation { scrubberWaveAmplitude(progress().chapterFraction) })
+    }
+    val amplitudeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    LaunchedEffect(amplitude) {
+        snapshotFlow { scrubberWaveAmplitude(progress().chapterFraction) }
+            .collectLatest { target -> amplitude.animateTo(target, amplitudeSpec) }
+    }
+    val wavePath = remember { Path() }
+    val trackPath = remember { Path() }
+    Spacer(
+        modifier
+            .height(ScrubberTrackThickness)
+            .semantics(mergeDescendants = true) {
+                progressBarRangeInfo = ProgressBarRangeInfo(progress().chapterFraction.coerceIn(0f, 1f), 0f..1f)
+            }.drawBehind {
+                val parts =
+                    scrubberTrackGeometry(
+                        width = size.width,
+                        fraction = progress().chapterFraction,
+                        handleWidth = ScrubberHandleWidth.toPx(),
+                        handleGap = ScrubberHandleGap.toPx(),
+                        handleShown = 0f,
+                        isRtl = layoutDirection == LayoutDirection.Rtl,
+                    )
+                drawScrubberWave(
+                    path = trackPath,
+                    from = parts.inactiveStart,
+                    to = parts.trackEnd,
+                    amplitude = 0f,
+                    phase = 0f,
+                    color = colors.surfaceContainerHighest,
+                )
+                drawScrubberWave(
+                    path = wavePath,
+                    from = parts.trackStart,
+                    to = parts.waveEnd,
+                    amplitude = amplitude.value,
+                    phase = phase.current(),
+                    color = colors.primary,
+                )
+            },
+    )
+}
+
+/** Out of reach while Now Playing covers it: no semantics for a screen reader, no stop for the keyboard. */
+private fun Modifier.coveredByPlayer(): Modifier =
+    clearAndSetSemantics {}
+        .focusProperties { onEnter = { cancelFocusChange() } }
+        .focusGroup()

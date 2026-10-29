@@ -17,9 +17,7 @@ import com.calypsan.listenup.web.features.library.LibraryRouteContent
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.SeriesListRoute
 import com.calypsan.listenup.web.features.notifications.NotificationsRoute
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingRoute
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
-import com.calypsan.listenup.web.features.nowplaying.PlayingReturn
 import com.calypsan.listenup.web.features.profile.ProfileRouteContent
 import com.calypsan.listenup.web.features.search.SearchRouteContent
 import com.calypsan.listenup.web.features.seriesdetail.SeriesRouteContent
@@ -51,7 +49,8 @@ import com.calypsan.listenup.web.nav.isServed
 /**
  * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
  * or the placeholder — pulled out of [WebAppRoot] itself purely to keep that function's branching
- * readable as a single glance rather than one long `if`/`else if` chain.
+ * readable as a single glance rather than one long `if`/`else if` chain. Now Playing is the exception: it has a slot
+ * of its own (NowPlayingSlot), so this draws nothing for `/playing`.
  */
 @Composable
 internal fun RouteContent(
@@ -66,7 +65,6 @@ internal fun RouteContent(
     librarySession: LibrarySession,
     inbox: InboxBadgeState,
     playback: PlaybackSession,
-    playingReturn: PlayingReturn,
     heroBookId: String?,
     onHeroBookIdChange: (String) -> Unit,
 ) {
@@ -103,7 +101,9 @@ internal fun RouteContent(
     } else if (bulkEditIds.isNotEmpty()) {
         BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
     } else if (page == PLAYING_KEY) {
-        NowPlayingRoute(router = router, playback = playback, playingReturn = playingReturn)
+        // Now Playing draws in its own slot beside this one (NowPlayingSlot), so the player morph can hold it over the
+        // page it rose from without remounting either.
+        Unit
     } else if (bookId != null) {
         BookRouteContent(
             bookId = bookId,

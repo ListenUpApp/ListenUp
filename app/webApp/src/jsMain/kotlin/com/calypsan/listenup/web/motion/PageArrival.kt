@@ -25,11 +25,13 @@ import org.w3c.dom.HTMLElement
  * in its box. Starting the rise after the measurement would put the element 8px off its origin on
  * the flight's first frame.
  *
- * Only a change of PAGE moves anything ([isPageChange]); the first paint does not.
+ * Only a change of PAGE moves anything ([isPageChange]); the first paint does not. A change [standsDown] says is
+ * already moving (the player morph is that page's arrival) moves nothing either.
  */
 @Composable
 internal fun PageArrival(
     page: String,
+    standsDown: (page: String) -> Boolean = { false },
     content: @Composable () -> Unit,
 ) {
     val body = remember { PageBody() }
@@ -44,7 +46,7 @@ internal fun PageArrival(
         val previous = body.page
         body.page = page
         val element = body.element
-        if (element != null && isPageChange(previous, page)) {
+        if (element != null && isPageChange(previous, page) && !standsDown(page)) {
             element.parentElement?.let(::fadePageIn)
             settleContentIn(element)
             // A link opens the stagger window; Back returns to a place already seen, which comes

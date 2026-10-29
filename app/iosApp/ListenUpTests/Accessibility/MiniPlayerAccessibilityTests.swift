@@ -75,6 +75,20 @@ struct MiniPlayerAccessibilityTests {
         #expect(hairline.lowerBound - line.upperBound >= 2, "line \(line) hairline \(hairline) at \(size)")
     }
 
+    /// The swipe up is a gesture on the capsule, not a control: VoiceOver meets the same three stops (the book, back N,
+    /// the main button) with no custom action, and opens the player through the book button as before.
+    @Test func theSwipeAddsNoVoiceOverStopAndNoCustomAction() async throws {
+        let plain = await host(Self.playingModel())
+        let plainStops = plain.stops.map(\.label)
+        plain.close()
+        let swipeable = await HostedView(
+            AccessoryHarness(model: Self.playingModel(), opensOnSwipe: true), size: CGSize(width: 361, height: 120))
+        defer { swipeable.close() }
+        #expect(swipeable.stops.map(\.label) == plainStops, "\(swipeable.tree)")
+        #expect(swipeable.stops.count == 3, "\(swipeable.tree)")
+        #expect(swipeable.stops.allSatisfy { $0.customActionNames.isEmpty }, "\(swipeable.tree)")
+    }
+
     @Test func aProblemOffersItsActionAndNoDismiss() async throws {
         let failed = Self.model(.fixture(
             phase: PlayerPhaseFailed(error: PlaybackErrorConnectionLost(correlationId: nil, debugInfo: nil)),
@@ -102,12 +116,13 @@ struct MiniPlayerAccessibilityTests {
 struct AccessoryHarness: View {
     let model: MiniPlayerAccessoryModel
     var isInline = false
+    var opensOnSwipe = false
     @Namespace private var namespace
 
     var body: some View {
         MiniPlayerAccessoryContent(
             model: model, isInline: isInline, transitionNamespace: namespace,
-            onOpen: {}, onSkipBack: {}, onSkipForward: {}, onPrimary: {})
+            onOpen: {}, onSkipBack: {}, onSkipForward: {}, onPrimary: {}, opensOnSwipe: opensOnSwipe)
     }
 }
 

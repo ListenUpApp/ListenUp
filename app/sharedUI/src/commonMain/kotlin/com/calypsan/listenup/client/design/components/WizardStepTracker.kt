@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.HeroInk
@@ -117,7 +118,7 @@ private fun RowScope.StepSegment(
                 color = if (reached) ink else HeroInk.muted(ink, container),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Start,
+                textAlign = TextAlign.LayoutStart,
             )
         }
     }

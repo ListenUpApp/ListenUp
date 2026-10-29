@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.PageTitle
@@ -58,15 +59,43 @@ import org.w3c.dom.HTMLElement
  * `/playing` (S4): Now Playing as a page. With nothing loaded it goes Home, replacing the entry; while the loaded book
  * is still being read back from storage it draws nothing rather than bouncing (the cold-start race: the player's state
  * starts `NothingLoaded` before the restore answers).
+ *
+ * [isLeaving] is the page held over the destination while the morph shrinks it back into the bar: the URL has already
+ * moved on, so it redirects nothing, closes nothing and names no tab.
  */
 @Composable
 fun NowPlayingRoute(
     router: Router,
     playback: PlaybackSession,
     playingReturn: PlayingReturn,
+    isLeaving: Boolean = false,
 ) {
     val loadedBook by remember(playback) { playback.loadedBook }.collectAsState(initial = LoadedBook.Restoring)
     val state by playback.state.collectAsState()
+    if (!isLeaving) PageDuties(router, playingReturn, loadedBook, state)
+    val loaded =
+        state as? PlayerUiState.Loaded ?: run {
+            // Never a blank screen while the book is read back: on a phone the shell has stepped aside, so the page's
+            // own heading and Collapse are the way out.
+            WaitingPage(onCollapse = { playingReturn.close(router) })
+            return
+        }
+    NowPlayingPage(
+        state = loaded,
+        progress = playback.progress.collectAsState().value,
+        actions = playback.pageActions(router = router, playingReturn = playingReturn),
+        boostUnavailable = playback.boostUnavailable.collectAsState().value,
+    )
+}
+
+/** What `/playing` does as the page on show: its redirects, the revoked-book close, and the tab's name. */
+@Composable
+private fun PageDuties(
+    router: Router,
+    playingReturn: PlayingReturn,
+    loadedBook: LoadedBook,
+    state: PlayerUiState,
+) {
     LaunchedEffect(loadedBook) {
         if (loadedBook == LoadedBook.NothingLoaded && !playingReturn.isClosing) router.replace(Routes.home)
     }
@@ -87,19 +116,6 @@ fun NowPlayingRoute(
         }
     }
     PageTitle(NowPlayingWords.NOW_PLAYING)
-    val loaded =
-        state as? PlayerUiState.Loaded ?: run {
-            // Never a blank screen while the book is read back: on a phone the shell has stepped aside, so the page's
-            // own heading and Collapse are the way out.
-            WaitingPage(onCollapse = { playingReturn.close(router) })
-            return
-        }
-    NowPlayingPage(
-        state = loaded,
-        progress = playback.progress.collectAsState().value,
-        actions = playback.pageActions(router = router, playingReturn = playingReturn),
-        boostUnavailable = playback.boostUnavailable.collectAsState().value,
-    )
 }
 
 /**
@@ -191,6 +207,7 @@ fun NowPlayingPage(
     actions: NowPlayingActions,
     boostUnavailable: Boolean = false,
 ) {
+    LocalCompositionProbe.current(NOW_PLAYING_PAGE_PROBE)
     val book = state.book
     val arrival = rememberCoverThemes(book.id, book.coverHash)
     val pickers = remember { PagePickers() }
@@ -199,7 +216,8 @@ fun NowPlayingPage(
     var pageElement by remember { mutableStateOf<HTMLElement?>(null) }
     val compact = rememberIsCompactAt(pageElement)
     Div(attrs = {
-        classes("np-page")
+        // `.np-morph`: the sheet the bar grows into below 760px (PlayerMorph.kt); inert at rest.
+        classes("np-page", "np-morph")
         coverThemed(arrival)
         ref { element ->
             pageElement = element
@@ -257,6 +275,9 @@ fun NowPlayingPage(
         P(attrs = { classes("np-foot") }) { Text(NowPlayingWords.PRESS_FOR_SHORTCUTS) }
     }
 }
+
+/** What [NowPlayingPage] reports to [LocalCompositionProbe] each time it runs: a drag must not run it (the morph). */
+internal const val NOW_PLAYING_PAGE_PROBE = "now-playing-page"
 
 /** The page before its book is loaded: the heading and Collapse / Back, on the wash. */
 @Composable

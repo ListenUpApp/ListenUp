@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.features.nowplaying.isAudible
 import com.calypsan.listenup.client.features.nowplaying.isBusy
 import com.calypsan.listenup.client.features.nowplaying.components.PLAYER_COVER_TAG
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerCover
@@ -126,6 +127,7 @@ internal fun ReaderListeningPane(
             )
             PlayerScrubber(
                 progress = progress,
+                isPlaying = state.isAudible,
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = actions.onSeek,
                 modifier = Modifier.fillMaxWidth(),

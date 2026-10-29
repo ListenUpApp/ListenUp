@@ -5,6 +5,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.RightToLeft
+import com.calypsan.listenup.client.design.text.textDirection
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +25,12 @@ class HomeHeaderTest {
         composeRule.setContent { MaterialTheme { HomeHeader(TimeOfDay.Evening, firstName = "Simon", isWide = false) } }
         composeRule.onNodeWithText("Good evening,").assertIsDisplayed()
         composeRule.onNodeWithText("Simon").assertIsDisplayed()
+    }
+
+    @Test
+    fun `in a right-to-left layout the English greeting keeps its comma at the end`() {
+        composeRule.setContent { RightToLeft { HomeHeader(TimeOfDay.Afternoon, firstName = "Simon", isWide = false) } }
+        composeRule.onNodeWithText("Good afternoon,").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

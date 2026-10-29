@@ -36,6 +36,8 @@ struct MainTabView: View {
     /// Identifies this window to the process-wide `PushTapRouter`, so a tap lands in one window.
     @State private var sceneID = UUID()
     @State private var hasRestoredNavigation = false
+    /// Bumped when the full player closes, so VoiceOver returns to the mini player's book.
+    @State private var miniPlayerFocusRequest = 0
 
     /// The window's tab and stacks, restored when the system brings the window back.
     @SceneStorage("shell.navigation") private var storedNavigation: Data?
@@ -146,14 +148,18 @@ struct MainTabView: View {
                 MiniPlayerBar(
                     observer: playerObserver,
                     transitionNamespace: playerNamespace,
-                    onOpen: { shell.isPlayerPresented = true }
+                    onOpen: { shell.isPlayerPresented = true },
+                    focusReturnRequest: miniPlayerFocusRequest
                 )
             }
         })
-        // The full player is a system full-screen modal (HIG, Modality: "a full-screen modal style
-        // for in-depth content"), which brings VoiceOver modality, swipe-down dismissal and the
-        // zoom back into the mini player with it.
-        .fullScreenCover(isPresented: $shell.isPlayerPresented) {
+        // The full player is a system full-screen modal that zooms out of the mini player's cover.
+        .playerPresentation(
+            isPresented: $shell.isPlayerPresented, namespace: playerNamespace,
+            // Focus goes back to the mini player only after a plain close; a close that navigates leaves it to the
+            // destination.
+            onDismiss: { if shell.takeFocusReturn() { miniPlayerFocusRequest += 1 } }
+        ) {
             if let playerObserver {
                 FullScreenPlayerView(
                     observer: playerObserver,
@@ -165,7 +171,6 @@ struct MainTabView: View {
                     chapterListRequest: $shell.isChapterListRequested
                 )
                 .environment(\.reportPlayerSheet) { isOpen in shell.playerSheetIsOpen = isOpen }
-                .navigationTransition(.zoom(sourceID: PlayerTransition.coverID, in: playerNamespace))
             }
         }
         // The menu bar's Playback and View commands act on the focused window's shell and player.

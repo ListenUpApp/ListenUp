@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -28,6 +27,9 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.ThemedFor
+import com.calypsan.listenup.client.design.text.textDirection
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,9 +48,12 @@ class NowPlayingToolbarTest {
     private var primaryPresses = 0
     private var keepListeningPresses = 0
 
-    private fun toolbar(state: PlayerUiState.Loaded = loadedPlayerState(phase = PlayerPhase.Playing)) {
+    private fun toolbar(
+        state: PlayerUiState.Loaded = loadedPlayerState(phase = PlayerPhase.Playing),
+        rtl: Boolean = false,
+    ) {
         composeRule.setContent {
-            MaterialTheme {
+            ThemedFor(rtl) {
                 Box(Modifier.fillMaxSize()) {
                     NowPlayingToolbar(
                         state = state.copy(book = state.book.copy(coverPath = "/nonexistent/cover.jpg")),
@@ -70,6 +75,14 @@ class NowPlayingToolbarTest {
                 }
             }
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `in a right-to-left layout the toolbar's rate and times read left to right`() {
+        toolbar(rtl = true)
+        composeRule.onNodeWithText("1.0×", useUnmergedTree = true).textDirection() shouldBe TextDirection.ContentOrLtr
+        composeRule.onNodeWithText("-8:31", useUnmergedTree = true).textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     private fun SemanticsNodeInteraction.isATarget() =

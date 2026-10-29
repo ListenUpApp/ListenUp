@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.LocalCompositionProbe
+import com.calypsan.listenup.client.presentation.player.MorphElement
+import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -78,6 +81,7 @@ fun CompactNowPlaying(
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
+        LocalCompositionProbe.current("CompactNowPlaying")
         // Capped by available height as well as width, so the controls below fit without scrolling where they can.
         val coverSize = min(min(maxWidth * 0.82f, PlayerCoverSide), maxHeight * 0.40f)
         val card = PlayerCards.of(state)
@@ -99,7 +103,7 @@ fun CompactNowPlaying(
                 state = state,
                 onCollapse = onCollapse,
                 onMenuItem = onMenuItem,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().morphReveal(MorphElement.Header),
             )
             FlexibleGap(weight = 1f, fallback = 16.dp)
             PlayerBookBlock(
@@ -112,9 +116,10 @@ fun CompactNowPlaying(
             FlexibleGap(weight = 1.4f, fallback = 24.dp)
             PlayerScrubber(
                 progress = progress,
+                isPlaying = state.isAudible,
                 isBusy = state.isBusy || card is PlayerCard.Problem,
                 onSeek = onSeek,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().morphReveal(MorphElement.Times),
             )
             Spacer(Modifier.height(Spacing.xl))
             if (card != null) {
@@ -122,7 +127,7 @@ fun CompactNowPlaying(
                     card = card,
                     onAction = onCardAction,
                     onRate = onRate,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().morphReveal(MorphElement.TransportSides),
                 )
             } else {
                 PlayerTransport(
@@ -137,6 +142,7 @@ fun CompactNowPlaying(
             }
             Spacer(Modifier.height(20.dp))
             PlayerSettingsRow(
+                modifier = Modifier.morphReveal(MorphElement.Settings),
                 speed = state.settings.speed,
                 sleepTimer = state.sleepTimer,
                 sleepCountdownMs = { SleepCountdowns.remainingMs(state.sleepTimer, progress(), state.settings.speed) },

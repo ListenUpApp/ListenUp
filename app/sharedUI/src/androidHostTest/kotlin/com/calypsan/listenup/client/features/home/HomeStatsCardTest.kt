@@ -17,6 +17,9 @@ import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.features.home.components.HOME_STATS_CHART_TAG
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import io.kotest.matchers.shouldBe
+import androidx.compose.ui.text.style.TextDirection
+import com.calypsan.listenup.client.design.text.RightToLeft
+import com.calypsan.listenup.client.design.text.textDirection
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +56,16 @@ class HomeStatsCardTest {
         composeRule.onNodeWithText("Your last 7 days").assertIsDisplayed()
         composeRule.onNodeWithText("5-day streak").assertIsDisplayed()
         composeRule.onNodeWithText("Best streak 12 days").assertIsDisplayed()
+    }
+
+    @Test
+    fun `in a right-to-left layout the streak reads 1-day streak, not day streak-1`() {
+        composeRule.setContent {
+            RightToLeft {
+                HomeStatsCard(week(current = 1, best = 1), isWide = false, onOpenLeaderboard = {}, onRetry = {})
+            }
+        }
+        composeRule.onNodeWithText("1-day streak").textDirection() shouldBe TextDirection.ContentOrLtr
     }
 
     @Test

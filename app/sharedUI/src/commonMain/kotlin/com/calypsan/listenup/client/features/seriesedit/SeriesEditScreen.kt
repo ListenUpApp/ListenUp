@@ -55,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -618,10 +617,9 @@ private fun SeriesIdentityHeader(
                     value = name,
                     onValueChange = onNameChange,
                     textStyle =
-                        TextStyle(
+                        MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = DisplayFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = MaterialTheme.typography.headlineSmall.fontSize,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                     placeholder = stringResource(Res.string.series_series_name),

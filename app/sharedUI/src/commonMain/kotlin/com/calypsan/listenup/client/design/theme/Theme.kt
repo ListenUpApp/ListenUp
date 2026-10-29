@@ -8,6 +8,9 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.calypsan.listenup.client.design.text.readingFromContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.dp
@@ -77,6 +80,10 @@ fun ListenUpTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = platformColorScheme(darkTheme, dynamicColor)
+    // Text reads its direction from its own first strong letter (left to right when it has none), and a label sits on
+    // the layout's start side; prose opts into its own paragraphs' side with forProse().
+    val layoutDirection = LocalLayoutDirection.current
+    val typography = remember(layoutDirection) { ListenUpTypography.readingFromContent(layoutDirection) }
 
     CompositionLocalProvider(
         LocalDarkTheme provides darkTheme,
@@ -85,7 +92,7 @@ fun ListenUpTheme(
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             motionScheme = MotionScheme.expressive(),
-            typography = ListenUpTypography,
+            typography = typography,
             shapes = ExpressiveShapes,
             content = content,
         )

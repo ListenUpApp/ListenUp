@@ -15,7 +15,8 @@ import org.w3c.dom.HTMLElement
  * nothing. The first book a bar shows arrives without ceremony, as a page's first paint does (PageArrival.kt).
  * ⛔ The bar itself never leaves: the arrival animates the body inside it, so there is no frame without a bar
  * (and `PlayerViewModel` holds its last frame through the switch, so the host never draws nothing).
- * Reduced motion is [animateComposited]'s to honour: the new book then simply appears.
+ * Reduced motion is [animateComposited]'s to honour: the new book then simply appears. While the bar is growing into Now
+ * Playing (`.shell-morphing`) the switch moves nothing: the morph is already moving it.
  *
  * Plain holder, not state: which book the bar last showed must not recompose anything.
  */
@@ -30,7 +31,9 @@ internal class BookSwitch {
         val previous = bookId
         bookId = id
         val element = body
-        if (previous != null && previous != id && element != null) settleBookIn(element)
+        // Mid-morph the bar is the morph's to move: a second motion on its book would restart under the finger.
+        val isMorphing = element?.closest(".shell-morphing") != null
+        if (previous != null && previous != id && element != null && !isMorphing) settleBookIn(element)
     }
 }
 

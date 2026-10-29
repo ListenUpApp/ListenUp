@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import com.calypsan.listenup.client.design.text.forProse
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -65,6 +66,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -489,7 +491,7 @@ private fun ShelfHeroTexts(
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
-            textAlign = if (center) TextAlign.Center else TextAlign.Start,
+            textAlign = if (center) TextAlign.Center else TextAlign.LayoutStart,
         )
 
         Spacer(Modifier.height(16.dp))
@@ -717,7 +719,7 @@ private fun ShelfDescription(
         Spacer(Modifier.height(8.dp))
         Text(
             text = description,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.forProse(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (isExpanded) Int.MAX_VALUE else 3,
             overflow = TextOverflow.Ellipsis,

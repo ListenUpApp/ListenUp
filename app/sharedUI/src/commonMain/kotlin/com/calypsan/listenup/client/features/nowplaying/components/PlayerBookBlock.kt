@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.presentation.player.MorphElement
+import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
+import com.calypsan.listenup.client.presentation.player.MorphEnd
+import com.calypsan.listenup.client.features.nowplaying.morph.morphAnchor
+import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -82,7 +88,11 @@ fun PlayerBookBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        PlayerCover(state = state, side = coverSide, modifier = Modifier.testTag(PLAYER_COVER_TAG))
+        PlayerCover(
+            state = state,
+            side = coverSide,
+            modifier = Modifier.testTag(PLAYER_COVER_TAG).morphAnchor(MorphEnd.NowPlaying, MorphPart.Cover),
+        )
         Spacer(Modifier.height(Spacing.xl))
         PlayerTitleBlock(
             state = state,
@@ -168,7 +178,7 @@ internal fun PlayerTitleBlock(
         return
     }
     val centred = alignment == Alignment.CenterHorizontally
-    val textAlign = if (centred) TextAlign.Center else TextAlign.Start
+    val textAlign = if (centred) TextAlign.Center else TextAlign.LayoutStart
     // A centred line spans the block, so TextAlign.Center puts the words themselves on the cover's axis.
     val lineWidth = if (centred) Modifier.fillMaxWidth() else Modifier
     Column(modifier = modifier, horizontalAlignment = alignment) {
@@ -179,7 +189,7 @@ internal fun PlayerTitleBlock(
             textAlign = textAlign,
             maxLines = titleLines,
             overflow = TextOverflow.Ellipsis,
-            modifier = lineWidth,
+            modifier = lineWidth.morphAnchor(MorphEnd.NowPlaying, MorphPart.Title),
         )
         Spacer(Modifier.height(PhoneLineGap))
         Text(
@@ -189,7 +199,7 @@ internal fun PlayerTitleBlock(
             textAlign = textAlign,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = lineWidth,
+            modifier = lineWidth.morphReveal(MorphElement.Chapter),
         )
         if (showsBylines && state.book.narrators.isNotEmpty()) {
             Spacer(Modifier.height(PhoneLineGap))
@@ -223,7 +233,7 @@ private fun NarratedBy(
         style = MaterialTheme.typography.bodyMedium,
         nameColor = ink,
         separatorColor = ink,
-        modifier = Modifier.fillMaxWidth().testTag(NARRATOR_LINE_TAG),
+        modifier = Modifier.fillMaxWidth().testTag(NARRATOR_LINE_TAG).morphReveal(MorphElement.Narrator),
         horizontalArrangement = arrangement,
         leadingIcon = {
             Icon(

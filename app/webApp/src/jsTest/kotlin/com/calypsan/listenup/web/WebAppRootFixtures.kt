@@ -110,6 +110,7 @@ import com.calypsan.listenup.web.features.search.fixedSearch
 import com.calypsan.listenup.web.nav.RouteChange
 import com.calypsan.listenup.web.nav.Router
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.design.WebAppSurface
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.design.LocalCompositionProbe
@@ -254,6 +255,7 @@ internal fun mountAt(
     openPlayback: OpenPlayback = fixedPlayback(),
     compositionProbe: (String) -> Unit = {},
     beforeRouteChange: (RouteChange) -> Unit = {},
+    into: ViewportFrame? = null,
 ): Triple<HTMLElement, Router, Composition> {
     // A backstop for the ~60 callers that destructure only `(host, router)` and never dispose: an
     // orphaned shell keeps its palette's window key listener, and once the palette became a modal
@@ -264,86 +266,97 @@ internal fun mountAt(
     liveShells.clear()
     window.history.replaceState(null, "", path)
     val router = Router(beforeRouteChange)
-    val host = document.createElement("div") as HTMLElement
-    document.body!!.appendChild(host)
+    // In a frame (`into`), at that frame's width and inside the app surface the real page has; else at the runner's.
+    val host = into?.host ?: (document.createElement("div") as HTMLElement).also { document.body!!.appendChild(it) }
     val composition =
         renderComposable(root = host) {
             CompositionLocalProvider(LocalCompositionProbe provides compositionProbe) {
-                WebAppRoot(
-                    router = router,
-                    graph =
-                        WebGraph(
-                            openBookDetail = openBookDetail,
-                            openBookEdit = openBookEdit,
-                            openChapterEditor = openChapterEditor,
-                            matchDetails = matchDetails,
-                            openContributorDetail = openContributorDetail,
-                            openContributorBooks = openContributorBooks,
-                            openContributorEdit = openContributorEdit,
-                            openSeriesDetail = openSeriesDetail,
-                            openSeriesEdit = openSeriesEdit,
-                            openNotifications = openNotifications,
-                            openNotificationPrefs = openNotificationPrefs,
-                            openProfile = openProfile,
-                            openEditProfile = openEditProfile,
-                            openHome = openHome,
-                            openDiscover = openDiscover,
-                            openActivityFeed = fixedActivityFeed(),
-                            openSettings = openSettings,
-                            openLicences = openLicences,
-                            openDevices = openDevices,
-                            openHardcover = openHardcover,
-                            openAdmin = openAdmin,
-                            admin =
-                                AdminSessions(
-                                    librarySettings = openLibrarySettings,
-                                    inbox = openAdminInbox,
-                                    serverSettings = openServerSettings,
-                                    categories = openCategories,
-                                    collections = openCollections,
-                                    collectionDetail = openCollectionDetail,
-                                    backups = openBackups,
-                                    restore = openRestore,
-                                    imports = openImports,
-                                    importFlow = openImportFlow,
-                                    createInvite = openCreateInvite,
-                                    userDetail = openUserDetail,
-                                    upload = openUpload,
-                                    organize = openOrganize,
-                                    inboxBadge = openInboxBadge,
-                                    restrictedBooks = openRestrictedBooks,
-                                ),
-                            openShelfDetail = openShelfDetail,
-                            openShelfEdit = openShelfEdit,
-                            openMyShelves = openMyShelves,
-                            openLibrary = openLibrary,
-                            openSearch = openSearch,
-                            openMultiSelect = openMultiSelect,
-                            openBulkEdit = openBulkEdit,
-                            openBrowseFacet = openBrowseFacet,
-                            openGenreDestination = openGenreDestination,
-                            openBookReaders = openBookReaders,
-                            openBookRatings = openBookRatings,
-                            openHardcoverMatch = openHardcoverMatch,
-                            openBookHardcover = openBookHardcover,
-                            openSeeAll = openSeeAll,
-                            openDeadLetters = openDeadLetters,
-                            openSyncIndicator = openSyncIndicator,
-                            openNotificationBell = openNotificationBell,
-                            openPlayback = openPlayback,
-                            observeIsAdmin = { isAdmin },
-                            observeCurrentUserId = { currentUserId },
-                            observeCurrentUserName = { flowOf(null) },
-                            observeAvatarFrame = { flowOf(null) },
-                            coverThemes = NoCoverThemes,
-                        ),
-                    onToast = onToast,
-                    onActionToast = onActionToast,
-                )
+                InSurfaceWhen(into != null) {
+                    WebAppRoot(
+                        router = router,
+                        graph =
+                            WebGraph(
+                                openBookDetail = openBookDetail,
+                                openBookEdit = openBookEdit,
+                                openChapterEditor = openChapterEditor,
+                                matchDetails = matchDetails,
+                                openContributorDetail = openContributorDetail,
+                                openContributorBooks = openContributorBooks,
+                                openContributorEdit = openContributorEdit,
+                                openSeriesDetail = openSeriesDetail,
+                                openSeriesEdit = openSeriesEdit,
+                                openNotifications = openNotifications,
+                                openNotificationPrefs = openNotificationPrefs,
+                                openProfile = openProfile,
+                                openEditProfile = openEditProfile,
+                                openHome = openHome,
+                                openDiscover = openDiscover,
+                                openActivityFeed = fixedActivityFeed(),
+                                openSettings = openSettings,
+                                openLicences = openLicences,
+                                openDevices = openDevices,
+                                openHardcover = openHardcover,
+                                openAdmin = openAdmin,
+                                admin =
+                                    AdminSessions(
+                                        librarySettings = openLibrarySettings,
+                                        inbox = openAdminInbox,
+                                        serverSettings = openServerSettings,
+                                        categories = openCategories,
+                                        collections = openCollections,
+                                        collectionDetail = openCollectionDetail,
+                                        backups = openBackups,
+                                        restore = openRestore,
+                                        imports = openImports,
+                                        importFlow = openImportFlow,
+                                        createInvite = openCreateInvite,
+                                        userDetail = openUserDetail,
+                                        upload = openUpload,
+                                        organize = openOrganize,
+                                        inboxBadge = openInboxBadge,
+                                        restrictedBooks = openRestrictedBooks,
+                                    ),
+                                openShelfDetail = openShelfDetail,
+                                openShelfEdit = openShelfEdit,
+                                openMyShelves = openMyShelves,
+                                openLibrary = openLibrary,
+                                openSearch = openSearch,
+                                openMultiSelect = openMultiSelect,
+                                openBulkEdit = openBulkEdit,
+                                openBrowseFacet = openBrowseFacet,
+                                openGenreDestination = openGenreDestination,
+                                openBookReaders = openBookReaders,
+                                openBookRatings = openBookRatings,
+                                openHardcoverMatch = openHardcoverMatch,
+                                openBookHardcover = openBookHardcover,
+                                openSeeAll = openSeeAll,
+                                openDeadLetters = openDeadLetters,
+                                openSyncIndicator = openSyncIndicator,
+                                openNotificationBell = openNotificationBell,
+                                openPlayback = openPlayback,
+                                observeIsAdmin = { isAdmin },
+                                observeCurrentUserId = { currentUserId },
+                                observeCurrentUserName = { flowOf(null) },
+                                observeAvatarFrame = { flowOf(null) },
+                                coverThemes = NoCoverThemes,
+                            ),
+                        onToast = onToast,
+                        onActionToast = onActionToast,
+                    )
+                }
             }
         }
     liveShells += composition
     return Triple(host, router, composition)
+}
+
+/** [content] inside the app surface when [wrapped], as the real page draws it; else bare, as the runner's specs always have. */
+@Composable
+private fun InSurfaceWhen(
+    wrapped: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (wrapped) WebAppSurface { content() } else content()
 }
 
 /** Every shell [mountAt] has mounted and not yet ended itself. */

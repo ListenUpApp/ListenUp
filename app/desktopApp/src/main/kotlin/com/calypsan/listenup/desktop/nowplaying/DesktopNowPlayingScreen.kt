@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -402,6 +403,7 @@ private fun TallLayout(
 
         SeekSection(
             progress = progress,
+            isPlaying = state.isPlaying,
             onSeek = onSeek,
         )
 
@@ -492,6 +494,7 @@ private fun WideLayout(
 
             SeekSection(
                 progress = progress,
+                isPlaying = state.isPlaying,
                 onSeek = onSeek,
             )
 
@@ -669,7 +672,7 @@ private fun TitleSection(
     centered: Boolean,
 ) {
     val alignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
-    val textAlign = if (centered) TextAlign.Center else TextAlign.Start
+    val textAlign = if (centered) TextAlign.Center else TextAlign.LayoutStart
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -723,6 +726,7 @@ private fun TitleSection(
 @Composable
 private fun SeekSection(
     progress: () -> PlayerProgress,
+    isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -731,6 +735,7 @@ private fun SeekSection(
         fraction = p.chapterFraction.coerceIn(0f, 1f),
         elapsedMs = p.chapterPositionMs,
         durationMs = p.chapterDurationMs,
+        isPlaying = isPlaying,
         onSeek = onSeek,
         modifier = modifier.fillMaxWidth().widthIn(max = 480.dp),
     )

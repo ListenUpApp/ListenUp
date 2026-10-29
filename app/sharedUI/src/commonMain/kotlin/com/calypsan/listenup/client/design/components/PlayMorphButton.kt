@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private val PlayingCorner = 28.dp
+
+/** The playing square's corners, for the mini player's morph to land on. */
+internal val PlayMorphPlayingCorner = PlayingCorner
 private val PressedCorner = 20.dp
 private const val INDICATOR_FRACTION = 0.6f
 private const val GLYPH_FRACTION = 0.42f

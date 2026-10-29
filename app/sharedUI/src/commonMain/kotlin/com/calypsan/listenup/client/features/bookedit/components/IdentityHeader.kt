@@ -43,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -193,10 +192,9 @@ fun IdentityHeader(
                         value = title,
                         onValueChange = onTitleChange,
                         textStyle =
-                            TextStyle(
+                            MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = DisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = MaterialTheme.typography.headlineSmall.fontSize,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         placeholder = stringResource(Res.string.common_title),
