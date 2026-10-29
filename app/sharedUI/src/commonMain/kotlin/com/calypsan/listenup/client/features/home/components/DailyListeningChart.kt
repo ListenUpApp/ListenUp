@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -77,7 +76,7 @@ fun DailyListeningChart(
     val todayLabel = stringResource(Res.string.home_today)
     val dayLabels = chartData.map { if (it.isToday) todayLabel else it.label }
     val maxSeconds = chartData.maxOf { it.totalSeconds }.coerceAtLeast(1L).toFloat()
-    val labelStyle = TextStyle(fontSize = WeekChartLabelSize, color = labelColor)
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = WeekChartLabelSize, color = labelColor)
 
     // Bars grow up from the baseline on screen entry, rippling from the oldest day to today (today rises last).
     val growth = remember { Animatable(0f) }
