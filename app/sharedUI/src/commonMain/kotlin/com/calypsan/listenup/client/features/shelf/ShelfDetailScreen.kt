@@ -65,6 +65,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -489,7 +490,7 @@ private fun ShelfHeroTexts(
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
-            textAlign = if (center) TextAlign.Center else TextAlign.Start,
+            textAlign = if (center) TextAlign.Center else TextAlign.LayoutStart,
         )
 
         Spacer(Modifier.height(16.dp))

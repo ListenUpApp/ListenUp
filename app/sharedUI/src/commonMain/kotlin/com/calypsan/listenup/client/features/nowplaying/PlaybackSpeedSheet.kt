@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutEnd
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.ButtonGroupChoice
@@ -186,7 +187,7 @@ private fun LeftAtSpeed(bookRemainingAtSpeedMs: () -> Long) {
             ),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.End,
+        textAlign = TextAlign.LayoutEnd,
     )
 }
 

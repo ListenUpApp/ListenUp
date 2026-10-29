@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -211,7 +212,7 @@ private fun ColumnScope.HeroIdentity(
     onSeriesClick: (String) -> Unit,
     onShowCast: (CastRole) -> Unit,
 ) {
-    val textAlign = if (centered) TextAlign.Center else TextAlign.Start
+    val textAlign = if (centered) TextAlign.Center else TextAlign.LayoutStart
     val lineArrangement = Arrangement.spacedBy(0.dp, if (centered) Alignment.CenterHorizontally else Alignment.Start)
 
     // Series path above the title: where the book sits, read before what it is called (board rev 7).

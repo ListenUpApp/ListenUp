@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
@@ -186,7 +187,7 @@ private fun TitleFlight(
         text = title,
         style = if (isPage) pageStyle else barStyle,
         color = MaterialTheme.colorScheme.onSurface,
-        textAlign = if (isPage) TextAlign.Center else TextAlign.Start,
+        textAlign = if (isPage) TextAlign.Center else TextAlign.LayoutStart,
         maxLines = if (isPage) 2 else 1,
         overflow = TextOverflow.Ellipsis,
         modifier =

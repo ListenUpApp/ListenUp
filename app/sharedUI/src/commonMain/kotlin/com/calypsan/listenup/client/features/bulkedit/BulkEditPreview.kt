@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutEnd
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
@@ -119,7 +120,7 @@ private fun PreviewRow(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = accent,
-                    textAlign = TextAlign.End,
+                    textAlign = TextAlign.LayoutEnd,
                 )
             }
             LinearProgressIndicator(

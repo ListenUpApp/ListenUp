@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -177,7 +178,7 @@ internal fun PlayerTitleBlock(
         return
     }
     val centred = alignment == Alignment.CenterHorizontally
-    val textAlign = if (centred) TextAlign.Center else TextAlign.Start
+    val textAlign = if (centred) TextAlign.Center else TextAlign.LayoutStart
     // A centred line spans the block, so TextAlign.Center puts the words themselves on the cover's axis.
     val lineWidth = if (centred) Modifier.fillMaxWidth() else Modifier
     Column(modifier = modifier, horizontalAlignment = alignment) {
