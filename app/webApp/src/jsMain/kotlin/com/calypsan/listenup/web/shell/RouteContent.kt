@@ -10,6 +10,7 @@ import com.calypsan.listenup.web.features.admin.InboxBadgeState
 import com.calypsan.listenup.web.features.bookdetail.BookRouteContent
 import com.calypsan.listenup.web.features.browse.BrowseRouteContent
 import com.calypsan.listenup.web.features.bulkedit.BulkEditRoute
+import com.calypsan.listenup.web.features.bulkedit.OpenBulkEdit
 import com.calypsan.listenup.web.features.contributordetail.ContributorRouteContent
 import com.calypsan.listenup.web.features.discover.DiscoverRouteContent
 import com.calypsan.listenup.web.features.home.HomeRoute
@@ -47,6 +48,27 @@ import com.calypsan.listenup.web.nav.editTargetOf
 import com.calypsan.listenup.web.nav.idUnder
 import com.calypsan.listenup.web.nav.isHeldBulkEdit
 import com.calypsan.listenup.web.nav.isServed
+
+/**
+ * The bulk editor over [bookIds]; or, when `/books/edit?held=…` names a selection the tab lost (a bookmark, a new tab,
+ * cleared storage), a notice and the Library — rather than "Page not found" for an address that was right when made.
+ */
+@Composable
+private fun BulkEditOrGone(
+    router: Router,
+    openBulkEdit: OpenBulkEdit,
+    bookIds: List<String>,
+    onToast: (String) -> Unit,
+) {
+    if (bookIds.isNotEmpty()) {
+        BulkEditRoute(router = router, openBulkEdit = openBulkEdit, bookIds = bookIds, onToast = onToast)
+    } else {
+        LaunchedEffect(Unit) {
+            router.replace(Routes.library)
+            onToast("That selection has gone — pick the books again.")
+        }
+    }
+}
 
 /**
  * The one page the current route actually shows — Book Edit, Book Detail, Contributors, Library
@@ -100,15 +122,8 @@ internal fun RouteContent(
 
     if (!route.isServed()) {
         NotFoundPage(onGoHome = { router.navigate(Routes.home) })
-    } else if (bulkEditIds.isEmpty() && route.isHeldBulkEdit()) {
-        // The tab no longer holds the selection (a bookmark, a new tab, cleared storage): say so and leave, rather than
-        // show "Page not found" for an address that was right when it was made.
-        LaunchedEffect(route) {
-            router.replace(Routes.library)
-            onToast("That selection has gone — pick the books again.")
-        }
-    } else if (bulkEditIds.isNotEmpty()) {
-        BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
+    } else if (bulkEditIds.isNotEmpty() || route.isHeldBulkEdit()) {
+        BulkEditOrGone(router, graph.openBulkEdit, bulkEditIds, onToast)
     } else if (page == PLAYING_KEY) {
         // Now Playing draws in its own slot beside this one (NowPlayingSlot), so the player morph can hold it over the
         // page it rose from without remounting either.
