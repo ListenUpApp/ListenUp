@@ -788,8 +788,7 @@ private fun MemberRow(
     // does — the member model carries only the userId. Fall back to the userId so the row is
     // never stranded before the profile has synced.
     val profileRepository: UserProfileRepository = koinInject()
-    val profile by profileRepository
-        .observeProfile(share.userId)
+    val profile by remember(share.userId) { profileRepository.observeProfile(share.userId) }
         .collectAsStateWithLifecycle(initialValue = null)
 
     val memberName = profile?.run { displayName.ifBlank { null } } ?: share.userId
