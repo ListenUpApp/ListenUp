@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-import com.calypsan.listenup.client.domain.chapter.currentChapterIndex
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.playback.chapterWindowAt
 
 /** Where the reader is with a book of [durationMs], from its saved [position]. Pure. */
 internal fun readingStage(
@@ -103,11 +103,12 @@ internal fun currentChapterOf(
     chapters: List<Chapter>,
     positionMs: Long,
 ): CurrentChapter? {
-    val index = currentChapterIndex(chapters.map { it.startTime }, positionMs) ?: return null
-    val chapter = chapters[index]
+    val window = chapterWindowAt(positionMs, chapters, totalDurationMs = null)
+    if (window.isBeforeFirstChapter) return null
+    val chapter = chapters.getOrNull(window.index) ?: return null
     return CurrentChapter(
-        index = index,
-        number = index + 1,
+        index = window.index,
+        number = window.index + 1,
         title = chapter.title,
         startMs = chapter.startTime,
         elapsedInChapterMs = (positionMs - chapter.startTime).coerceAtLeast(0L),
@@ -149,7 +150,7 @@ internal fun visiblePlayhead(
     chapters: List<Chapter>,
 ): VisiblePlayhead {
     // The same answer as [currentChapterOf], so the key moves exactly when the current chapter does.
-    val index = currentChapterIndex(chapters.map { it.startTime }, positionMs) ?: -1
+    val index = currentChapterOf(chapters, positionMs)?.index ?: -1
     val chapterStart = chapters.getOrNull(index)?.startTime ?: 0L
     val end = chapters.lastOrNull()?.let { it.startTime + it.duration } ?: positionMs
     return VisiblePlayhead(

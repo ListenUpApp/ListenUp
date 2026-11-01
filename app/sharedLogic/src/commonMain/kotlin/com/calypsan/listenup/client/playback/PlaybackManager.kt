@@ -156,8 +156,7 @@ interface PlaybackManager :
     // Nested types
     //
     // Kept nested (not promoted to top-level) because consumer code references
-    // them as `PlaybackManager.PrepareResult`,
-    // `PlaybackManager.ChapterInfo` across shared, composeApp/{android,desktop}Main,
+    // them as `PlaybackManager.PrepareResult` across shared, composeApp/{android,desktop}Main,
     // and tests. Promoting to top-level would cause an avoidable churn through every
     // reference site.
     // ====================================================================
@@ -178,16 +177,5 @@ interface PlaybackManager :
         val measuredGainDb: Float?,
         /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
         val normalizationGainDb: Float?,
-    )
-
-    /** Current chapter information for notification and UI. */
-    data class ChapterInfo(
-        val index: Int,
-        val title: String,
-        val startMs: Long,
-        val endMs: Long,
-        val remainingMs: Long,
-        val totalChapters: Int,
-        val isGenericTitle: Boolean,
     )
 }

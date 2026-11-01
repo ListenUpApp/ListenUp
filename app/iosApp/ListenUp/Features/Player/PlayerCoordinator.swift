@@ -3,11 +3,6 @@ import AVFoundation
 @preconcurrency import MediaPlayer
 @preconcurrency import Shared
 
-/// Swift Export exposes the nested `PlaybackManager.ChapterInfo` type only through an
-/// `internal` typealias, so app code names it via its underlying public wrapper class.
-typealias PlaybackManagerChapterInfo =
-    _ExportedKotlinPackages_com_calypsan_listenup_client_playback_PlaybackManager_ChapterInfo
-
 // The pure decision helpers (InterruptionPolicy, RouteChangePolicy, ScenePhasePolicy,
 // LoadGeneration, ChapterMath) live in PlayerPolicies.swift.
 

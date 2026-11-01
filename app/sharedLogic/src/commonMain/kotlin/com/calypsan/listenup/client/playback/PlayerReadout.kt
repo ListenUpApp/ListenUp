@@ -159,7 +159,7 @@ internal class PlayerReadout(
             .stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> =
+    val currentChapter: StateFlow<ChapterInfo?> =
         combine(
             flow = engineBound,
             flow2 = engine.currentChapter,

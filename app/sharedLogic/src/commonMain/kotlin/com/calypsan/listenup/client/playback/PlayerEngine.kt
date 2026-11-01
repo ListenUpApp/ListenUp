@@ -55,7 +55,7 @@ interface PlayerEngine {
     val chapters: StateFlow<List<Chapter>>
 
     /** [chapterInfoAt] over [positionMs] and [chapters]: the one chapter derivation. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
+    val currentChapter: StateFlow<ChapterInfo?>
 
     /** The prepared timeline (which files are local, which stream, which are transcoded), or null. */
     val timeline: StateFlow<PlaybackTimeline?>

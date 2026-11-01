@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStart
@@ -68,7 +69,7 @@ private object IdlePlayerEngine : PlayerEngine {
     override val speed: StateFlow<Float> = MutableStateFlow(1.0f)
     override val boostDb: StateFlow<Float> = MutableStateFlow(0f)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = MutableStateFlow(null)
+    override val currentChapter: StateFlow<ChapterInfo?> = MutableStateFlow(null)
     override val timeline: StateFlow<PlaybackTimeline?> = MutableStateFlow(null)
     override val outputDeviceName: StateFlow<String?> = MutableStateFlow(null)
     override val error: StateFlow<AppError?> = MutableStateFlow(null)

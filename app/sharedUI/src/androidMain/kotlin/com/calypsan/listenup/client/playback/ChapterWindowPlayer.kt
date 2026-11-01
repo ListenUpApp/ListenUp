@@ -44,7 +44,7 @@ private data class ChapterSeekContext(
  *
  * This is handed to `MediaLibrarySession.Builder` in place of the raw local player
  * (see `PlaybackService.initializeMediaSession`). All chapter-window math is pure and lives in
- * [ChapterWindow.kt][ChapterWindow] — this class is a thin [ForwardingSimpleBasePlayer] adapter
+ * [ChapterWindow] — this class is a thin [ForwardingSimpleBasePlayer] adapter
  * over it, following the same split as [ControllerTrust]/[controllerTrustOf] in
  * `ControllerGating.kt`.
  *
@@ -75,7 +75,7 @@ private data class ChapterSeekContext(
  * connected controllers pick up the new chapter and time left.
  *
  * **Chapterless / single-chapter books.** When [chaptersProvider] returns an empty list,
- * [currentChapterWindow] presents the whole book as one window — no special-casing is visible to
+ * [chapterWindowAt] presents the whole book as one window — no special-casing is visible to
  * controllers; they simply see a single "chapter" spanning the whole book.
  *
  * **Testing.** `SimpleBasePlayer`'s constructor calls `player.getApplicationLooper()` and builds a
@@ -88,7 +88,7 @@ private data class ChapterSeekContext(
  * adapter's seek dispatch that way. (An earlier revision of this KDoc called the lane
  * "Robolectric-free" and sent this layer to device-only verification; that was wrong, and the gap
  * it left is where the #1237/#1241 auto-rewind regression hid.) The pure chapter-window
- * calculations live in [ChapterWindow.kt][ChapterWindow], covered by `ChapterWindowTest`.
+ * calculations live in [ChapterWindow], covered by `ChapterWindowTest` (shared) and `SystemSurfaceChapterWindowTest`.
  *
  * @param player The local ExoPlayer instance to wrap.
  * @param chaptersProvider Synchronous snapshot of the current book's chapters (empty when the
@@ -157,7 +157,7 @@ class ChapterWindowPlayer(
                 window.positionInWindowMs
             } else {
                 val liveBookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
-                (liveBookPositionMs - window.windowStartMs).coerceIn(0L, window.windowDurationMs)
+                (liveBookPositionMs - window.startMs).coerceIn(0L, window.durationMs)
             }
         }
 
@@ -186,11 +186,11 @@ class ChapterWindowPlayer(
                 }
 
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION -> {
-                    context.window.windowStartMs
+                    context.window.startMs
                 }
 
                 Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, Player.COMMAND_SEEK_TO_MEDIA_ITEM -> {
-                    context.window.seekTargetToBookPosition(positionMs)
+                    context.window.bookPositionAt(positionMs)
                 }
 
                 else -> {
@@ -213,7 +213,7 @@ class ChapterWindowPlayer(
         val timeline = timelineProvider() ?: return null
         val chapters = chaptersProvider()
         val bookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
-        val window = currentChapterWindow(chapters, bookPositionMs, timeline.totalDurationMs)
+        val window = chapterWindowAt(bookPositionMs, chapters, timeline.totalDurationMs)
         return ChapterSeekContext(
             chapters = chapters,
             bookPositionMs = bookPositionMs,
@@ -236,8 +236,8 @@ class ChapterWindowPlayer(
                 .buildUpon()
                 .setArtist(systemTrackLine(window.chapterName(chapters), window.remainingMs, strings()))
                 .setAlbumTitle(book.artist)
-        if (window.chapterIndex >= 0) {
-            metadataBuilder.setTrackNumber(window.chapterIndex + 1)
+        if (window.index >= 0) {
+            metadataBuilder.setTrackNumber(window.index + 1)
             metadataBuilder.setTotalTrackCount(chapters.size)
         }
 
@@ -245,7 +245,7 @@ class ChapterWindowPlayer(
             .Builder(CHAPTER_WINDOW_MEDIA_ITEM_UID)
             .setMediaItem(underlyingPlayer.currentMediaItem ?: MediaItem.EMPTY)
             .setMediaMetadata(metadataBuilder.build())
-            .setDurationUs(window.windowDurationMs * 1_000L)
+            .setDurationUs(window.durationMs * 1_000L)
             .setIsSeekable(true)
             .build()
     }

@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerPhase
 
@@ -76,7 +77,7 @@ internal fun audioSourceOf(
 
 /** The current chapter as surfaces draw it; null [info] is a chapterless book's one whole-book chapter (§3.2). */
 internal fun playerChapterOf(
-    info: PlaybackManager.ChapterInfo?,
+    info: ChapterInfo?,
     bookDurationMs: Long,
 ): PlayerChapter =
     info?.let { chapter ->

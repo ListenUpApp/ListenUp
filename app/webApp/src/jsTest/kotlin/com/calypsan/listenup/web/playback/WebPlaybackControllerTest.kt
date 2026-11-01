@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -100,9 +101,9 @@ private val neverCalledPlaybackManager: PlaybackManager =
         override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
         override val playbackError: StateFlow<AppError?> = MutableStateFlow(null)
         override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
-        override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = MutableStateFlow(null)
+        override val currentChapter: StateFlow<ChapterInfo?> = MutableStateFlow(null)
         override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
-        override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
+        override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
 
         override fun activateBook(bookId: BookId) = unexpected()
 

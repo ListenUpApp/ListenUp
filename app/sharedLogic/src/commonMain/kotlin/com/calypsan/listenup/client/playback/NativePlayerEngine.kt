@@ -70,7 +70,7 @@ class NativePlayerEngine internal constructor(
     override val error: StateFlow<AppError?>
         field = MutableStateFlow<AppError?>(null)
 
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> =
+    override val currentChapter: StateFlow<ChapterInfo?> =
         combine(
             positionMs,
             chapters,

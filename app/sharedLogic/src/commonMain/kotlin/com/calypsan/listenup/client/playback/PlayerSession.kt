@@ -109,7 +109,7 @@ class PlayerSession(
     val durationMs: StateFlow<Long> get() = readout.durationMs
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> get() = readout.currentChapter
+    val currentChapter: StateFlow<ChapterInfo?> get() = readout.currentChapter
 
     /** The rate: the engine's, else this book's saved rate, else the default. */
     val speed: StateFlow<Float> get() = readout.speed
@@ -584,15 +584,7 @@ class PlayerSession(
     /** [fraction] of the current chapter (the whole book when it has no chapters). */
     fun seekWithinChapter(fraction: Float) {
         onPlayer {
-            val clamped = fraction.coerceIn(0f, 1f)
-            val chapter = currentChapter.value
-            val target =
-                if (chapter == null) {
-                    (durationMs.value * clamped).toLong()
-                } else {
-                    chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
-                }
-            seekTo(target)
+            seekTo(chapterWindowAt(positionMs.value, chapters.value, durationMs.value).bookPositionAtFraction(fraction))
         }
     }
 
