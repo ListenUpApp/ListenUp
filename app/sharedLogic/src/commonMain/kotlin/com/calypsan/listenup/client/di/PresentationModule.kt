@@ -470,7 +470,7 @@ internal val bookPresentationModule =
                 bookEditRepository = get(),
                 errorBus = get(),
                 playbackManager = get(),
-                playbackController = get(),
+                playerSession = get(),
             )
         }
         factory {

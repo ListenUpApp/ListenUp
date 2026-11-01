@@ -8,7 +8,8 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Orchestrates playback startup and coordinates between UI, service, and data layers.
+ * Orchestrates playback startup and coordinates between service and data layers. An engine-internal
+ * adapter beneath [ManagedPlayerEngine]: ViewModels command playback through [PlayerSession].
  *
  * Defined as an `interface` so that test fakes (e.g., `FakePlaybackManager` behind
  * `ManagedPlayerEngineTest`) can implement it without inheritance gymnastics, and
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
  * - Build [PlaybackTimeline] for position translation
  * - Prepare authentication for streaming
  * - Track current playback state (position, playing status)
- * - Provide a central control interface for playback
  * - Trigger background downloads for offline availability
  * - Negotiate audio format with server for transcoding support
  *

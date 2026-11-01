@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerPhase
 
 /** The one main button for [phase] (§4.6). Pure. */

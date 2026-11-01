@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.ChapterInfo
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerPhase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
