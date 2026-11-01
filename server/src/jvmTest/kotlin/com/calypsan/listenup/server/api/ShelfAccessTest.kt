@@ -301,6 +301,24 @@ class ShelfAccessTest :
             }
         }
 
+        test("a deleted user's public shelf is not discovered") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+                    sql.usersQueries.markDeletedAt(deleted_at = 1_700_000_000_000L, id = "a")
+
+                    val discovered = service(this@withSqlDatabase).actAs("b").discoverShelves().value()
+
+                    discovered.filter { it.ownerId == "a" } shouldHaveSize 0
+                }
+            }
+        }
+
         // ── 7: limit counts visible shelves, applied after access exclusion ────
 
         test("discoverShelves(limit) returns exactly limit visible shelves") {

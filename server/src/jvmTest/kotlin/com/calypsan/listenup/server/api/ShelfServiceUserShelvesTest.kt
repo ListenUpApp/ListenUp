@@ -301,6 +301,28 @@ class ShelfServiceUserShelvesTest :
             }
         }
 
+        test("getUserShelves of a deleted user is empty") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("b1")
+                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "viewer")
+                runTest {
+                    val shelf =
+                        makeService(sql, driver, callerId = "owner")
+                            .actAs("owner")
+                            .createShelf(name = "Public", isPrivate = false)
+                            .value()
+                    ShelfBookRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                        .addBook(shelf.id.value, "b1", userId = "owner")
+                    sql.usersQueries.markDeletedAt(deleted_at = 1_700_000_000_000L, id = "owner")
+
+                    makeService(sql, driver, callerId = "viewer").getUserShelves(UserId("owner")).value() shouldHaveSize 0
+                }
+            }
+        }
+
         // ── 6: Unauthenticated caller → NotFound ──────────────────────────────
 
         test("getUserShelves returns Failure(ShelfError.NotFound) when caller is unauthenticated") {

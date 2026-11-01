@@ -67,15 +67,17 @@ SELECT * FROM shelves WHERE id = :id AND deleted_at IS NULL;
 listOwnedBy:
 SELECT * FROM shelves WHERE user_id = :userId AND deleted_at IS NULL;
 
--- All live, public shelves owned by a user (the getUserShelves building block).
+-- All live, public shelves owned by a live (not removed) user (the getUserShelves building block).
 listPublicForOwner:
 SELECT * FROM shelves
-WHERE user_id = :userId AND is_private = 0 AND deleted_at IS NULL;
+WHERE user_id = :userId AND is_private = 0 AND deleted_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE deleted_at IS NULL);
 
--- All live, public shelves NOT owned by a user (the discovery candidate set).
+-- All live, public shelves NOT owned by a user, whose owner is live (the discovery candidate set).
 listDiscoverable:
 SELECT * FROM shelves
-WHERE is_private = 0 AND user_id != :excludeUserId AND deleted_at IS NULL;
+WHERE is_private = 0 AND user_id != :excludeUserId AND deleted_at IS NULL
+  AND user_id IN (SELECT id FROM users WHERE deleted_at IS NULL);
 
 insert:
 INSERT INTO shelves (id, user_id, name, description, is_private, created_at, updated_at, revision, deleted_at, client_op_id)
