@@ -210,6 +210,7 @@ struct LibraryView: View {
             BooksContent(
                 books: observer.books,
                 bookStatus: observer.bookStatus,
+                bookMenuPrimary: observer.bookMenuPrimary,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,
                 isFilteredEmpty: observer.isFilteredEmpty,

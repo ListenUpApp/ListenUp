@@ -31,12 +31,15 @@ struct BookContextMenuTests {
         #expect(BookMenuPrimaryValue.listenAgain.label == "Listen Again")
     }
 
-    /// The shared `bookMenuPrimary` rule, read from the card's own state.
-    @Test func primaryFollowsTheCardState() {
-        #expect(BookMenuPrimaryValue(.inProgress(fraction: 0.1, timeLeftMs: 60_000)) == .resume(timeLeftMs: 60_000))
-        #expect(BookMenuPrimaryValue(.finished(durationMs: 1)) == .listenAgain)
-        #expect(BookMenuPrimaryValue(.notStarted(durationMs: 1)) == .play)
-        #expect(BookMenuPrimaryValue(nil) == .play)
+    /// The shared `bookMenuPrimary` rule, called with real Kotlin `BookCardStatus` values and mapped.
+    @Test func primaryFollowsTheSharedRule() {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.library.self
+        let started = BookCardStatusInProgress(fraction: 0.1, timeLeftMs: 60_000)
+        #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: started)) == .resume(timeLeftMs: 60_000))
+        let finished = BookCardStatusFinished(durationMs: 1)
+        #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: finished)) == .listenAgain)
+        #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: BookCardStatusNotStarted(durationMs: 1))) == .play)
+        #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: nil)) == .play)
     }
 
     /// Hide, don't dim (HIG, Context menus): a screen without a selection has no shelf picker and no
