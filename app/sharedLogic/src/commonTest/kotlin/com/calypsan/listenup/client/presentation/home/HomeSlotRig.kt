@@ -55,6 +55,10 @@ internal class HomeSlotRig(
     val runs = MutableStateFlow(0)
     val dismissedHere = MutableStateFlow<Map<String, Long>>(emptyMap())
 
+    /** How many times the presenter asked for a book's next-in-series flow. */
+    var nextInSeriesCalls = 0
+        private set
+
     /** What the next rating write answers; a test flips it to a failure. */
     var rateResult: AppResult<Unit> = AppResult.Success(Unit)
 
@@ -85,7 +89,10 @@ internal class HomeSlotRig(
             loadedBooks = loadedBooks,
             positions = writablePositions,
             inbox = inbox,
-            nextInSeries = { bookId -> nextByBook.map { it[bookId] } },
+            nextInSeries = { bookId ->
+                nextInSeriesCalls++
+                nextByBook.map { it[bookId] }
+            },
             books = books,
             ratings = ratings,
             activities = activities,
