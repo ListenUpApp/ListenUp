@@ -408,6 +408,25 @@ class ContributorServiceImplTest :
             }
         }
 
+        test("a dropped photo frame does not mark the photo as chosen by hand") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    deps.contributorRepo.upsert(deps.contributorRepo.findById(id.value)!!.copy(imagePath = "contributors/abc.jpg"))
+
+                    deps.service
+                        .updateContributor(id, ContributorUpdate(imageFrame = ImageFraming("stale", ImageFrame(0.1, 0.1, 2.0))))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val stored = deps.contributorRepo.findById(id.value)!!
+                    stored.imageFrame.shouldBeNull()
+                    stored.fieldProvenance[ContributorField.PHOTO]?.kind shouldNotBe FieldSourceKind.USER
+                }
+            }
+        }
+
         test("a new photo patched without a frame clears the old photo's frame") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

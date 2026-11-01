@@ -159,7 +159,11 @@ internal class ContributorServiceImpl(
                     current.applyPatch(patch).let { applied ->
                         logDroppedFrame(id, patch, applied)
                         applied.copy(
-                            fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
+                            fieldProvenance =
+                                applied.fieldProvenance.stampUser(
+                                    patch.touchedFields(photoFrameChanged = applied.imageFrame != current.imageFrame),
+                                    editorId,
+                                ),
                         )
                     }
                 }
@@ -442,14 +446,17 @@ private fun mergeAliasesFor(
     return out
 }
 
-/** The tracked fields [this] patch writes — each becomes a hand edit. */
-private fun ContributorUpdate.touchedFields(): Set<ContributorField> =
+/**
+ * The tracked fields [this] patch writes — each becomes a hand edit. [photoFrameChanged] says the patch's frame was
+ * actually applied: a frame dropped for belonging to another photo changes nothing and marks nothing.
+ */
+private fun ContributorUpdate.touchedFields(photoFrameChanged: Boolean): Set<ContributorField> =
     buildSet {
         if (name != null) add(ContributorField.NAME)
         if (sortName != null) add(ContributorField.SORT_NAME)
         if (description != null) add(ContributorField.BIOGRAPHY)
         // Framing is a hand edit of the photo: it protects the photo from a later match, as a hand upload does.
-        if (imagePath != null || imageFrame != null) add(ContributorField.PHOTO)
+        if (imagePath != null || photoFrameChanged) add(ContributorField.PHOTO)
     }
 
 /**
