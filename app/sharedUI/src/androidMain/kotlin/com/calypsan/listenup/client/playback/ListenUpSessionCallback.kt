@@ -921,6 +921,21 @@ internal fun mediaButtonsFor(
         }
     }
 
+/**
+ * What each connected controller should be offered now: its fresh [mediaButtonsFor], for those whose trust gets
+ * custom buttons. Connect-time buttons freeze the skip interval and the language, so the service re-sends these
+ * whenever either changes.
+ */
+internal fun mediaButtonUpdates(
+    controllers: List<Pair<MediaSession.ControllerInfo, ControllerTrust>>,
+    backwardSec: Int,
+    forwardSec: Int,
+    words: SystemStrings,
+): List<Pair<MediaSession.ControllerInfo, List<CommandButton>>> =
+    controllers
+        .filter { (_, trust) -> trust.getsCustomButtons() }
+        .map { (controller, trust) -> controller to mediaButtonsFor(trust, backwardSec, forwardSec, words) }
+
 /** Convert Android's EXTRA_MEDIA_FOCUS string to our MediaFocus enum. */
 private fun String.toMediaFocus(): MediaFocus? =
     when (this) {

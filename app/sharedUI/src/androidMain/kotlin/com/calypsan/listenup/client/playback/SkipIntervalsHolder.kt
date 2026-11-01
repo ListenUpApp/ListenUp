@@ -2,10 +2,19 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Milliseconds in a second — the only unit conversion this holder performs. */
 private const val MILLIS_PER_SECOND = 1_000L
+
+/** Both configured skip amounts, in seconds, as one value so a change is observed whole. */
+data class SkipIntervals(
+    val forwardSec: Int,
+    val backwardSec: Int,
+)
 
 /**
  * The skip amounts every platform playback surface reads, kept in step with the synced setting.
@@ -40,6 +49,13 @@ class SkipIntervalsHolder(
     var backwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC
         private set
 
+    /**
+     * The intervals as a stream, for the surfaces that label them (the car and system media buttons) and so must be
+     * told when they change. Synchronous readers keep using [forwardSec] and [backwardSec].
+     */
+    val changes: StateFlow<SkipIntervals>
+        field = MutableStateFlow(SkipIntervals(forwardSec, backwardSec))
+
     /** [forwardSec] in milliseconds, the unit every Media3 seek speaks. */
     val forwardMs: Long get() = forwardSec * MILLIS_PER_SECOND
 
@@ -52,7 +68,21 @@ class SkipIntervalsHolder(
      * Call once, from the owning service's scope — cancelling that scope stops the tracking.
      */
     fun follow(scope: CoroutineScope) {
-        scope.launch { preferences.observeDefaultSkipForwardSec().collect { forwardSec = it } }
-        scope.launch { preferences.observeDefaultSkipBackwardSec().collect { backwardSec = it } }
+        scope.launch {
+            preferences.observeDefaultSkipForwardSec().collect {
+                forwardSec = it
+                changes.update { now ->
+                    now.copy(forwardSec = it)
+                }
+            }
+        }
+        scope.launch {
+            preferences.observeDefaultSkipBackwardSec().collect {
+                backwardSec = it
+                changes.update { now ->
+                    now.copy(backwardSec = it)
+                }
+            }
+        }
     }
 }

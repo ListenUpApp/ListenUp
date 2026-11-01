@@ -441,6 +441,7 @@ class PlaybackService :
         }
 
         mediaLibrarySession = builder.build()
+        serviceScope.launch { skipIntervals.changes.collect { pushMediaButtons() } }
 
         logger.info { "MediaLibrarySession initialized" }
     }
@@ -512,7 +513,27 @@ class PlaybackService :
      * [SystemStrings.ENGLISH_FALLBACK] rather than a blank label.
      */
     private fun refreshSystemStrings() {
-        serviceScope.launch { systemStrings.refresh() }
+        serviceScope.launch {
+            systemStrings.refresh()
+            pushMediaButtons()
+        }
+    }
+
+    /**
+     * Re-sends the custom media buttons to every connected controller that gets them.
+     *
+     * [ListenUpSessionCallback.onConnect] labels the buttons once, so without this the car, Bluetooth and the system
+     * card keep "Back 30" after the listener sets 15 s, and keep the old language after a locale change. Any new
+     * setting that changes a system-surface label must call this.
+     */
+    private fun pushMediaButtons() {
+        val session = mediaLibrarySession ?: return
+        mediaButtonUpdates(
+            controllers = session.connectedControllers.map { it to session.classifyController(it) },
+            backwardSec = skipIntervals.backwardSec,
+            forwardSec = skipIntervals.forwardSec,
+            words = systemStrings.current,
+        ).forEach { (controller, buttons) -> session.setMediaButtonPreferences(controller, buttons) }
     }
 
     /**

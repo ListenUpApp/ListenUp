@@ -55,6 +55,12 @@ internal fun controllerTrustOf(
         else -> ControllerTrust.UNKNOWN
     }
 
+/** Whether a controller at this trust is offered the custom audiobook commands and media buttons. */
+internal fun ControllerTrust.getsCustomButtons(): Boolean =
+    this == ControllerTrust.OWN_APP ||
+        this == ControllerTrust.AUTO_OR_AUTOMOTIVE ||
+        this == ControllerTrust.MEDIA_NOTIFICATION
+
 /**
  * Media3-aware classifier — combines the runtime probes into [controllerTrustOf].
  */
@@ -152,10 +158,7 @@ internal fun MediaSession.buildConnectionResultFor(
             -> MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
         }
 
-    val includeCustom =
-        trust == ControllerTrust.OWN_APP ||
-            trust == ControllerTrust.AUTO_OR_AUTOMOTIVE ||
-            trust == ControllerTrust.MEDIA_NOTIFICATION
+    val includeCustom = trust.getsCustomButtons()
 
     val sessionCommands =
         baseCommands
