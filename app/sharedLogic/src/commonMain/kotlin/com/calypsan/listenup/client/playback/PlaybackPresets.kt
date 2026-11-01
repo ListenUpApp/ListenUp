@@ -10,6 +10,9 @@ import kotlin.math.roundToInt
  * 90 seconds, not a blank picker, on the next. An object, so Swift sees `PlaybackPresets.shared`.
  */
 object PlaybackPresets {
+    /** Slack allowed when matching a speed to a rung: a speed that went through storage is a hair off its rung. */
+    private const val SPEED_MATCH_TOLERANCE = 0.01f
+
     /** The speeds every picker offers, slowest first. */
     val SPEEDS: List<Float> = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
 
@@ -75,7 +78,4 @@ object PlaybackPresets {
         current: T,
         same: (T, T) -> Boolean,
     ): List<T> = if (choices.any { same(it, current) }) choices else (choices + current).sorted()
-
-    /** Slack allowed when matching a speed to a rung: a speed that went through storage is a hair off its rung. */
-    private const val SPEED_MATCH_TOLERANCE = 0.01f
 }
