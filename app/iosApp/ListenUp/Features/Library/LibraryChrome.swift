@@ -27,12 +27,16 @@ struct LibraryChrome: Equatable {
 
 /// What the Library toolbar's Sort menu offers for each section.
 enum LibrarySortOptions {
+    /// The shared lists, read as keys: a Swift array of the `SortCategory` enum traps when it crosses the Swift
+    /// Export bridge, so each category is rebuilt locally from its string key.
     static func categories(for section: LibraryTab) -> [SortCategory] {
-        switch section {
-        case .books: [.title, .author, .duration, .year, .added, .rating, .listenerRating, .series]
-        case .series: [.name, .bookCount, .added]
-        case .authors, .narrators: [.name, .bookCount]
+        let companion = SortCategory.Companion.shared
+        let keys = switch section {
+        case .books: companion.booksCategoryKeys
+        case .series: companion.seriesCategoryKeys
+        case .authors, .narrators: companion.contributorCategoryKeys
         }
+        return keys.compactMap { companion.fromKey(key: $0) }
     }
 
     /// "Ignore A, An, The" only means something while Books sort by Title or Series by Name — the
