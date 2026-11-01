@@ -1,4 +1,6 @@
 import Foundation
+import ListenupContract
+import Shared
 
 /// What Delete from Server's alert says, and what it counts (spec §2.8, the iOS Confirms board's words).
 ///
@@ -31,6 +33,18 @@ enum BookDeletion {
                 Int32(clamping: fileCount),
                 formattedSize
             )
+    }
+
+    /// Why a delete was refused, in words the admin can act on: for a folder another book shares, which book is in
+    /// the way (as Android and web say it); for anything else, the error's own message.
+    static func refusal(for error: any AppError) -> String {
+        guard let shared = error as? BookErrorFolderNotExclusive else { return error.message }
+        return String(format: String(localized: "book.detail_delete_book_blocked"), shared.otherBookTitle)
+    }
+
+    /// Whether the refusal is the shared-folder one, which Book Detail's own alert presents.
+    static func isFolderRefusal(_ error: any AppError) -> Bool {
+        error is BookErrorFolderNotExclusive
     }
 
     /// The alert's destructive verb.

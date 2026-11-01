@@ -144,6 +144,9 @@ final class BookDetailObserver {
 
     /// True while the delete is in flight — the menu entry goes quiet so a second press can't race it.
     private(set) var isDeletingBook: Bool = false
+    /// Why the last delete was refused because another book shares the folder, naming that book; nil otherwise.
+    /// Other failures reach the user through the shared error alert, not this one.
+    private(set) var deleteRefusal: String?
     /// Set once the server has deleted the book; the view leaves the screen on it.
     private(set) var didDeleteBook: Bool = false
     /// Audio file sizes, snapshotted per book so the confirmation never re-bridges `audioFiles`.
@@ -319,7 +322,8 @@ final class BookDetailObserver {
 
     /// **Permanently deletes this book's folder from the server.** Admin-only: the menu entry is gated
     /// on `isAdmin` and the server refuses anyone else. A refusal reaches the user through the shared
-    /// error bus — `ErrorAlertCenter`'s alert — so it is deliberately not presented a second time here.
+    /// error bus — `ErrorAlertCenter`'s alert — except a refusal because another book shares the folder, which
+    /// `deleteRefusal` presents (naming that book) and the shared alert skips.
     func deleteBook() { viewModel.deleteBook() }
 
     /// Clears a previous refusal so a fresh confirmation starts clean.
@@ -401,6 +405,9 @@ final class BookDetailObserver {
             menuGroups = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
                 .bookDetailMoreMenu(ready: r).map(BookDetailMenuSection.init)
             isDeletingBook = r.isDeletingBook
+            deleteRefusal = r.deleteError.flatMap { error in
+                BookDeletion.isFolderRefusal(error) ? BookDeletion.refusal(for: error) : nil
+            }
             canPlay = r.canPlay
             canDownload = r.canDownload
             isHeld = r.isHeld
