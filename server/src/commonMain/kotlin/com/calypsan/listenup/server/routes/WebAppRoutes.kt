@@ -128,7 +128,8 @@ private fun List<String>.isSafe(): Boolean = none { it == ".." || it == "." }
  * `index.html` (allowed by hash, so `script-src` needs neither `'unsafe-inline'` nor
  * `'unsafe-eval'`), the SQLite wasm, same-origin workers, and `blob:` for upload previews,
  * downloads and hls.js's MediaSource. Images may come from other hosts because catalogue cover art
- * is loaded by URL. `style-src` keeps `'unsafe-inline'` because Compose HTML writes element style
+ * is loaded by URL, and it is requested with CORS (`crossorigin="anonymous"`) because the page is
+ * cross-origin isolated. `style-src` keeps `'unsafe-inline'` because Compose HTML writes element style
  * attributes.
  *
  * One policy, three places that must agree: this list, `vite.config.ts` (the preview server the

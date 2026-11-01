@@ -25,6 +25,7 @@ import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.focusLanding
+import org.jetbrains.compose.web.attributes.AttrsScope
 import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
@@ -378,8 +379,19 @@ internal fun Art(
             classes("bmx-art")
             if (big) classes("is-big")
             attr("loading", "lazy")
+            requestWithCors()
         })
     }
+}
+
+/**
+ * Asks for a third-party catalogue image with CORS. The page is cross-origin isolated
+ * (`Cross-Origin-Embedder-Policy: require-corp`), so a plain `<img>` of another host is blocked unless
+ * that host sends `Cross-Origin-Resource-Policy`; the catalogue CDNs send `Access-Control-Allow-Origin: *`
+ * instead, which a CORS-mode request satisfies. A host sending CORP but no ACAO would fail in this mode.
+ */
+internal fun AttrsScope<*>.requestWithCors() {
+    attr("crossorigin", "anonymous")
 }
 
 /** What the search field holds: the query each state carries. */
