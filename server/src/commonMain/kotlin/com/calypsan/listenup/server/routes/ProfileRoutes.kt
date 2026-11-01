@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.media.AvatarWriteLock
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -37,10 +38,11 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
  * mounted under the DOM-fetch provider instead — an `<img src>` displays an avatar, nothing but the
  * app itself uploads one.
  */
-fun Route.profileRoutes(
+internal fun Route.profileRoutes(
     sql: ListenUpDatabase,
     imageStore: ImageStore,
     publicProfileMaintainer: PublicProfileMaintainer,
+    avatarWriteLock: AvatarWriteLock,
     clock: Clock = Clock.System,
 ) {
     post("/api/v1/profile/avatar") {
@@ -57,32 +59,38 @@ fun Route.profileRoutes(
         val data = received.bytes
         val frame = received.frame
 
-        // ImageStore validates by magic number, not the declared content type — the octet-stream
-        // default only surfaces in its invalid-image error text, so no per-part content type is read.
-        try {
-            imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
-        } catch (e: ImageStore.InvalidImageException) {
-            return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
-        }
-        val now = clock.now().toEpochMilliseconds()
-        // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
-        val framing = frame?.let { ImageFraming(now.toString(), it) }
-        suspendTransaction(sql) {
-            sql.usersQueries.updateAvatarTypeAndFrame(
-                avatar_type = AVATAR_TYPE_IMAGE,
-                avatar_updated_at = now,
-                avatar_frame = framing?.toImageFrameColumn(),
-                updated_at = now,
-                id = userId,
-            )
-        }
+        // Held around the store and the row write together, so a concurrent revert-to-auto cannot delete these
+        // bytes before the row points at them.
+        val stored =
+            avatarWriteLock.withLock(userId) {
+                // ImageStore validates by magic number, not the declared content type — the octet-stream
+                // default only surfaces in its invalid-image error text, so no per-part content type is read.
+                try {
+                    imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
+                } catch (e: ImageStore.InvalidImageException) {
+                    return@withLock null
+                }
+                val now = clock.now().toEpochMilliseconds()
+                // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
+                val framing = frame?.let { ImageFraming(now.toString(), it) }
+                suspendTransaction(sql) {
+                    sql.usersQueries.updateAvatarTypeAndFrame(
+                        avatar_type = AVATAR_TYPE_IMAGE,
+                        avatar_updated_at = now,
+                        avatar_frame = framing?.toImageFrameColumn(),
+                        updated_at = now,
+                        id = userId,
+                    )
+                }
+                AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing)
+            } ?: return@post call.respond(HttpStatusCode.UnprocessableEntity, "invalid image")
         // Rebuild the public_profiles projection so the new avatar propagates through the sync
         // stream — both back to the uploader (its own UserAvatar reads the synced projection, not
         // the users row) and out to other clients. Mirrors ProfileServiceImpl.updateMyProfile.
         publicProfileMaintainer.refreshBestEffort(userId)
         // Return the server's avatar version so the client writes exact server truth into its
         // observed public_profiles row (no client-clock guess, no redundant re-download).
-        call.respond(AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing))
+        call.respond(stored)
     }
 }
 
