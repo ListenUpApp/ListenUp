@@ -471,6 +471,7 @@ class PlaybackService :
             AudiobookNotificationProvider(
                 context = this,
                 skipIntervals = skipIntervals,
+                scope = serviceScope,
                 strings = systemStrings,
             )
         val provider = notificationProvider ?: return

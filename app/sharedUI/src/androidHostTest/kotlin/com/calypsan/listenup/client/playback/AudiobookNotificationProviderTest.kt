@@ -6,6 +6,8 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import dev.mokkery.mock
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +51,7 @@ class AudiobookNotificationProviderTest {
                 // These tests only exercise the pure subtitle/duration helpers, so the holder
                 // never leaves its stock intervals — nothing here calls `follow`.
                 skipIntervals = SkipIntervalsHolder(mock<PlaybackPreferences>()),
+                scope = CoroutineScope(Job()),
             )
     }
 
