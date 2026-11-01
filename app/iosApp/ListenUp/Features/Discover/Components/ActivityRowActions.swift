@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 
 /// What an activity row offers beyond its tap, in the board's order (spec §3.5): a book row opens the
 /// book, views the person and adds the book to a shelf; a shelf row opens the shelf and views the
@@ -10,17 +11,22 @@ enum ActivityRowActions {
         case openShelf(String)
         case viewPerson(String)
         case addToShelf(String)
+
+        /// Native projection of the shared sealed `ActivityRowAction`.
+        init(_ action: ActivityRowAction) {
+            switch action.sealedType() {
+            case .openBook(let type): self = .openBook(type.value.bookId)
+            case .openShelf(let type): self = .openShelf(type.value.shelfId)
+            case .openProfile(let type): self = .viewPerson(type.value.userId)
+            case .addToShelf(let type): self = .addToShelf(type.value.bookId)
+            }
+        }
     }
 
-    /// The row's actions. `canShelve` is false where the screen has no selection to shelve through.
+    /// The row's actions, as the shared rule decided them. `canShelve` is false where the screen has no selection
+    /// to shelve through.
     static func actions(for item: ActivityRowItem, canShelve: Bool = true) -> [Action] {
-        if let bookId = item.bookId {
-            return [.openBook(bookId), .viewPerson(item.userId)] + (canShelve ? [.addToShelf(bookId)] : [])
-        }
-        if let shelfId = item.shelfId {
-            return [.openShelf(shelfId), .viewPerson(item.userId)]
-        }
-        return []
+        canShelve ? item.actions : item.actionsWithoutShelving
     }
 
     /// Whether a row may offer Add to Shelf: only with a selection to shelve through, and never while

@@ -16,6 +16,8 @@ ActivityFeedUiState_SealedType
 ActivityFeedViewModel
 ActivityParts
 ActivityRepository
+ActivityRowAction
+ActivityRowAction_SealedType
 ActivityUiModel
 AddSubSeriesEvent
 AddSubSeriesEvent_SealedType

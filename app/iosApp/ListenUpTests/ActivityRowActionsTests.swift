@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 import Testing
 @testable import ListenUp
 
@@ -6,17 +7,20 @@ import Testing
 /// never offer different things (plan C7), and a row about neither book nor shelf has none (Q5).
 @Suite("Activity row actions")
 struct ActivityRowActionsTests {
+    /// A row built from a real Kotlin `ActivityUiModel`, so the actions are the shared rule's, mapped.
     private func item(
         bookId: String? = "b1",
         shelfId: String? = nil,
-        highlight: String? = "Piranesi",
         isYou: Bool = false
     ) -> ActivityRowItem {
-        ActivityRowItem(
-            id: "a1", userId: "maya", who: isYou ? "You" : "Maya Chen", predicate: "finished",
-            highlight: highlight, bookId: bookId, shelfId: shelfId, occurredAt: Date(timeIntervalSince1970: 0),
-            isYou: isYou, actorName: "Maya Chen"
-        )
+        let type = shelfId != nil ? "shelf_created" : (bookId != nil ? "finished_book" : "user_joined")
+        return ActivityRowItem(from: ActivityUiModel(
+            id: "a1", userId: "maya", type: type, occurredAt: 0, userDisplayName: "Maya Chen",
+            bookId: bookId, bookTitle: bookId == nil ? nil : "Piranesi", bookAuthorName: nil,
+            bookCoverPath: nil, bookCoverHash: nil, isReread: false, durationMs: 0,
+            milestoneValue: 0, milestoneUnit: nil,
+            shelfId: shelfId, shelfName: shelfId == nil ? nil : "Sci-fi", isYou: isYou
+        ))
     }
 
     @Test func aBookRowOffersOpenViewAndAddToShelfInOrder() {
@@ -34,13 +38,13 @@ struct ActivityRowActionsTests {
     }
 
     @Test func aShelfRowOffersTheShelfAndThePerson() {
-        let row = item(bookId: nil, shelfId: "sh1", highlight: "Sci-fi")
+        let row = item(bookId: nil, shelfId: "sh1")
         #expect(ActivityRowActions.actions(for: row) == [.openShelf("sh1"), .viewPerson("maya")])
         #expect(ActivityRowActions.title(.openShelf("sh1"), item: row) == "Open Sci-fi")
     }
 
     @Test func aJoinRowHasNoMenu() {
-        #expect(ActivityRowActions.actions(for: item(bookId: nil, shelfId: nil, highlight: nil)).isEmpty)
+        #expect(ActivityRowActions.actions(for: item(bookId: nil, shelfId: nil)).isEmpty)
     }
 
     @Test func withoutASelectionThereIsNoAddToShelf() {

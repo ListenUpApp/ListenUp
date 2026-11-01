@@ -54,8 +54,10 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
+import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.activityParts
+import com.calypsan.listenup.client.presentation.discover.activityRowActions
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.discover_activity_profile_a11y
@@ -85,7 +87,7 @@ internal fun ActivityRow(
 ) {
     val actions =
         remember(activity, onAddToShelf != null) {
-            activityRowActions(activity).filter { it !is ActivityRowAction.AddToShelf || onAddToShelf != null }
+            activityRowActions(activity, canShelve = onAddToShelf != null)
         }
     val perform: (ActivityRowAction) -> Unit = { action ->
         when (action) {
