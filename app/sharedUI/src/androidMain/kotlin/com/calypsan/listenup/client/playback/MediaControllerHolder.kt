@@ -232,6 +232,8 @@ class MediaControllerHolder(
     suspend fun awaitController(): MediaController? {
         controller?.let { return it }
 
+        // A connection that failed left nothing in flight; this call is the retry. No-op while one is.
+        reconnectIfAcquired()
         if (!awaitReady(connected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
             logger.error { "MediaControllerHolder.awaitController: timed out waiting for connection" }
             playbackManager.reportError(
@@ -242,6 +244,11 @@ class MediaControllerHolder(
             return null
         }
         return controller
+    }
+
+    @Synchronized
+    private fun reconnectIfAcquired() {
+        if (refCount.load() > 0) connect()
     }
 
     private fun connect() {
@@ -262,7 +269,10 @@ class MediaControllerHolder(
                 logger.info { "MediaControllerHolder: connected" }
             } catch (e: Exception) {
                 logger.error(e) { "MediaControllerHolder: connection failed" }
+                // Freed so the next awaitController can try again, instead of latching on a dead future.
+                controllerFuture = null
                 connected.value = false
+                MediaController.releaseFuture(future)
             }
         }, MoreExecutors.directExecutor())
     }

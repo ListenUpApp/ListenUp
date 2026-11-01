@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.session.MediaController
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.google.common.util.concurrent.SettableFuture
@@ -251,6 +252,33 @@ class MediaControllerHolderTest :
                 holder.handleDisconnect()
 
                 connectAttempts shouldBe 1
+            }
+        }
+
+        test("a failed connection is retried by the next awaitController") {
+            runTest {
+                val writer = FakePlaybackStateWriter()
+                var connectAttempts = 0
+                val holder =
+                    MediaControllerHolder(
+                        context = stubContext,
+                        playbackManager = writer,
+                        connectionFactory = {
+                            connectAttempts++
+                            SettableFuture.create<MediaController>().also { future ->
+                                if (connectAttempts == 1) future.setException(IllegalStateException("service not ready"))
+                            }
+                        },
+                    )
+
+                holder.acquire()
+                connectAttempts shouldBe 1
+
+                // The second attempt never completes either, so this times out in virtual time;
+                // what matters is that it was made at all rather than latched behind the failure.
+                holder.awaitController() shouldBe null
+
+                connectAttempts shouldBe 2
             }
         }
     })
