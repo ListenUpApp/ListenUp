@@ -62,6 +62,17 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// state on disconnect.
     private var rowArtwork: [String: UIImage] = [:]
 
+    /// The three observations that keep the car current, each cancelled on disconnect. Held as tasks (not re-armed by
+    /// hand) because `Observations` re-arms itself and ends only when its task does.
+    private var homeTask: Task<Void, Never>?
+    private var libraryTask: Task<Void, Never>?
+    private var chapterButtonsTask: Task<Void, Never>?
+
+    /// Pushes the now-playing buttons only when they change.
+    private lazy var buttonsPresenter = CarPlayButtonsPresenter { [weak self] in
+        self?.updateNowPlayingButtons($0)
+    }
+
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
         didConnect interfaceController: CPInterfaceController
@@ -93,6 +104,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
         self.interfaceController = nil
+        homeTask?.cancel()
+        libraryTask?.cancel()
+        chapterButtonsTask?.cancel()
+        homeTask = nil
+        libraryTask = nil
+        chapterButtonsTask = nil
         home = nil
         library = nil
         rowArtwork.removeAll()
@@ -102,44 +119,50 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// Re-render the Home list whenever the books in progress change.
     ///
-    /// `withObservationTracking` fires once per change, so it re-arms itself — the Observation
-    /// equivalent of what SwiftUI does implicitly for a view body. There is no view here to do
-    /// it for us, and without re-arming the car would show whatever the library looked like at
-    /// the moment the driver plugged in.
+    /// `Observations` yields the current content and again after every change to what the closure read, so the car
+    /// never shows whatever the library looked like at the moment the driver plugged in.
     private func observeHome(_ home: CarPlayHomeWrapper) {
-        withObservationTracking {
-            render(home)
-        } onChange: { [weak self, weak home] in
-            Task { @MainActor in
-                guard let self, let home else { return }
-                self.observeHome(home)
+        homeTask = Task { [weak self] in
+            for await content in Observations({ Self.homeContent(of: home) }) {
+                if Task.isCancelled { break }
+                self?.render(content)
             }
         }
     }
 
-    private func render(_ home: CarPlayHomeWrapper) {
+    /// What the Home list shows, read in one place so the observation tracks exactly these two properties.
+    private enum HomeContent: Equatable, Sendable {
+        case failure(String)
+        case rows([CarPlayRow])
+    }
+
+    private static func homeContent(of home: CarPlayHomeWrapper) -> HomeContent {
+        if let message = home.failureMessage { return .failure(message) }
+        return .rows(CarPlayRows.continueListening(from: home.items))
+    }
+
+    private func render(_ content: HomeContent) {
         let items: [CPListItem]
-        if let message = home.failureMessage {
+        switch content {
+        case .failure(let message):
             // Honest over silent: a driver seeing an empty list cannot tell "nothing to resume"
             // from "we failed to load". Untappable, so it cannot lead anywhere.
             let row = CPListItem(text: message, detailText: nil)
             row.handler = { _, completion in completion() }
             items = [row]
-        } else {
-            items = CarPlayRows.continueListening(from: home.items).map(listItem(for:))
+        case .rows(let rows):
+            items = rows.map(listItem(for:))
         }
         homeTemplate.updateSections([CPListSection(items: items)])
     }
 
-    /// Re-render the Library list whenever the sorted book list changes — same re-arming
-    /// `withObservationTracking` shape as `observeHome`.
+    /// Re-render the Library list whenever the sorted book list changes — the same `Observations` shape as
+    /// `observeHome`.
     private func observeLibrary(_ library: CarPlayLibraryWrapper) {
-        withObservationTracking {
-            renderLibrary(library.books)
-        } onChange: { [weak self, weak library] in
-            Task { @MainActor in
-                guard let self, let library else { return }
-                self.observeLibrary(library)
+        libraryTask = Task { [weak self] in
+            for await books in Observations({ library.books }) {
+                if Task.isCancelled { break }
+                self?.renderLibrary(books)
             }
         }
     }
@@ -187,17 +210,25 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         nowPlaying.add(self)
     }
 
-    /// Re-draw the buttons whenever previous or next becomes possible or impossible, re-arming like `observeHome`. Stops
-    /// once the car disconnects.
+    /// Re-draw the buttons whenever previous or next becomes possible or impossible, and only then: the player's other
+    /// changes re-run the observation, and the presenter drops an unchanged set. Ends with the car's session.
     private func observeChapterButtons() {
-        guard interfaceController != nil else { return }
-        withObservationTracking {
+        chapterButtonsTask = Task { [weak self] in
             let player = Dependencies.shared.playerObserver
-            updateNowPlayingButtons(
-                hasPreviousChapter: player.canSkipToPreviousChapter, hasNextChapter: player.canSkipToNextChapter)
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.observeChapterButtons() }
+            let buttons = Observations({
+                CarPlayNowPlayingButtons(
+                    hasPreviousChapter: player.canSkipToPreviousChapter, hasNextChapter: player.canSkipToNextChapter)
+            })
+            for await value in buttons {
+                if Task.isCancelled { break }
+                self?.buttonsPresenter.show(value)
+            }
         }
+    }
+
+    private func updateNowPlayingButtons(_ buttons: CarPlayNowPlayingButtons) {
+        updateNowPlayingButtons(
+            hasPreviousChapter: buttons.hasPreviousChapter, hasNextChapter: buttons.hasNextChapter)
     }
 
     private func updateNowPlayingButtons(hasPreviousChapter: Bool, hasNextChapter: Bool) {
@@ -232,6 +263,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func resetNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
         nowPlaying.updateNowPlayingButtons([])
+        buttonsPresenter.reset()
         nowPlaying.isUpNextButtonEnabled = false
         nowPlaying.remove(self)
     }
