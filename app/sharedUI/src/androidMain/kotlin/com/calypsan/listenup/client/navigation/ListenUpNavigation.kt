@@ -576,6 +576,7 @@ internal suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.Search -> {
+            playback.collapse()
             if (showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork())) onOpenSearch()
         }
 
@@ -585,6 +586,7 @@ internal suspend fun handleShortcutAction(
         is ShortcutAction.NavigateToUserProfile,
         -> {
             logger.info { "Navigating for shortcut: $action" }
+            playback.collapse()
             backStack.openFromOutside(Shell, action.screensAboveShell(), holdsUnsavedWork())
         }
 
@@ -787,6 +789,7 @@ private fun AuthenticatedNavigation(
         backStack = backStack,
         snackbarHostState = snackbarHostState,
         holdsUnsavedWork = { unsavedWork.isHeld },
+        collapseNowPlaying = nowPlayingViewModel::collapse,
     )
 
     ShortcutActionEffect(
@@ -895,6 +898,7 @@ private fun ShareLinkEffect(
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
     holdsUnsavedWork: () -> Boolean,
+    collapseNowPlaying: () -> Unit,
 ) {
     val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
     val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
@@ -903,6 +907,7 @@ private fun ShareLinkEffect(
         val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
         when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
             is ShareResolution.OpenBook -> {
+                collapseNowPlaying()
                 backStack.openFromOutside(Shell, listOf(BookDetail(resolution.bookId.value)), holdsUnsavedWork())
             }
 
@@ -1159,10 +1164,11 @@ private fun BoxScope.AuthenticatedNavOverlays(
 ) {
     // A reader opened from Now Playing returns to it when it is left, as iOS's reader over Now Playing does.
     val top = backStack.lastOrNull()
-    var previousTop by remember { mutableStateOf(top) }
+    var previousStack by remember { mutableStateOf(backStack.toList()) }
     LaunchedEffect(top) {
-        if (reexpandsNowPlaying(leftTop = previousTop, stack = backStack)) nowPlayingViewModel.expand()
-        previousTop = top
+        val currentStack = backStack.toList()
+        if (reexpandsNowPlaying(previous = previousStack, current = currentStack)) nowPlayingViewModel.expand()
+        previousStack = currentStack
     }
 
     // Now Playing overlay - persistent across all navigation
@@ -1201,7 +1207,10 @@ private fun BoxScope.AuthenticatedNavOverlays(
         connectionHealthViewModel.events.collect { event ->
             when (event) {
                 ConnectionHealthViewModel.Event.NavigateToSignIn -> {
-                    if (backStack.lastOrNull() != Login) backStack.add(Login)
+                    if (backStack.lastOrNull() != Login) {
+                        nowPlayingViewModel.collapse()
+                        backStack.add(Login)
+                    }
                 }
             }
         }

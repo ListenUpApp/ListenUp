@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.SleepTimerControls
 import com.calypsan.listenup.client.playback.SleepTimerNotifier
 import com.calypsan.listenup.client.presentation.player.ChapterNaming
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SkipIntervalsHolder
@@ -510,6 +511,8 @@ class ListenUp :
                 onSignedOut = {
                     get<BackgroundSyncScheduler>().cancel()
                     get<ListenUpShortcutManager>().clearShortcuts()
+                    // The next account's first Now Playing must not open already expanded.
+                    get<PlayerSheetState>().collapse()
                 },
             ).run()
         }
