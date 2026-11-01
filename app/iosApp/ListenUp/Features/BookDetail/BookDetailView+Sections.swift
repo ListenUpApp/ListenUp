@@ -8,19 +8,9 @@ extension BookDetailView {
     /// The Readers section's scroll anchor: the social line brings it into view, and so can a landing on it.
     static let readersAnchor = "readers"
 
-    /// The sections this page shows. A held book is triage-only (spec §3.2.3): About, Chapters and Details stay; the
-    /// social sections are hidden (`BookDetailLayout.showsSocial`).
+    /// The sections this page shows: the shared rule's list, held-book triage included (spec §3.2.3).
     func shownSections(_ observer: BookDetailObserver) -> [BookDetailSectionKind] {
-        Self.shown(observer.reading.sectionOrder, layout: observer.layout)
-    }
-
-    /// The pure rule behind `shownSections(_:)`.
-    nonisolated static func shown(
-        _ order: [BookDetailSectionKind],
-        layout: BookDetailLayout
-    ) -> [BookDetailSectionKind] {
-        guard !layout.showsSocial else { return order }
-        return order.filter { $0 == .about || $0 == .chapters || $0 == .details }
+        observer.reading.shownSections
     }
 
     /// One section.
@@ -42,7 +32,7 @@ extension BookDetailView {
                 genres: observer.genres,
                 tags: observer.tags,
                 moods: observer.moods,
-                lineLimit: isWide ? nil : (observer.reading.stage == .notStarted ? 4 : 2)
+                lineLimit: isWide ? nil : observer.reading.aboutLineLimit
             )
         case .readers:
             readersSection

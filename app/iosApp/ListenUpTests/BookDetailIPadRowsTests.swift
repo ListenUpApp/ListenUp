@@ -1,4 +1,5 @@
 import CoreFoundation
+import Shared
 import Testing
 @testable import ListenUp
 
@@ -27,8 +28,11 @@ struct BookDetailIPadRowsTests {
         #expect(BookDetailIPadRows.rows(order: order, stage: .notStarted, mainWidth: 760).flatMap { $0 } == order)
     }
 
-    @Test func aHeldBookKeepsAboutChaptersAndDetailsInOrder() {
-        #expect(BookDetailView.shown(inProgress, layout: .triage) == [.chapters, .about, .details])
-        #expect(BookDetailView.shown(inProgress, layout: .full) == inProgress)
+    @Test func theSharedSectionsMapToTheirNativeKinds() {
+        // The held-book rule lives in Kotlin (`BookDetailUiState.Ready.shownSections`); iOS only maps its list.
+        let shared: [BookDetailSection] = [
+            BookDetailSectionChapters.shared, BookDetailSectionAbout.shared, BookDetailSectionDetails.shared
+        ]
+        #expect(shared.map(BookDetailSectionKind.init) == [.chapters, .about, .details])
     }
 }

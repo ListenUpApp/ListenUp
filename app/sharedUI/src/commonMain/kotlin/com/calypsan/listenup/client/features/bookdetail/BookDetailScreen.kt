@@ -62,7 +62,6 @@ import com.calypsan.listenup.client.features.bookdetail.components.ReadersLandin
 import com.calypsan.listenup.client.features.bookdetail.components.HeroSocialLine
 import com.calypsan.listenup.client.features.bookdetail.components.PageReaders
 import com.calypsan.listenup.client.features.bookdetail.components.rememberPageReaders
-import com.calypsan.listenup.client.features.bookdetail.components.shownSections
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
@@ -778,7 +777,7 @@ internal fun phoneDetailItems(
         if (!state.isHeld && hasSocialLine) add(PhoneDetailItem.Social)
         if (!state.isHeld && state.visibility != null) add(PhoneDetailItem.Visibility)
         add(PhoneDetailItem.LastMatch)
-        state.shownSections().forEach { add(PhoneDetailItem.Section(it)) }
+        state.shownSections.forEach { add(PhoneDetailItem.Section(it)) }
     }
 
 /** Where Readers sits in [items], or null when the column shows none. */

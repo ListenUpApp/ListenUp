@@ -11,20 +11,6 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailRows
 
-/** Description lines on a phone before "Read more": four while deciding, two otherwise (spec §3.2.1 D29, §3.2.2). */
-private const val ABOUT_LINES_NOT_STARTED = 4
-private const val ABOUT_LINES = 2
-
-/**
- * The sections a page shows, in the visit's stage order (spec §2.4). A held book is triage-only (§3.2.3): it keeps
- * About, Chapters and Details, and its social sections (Ratings, Readers, Hardcover) and Series stay hidden.
- */
-internal fun BookDetailUiState.Ready.shownSections(): List<BookDetailSection> =
-    if (isHeld) sectionOrder.filter { it.showsWhenHeld() } else sectionOrder
-
-private fun BookDetailSection.showsWhenHeld(): Boolean =
-    this == BookDetailSection.About || this == BookDetailSection.Chapters || this == BookDetailSection.Details
-
 /**
  * The description expansion both layouts hold for the page, so a section renders the same on either.
  *
@@ -89,12 +75,7 @@ internal fun BookDetailSectionContent(
                 moods = state.moods,
                 isLoadingTags = state.isLoadingTags,
                 isCard = true,
-                collapsedLines =
-                    when {
-                        isWide -> null
-                        state.readingStage == ReadingStage.NotStarted -> ABOUT_LINES_NOT_STARTED
-                        else -> ABOUT_LINES
-                    },
+                collapsedLines = if (isWide) null else state.aboutLineLimit,
                 isDescriptionExpanded = description.isExpanded,
                 onToggleDescriptionExpanded = description.onToggle,
                 onGenreClick = { genre -> actions.onGenreClick(genre.id) },

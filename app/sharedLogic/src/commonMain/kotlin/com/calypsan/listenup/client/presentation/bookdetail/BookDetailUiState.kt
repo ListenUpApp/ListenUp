@@ -134,6 +134,30 @@ sealed interface BookDetailUiState {
         /** A progress write (mark finished, mark not started, restart) is in flight: the three progress items wait. */
         val isChangingProgress: Boolean
             get() = isMarkingComplete || isDiscardingProgress || isRestarting
+
+        /**
+         * The sections a page shows, in the visit's stage order ([sectionOrder], spec §2.4). A held book is
+         * triage-only (§3.2.3): it keeps About, Chapters and Details, and its social sections (Ratings, Readers,
+         * Hardcover) stay hidden. Every platform renders this list, never [sectionOrder] directly.
+         */
+        val shownSections: List<BookDetailSection>
+            get() =
+                if (isHeld) {
+                    sectionOrder.filter { section ->
+                        section == BookDetailSection.About ||
+                            section == BookDetailSection.Chapters ||
+                            section == BookDetailSection.Details
+                    }
+                } else {
+                    sectionOrder
+                }
+
+        /**
+         * How many description lines a phone shows before "Read more": four while deciding, two otherwise (spec
+         * §3.2.1 D29, §3.2.2). Wide layouts show the synopsis whole; that is their layout's decision.
+         */
+        val aboutLineLimit: Int
+            get() = if (readingStage == ReadingStage.NotStarted) ABOUT_LINES_NOT_STARTED else ABOUT_LINES
     }
 
     /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
@@ -197,3 +221,9 @@ sealed interface BookDetailNavAction {
      */
     data object BookDeleted : BookDetailNavAction
 }
+
+/** Description lines on a phone before "Read more", while the reader is still deciding (spec §3.2.1 D29). */
+private const val ABOUT_LINES_NOT_STARTED = 4
+
+/** Description lines on a phone before "Read more", once the reader has started (spec §3.2.2). */
+private const val ABOUT_LINES = 2
