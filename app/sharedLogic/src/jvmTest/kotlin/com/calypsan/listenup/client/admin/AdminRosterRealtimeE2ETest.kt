@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.testing.registerTestSyncDomains
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -72,7 +73,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -244,9 +244,7 @@ class AdminRosterRealtimeE2ETest :
                 } finally {
                     adminEngine.stopAndJoin()
                     memberEngine.stopAndJoin()
-                    adminScope.cancel()
-                    memberScope.cancel()
-                    adminDb.close()
+                    adminDb.closeAfterCancelling(adminScope, memberScope)
                     memberDb.close()
                     if (GlobalContext.getKoinApplicationOrNull() != null) {
                         GlobalContext.stopKoin()

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.SyncFrame
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
@@ -9,7 +10,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -92,8 +92,7 @@ class CursorStaleReentrancyTest :
                     // Coalesced: at most one in-flight recovery + one queued follow-up — not one per trigger.
                     (totalCalls.get() <= 2) shouldBe true
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

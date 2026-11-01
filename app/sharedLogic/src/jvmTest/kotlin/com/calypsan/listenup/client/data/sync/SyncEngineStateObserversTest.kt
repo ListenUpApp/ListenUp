@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -12,13 +13,11 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
@@ -79,10 +78,7 @@ class SyncEngineStateObserversTest :
                         state.observe().first { it.pendingQueueDepth == expectedDepth }
                     }
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -146,10 +142,7 @@ class SyncEngineStateObserversTest :
                         state.observe().first { it.deadLetterCount == 1 }
                     }
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

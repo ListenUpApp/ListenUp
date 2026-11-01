@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -21,11 +22,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
@@ -156,11 +155,8 @@ class SyncEngineDiscoverRefreshTest :
                     preferenceRefetches.get() shouldBe 2
                     catchUp.fromZeroInvocations.get() shouldBe 2
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
+                    db.closeAfterCancelling(scope)
                     engineThread.close()
-                    db.close()
                 }
             }
         }

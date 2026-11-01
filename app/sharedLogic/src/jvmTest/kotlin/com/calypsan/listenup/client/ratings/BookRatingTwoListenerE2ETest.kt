@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.readers.ReaderLineKind
 import com.calypsan.listenup.client.domain.readers.flattenToLines
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
@@ -82,7 +83,6 @@ import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -275,8 +275,7 @@ private fun withTwoListenersAgainstServer(block: suspend TwoListenerScope.() -> 
                 bob.engine.stopAndJoin()
             }
         } finally {
-            clientScope.cancel()
-            aliceDb.close()
+            aliceDb.closeAfterCancelling(clientScope)
             bobDb.close()
             if (GlobalContext.getKoinApplicationOrNull() != null) GlobalContext.stopKoin()
         }

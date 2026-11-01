@@ -37,6 +37,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -182,7 +184,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     manager.setPlaying(true)
 
                     seekedMs shouldBe 15_000L
-                    scope.coroutineContext[Job]?.cancel()
+                    scope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -207,7 +209,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     manager.setPlaying(true)
 
                     seekedMs.shouldBeNull()
-                    scope.coroutineContext[Job]?.cancel()
+                    scope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -238,7 +240,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     manager.setPlaying(true)
 
                     seeks shouldBe 0
-                    scope.coroutineContext[Job]?.cancel()
+                    scope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -266,7 +268,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     manager.setPlaying(true)
 
                     seeks shouldBe 0
-                    scope.coroutineContext[Job]?.cancel()
+                    scope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -299,7 +301,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
                     // 15s rung, backed off from the position at the moment of resume (100_000).
                     manager.currentPositionMs.value shouldBe 85_000L
 
-                    scope.coroutineContext[Job]?.cancel()
+                    scope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()

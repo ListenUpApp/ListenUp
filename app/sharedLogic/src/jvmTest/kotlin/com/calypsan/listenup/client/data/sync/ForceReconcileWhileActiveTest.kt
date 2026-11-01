@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -29,11 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.KSerializer
 
@@ -97,10 +96,7 @@ class ForceReconcileWhileActiveTest :
 
                     catchUp.fromZeroInvocations.get() shouldBe afterStart + 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -202,10 +198,7 @@ class ForceReconcileWhileActiveTest :
                     // a forward catch-up happened, not the exact number of downstream reconnect heals.
                     catchUp.allInvocations.get() shouldBeGreaterThanOrEqual afterStart + 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

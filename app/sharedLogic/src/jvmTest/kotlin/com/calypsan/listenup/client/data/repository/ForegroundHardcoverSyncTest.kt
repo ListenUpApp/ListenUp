@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -24,10 +25,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicInteger
@@ -85,10 +84,7 @@ class ForegroundHardcoverSyncTest :
                     )
                 block(repo)
             } finally {
-                scope.cancel()
-                scope.coroutineContext.job.children
-                    .forEach { it.join() }
-                db.close()
+                db.closeAfterCancelling(scope)
             }
         }
 
