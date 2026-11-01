@@ -1,6 +1,7 @@
 import SwiftUI
 import Testing
 import UIKit
+@preconcurrency import Shared
 @testable import ListenUp
 
 @Suite("The Speed sheet's rules")
@@ -115,7 +116,7 @@ struct SpeedSheetAccessibilityTests {
             speed: 1.25, size: CGSize(width: 393, height: 430), dynamicTypeSize: .accessibility3)
         defer { hosted.close() }
         #expect(hosted.scrollsVertically)
-        for label in PlaybackRates.catalogue.map(PlaybackRates.format) {
+        for label in PlaybackRates.catalogue.map { PlaybackPresets.shared.speedLabel(speed: $0) } {
             // Below the fold a preset is still in the tree; its frame is what matters.
             let stop = try #require(hosted.stop(labelled: label), "\(label) missing:\n\(hosted.tree)")
             #expect(stop.frame.height >= 43.9, "\(label): \(stop.frame)")

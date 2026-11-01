@@ -1,4 +1,5 @@
 import SwiftUI
+@preconcurrency import Shared
 
 // MARK: - Transport
 
@@ -167,11 +168,11 @@ struct PlayerSecondaryControls: View {
         layout {
             item(caption: String(localized: "player.speed")) {
                 Button { showsSpeed = true } label: {
-                    pill(PlaybackRates.format(observer.playbackSpeed))
+                    pill(PlaybackPresets.shared.speedLabel(speed: observer.playbackSpeed))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "player.speed"))
-                .accessibilityValue(PlaybackRates.format(observer.playbackSpeed))
+                .accessibilityValue(PlaybackPresets.shared.speedLabel(speed: observer.playbackSpeed))
             }
 
             item(caption: String(localized: "player.sleep")) {

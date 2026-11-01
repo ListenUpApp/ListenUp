@@ -1,3 +1,4 @@
+import Shared
 import Testing
 @testable import ListenUp
 
@@ -57,15 +58,15 @@ struct PlaybackRatesTests {
 
     // MARK: - Formatting
 
-    @Test func formatsWholeSpeedsWithoutDecimals() {
-        #expect(PlaybackRates.format(1.0) == "1×")
-        #expect(PlaybackRates.format(2.0) == "2×")
-        #expect(PlaybackRates.format(3.0) == "3×")
+    @Test func wholeSpeedsKeepTheirDecimalPointSoEveryPlatformReadsAlike() {
+        #expect(PlaybackPresets.shared.speedLabel(speed: 1.0) == "1.0×")
+        #expect(PlaybackPresets.shared.speedLabel(speed: 2.0) == "2.0×")
+        #expect(PlaybackPresets.shared.speedLabel(speed: 3.0) == "3.0×")
     }
 
-    @Test func formatsFractionalSpeedsTrimmingTrailingZeros() {
-        #expect(PlaybackRates.format(0.5) == "0.5×")
-        #expect(PlaybackRates.format(1.25) == "1.25×")
-        #expect(PlaybackRates.format(1.75) == "1.75×")
+    @Test func fractionalSpeedsKeepAtMostTwoDecimals() {
+        #expect(PlaybackPresets.shared.speedLabel(speed: 0.5) == "0.5×")
+        #expect(PlaybackPresets.shared.speedLabel(speed: 1.25) == "1.25×")
+        #expect(PlaybackPresets.shared.speedLabel(speed: 1.75) == "1.75×")
     }
 }

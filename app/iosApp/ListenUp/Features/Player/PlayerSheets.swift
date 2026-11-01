@@ -1,4 +1,5 @@
 import SwiftUI
+@preconcurrency import Shared
 
 // MARK: - Boost Picker Sheet
 
@@ -12,8 +13,7 @@ struct BoostPickerSheet: View {
     let onBoostSelected: (Float) -> Void
     let onUseDefault: () -> Void
 
-    // Mirrors VolumeBoostLimits.PRESETS_DB in :contract (not exported to Swift).
-    static let steps: [Float] = [0, 3, 6, 9, 12]
+    static let steps: [Float] = PlaybackPresets.shared.BOOST_DB
     @ScaledMetric(relativeTo: .largeTitle) private var boostReadoutSize: CGFloat = 56
 
     var body: some View {

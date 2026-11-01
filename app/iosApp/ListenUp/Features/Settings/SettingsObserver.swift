@@ -130,11 +130,6 @@ enum SettingsFormat {
         return remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
     }
 
-    /// "1.0×" for a playback-speed multiplier, fixed to one decimal place.
-    static func speedLabel(_ speed: Float) -> String {
-        String(format: "%.1f×", speed)
-    }
-
     /// "Off" when nil, otherwise "N min", for the default sleep-timer row.
     static func sleepTimerLabel(minutes: Int?, offLabel: String) -> String {
         guard let minutes else { return offLabel }

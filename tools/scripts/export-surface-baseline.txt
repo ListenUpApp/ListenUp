@@ -736,6 +736,7 @@ PlaybackPositionRepository
 PlaybackPreferences
 PlaybackPrepareRepository
 PlaybackPreparer
+PlaybackPresets
 PlaybackProgressReporter
 PlaybackStart
 PlaybackStartGate
