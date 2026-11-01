@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Bundle
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -21,6 +22,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
@@ -855,9 +857,18 @@ class PlaybackService :
                 logger.debug { "Idle timer started: $timeout ($reason)" }
                 delay(timeout)
                 logger.info { "Idle timeout reached, stopping service ($reason)" }
-                saveCurrentPosition()
+                // Not casting (guarded above): the local player is the transport. The app's controller keeps the
+                // service bound, so stopSelf() alone would leave the decoder and notification up.
+                player?.let { local ->
+                    releaseIdlePlayer(local, ::saveCurrentPosition, ::announceIdleRelease)
+                } ?: saveCurrentPosition()
                 stopSelf()
             }
+    }
+
+    /** Tells every controller the local player was released, so the app stops treating the engine as holding the book. */
+    private fun announceIdleRelease() {
+        mediaLibrarySession?.broadcastCustomCommand(SessionCommand(COMMAND_IDLE_RELEASED, Bundle.EMPTY), Bundle.EMPTY)
     }
 
     private fun cancelIdleTimer() {

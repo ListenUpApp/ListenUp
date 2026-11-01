@@ -30,6 +30,26 @@ class MediaControllerHolderTest :
         // Tests
         // ---------------------------------------------------------------------------
 
+        test("the service's idle-released command clears the engine's book once") {
+            val writer = FakePlaybackStateWriter()
+            val holder = MediaControllerHolder(context = stubContext, playbackManager = writer)
+
+            holder.onServiceCustomCommand(COMMAND_IDLE_RELEASED) shouldBe true
+
+            writer.clearPlaybackCalls shouldBe 1
+        }
+
+        test("a plain STATE_IDLE and an unknown command never clear the engine's book") {
+            val writer = FakePlaybackStateWriter()
+            val holder = MediaControllerHolder(context = stubContext, playbackManager = writer)
+
+            holder.playerListener.onPlaybackStateChanged(Player.STATE_IDLE)
+            holder.onServiceCustomCommand("com.calypsan.listenup.SOMETHING_ELSE") shouldBe false
+
+            writer.clearPlaybackCalls shouldBe 0
+            writer.playbackStateHistory shouldBe listOf<PlaybackState>(PlaybackState.Idle)
+        }
+
         test("onIsPlayingChanged forwards to playbackManager setPlaying") {
             runTest {
                 val writer = FakePlaybackStateWriter()
@@ -296,6 +316,12 @@ private class FakePlaybackStateWriter : PlaybackStateWriter {
     val positionHistory = mutableListOf<Long>()
 
     val errorHistory = mutableListOf<AppError>()
+
+    var clearPlaybackCalls = 0
+
+    override fun clearPlayback() {
+        clearPlaybackCalls++
+    }
 
     override fun setPlaying(playing: Boolean) {
         playingHistory += playing
