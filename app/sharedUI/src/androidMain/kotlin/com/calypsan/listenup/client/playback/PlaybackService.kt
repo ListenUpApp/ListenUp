@@ -10,6 +10,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
@@ -1146,6 +1147,18 @@ class PlaybackService :
             reason: Int,
         ) {
             logger.debug { "Media item transition: ${mediaItem?.mediaId ?: "none"}, reason: $reason" }
+        }
+
+        /** A new playlist may stream or be downloaded; hold Wi-Fi awake only when it streams. */
+        override fun onTimelineChanged(
+            timeline: Timeline,
+            reason: Int,
+        ) {
+            if (source != TransportSource.LOCAL) return
+            val exoPlayer = this@PlaybackService.player ?: return
+            val uris =
+                (0 until exoPlayer.mediaItemCount).mapNotNull { exoPlayer.getMediaItemAt(it).localConfiguration?.uri }
+            exoPlayer.setWakeMode(wakeModeFor(uris))
         }
 
         /**
