@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.Locale
@@ -18,16 +19,16 @@ class PlaybackSpeedLabelTest :
         test("a whole speed keeps its decimal point rather than reading as a different value") {
             // "1×" beside "1.25×" reads as a different kind of value, and a column of pills is
             // easier to scan when every label has a point in it.
-            formatPlaybackSpeed(1.0f) shouldBe "1.0×"
-            formatPlaybackSpeed(2.0f) shouldBe "2.0×"
+            PlaybackPresets.speedLabel(1.0f) shouldBe "1.0×"
+            PlaybackPresets.speedLabel(2.0f) shouldBe "2.0×"
         }
 
         test("a fractional speed drops trailing zeros") {
-            formatPlaybackSpeed(1.25f) shouldBe "1.25×"
-            formatPlaybackSpeed(1.5f) shouldBe "1.5×"
-            formatPlaybackSpeed(0.75f) shouldBe "0.75×"
+            PlaybackPresets.speedLabel(1.25f) shouldBe "1.25×"
+            PlaybackPresets.speedLabel(1.5f) shouldBe "1.5×"
+            PlaybackPresets.speedLabel(0.75f) shouldBe "0.75×"
             // A speed that rounds to a whole number still reads as one, never "2.x".
-            formatPlaybackSpeed(1.999f) shouldBe "2.0×"
+            PlaybackPresets.speedLabel(1.999f) shouldBe "2.0×"
         }
 
         test("a fractional speed keeps its decimal point in a comma-decimal locale") {
@@ -36,8 +37,8 @@ class PlaybackSpeedLabelTest :
             val original = Locale.getDefault()
             try {
                 Locale.setDefault(Locale.GERMANY)
-                formatPlaybackSpeed(1.25f) shouldBe "1.25×"
-                formatPlaybackSpeed(1.5f) shouldBe "1.5×"
+                PlaybackPresets.speedLabel(1.25f) shouldBe "1.25×"
+                PlaybackPresets.speedLabel(1.5f) shouldBe "1.5×"
             } finally {
                 Locale.setDefault(original)
             }

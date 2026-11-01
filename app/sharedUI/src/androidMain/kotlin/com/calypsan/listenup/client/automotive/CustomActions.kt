@@ -25,44 +25,6 @@ object CustomActions {
     const val EXTRA_BOOK_POSITION_MS = "book_position_ms"
 
     /**
-     * Speed options for cycling (in order).
-     */
-    val SPEED_OPTIONS = listOf(1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
-
-    /**
-     * Get the next speed in the cycle.
-     *
-     * @param currentSpeed The current playback speed
-     * @return The next speed in the cycle, wrapping back to 1.0x after 2.0x
-     */
-    fun getNextSpeed(currentSpeed: Float): Float {
-        // Find closest speed option
-        val currentIndex =
-            SPEED_OPTIONS.indexOfFirst {
-                kotlin.math.abs(it - currentSpeed) < 0.01f
-            }
-
-        return if (currentIndex == -1 || currentIndex == SPEED_OPTIONS.lastIndex) {
-            SPEED_OPTIONS.first() // Wrap to beginning
-        } else {
-            SPEED_OPTIONS[currentIndex + 1]
-        }
-    }
-
-    /**
-     * Format speed for display.
-     *
-     * @param speed The playback speed
-     * @return Formatted string like "1.5x"
-     */
-    fun formatSpeed(speed: Float): String =
-        if (speed == speed.toInt().toFloat()) {
-            "${speed.toInt()}x"
-        } else {
-            "${speed}x"
-        }
-
-    /**
      * Create SessionCommand for speed cycling.
      */
     fun cycleSpeedCommand(): SessionCommand = SessionCommand(CYCLE_SPEED, Bundle.EMPTY)

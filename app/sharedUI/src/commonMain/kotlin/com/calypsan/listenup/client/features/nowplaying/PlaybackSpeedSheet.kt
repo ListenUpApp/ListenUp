@@ -58,30 +58,6 @@ import listenup.composeapp.generated.resources.player_sheet_speed_times
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A speed as this UI writes it: `1.0×`, `1.25×`, `2.0×` — with the multiplication sign, matching iOS's
- * `PlaybackRates.format`, web's speed words and every board (C8).
- *
- * The whole-number case is spelled out rather than trimmed: a lone `1×` beside `1.25×` reads as a different kind of
- * value, and the column of presets is easier to scan when every label has a decimal point in it.
- */
-fun formatPlaybackSpeed(speed: Float): String = "${speedNumber(speed)}×"
-
-/**
- * The number alone ("1.25"), for "1.25 times". Plain arithmetic, not String.format: commonMain may not reach
- * java.util, and a locale-aware format put a comma in "1,25" beside "1.0" on a comma-decimal phone.
- */
-private fun speedNumber(speed: Float): String {
-    val hundredths = (speed * 100).roundToInt()
-    val fraction =
-        (hundredths % 100)
-            .toString()
-            .padStart(2, '0')
-            .trimEnd('0')
-            .ifEmpty { "0" }
-    return "${hundredths / 100}.$fraction"
-}
-
-/**
  * The Speed sheet (spec §5.5.1, PS1–PS5; `Sheets-Android`): the rate as the sheet's one display figure, beside how long
  * the book has left at it (S10's single wall-time exception); − slider + in 0.05 steps (an M3 slider with tonal icon
  * buttons at its ends, m3.material.io/components/sliders/guidelines); the nine presets as one connected single-select
@@ -120,7 +96,7 @@ fun PlaybackSpeedSheet(
         )
         Spacer(Modifier.height(Spacing.md))
         ConnectedSelectButtonGroup(
-            choices = PlaybackPresets.SPEEDS.map { ButtonGroupChoice<Float?>(it, formatPlaybackSpeed(it)) },
+            choices = PlaybackPresets.SPEEDS.map { ButtonGroupChoice<Float?>(it, PlaybackPresets.speedLabel(it)) },
             selected = PlaybackPresets.SPEEDS.firstOrNull { isSamePlaybackSpeed(it, sliderSpeed) },
             onSelect = { preset ->
                 if (preset != null) {
@@ -139,7 +115,7 @@ fun PlaybackSpeedSheet(
                 },
                 modifier = Modifier.padding(top = Spacing.sm).heightIn(min = MinTouchTarget),
             ) {
-                Text(stringResource(Res.string.player_sheet_reset_speed, formatPlaybackSpeed(defaultSpeed)))
+                Text(stringResource(Res.string.player_sheet_reset_speed, PlaybackPresets.speedLabel(defaultSpeed)))
             }
         }
         Text(
@@ -163,7 +139,7 @@ private fun SpeedReadout(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = formatPlaybackSpeed(speed),
+            text = PlaybackPresets.speedLabel(speed),
             style =
                 MaterialTheme.typography.displayMedium.copy(
                     fontFamily = DisplayFontFamily,
@@ -201,7 +177,7 @@ private fun FineSpeedControl(
     onStep: (up: Boolean) -> Unit,
 ) {
     val sliderName = stringResource(Res.string.player_playback_speed)
-    val spokenSpeed = stringResource(Res.string.player_sheet_speed_times, speedNumber(speed))
+    val spokenSpeed = stringResource(Res.string.player_sheet_speed_times, PlaybackPresets.speedNumber(speed))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -242,7 +218,7 @@ private fun FineSpeedControl(
     ) {
         listOf(PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX).forEach { bound ->
             Text(
-                text = formatPlaybackSpeed(bound),
+                text = PlaybackPresets.speedLabel(bound),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -835,13 +835,11 @@ internal class ListenUpSessionCallback(
 
             CustomActions.CYCLE_SPEED -> {
                 val currentSpeed = p.playbackParameters.speed
-                val newSpeed = CustomActions.getNextSpeed(currentSpeed)
+                val newSpeed = PlaybackPresets.nextSpeedInCycle(currentSpeed)
                 p.setPlaybackSpeed(newSpeed)
                 playbackManager.onSpeedChanged(newSpeed)
                 logger.info {
-                    "Speed cycled: ${CustomActions.formatSpeed(
-                        currentSpeed,
-                    )} -> ${CustomActions.formatSpeed(newSpeed)}"
+                    "Speed cycled: $currentSpeed -> $newSpeed"
                 }
             }
 
