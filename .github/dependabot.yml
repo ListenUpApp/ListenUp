@@ -46,6 +46,9 @@ updates:
       # Deliberate pins.
       - dependency-name: "dev.detekt*"                   # detekt 2.0.0-alpha.6 — maintainer-decided alpha pin
       - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.12.0-alpha03 — upstream-blocked
+      # wire-runtime is test-only for :app:baselineprofile and pinned on 6.x to match androidx.benchmark 1.5.0 (see gradle/libs.versions.toml).
+      - dependency-name: "com.squareup.wire:*"
+        update-types: ["version-update:semver-major"]
       # Transitive BUILD/TEST-tooling only — never on a shipped or runtime classpath. Verified absent
       # from :server jvmRuntimeClasspath and all native configs (shipped artifact is a Kotlin/Native
       # server.kexe with zero JVM jars) and from :app:androidApp releaseRuntimeClasspath (nothing in the

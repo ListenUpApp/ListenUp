@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -13,12 +14,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -156,10 +155,7 @@ private fun withLifecycleEngine(
         val engineAndCatchUp = buildLifecycleEngine(db, scope, minIntervalMs, catchUp)
         block(engineAndCatchUp.first, engineAndCatchUp.second, engineAndCatchUp.third)
     } finally {
-        scope.cancel()
-        scope.coroutineContext.job.children
-            .forEach { it.join() }
-        db.close()
+        db.closeAfterCancelling(scope)
     }
 }
 

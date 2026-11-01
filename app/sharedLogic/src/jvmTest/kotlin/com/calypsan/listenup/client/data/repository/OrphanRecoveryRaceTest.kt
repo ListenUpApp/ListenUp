@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -45,12 +46,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -148,10 +147,7 @@ class OrphanRecoveryRaceTest :
                     // Exactly one invocation of recoverOrphan() means exactly one get() call.
                     countingSpanDao.getCalls.get() shouldBe 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -216,10 +212,7 @@ class OrphanRecoveryRaceTest :
                     repo.connectRealtime()
                     countingSpanDao.getCalls.get() shouldBe 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

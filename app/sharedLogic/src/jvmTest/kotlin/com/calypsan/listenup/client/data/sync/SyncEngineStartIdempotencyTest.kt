@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -13,12 +14,10 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -58,10 +57,7 @@ class SyncEngineStartIdempotencyTest :
 
                     catchUp.invocations.get() shouldBe 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -81,10 +77,7 @@ class SyncEngineStartIdempotencyTest :
 
                     catchUp.invocations.get() shouldBe 1
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -107,10 +100,7 @@ class SyncEngineStartIdempotencyTest :
                     // Enqueue under user-a, then start under user-b — the engine's
                     // second start should clear user-a's queued op.
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -150,10 +140,7 @@ class SyncEngineStartIdempotencyTest :
                     engine.start(currentUserId = "user-a")
                     catchUp.invocations.get() shouldBe 2
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

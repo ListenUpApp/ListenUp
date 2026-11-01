@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.api.createTagService
 import com.calypsan.listenup.server.api.tagServiceScopedTo
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -61,7 +62,6 @@ import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -333,8 +333,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 engine.stopAndJoin()
             }
         } finally {
-            clientScope.cancel()
-            clientDb.close()
+            clientDb.closeAfterCancelling(clientScope)
             if (GlobalContext.getKoinApplicationOrNull() != null) {
                 GlobalContext.stopKoin()
             }
