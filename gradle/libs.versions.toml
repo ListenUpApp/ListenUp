@@ -3,7 +3,7 @@ android-compileSdk = "37"
 android-minSdk = "33"
 android-targetSdk = "37"
 agp = "9.5.0"
-# The NDK AGP 9.4.1 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
+# The NDK AGP 9.5.0 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
 # Only :app:androidApp uses it: to strip the AndroidX .so files and extract the symbol tables Play reads.
 android-ndk = "28.2.13676358"
 androidx-benchmark = "1.5.0"
