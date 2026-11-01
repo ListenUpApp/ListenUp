@@ -139,13 +139,7 @@ struct HomeView: View {
     private func readyContent(_ ready: HomeReady, home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
         let layout = layout
         ForEach(
-            layout.blocks(
-                slot: ready.slot.shape,
-                isOffline: ready.isOffline,
-                continueListeningFailed: ready.continueListeningError != nil,
-                showsStrip: ready.showsArrivalStrip,
-                hasEverythingInProgress: !ready.everythingInProgress.isEmpty
-            ),
+            ready.blocks(isWide: layout.isWide),
             id: \.self
         ) { block in
             switch block {

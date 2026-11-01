@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.TimeOfDay
 import kotlinx.browser.window
 import org.w3c.dom.events.Event
@@ -63,83 +62,6 @@ internal fun homeGreeting(
     val greeting = if (isWelcome) HomeWords.WELCOME else HomeWords.greeting(timeOfDay)
     return if (firstName.isNullOrBlank()) greeting else "$greeting, $firstName"
 }
-
-/** One section of Home, in the order [homeBlocks] puts them. */
-internal enum class HomeBlock {
-    /** "Can't reach your server" with Retry, directly under the greeting (spec §3.1). */
-    Offline,
-
-    /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
-    FirstSyncStrip,
-    Finished,
-    NothingInProgress,
-    Welcome,
-
-    /** The skeleton slot that resolves in place (spec §2.1 rule 4). */
-    FirstSync,
-
-    /** Continue Listening could not load: one line with Try again, in the slot's position (spec §3.3). */
-    ContinueListeningFailed,
-
-    /** Whichever slot applies, beside the stats on a wide page (spec §3.4). */
-    SlotBesideStats,
-    EverythingInProgress,
-    Stats,
-    Shelves,
-    StatsBesideShelves,
-}
-
-/**
- * Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The server notice sits under the
- * greeting ([isOffline]), then the library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue
- * Listening failed and there is no slot, the one-line failure in its place. The notice and the failure are separate
- * signals, so both can show. Below the slot the order is always Everything in progress → Your last 7 days → My shelves. A
- * wide page puts the slot beside the stats, and the stats beside the shelves when there is no slot. Decided here and
- * rendered in this order (C9), so the focus order is the visual order.
- */
-internal fun homeBlocks(
-    slot: HomeSlot,
-    isOffline: Boolean,
-    continueListeningFailed: Boolean,
-    showsStrip: Boolean,
-    hasEverythingInProgress: Boolean,
-    isWide: Boolean,
-): List<HomeBlock> =
-    buildList {
-        if (isOffline) add(HomeBlock.Offline)
-        if (showsStrip) add(HomeBlock.FirstSyncStrip)
-        val slotBlock = slotBlockFor(slot)
-        when {
-            slotBlock != null && isWide -> add(HomeBlock.SlotBesideStats)
-            slotBlock != null -> add(slotBlock)
-            continueListeningFailed -> add(HomeBlock.ContinueListeningFailed)
-        }
-        if (hasEverythingInProgress) add(HomeBlock.EverythingInProgress)
-        when {
-            contains(HomeBlock.SlotBesideStats) -> {
-                add(HomeBlock.Shelves)
-            }
-
-            isWide -> {
-                add(HomeBlock.StatsBesideShelves)
-            }
-
-            else -> {
-                add(HomeBlock.Stats)
-                add(HomeBlock.Shelves)
-            }
-        }
-    }
-
-/** The block that draws [slot], or null when there is no slot. */
-internal fun slotBlockFor(slot: HomeSlot): HomeBlock? =
-    when (slot) {
-        is HomeSlot.JustFinished -> HomeBlock.Finished
-        is HomeSlot.NothingInProgress -> HomeBlock.NothingInProgress
-        is HomeSlot.NewListener -> HomeBlock.Welcome
-        HomeSlot.FirstSync -> HomeBlock.FirstSync
-        HomeSlot.Absent -> null
-    }
 
 /** The wide arrangement starts where the shell's sidebar does (spec §3.4 "desktop ≥ 1024 px"). */
 internal const val HOME_WIDE_QUERY = "(min-width: 1024px)"

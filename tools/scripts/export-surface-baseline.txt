@@ -466,6 +466,8 @@ HiddenFrom
 HiddenFromNames
 HiddenFromSummary
 HiddenFrom_SealedType
+HomeBlock
+HomeBlock_SealedType
 HomeConnectivity
 HomeRepository
 HomeSlot
