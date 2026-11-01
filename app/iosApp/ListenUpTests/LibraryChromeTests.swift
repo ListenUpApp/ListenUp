@@ -22,11 +22,6 @@ struct LibraryChromeTests {
         #expect(chrome.title(section: .narrators) == LibraryTab.narrators.title)
     }
 
-    @Test func inTheSidebarBooksSubtitleSaysHowManyAndHowSorted() {
-        #expect(LibrarySubtitle.ipadBooks(count: 248, sortLabel: "Title") == "248 books · sorted by title")
-        #expect(LibrarySubtitle.ipadBooks(count: 1, sortLabel: "Added") == "1 book · sorted by added")
-    }
-
     @Test func thePickerAndTheSidebarDriveTheSameSection() {
         let shell = MainShellModel()
         shell.adaptToLayout(usesSidebar: false)
@@ -62,22 +57,32 @@ struct LibraryChromeTests {
 
     // MARK: - Books subtitle and filtered-empty copy
 
-    @Test func booksSubtitleNamesCountFilterAndSort() {
-        let subtitle = LibrarySubtitle.books(count: 248, filter: .all, sortLabel: "Title")
-        #expect(subtitle == "248 books · All · Title")
+    private let day: Int64 = 86_400_000
+
+    @Test func booksSubtitleNamesCountAndLengthInTheLargestWholeUnit() {
+        #expect(LibrarySubtitle.length(count: 248, totalMs: 41 * day + 3_600_000) == "248 books · 41 days of listening")
+        #expect(LibrarySubtitle.length(count: 12, totalMs: 5 * 3_600_000) == "12 books · 5 hours of listening")
+        #expect(LibrarySubtitle.length(count: 3, totalMs: 7 * 60_000) == "3 books · 7 minutes of listening")
     }
 
-    /// While the library is still arriving with nothing yet, the strip says so; "0 books · All · Title" would not.
+    @Test func booksSubtitleSaysOneOfEachInTheSingular() {
+        #expect(LibrarySubtitle.length(count: 1, totalMs: day) == "1 book · 1 day of listening")
+        #expect(LibrarySubtitle.length(count: 1, totalMs: 3_600_000) == "1 book · 1 hour of listening")
+        #expect(LibrarySubtitle.length(count: 1, totalMs: 60_000) == "1 book · 1 minute of listening")
+    }
+
+    /// Under a minute of audio there is no span to name: the books alone.
+    @Test func booksSubtitleIsJustTheBooksUnderAMinute() {
+        #expect(LibrarySubtitle.length(count: 2, totalMs: 59_999) == "2 books")
+        #expect(LibrarySubtitle.length(count: 0, totalMs: 0) == "0 books")
+    }
+
+    /// While the library is still arriving with nothing yet, the strip says so; "0 books" would not.
     @Test func noSubtitleWhileAnEmptyLibraryIsArriving() {
-        #expect(LibrarySubtitle.booksOrNil(count: 0, filter: .all, sortLabel: "Title", isArriving: true) == nil)
-        #expect(LibrarySubtitle.booksOrNil(count: 12, filter: .all, sortLabel: "Title", isArriving: true)
-            == "12 books · All · Title")
-        #expect(LibrarySubtitle.booksOrNil(count: 0, filter: .all, sortLabel: "Title", isArriving: false)
-            == "0 books · All · Title")
-    }
-
-    @Test func booksSubtitleSaysOneBookInTheSingular() {
-        #expect(LibrarySubtitle.books(count: 1, filter: .finished, sortLabel: "Title") == "1 book · Finished · Title")
+        #expect(LibrarySubtitle.booksOrNil(count: 0, totalMs: 0, isArriving: true) == nil)
+        #expect(LibrarySubtitle.booksOrNil(count: 12, totalMs: 5 * 3_600_000, isArriving: true)
+            == "12 books · 5 hours of listening")
+        #expect(LibrarySubtitle.booksOrNil(count: 0, totalMs: 0, isArriving: false) == "0 books")
     }
 
     // MARK: - Sort labels

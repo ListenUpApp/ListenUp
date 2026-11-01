@@ -16791,16 +16791,6 @@
         }
       }
     },
-    "library.ipad_books_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · sorted by %2$@"
-          }
-        }
-      }
-    },
     "library.jump_index_label": {
       "localizations": {
         "en": {

@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
+import com.calypsan.listenup.client.features.library.components.libraryCountLine
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuActions
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuHost
 import com.calypsan.listenup.client.features.library.components.LibraryInboxStrip
@@ -330,12 +331,23 @@ internal fun LibraryLoadedContent(
                 )
             } else {
                 appHeader {
-                    Text(
-                        text = ShellDestination.Library.title,
-                        style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Column {
+                        Text(
+                            text = ShellDestination.Library.title,
+                            style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        // Spec L4, as on the tablet and the web: nothing until the library has books to count.
+                        if (state.statusCounts.all > 0) {
+                            Text(
+                                text = libraryCountLine(all = state.statusCounts.all, totalMs = state.totalDurationMs),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
 
                 // The four sections as one connected group. Wider chrome gets more air below the big header.

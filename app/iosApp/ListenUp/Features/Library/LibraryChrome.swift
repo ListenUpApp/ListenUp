@@ -50,29 +50,37 @@ enum LibrarySortOptions {
     }
 }
 
-/// The Books subtitle ("248 books · All · Title") and the filtered-empty copy, pure for testing.
+/// The Books subtitle ("248 books · 41 days of listening", spec L4) and the filtered-empty copy, pure for testing.
+/// The filter and the sort are shown checked in the toolbar menus, so the subtitle does not repeat them.
 enum LibrarySubtitle {
-    static func books(count: Int, filter: BookStatusFilter, sortLabel: String) -> String {
+    /// "248 books · 41 days of listening": the whole library and its length in the largest whole unit, from the one
+    /// rule every platform shares (`libraryLengthOf`). Under a minute of audio, the books alone.
+    static func length(count: Int, totalMs: Int64) -> String {
         let books = count == 1
             ? String(format: String(localized: "library.book_count"), count)
             : String(format: String(localized: "library.book_count_plural"), count)
-        return [books, LibraryStatusOptions.label(filter), sortLabel].joined(separator: " · ")
+        let length = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.library
+            .libraryLengthOf(totalMs: totalMs)
+        let span: String? = switch length.sealedType() {
+        case .none: nil
+        case .days(let days): unit(days.value.count, one: "library.length_days_one", many: "library.length_days")
+        case .hours(let hours): unit(hours.value.count, one: "library.length_hours_one", many: "library.length_hours")
+        case .minutes(let minutes):
+            unit(minutes.value.count, one: "library.length_minutes_one", many: "library.length_minutes")
+        }
+        guard let span else { return books }
+        return String(format: String(localized: "library.count_line"), books, span)
+    }
+
+    private static func unit(_ count: Int64, one: String.LocalizationValue, many: String.LocalizationValue) -> String {
+        count == 1 ? String(localized: one) : String(format: String(localized: many), Int(count))
     }
 
     /// The Books subtitle, or nil while an empty library is still arriving: its status strip says so, and
     /// "0 books" under the title would contradict it.
-    static func booksOrNil(count: Int, filter: BookStatusFilter, sortLabel: String, isArriving: Bool) -> String? {
+    static func booksOrNil(count: Int, totalMs: Int64, isArriving: Bool) -> String? {
         guard count > 0 || !isArriving else { return nil }
-        return books(count: count, filter: filter, sortLabel: sortLabel)
-    }
-
-    /// The iPad sidebar's Books subtitle, "248 books · sorted by title" (board `Library-iPad`): the sidebar already says
-    /// which section this is, and the filter is the toolbar menu's to show.
-    static func ipadBooks(count: Int, sortLabel: String) -> String {
-        let books = count == 1
-            ? String(format: String(localized: "library.book_count"), count)
-            : String(format: String(localized: "library.book_count_plural"), count)
-        return String(format: String(localized: "library.ipad_books_subtitle"), books, sortLabel.lowercased())
+        return length(count: count, totalMs: totalMs)
     }
 
     static func filteredEmpty(_ filter: BookStatusFilter) -> String {

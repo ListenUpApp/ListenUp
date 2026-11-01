@@ -1680,7 +1680,6 @@ One beautiful library.</string>
     <string name="library_ignore_articles_quoted">Ignore “A”, “An”, “The”</string>
     <string name="library_inbox_strip">Inbox · %1$d waiting</string>
     <string name="library_index_jump">Jump to %1$s</string>
-    <string name="library_ipad_books_subtitle">%1$s · sorted by %2$s</string>
     <string name="library_jump_index_label">Jump to letter</string>
     <string name="library_length_days">%1$d days of listening</string>
     <string name="library_length_days_one">1 day of listening</string>
