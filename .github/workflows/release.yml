@@ -111,6 +111,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      # AGP needs the NDK to strip the AndroidX .so files and to extract the native symbol tables Play
+      # reads from the AAB. The runner image does not carry the version AGP pins, and without it the build
+      # silently packages unstripped libraries ("Unable to strip"). The version lives in libs.versions.toml.
+      - name: Install the Android NDK
+        run: |
+          ndk_version="$(sed -n 's/^android-ndk = "\(.*\)"$/\1/p' gradle/libs.versions.toml)"
+          test -n "$ndk_version"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${ndk_version}" > /dev/null
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ${{ runner.temp }}/release.keystore
 
