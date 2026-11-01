@@ -1,14 +1,10 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.dto.image.ImageFraming
-import com.calypsan.listenup.api.dto.image.invalidImageFrame
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.io.MultipartFieldTooLargeException
-import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.readBytes
-import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -52,21 +48,14 @@ fun Route.profileRoutes(
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         val userId = principal.userId.value
 
-        val parts =
-            try {
-                receiveImageUploadParts(call, AVATAR_MAX_BYTES)
-            } catch (e: MultipartPartTooLargeException) {
-                return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
-            } catch (e: MultipartFieldTooLargeException) {
-                return@post respondAppError(call, invalidImageFrame(e.message))
+        val received =
+            when (val upload = receiveFramedImage(call, AVATAR_MAX_BYTES, "image")) {
+                is FramedUpload.Received -> upload
+                is ImageUploadOutcome.Rejected -> return@post call.respond(upload.status, upload.message)
+                is ImageUploadOutcome.InvalidFrame -> return@post respondAppError(call, upload.error)
             }
-        val data = parts.file ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
-        val frame =
-            when (val part = framePartOf(parts.frameField)) {
-                FramePart.Absent -> null
-                is FramePart.Valid -> part.frame
-                is FramePart.Invalid -> return@post respondAppError(call, part.error)
-            }
+        val data = received.bytes
+        val frame = received.frame
 
         // ImageStore validates by magic number, not the declared content type — the octet-stream
         // default only surfaces in its invalid-image error text, so no per-part content type is read.
