@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.io.respondSeekable
+import com.calypsan.listenup.server.media.isManagedImagePath
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.ktor.http.ContentType
@@ -21,10 +22,10 @@ import kotlinx.io.files.Path
  * Range requests are honoured automatically via the [PartialContent] plugin
  * installed at application startup.
  *
- * Both [imagePath] / [coverPath] stored in the database are relative paths
- * (e.g. `contributors/{id}.jpg`, `series/{id}.jpg`) sandboxed under [imageHome] —
- * the same per-type layout the appliers write to. Paths containing `../` or
- * starting with `/` are rejected with 400 to prevent directory traversal.
+ * The photo and cover paths stored in the database are relative paths of the one shape the server
+ * mints — `contributors/<sha256>.<ext>`, `series/<sha256>.<ext>` — under [imageHome]. Any other
+ * stored path (another folder, another extension, anything with `..`) is refused with 400 and
+ * never read.
  */
 fun Route.metadataImageRoutes(
     contributorRepository: ContributorRepository,
@@ -35,7 +36,7 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val path = managedImagePath(imageHome, "contributors", relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         respondSeekable(call, path, ContentType.defaultForFilePath(path.name))
     }
 
@@ -43,19 +44,14 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val series = seriesRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = series.coverPath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val path = managedImagePath(imageHome, "series", relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         respondSeekable(call, path, ContentType.defaultForFilePath(path.name))
     }
 }
 
-/**
- * Resolves [relativePath] under [base], rejecting paths that would escape the
- * sandbox via `../` or an absolute `/` prefix. Returns null on rejection.
- */
-private fun resolveSandboxed(
+/** Resolves [relativePath] under [base] when it is a managed image path in [folder]; null otherwise. */
+private fun managedImagePath(
     base: Path,
+    folder: String,
     relativePath: String,
-): Path? {
-    if (relativePath.startsWith("/") || "../" in relativePath || relativePath == "..") return null
-    return Path(base, relativePath)
-}
+): Path? = Path(base, relativePath).takeIf { isManagedImagePath(folder, relativePath) }
