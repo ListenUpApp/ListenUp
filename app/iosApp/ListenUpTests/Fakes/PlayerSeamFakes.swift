@@ -370,7 +370,8 @@ struct PlayerHarness {
 
     init(
         skipIntervals: SkipIntervalProviding? = nil,
-        notificationCenter: NotificationCenter = NotificationCenter()
+        notificationCenter: NotificationCenter = NotificationCenter(),
+        system: SystemIntegration = SystemIntegration()
     ) {
         engine = FakePlaybackEngine()
         progress = FakeProgressReporting()
@@ -378,7 +379,7 @@ struct PlayerHarness {
         facts = FakeEngineFacts()
         coordinator = PlayerCoordinator(
             instructions: instructions, facts: facts, progress: progress, engine: engine,
-            skipIntervals: skipIntervals, notificationCenter: notificationCenter)
+            system: system, skipIntervals: skipIntervals, notificationCenter: notificationCenter)
     }
 
     /// Execute one instruction now, as the drain task would, and wait for its synchronous part.

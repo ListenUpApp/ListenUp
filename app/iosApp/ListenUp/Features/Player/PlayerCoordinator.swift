@@ -404,6 +404,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress.onSeek(bookId: loaded.bookId, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed)
         lastReportedPositionMs = positionMs
         facts.position(ms: positionMs, generation: factGeneration)
+        // Move the clock before stamping now-playing, which reads it: the lock screen shows the new time at once.
+        positionTracker.update(positionMs: positionMs, rate: isPlaying ? Double(playbackSpeed) : 0)
+        refreshChapterIndex()
+        lastSyncedChapterIndex = chapterIndex
         updateNowPlaying()
         // Awaited, so a play the shared player sends after the seek reaches the engine after it (R-4).
         await engine.seek(toMs: positionMs)
