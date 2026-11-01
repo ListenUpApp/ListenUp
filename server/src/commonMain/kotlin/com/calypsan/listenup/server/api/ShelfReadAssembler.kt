@@ -70,6 +70,18 @@ internal class ShelfReadAssembler(
                 .orEmpty()
         }
 
+    /** Display names for [userIds] in one round trip; an absent user is simply missing from the map. */
+    suspend fun displayNamesFor(userIds: Collection<String>): Map<String, String> {
+        if (userIds.isEmpty()) return emptyMap()
+        return suspendTransaction(sql) {
+            userIds
+                .distinct()
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> sql.usersQueries.selectDisplayNamesByIds(chunk).executeAsList() }
+                .associate { it.id to it.display_name }
+        }
+    }
+
     /** Author display names per book id, ordered by credit ordinal. Must run inside a transaction. */
     private fun authorsFor(bookIds: List<String>): Map<String, List<String>> =
         bookIds

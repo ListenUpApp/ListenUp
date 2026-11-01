@@ -34,6 +34,9 @@ private const val MAX_DESCRIPTION_LENGTH = 2_000
 private const val DISCOVER_LIMIT_MIN = 1
 private const val DISCOVER_LIMIT_MAX = 200
 
+/** Candidate shelves whose membership is read per batch while Discover walks toward its limit. */
+private const val DISCOVER_PAGE_SIZE = 50
+
 /** How many of a discovered shelf's books the server names for its cover mosaic (a 2×2 grid). */
 internal const val DISCOVER_COVER_COUNT = 4
 
@@ -268,7 +271,7 @@ internal class ShelfServiceImpl(
             when {
                 canSeeAll -> liveBookIds
                 shelf.isPrivate -> return AppResult.Failure(ShelfError.NotFound())
-                else -> filterAccessible(liveBookIds, caller)
+                else -> filterAccessible(liveBookIds, bookAccessPolicy.accessibleBookIds(caller.userId, caller.role))
             }
 
         val views = readAssembler.viewsFor(visibleBookIds)
@@ -289,21 +292,45 @@ internal class ShelfServiceImpl(
     override suspend fun discoverShelves(limit: Int): AppResult<List<DiscoveredShelf>> {
         val caller = resolveCaller() ?: return noPrincipal()
         val safeLimit = limit.coerceIn(DISCOVER_LIMIT_MIN, DISCOVER_LIMIT_MAX)
+        // The caller's access set is read once for the whole walk, not once per candidate shelf.
+        val accessible = bookAccessPolicy.accessibleBookIds(caller.userId, caller.role)
 
+        val kept = mutableListOf<Pair<OwnedShelf, List<String>>>()
+        for (page in shelfRepo.listDiscoverable(excludeUserId = caller.userId).chunked(DISCOVER_PAGE_SIZE)) {
+            val membership = shelfBookRepo.listLiveByShelves(page.map { it.shelf.id })
+            for (owned in page) {
+                val visible = filterAccessible(membership[owned.shelf.id].orEmpty(), accessible)
+                if (visible.isNotEmpty()) kept += owned to visible
+                if (kept.size == safeLimit) break
+            }
+            if (kept.size == safeLimit) break
+        }
+
+        val ownerNames = readAssembler.displayNamesFor(kept.map { (owned, _) -> owned.ownerId })
         val discovered =
-            shelfRepo
-                .listDiscoverable(excludeUserId = caller.userId)
-                .mapNotNull { owned -> discoveredOrNull(owned, caller) }
-                .take(safeLimit)
+            kept.map { (owned, visible) ->
+                DiscoveredShelf(
+                    shelf = owned.shelf.toSummary(bookCount = visible.size),
+                    ownerId = owned.ownerId,
+                    ownerDisplayName = ownerNames[owned.ownerId].orEmpty(),
+                    // The same access-filtered, sort-ordered list the count is taken from: a cover can never
+                    // show a book the count leaves out, nor one the caller cannot open.
+                    coverBookIds = visible.take(DISCOVER_COVER_COUNT),
+                )
+            }
         return AppResult.Success(discovered)
     }
 
     override suspend fun getUserShelves(userId: UserId): AppResult<List<Shelf>> {
         val caller = resolveCaller() ?: return noPrincipal()
+        val accessible = bookAccessPolicy.accessibleBookIds(caller.userId, caller.role)
+        val owned = shelfRepo.listForOwner(userId.value)
+        val membership = shelfBookRepo.listLiveByShelves(owned.map { it.shelf.id })
         val shelves =
-            shelfRepo
-                .listForOwner(userId.value)
-                .mapNotNull { owned -> accessibleSummaryOrNull(owned, caller) }
+            owned.mapNotNull { shelf ->
+                val visibleCount = filterAccessible(membership[shelf.shelf.id].orEmpty(), accessible).size
+                if (visibleCount == 0) null else shelf.shelf.toSummary(bookCount = visibleCount)
+            }
         return AppResult.Success(shelves)
     }
 
@@ -377,52 +404,11 @@ internal class ShelfServiceImpl(
         }
     }
 
-    /** Intersects [bookIds] with the caller's accessible set; admins (null = unconstrained) keep all. */
-    private suspend fun filterAccessible(
+    /** Intersects [bookIds] with an accessible set; null (admin, unconstrained) keeps all. */
+    private fun filterAccessible(
         bookIds: List<String>,
-        caller: Caller,
-    ): List<String> {
-        val accessible = bookAccessPolicy.accessibleBookIds(caller.userId, caller.role) ?: return bookIds
-        return bookIds.filter { it in accessible }
-    }
-
-    /**
-     * Maps [owned] to a [DiscoveredShelf] for [caller], or null when the caller can
-     * see none of the shelf's books — a shelf with zero accessible books is excluded
-     * from discovery entirely. The summary's book count reflects only accessible books.
-     * Its `coverBookIds` are the first [DISCOVER_COVER_COUNT] of those same accessible books, in shelf order.
-     */
-    private suspend fun discoveredOrNull(
-        owned: OwnedShelf,
-        caller: Caller,
-    ): DiscoveredShelf? {
-        val liveBookIds = shelfBookRepo.listByShelf(owned.shelf.id).map { it.bookId }
-        val accessible = filterAccessible(liveBookIds, caller)
-        if (accessible.isEmpty()) return null
-        return DiscoveredShelf(
-            shelf = owned.shelf.toSummary(bookCount = accessible.size),
-            ownerId = owned.ownerId,
-            ownerDisplayName = readAssembler.displayNameFor(owned.ownerId),
-            // The same access-filtered, sort-ordered list the count is taken from: a cover can never
-            // show a book the count leaves out, nor one the caller cannot open.
-            coverBookIds = accessible.take(DISCOVER_COVER_COUNT),
-        )
-    }
-
-    /**
-     * Like [discoveredOrNull] but returns the bare [Shelf] summary (no owner wrapper); null
-     * when zero books are accessible to [caller] — a shelf with zero accessible books is
-     * excluded from [getUserShelves] entirely.
-     */
-    private suspend fun accessibleSummaryOrNull(
-        owned: OwnedShelf,
-        caller: Caller,
-    ): Shelf? {
-        val liveBookIds = shelfBookRepo.listByShelf(owned.shelf.id).map { it.bookId }
-        val accessibleCount = filterAccessible(liveBookIds, caller).size
-        if (accessibleCount == 0) return null
-        return owned.shelf.toSummary(bookCount = accessibleCount)
-    }
+        accessible: Set<String>?,
+    ): List<String> = if (accessible == null) bookIds else bookIds.filter { it in accessible }
 
     private suspend fun liveBookCount(shelfId: ShelfId): Int =
         shelfBookRepo.countLiveForShelves(listOf(shelfId.value))[shelfId.value] ?: 0

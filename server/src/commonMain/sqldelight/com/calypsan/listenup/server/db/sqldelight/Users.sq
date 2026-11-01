@@ -77,6 +77,10 @@ SELECT EXISTS(SELECT 1 FROM users WHERE id = :id);
 selectDisplayNameById:
 SELECT display_name FROM users WHERE id = :id;
 
+-- Display names for many users (live OR tombstoned) in one round trip; absent ids yield no row.
+selectDisplayNamesByIds:
+SELECT id, display_name FROM users WHERE id IN :ids;
+
 -- Single-row lookup by primary key.
 selectById:
 SELECT * FROM users WHERE id = :id;
