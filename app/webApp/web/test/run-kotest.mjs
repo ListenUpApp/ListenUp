@@ -41,9 +41,12 @@ const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? baseline[LANE])
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main` with
 // an empty continuation, so there is no promise to await either. Completion is therefore inferred
 // from quiescence plus nothing in flight; `settle.mjs` holds that rule and the tests for it.
-// CEILING_MS only bounds a hang, and hitting it is a failure, not a result.
+// CEILING_MS only bounds a hang, and hitting it is a failure, not a result. It bounds the whole
+// run, not one test, so it has to sit well clear of the suite's length: at 180 s the server-backed
+// lane (~155 s on a good runner, ~210 s on a slow one) timed out mid-test and reported whichever
+// test was running as hung.
 const IDLE_MS = 3_000
-const CEILING_MS = 180_000
+const CEILING_MS = 600_000
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -153,6 +156,13 @@ console.log(`ignored:  ${ignored.length}`)
 console.log(`failed:   ${failed.length}`)
 // TeamCity escapes: |n newline, |' quote, || pipe, |[ |] brackets.
 const unescape = (s) => s.replace(/\|n/g, '\n').replace(/\|(['|[\]])/g, '$1')
+// A hung test is otherwise anonymous: the verdict says one started and never reported, not which.
+const unreported = [...started]
+for (const name of finished) {
+  const at = unreported.indexOf(name)
+  if (at >= 0) unreported.splice(at, 1)
+}
+for (const name of unreported) console.log(`  HUNG    ${unescape(name)}`)
 for (const f of failed) {
   console.log(`  FAILED  ${f.name}`)
   for (const attr of ['message', 'details']) {
