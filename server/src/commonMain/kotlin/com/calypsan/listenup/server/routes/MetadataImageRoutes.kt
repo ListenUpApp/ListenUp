@@ -36,7 +36,8 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val path = managedImagePath(imageHome, "contributors", relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
+        val path =
+            managedImagePath(imageHome, "contributors", relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         respondSeekable(call, path, ContentType.defaultForFilePath(path.name))
     }
 

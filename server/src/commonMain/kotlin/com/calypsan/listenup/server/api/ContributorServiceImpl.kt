@@ -11,12 +11,14 @@ import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.auth.OpenRead
+import com.calypsan.listenup.server.media.isManagedImagePath
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -146,6 +148,10 @@ internal class ContributorServiceImpl(
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         patch.imageFrame?.validate()?.let { return AppResult.Failure(it) }
+        val photoPath = patch.imagePath
+        if (photoPath != null && !isManagedImagePath("contributors", photoPath)) {
+            return AppResult.Failure(ValidationError(message = "Choose a photo to upload.", field = "imagePath"))
+        }
         val editorId = principal.current()?.run { userId.value }
         return when (
             val patched =

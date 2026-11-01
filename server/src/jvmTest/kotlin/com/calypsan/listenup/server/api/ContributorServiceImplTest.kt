@@ -298,6 +298,47 @@ class ContributorServiceImplTest :
             }
         }
 
+        for (refused in listOf("decoy.txt", "series/$MANAGED_HEX.jpg", "contributors/$MANAGED_HEX.txt")) {
+            test("updateContributor refuses the photo path '$refused' with a ValidationError naming imagePath") {
+                withSqlDatabase {
+                    sql.seedTestLibraryAndFolder()
+                    val deps = makeServiceAndDeps(this)
+                    runTest {
+                        val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+
+                        val result = deps.service.updateContributor(id, ContributorUpdate(imagePath = refused))
+
+                        result
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+                            .shouldBeInstanceOf<ValidationError>()
+                            .field shouldBe "imagePath"
+                        deps.contributorRepo
+                            .findById(id.value)!!
+                            .imagePath
+                            .shouldBeNull()
+                    }
+                }
+            }
+        }
+
+        test("updateContributor accepts a photo path the upload route minted") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(this)
+                runTest {
+                    val id = deps.contributorRepo.resolveOrCreate("Ray Porter", sortName = null)
+                    val minted = "contributors/$MANAGED_HEX.png"
+
+                    deps.service
+                        .updateContributor(id, ContributorUpdate(imagePath = minted))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.contributorRepo.findById(id.value)!!.imagePath shouldBe minted
+                }
+            }
+        }
+
         test("updateContributor frames the current photo and marks the photo hand-edited") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -384,7 +425,7 @@ class ContributorServiceImplTest :
                     deps.service
                         .updateContributor(
                             id,
-                            ContributorUpdate(imagePath = "contributors/def.jpg"),
+                            ContributorUpdate(imagePath = "contributors/$MANAGED_HEX.jpg"),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     deps.contributorRepo
@@ -524,3 +565,5 @@ private fun bookFixtureWithTwoContributors(
                 ),
             ),
     )
+
+private const val MANAGED_HEX = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
