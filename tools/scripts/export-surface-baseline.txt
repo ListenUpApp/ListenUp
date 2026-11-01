@@ -199,6 +199,7 @@ ChapterEditorEvent_SealedType
 ChapterEditorUiState
 ChapterEditorUiState_SealedType
 ChapterEditorViewModel
+ChapterInfo
 ChapterInput
 ChapterListFollow
 ChapterListMove
@@ -214,6 +215,7 @@ ChapterSetProblem
 ChapterSetProblem_SealedType
 ChapterTimeFormat
 ChapterUiModel
+ChapterWindow
 ChildSeriesUi
 ClaimInviteUiState
 ClaimInviteUiState_SealedType
