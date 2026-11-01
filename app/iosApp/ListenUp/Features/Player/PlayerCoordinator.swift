@@ -152,7 +152,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var pendingSeekMs: Int64?
     /// True only while playback is paused *because of* an audio-session interruption. Gates
     /// `.ended + .shouldResume`: a user's deliberate pause is never overridden.
-    private var pausedByInterruption = false
+    private(set) var pausedByInterruption = false
     private static let positionReportIntervalMs: Int64 = 5000
     /// Feeds the shared "playback preempts downloads" signal. Optional for unit tests.
     private let bandwidthCoordinator: PlaybackBandwidthCoordinator?
@@ -269,7 +269,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
         switch action {
         case .pause:
             // .playing OR .buffering: both mean audio intent is "advancing".
-            if isPlaybackActive {
+            if isEngineLoading {
+                // Nothing has started: cancel the queued start instead of pausing an engine that never played.
+                playWhenLoaded = false
+                pausedByInterruption = true
+            } else if isPlaybackActive {
                 pausedByInterruption = true
                 await engine.pause()
                 enginePhase = .paused
@@ -279,7 +283,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case .resume:
             guard pausedByInterruption else { return }
             pausedByInterruption = false
-            if !isPlaying {
+            if isEngineLoading {
+                playWhenLoaded = true
+            } else if !isPlaying {
                 await engine.activateSession()
                 await engine.play()
                 enginePhase = .playing
