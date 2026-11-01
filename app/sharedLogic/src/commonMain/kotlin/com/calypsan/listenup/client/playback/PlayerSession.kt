@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -659,7 +658,7 @@ class PlayerSession(
             ) {
                 return@onPlayer
             }
-            if (cause.isTransport()) scope.launch { serverReachability.retry() }
+            if (cause.isCurableByNetwork()) scope.launch { serverReachability.retry() }
             val start = retryStart(loaded)
             engine.clearError()
             startLoad(loaded.bookId, start)
@@ -732,12 +731,6 @@ class PlayerSession(
                 }
             }
     }
-
-    private fun AppError.isTransport(): Boolean =
-        this is PlaybackError.ConnectionLost ||
-            this is PlaybackError.ServerUnreachable ||
-            this is PlaybackError.Stalled ||
-            this is PlaybackError.OfflineNotDownloaded
 
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
 

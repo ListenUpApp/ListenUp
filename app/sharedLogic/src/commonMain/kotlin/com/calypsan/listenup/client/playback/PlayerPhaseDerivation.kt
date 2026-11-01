@@ -136,10 +136,6 @@ private fun enginePhaseOf(
     }
 }
 
-/** The server can't be reached right now: the proactive reasons a stalled stream is waiting on. */
-internal fun AppError?.isServerOutOfReach(): Boolean =
-    this is PlaybackError.ServerUnreachable || this is PlaybackError.OfflineNotDownloaded
-
 /**
  * A stream that dropped while the book can't be reached for a known reason (the server is unreachable, the device
  * is offline) is that reason, as a failed prepare is: "Can't reach your server.", not "Couldn't play this book.".

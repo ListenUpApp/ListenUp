@@ -196,7 +196,7 @@ class NativePlayerEngine internal constructor(
                     is AppResult.Failure -> {
                         error.value = result.error
                         phase.value = EnginePhase.PAUSED
-                        if (isDropRecovery && result.error.isNetworkDrop()) scheduleDropRecovery()
+                        if (isDropRecovery && result.error.isCurableByNetwork()) scheduleDropRecovery()
                     }
                 }
             }

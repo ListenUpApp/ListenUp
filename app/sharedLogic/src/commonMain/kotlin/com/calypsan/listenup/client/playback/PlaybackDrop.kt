@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.api.error.TransportError
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -13,17 +11,6 @@ import kotlin.time.Duration.Companion.seconds
  * engine's no-progress watch fails a silently dead stream at this same boundary.
  */
 val PLAYBACK_DROP_GRACE: Duration = 10.seconds
-
-/**
- * A failure that a returning network can cure: the stream or the server went away. Engines recover from these by
- * themselves (Media3's re-prepare, hls.js's and the browser's own retries, the iOS engine's fresh prepare), so the
- * session gives them [PLAYBACK_DROP_GRACE] before saying anything.
- */
-internal fun AppError.isNetworkDrop(): Boolean =
-    this is PlaybackError.ConnectionLost ||
-        this is PlaybackError.Stalled ||
-        this is PlaybackError.ServerUnreachable ||
-        (this is TransportError && isRetryable)
 
 /** Where an interrupted listen stands against [PLAYBACK_DROP_GRACE]. */
 internal enum class DropStatus {
@@ -75,7 +62,7 @@ internal data class DropTrack(
             }
         val dropping =
             listening &&
-                if (error != null) error.isNetworkDrop() else inputs.enginePhase == EnginePhase.BUFFERING
+                if (error != null) error.isCurableByNetwork() else inputs.enginePhase == EnginePhase.BUFFERING
         val networkSeen = error != null || inputs.unavailable.isServerOutOfReach()
         return DropTrack(
             isListening = listening,
@@ -108,4 +95,4 @@ private fun PhaseInputs.isRecoverableFor(stage: SessionStage?): Boolean =
 
 /** The engine plays again behind a network failure it has not cleared yet: the drop is over. */
 internal fun PhaseInputs.isRecoveredFrom(error: AppError): Boolean =
-    enginePhase == EnginePhase.PLAYING && error.isNetworkDrop()
+    enginePhase == EnginePhase.PLAYING && error.isCurableByNetwork()
