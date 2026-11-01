@@ -23,6 +23,17 @@ internal class TabSelectionModels(
             ShellDestination.Discover -> discover
         }.exitSelectionMode()
     }
+
+    /** [onDestinationChange], preceded by ending the selection of the tab being left (when the tab really changes). */
+    fun endingSelectionOnLeave(
+        currentDestination: () -> ShellDestination,
+        onDestinationChange: (ShellDestination) -> Unit,
+    ): (ShellDestination) -> Unit =
+        { destination ->
+            val leaving = currentDestination()
+            if (destination != leaving) exitSelectionOf(leaving)
+            onDestinationChange(destination)
+        }
 }
 
 /** Resolves a [TabSelectionModels] whose three models are distinct instances. */

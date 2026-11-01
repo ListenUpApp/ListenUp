@@ -700,7 +700,6 @@ private fun AuthenticatedNavigation(
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
     serverConfig: ServerConfig = koinInject(),
-    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
 
@@ -784,7 +783,6 @@ private fun AuthenticatedNavigation(
     val onSignOut: () -> Unit = { scope.launch { logoutUseCase() } }
 
     ShareLinkEffect(
-        deepLinkManager = deepLinkManager,
         serverConfig = serverConfig,
         backStack = backStack,
         snackbarHostState = snackbarHostState,
@@ -893,12 +891,12 @@ private fun AuthenticatedNavigation(
  */
 @Composable
 private fun ShareLinkEffect(
-    deepLinkManager: DeepLinkManager,
     serverConfig: ServerConfig,
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
     holdsUnsavedWork: () -> Boolean,
     collapseNowPlaying: () -> Unit,
+    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
     val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)

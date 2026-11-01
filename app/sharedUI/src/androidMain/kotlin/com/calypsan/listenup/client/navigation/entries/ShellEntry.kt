@@ -19,7 +19,11 @@ import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.domain.model.FacetKind
+import androidx.compose.foundation.layout.PaddingValues
+import com.calypsan.listenup.client.features.discover.DiscoverScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
@@ -87,11 +91,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
         val libraryViewModel: LibraryViewModel = koinViewModel()
 
         val selectionModels = rememberTabSelectionModels()
-        val leaveTab: (ShellDestination) -> Unit = { destination ->
-            val leaving = currentShellDestination()
-            if (destination != leaving) selectionModels.exitSelectionOf(leaving)
-            onDestinationChange(destination)
-        }
+        val leaveTab = selectionModels.endingSelectionOnLeave(currentShellDestination, onDestinationChange)
 
         // Get search state for overlay
         HeroEntry {
@@ -188,26 +188,46 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     )
                 },
                 discoverContent = { padding, appHeader ->
-                    com.calypsan.listenup.client.features.discover.DiscoverScreen(
+                    DiscoverTab(
+                        backStack = backStack,
                         appHeader = appHeader,
-                        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
-                        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
-                        onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                        multiSelect = selectionModels.discover,
-                        onEditSelected = { bookIds, endSelection ->
-                            pendingSelectionExit.arm(endSelection)
-                            backStack.add(BulkEdit(bookIds))
-                        },
-                        // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
-                        onInvite = { backStack.add(CreateInvite) },
-                        onBrowseLibrary = { leaveTab(ShellDestination.Library) },
-                        onOpenAllActivity = { backStack.add(DiscoverActivity) },
                         contentPadding = padding,
+                        multiSelect = selectionModels.discover,
+                        pendingSelectionExit = pendingSelectionExit,
+                        onBrowseLibrary = { leaveTab(ShellDestination.Library) },
                     )
                 },
             )
         }
     }
+}
+
+/** The Discover tab, wired to the shell's navigation and to its own selection model. */
+@Composable
+private fun DiscoverTab(
+    backStack: NavBackStack<NavKey>,
+    appHeader: AppHeaderSlot,
+    contentPadding: PaddingValues,
+    multiSelect: BookMultiSelectViewModel,
+    pendingSelectionExit: PendingSelectionExit,
+    onBrowseLibrary: () -> Unit,
+) {
+    DiscoverScreen(
+        appHeader = appHeader,
+        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
+        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
+        onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
+        multiSelect = multiSelect,
+        onEditSelected = { bookIds, endSelection ->
+            pendingSelectionExit.arm(endSelection)
+            backStack.add(BulkEdit(bookIds))
+        },
+        // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
+        onInvite = { backStack.add(CreateInvite) },
+        onBrowseLibrary = onBrowseLibrary,
+        onOpenAllActivity = { backStack.add(DiscoverActivity) },
+        contentPadding = contentPadding,
+    )
 }
 
 /**
