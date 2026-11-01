@@ -1,5 +1,10 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import org.w3c.dom.AUTO
+import org.w3c.dom.CENTER
+import org.w3c.dom.ScrollBehavior
+import org.w3c.dom.ScrollLogicalPosition
+import org.w3c.dom.ScrollIntoViewOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
@@ -122,9 +127,5 @@ private class RowNode {
  * sides. `behavior: "auto"` because this runs as the panel opens — an animated scroll from the top
  * of a long list is motion the listener did not ask for and has to wait out.
  */
-private fun scrollToCentre(): dynamic {
-    val options = js("{}")
-    options.block = "center"
-    options.behavior = "auto"
-    return options
-}
+private fun scrollToCentre(): ScrollIntoViewOptions =
+    ScrollIntoViewOptions(block = ScrollLogicalPosition.CENTER, behavior = ScrollBehavior.AUTO)

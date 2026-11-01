@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.dom.borderBoxObservation
+import com.calypsan.listenup.web.dom.ResizeObserver
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.NonRestartableComposable
@@ -9,7 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.web.design.ResizeObserver
 import org.jetbrains.compose.web.dom.Span
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
@@ -88,7 +89,7 @@ internal fun TabIndicator(active: String) {
             // The strip is full width, so a tab widening moves the tabs after it without the strip
             // itself changing size: each tab is watched too — its border box, which is what places
             // the tabs after it, not the content box a padding change would leave unchanged.
-            val borderBox: dynamic = js("({ box: 'border-box' })")
+            val borderBox = borderBoxObservation()
             strip.children
                 .asList()
                 .filter { it !== ink.element }

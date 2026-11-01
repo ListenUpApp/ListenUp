@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.dom.showPopover
+import com.calypsan.listenup.web.dom.popoverApiAvailable
+import com.calypsan.listenup.web.dom.focusWithoutScrollingOptions
+import com.calypsan.listenup.web.dom.focus
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 
@@ -31,21 +35,19 @@ internal data class MenuAnchor(
  * every clip but a transformed ancestor's.
  */
 internal fun HTMLElement.showInTopLayer() {
-    val element: dynamic = this
-    if (jsTypeOf(element.showPopover) == "function") element.showPopover()
+    if (popoverApiAvailable) showPopover()
 }
 
 /** Shows [this] again in the top layer if an attribute pass closed it; true when it had to. */
 internal fun HTMLElement.reopenInTopLayer(): Boolean {
-    val element: dynamic = this
-    val closed = jsTypeOf(element.showPopover) == "function" && !(element.matches(":popover-open") as Boolean)
-    if (closed) element.showPopover()
+    val closed = popoverApiAvailable && !matches(":popover-open")
+    if (closed) showPopover()
     return closed
 }
 
 /** Focuses [this] without scrolling any box to reveal it: a panel placed first must not drag its trigger away. */
 internal fun HTMLElement.focusWithoutScrolling() {
-    asDynamic().focus(js("({ preventScroll: true })"))
+    focus(focusWithoutScrollingOptions())
 }
 
 /**

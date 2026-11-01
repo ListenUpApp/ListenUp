@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.dom.features
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.io.Buffer
@@ -86,8 +87,8 @@ internal fun copyToClipboard(
     text: String,
     onResult: (Boolean) -> Unit,
 ) {
-    val clipboard = window.navigator.asDynamic().clipboard
-    if (clipboard == null || clipboard == undefined) {
+    val clipboard = window.navigator.features.clipboardOrNull
+    if (clipboard == null) {
         onResult(false)
         return
     }

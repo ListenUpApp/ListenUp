@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import org.w3c.dom.AUTO
+import org.w3c.dom.SMOOTH
+import org.w3c.dom.ScrollBehavior
+import org.w3c.dom.ScrollToOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -187,10 +191,12 @@ private fun HTMLElement.centre(
     val offset = row.getBoundingClientRect().top - getBoundingClientRect().top + scrollTop
     val target = offset - (clientHeight - row.offsetHeight) / 2.0
     val glides = smooth && !window.matchMedia(REDUCED_MOTION).matches
-    val options = js("{}")
-    options.top = target.coerceAtLeast(0.0)
-    options.behavior = if (glides) "smooth" else "auto"
-    asDynamic().scrollTo(options)
+    scrollTo(
+        ScrollToOptions(
+            top = target.coerceAtLeast(0.0),
+            behavior = if (glides) ScrollBehavior.SMOOTH else ScrollBehavior.AUTO,
+        ),
+    )
 }
 
 /** The id of the list's "Chapters" heading, which names the page's chapter region (`aria-labelledby`). */

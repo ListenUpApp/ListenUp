@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import org.w3c.dom.AddEventListenerOptions
 import androidx.compose.runtime.DisposableEffectResult
 import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.Composable
@@ -255,7 +256,7 @@ private fun capture(
     pointerId: Int,
 ) {
     try {
-        element.asDynamic().setPointerCapture(pointerId)
+        element.setPointerCapture(pointerId)
     } catch (_: Throwable) {
         // Not capturable (a synthetic event, or a pointer already released) — the drag still works
         // while the pointer stays over the lane.
@@ -266,7 +267,7 @@ private fun capture(
 private fun DisposableEffectScope.listenTo(
     element: HTMLElement,
     listeners: Map<String, (Event) -> Unit>,
-    options: dynamic = null,
+    options: AddEventListenerOptions? = null,
 ): DisposableEffectResult {
     listeners.forEach { (type, listener) ->
         if (options ==
@@ -324,7 +325,7 @@ private fun DisposableEffectScope.laneGestures(
 ): DisposableEffectResult {
     val drag = LaneDrag(element, live)
     // ⛔ Not passive: the wheel zooms the lane, and must not also scroll the page under it.
-    val notPassive: dynamic = js("({ passive: false })")
+    val notPassive = AddEventListenerOptions(passive = false)
     val wheel = listenTo(element, mapOf(WHEEL to drag::onWheel), notPassive)
     val pointers =
         listenTo(

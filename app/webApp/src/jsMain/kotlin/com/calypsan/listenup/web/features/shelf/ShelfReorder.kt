@@ -281,7 +281,7 @@ internal fun AttrsScope<out HTMLElement>.touchDragOn(
 /** A synthetic or already-released pointer refuses capture; the drag still works over the grip. */
 private fun capture(press: PointerEvent) {
     try {
-        (press.currentTarget as? Element)?.asDynamic()?.setPointerCapture(press.pointerId)
+        (press.currentTarget as? Element)?.setPointerCapture(press.pointerId)
     } catch (_: Throwable) {
         Unit
     }

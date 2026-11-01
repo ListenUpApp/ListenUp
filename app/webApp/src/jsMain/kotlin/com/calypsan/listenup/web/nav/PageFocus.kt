@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.nav
 
+import com.calypsan.listenup.web.dom.focusWithoutScrollingOptions
+import com.calypsan.listenup.web.dom.focus
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -104,9 +106,7 @@ private fun dialogIsOpen(): Boolean = document.querySelector("dialog[open]") != 
  */
 internal fun focusWithoutScroll(element: HTMLElement) {
     if (!element.hasAttribute("tabindex")) element.setAttribute("tabindex", "-1")
-    val options = js("{}")
-    options.preventScroll = true
-    element.asDynamic().focus(options)
+    element.focus(focusWithoutScrollingOptions())
 }
 
 internal suspend fun awaitAnimationFrame() {

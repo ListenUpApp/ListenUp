@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.dom.timeOfDayFormat
+import com.calypsan.listenup.web.dom.toLocaleTimeOfDay
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
@@ -110,10 +112,7 @@ internal object PlayerSheetWords {
  * some engines put before AM/PM become plain ones, so the line wraps and reads like the rest of the sheet.
  */
 private fun clockTime(epochMs: Long): String {
-    // A Double, not the Long: `js()` sees Kotlin's own Long representation, which `Date` cannot read.
-    val ms = epochMs.toDouble()
-    val date: dynamic = js("new Date(ms)")
-    val options: dynamic = js("({ hour: 'numeric', minute: '2-digit' })")
-    val text: String = date.toLocaleTimeString(undefined, options).unsafeCast<String>()
+    // A Double, not the Long: `Date` cannot read Kotlin's own Long representation.
+    val text = kotlin.js.Date(epochMs.toDouble()).toLocaleTimeOfDay(timeOfDayFormat())
     return text.replace('\u202F', ' ').replace('\u00A0', ' ')
 }

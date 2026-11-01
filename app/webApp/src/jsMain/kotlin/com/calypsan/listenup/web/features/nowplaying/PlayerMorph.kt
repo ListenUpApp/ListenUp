@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.dom.customPropertyFrame
+import com.calypsan.listenup.web.dom.animationTiming
+import com.calypsan.listenup.web.dom.animate
+import com.calypsan.listenup.web.dom.WebAnimation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -105,7 +109,7 @@ class MorphController {
     private var travelPx: Double = 0.0
     private var pending: Pending? = null
     private var fadeThroughPending = false
-    private var animation: dynamic = null
+    private var animation: WebAnimation? = null
     private var quietArrivalPage: String? = null
 
     /** Where a close will land, asked of [PlayingReturn] (the one owner) when a drag down needs the page to show under. */
@@ -394,18 +398,16 @@ class MorphController {
             land(if (target >= 1f) MorphEnd.NowPlaying else MorphEnd.Bar)
             return
         }
-        val options = js("{}")
-        if (isCrossfade) {
-            options.duration = (CROSSFADE_MS * abs(distance)).roundToInt().coerceAtLeast(1)
-            options.easing = "linear"
-        } else {
-            val easing = SpringEasing.of(spring, velocity / distance)
-            options.duration = easing.durationMs
-            options.easing = easing.easing
-        }
+        val options =
+            if (isCrossfade) {
+                animationTiming((CROSSFADE_MS * abs(distance)).roundToInt().coerceAtLeast(1), "linear")
+            } else {
+                val easing = SpringEasing.of(spring, velocity / distance)
+                animationTiming(easing.durationMs, easing.easing)
+            }
         // The end value is committed first, so the moment the animation ends the shell already rests there.
         shell.style.setProperty(MORPH_PROGRESS, target.toString())
-        val started = shell.asDynamic().animate(arrayOf(progressFrame(from), progressFrame(target)), options)
+        val started = shell.animate(arrayOf(progressFrame(from), progressFrame(target)), options)
         animation = started
         started.onfinish = { _: dynamic ->
             if (animation === started) {
@@ -612,11 +614,7 @@ private fun HTMLElement.morphRect(): MorphRect {
     )
 }
 
-private fun progressFrame(value: Float): dynamic {
-    val frame = js("{}")
-    frame[MORPH_PROGRESS] = value
-    return frame
-}
+private fun progressFrame(value: Float): Any = customPropertyFrame(MORPH_PROGRESS, value)
 
 private fun px(value: Number): String = "${value}px"
 

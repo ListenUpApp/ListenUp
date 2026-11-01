@@ -9,7 +9,7 @@ import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.MenuAnchor
 import com.calypsan.listenup.web.design.ModalDialog
-import com.calypsan.listenup.web.design.ResizeObserver
+import com.calypsan.listenup.web.dom.ResizeObserver
 import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.design.focusIsLost
 import com.calypsan.listenup.web.design.focusWithoutScrolling

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.dom.webkitRelativePath
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.client.core.BlobFileSource
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
@@ -48,7 +49,7 @@ internal fun uploadRefusalSentence(refusal: UploadSelectionRefusal): String =
  * the user chose and guesses nothing about how many books it represents.
  */
 internal fun relPathOf(file: File): String {
-    val relative = file.asDynamic().webkitRelativePath as? String
+    val relative = file.webkitRelativePath
     return if (relative.isNullOrBlank()) file.name else relative
 }
 

@@ -1,5 +1,12 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.web.dom.mediaPositionState
+import com.calypsan.listenup.web.dom.mediaMetadataInit
+import com.calypsan.listenup.web.dom.mediaImage
+import com.calypsan.listenup.web.dom.MediaSessionActionDetails
+import com.calypsan.listenup.web.dom.MediaMetadata
+import com.calypsan.listenup.web.dom.MediaSession
+import com.calypsan.listenup.web.dom.features
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.bookPositionInChapterMs
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -51,15 +58,6 @@ internal interface MediaSessionBridge {
 }
 
 /**
- * `MediaMetadata` is a global constructor taking an object literal. Declared `external` rather
- * than written as a `js("new MediaMetadata(...)")` block because a `js()` body cannot capture
- * Kotlin locals — the object it needs is built here.
- */
-private external class MediaMetadata(
-    init: dynamic,
-)
-
-/**
  * The real `navigator.mediaSession`, or null when this browser has none.
  *
  * Feature-detected rather than assumed: Media Session is unavailable in several browsers this
@@ -67,35 +65,20 @@ private external class MediaMetadata(
  * the OS controls cannot.
  */
 internal fun browserMediaSession(): MediaSessionBridge? =
-    if (js("typeof navigator !== 'undefined' && typeof navigator.mediaSession === 'object'").unsafeCast<Boolean>()) {
-        BrowserMediaSession()
-    } else {
-        null
-    }
+    window.navigator.features.mediaSession
+        ?.let(::BrowserMediaSession)
 
-private class BrowserMediaSession : MediaSessionBridge {
-    private val session: dynamic get() = window.navigator.asDynamic().mediaSession
-
+private class BrowserMediaSession(
+    private val session: MediaSession,
+) : MediaSessionBridge {
     override fun setMetadata(
         title: String,
         artist: String,
         album: String,
         artworkUrl: String?,
     ) {
-        val init = js("({})")
-        init.title = title
-        init.artist = artist
-        init.album = album
-        init.artwork =
-            if (artworkUrl == null) {
-                emptyArray<Any>()
-            } else {
-                val art = js("({})")
-                art.src = artworkUrl
-                art.sizes = ARTWORK_SIZES
-                arrayOf(art)
-            }
-        session.metadata = MediaMetadata(init)
+        val artwork = if (artworkUrl == null) emptyArray() else arrayOf(mediaImage(artworkUrl, ARTWORK_SIZES))
+        session.metadata = MediaMetadata(mediaMetadataInit(title, artist, album, artwork))
     }
 
     override fun setPlaying(playing: Boolean) {
@@ -110,24 +93,26 @@ private class BrowserMediaSession : MediaSessionBridge {
         // The browser throws on a position past the duration or a duration of zero, and a book
         // that has not finished loading reports exactly that.
         if (durationMs <= 0L || positionMs < 0L || positionMs > durationMs) return
-        val state = js("({})")
-        state.duration = durationMs / MS_PER_SECOND
-        state.position = positionMs / MS_PER_SECOND
-        state.playbackRate = speed.toDouble()
-        session.setPositionState(state)
+        session.setPositionState(
+            mediaPositionState(
+                duration = durationMs / MS_PER_SECOND,
+                position = positionMs / MS_PER_SECOND,
+                playbackRate = speed.toDouble(),
+            ),
+        )
     }
 
     override fun setHandler(
         action: String,
         handler: (() -> Unit)?,
     ) {
-        session.setActionHandler(action, handler)
+        session.setActionHandler(action, handler?.let { call -> { _ -> call() } })
     }
 
     override fun setSeekToHandler(handler: ((Long) -> Unit)?) {
         val bridged =
             handler?.let { seek ->
-                { event: dynamic -> seek((event.seekTime.unsafeCast<Double>() * MS_PER_SECOND).toLong()) }
+                { event: MediaSessionActionDetails -> seek(((event.seekTime ?: 0.0) * MS_PER_SECOND).toLong()) }
             }
         session.setActionHandler("seekto", bridged)
     }
