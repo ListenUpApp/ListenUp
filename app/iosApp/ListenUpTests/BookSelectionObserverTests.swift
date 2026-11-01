@@ -11,6 +11,14 @@ import Testing
 /// edit can't silently break list identity (which would scramble selection-circle overlays).
 @Suite("Selection row projections")
 struct BookSelectionRowTests {
+    /// The shared `selectAllOffer` rule, called with real Kotlin and read back.
+    @Test func theBarReadsDeselectAllOnlyOnceEveryBookOnScreenIsPicked() {
+        #expect(!BookSelectionObserver.readsDeselectAll(onScreen: [], selected: []))
+        #expect(!BookSelectionObserver.readsDeselectAll(onScreen: ["b1", "b2"], selected: ["b1"]))
+        #expect(BookSelectionObserver.readsDeselectAll(onScreen: ["b1", "b2"], selected: ["b1", "b2"]))
+        #expect(BookSelectionObserver.readsDeselectAll(onScreen: ["b1"], selected: ["b1", "off-screen"]))
+    }
+
     @Test func shelfRowIsIdentifiedByItsId() {
         let row = SelectionShelfRow(id: "shelf-1", name: "Favorites")
         #expect(row.id == "shelf-1")

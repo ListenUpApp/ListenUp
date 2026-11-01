@@ -48,7 +48,9 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectAllOffer
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.books.selectAllOffer
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
@@ -400,14 +402,16 @@ internal fun LibraryLoadedContent(
             state = selectionState,
             // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
             selectAll =
-                if (selectedSection == LibrarySection.Books && state.books.isNotEmpty()) {
-                    SelectAllAction(
-                        count = state.books.size,
-                        isAllSelected = state.books.all { it.id.value in selectedBookIds },
-                        onSelectAll = { multiSelect.selectAll(state.books.map { it.id.value }) },
-                        // Clears the picks and stays in selection (enterSelectionMode with none picked).
-                        onDeselectAll = { multiSelect.enterSelectionMode() },
-                    )
+                if (selectedSection == LibrarySection.Books) {
+                    val onScreen = state.books.map { it.id.value }
+                    selectAllOffer(onScreen, selectedBookIds)?.let { offer ->
+                        SelectAllAction(
+                            count = onScreen.size,
+                            isAllSelected = offer is SelectAllOffer.DeselectAll,
+                            onSelectAll = { multiSelect.selectAll(onScreen) },
+                            onDeselectAll = multiSelect::deselectAll,
+                        )
+                    }
                 } else {
                     null
                 },

@@ -876,6 +876,8 @@ SearchViewModel
 SeeAllSearchUiState
 SeeAllSearchUiState_SealedType
 SeeAllSearchViewModel
+SelectAllOffer
+SelectAllOffer_SealedType
 SelectionMode
 SelectionMode_SealedType
 Series

@@ -137,10 +137,11 @@ struct LibraryView: View {
             // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
             // principal "N selected" count from sitting under the large "Library" title.
             let onScreen = observer?.books.map(\.id) ?? []
-            BookSelectionToolbar(
-                selection: selection,
-                isAllSelected: !onScreen.isEmpty && selection.selectedBookIds.isSuperset(of: onScreen)
-            ) {
+            let readsDeselectAll = BookSelectionObserver.readsDeselectAll(
+                onScreen: onScreen,
+                selected: selection.selectedBookIds
+            )
+            BookSelectionToolbar(selection: selection, isAllSelected: readsDeselectAll) {
                 // Every book the grid shows, as filtered (open question 8).
                 selection.selectAll(onScreen)
             }

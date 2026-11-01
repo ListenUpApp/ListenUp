@@ -13,6 +13,8 @@ import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent
+import com.calypsan.listenup.client.presentation.books.SelectAllOffer
+import com.calypsan.listenup.client.presentation.books.selectAllOffer
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.web.design.BulkAction
@@ -278,7 +280,7 @@ internal fun BookSelectionScaffold(
                     everyBook,
                     selected,
                     onSelectAll = session.onSelectAll,
-                    onDeselectAll = session.onEnter,
+                    onDeselectAll = session.onDeselectAll,
                 ),
         )
     }
@@ -362,10 +364,20 @@ private fun selectAllAction(
     onSelectAll: (List<String>) -> Unit,
     onDeselectAll: () -> Unit,
 ): BulkAction? =
-    when {
-        onScreen.isEmpty() -> null
-        selected.containsAll(onScreen) -> BulkAction("Deselect all", shortLabel = "None") { onDeselectAll() }
-        else -> BulkAction("Select all ${groupedCount(onScreen.size)}", shortLabel = "All") { onSelectAll(onScreen) }
+    when (val offer = selectAllOffer(onScreen, selected)) {
+        null -> {
+            null
+        }
+
+        SelectAllOffer.DeselectAll -> {
+            BulkAction("Deselect all", shortLabel = "None") { onDeselectAll() }
+        }
+
+        is SelectAllOffer.SelectAll -> {
+            BulkAction("Select all ${groupedCount(offer.count)}", shortLabel = "All") {
+                onSelectAll(onScreen)
+            }
+        }
     }
 
 /** Where a selection can be sent. */
