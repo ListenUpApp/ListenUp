@@ -108,8 +108,8 @@ class MorphController {
     private var animation: dynamic = null
     private var quietArrivalPage: String? = null
 
-    /** The page `/playing` was opened from inside the app, for a drag down to show underneath; null for a deep link. */
-    private var returnRoute: Route? = null
+    /** Where a close will land, asked of [PlayingReturn] (the one owner) when a drag down needs the page to show under. */
+    internal var closeDestination: () -> Route = { Routes.home }
 
     /** Set while a finger's open is being started, so the open waits for the finger rather than playing. */
     private var openingByDrag = false
@@ -172,7 +172,6 @@ class MorphController {
 
     /** Called just before `/playing` is pushed from [from] (a click, P, Expand): measure the bar while it is drawn. */
     fun beforeOpen(from: Route) {
-        returnRoute = from
         open(from, arrivedInApp = true)
     }
 
@@ -203,7 +202,7 @@ class MorphController {
         if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return false
         shell.style.setProperty(MORPH_PROGRESS, "1")
         heading = MorphEnd.Bar
-        underRoute = returnRoute ?: Routes.home
+        underRoute = closeDestination()
         frozenScrollRoute = null
         barRects = emptyMap()
         start(Pending.Hold(restoresUnderScroll = true))
@@ -295,8 +294,7 @@ class MorphController {
             }
 
             !wasPlaying && isPlaying -> {
-                // Forward counts as a deep link for closing (PlayingReturn), so a drag down shows Home underneath.
-                returnRoute = null
+                // Where a close lands is PlayingReturn's to say, so a history arrival needs no bookkeeping here.
                 open(from, arrivedInApp = true)
             }
 

@@ -7,6 +7,7 @@ import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.awaitPopstate
 import com.calypsan.listenup.web.motion.forgetPageArrival
 import com.calypsan.listenup.web.motion.reducedMotionOverride
+import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.forgetScrollMemory
 import com.calypsan.listenup.web.press
 import io.kotest.core.spec.style.FunSpec
@@ -256,6 +257,34 @@ class PlayerMorphDragTest :
                 awaitFrame()
                 rig.isMorphing() shouldBe false
                 rig.frame.findAll(".np-slot").size shouldBe 0
+            } finally {
+                rig.dispose()
+            }
+        }
+
+        test("after leaving Now Playing by a link and coming Back, a drag down shows the page it will close onto") {
+            val rig = frames.morphRig("/library")
+            try {
+                val travel = rig.openFully()
+                rig.router.navigate(Routes.discover)
+                awaitFrame()
+                window.history.back()
+                awaitPopstate()
+                awaitFrame()
+                rig.morphAnimation()?.finish()
+                awaitFrame()
+                window.location.pathname shouldBe "/playing"
+
+                val finger = rig.frame.find(".np-morph .page-h").press("touch")
+                finger.moveBy(20.0)
+                awaitFrame()
+                rig.isMorphing() shouldBe true
+                withClue("Home is drawn under the sheet") { rig.frame.findAll(".shell-main .home").isEmpty() shouldBe true }
+                withClue("Library is not drawn under the sheet") { rig.frame.findAll(".lib-header").isNotEmpty() shouldBe true }
+                finger.moveBy(0.6 * travel - 20, steps = 40, stepMs = 20)
+                finger.up()
+                awaitPopstate()
+                window.location.pathname shouldBe "/library"
             } finally {
                 rig.dispose()
             }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import kotlinx.browser.window
@@ -10,8 +11,10 @@ import org.w3c.dom.events.Event
 /**
  * Where Now Playing closes to, and who gets focus back (S4, R7). Opened from inside the app, closing is history back
  * and focus returns to the control that opened it; reached by a deep link, closing replaces the entry with Home, since
- * there is nothing inside the app to go back to, and the morph still plays back into the bar, which takes focus. Arriving by the browser's Forward also counts as a deep link: closing
- * then goes Home, which never leaves the app.
+ * there is nothing inside the app to go back to, and the morph still plays back into the bar, which takes focus.
+ * Closing goes back while the entry `/playing` was opened from is still below it, which survives leaving by a link
+ * and returning with Back or Forward; after a Collapse, or a deep link, closing goes Home. [closeDestination] is the
+ * one answer to where a close lands, which the drag down reads to show that page underneath.
  *
  * [morph] is told just before `/playing` is pushed, while the bar it grows from is still drawn.
  */
@@ -20,6 +23,17 @@ class PlayingReturn(
 ) {
     private var opener: HTMLElement? = null
     private var openedInApp = false
+    private var openedFrom: Route? = null
+
+    init {
+        morph?.closeDestination = { closeDestination }
+    }
+
+    /**
+     * Where a close will land: the page `/playing` was opened from while that history entry is still below it
+     * (closing goes back), else Home (closing replaces).
+     */
+    val closeDestination: Route get() = if (openedInApp) openedFrom ?: Routes.home else Routes.home
 
     /**
      * True from a close until the history step it took has landed. While it is, `/playing` must not redirect on its
@@ -36,6 +50,7 @@ class PlayingReturn(
         router.whenFreeToLeave {
             opener = from
             openedInApp = true
+            openedFrom = router.current
             isClosing = false
             morph?.beforeOpen(router.current)
             router.navigate(Routes.playing, force = true)
@@ -48,6 +63,7 @@ class PlayingReturn(
         opener = null
         if (openedInApp) {
             openedInApp = false
+            openedFrom = null
             isClosing = true
             val onPop: (Event) -> Unit = {
                 isClosing = false
