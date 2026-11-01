@@ -29,8 +29,8 @@ sealed interface PlayerMenuItem {
     ) : PlayerMenuItem
 
     /**
-     * The keyboard shortcuts sheet. Only the web asks for it: Android has no app shortcuts, and the iPad lists its
-     * keys in the system's own ⌘-hold overlay.
+     * The keyboard shortcuts sheet. Only the web shows it in-app: Android lists its keys in the system's keyboard
+     * shortcuts helper (Meta+/), and the iPad in its ⌘-hold overlay.
      */
     data object KeyboardShortcuts : PlayerMenuItem
 
@@ -57,7 +57,8 @@ object PlayerMenus {
      * when it has one; Volume boost; Keyboard shortcuts when [includesShortcuts]; then Close book apart.
      * [includesSeries] is false where the screen already shows the series as a link (the native wide layouts).
      * [includesAuthor] is false where the screen already shows the authors as links (the tall wide layouts, as
-     * [includesSeries]). [includesShortcuts] is true only where the platform has app keyboard shortcuts (the web). Pure.
+     * [includesSeries]). [includesShortcuts] is true only where the app shows its own shortcuts sheet (the web; Android and the iPad
+     * list theirs in the system's helper). Pure.
      */
     fun moreMenu(
         state: PlayerUiState.Loaded,

@@ -25941,6 +25941,46 @@
         }
       }
     },
+    "shell.shortcut_play_pause": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play or pause"
+          }
+        }
+      }
+    },
+    "shell.shortcut_search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "shell.shortcut_skip_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip back"
+          }
+        }
+      }
+    },
+    "shell.shortcut_skip_forward": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip forward"
+          }
+        }
+      }
+    },
     "shell.sync_details_action": {
       "localizations": {
         "en": {

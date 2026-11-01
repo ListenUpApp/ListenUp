@@ -2595,6 +2595,10 @@ One beautiful library.</string>
     <string name="shell_session_lapsed_body">Sign in to sync — your library and downloads still work.</string>
     <string name="shell_session_lapsed_sign_in">Sign in</string>
     <string name="shell_session_lapsed_title">Signed out</string>
+    <string name="shell_shortcut_play_pause">Play or pause</string>
+    <string name="shell_shortcut_search">Search</string>
+    <string name="shell_shortcut_skip_back">Skip back</string>
+    <string name="shell_shortcut_skip_forward">Skip forward</string>
     <string name="shell_sync_details_action">Show sync details</string>
     <string name="shell_sync_error">Sync error</string>
     <string name="shell_sync_status">Sync status</string>
