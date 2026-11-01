@@ -330,6 +330,46 @@ class ProfileRoutesTest :
             }
         }
 
+        test("a frame before the file, and unrelated extra text fields, are both accepted") {
+            val homeDir = Files.createTempDirectory("listenup-avatar-order-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = setupRoot()
+                    val frameJson = """{"focusX":0.5,"focusY":0.3,"zoom":2.0}"""
+
+                    val response =
+                        client.post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append("note", "unrelated")
+                                        append("frame", frameJson)
+                                        append(
+                                            "file",
+                                            png,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/png")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"avatar.png\"")
+                                            },
+                                        )
+                                        append("trailer", "also unrelated")
+                                    },
+                                ),
+                            )
+                        }
+
+                    response.status shouldBe HttpStatusCode.OK
+                    response.body<AvatarUploadResponse>().avatarFrame?.frame shouldBe ImageFrame(0.5, 0.3, 2.0)
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
         test("a file part far over the avatar cap still answers 413") {
             val homeDir = Files.createTempDirectory("listenup-avatar-hugefile-")
             try {
