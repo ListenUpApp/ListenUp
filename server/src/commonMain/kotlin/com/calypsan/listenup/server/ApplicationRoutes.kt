@@ -131,7 +131,12 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             bookBlobWriteRoutes(bookService)
             contributorRoutes(contributorService, homeDir, remoteImageFetcher)
             seriesRoutes(seriesService, homeDir, remoteImageFetcher)
-            profileRoutes(sql, avatarImageStore, publicProfileMaintainer, avatarWriteLock)
+            profileRoutes(
+                sql = sql,
+                imageStore = avatarImageStore,
+                publicProfileMaintainer = publicProfileMaintainer,
+                avatarWriteLock = avatarWriteLock,
+            )
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
             uploadRoutes(uploadStaging, uploadFinalizer)

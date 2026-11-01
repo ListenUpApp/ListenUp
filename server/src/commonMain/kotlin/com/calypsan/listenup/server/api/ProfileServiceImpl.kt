@@ -120,7 +120,14 @@ internal class ProfileServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         val written =
             avatarWriteLock.withLock(userId) {
-                val write = writeProfile(request, userId, verified.password_hash, newHash, now)
+                val write =
+                    writeProfile(
+                        request = request,
+                        userId = userId,
+                        verifiedHash = verified.password_hash,
+                        newHash = newHash,
+                        now = now,
+                    )
                 // Reverting to the auto avatar orphans the stored bytes — delete them so GET /avatars/{id} 404s and no
                 // stale image lingers on disk. Idempotent; held under the lock so an upload cannot be mid-store.
                 if (write is ProfileWrite.Done && write.avatarReverted) imageStore.delete(userId)
@@ -189,7 +196,13 @@ internal class ProfileServiceImpl(
                     id = userId,
                 )
                 sql.usersQueries.updateAvatarFrame(
-                    avatar_frame = mergedAvatarFrame(request, fresh, avatarType, avatarChanged),
+                    avatar_frame =
+                        mergedAvatarFrame(
+                            request = request,
+                            current = fresh,
+                            mergedAvatarType = avatarType,
+                            avatarChanged = avatarChanged,
+                        ),
                     id = userId,
                 )
             } else {

@@ -29,6 +29,19 @@ private const val AVATAR_TYPE_IMAGE = "image"
 /** Maximum accepted avatar size. Shared with [com.calypsan.listenup.server.di.profileModule]. */
 const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
 
+/** What storing an uploaded avatar came to: the row now points at the new bytes, or the bytes were not an image. */
+private sealed interface AvatarStored {
+    /** Stored and written; [response] is the version the client records. */
+    data class Written(
+        val response: AvatarUploadResponse,
+    ) : AvatarStored
+
+    /** The bytes failed validation; nothing was written. Answer 422 with [message]. */
+    data class Invalid(
+        val message: String,
+    ) : AvatarStored
+}
+
 /**
  * Avatar upload (the JSON profile lives on ProfileService RPC):
  *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image,
@@ -68,7 +81,7 @@ internal fun Route.profileRoutes(
                 try {
                     imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
                 } catch (e: ImageStore.InvalidImageException) {
-                    return@withLock null
+                    return@withLock AvatarStored.Invalid(e.message ?: "invalid image")
                 }
                 val now = clock.now().toEpochMilliseconds()
                 // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
@@ -82,15 +95,20 @@ internal fun Route.profileRoutes(
                         id = userId,
                     )
                 }
-                AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing)
-            } ?: return@post call.respond(HttpStatusCode.UnprocessableEntity, "invalid image")
+                AvatarStored.Written(AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing))
+            }
+        val response =
+            when (stored) {
+                is AvatarStored.Invalid -> return@post call.respond(HttpStatusCode.UnprocessableEntity, stored.message)
+                is AvatarStored.Written -> stored.response
+            }
         // Rebuild the public_profiles projection so the new avatar propagates through the sync
         // stream — both back to the uploader (its own UserAvatar reads the synced projection, not
         // the users row) and out to other clients. Mirrors ProfileServiceImpl.updateMyProfile.
         publicProfileMaintainer.refreshBestEffort(userId)
         // Return the server's avatar version so the client writes exact server truth into its
         // observed public_profiles row (no client-clock guess, no redundant re-download).
-        call.respond(stored)
+        call.respond(response)
     }
 }
 
