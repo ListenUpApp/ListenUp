@@ -87,7 +87,7 @@ struct MyShelvesSection: View {
     /// The library is still arriving: shimmer, never the first-shelf invitation.
     var isLoading = false
 
-    @State private var isCreatingShelf = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     private var margin: CGFloat { inset ? layout.margin : 0 }
 
@@ -125,11 +125,6 @@ struct MyShelvesSection: View {
                 }
             }
         }
-        // A new shelf is a small self-contained task, so it is a sheet over Home rather than a page pushed onto it
-        // (HIG, Sheets) — and the sheet brings its own bar.
-        .sheet(isPresented: $isCreatingShelf) {
-            CreateEditShelfView(shelfId: nil)
-        }
     }
 
     private var header: some View {
@@ -149,7 +144,7 @@ struct MyShelvesSection: View {
                 .accessibilityLabel(String(localized: "home.see_all_shelves_a11y"))
             }
             Button {
-                isCreatingShelf = true
+                presentShellSheet(.shelfForm(shelfId: nil))
             } label: {
                 Image(systemName: "plus")
                     .font(.body.weight(.semibold))

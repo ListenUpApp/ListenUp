@@ -175,6 +175,14 @@ struct MainTabView: View {
                 .environment(\.reportPlayerSheet) { isOpen in shell.playerSheetIsOpen = isOpen }
             }
         }
+        // Editors, forms and the PDF reader are presented here, above the id'd tab view, so a fold or resize that
+        // rebuilds the tabs does not dismiss them (see `ShellSheet`).
+        .sheet(item: $shell.presentedSheet) { sheet in
+            ShellSheetContent(sheet: sheet, shell: shell)
+        }
+        .fullScreenCover(item: $shell.presentedCover) { cover in
+            ShellCoverContent(cover: cover, shell: shell)
+        }
         // The menu bar's Playback and View commands act on the focused window's shell and player.
         .focusedSceneValue(\.mainShell, shell)
         .focusedSceneValue(\.playerObserver, playerObserver)
@@ -367,6 +375,8 @@ struct MainTabView: View {
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
         .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
         .environment(\.openActivitySubject, { shell.open(subject: $0) })
+        .environment(\.presentShellSheet, { shell.present($0) })
+        .environment(\.presentShellCover, { shell.present($0) })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }

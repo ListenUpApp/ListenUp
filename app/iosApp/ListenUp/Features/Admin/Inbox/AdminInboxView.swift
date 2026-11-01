@@ -28,7 +28,7 @@ struct AdminInboxView: View {
     @State private var partialReleaseNotice: String?
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
-    @State private var editingBook: InboxEditTarget?
+    @Environment(\.presentShellSheet) private var presentShellSheet
     /// The inbox book Match details is open for. `nil` when it is closed.
     @State private var matchTarget: BookMatchTarget?
     /// Select is on: rows toggle instead of opening (`InboxMode`).
@@ -62,9 +62,6 @@ struct AdminInboxView: View {
         // Selecting replaces Back with Select all, as Done is the way out (HIG, Lists and tables).
         .navigationBarBackButtonHidden(isSelecting)
         .navigationDestination(item: $openedBook) { BookDetailView(bookId: $0.id) }
-        .sheet(item: $editingBook) { target in
-            BookEditView(bookId: target.id)
-        }
         // Match details: pushed onto this stack on a compact width, a full-screen split view on a regular one.
         .bookMatchDetails($matchTarget)
         .onAppear {
@@ -168,7 +165,7 @@ struct AdminInboxView: View {
                             isSelected: isSelected,
                             isSelecting: mode(ready) == .selecting,
                             onTap: { tap(book, in: ready, observer: observer) },
-                            onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                            onEdit: { presentShellSheet(.bookEdit(bookId: book.id)) },
                             onFindMetadata: { matchTarget = BookMatchTarget(bookId: book.id) }
                         )
                         .listRowBackground(InboxBookRow.background(isSelected: isSelected))
@@ -204,7 +201,7 @@ struct AdminInboxView: View {
                         isSelected: isSelected,
                         isSelecting: mode(ready) == .selecting,
                         onTap: { tap(book, in: ready, observer: observer) },
-                        onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                        onEdit: { presentShellSheet(.bookEdit(bookId: book.id)) },
                         onFindMetadata: { matchTarget = BookMatchTarget(bookId: book.id) }
                     )
                     .padding(.horizontal, Spacing.m)
@@ -397,11 +394,6 @@ struct AdminInboxView: View {
 }
 
 // MARK: - Book row
-
-/// Identifiable wrapper so the BookEdit sheet can be driven by `.sheet(item:)` off the selected id.
-private struct InboxEditTarget: Identifiable {
-    let id: String
-}
 
 private struct InboxBookRow: View {
     let book: InboxBookRowModel

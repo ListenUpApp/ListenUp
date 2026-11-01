@@ -93,9 +93,9 @@ extension BookDetailView {
         case .markFinished: showMarkFinished = true
         case .restart: menuConfirmation = .restart
         case .markNotStarted: menuConfirmation = .markNotStarted
-        case .editDetails: showEdit = true
+        case .editDetails: presentShellSheet(.bookEdit(bookId: bookId))
         case .matchDetails: matchTarget = BookMatchTarget(bookId: bookId)
-        case .editChapters: showChapterEditor = true
+        case .editChapters: presentShellSheet(.chapterEditor(bookId: bookId))
         case .addToCollection: observer.openCollectionPicker()
         case .deleteFromServer:
             observer.clearDeleteError()

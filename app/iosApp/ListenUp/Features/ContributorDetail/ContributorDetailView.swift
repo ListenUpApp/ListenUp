@@ -12,7 +12,7 @@ struct ContributorDetailView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var observer: ContributorDetailObserver?
-    @State private var showEdit = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
     /// Set to open person Match details for the contributor on screen.
     @State private var matchTarget: PersonMatchTarget?
     /// Set when an edit-sheet merge re-targets this screen; from then on it shows the survivor
@@ -57,7 +57,7 @@ struct ContributorDetailView: View {
                     Menu {
                         if observer?.canEditMetadata == true {
                             Button {
-                                showEdit = true
+                                presentShellSheet(.contributorEdit(contributorId: activeContributorId))
                             } label: {
                                 Label(String(localized: "common.edit"), systemImage: "pencil")
                             }
@@ -107,12 +107,6 @@ struct ContributorDetailView: View {
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "contributor.remove_from_library"))
-        }
-        .sheet(isPresented: $showEdit) {
-            ContributorEditView(
-                contributorId: activeContributorId,
-                onMergedInto: { survivor in mergedIntoContributorId = survivor }
-            )
         }
         // Match details: pushed on a compact width, a full-screen split view on a regular one. A merge made
         // from its Edit by Hand re-targets this screen, as one made from Edit does.
@@ -172,7 +166,7 @@ struct ContributorDetailView: View {
     private func editIfAsked() {
         guard editsAfterAdjust else { return }
         editsAfterAdjust = false
-        showEdit = true
+        presentShellSheet(.contributorEdit(contributorId: activeContributorId))
     }
 
     // MARK: - Content
