@@ -173,10 +173,16 @@ dependencies {
 // Discovered rather than hardcoded so a new module is covered the day it appears. `EXPECTED_MODULE_DIRS`
 // pins the module list for Konsist, but nothing would connect a hardcoded list here to it, and
 // silently-unformatted code is a worse failure than a slow walk.
+//
+// Hidden directories (`.git`, `.gradle`, `.claude/worktrees`, …) are never source — Konsist prunes them
+// the same way, and walking `.claude/worktrees` made local lint check other branches' work in progress
+// (and `spotlessApply` rewrite it) while CI never saw those directories.
+val isWalkedDirectory: (File) -> Boolean = { it.name !in setOf("build", "node_modules") && !it.name.startsWith(".") }
+
 val kotlinSourceRoots: List<File> =
     rootDir
         .walkTopDown()
-        .onEnter { it.name !in setOf("build", "node_modules", ".git", ".worktrees", ".gradle", ".kotlin") }
+        .onEnter(isWalkedDirectory)
         .filter { it.isDirectory && it.name == "src" }
         .toList()
 
@@ -197,7 +203,7 @@ spotless {
         target(
             rootDir
                 .walkTopDown()
-                .onEnter { it.name !in setOf("build", "node_modules", ".git", ".worktrees", ".gradle", ".kotlin") }
+                .onEnter(isWalkedDirectory)
                 .filter { it.isFile && it.name.endsWith(".gradle.kts") }
                 .toList(),
         )
