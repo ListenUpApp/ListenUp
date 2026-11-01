@@ -44,7 +44,6 @@ import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.player.isSamePlaybackSpeed
 import com.calypsan.listenup.client.playback.snapPlaybackSpeed
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_playback_speed
