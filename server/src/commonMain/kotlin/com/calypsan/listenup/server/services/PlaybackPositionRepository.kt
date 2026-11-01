@@ -441,7 +441,25 @@ class PlaybackPositionRepository(
         if (dismissedAt == null || dismissedAt <= (stored.finishedCardDismissedAt ?: Long.MIN_VALUE)) {
             return AppResult.Success(stored)
         }
-        return upsert(stored.copy(finishedCardDismissedAt = dismissedAt), clientOpId = null, userId = userId)
+        // Re-read inside the writing transaction: the full-row update must start from the row as it is
+        // now, never from [stored] as it was read earlier, or it could roll a newer place back.
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        return AppResult.Success(
+            suspendTransaction(db) {
+                val fresh =
+                    db.playbackPositionsQueries
+                        .selectById(stored.id)
+                        .executeAsOneOrNull()
+                        ?.toSyncPayload()
+                        ?: return@suspendTransaction stored
+                if (dismissedAt <= (fresh.finishedCardDismissedAt ?: Long.MIN_VALUE)) return@suspendTransaction fresh
+                upsertInOpenTransaction(
+                    value = fresh.copy(finishedCardDismissedAt = dismissedAt),
+                    suppressed = suppressed,
+                    userId = userId,
+                )
+            },
+        )
     }
 
     /**
