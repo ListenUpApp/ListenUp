@@ -56,4 +56,22 @@ class PlayerSessionResilienceTest :
                 }
             }
         }
+
+        test("a failed save of the loaded book does not fail Play") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("a")
+                    rig.store.failSaves = true
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+
+                    rig.loaded.bookId shouldBe BookId("a")
+                    rig.loaded.phase shouldBe PlayerPhase.Playing
+                } finally {
+                    rig.close()
+                }
+            }
+        }
     })

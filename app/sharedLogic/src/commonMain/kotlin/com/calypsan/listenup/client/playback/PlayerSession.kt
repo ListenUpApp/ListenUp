@@ -178,7 +178,7 @@ class PlayerSession(
             persisted == null && current != null && isHeldInMemory(current) -> {
                 // A cleared key that lands under a load in flight or a book the engine plays is stale: the cold
                 // start's first read, or Close's clear arriving after the next Play. Write the book back.
-                scope.launch { loadedBooks.setLoaded(current.bookId) }
+                scope.launch { rememberLoaded(current.bookId) }
             }
 
             persisted == null -> {
@@ -212,7 +212,7 @@ class PlayerSession(
             current == null || current.bookId != held -> {
                 stage.value = SessionStage.Engine(held)
                 pendingStart.value = PlaybackStart.Resume
-                scope.launch { loadedBooks.setLoaded(held) }
+                scope.launch { rememberLoaded(held) }
             }
 
             current is SessionStage.Idle || current is SessionStage.Failed -> {
@@ -256,7 +256,7 @@ class PlayerSession(
                     loadedBooks.clear()
                     // A book loaded while the clear was being written (Close, then Play at once) is the loaded
                     // book: the clear must not leave the device thinking nothing is loaded.
-                    stage.value?.let { loadedBooks.setLoaded(it.bookId) }
+                    stage.value?.let { rememberLoaded(it.bookId) }
                 } finally {
                     closeClearsInFlight--
                 }
@@ -340,7 +340,7 @@ class PlayerSession(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var handedOver = false
                 try {
-                    loadedBooks.setLoaded(bookId)
+                    rememberLoaded(bookId)
                     val result = engine.load(bookId, start)
                     // A failure while the book still has a proactive reason (offline and not downloaded, server
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
@@ -379,6 +379,17 @@ class PlayerSession(
                     }
                 }
             }
+    }
+
+    /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
+    private suspend fun rememberLoaded(bookId: BookId) {
+        try {
+            loadedBooks.setLoaded(bookId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not remember ${bookId.value} as the loaded book" }
+        }
     }
 
     /** A scrub made while the book prepared ([seekTo]) lands on the engine now that it holds the book. */
