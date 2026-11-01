@@ -98,6 +98,37 @@ internal interface ShelfDao {
     fun observeShelvesContainingBookWithBookCount(bookId: String): Flow<List<ShelfWithBookCount>>
 
     /**
+     * Every live, non-held shelf membership whose book is present in Room, with the book's cover and length, across
+     * all shelves — what the My shelves cards derive their mosaics and durations from. Unlike the one-shot
+     * [coverRowsForShelf] / [totalDurationMsFor] reads, this query reads `books`, so Room re-runs it when a book's
+     * cover or duration changes or a book arrives after its membership.
+     */
+    @Query(
+        """
+        SELECT sb.shelfId AS shelfId, b.id AS bookId, sb.sortOrder AS sortOrder, b.coverHash AS coverHash,
+            b.coverDownloadedAt AS coverDownloadedAt, b.totalDuration AS totalDuration
+        FROM shelf_books sb
+        JOIN books b ON sb.bookId = b.id
+        WHERE sb.deletedAt IS NULL AND sb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY sb.shelfId ASC, sb.sortOrder ASC
+    """,
+    )
+    fun observeShelfBookFacts(): Flow<List<ShelfBookFactRow>>
+
+    /** [observeShelfBookFacts] for one shelf — the card behind a single-shelf observer. */
+    @Query(
+        """
+        SELECT sb.shelfId AS shelfId, b.id AS bookId, sb.sortOrder AS sortOrder, b.coverHash AS coverHash,
+            b.coverDownloadedAt AS coverDownloadedAt, b.totalDuration AS totalDuration
+        FROM shelf_books sb
+        JOIN books b ON sb.bookId = b.id
+        WHERE sb.shelfId = :shelfId AND sb.deletedAt IS NULL AND sb.bookId NOT IN ($HELD_BOOK_IDS_SQL)
+        ORDER BY sb.sortOrder ASC
+    """,
+    )
+    fun observeShelfBookFactsFor(shelfId: String): Flow<List<ShelfBookFactRow>>
+
+    /**
      * The cover tiles for the first few live books on one of the reader's own shelves, in sort order.
      *
      * The shelf card's 2×2 mosaic, drawn offline. Only books present in Room with a cover are returned, and books
@@ -212,4 +243,14 @@ internal data class ShelfCoverRow(
     val bookId: String,
     val coverHash: String?,
     val coverDownloadedAt: Timestamp?,
+)
+
+/** One row of [ShelfDao.observeShelfBookFacts]: a shelf member's place on the shelf and its cover and length. */
+internal data class ShelfBookFactRow(
+    val shelfId: String,
+    val bookId: String,
+    val sortOrder: Int,
+    val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
+    val totalDuration: Long,
 )
