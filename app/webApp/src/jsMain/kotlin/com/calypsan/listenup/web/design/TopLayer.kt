@@ -53,7 +53,7 @@ internal fun HTMLElement.focusWithoutScrolling() {
  * would cross the viewport's, above it when only above has room, and — when neither side has room for all of it — on
  * the roomier side, scrolling within the space there (`max-height`).
  *
- * Measured rather than guessed from where the trigger sits, because only the rendered panel knows how big its content
+ * The panel's scroll position survives placement. Measured rather than guessed from where the trigger sits, because only the rendered panel knows how big its content
  * made it. One implementation for every menu ([MenuPanel]) and every popover (the player's panels), so the two cannot
  * disagree about which side of a trigger they open on or how close to the viewport's edge they may come.
  */
@@ -65,9 +65,10 @@ internal fun placeAgainst(
     val viewportWidth = viewport.clientWidth.toDouble()
     val viewportHeight = viewport.clientHeight.toDouble()
 
-    panel.style.removeProperty("max-height")
+    // The natural height is the content's plus the borders, read while any `max-height` stays in place: lifting it to
+    // measure would let the browser clamp the panel's scroll position back to the top on every placement.
     val width = panel.offsetWidth.toDouble()
-    val height = panel.offsetHeight.toDouble()
+    val height = (panel.scrollHeight + (panel.offsetHeight - panel.clientHeight)).toDouble()
 
     val fromLeft = anchor.left
     val left =
@@ -80,7 +81,11 @@ internal fun placeAgainst(
     val roomAbove = anchor.top - TRIGGER_GAP - VIEWPORT_GUTTER
     val opensBelow = height <= roomBelow || (height > roomAbove && roomBelow >= roomAbove)
     val room = if (opensBelow) roomBelow else roomAbove
-    if (height > room) panel.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
+    if (height > room) {
+        panel.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
+    } else if (panel.style.getPropertyValue("max-height").isNotEmpty()) {
+        panel.style.removeProperty("max-height")
+    }
     val top = if (opensBelow) below else anchor.top - TRIGGER_GAP - minOf(height, room)
 
     panel.style.setProperty("left", "${left}px")

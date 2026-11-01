@@ -9,6 +9,7 @@ import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.MenuAnchor
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.design.ResizeObserver
 import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.design.focusIsLost
 import com.calypsan.listenup.web.design.focusWithoutScrolling
@@ -156,6 +157,10 @@ private fun AnchoredPanel(
                     dismiss()
                 }
             }
+            // The panel's own box changing size (Sleep's choices give way to its countdown) is the one thing besides
+            // the window moving that needs it placed again.
+            val resizes = ResizeObserver { _, _ -> place() }
+            resizes.observe(panel)
             val view = panel.ownerDocument?.defaultView
             val document = panel.ownerDocument
             // Capture, so a scroll inside any box moves the panel with its opener, as a menu does.
@@ -165,6 +170,7 @@ private fun AnchoredPanel(
             val heading = opener.closest("section")?.querySelector("h1, h2, h3") as? HTMLElement
             onDispose {
                 node.element = null
+                resizes.disconnect()
                 view?.removeEventListener("scroll", onMove, true)
                 view?.removeEventListener("resize", onMove)
                 document?.removeEventListener("pointerdown", onPointerDown)
@@ -182,13 +188,11 @@ private fun AnchoredPanel(
         }
         content()
     }
-    // Compose re-applies every attribute when any changes, and taking `popover` off closes it; and the content can
-    // change size (Sleep's choices give way to its countdown), so it is shown and placed again after every pass.
+    // Compose re-applies every attribute when any changes, and taking `popover` off closes it, so the panel is shown
+    // again after every pass. It is not placed again: the bar recomposes on every playback tick, and placing is
+    // measuring. Placement happens on open, when the window scrolls or resizes, and when the panel's own box resizes.
     SideEffect {
-        node.element?.let { panel ->
-            panel.reopenInTopLayer()
-            placeAgainst(panel, MenuAnchor.of(opener))
-        }
+        node.element?.reopenInTopLayer()
     }
 }
 
