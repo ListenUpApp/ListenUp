@@ -5,6 +5,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
 
 /**
+ * Polices `:server` only — the client's counterpart is [ClientDaoWritesGoThroughDataLayerRule].
+ *
  * Forbid direct SQLDelight writes against a **syncable root table** outside the repository layer
  * (`:server/sync/` — the substrate — and `:server/services/` — where the per-domain repositories
  * live). Reading is fine; writing must go through the repository so the global revision counter is
@@ -26,7 +28,7 @@ import io.kotest.matchers.collections.shouldNotBeEmpty
  * wrapper, discovered from the repositories themselves via [syncableRepositories] rather than
  * hard-coded — so a new domain is covered the day it lands.
  */
-class SyncWritesGoThroughRepositoryRule :
+class ServerSyncWritesGoThroughRepositoryRule :
     FunSpec({
 
         test("no direct SQLDelight writes against a syncable root table outside the repository layer") {
@@ -57,7 +59,7 @@ class SyncWritesGoThroughRepositoryRule :
     companion object {
         /**
          * Matches `<root>Queries.<write>(`. The write-verb alternation is the load-bearing part —
-         * a verb missing from it is a silent bypass — so [SyncWritesGoThroughRepositoryRuleSelfTest]
+         * a verb missing from it is a silent bypass — so [ServerSyncWritesGoThroughRepositoryRuleSelfTest]
          * exercises it against planted samples rather than asserting it equals a copy of itself.
          */
         val WRITE_CALL =

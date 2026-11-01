@@ -8,7 +8,7 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
  * its violation predicate — is at least [expectedMin] big.
  *
  * A rule whose discovery set comes back empty passes green while testing nothing. That is not
- * hypothetical: [SyncWritesGoThroughRepositoryRule] matched zero declarations for the whole
+ * hypothetical: [ServerSyncWritesGoThroughRepositoryRule] matched zero declarations for the whole
  * Exposed→SQLDelight migration, silently, in the rule its own KDoc called load-bearing.
  *
  * [expectedMin] is a COLLAPSE floor, not a ratchet — pick a number comfortably below the

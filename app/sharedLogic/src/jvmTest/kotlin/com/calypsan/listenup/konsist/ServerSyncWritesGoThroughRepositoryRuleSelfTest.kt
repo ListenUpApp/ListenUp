@@ -4,7 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Self-test for [SyncWritesGoThroughRepositoryRule]'s matcher, against planted samples.
+ * Self-test for [ServerSyncWritesGoThroughRepositoryRule]'s matcher, against planted samples.
  *
  * **Why it looks like this.** Its predecessor asserted that the rule's operator constant equalled a
  * hand-copied duplicate of itself — a tautology that could not fail for any reason a reader would
@@ -13,11 +13,11 @@ import io.kotest.matchers.shouldBe
  * A rule guarding a silent-corruption invariant earns a test that proves detection, so this plants
  * violations and demands they are caught, and plants safe code and demands it is not.
  */
-class SyncWritesGoThroughRepositoryRuleSelfTest :
+class ServerSyncWritesGoThroughRepositoryRuleSelfTest :
     FunSpec({
 
         fun detect(source: String): String? =
-            SyncWritesGoThroughRepositoryRule.WRITE_CALL
+            ServerSyncWritesGoThroughRepositoryRule.WRITE_CALL
                 .find(source)
                 ?.run { groupValues[1] }
 

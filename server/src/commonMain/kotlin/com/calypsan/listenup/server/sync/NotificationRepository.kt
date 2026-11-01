@@ -232,7 +232,7 @@ class NotificationRepository(
  * are visible only to their owner (`notifications` is userScoped; `notification_prefs` is not
  * syncable at all), and the owner's devices are ejected by the `UserDeleted` control frame — a
  * tombstone would sync to nobody. Living in `server/sync/` keeps the raw write inside the
- * repository layer, per `SyncWritesGoThroughRepositoryRule`.
+ * repository layer, per `ServerSyncWritesGoThroughRepositoryRule`.
  */
 fun ListenUpDatabase.deleteNotificationRowsForUser(userId: String) {
     notificationsQueries.deleteForUser(userId)
