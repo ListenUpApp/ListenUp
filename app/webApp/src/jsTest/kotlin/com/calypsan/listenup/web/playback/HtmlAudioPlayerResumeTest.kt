@@ -4,10 +4,20 @@ import com.calypsan.listenup.client.playback.PlaybackState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeBetween
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import org.w3c.dom.url.URL
 
 private const val SEGMENT_DURATION_MS = 1_500L
 private const val RESUME_MS = 750L
+
+/** How long a spec waits for a freshly loaded book to settle on Paused or Playing. */
+private const val SETTLE_TIMEOUT_MS = 5_000L
+
+/** How long a stale start instruction would have had to act, once the load has settled. */
+private const val SETTLE_GRACE_MS = 600L
 
 /** A seek lands on a sample boundary, not a millisecond one; ±100 ms is far below the 750 ms gap. */
 private const val TOLERANCE_MS = 100L
@@ -51,5 +61,65 @@ class HtmlAudioPlayerResumeTest :
 
             player.releasePlayer()
             URL.revokeObjectURL(segment.url)
+        }
+
+        // The listener asked for book A, not for whatever is loaded next: only priming (the tap that asked for a book
+        // before its audio arrives) lets the following load start by itself.
+        test("a load that follows play() without a prime does not start by itself") {
+            val first = silentSegment(SEGMENT_DURATION_MS)
+            val second = silentSegment(SEGMENT_DURATION_MS)
+            val player = HtmlAudioPlayer()
+            player.load(listOf(first))
+            player.play()
+            player.awaitState(PlaybackState.Playing)
+
+            player.load(listOf(second))
+
+            // Settled on either outcome first, then given the time a stale instruction would need to start it.
+            withTimeout(SETTLE_TIMEOUT_MS) {
+                player.state.first { it == PlaybackState.Paused || it == PlaybackState.Playing }
+            }
+            delay(SETTLE_GRACE_MS)
+            player.state.value shouldBe PlaybackState.Paused
+
+            player.releasePlayer()
+            URL.revokeObjectURL(first.url)
+            URL.revokeObjectURL(second.url)
+        }
+
+        test("a load that follows primeForPlayback starts on ready") {
+            val segment = silentSegment(SEGMENT_DURATION_MS)
+            val player = HtmlAudioPlayer()
+
+            player.primeForPlayback()
+            player.load(listOf(segment))
+
+            player.awaitState(PlaybackState.Playing)
+
+            player.releasePlayer()
+            URL.revokeObjectURL(segment.url)
+        }
+
+        test("priming is spent by the load it was for: the load after that does not start by itself") {
+            val first = silentSegment(SEGMENT_DURATION_MS)
+            val second = silentSegment(SEGMENT_DURATION_MS)
+            val player = HtmlAudioPlayer()
+            player.primeForPlayback()
+            player.load(listOf(first))
+            player.awaitState(PlaybackState.Playing)
+            player.pause()
+            player.awaitState(PlaybackState.Paused)
+
+            player.load(listOf(second))
+
+            withTimeout(SETTLE_TIMEOUT_MS) {
+                player.state.first { it == PlaybackState.Paused || it == PlaybackState.Playing }
+            }
+            delay(SETTLE_GRACE_MS)
+            player.state.value shouldBe PlaybackState.Paused
+
+            player.releasePlayer()
+            URL.revokeObjectURL(first.url)
+            URL.revokeObjectURL(second.url)
         }
     })
