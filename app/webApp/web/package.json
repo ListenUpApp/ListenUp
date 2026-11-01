@@ -16,7 +16,7 @@
   "dependencies": {
     "@js-joda/core": "^6.3.0",
     "@sqlite.org/sqlite-wasm": "3.54.1-build1",
-    "hls.js": "1.7.3",
+    "hls.js": "1.7.4",
     "ws": "^8.22.0"
   },
   "devDependencies": {
