@@ -6,12 +6,12 @@ import SwiftUI
 enum SpeedSheetModel {
     /// One 0.05× step, counted in the shared whole hundredths: thirty presses never drift off a rung.
     static func step(_ speed: Float, up: Bool) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed(speed: speed, up: up)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.stepPlaybackSpeed(speed: speed, up: up)
     }
 
     /// A dragged value, snapped to the nearest 0.05×.
     static func snapped(_ speed: Float) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed(speed: speed)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.snapPlaybackSpeed(speed: speed)
     }
 
     /// Whether `preset` is the speed playing, within the shared tolerance (a stored 1.5 comes back as 1.4999999).

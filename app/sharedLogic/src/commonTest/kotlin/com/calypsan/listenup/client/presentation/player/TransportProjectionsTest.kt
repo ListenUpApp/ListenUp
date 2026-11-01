@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.presentation.player
 
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.skipDistanceMs
+import com.calypsan.listenup.client.playback.skipTargetMs
+import com.calypsan.listenup.client.playback.snapPlaybackSpeed
+import com.calypsan.listenup.client.playback.stepPlaybackSpeed
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe

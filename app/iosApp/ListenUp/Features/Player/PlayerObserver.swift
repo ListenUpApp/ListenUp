@@ -239,7 +239,7 @@ struct PlayerSnapshot: Equatable {
                 id: String(row.index), title: row.title, startMs: row.startMs, durationMs: row.durationMs,
                 index: Int(row.index), number: Int(row.number), isCurrent: row.isCurrent)
         }
-        offersEndOfChapter = SleepTimerChoices.shared.offersEndOfChapter(chapter: current)
+        offersEndOfChapter = SleepTimerChoices.shared.offersEndOfChapter(isWholeBook: current.isWholeBook)
         chapterIndex = Int(current.index)
         chapterNumber = Int(current.number)
         totalChapters = Int(current.total)

@@ -4,8 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
-import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.stepPlaybackSpeed
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface

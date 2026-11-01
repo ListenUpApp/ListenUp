@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException

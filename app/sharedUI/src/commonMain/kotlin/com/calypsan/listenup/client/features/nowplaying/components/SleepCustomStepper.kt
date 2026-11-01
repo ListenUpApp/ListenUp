@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerChoices
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_sheet_custom
 import listenup.composeapp.generated.resources.player_sheet_custom_less

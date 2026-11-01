@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerChoices
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import org.jetbrains.compose.web.attributes.InputType
@@ -104,7 +104,7 @@ private fun IdleOptions(
 ) {
     // Only when the book has marks (PT1). End-of-chapter waits to be told a chapter turned over, and a whole-book
     // "chapter" ends with the book, so the timer would quietly do nothing until then.
-    if (SleepTimerChoices.offersEndOfChapter(chapter)) {
+    if (SleepTimerChoices.offersEndOfChapter(chapter.isWholeBook)) {
         DomButton(attrs = {
             classes("sleep-eoc")
             attr("type", VALUE_BUTTON)

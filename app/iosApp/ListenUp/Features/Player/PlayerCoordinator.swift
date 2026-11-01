@@ -713,7 +713,7 @@ extension PlayerCoordinator {
     /// Where a remote skip lands: the interval in seconds of listening, so interval × speed of book, as the app's own
     /// skip moves (§3.3, the shared `skipTargetMs`).
     func remoteSkipTarget(forward: Bool) -> Int64 {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.skipTargetMs(
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.skipTargetMs(
             currentPositionMs: bookPositionMs,
             seconds: Int32(forward ? skipForwardSec : skipBackwardSec),
             speed: playbackSpeed,

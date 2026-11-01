@@ -7,10 +7,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_INCREMENT
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_INCREMENT
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
+import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
 import com.calypsan.listenup.client.presentation.player.isSamePlaybackSpeed
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button

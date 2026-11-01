@@ -14,7 +14,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
+import com.calypsan.listenup.client.playback.stepPlaybackSpeed
 import io.kotest.matchers.shouldBe
 import androidx.compose.ui.text.style.TextDirection
 import com.calypsan.listenup.client.design.text.textDirection

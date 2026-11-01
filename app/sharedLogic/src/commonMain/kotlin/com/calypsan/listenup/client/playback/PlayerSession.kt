@@ -16,11 +16,6 @@ import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.player.skipDistanceMs
-import com.calypsan.listenup.client.presentation.player.skipTargetMs
-import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
