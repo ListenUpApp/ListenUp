@@ -141,13 +141,7 @@ private fun enginePhaseOf(
  * is offline) is that reason, as a failed prepare is: "Can't reach your server.", not "Couldn't play this book.".
  */
 private fun AppError.explainedBy(unavailable: AppError?): AppError =
-    if (this is PlaybackError.ConnectionLost &&
-        (unavailable is PlaybackError.ServerUnreachable || unavailable is PlaybackError.OfflineNotDownloaded)
-    ) {
-        unavailable
-    } else {
-        this
-    }
+    if (isCurableByNetwork() && unavailable.isServerOutOfReach()) unavailable ?: this else this
 
 /** Why a not-prepared book can't play right now, or null (§4.6 proactive causes). Pure. */
 internal fun unavailableReasonOf(
