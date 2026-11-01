@@ -325,14 +325,9 @@ final class PlayerObserver {
     private(set) var progress = PlayerProgressRow()
     /// The book a play request is in flight for (debounced): Book Detail's busy button.
     private(set) var preparingBookId: String?
-    /// Set when a PDF is ready to present; cleared on dismiss. Drives `.fullScreenCover(item:)`.
-    var documentToOpen: ReaderDocument?
-    /// A book the shared player asked to open (Go to book, Play next book's navigation).
-    var bookToOpen: String?
-    /// The SessionExpired primary asked for sign-in.
-    var signInRequested = false
-    /// The held-book primary (admins) asked for the Inbox.
-    var inboxRequested = false
+    /// The shared player's one-shot requests (a PDF, Go to book, Open Inbox, Sign in), held until the
+    /// front window's shell claims one — so a second iPad window never acts on the same request.
+    let requests = PlayerRequestRouter()
 
     // view-model-owner: nobody — the observer is an app-lifetime singleton (`Dependencies.playerObserver`),
     // so its `PlayerViewModel` lives for the process. Both are nil only for a detached observer (tests, snapshots).
@@ -518,10 +513,10 @@ final class PlayerObserver {
     private func handle(_ event: any PlayerEvent) {
         switch event.sealedType() {
         case .openDocumentViewer(let open):
-            documentToOpen = ReaderDocument(localPath: open.value.localPath, title: snapshot.bookTitle)
-        case .navigateToBook(let navigate): bookToOpen = navigate.value.bookId
-        case .openSignIn: signInRequested = true
-        case .openInbox: inboxRequested = true
+            requests.post(.openDocument(ReaderDocument(localPath: open.value.localPath, title: snapshot.bookTitle)))
+        case .navigateToBook(let navigate): requests.post(.openBook(navigate.value.bookId))
+        case .openSignIn: requests.post(.signIn)
+        case .openInbox: requests.post(.openInbox)
         }
     }
 }

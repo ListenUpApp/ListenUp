@@ -33,6 +33,8 @@ struct FullScreenPlayerView: View {
     var onViewContributor: (String) -> Void = { _ in }
     /// Set by the Playback menu's Show Chapters (⇧⌘C); the player shows its chapters and clears it.
     var chapterListRequest: Binding<Bool> = .constant(false)
+    /// The PDF the reader cover shows; the window's shell sets it from the player's requests (front window only).
+    var readerDocument: Binding<ReaderDocument?> = .constant(nil)
 
     @State private var showChapterList: Bool = false
     @State private var showBoostPicker: Bool = false
@@ -123,7 +125,7 @@ struct FullScreenPlayerView: View {
         .reportsPlayerSheet(Self.isCovered(
             showsBoostPicker: showBoostPicker,
             showsChapterList: showChapterList,
-            isReadingDocument: observer.documentToOpen != nil
+            isReadingDocument: readerDocument.wrappedValue != nil
         ))
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(
@@ -133,11 +135,8 @@ struct FullScreenPlayerView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
-        .fullScreenCover(item: Binding(
-            get: { observer.documentToOpen },
-            set: { observer.documentToOpen = $0 }
-        )) { doc in
-            DocumentReaderView(document: doc, onDone: { observer.documentToOpen = nil })
+        .fullScreenCover(item: readerDocument) { doc in
+            DocumentReaderView(document: doc, onDone: { readerDocument.wrappedValue = nil })
         }
     }
 

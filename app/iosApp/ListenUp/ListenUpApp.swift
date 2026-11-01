@@ -256,11 +256,10 @@ private struct RootView: View {
             .sheet(isPresented: $showReauthSheet) {
                 AuthFlowCoordinator(openRegistration: false)
             }
-            // The player's Sign in (a session-expired book with nothing downloaded) opens the same sheet.
-            .onChange(of: dependencies.playerObserver.signInRequested) { _, requested in
-                guard requested, auth.state == .sessionLapsed else { return }
-                dependencies.playerObserver.signInRequested = false
-                showReauthSheet = true
+            // The player's Sign in (a session-expired book with nothing downloaded) opens the same sheet; the
+            // front window's shell claims the request and calls this.
+            .environment(\.presentSignIn) {
+                if auth.state == .sessionLapsed { showReauthSheet = true }
             }
     }
 
