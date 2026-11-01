@@ -10,9 +10,12 @@ import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.DiscoveryPick
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -42,8 +45,24 @@ class FakeBookRepository(
 
     override suspend fun getChapters(bookId: String): List<Chapter> = chaptersByBookId[bookId].orEmpty()
 
+    private val heldChapters = mutableMapOf<String, CompletableDeferred<Unit>>()
+
+    /** Test helper: [observeChapters] for [bookId] emits nothing until [releaseChapters] (a query still running). */
+    fun holdChapters(bookId: String) {
+        heldChapters[bookId] = CompletableDeferred()
+    }
+
+    /** Test helper: let the held [observeChapters] for [bookId] answer. */
+    fun releaseChapters(bookId: String) {
+        heldChapters.remove(bookId)?.complete(Unit)
+    }
+
     override fun observeChapters(bookId: String): Flow<List<Chapter>> =
-        MutableStateFlow(chaptersByBookId[bookId].orEmpty())
+        flow {
+            heldChapters[bookId]?.await()
+            emit(chaptersByBookId[bookId].orEmpty())
+            awaitCancellation() // Room's observers stay open, as the StateFlow this replaced did.
+        }
 
     override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = MutableStateFlow(TierLabels.None)
 

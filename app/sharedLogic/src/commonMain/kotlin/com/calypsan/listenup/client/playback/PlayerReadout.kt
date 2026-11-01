@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -47,25 +48,34 @@ internal class PlayerReadout(
     private val savedPosition: StateFlow<PlaybackPosition?> =
         stageBookId
             .flatMapLatest { id ->
-                id?.let { positionRepository.observe(it).resubscribeOnFailure("readout.savedPosition") }
-                    ?: flowOf(null)
+                id?.let { bookId ->
+                    positionRepository
+                        .observe(bookId)
+                        .resubscribeOnFailure("readout.savedPosition")
+                        .onStart { emit(null) }
+                } ?: flowOf(null)
             }.stateIn(scope, SharingStarted.Eagerly, null)
 
     val roomChapters: StateFlow<List<Chapter>> =
         stageBookId
             .flatMapLatest { id ->
-                id?.let { bookRepository.observeChapters(it.value).resubscribeOnFailure("readout.roomChapters") }
-                    ?: flowOf(emptyList())
+                id?.let { bookId ->
+                    bookRepository
+                        .observeChapters(bookId.value)
+                        .resubscribeOnFailure("readout.roomChapters")
+                        .onStart { emit(emptyList()) }
+                } ?: flowOf(emptyList())
             }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     val roomDurationMs: StateFlow<Long> =
         stageBookId
             .flatMapLatest { id ->
-                id?.let {
+                id?.let { bookId ->
                     bookRepository
-                        .observeBookDetail(it.value)
+                        .observeBookDetail(bookId.value)
                         .map { detail -> detail?.duration ?: 0L }
                         .resubscribeOnFailure("readout.roomDurationMs")
+                        .onStart { emit(0L) }
                 } ?: flowOf(0L)
             }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
