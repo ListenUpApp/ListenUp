@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.core.resubscribeOnFailure
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -45,19 +46,27 @@ internal class PlayerReadout(
 
     private val savedPosition: StateFlow<PlaybackPosition?> =
         stageBookId
-            .flatMapLatest { id -> id?.let(positionRepository::observe) ?: flowOf(null) }
-            .stateIn(scope, SharingStarted.Eagerly, null)
+            .flatMapLatest { id ->
+                id?.let { positionRepository.observe(it).resubscribeOnFailure("readout.savedPosition") }
+                    ?: flowOf(null)
+            }.stateIn(scope, SharingStarted.Eagerly, null)
 
     val roomChapters: StateFlow<List<Chapter>> =
         stageBookId
-            .flatMapLatest { id -> id?.let { bookRepository.observeChapters(it.value) } ?: flowOf(emptyList()) }
-            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+            .flatMapLatest { id ->
+                id?.let { bookRepository.observeChapters(it.value).resubscribeOnFailure("readout.roomChapters") }
+                    ?: flowOf(emptyList())
+            }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     val roomDurationMs: StateFlow<Long> =
         stageBookId
             .flatMapLatest { id ->
-                id?.let { bookRepository.observeBookDetail(it.value).map { detail -> detail?.duration ?: 0L } }
-                    ?: flowOf(0L)
+                id?.let {
+                    bookRepository
+                        .observeBookDetail(it.value)
+                        .map { detail -> detail?.duration ?: 0L }
+                        .resubscribeOnFailure("readout.roomDurationMs")
+                } ?: flowOf(0L)
             }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /**
@@ -157,7 +166,7 @@ internal class PlayerReadout(
             flow = engineBound,
             flow2 = engine.speed,
             flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultPlaybackSpeed(),
+            flow4 = playbackPreferences.observeDefaultPlaybackSpeed().resubscribeOnFailure("readout.defaultSpeed"),
         ) { bound, engineSpeed, saved, default ->
             if (bound) engineSpeed else saved?.playbackSpeed ?: default
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_PLAYBACK_SPEED)
@@ -168,7 +177,7 @@ internal class PlayerReadout(
             flow = engineBound,
             flow2 = engine.boostDb,
             flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultVolumeBoostDb(),
+            flow4 = playbackPreferences.observeDefaultVolumeBoostDb().resubscribeOnFailure("readout.defaultBoostDb"),
         ) { bound, engineBoost, saved, default ->
             if (bound) engineBoost else saved?.volumeBoostDb ?: default
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
@@ -197,7 +206,7 @@ internal class PlayerReadout(
                                 positionMs = position?.positionMs ?: 0L,
                                 isFinished = position?.isFinished == true,
                             )
-                        }
+                        }.resubscribeOnFailure("readout.liveness")
                     }
                 verdicts.map { verdict -> id to verdict }
             }.distinctUntilChanged()
