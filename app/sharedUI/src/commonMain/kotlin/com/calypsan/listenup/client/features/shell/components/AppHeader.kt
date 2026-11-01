@@ -375,27 +375,16 @@ private fun SyncIndicator(
             }
 
             is SyncState.Error -> {
-                Icon(
-                    imageVector = Icons.Default.CloudOff,
-                    contentDescription = stringResource(Res.string.shell_sync_error),
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier =
-                        Modifier
-                            .clickable(
-                                onClickLabel = stringResource(Res.string.shell_sync_details_action),
-                                role = Role.Button,
-                            ) {
-                                haptics.press()
-                                onClick()
-                            }.padding(horizontal = 12.dp, vertical = 12.dp),
-                )
+                SyncErrorGlyph(onClick = onClick)
             }
 
             SyncState.Idle,
             is SyncState.Success,
             is SyncState.LibraryMismatch,
             -> {
-                // Idle, Success, LibraryMismatch - show nothing
+                // Nothing to say unless the last "sync now" failed: then the glyph stays until the next one, so a
+                // pull-to-refresh that did not land is never silent.
+                if (syncIndicatorUiState?.refreshFailed == true) SyncErrorGlyph(onClick = onClick)
             }
         }
 
@@ -412,4 +401,24 @@ private fun SyncIndicator(
             )
         }
     }
+}
+
+/** The cloud-off glyph: sync failed. Tapping opens the sync details. */
+@Composable
+private fun SyncErrorGlyph(onClick: () -> Unit) {
+    val haptics = LocalHaptics.current
+    Icon(
+        imageVector = Icons.Default.CloudOff,
+        contentDescription = stringResource(Res.string.shell_sync_error),
+        tint = MaterialTheme.colorScheme.error,
+        modifier =
+            Modifier
+                .clickable(
+                    onClickLabel = stringResource(Res.string.shell_sync_details_action),
+                    role = Role.Button,
+                ) {
+                    haptics.press()
+                    onClick()
+                }.padding(horizontal = 12.dp, vertical = 12.dp),
+    )
 }

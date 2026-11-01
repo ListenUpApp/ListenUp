@@ -25741,6 +25741,26 @@
         }
       }
     },
+    "shell.sync_could_not": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't sync"
+          }
+        }
+      }
+    },
+    "shell.sync_days_ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced %1$d d ago"
+          }
+        }
+      }
+    },
     "shell.sync_details_action": {
       "localizations": {
         "en": {
@@ -25757,6 +25777,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sync error"
+          }
+        }
+      }
+    },
+    "shell.sync_hours_ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced %1$d h ago"
+          }
+        }
+      }
+    },
+    "shell.sync_just_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced just now"
+          }
+        }
+      }
+    },
+    "shell.sync_minutes_ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced %1$d min ago"
+          }
+        }
+      }
+    },
+    "shell.sync_not_yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not synced yet"
           }
         }
       }

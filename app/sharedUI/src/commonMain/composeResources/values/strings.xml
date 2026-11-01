@@ -2575,8 +2575,14 @@ One beautiful library.</string>
     <string name="shell_session_lapsed_body">Sign in to sync — your library and downloads still work.</string>
     <string name="shell_session_lapsed_sign_in">Sign in</string>
     <string name="shell_session_lapsed_title">Signed out</string>
+    <string name="shell_sync_could_not">Couldn't sync</string>
+    <string name="shell_sync_days_ago">Synced %1$d d ago</string>
     <string name="shell_sync_details_action">Show sync details</string>
     <string name="shell_sync_error">Sync error</string>
+    <string name="shell_sync_hours_ago">Synced %1$d h ago</string>
+    <string name="shell_sync_just_now">Synced just now</string>
+    <string name="shell_sync_minutes_ago">Synced %1$d min ago</string>
+    <string name="shell_sync_not_yet">Not synced yet</string>
     <string name="shell_sync_status">Sync status</string>
     <string name="shell_syncing">Syncing...</string>
     <string name="shell_the_servers_library_has_changed">The server's library has changed. You have unsaved changes that will be lost. </string>

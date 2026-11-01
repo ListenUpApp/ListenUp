@@ -606,6 +606,8 @@ LoginUiState
 LoginUiState_SealedType
 LoginViewModel
 LoudnessMeter
+ManualRefresh
+ManualSyncRefresh
 MatchReason
 MatchReason_SealedType
 MatchReceipt
@@ -1007,6 +1009,8 @@ SyncIndicatorUiEvent_SealedType
 SyncIndicatorUiState
 SyncIndicatorViewModel
 SyncPhase
+SyncReadout
+SyncReadout_SealedType
 SyncRepository
 SyncState
 SyncState_SealedType
