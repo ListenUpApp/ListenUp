@@ -101,9 +101,11 @@ struct DiscoverView: View {
                 .padding(.vertical, Spacing.xs)
             }
             .refreshable {
-                discover.refresh()
+                // The leaderboard only re-runs a failed observation (nothing to wait for).
                 leaderboard.refresh()
-                activity.refresh()
+                async let shelves: Void = discover.refreshNow()
+                async let feed: Void = activity.refreshNow()
+                _ = await (shelves, feed)
             }
             .onAppear { landIfRequested(proxy, leaderboard: leaderboard) }
             .onChange(of: leaderboardLandingRequest) { _, _ in landIfRequested(proxy, leaderboard: leaderboard) }

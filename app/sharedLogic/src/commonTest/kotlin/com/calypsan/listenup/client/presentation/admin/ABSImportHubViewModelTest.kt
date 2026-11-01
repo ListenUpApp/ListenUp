@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -14,8 +15,10 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -68,6 +71,33 @@ class ABSImportHubViewModelTest :
 
                 val state = vm.listState.value.shouldBeInstanceOf<ABSImportListUiState.Error>()
                 state.error shouldBe error
+            }
+        }
+
+        test("refreshNow does not return while the list is loading, and returns once it lands") {
+            runTest {
+                val repo: ImportRepository = mock()
+                everySuspend { repo.listImports() } returns AppResult.Success(emptyList())
+                val vm = ABSImportHubViewModel(repo, ErrorBus())
+                advanceUntilIdle()
+                val gate = CompletableDeferred<Unit>()
+                everySuspend { repo.listImports() } calls {
+                    gate.await()
+                    AppResult.Success(listOf(summary("late")))
+                }
+
+                val pull = launch { vm.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+                vm.listState.value
+                    .shouldBeInstanceOf<ABSImportListUiState.Ready>()
+                    .imports
+                    .map { it.id } shouldBe
+                    listOf(ImportId("late"))
             }
         }
 

@@ -102,8 +102,9 @@ struct HomeView: View {
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }
         .refreshable {
-            home.refresh()
+            // The stats card only re-runs a failed observation (nothing to wait for), so only Home's sync is awaited.
             stats.refresh()
+            await home.refreshNow()
         }
         .onChange(of: home.inlineError) { _, message in
             // An inline banner appearing is not narrated, so say it (HIG, Feedback).

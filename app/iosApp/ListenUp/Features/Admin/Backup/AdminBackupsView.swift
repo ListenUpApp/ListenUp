@@ -162,7 +162,7 @@ struct AdminBackupsView: View {
         }
         .listStyle(.insetGrouped)
         .readableListWidth()
-        .refreshable { observer.reload() }
+        .refreshable { await observer.reloadNow() }
         .overlay {
             if case .uploading(let filename) = restoreFromFile?.phase {
                 uploadingOverlay(filename: filename)

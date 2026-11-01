@@ -328,45 +328,47 @@ class DiscoverViewModel(
      * Fetch discovered shelves from the server and publish the grouped UI state.
      * Groups by owner so the screen can render each user's shelves together.
      */
-    private fun loadDiscoverShelves() {
-        viewModelScope.launch {
-            if (authSession.authState.value !is AuthState.Authenticated) {
-                logger.debug { "Not authenticated, skipping shelf fetch" }
-                return@launch
+    private suspend fun fetchDiscoverShelves() {
+        if (authSession.authState.value !is AuthState.Authenticated) {
+            logger.debug { "Not authenticated, skipping shelf fetch" }
+            return
+        }
+
+        when (val result = shelfRepository.discoverShelves()) {
+            is AppResult.Success -> {
+                val userShelves =
+                    result.data
+                        .groupBy { it.ownerId }
+                        .map { (ownerId, ownerShelves) ->
+                            DiscoverUserShelves(
+                                user =
+                                    DiscoverShelfOwner(
+                                        id = ownerId,
+                                        displayName = ownerShelves.first().ownerDisplayName,
+                                    ),
+                                shelves = ownerShelves.map { it.toUiModel() },
+                            )
+                        }
+                discoverShelvesState.value = DiscoverShelvesUiState.Ready(users = userShelves)
             }
 
-            when (val result = shelfRepository.discoverShelves()) {
-                is AppResult.Success -> {
-                    val userShelves =
-                        result.data
-                            .groupBy { it.ownerId }
-                            .map { (ownerId, ownerShelves) ->
-                                DiscoverUserShelves(
-                                    user =
-                                        DiscoverShelfOwner(
-                                            id = ownerId,
-                                            displayName = ownerShelves.first().ownerDisplayName,
-                                        ),
-                                    shelves = ownerShelves.map { it.toUiModel() },
-                                )
-                            }
-                    discoverShelvesState.value = DiscoverShelvesUiState.Ready(users = userShelves)
+            is AppResult.Failure -> {
+                // Offline is an expected state on this background load, not a snackbar-worthy fault —
+                // the section degrades to its local empty/error state. Only genuine (non-connectivity)
+                // errors reach the global bus and the error log; connectivity misses are logged quietly.
+                if (result.error.isConnectivityFailure()) {
+                    logger.debug { "Discover shelves unavailable offline: ${result.error.message}" }
+                } else {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to load discover shelves: ${result.error.message}" }
                 }
-
-                is AppResult.Failure -> {
-                    // Offline is an expected state on this background load, not a snackbar-worthy fault —
-                    // the section degrades to its local empty/error state. Only genuine (non-connectivity)
-                    // errors reach the global bus and the error log; connectivity misses are logged quietly.
-                    if (result.error.isConnectivityFailure()) {
-                        logger.debug { "Discover shelves unavailable offline: ${result.error.message}" }
-                    } else {
-                        errorBus.emit(result.error)
-                        logger.error { "Failed to load discover shelves: ${result.error.message}" }
-                    }
-                    discoverShelvesState.value = DiscoverShelvesUiState.Error(result.error)
-                }
+                discoverShelvesState.value = DiscoverShelvesUiState.Error(result.error)
             }
         }
+    }
+
+    private fun loadDiscoverShelves() {
+        viewModelScope.launch { fetchDiscoverShelves() }
     }
 
     /**
@@ -377,10 +379,18 @@ class DiscoverViewModel(
      *   restarted — re-subscribing a healthy one would say the same thing again
      */
     fun refresh() {
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /**
+     * [refresh], but suspending until the shelves fetch has finished (success or failure). The books draw and the
+     * live sections only restart a flow, so the shelves fetch is the one piece of work with an end to wait for.
+     */
+    suspend fun refreshNow() {
         discoverBooksDraws.update { it + 1 }
         retryListeningNow()
         retryRecentlyAdded()
-        loadDiscoverShelves()
+        fetchDiscoverShelves()
     }
 
     /** Try again on a failed Listening now: restarts that section only. */

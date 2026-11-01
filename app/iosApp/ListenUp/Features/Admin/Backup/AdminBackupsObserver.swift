@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `AdminBackupViewModel` — flattens the sealed `AdminBackupUiState`
 /// (`Loading` / `Ready` / `Error`) into a SwiftUI-native `BackupsPhase` the backups screen
@@ -44,6 +44,8 @@ final class AdminBackupsObserver {
     // MARK: - Actions
 
     func reload() { viewModel.loadBackups() }
+    /// `reload()` for a pull-to-refresh: returns when the list has loaded.
+    func reloadNow() async { try? await viewModel.refreshNow() }
 
     func createBackup(includeImages: Bool) { viewModel.createBackup(includeImages: includeImages) }
 

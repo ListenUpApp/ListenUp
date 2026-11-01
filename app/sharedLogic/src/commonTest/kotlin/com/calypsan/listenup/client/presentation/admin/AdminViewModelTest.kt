@@ -34,7 +34,9 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -185,6 +187,44 @@ class AdminViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
                 ready.users.size shouldBe 2
                 ready.pendingInvites.size shouldBe 1
+            }
+        }
+
+        test("refreshNow does not return while the admin data is loading, and returns once it lands") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
+                        instanceRepository = FakeInstanceRepository(),
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+                val gate = CompletableDeferred<Unit>()
+                everySuspend { loadInvitesUseCase() } calls {
+                    gate.await()
+                    AppResult.Success(listOf(createInvite("late")))
+                }
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .pendingInvites.size shouldBe 1
             }
         }
 

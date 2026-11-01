@@ -158,8 +158,9 @@ struct AdminView: View {
         }
         .readableListWidth(720)
         .refreshable {
-            admin.reload()
-            settings.reload()
+            async let adminData: Void = admin.reloadNow()
+            async let settingsData: Void = settings.reloadNow()
+            _ = await (adminData, settingsData)
         }
     }
 

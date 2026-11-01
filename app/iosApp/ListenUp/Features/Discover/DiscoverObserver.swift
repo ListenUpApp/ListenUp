@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `DiscoverViewModel` — flattens its sealed states into SwiftUI-native phases:
 /// `newForYou` (Something New), `recentlyAdded` (Recently Added), `currentlyListening` (Listening
@@ -46,6 +46,11 @@ final class DiscoverObserver {
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    /// `refresh()` for a pull-to-refresh: returns when the shelves fetch has finished.
+    func refreshNow() async {
+        try? await viewModel.refreshNow()
     }
 
     /// Draws ten different books for Something New; leaves every other section alone. Also Something

@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.test.SimulatedFailure
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -704,6 +706,45 @@ class DiscoverViewModelTest :
                 advanceUntilIdle()
 
                 verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }
+            }
+        }
+
+        test("refreshNow does not return while the shelves fetch is in flight, and returns when it lands") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                val gate = CompletableDeferred<Unit>()
+                everySuspend { fixture.shelfRepository.discoverShelves() } calls {
+                    gate.await()
+                    AppResult.Success(emptyList())
+                }
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+                viewModel.discoverShelvesState.value shouldBe DiscoverShelvesUiState.Ready(emptyList())
+            }
+        }
+
+        test("refreshNow returns after a failed shelves fetch, without throwing") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.Timeout())
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+
+                pull.isCompleted shouldBe true
+                pull.isCancelled shouldBe false
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
             }
         }
 

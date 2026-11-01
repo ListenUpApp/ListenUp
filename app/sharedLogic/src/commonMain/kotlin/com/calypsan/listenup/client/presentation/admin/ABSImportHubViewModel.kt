@@ -63,27 +63,30 @@ class ABSImportHubViewModel(
 
     /** (Re)loads the staged-import list. Failures keep an already-rendered list and surface a snackbar. */
     fun refresh() {
-        viewModelScope.launch {
-            when (val result = importRepository.listImports()) {
-                is AppResult.Success -> {
-                    listState.update { current ->
-                        if (current is ABSImportListUiState.Ready) {
-                            current.copy(imports = result.data, error = null)
-                        } else {
-                            ABSImportListUiState.Ready(imports = result.data)
-                        }
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /** [refresh], but suspending until the fetch has finished (success or failure), so a pull spinner can wait for it. */
+    suspend fun refreshNow() {
+        when (val result = importRepository.listImports()) {
+            is AppResult.Success -> {
+                listState.update { current ->
+                    if (current is ABSImportListUiState.Ready) {
+                        current.copy(imports = result.data, error = null)
+                    } else {
+                        ABSImportListUiState.Ready(imports = result.data)
                     }
                 }
+            }
 
-                is AppResult.Failure -> {
-                    logger.error { "Failed to load imports: ${result.error.debugInfo ?: result.error.code}" }
-                    errorBus.emit(result.error)
-                    listState.update { current ->
-                        if (current is ABSImportListUiState.Ready) {
-                            current.copy(error = result.error)
-                        } else {
-                            ABSImportListUiState.Error(result.error)
-                        }
+            is AppResult.Failure -> {
+                logger.error { "Failed to load imports: ${result.error.debugInfo ?: result.error.code}" }
+                errorBus.emit(result.error)
+                listState.update { current ->
+                    if (current is ABSImportListUiState.Ready) {
+                        current.copy(error = result.error)
+                    } else {
+                        ABSImportListUiState.Error(result.error)
                     }
                 }
             }
