@@ -645,5 +645,7 @@ listenup-custom:
     #
     # So this is a genuine gap, not a false alarm to be silenced: WEB LOCALIZATION IS UNSOLVED.
     # Remove this exclusion the moment web gets a string pipeline, and expect it to light up.
+    # sharedLogic, :contract and :server have no Compose UI; their `message =` / `title =` arguments are
+    # log lines, error text and data, not copy.
     # Component tests render literal Text("...") precisely to assert on it — that is the test, not a UI string.
-    excludes: ['**/app/webApp/**', '**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
+    excludes: ['**/app/webApp/**', '**/app/sharedLogic/**', '**/contract/**', '**/server/**', '**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
