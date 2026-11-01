@@ -5,6 +5,7 @@ import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiObject2
@@ -20,8 +21,8 @@ import org.junit.runner.RunWith
  *
  * 1. **Onboarding** (always): cold launch, splash dismissal and the manual server-entry form —
  *    what every first-run user sees.
- * 2. **Returning user** (when a rig server is supplied): sign in, then Home → Library grid fling
- *    → Book detail → Play → Now Playing. This is what a returning user cold-starts into every
+ * 2. **Returning user** (when a rig server is supplied): sign in, then Home (scrolled) → Library grid
+ *    fling → Book detail → Play → mini player → Now Playing. This is what a returning user cold-starts into every
  *    day, and without it those screens run un-AOT'd.
  *
  * The second journey needs a signed-in app against a **seeded local rig server** (at least one
@@ -34,6 +35,9 @@ import org.junit.runner.RunWith
  *   -Pandroid.testInstrumentationRunnerArguments.listenupEmail=<rig account> \
  *   -Pandroid.testInstrumentationRunnerArguments.listenupPassword="$(op read 'op://…')"
  * ```
+ *
+ * Every step of that journey fails with a message naming the missing screen rather than ending
+ * quietly, so a redesign that moves a label cannot silently shrink the profile.
  *
  * (`10.0.2.2` is the emulator's alias for the host's loopback.) Without the arguments, only the
  * onboarding journey runs and the profile still generates.
@@ -105,39 +109,57 @@ class BaselineProfileGenerator {
     /** Journey 2: Home → Library fling → Book detail → Play → Now Playing, then back out. */
     private fun MacrobenchmarkScope.browseAndPlay() {
         device.waitForIdle()
-        device.findObject(By.text(LIBRARY_TAB))?.click()
+        require(By.text(HOME_TAB), "the Home tab", NETWORK_TIMEOUT_MS)
+        scrollLargestScrollable()
+        require(By.text(LIBRARY_TAB), "the Library tab").click()
 
         // A book card is the first cover-shaped (taller than wide) clickable; tabs, nav items and
         // toolbar buttons never are. Waiting for one also waits for the library to sync in.
         val bookCard = { device.findObjects(By.clickable(true)).firstOrNull { it.isCoverShaped() } }
-        if (!device.wait({ bookCard() != null }, NETWORK_TIMEOUT_MS)) return
+        check(device.wait({ bookCard() != null }, NETWORK_TIMEOUT_MS)) {
+            "Baseline journey: library did not sync, no book card appeared — is the rig seeded?"
+        }
 
         // The library grid is the largest scrollable. With too few books to scroll there is no
         // such grid, and the fling lands on a row that does not move — harmless.
-        device
-            .findObjects(By.scrollable(true))
-            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
-            ?.let { grid ->
-                grid.setGestureMargin(device.displayWidth / GESTURE_MARGIN_DIVISOR)
-                grid.fling(Direction.DOWN)
-                device.waitForIdle()
-                grid.fling(Direction.UP)
-                device.waitForIdle()
-            }
+        scrollLargestScrollable()
 
-        val firstBook = bookCard() ?: return
+        val firstBook = checkNotNull(bookCard()) { "Baseline journey: the book card vanished after scrolling" }
         firstBook.click()
-        val play = device.wait(Until.findObject(By.text(PLAY)), TIMEOUT_MS) ?: return
-        play.click()
+        require(By.text(PLAY), "the Play button").click()
 
-        device.wait(Until.findObject(By.desc(MINI_PLAYER_COVER)), NETWORK_TIMEOUT_MS)?.click()
-        device.wait(Until.hasObject(By.text(NOW_PLAYING)), TIMEOUT_MS)
+        require(By.res(MINI_BODY_TAG), "the mini player", NETWORK_TIMEOUT_MS).click()
+        require(By.desc(COLLAPSE_PLAYER), "Now Playing (its collapse button)")
         device.waitForIdle()
 
         // Leave the rig quiet for the next iteration: stop playback and return to Home.
         device.findObject(By.desc(PAUSE))?.click()
         repeat(BACK_PRESSES) { device.pressBack() }
     }
+
+    /** Flings the largest scrollable down and back up; a screen with nothing to scroll is left alone. */
+    private fun MacrobenchmarkScope.scrollLargestScrollable() {
+        device
+            .findObjects(By.scrollable(true))
+            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
+            ?.let { scrollable ->
+                scrollable.setGestureMargin(device.displayWidth / GESTURE_MARGIN_DIVISOR)
+                scrollable.fling(Direction.DOWN)
+                device.waitForIdle()
+                scrollable.fling(Direction.UP)
+                device.waitForIdle()
+            }
+    }
+
+    /** Waits for [selector]; a screen that moved fails the journey with [what] instead of ending it quietly. */
+    private fun MacrobenchmarkScope.require(
+        selector: BySelector,
+        what: String,
+        timeout: Long = TIMEOUT_MS,
+    ): UiObject2 =
+        checkNotNull(device.wait(Until.findObject(selector), timeout)) {
+            "Baseline journey: $what not found ($selector)"
+        }
 
     /** A node recomposed away between the query and this read is stale: not a card, re-query. */
     private fun UiObject2.isCoverShaped(): Boolean =
@@ -192,8 +214,11 @@ class BaselineProfileGenerator {
         const val SIGN_IN = "Sign in"
         const val LIBRARY_TAB = "Library"
         const val PLAY = "Play"
-        const val MINI_PLAYER_COVER = "Book cover"
-        const val NOW_PLAYING = "NOW PLAYING"
+        const val HOME_TAB = "Home"
+        const val COLLAPSE_PLAYER = "Collapse player"
+
+        /** The mini player body's test tag, exposed as a resource id by the app root. */
+        const val MINI_BODY_TAG = "mini-body"
         const val PAUSE = "Pause"
         const val EDIT_TEXT = "android.widget.EditText"
 

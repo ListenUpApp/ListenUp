@@ -25,6 +25,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
@@ -396,7 +398,11 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         ProvideHaptics(hapticFeedbackEnabled = hapticFeedbackEnabled) {
             // Paint the themed surface edge-to-edge (behind the system bars) so there are no
             // window-background bands at the top/bottom; inner scaffolds stay transparent over it.
-            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            // Test tags double as resource ids so UiAutomator (the baseline-profile generator) can find them.
+            Surface(
+                modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+                color = MaterialTheme.colorScheme.surface,
+            ) {
                 ListenUpNavigation()
             }
         }
