@@ -194,6 +194,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
+import listenup.composeapp.generated.resources.admin_confirm_delete_user
+import listenup.composeapp.generated.resources.admin_confirm_deny_reset
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -381,7 +383,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { userToDelete = null },
             title = stringResource(Res.string.common_delete_name, "User"),
-            text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone.",
+            text = stringResource(Res.string.admin_confirm_delete_user, user.displayName ?: user.email),
             confirmText = stringResource(Res.string.common_delete),
             onConfirm = {
                 viewModel.deleteUser(user.id)
@@ -430,7 +432,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { resetToDeny = null },
             title = stringResource(Res.string.admin_deny_reset),
-            text = "Are you sure you want to deny the password reset for ${request.displayName}?",
+            text = stringResource(Res.string.admin_confirm_deny_reset, request.displayName),
             confirmText = stringResource(Res.string.common_deny),
             onConfirm = {
                 viewModel.decidePasswordReset(request.id, approved = false)

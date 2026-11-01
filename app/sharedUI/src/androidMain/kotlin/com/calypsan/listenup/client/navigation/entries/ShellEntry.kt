@@ -52,6 +52,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.core.BookId
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.features.share.shareBookText
 
 /** Shell (root) navigation entry — the main app scaffold with bottom nav. */
 internal fun EntryProviderScope<NavKey>.shellEntry(
@@ -242,7 +243,7 @@ private fun rememberBookSharer(): (bookId: String, title: String) -> Unit {
     return { bookId, title ->
         scope.launch {
             bookShareUrl(instanceRepository, BookId(bookId))?.let { url ->
-                shareActions.shareText("Check out $title on ListenUp!\n$url", url)
+                shareActions.shareText(shareBookText(title, url), url)
             }
         }
     }

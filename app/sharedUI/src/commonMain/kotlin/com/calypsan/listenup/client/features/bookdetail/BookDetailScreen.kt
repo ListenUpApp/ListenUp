@@ -98,6 +98,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_insufficient_storage
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.features.share.shareBookText
 
 /**
  * Immersive book detail screen following Material 3 Expressive Design.
@@ -407,7 +408,7 @@ private fun BookDetailReadyContent(
                     scope.launch {
                         // The RPC-backed server identity, through the one builder every client shares.
                         bookShareUrl(instanceRepository, book.id)?.let { url ->
-                            platformActions.shareText("Check out ${book.title} on ListenUp!\n$url", url)
+                            platformActions.shareText(shareBookText(book.title, url), url)
                         }
                     }
                 },

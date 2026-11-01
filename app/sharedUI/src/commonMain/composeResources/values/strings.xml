@@ -37,6 +37,7 @@
     <string name="admin_categories_select_hint">Select a category to rename, move, merge or delete it.</string>
     <string name="admin_collapse_all">Collapse all</string>
     <string name="admin_collection_count">%1$d collection</string>
+    <string name="admin_collection_created">Collection created</string>
     <string name="admin_collection_details">Collection details</string>
     <string name="admin_collection_members_count">%1$d members</string>
     <string name="admin_collection_name">Collection name</string>
@@ -46,7 +47,9 @@
     <string name="admin_collections_count">%1$d collections</string>
     <string name="admin_confirm_delete_backup">Are you sure you want to delete %1$s? This cannot be undone.</string>
     <string name="admin_confirm_delete_item">Are you sure you want to delete “%1$s”? This action cannot be undone.</string>
+    <string name="admin_confirm_delete_user">Are you sure you want to delete %1$s? This action cannot be undone.</string>
     <string name="admin_confirm_deny_registration">Are you sure you want to deny the registration request from </string>
+    <string name="admin_confirm_deny_reset">Are you sure you want to deny the password reset for %1$s?</string>
     <string name="admin_confirm_remove_member">Are you sure you want to remove this member from the collection? </string>
     <string name="admin_copy_link">Copy link</string>
     <string name="admin_cover_images">Cover images</string>
@@ -913,6 +916,7 @@ One beautiful library.</string>
     <string name="common_add_name">Add %1$s</string>
     <string name="common_admin">Admin</string>
     <string name="common_administration">Administration</string>
+    <string name="common_alphabet_scrollbar">Alphabet scrollbar</string>
     <string name="common_approve">Approve</string>
     <string name="common_back">Back</string>
     <string name="common_book">book</string>

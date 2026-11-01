@@ -85,6 +85,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import listenup.composeapp.generated.resources.admin_collection_created
 
 private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
@@ -129,12 +130,13 @@ fun AdminCollectionsScreen(
     }
 
     // Create-success snackbar (only meaningful in Ready).
+    val collectionCreatedMessage = stringResource(Res.string.admin_collection_created)
     val readyCreateSuccess = (state as? AdminCollectionsUiState.Ready)?.createSuccess == true
     LaunchedEffect(readyCreateSuccess) {
         if (readyCreateSuccess) {
             showCreateDialog = false // Dismiss dialog FIRST (before suspend)
             viewModel.clearCreateSuccess()
-            snackbarHostState.showSnackbar("Collection created") // This suspends
+            snackbarHostState.showSnackbar(collectionCreatedMessage) // This suspends
         }
     }
 

@@ -53,6 +53,9 @@ import listenup.composeapp.generated.resources.invite_confirm_server_cancel
 import listenup.composeapp.generated.resources.invite_confirm_server_continue
 import listenup.composeapp.generated.resources.invite_confirm_server_signed_out_warning
 import listenup.composeapp.generated.resources.invite_confirm_server_title
+import listenup.composeapp.generated.resources.common_continue
+import listenup.composeapp.generated.resources.invite_get_started
+import listenup.composeapp.generated.resources.common_dismiss
 
 /**
  * Public invite-claim landing screen — the redeem half of the invite vertical.
@@ -176,7 +179,7 @@ private fun CodeEntryStep(
         )
         ListenUpButton(
             onClick = { onCodeEntered(code.trim()) },
-            text = "Continue",
+            text = stringResource(Res.string.common_continue),
             enabled = code.isNotBlank(),
         )
     }
@@ -310,7 +313,7 @@ internal fun ClaimStep(
 
         ListenUpButton(
             onClick = { onClaim(password, firstName, lastName) },
-            text = "Get started",
+            text = stringResource(Res.string.invite_get_started),
             leadingIcon = Icons.AutoMirrored.Outlined.Login,
             enabled = firstName.isNotBlank() && lastName.isNotBlank() && password.isNotBlank(),
         )
@@ -380,7 +383,7 @@ private fun ErrorStep(
             subtitle = message,
             onBack = onCancel,
         ) {
-            ListenUpButton(onClick = onCancel, text = "Dismiss")
+            ListenUpButton(onClick = onCancel, text = stringResource(Res.string.common_dismiss))
         }
     }
 }

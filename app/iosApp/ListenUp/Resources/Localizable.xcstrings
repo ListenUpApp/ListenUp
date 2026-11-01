@@ -371,6 +371,16 @@
         }
       }
     },
+    "admin.collection_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collection created"
+          }
+        }
+      }
+    },
     "admin.collection_details": {
       "localizations": {
         "en": {
@@ -461,12 +471,32 @@
         }
       }
     },
+    "admin.confirm_delete_user": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to delete %1$@? This action cannot be undone."
+          }
+        }
+      }
+    },
     "admin.confirm_deny_registration": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Are you sure you want to deny the registration request from "
+          }
+        }
+      }
+    },
+    "admin.confirm_deny_reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to deny the password reset for %1$@?"
           }
         }
       }
@@ -9117,6 +9147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Administration"
+          }
+        }
+      }
+    },
+    "common.alphabet_scrollbar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alphabet scrollbar"
           }
         }
       }

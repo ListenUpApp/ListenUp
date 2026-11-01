@@ -52,6 +52,8 @@ import listenup.composeapp.generated.resources.admin_schema_migrated
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import listenup.composeapp.generated.resources.admin_restore_this_backup
+import listenup.composeapp.generated.resources.common_done
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -246,7 +248,7 @@ private fun IdleContent(
 
         ListenUpButton(
             onClick = onRestoreClick,
-            text = "Restore this backup",
+            text = stringResource(Res.string.admin_restore_this_backup),
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )
@@ -314,7 +316,7 @@ private fun CompletedContent(
 
         ListenUpButton(
             onClick = onDone,
-            text = "Done",
+            text = stringResource(Res.string.common_done),
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )
