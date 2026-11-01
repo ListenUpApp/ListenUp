@@ -85,6 +85,10 @@ enum MiniLine: Equatable, Sendable {
 
 /// Native values the player surfaces render (rule 8). Built once per `uiState` emission, never on a
 /// position tick (ticks are `PlayerProgressRow`).
+///
+/// A field that changes faster than about once a minute does not belong here: every reader of any accessor reads
+/// the whole snapshot, so it would redraw the tab shell, the menu-bar commands and CarPlay on each change. Such a
+/// field (the sleep timer's remainder, `PlayerObserver.sleepRemainingMs`) gets its own stored property.
 struct PlayerSnapshot: Equatable {
     var isVisible = false
     var currentBookId: String?
@@ -133,8 +137,6 @@ struct PlayerSnapshot: Equatable {
     var skipBackwardSec = 10
     var sleepTimerActive = false
     var sleepTimerIsEndOfChapter = false
-    /// A duration timer's own remainder. An end-of-chapter timer carries none: read `sleepCountdownMs` instead.
-    var sleepTimerRemainingMs: Int64 = 0
     /// What a duration timer was armed with; 0 for end of chapter.
     var sleepTimerTotalMs: Int64 = 0
     var sleepTimerStartedAtMs: Int64 = 0
@@ -167,6 +169,15 @@ struct PlayerSnapshot: Equatable {
     var isWholeBook = false
     /// Every series the book is in, in the book's order.
     var series: [SeriesNavRef] = []
+
+    /// A running duration timer's remainder, which ticks once a second; 0 with no timer and for end of chapter,
+    /// which carries none (its countdown follows the chapter's progress).
+    static func sleepRemainingMs(of state: any PlayerUiState) -> Int64 {
+        guard case .loaded(let wrapped) = state.sealedType(),
+            case .active(let timer) = wrapped.value.sleepTimer.sealedType()
+        else { return 0 }
+        return timer.value.remainingMs
+    }
 
     static func from(_ state: any PlayerUiState) -> PlayerSnapshot {
         guard case .loaded(let wrapped) = state.sealedType() else {
@@ -299,7 +310,6 @@ struct PlayerSnapshot: Equatable {
         let isEndOfChapter: Bool = if case .endOfChapter = active.mode.sealedType() { true } else { false }
         sleepTimerActive = true
         sleepTimerIsEndOfChapter = isEndOfChapter
-        sleepTimerRemainingMs = active.remainingMs
         sleepTimerTotalMs = active.totalMs
         sleepTimerStartedAtMs = active.startedAt
     }
@@ -307,10 +317,13 @@ struct PlayerSnapshot: Equatable {
     /// Wall-clock milliseconds until the timer pauses playback, given the chapter's content remainder; nil with no
     /// timer. The shared rule (`SleepCountdowns`): a duration counts itself down, end of chapter is the chapter's
     /// remainder at the listening speed.
-    func sleepCountdownMs(chapterRemainingMs: Int64) -> Int64? {
+    ///
+    /// `sleepRemainingMs` is a duration timer's own remainder (`PlayerObserver.sleepRemainingMs`): it ticks, so it
+    /// lives outside the snapshot.
+    func sleepCountdownMs(chapterRemainingMs: Int64, sleepRemainingMs: Int64) -> Int64? {
         guard sleepTimerActive else { return nil }
         return SleepCountdowns.shared.remainingMs(
-            isEndOfChapter: sleepTimerIsEndOfChapter, durationRemainingMs: sleepTimerRemainingMs,
+            isEndOfChapter: sleepTimerIsEndOfChapter, durationRemainingMs: sleepRemainingMs,
             chapterRemainingMs: chapterRemainingMs, speed: playbackSpeed)
     }
 }
@@ -322,6 +335,9 @@ struct PlayerSnapshot: Equatable {
 @MainActor
 final class PlayerObserver {
     private(set) var snapshot = PlayerSnapshot()
+    /// The running duration timer's remainder: it ticks every second, so it is kept out of `snapshot` (which would
+    /// redraw every reader of any player accessor) and only the countdown's readers read it.
+    private(set) var sleepRemainingMs: Int64 = 0
     private(set) var progress = PlayerProgressRow()
     /// The book a play request is in flight for (debounced): Book Detail's busy button.
     private(set) var preparingBookId: String?
@@ -341,20 +357,24 @@ final class PlayerObserver {
     static func detached(
         _ state: any PlayerUiState, progress: PlayerProgressRow = PlayerProgressRow()
     ) -> PlayerObserver {
-        PlayerObserver(snapshot: PlayerSnapshot.from(state), progress: progress)
+        PlayerObserver(
+            snapshot: PlayerSnapshot.from(state), sleepRemainingMs: PlayerSnapshot.sleepRemainingMs(of: state),
+            progress: progress)
     }
 
     /// Moves a detached observer to `state`, as a new frame from the shared player would: a hosted test's playhead
     /// crossing into the next chapter.
     func replaceDetachedState(_ state: any PlayerUiState, progress: PlayerProgressRow) {
         snapshot = PlayerSnapshot.from(state)
+        sleepRemainingMs = PlayerSnapshot.sleepRemainingMs(of: state)
         self.progress = progress
     }
 
-    private init(snapshot: PlayerSnapshot, progress: PlayerProgressRow) {
+    private init(snapshot: PlayerSnapshot, sleepRemainingMs: Int64, progress: PlayerProgressRow) {
         viewModel = nil
         coordinator = nil
         self.snapshot = snapshot
+        self.sleepRemainingMs = sleepRemainingMs
         self.progress = progress
     }
     #endif
@@ -365,6 +385,8 @@ final class PlayerObserver {
         bridge.bind(viewModel.uiState) { [weak self] state in
             let next = PlayerSnapshot.from(state)
             if self?.snapshot != next { self?.snapshot = next }
+            let remainingMs = PlayerSnapshot.sleepRemainingMs(of: state)
+            if self?.sleepRemainingMs != remainingMs { self?.sleepRemainingMs = remainingMs }
         }
         bridge.bind(viewModel.progress) { [weak self] in self?.progress = PlayerProgressRow($0) }
         bridge.bind(viewModel.preparingBookId) { [weak self] in self?.preparingBookId = $0 }
@@ -408,9 +430,11 @@ final class PlayerObserver {
     var skipBackwardSec: Int { snapshot.skipBackwardSec }
     var sleepTimerActive: Bool { snapshot.sleepTimerActive }
     var sleepTimerIsEndOfChapter: Bool { snapshot.sleepTimerIsEndOfChapter }
-    var sleepTimerRemainingMs: Int64 { snapshot.sleepTimerRemainingMs }
+    var sleepTimerRemainingMs: Int64 { sleepRemainingMs }
     /// Wall-clock time until the running timer pauses, following the progress; nil with no timer.
-    var sleepCountdownMs: Int64? { snapshot.sleepCountdownMs(chapterRemainingMs: progress.chapterRemainingMs) }
+    var sleepCountdownMs: Int64? {
+        snapshot.sleepCountdownMs(chapterRemainingMs: progress.chapterRemainingMs, sleepRemainingMs: sleepRemainingMs)
+    }
     /// The countdown as the settings row and VoiceOver read it ("23:41"); empty with no timer.
     var sleepTimerLabel: String { sleepCountdownMs.map { DurationFormatting.clock(ms: $0) } ?? "" }
     /// The book's remainder in wall time at the current speed: the Speed sheet's one wall-time figure (S10).

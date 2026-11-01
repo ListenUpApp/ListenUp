@@ -61,6 +61,7 @@ struct MiniPlayerAccessoryModel: Equatable {
     static func make(
         snapshot: PlayerSnapshot,
         chapterRemainingMs: Int64,
+        sleepRemainingMs: Int64 = 0,
         chapterFraction: Float,
         isInline: Bool,
         isWide: Bool
@@ -70,7 +71,8 @@ struct MiniPlayerAccessoryModel: Equatable {
         if case .problem(_, _, let tinted) = snapshot.miniLine { isFailure = tinted }
         let parts = isInline ? nil : lineParts(
             snapshot.miniLine, chapterRemainingMs: chapterRemainingMs,
-            sleepCountdownMs: snapshot.sleepCountdownMs(chapterRemainingMs: chapterRemainingMs))
+            sleepCountdownMs: snapshot.sleepCountdownMs(
+                chapterRemainingMs: chapterRemainingMs, sleepRemainingMs: sleepRemainingMs))
         // On a phone the fade's Keep Listening needs back N's room so the title and the line stay readable; back N
         // stays one tap away in Now Playing.
         let isPhoneFade = snapshot.miniLine == .fadingOut && !isWide

@@ -11,7 +11,8 @@ import ListenupContract
 struct MiniPlayerAccessibilityTests {
     private static func model(_ state: PlayerUiStateLoaded) -> MiniPlayerAccessoryModel {
         MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(state), chapterRemainingMs: 511_000, chapterFraction: 0.59,
+            snapshot: PlayerSnapshot.from(state), chapterRemainingMs: 511_000,
+            sleepRemainingMs: PlayerSnapshot.sleepRemainingMs(of: state), chapterFraction: 0.59,
             isInline: false, isWide: false)
     }
 

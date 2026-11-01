@@ -14,6 +14,7 @@ struct NowPlayingStrip: View {
             let model = MiniPlayerAccessoryModel.make(
                 snapshot: player.snapshot,
                 chapterRemainingMs: max(0, player.chapterDurationMs - player.displayChapterPositionMs),
+                sleepRemainingMs: player.sleepRemainingMs,
                 chapterFraction: 0, isInline: false, isWide: false)
             NowPlayingStripContent(
                 model: model,

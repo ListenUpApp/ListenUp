@@ -19,13 +19,16 @@ struct SleepSheetModel: Equatable {
 
     static func make(
         snapshot: PlayerSnapshot,
+        sleepRemainingMs: Int64,
         progress: PlayerProgressRow,
         now: Date,
         locale: Locale = .autoupdatingCurrent,
         timeZone: TimeZone = .autoupdatingCurrent
     ) -> SleepSheetModel {
         if snapshot.isSleepFading { return SleepSheetModel(mode: .fading) }
-        guard let countdownMs = snapshot.sleepCountdownMs(chapterRemainingMs: progress.chapterRemainingMs) else {
+        guard let countdownMs = snapshot.sleepCountdownMs(
+            chapterRemainingMs: progress.chapterRemainingMs, sleepRemainingMs: sleepRemainingMs
+        ) else {
             let line = snapshot.offersEndOfChapter
                 ? String(
                     format: String(localized: "player.sheet_end_of_chapter_after_ios"),
@@ -46,7 +49,7 @@ struct SleepSheetModel: Equatable {
         return SleepSheetModel(mode: .running(
             countdown: DurationFormatting.clock(ms: countdownMs),
             pausesAt: String(format: String(localized: "player.sheet_pauses_at"), pausesAt),
-            meter: meter(snapshot, progress),
+            meter: meter(snapshot, sleepRemainingMs: sleepRemainingMs, progress),
             canExtend: snapshot.sleepTimerCanExtend,
             chapterLine: chapterLine
         ))
@@ -61,12 +64,13 @@ struct SleepSheetModel: Equatable {
 
     /// The share of the timer still to run: the shared `SleepCountdowns.meterFraction`, so the ring agrees with
     /// Android's bar and the web's.
-    private static func meter(_ snapshot: PlayerSnapshot, _ progress: PlayerProgressRow) -> Double {
+    private static func meter(
+        _ snapshot: PlayerSnapshot, sleepRemainingMs: Int64, _ progress: PlayerProgressRow) -> Double {
         let mode: any SleepTimerMode = snapshot.sleepTimerIsEndOfChapter
             ? SleepTimerModeEndOfChapter.shared
             : SleepTimerModeDuration(minutes: Int32(snapshot.sleepTimerTotalMs / 60_000))
         let timer = SleepTimerStateActive(
-            mode: mode, remainingMs: snapshot.sleepTimerRemainingMs, totalMs: snapshot.sleepTimerTotalMs,
+            mode: mode, remainingMs: sleepRemainingMs, totalMs: snapshot.sleepTimerTotalMs,
             startedAt: snapshot.sleepTimerStartedAtMs)
         let shared = PlayerProgress(
             chapterPositionMs: progress.chapterPositionMs, chapterDurationMs: progress.chapterDurationMs,
