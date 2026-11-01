@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -86,6 +87,10 @@ internal fun CommandPaletteHost(
         highlighted = openableSearchHits(newSession.state.value, SEARCH_OPENABLE_TYPES).firstOrNull()
         isOpen = true
     }
+
+    // The palette closes its own session, but a shell torn down with the palette open (sign-out, another tab
+    // signing out) never reaches closePalette: its session's scope would outlive the shell.
+    DisposableEffect(Unit) { onDispose { session?.close() } }
 
     fun moveHighlight(delta: Int) {
         val hits = openableSearchHits(session?.state?.value ?: return, SEARCH_OPENABLE_TYPES)
