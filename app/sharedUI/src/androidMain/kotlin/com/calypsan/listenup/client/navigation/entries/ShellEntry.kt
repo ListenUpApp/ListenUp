@@ -86,11 +86,18 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
         @Suppress("UNUSED_VARIABLE")
         val libraryViewModel: LibraryViewModel = koinViewModel()
 
+        val selectionModels = rememberTabSelectionModels()
+        val leaveTab: (ShellDestination) -> Unit = { destination ->
+            val leaving = currentShellDestination()
+            if (destination != leaving) selectionModels.exitSelectionOf(leaving)
+            onDestinationChange(destination)
+        }
+
         // Get search state for overlay
         HeroEntry {
             AppShell(
                 currentDestination = currentShellDestination(),
-                onDestinationChange = onDestinationChange,
+                onDestinationChange = leaveTab,
                 searchRequests = LocalShellSearchRequests.current,
                 nowPlayingContent = {
                     val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
@@ -156,6 +163,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        multiSelect = selectionModels.home,
                         contentPadding = padding,
                     )
                 },
@@ -166,6 +174,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onAuthorClick = { authorId -> backStack.add(ContributorDetail(authorId)) },
                         onNarratorClick = { narratorId -> backStack.add(ContributorDetail(narratorId)) },
                         appHeader = appHeader,
+                        multiSelect = selectionModels.library,
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
@@ -184,13 +193,14 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                         onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                         onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
+                        multiSelect = selectionModels.discover,
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
                         // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
                         onInvite = { backStack.add(CreateInvite) },
-                        onBrowseLibrary = { onDestinationChange(ShellDestination.Library) },
+                        onBrowseLibrary = { leaveTab(ShellDestination.Library) },
                         onOpenAllActivity = { backStack.add(DiscoverActivity) },
                         contentPadding = padding,
                     )
