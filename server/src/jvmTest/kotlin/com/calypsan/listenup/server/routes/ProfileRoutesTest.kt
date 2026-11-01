@@ -299,6 +299,56 @@ class ProfileRoutesTest :
                 homeDir.toFile().deleteRecursively()
             }
         }
+
+        test("a frame field over 1 KiB answers the typed invalid-frame 400 and stores nothing") {
+            val homeDir = Files.createTempDirectory("listenup-avatar-bigframe-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, userId) = setupRoot()
+                    val sql by application.inject<ListenUpDatabase>()
+
+                    // 64 KiB: past the 1 KiB frame cap. 6 MiB: past even the avatar file cap, so Ktor's own
+                    // per-part limit fires mid-read and must surface as the same typed 400.
+                    for (frameBytes in listOf(64 * 1024, 6 * 1024 * 1024)) {
+                        val response =
+                            client.post("/api/v1/profile/avatar") {
+                                bearerAuth(token)
+                                setBody(avatarPart(png, frameJson = "x".repeat(frameBytes)))
+                            }
+                        response.status shouldBe HttpStatusCode.BadRequest
+                    }
+                    sql.usersQueries
+                        .selectById(userId)
+                        .executeAsOne()
+                        .avatar_type shouldBe "auto"
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("a file part far over the avatar cap still answers 413") {
+            val homeDir = Files.createTempDirectory("listenup-avatar-hugefile-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, _) = setupRoot()
+
+                    client
+                        .post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(avatarPart(ByteArray(6 * 1024 * 1024), frameJson = null))
+                        }.status shouldBe HttpStatusCode.PayloadTooLarge
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
     })
 
 /** A multipart avatar upload of [bytes], with a `frame` field when [frameJson] is given. */
