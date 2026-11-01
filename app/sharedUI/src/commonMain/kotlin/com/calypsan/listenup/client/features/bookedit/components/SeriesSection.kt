@@ -32,6 +32,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
+import listenup.composeapp.generated.resources.book_edit_add_series
 
 /**
  * Series editing section with search and sequence editing.
@@ -94,7 +95,7 @@ fun SeriesSection(
                     onClick = { onSeriesSelected(result) },
                 )
             },
-            placeholder = "Add series...",
+            placeholder = stringResource(Res.string.book_edit_add_series),
             isLoading = isLoading,
             emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )

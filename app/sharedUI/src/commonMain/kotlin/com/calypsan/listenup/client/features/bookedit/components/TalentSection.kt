@@ -51,6 +51,8 @@ import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_from_this_book
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.book_edit_this_will_remove_contributorstoremovecount
+import listenup.composeapp.generated.resources.book_edit_add_role_placeholder
+import listenup.composeapp.generated.resources.book_edit_remove_role_title
 
 /**
  * Talent section for managing contributors by role.
@@ -114,7 +116,7 @@ fun TalentSection(
     roleToRemove?.let { role ->
         ListenUpDestructiveDialog(
             onDismissRequest = { roleToRemove = null },
-            title = "Remove ${role.displayName}s?",
+            title = stringResource(Res.string.book_edit_remove_role_title, role.displayName),
             text =
                 stringResource(
                     Res.string.book_edit_this_will_remove_contributorstoremovecount,
@@ -230,7 +232,7 @@ private fun RoleContributorSection(
                     onClick = { onResultSelected(result) },
                 )
             },
-            placeholder = "Add ${role.displayName.lowercase()}...",
+            placeholder = stringResource(Res.string.book_edit_add_role_placeholder, role.displayName.lowercase()),
             isLoading = isSearching,
             emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )

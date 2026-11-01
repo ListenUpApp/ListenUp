@@ -97,6 +97,10 @@ import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.ui.platform.LocalDensity
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
+import listenup.composeapp.generated.resources.profile_stat_finished
+import listenup.composeapp.generated.resources.profile_stat_best
+import listenup.composeapp.generated.resources.profile_stat_streak
+import listenup.composeapp.generated.resources.profile_stat_listened
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -566,7 +570,7 @@ private fun StatsRow(
             StatTileData(
                 icon = Icons.Default.Schedule,
                 value = totalListenTime,
-                label = "Listened",
+                label = stringResource(Res.string.profile_stat_listened),
                 container = scheme.primaryContainer,
                 onContainer = scheme.onPrimaryContainer,
                 iconTint = scheme.primary,
@@ -574,7 +578,7 @@ private fun StatsRow(
             StatTileData(
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 value = booksFinished.toString(),
-                label = "Finished",
+                label = stringResource(Res.string.profile_stat_finished),
                 container = scheme.tertiaryContainer,
                 onContainer = scheme.onTertiaryContainer,
                 iconTint = scheme.tertiary,
@@ -582,7 +586,7 @@ private fun StatsRow(
             StatTileData(
                 icon = Icons.Default.LocalFireDepartment,
                 value = "${currentStreak}d",
-                label = "Streak",
+                label = stringResource(Res.string.profile_stat_streak),
                 container = scheme.secondaryContainer,
                 onContainer = scheme.onSecondaryContainer,
                 iconTint = scheme.secondary,
@@ -590,7 +594,7 @@ private fun StatsRow(
             StatTileData(
                 icon = Icons.Default.EmojiEvents,
                 value = "${longestStreak}d",
-                label = "Best",
+                label = stringResource(Res.string.profile_stat_best),
                 container = scheme.surfaceContainerHigh,
                 onContainer = scheme.onSurface,
                 iconTint = scheme.primary,

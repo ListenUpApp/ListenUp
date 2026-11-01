@@ -53,6 +53,8 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.series_stat_total
+import listenup.composeapp.generated.resources.series_finished_count
 
 // region hero
 
@@ -205,12 +207,12 @@ internal fun HeroBody(
             HeroStat(
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 value = "${state.books.size} books",
-                label = "${state.finishedCount} finished",
+                label = stringResource(Res.string.series_finished_count, state.finishedCount),
             )
             HeroStat(
                 icon = Icons.Default.Schedule,
                 value = state.formatTotalDuration(),
-                label = "Total",
+                label = stringResource(Res.string.series_stat_total),
             )
         }
     }

@@ -77,6 +77,7 @@ import listenup.composeapp.generated.resources.auth_sign_in_to_access_your
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_continue
 import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.common_email
 
 /**
  * Sign-in screen — the entry point when a server is configured but the app holds no valid session.
@@ -181,7 +182,7 @@ internal fun LoginFields(
     ListenUpTextField(
         value = email,
         onValueChange = { email = it },
-        label = "Email",
+        label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == LoginField.EMAIL,
         leadingIcon = Icons.Outlined.MailOutline,
@@ -192,7 +193,7 @@ internal fun LoginFields(
     ListenUpTextField(
         value = password,
         onValueChange = { password = it },
-        label = "Password",
+        label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == LoginField.PASSWORD,
         leadingIcon = Icons.Outlined.Lock,

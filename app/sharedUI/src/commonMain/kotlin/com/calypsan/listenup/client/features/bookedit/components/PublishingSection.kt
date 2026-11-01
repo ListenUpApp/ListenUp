@@ -12,6 +12,10 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.LanguageDropdown
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import listenup.composeapp.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
+import listenup.composeapp.generated.resources.book_edit_publisher
+import listenup.composeapp.generated.resources.book_edit_year
 
 /**
  * Publishing information section: Publisher, Year, Language.
@@ -29,7 +33,7 @@ fun PublishingSection(
         ListenUpTextField(
             value = publisher,
             onValueChange = onPublisherChange,
-            label = "Publisher",
+            label = stringResource(Res.string.book_edit_publisher),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
 
@@ -40,7 +44,7 @@ fun PublishingSection(
             ListenUpTextField(
                 value = publishYear,
                 onValueChange = onPublishYearChange,
-                label = "Year",
+                label = stringResource(Res.string.book_edit_year),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 // Restrict inside the component (echo-verbatim contract): the VM stores what it
                 // receives verbatim and re-normalizes once more at the save boundary.

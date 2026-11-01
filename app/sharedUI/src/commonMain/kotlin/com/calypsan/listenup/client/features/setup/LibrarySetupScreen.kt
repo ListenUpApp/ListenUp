@@ -419,7 +419,12 @@ private fun DesktopPickerPanel(
                 )
             }
             if (!state.isRoot) {
-                ListenUpButton(text = stringResource(Res.string.common_back), onClick = onBack, filled = false, fillMaxWidth = false)
+                ListenUpButton(
+                    text = stringResource(Res.string.common_back),
+                    onClick = onBack,
+                    filled = false,
+                    fillMaxWidth = false,
+                )
             }
             ListenUpButton(
                 text = stringResource(Res.string.common_continue),
@@ -548,6 +553,10 @@ private fun EmptyFolder(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(Spacing.xl))
-        ListenUpButton(text = stringResource(Res.string.library_setup_select_this_folder), onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
+        ListenUpButton(
+            text = stringResource(Res.string.library_setup_select_this_folder),
+            onClick = onSelectCurrent,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

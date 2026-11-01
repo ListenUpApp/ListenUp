@@ -78,6 +78,9 @@ import listenup.composeapp.generated.resources.contributor_select_death_date
 import listenup.composeapp.generated.resources.error_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.contributor_edit_website_placeholder
+import listenup.composeapp.generated.resources.contributor_edit_website
+import listenup.composeapp.generated.resources.contributor_edit_bio
 
 /**
  * Artist Studio - immersive contributor editing experience.
@@ -485,7 +488,7 @@ private fun BiographyCardContent(
     ListenUpTextArea(
         value = state.description,
         onValueChange = { onEvent(ContributorEditUiEvent.DescriptionChanged(it)) },
-        label = "Bio",
+        label = stringResource(Res.string.contributor_edit_bio),
         placeholder = stringResource(Res.string.contributor_enter_a_biography),
     )
 }
@@ -498,8 +501,8 @@ private fun LinksCardContent(
     ListenUpTextField(
         value = state.website,
         onValueChange = { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) },
-        label = "Website",
-        placeholder = "https://...",
+        label = stringResource(Res.string.contributor_edit_website),
+        placeholder = stringResource(Res.string.contributor_edit_website_placeholder),
         // A URL keyboard alone still autocorrects words and injects spaces; disable text
         // assistance so URLs are typed verbatim.
         keyboardOptions =

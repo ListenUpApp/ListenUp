@@ -102,6 +102,9 @@ import listenup.composeapp.generated.resources.shelf_title_fallback
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.shelf_stat_total
+import listenup.composeapp.generated.resources.shelf_stat_book
+import listenup.composeapp.generated.resources.shelf_stat_books
 
 /**
  * Screen displaying a shelf's details and its books.
@@ -500,12 +503,17 @@ private fun ShelfHeroTexts(
             ShelfStatChip(
                 icon = Icons.AutoMirrored.Filled.LibraryBooks,
                 value = "${detail.bookCount}",
-                label = if (detail.bookCount == 1) "Book" else "Books",
+                label =
+                    if (detail.bookCount == 1) {
+                        stringResource(Res.string.shelf_stat_book)
+                    } else {
+                        stringResource(Res.string.shelf_stat_books)
+                    },
             )
             ShelfStatChip(
                 icon = Icons.Default.Schedule,
                 value = totalDuration,
-                label = "Total",
+                label = stringResource(Res.string.shelf_stat_total),
             )
         }
     }

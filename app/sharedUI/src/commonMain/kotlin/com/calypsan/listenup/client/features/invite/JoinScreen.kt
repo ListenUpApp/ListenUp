@@ -56,6 +56,16 @@ import listenup.composeapp.generated.resources.invite_confirm_server_title
 import listenup.composeapp.generated.resources.common_continue
 import listenup.composeapp.generated.resources.invite_get_started
 import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.invite_invited_by
+import listenup.composeapp.generated.resources.auth_last_name
+import listenup.composeapp.generated.resources.invite_join_title
+import listenup.composeapp.generated.resources.invite_no_longer_valid
+import listenup.composeapp.generated.resources.auth_first_name
+import listenup.composeapp.generated.resources.invite_invited_title
+import listenup.composeapp.generated.resources.auth_password_label
+import listenup.composeapp.generated.resources.invite_code_placeholder
+import listenup.composeapp.generated.resources.invite_problem_title
+import listenup.composeapp.generated.resources.common_server
 
 /**
  * Public invite-claim landing screen — the redeem half of the invite vertical.
@@ -158,7 +168,7 @@ private fun CodeEntryStep(
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
-        title = "Join a library",
+        title = stringResource(Res.string.invite_join_title),
         subtitle = "Enter your invite code to get started.",
         onBack = onCancel,
         modifier = modifier,
@@ -166,7 +176,7 @@ private fun CodeEntryStep(
         ListenUpTextField(
             value = code,
             onValueChange = { code = it },
-            label = "Invite code",
+            label = stringResource(Res.string.invite_code_placeholder),
             leadingIcon = Icons.Outlined.Badge,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions =
@@ -255,7 +265,7 @@ internal fun ClaimStep(
         ErrorStep(
             message =
                 preview.invalidReason
-                    ?: "This invite is no longer valid. It may have already been used or expired.",
+                    ?: stringResource(Res.string.invite_no_longer_valid),
             onCancel = onCancel,
             modifier = modifier,
         )
@@ -268,7 +278,7 @@ internal fun ClaimStep(
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
-        title = "You're invited",
+        title = stringResource(Res.string.invite_invited_title),
         subtitle = "${preview.invitedByName} invited you to ${preview.serverName}. Set a password to finish.",
         badge = AuthBadge(icon = Icons.Outlined.Storage, label = preview.serverName),
         onBack = onCancel,
@@ -279,7 +289,7 @@ internal fun ClaimStep(
         ListenUpTextField(
             value = firstName,
             onValueChange = { firstName = it },
-            label = "First name",
+            label = stringResource(Res.string.auth_first_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -288,7 +298,7 @@ internal fun ClaimStep(
         ListenUpTextField(
             value = lastName,
             onValueChange = { lastName = it },
-            label = "Last name",
+            label = stringResource(Res.string.auth_last_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -297,7 +307,7 @@ internal fun ClaimStep(
         ListenUpTextField(
             value = password,
             onValueChange = { password = it },
-            label = "Password",
+            label = stringResource(Res.string.auth_password_label),
             supportingText = "At least 8 characters",
             leadingIcon = Icons.Outlined.Lock,
             visualTransformation = PasswordVisualTransformation(),
@@ -334,8 +344,16 @@ private fun InvitePreviewCard(
             modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PreviewRow(label = "Server", value = preview.serverName, icon = Icons.Outlined.Storage)
-            PreviewRow(label = "Invited by", value = preview.invitedByName, icon = Icons.Outlined.Person)
+            PreviewRow(
+                label = stringResource(Res.string.common_server),
+                value = preview.serverName,
+                icon = Icons.Outlined.Storage,
+            )
+            PreviewRow(
+                label = stringResource(Res.string.invite_invited_by),
+                value = preview.invitedByName,
+                icon = Icons.Outlined.Person,
+            )
             Text(
                 text = stringResource(Res.string.auth_your_email, preview.email),
                 style = MaterialTheme.typography.bodySmall,
@@ -379,7 +397,7 @@ private fun ErrorStep(
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         AuthScaffold(
-            title = "Invite problem",
+            title = stringResource(Res.string.invite_problem_title),
             subtitle = message,
             onBack = onCancel,
         ) {

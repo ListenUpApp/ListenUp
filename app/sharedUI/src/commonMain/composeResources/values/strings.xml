@@ -8,6 +8,7 @@
     <string name="admin_add_genre">Add genre</string>
     <string name="admin_add_member">Add member</string>
     <string name="admin_add_members_to_share_this">Add members to share this collection</string>
+    <string name="admin_add_root_genre">Add root genre</string>
     <string name="admin_add_subgenre">Add sub-genre</string>
     <string name="admin_administrator">Administrator</string>
     <string name="admin_admins_can_do_everything">Admins can do everything</string>
@@ -351,6 +352,7 @@
     <string name="admin_upload_books_unreadable">%1$d with a result this version of the app can't show</string>
     <string name="admin_upload_books_uploading">Sending %1$s</string>
     <string name="admin_upload_new_import">Upload new import</string>
+    <string name="admin_user_details_title">User Details</string>
     <string name="admin_valid_email_is_required">A valid email is required.</string>
     <string name="admin_view_the_genre_hierarchy_tree">View the genre hierarchy tree</string>
     <string name="admin_what_to_include">What to include</string>
@@ -674,6 +676,7 @@ One beautiful library.</string>
     <string name="book_edit_add_mood">Add mood…</string>
     <string name="book_edit_add_narrator">Add narrator…</string>
     <string name="book_edit_add_role">Add role</string>
+    <string name="book_edit_add_role_placeholder">Add %1$s…</string>
     <string name="book_edit_add_series">Add series…</string>
     <string name="book_edit_add_subtitle">+ Add subtitle</string>
     <string name="book_edit_add_tag">Add tag…</string>
@@ -711,6 +714,7 @@ One beautiful library.</string>
     <string name="book_edit_publisher">Publisher</string>
     <string name="book_edit_publishing">Publishing</string>
     <string name="book_edit_remove_role_section">Remove %1$s section</string>
+    <string name="book_edit_remove_role_title">Remove %1$ss?</string>
     <string name="book_edit_role_plural">%1$ss</string>
     <string name="book_edit_series_label">Series</string>
     <string name="book_edit_shortened_version_of_the_original">Shortened version of the original</string>
@@ -1083,6 +1087,7 @@ One beautiful library.</string>
     <string name="contributor_edit_name">Name</string>
     <string name="contributor_edit_title">Edit contributor</string>
     <string name="contributor_edit_website">Website</string>
+    <string name="contributor_edit_website_placeholder">https://…</string>
     <string name="contributor_enter_a_biography">Enter a biography...</string>
     <string name="contributor_from_your_library_this_action">from your library. This action cannot be undone.</string>
     <string name="contributor_life_span">%1$s – %2$s</string>
@@ -1624,7 +1629,12 @@ One beautiful library.</string>
     <string name="invite_error_invalid">This invite isn't valid.</string>
     <string name="invite_get_started">Get started</string>
     <string name="invite_have_invite_prompt">Have an invite code?</string>
+    <string name="invite_invited_by">Invited by</string>
+    <string name="invite_invited_title">You're invited</string>
+    <string name="invite_join_title">Join a library</string>
+    <string name="invite_no_longer_valid">This invite is no longer valid. It may have already been used or expired.</string>
     <string name="invite_preview_title">%1$s invited you</string>
+    <string name="invite_problem_title">Invite problem</string>
     <string name="invite_set_password_title">Set your password</string>
     <string name="invite_subtitle">Enter the code from your invitation to get started.</string>
     <string name="invite_title">Join with an invite</string>
@@ -2319,6 +2329,7 @@ One beautiful library.</string>
     <string name="profile_stat_day_streak">Day streak</string>
     <string name="profile_stat_finished">Finished</string>
     <string name="profile_stat_listened">Listened</string>
+    <string name="profile_stat_streak">Streak</string>
     <string name="profile_tagline">Tagline</string>
     <string name="profile_tagline_char_count">%1$d/%2$d</string>
     <string name="profile_tagline_description">A short bio that appears on your profile</string>
@@ -2496,6 +2507,7 @@ One beautiful library.</string>
     <string name="settings_downloads">Downloads</string>
     <string name="settings_duration_when_pressing_skip_backward">Duration when pressing skip backward</string>
     <string name="settings_duration_when_pressing_skip_forward">Duration when pressing skip forward</string>
+    <string name="settings_dynamic_colors">Dynamic colors</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
     <string name="settings_haptic_feedback_subtitle">Vibration feedback for controls</string>
     <string name="settings_hide_series_with_only_one">Hide series with only one book</string>
@@ -2560,6 +2572,9 @@ One beautiful library.</string>
     <string name="shelf_private_shelf">Private shelf</string>
     <string name="shelf_private_shelf_description">Only you can see this shelf.</string>
     <string name="shelf_shelf_details">Shelf details</string>
+    <string name="shelf_stat_book">Book</string>
+    <string name="shelf_stat_books">Books</string>
+    <string name="shelf_stat_total">Total</string>
     <string name="shelf_this_will_permanently_delete_this">This will permanently delete this shelf. Books in the shelf will not be affected.</string>
     <string name="shelf_title_fallback">Shelf</string>
     <string name="shelf_unavailable_title">Shelf unavailable</string>

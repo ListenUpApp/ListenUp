@@ -54,6 +54,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import listenup.composeapp.generated.resources.admin_restore_this_backup
 import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.admin_restore_destructive_title
+import listenup.composeapp.generated.resources.admin_restore_confirm_title
+import listenup.composeapp.generated.resources.admin_restore_complete
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +164,7 @@ internal fun RestoreBackupContent(
     if (state == RestoreBackupUiState.Confirming) {
         ListenUpDestructiveDialog(
             onDismissRequest = onCancelRestore,
-            title = "Restore backup?",
+            title = stringResource(Res.string.admin_restore_confirm_title),
             text =
                 "This replaces everything on this server, including all user accounts, with the " +
                     "contents of this backup. You'll be signed out and must sign in again with an " +
@@ -207,7 +210,7 @@ private fun IdleContent(
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.Warning,
-                    title = "Destructive action",
+                    title = stringResource(Res.string.admin_restore_destructive_title),
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -280,7 +283,7 @@ private fun CompletedContent(
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
                     icon = Icons.Default.CheckCircle,
-                    title = "Restore complete",
+                    title = stringResource(Res.string.admin_restore_complete),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Spacer(modifier = Modifier.height(8.dp))

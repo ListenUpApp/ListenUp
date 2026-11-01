@@ -57,6 +57,7 @@ import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.admin_user_details_title
 
 /**
  * Screen for viewing a single user's details, and the way into their role and permissions.
@@ -79,7 +80,9 @@ fun UserDetailScreen(
         modifier = modifier,
         topBar = {
             ListenUpTopAppBar(
-                title = (state as? UserDetailUiState.Ready)?.run { user.displayableName } ?: "User Details",
+                title =
+                    (state as? UserDetailUiState.Ready)?.run { user.displayableName }
+                        ?: stringResource(Res.string.admin_user_details_title),
                 onBack = onBackClick,
             )
         },

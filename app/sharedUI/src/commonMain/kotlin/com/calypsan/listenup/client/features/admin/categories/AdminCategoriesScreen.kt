@@ -126,6 +126,7 @@ import listenup.composeapp.generated.resources.common_rename
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import listenup.composeapp.generated.resources.admin_add_root_genre
 
 /**
  * Admin screen for managing the category (genre) tree.
@@ -404,7 +405,12 @@ private fun CreateGenreDialog(
 
     if (showCreateDialog) {
         GenreNameDialog(
-            title = if (createParentName != null) "Add sub-genre" else "Add root genre",
+            title =
+                if (createParentName != null) {
+                    stringResource(Res.string.admin_add_subgenre)
+                } else {
+                    stringResource(Res.string.admin_add_root_genre)
+                },
             subtitle = createParentName?.let { "Under: $it" },
             initialName = "",
             confirmLabel = "Create",

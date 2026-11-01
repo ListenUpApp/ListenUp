@@ -22,6 +22,8 @@ import listenup.composeapp.generated.resources.book_edit_shortened_version_of_th
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import listenup.composeapp.generated.resources.book_edit_isbn
+import listenup.composeapp.generated.resources.book_edit_asin
 
 /**
  * Identifiers section: ISBN, ASIN, and Abridged toggle.
@@ -44,7 +46,7 @@ fun IdentifiersSection(
             ListenUpTextField(
                 value = isbn,
                 onValueChange = onIsbnChange,
-                label = "ISBN",
+                label = stringResource(Res.string.book_edit_isbn),
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
@@ -52,7 +54,7 @@ fun IdentifiersSection(
             ListenUpTextField(
                 value = asin,
                 onValueChange = onAsinChange,
-                label = "ASIN",
+                label = stringResource(Res.string.book_edit_asin),
                 modifier = Modifier.weight(1f),
                 keyboardOptions =
                     KeyboardOptions(

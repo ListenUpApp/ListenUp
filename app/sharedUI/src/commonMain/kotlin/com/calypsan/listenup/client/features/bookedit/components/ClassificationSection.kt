@@ -39,6 +39,10 @@ import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.common_collections
 import listenup.composeapp.generated.resources.common_genres
+import listenup.composeapp.generated.resources.book_edit_add_genre
+import listenup.composeapp.generated.resources.book_edit_add_collection
+import listenup.composeapp.generated.resources.book_edit_add_mood
+import listenup.composeapp.generated.resources.book_edit_add_tag
 
 /**
  * Classification section with genres and tags.
@@ -179,7 +183,7 @@ private fun GenresSubsection(
                     onClick = { onGenreSelected(genre) },
                 )
             },
-            placeholder = "Add genre...",
+            placeholder = stringResource(Res.string.book_edit_add_genre),
             isLoading = false,
         )
     }
@@ -241,7 +245,7 @@ private fun TagsSubsection(
                     onClick = { onTagSelected(tag) },
                 )
             },
-            placeholder = "Add tag...",
+            placeholder = stringResource(Res.string.book_edit_add_tag),
             isLoading = isSearching || isCreating,
         )
 
@@ -328,7 +332,7 @@ private fun MoodsSubsection(
                     onClick = { onMoodSelected(mood) },
                 )
             },
-            placeholder = "Add mood...",
+            placeholder = stringResource(Res.string.book_edit_add_mood),
             isLoading = isSearching || isCreating,
         )
 
@@ -429,7 +433,7 @@ internal fun CollectionsSubsection(
                     onClick = { onCollectionSelected(collection) },
                 )
             },
-            placeholder = "Add collection...",
+            placeholder = stringResource(Res.string.book_edit_add_collection),
             isLoading = false,
         )
     }

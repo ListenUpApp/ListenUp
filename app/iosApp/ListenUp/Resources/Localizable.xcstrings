@@ -81,6 +81,16 @@
         }
       }
     },
+    "admin.add_root_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add root genre"
+          }
+        }
+      }
+    },
     "admin.add_subgenre": {
       "localizations": {
         "en": {
@@ -3511,6 +3521,16 @@
         }
       }
     },
+    "admin.user_details_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User Details"
+          }
+        }
+      }
+    },
     "admin.valid_email_is_required": {
       "localizations": {
         "en": {
@@ -6731,6 +6751,16 @@
         }
       }
     },
+    "book.edit_add_role_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$@…"
+          }
+        }
+      }
+    },
     "book.edit_add_series": {
       "localizations": {
         "en": {
@@ -7097,6 +7127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove %1$@ section"
+          }
+        }
+      }
+    },
+    "book.edit_remove_role_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@s?"
           }
         }
       }
@@ -10817,6 +10857,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Website"
+          }
+        }
+      }
+    },
+    "contributor.edit_website_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://…"
           }
         }
       }
@@ -16231,12 +16281,62 @@
         }
       }
     },
+    "invite.invited_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited by"
+          }
+        }
+      }
+    },
+    "invite.invited_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're invited"
+          }
+        }
+      }
+    },
+    "invite.join_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join a library"
+          }
+        }
+      }
+    },
+    "invite.no_longer_valid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This invite is no longer valid. It may have already been used or expired."
+          }
+        }
+      }
+    },
     "invite.preview_title": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ invited you"
+          }
+        }
+      }
+    },
+    "invite.problem_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite problem"
           }
         }
       }
@@ -23181,6 +23281,16 @@
         }
       }
     },
+    "profile.stat_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streak"
+          }
+        }
+      }
+    },
     "profile.tagline": {
       "localizations": {
         "en": {
@@ -24951,6 +25061,16 @@
         }
       }
     },
+    "settings.dynamic_colors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic colors"
+          }
+        }
+      }
+    },
     "settings.haptic_feedback": {
       "localizations": {
         "en": {
@@ -25587,6 +25707,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelf details"
+          }
+        }
+      }
+    },
+    "shelf.stat_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        }
+      }
+    },
+    "shelf.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "shelf.stat_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
           }
         }
       }

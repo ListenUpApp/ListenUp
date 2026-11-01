@@ -59,6 +59,9 @@ import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.error_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.common_save_changes
+import listenup.composeapp.generated.resources.common_saving
+import listenup.composeapp.generated.resources.book_edit_description_label
 
 /**
  * Book editing screen following Material 3 Expressive Design.
@@ -102,7 +105,14 @@ fun BookEditScreen(
                     tonalElevation = 3.dp,
                 ) {
                     ListenUpButton(
-                        text = if (state.isSaving) "Saving..." else "Save changes",
+                        text =
+                            if (state.isSaving) {
+                                stringResource(
+                                    Res.string.common_saving,
+                                )
+                            } else {
+                                stringResource(Res.string.common_save_changes)
+                            },
                         onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
                         enabled = state.hasChanges && !state.isSaving,
                         isLoading = state.isSaving,
@@ -255,7 +265,7 @@ private fun SingleColumnCardsLayout(
             ListenUpTextArea(
                 value = state.description,
                 onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
-                label = "Description",
+                label = stringResource(Res.string.book_edit_description_label),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )
         }
@@ -416,7 +426,7 @@ private fun TwoColumnCardsLayout(
             ListenUpTextArea(
                 value = state.description,
                 onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
-                label = "Description",
+                label = stringResource(Res.string.book_edit_description_label),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )
         }
