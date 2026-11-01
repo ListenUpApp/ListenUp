@@ -33,11 +33,13 @@ class PlayingReturn(
         router: Router,
         from: HTMLElement?,
     ) {
-        opener = from
-        openedInApp = true
-        isClosing = false
-        morph?.beforeOpen(router.current)
-        router.navigate(Routes.playing)
+        router.whenFreeToLeave {
+            opener = from
+            openedInApp = true
+            isClosing = false
+            morph?.beforeOpen(router.current)
+            router.navigate(Routes.playing, force = true)
+        }
     }
 
     /** Close the page: back when it was opened in the app, else Home. Focus returns to the opener when it is still there. */
