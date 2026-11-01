@@ -575,7 +575,10 @@ class PlaybackServiceImplTest :
             failure.error
                 .shouldBeInstanceOf<ValidationError>()
                 .field shouldBe field
-            sql.listeningEventsQueries.selectById("evt-bad").executeAsOneOrNull().shouldBeNull()
+            sql.listeningEventsQueries
+                .selectById("evt-bad")
+                .executeAsOneOrNull()
+                .shouldBeNull()
             service.getStats() shouldBe AppResult.Success(null)
         }
 

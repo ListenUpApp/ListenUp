@@ -26,17 +26,37 @@ internal const val MAX_DEVICE_LABEL_LENGTH: Int = 200
 internal fun RecordListeningEventRequest.boundsViolation(nowMs: Long): ValidationError? =
     when {
         endedAt < startedAt || endedAt - startedAt > MAX_SPAN_MS ||
-            endedAt > nowMs + MAX_FUTURE_SKEW_MS ->
+            endedAt > nowMs + MAX_FUTURE_SKEW_MS -> {
             invalid("This listening session's times aren't valid.", "endedAt")
-        startedAt < 0L -> invalid("This listening session's start time isn't valid.", "startedAt")
-        startPositionMs < 0L -> invalid("This listening session's start position isn't valid.", "startPositionMs")
-        endPositionMs < 0L -> invalid("This listening session's end position isn't valid.", "endPositionMs")
-        playbackSpeed.isNaN() || playbackSpeed <= 0f || playbackSpeed > MAX_PLAYBACK_SPEED ->
+        }
+
+        startedAt < 0L -> {
+            invalid("This listening session's start time isn't valid.", "startedAt")
+        }
+
+        startPositionMs < 0L -> {
+            invalid("This listening session's start position isn't valid.", "startPositionMs")
+        }
+
+        endPositionMs < 0L -> {
+            invalid("This listening session's end position isn't valid.", "endPositionMs")
+        }
+
+        playbackSpeed.isNaN() || playbackSpeed <= 0f || playbackSpeed > MAX_PLAYBACK_SPEED -> {
             invalid("This listening session's playback speed isn't valid.", "playbackSpeed")
-        tz.length > MAX_TZ_LENGTH -> invalid("This listening session's timezone isn't valid.", "tz")
-        (deviceLabel?.length ?: 0) > MAX_DEVICE_LABEL_LENGTH ->
+        }
+
+        tz.length > MAX_TZ_LENGTH -> {
+            invalid("This listening session's timezone isn't valid.", "tz")
+        }
+
+        (deviceLabel?.length ?: 0) > MAX_DEVICE_LABEL_LENGTH -> {
             invalid("This listening session's device name is too long.", "deviceLabel")
-        else -> null
+        }
+
+        else -> {
+            null
+        }
     }
 
 private fun invalid(
