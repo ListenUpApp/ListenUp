@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
@@ -224,7 +225,8 @@ class TransportBarTest :
 
             host.querySelector(".tport-speed")!!.textContent shouldBe "$FASTER_SPEED\u00D7"
             // The visible text is terse by necessity; the label is what a screen reader gets.
-            host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldBe "Playback speed, ${formatSpeed(FASTER_SPEED)} times"
+            host.querySelector(".tport-speed")!!.getAttribute("aria-label") shouldBe
+                "Playback speed, ${PlaybackPresets.speedNumber(FASTER_SPEED)} times"
         }
 
         test("the speed control opens the picker rather than changing the rate under you") {
@@ -246,11 +248,11 @@ class TransportBarTest :
         test("a speed renders as short as it can without lying about itself") {
             // 40px of bar. "1.00x" spends a third of it saying nothing, and "1.2x" would be a
             // different speed from the one playing.
-            formatSpeed(1.0f) shouldBe "1"
-            formatSpeed(FASTER_SPEED) shouldBe "1.5"
-            formatSpeed(QUARTER_SPEED_STEP) shouldBe "1.25"
-            formatSpeed(HALF_SPEED) shouldBe "0.5"
-            formatSpeed(TRIPLE_SPEED) shouldBe "3"
+            compactSpeedText(1.0f) shouldBe "1"
+            compactSpeedText(FASTER_SPEED) shouldBe "1.5"
+            compactSpeedText(QUARTER_SPEED_STEP) shouldBe "1.25"
+            compactSpeedText(HALF_SPEED) shouldBe "0.5"
+            compactSpeedText(TRIPLE_SPEED) shouldBe "3"
         }
 
         test("elapsed time reads H:MM:SS at an hour and M:SS below it") {
@@ -388,7 +390,7 @@ class TransportBarTest :
                     "Pause",
                     "Skip forward 30 seconds",
                     "Chapter position",
-                    "Playback speed, 1 times",
+                    "Playback speed, 1.0 times",
                     "Sleep timer",
                     "Chapters",
                     "Keyboard shortcuts",

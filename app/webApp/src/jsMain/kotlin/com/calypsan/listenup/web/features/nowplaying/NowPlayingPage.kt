@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
@@ -740,14 +741,14 @@ private fun SettingsPills(
     progress: PlayerProgress,
     pickers: PagePickers,
 ) {
-    val speed = formatSpeed(state.settings.speed)
+    val speed = state.settings.speed
     // The wall-clock countdown every surface shares (SleepCountdowns): an end-of-chapter timer's too, never 0:00.
     val countdown =
         SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(PlayerSheetWords::countdown)
     Div(attrs = { classes("np-pills") }) {
         Pill(
-            text = "$speed\u00D7",
-            label = "Playback speed, $speed times",
+            text = PlaybackPresets.speedLabel(speed),
+            label = "Playback speed, ${PlaybackPresets.speedNumber(speed)} times",
             on = false,
             key = PillKey("< >", PlayerKeyAria.SPEED, presses = false),
         ) { opener -> pickers.speed = panelPlacementFor(opener) }

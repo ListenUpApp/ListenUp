@@ -72,7 +72,7 @@ internal fun SpeedPicker(
                 classes("speed-read")
                 attr("aria-live", "off")
             }) {
-                Text(speedLabel(dragSpeed))
+                Text(PlaybackPresets.speedLabel(dragSpeed))
             }
             Span(attrs = { classes("speed-left") }) { Text(PlayerSheetWords.leftAtSpeed(leftAtSpeedMs)) }
         }
@@ -89,7 +89,7 @@ internal fun SpeedPicker(
                 attr("aria-label", PlayerSheetWords.PLAYBACK_SPEED)
                 // The implicit `aria-valuenow` is a raw hundredths count — "one hundred and twenty
                 // five" is not a speed anyone recognises.
-                attr("aria-valuetext", "${formatSpeed(dragSpeed)} times")
+                attr("aria-valuetext", "${PlaybackPresets.speedNumber(dragSpeed)} times")
                 value(hundredths(dragSpeed).toString())
                 onInput { event -> parsedSpeed(event.target.value)?.let { dragSpeed = it } }
                 onChange { event -> parsedSpeed(event.target.value)?.let { onSet(it) } }
@@ -100,15 +100,15 @@ internal fun SpeedPicker(
             classes("speed-bounds")
             attr("aria-hidden", "true")
         }) {
-            Span { Text(speedLabel(PLAYBACK_SPEED_MIN)) }
-            Span { Text(speedLabel(PLAYBACK_SPEED_MAX)) }
+            Span { Text(PlaybackPresets.speedLabel(PLAYBACK_SPEED_MIN)) }
+            Span { Text(PlaybackPresets.speedLabel(PLAYBACK_SPEED_MAX)) }
         }
 
         // Radios, not buttons that happen to look selected: which rate is playing is a choice of one, and a screen
         // reader says so ("1.25×, radio button, checked, 4 of 9"). A rate between rungs checks none.
         ChipRadioGroup(
             label = PlayerSheetWords.SPEED_PRESETS,
-            options = PlaybackPresets.SPEEDS.map { ChipOption(it, speedLabel(it)) },
+            options = PlaybackPresets.SPEEDS.map { ChipOption(it, PlaybackPresets.speedLabel(it)) },
             selected = speed,
             onSelect = { preset ->
                 dragSpeed = preset
@@ -131,7 +131,7 @@ internal fun SpeedPicker(
                     onReset()
                 }
             }) {
-                Text(PlayerSheetWords.resetSpeed(speedLabel(defaultSpeed)))
+                Text(PlayerSheetWords.resetSpeed(PlaybackPresets.speedLabel(defaultSpeed)))
             }
         }
         P(attrs = { classes("panel-note") }) { Text(PlayerSheetWords.THIS_BOOK_ONLY) }
@@ -154,15 +154,6 @@ private fun StepButton(
     }) {
         Span(attrs = { attr("aria-hidden", "true") }) { Text(glyph) }
     }
-}
-
-/**
- * A speed as the panel writes it, with a decimal always: "1.0×", "1.25×", "3.0×" (the boards). The bar's own control is
- * terser ([formatSpeed], "1×") because it is 40px wide; the panel has the room to say it the way the presets read.
- */
-internal fun speedLabel(speed: Float): String {
-    val short = formatSpeed(speed)
-    return if (short.contains('.')) "$short\u00D7" else "$short.0\u00D7"
 }
 
 private fun hundredths(speed: Float): Int = (speed * HUNDREDTHS_PER_UNIT).roundToInt()

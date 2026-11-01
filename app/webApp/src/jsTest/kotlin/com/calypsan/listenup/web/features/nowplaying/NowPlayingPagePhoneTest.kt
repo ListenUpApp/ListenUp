@@ -186,7 +186,7 @@ class NowPlayingPagePhoneTest :
 
         test("the settings are Speed, Sleep and Chapters; boost is not among them") {
             val frame = phonePage(wayOfKings(chapters = chapterRows(3), currentChapterIndex = 0, boostDb = 6f))
-            frame.findAll(".np-mob .np-pill").map { it.textContent } shouldBe listOf("1×", "Sleep", "Chapters")
+            frame.findAll(".np-mob .np-pill").map { it.textContent } shouldBe listOf("1.0×", "Sleep", "Chapters")
         }
 
         test("Speed opens its picker over the page, and closing it leaves the page") {

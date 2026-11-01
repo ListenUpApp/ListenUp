@@ -97,7 +97,7 @@ class SpeedPickerTest :
             val host = picker()
 
             host.querySelectorAll("[role=radio]").length shouldBe PlaybackPresets.SPEEDS.size
-            PlaybackPresets.SPEEDS.forEach { rung -> host.buttonSaying(speedLabel(rung)).shouldNotBeNull() }
+            PlaybackPresets.SPEEDS.forEach { rung -> host.buttonSaying(PlaybackPresets.speedLabel(rung)).shouldNotBeNull() }
 
             host.closeDialogs()
         }
@@ -132,7 +132,7 @@ class SpeedPickerTest :
             var picked: Float? = null
             val host = picker(onSet = { picked = it })
 
-            host.buttonSaying("${formatSpeed(FASTER)}×")!!.click()
+            host.buttonSaying("${PlaybackPresets.speedNumber(FASTER)}×")!!.click()
             awaitFrame()
 
             picked shouldBe FASTER
@@ -156,7 +156,7 @@ class SpeedPickerTest :
             host.dragSliderTo(BETWEEN_RUNGS)
             awaitFrame()
 
-            host.querySelector(".speed-read")?.textContent shouldBe "${formatSpeed(BETWEEN_RUNGS)}×"
+            host.querySelector(".speed-read")?.textContent shouldBe "${PlaybackPresets.speedNumber(BETWEEN_RUNGS)}×"
 
             host.closeDialogs()
         }
@@ -167,7 +167,7 @@ class SpeedPickerTest :
             val host = picker(speed = BETWEEN_RUNGS)
 
             val slider = host.querySelector(".speed-slide") as HTMLElement
-            slider.getAttribute("aria-valuetext").orEmpty() shouldContain formatSpeed(BETWEEN_RUNGS)
+            slider.getAttribute("aria-valuetext").orEmpty() shouldContain PlaybackPresets.speedNumber(BETWEEN_RUNGS)
 
             host.closeDialogs()
         }
