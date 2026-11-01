@@ -30,7 +30,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Engine state
 
     /// What the engine is doing. Every change is reported to the shared player.
-    private(set) var enginePhase: EnginePhaseFact = .idle {
+    var enginePhase: EnginePhaseFact = .idle {
         didSet {
             facts.phase(enginePhase, generation: factGeneration)
             updateBandwidthSignal()
@@ -103,7 +103,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// collects `NativePlayerEngine.commands`, and nothing else references it. Dropped, it cancels on deinit
     /// and every command from the shared player goes unread.
     private let instructions: EngineInstructionSource
-    private let facts: EngineFactReporting
+    let facts: EngineFactReporting
     /// Internal, not private — see `engine` above.
     let progress: PlaybackProgressReporting
     /// Reactive source of the user's skip-interval settings, for the lock-screen skip commands.
@@ -111,16 +111,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let skipIntervals: SkipIntervalProviding?
     /// Source of the audio-session interruption/route-change notifications this coordinator observes.
     /// Tests inject a private center so a post from one test can't reach another test's coordinator.
-    private let notificationCenter: NotificationCenter
-    private let bridge = FlowBridge()
+    let notificationCenter: NotificationCenter
+    let bridge = FlowBridge()
     /// One step of the coordinator's ordered work: an instruction from the shared player, or a load's start once
     /// the engine holds the book.
-    private enum Step: Sendable {
+    enum Step: Sendable {
         case instruction(EngineInstruction)
         case loadResolved(LoadedBook)
+        case interruption(InterruptionPolicy.Action)
+        case remote(RemoteAction)
     }
     /// A book `engine.load` has resolved, waiting its turn to start behind the instructions received before it.
-    private struct LoadedBook: Sendable {
+    struct LoadedBook: Sendable {
         let bookId: String
         let prepared: PreparedPlayback
         let generation: Int
@@ -128,7 +130,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
     /// Instructions join this queue the moment they arrive, and a load's start joins it when `engine.load`
     /// resolves — so everything received while the book loaded (a seek, a pause) runs before the book starts.
-    private let steps: AsyncStream<Step>.Continuation
+    let steps: AsyncStream<Step>.Continuation
     /// The one task running `steps`, in order (spec R2).
     private var drainTask: Task<Void, Never>?
 
@@ -138,21 +140,21 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var loadTask: Task<Void, Never>?
     /// The shared player's tag for the `.load` being executed, carried by every fact reported about it, so a
     /// fact that reaches Kotlin after its next load is recognised as stale and dropped there.
-    private var factGeneration: EngineLoadGeneration = 0
+    var factGeneration: EngineLoadGeneration = 0
     /// Bumped on every `.load` and `.stop`. An in-flight load compares the generation it captured
     /// against this after each `await` and abandons if superseded.
     private var loadGeneration = 0
     /// True from a `.load` until its start runs, after `engine.load` resolves. While set, engine events are dropped —
     /// they belong to the outgoing book or the muted preroll — and transport instructions are
     /// recorded (`playWhenLoaded`, `pendingSeekMs`) and applied once the book has loaded.
-    private var isEngineLoading = false
+    var isEngineLoading = false
     /// Whether the book being loaded starts playing when its load resolves (a `.pause` while loading clears it).
-    private var playWhenLoaded = true
+    var playWhenLoaded = true
     /// A `.seek` that arrived while the book was loading, applied once it has loaded.
     private var pendingSeekMs: Int64?
     /// True only while playback is paused *because of* an audio-session interruption. Gates
     /// `.ended + .shouldResume`: a user's deliberate pause is never overridden.
-    private(set) var pausedByInterruption = false
+    var pausedByInterruption = false
     private static let positionReportIntervalMs: Int64 = 5000
     /// Feeds the shared "playback preempts downloads" signal. Optional for unit tests.
     private let bandwidthCoordinator: PlaybackBandwidthCoordinator?
@@ -193,6 +195,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 switch step {
                 case .instruction(let instruction): await self?.execute(instruction)
                 case .loadResolved(let book): await self?.startLoaded(book)
+                case .interruption(let action): await self?.applyInterruption(action)
+                case .remote(let command): await self?.perform(command)
                 }
             }
         }
@@ -232,69 +236,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             guard let self, seconds != skipBackwardSec else { return }
             skipBackwardSec = seconds
             system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: seconds)
-        }
-    }
-
-    private func observeInterruptions() {
-        let name = AVAudioSession.interruptionNotification
-        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
-            guard let self else { return }
-            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
-            let shouldResume: Bool = {
-                guard let opts = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt else { return false }
-                return AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
-            }()
-            let action = InterruptionPolicy.action(type: type, shouldResume: shouldResume)
-            Task { @MainActor in await self.applyInterruption(action) }
-        }
-    }
-
-    private func observeRouteChanges() {
-        let name = AVAudioSession.routeChangeNotification
-        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
-            guard let self else { return }
-            // The status slot names an AirPlay device (spec §4.7); every route change may move it.
-            let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
-            facts.route(outputs.first { $0.portType == .airPlay }?.portName)
-            guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                  let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
-                  RouteChangePolicy.shouldPause(reason: reason) else { return }
-            Task { @MainActor in await self.applyInterruption(.pause) }
-        }
-    }
-
-    private func applyInterruption(_ action: InterruptionPolicy.Action) async {
-        guard let loaded = engineBook else { return }
-        switch action {
-        case .pause:
-            // .playing OR .buffering: both mean audio intent is "advancing".
-            if isEngineLoading {
-                // Nothing has started: cancel the queued start instead of pausing an engine that never played.
-                playWhenLoaded = false
-                pausedByInterruption = true
-            } else if isPlaybackActive {
-                pausedByInterruption = true
-                await engine.pause()
-                enginePhase = .paused
-                reportPaused(loaded.bookId)
-                updateNowPlaying()
-            }
-        case .resume:
-            guard pausedByInterruption else { return }
-            pausedByInterruption = false
-            if isEngineLoading {
-                playWhenLoaded = true
-            } else if !isPlaying {
-                await engine.activateSession()
-                await engine.play()
-                enginePhase = .playing
-                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs,
-                    speed: playbackSpeed, durationMs: bookDurationMs)
-                updateNowPlaying()
-            }
-        case .none:
-            break
         }
     }
 
@@ -428,7 +369,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         updateNowPlaying()
     }
 
-    private func play() async {
+    func play() async {
         pausedByInterruption = false
         if isEngineLoading { playWhenLoaded = true; return }
         // Nothing held (a failure dropped the book): the shared player prepares it afresh, never a `.play` here.
@@ -441,7 +382,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         updateNowPlaying()
     }
 
-    private func pause() async {
+    func pause() async {
         pausedByInterruption = false
         if isEngineLoading { playWhenLoaded = false; return }
         guard let loaded = engineBook, isPlaybackActive else { return }
@@ -452,7 +393,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     /// Seek to a whole-book position in milliseconds.
-    private func seek(toMs positionMs: Int64) async {
+    func seek(toMs positionMs: Int64) async {
         if isEngineLoading { pendingSeekMs = positionMs; return }
         // Nothing held: the shared player keeps the place and starts the fresh prepare there.
         guard let loaded = engineBook else { return }
@@ -468,7 +409,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await engine.seek(toMs: positionMs)
     }
 
-    private func setRate(_ speed: Float, isReset: Bool) async {
+    func setRate(_ speed: Float, isReset: Bool) async {
         playbackSpeed = speed
         if let id = engineBook?.bookId {
             if isReset {
@@ -547,43 +488,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         await uncancellable { @MainActor in
             await self.progress.savePositionNow(bookId: bookId, positionMs: positionMs)
         }
-    }
-
-    // MARK: - RemoteCommandHandler (Decision 12: engine-level, the session sees the resulting facts)
-
-    func remoteTogglePlayPause() {
-        if isPlaybackActive { Task { await pause() } } else { remoteResume() }
-    }
-    func remotePlay() { if !isPlaybackActive { remoteResume() } }
-    /// A remote play. With no audio held (a failure dropped the book) the shared player is asked to play, and
-    /// prepares the book afresh; replaying the failed preparation here could reuse what broke it.
-    private func remoteResume() {
-        if engineBook == nil, !isEngineLoading {
-            facts.playRequested(generation: factGeneration)
-            return
-        }
-        Task { await play() }
-    }
-    func remotePause() { if isPlaybackActive { Task { await pause() } } }
-    /// The lock screen's, AirPods' and CarPlay's skips move what the app's do: the interval in seconds of listening,
-    /// so interval × speed of book (§3.3, the shared `skipTargetMs`).
-    func remoteSkipForward() { Task { await seek(toMs: remoteSkipTarget(forward: true)) } }
-    func remoteSkipBackward() { Task { await seek(toMs: remoteSkipTarget(forward: false)) } }
-    func remoteSetRate(_ rate: Float) {
-        facts.rate(rate, generation: factGeneration)
-        Task { await setRate(rate, isReset: false) }
-    }
-    /// The lock-screen scrubber spans the CURRENT CHAPTER (see `updateNowPlaying`), so the position
-    /// it reports is window-relative. Translate it back to a book position here — the single
-    /// translation point — and everything downstream keeps speaking book coordinates.
-    func remoteSeek(toWindowPositionMs positionMs: Int64) {
-        let window = ChapterMath.window(
-            forPositionMs: bookPositionMs,
-            in: chapters,
-            bookDurationMs: bookDurationMs
-        )
-        let target = ChapterMath.bookPosition(forWindowPositionMs: positionMs, in: window)
-        Task { await seek(toMs: target) }
     }
 
     /// Whether a newer `.load` or `.stop` has superseded the load that captured `generation`.
@@ -680,7 +584,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     // The shared tracker decides whether a pause or an end finishes the book: it needs both numbers.
-    private func reportPaused(_ bookId: String) {
+    func reportPaused(_ bookId: String) {
         progress.onPlaybackPaused(
             bookId: bookId, positionMs: bookPositionMs, speed: playbackSpeed, durationMs: bookDurationMs)
     }
@@ -691,40 +595,5 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// downloads yield only during the stalls that matter (a local book never asks them to).
     private func updateBandwidthSignal() {
         bandwidthCoordinator?.setStreamingBuffering(active: isBuffering && isCurrentBookStreaming)
-    }
-}
-
-// MARK: - Remote track commands and skip distance
-
-// In this file so they reach the private `seek(toMs:)`; outside the class body, which is long enough.
-extension PlayerCoordinator {
-    /// Previous chapter by the shared rule (§3.3), the one every surface uses; nothing in a chapterless book, and the
-    /// system is told so.
-    func remotePreviousTrack() -> Bool {
-        guard let target = ChapterNavigation.shared.previousStartMs(positionMs: bookPositionMs, chapters: chapters)
-        else { return false }
-        Task { await seek(toMs: target) }
-        return true
-    }
-
-    /// Next chapter by the shared rule; nothing at the last chapter, and the system is told so.
-    func remoteNextTrack() -> Bool {
-        guard let target = ChapterNavigation.shared.nextStartMs(positionMs: bookPositionMs, chapters: chapters) else {
-            return false
-        }
-        Task { await seek(toMs: target) }
-        return true
-    }
-
-    /// Where a remote skip lands: the interval in seconds of listening, so interval × speed of book, as the app's own
-    /// skip moves (§3.3, the shared `skipTargetMs`).
-    func remoteSkipTarget(forward: Bool) -> Int64 {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.skipTargetMs(
-            currentPositionMs: bookPositionMs,
-            seconds: Int32(forward ? skipForwardSec : skipBackwardSec),
-            speed: playbackSpeed,
-            totalDurationMs: bookDurationMs,
-            forward: forward
-        )
     }
 }
