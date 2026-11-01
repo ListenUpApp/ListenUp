@@ -10,6 +10,8 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
@@ -146,6 +148,17 @@ class PlaybackPreparerTest :
 
         // autoRewindEnabled defaults OFF so the resume-merge tests above assert the raw resolved
         // position; the auto-rewind tests opt in explicitly. Production defaults it ON.
+        fun nothingDownloaded(): DownloadService {
+            val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
+            everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
+            everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+            everySuspend { downloadService.downloadBook(any()) } returns
+                AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+            return downloadService
+        }
+
         fun buildPreparer(
             downloadService: DownloadService,
             prepareRepository: PlaybackPrepareRepository,
@@ -786,6 +799,38 @@ class PlaybackPreparerTest :
                 // streaming fallback that fails the whole book).
                 result.timeline.files[1].localPath shouldBe null
                 result.timeline.files[1].streamingUrl shouldBe ""
+            }
+        }
+
+        // ── nothing downloaded and the streaming prepare fails: the failure keeps its network cause ──
+
+        test("a streaming book that can't be prepared because the network is out, with nothing downloaded, fails as unreachable") {
+            runTest {
+                val fakePlaybackService =
+                    FakePlaybackService(prepareResult = AppResult.Failure(TransportError.NetworkUnavailable()))
+                val preparer = buildPreparer(nothingDownloaded(), FakePlaybackPrepareRepository(fakePlaybackService))
+
+                val error =
+                    preparer
+                        .prepare(bookId, start = PlaybackStart.Resume)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+
+                error.shouldBeInstanceOf<PlaybackError.ServerUnreachable>()
+                error.debugInfo.orEmpty() shouldContain TransportError.NetworkUnavailable().code
+            }
+        }
+
+        test("a streaming prepare that fails for a reason the network can't cure passes its error through unchanged") {
+            runTest {
+                val rejected = TransportError.Server4xx(statusCode = 403)
+                val fakePlaybackService = FakePlaybackService(prepareResult = AppResult.Failure(rejected))
+                val preparer = buildPreparer(nothingDownloaded(), FakePlaybackPrepareRepository(fakePlaybackService))
+
+                preparer
+                    .prepare(bookId, start = PlaybackStart.Resume)
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error shouldBe rejected
             }
         }
 
