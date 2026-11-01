@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.shell
 
 import com.calypsan.listenup.core.BookId
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.WebGraph
 import com.calypsan.listenup.web.design.ShowActionToast
@@ -44,6 +45,7 @@ import com.calypsan.listenup.web.nav.browseTarget
 import com.calypsan.listenup.web.nav.bulkEditIds
 import com.calypsan.listenup.web.nav.editTargetOf
 import com.calypsan.listenup.web.nav.idUnder
+import com.calypsan.listenup.web.nav.isHeldBulkEdit
 import com.calypsan.listenup.web.nav.isServed
 
 /**
@@ -98,6 +100,13 @@ internal fun RouteContent(
 
     if (!route.isServed()) {
         NotFoundPage(onGoHome = { router.navigate(Routes.home) })
+    } else if (bulkEditIds.isEmpty() && route.isHeldBulkEdit()) {
+        // The tab no longer holds the selection (a bookmark, a new tab, cleared storage): say so and leave, rather than
+        // show "Page not found" for an address that was right when it was made.
+        LaunchedEffect(route) {
+            router.replace(Routes.library)
+            onToast("That selection has gone — pick the books again.")
+        }
     } else if (bulkEditIds.isNotEmpty()) {
         BulkEditRoute(router = router, openBulkEdit = graph.openBulkEdit, bookIds = bulkEditIds, onToast = onToast)
     } else if (page == PLAYING_KEY) {
