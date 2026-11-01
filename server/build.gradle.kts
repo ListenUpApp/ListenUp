@@ -552,11 +552,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 // jvmTest run of 2026-10-31, plus 23 `test("…")` declarations in src/linuxX64Test, and 90 % of 319
 // rounds down to 280. CI is the first real run of the new number — correct it from there. The anchor
 // vouches for the lane-only source set; native XML prefixes each `classname` with the lane name (as the
-// Apple lane's does), so the anchor carries the prefix — also unverified until CI.
+// Apple lane's does), and the helper accepts that single lane segment before the anchor.
 failBelowDiscoveredTestCount(
     "linuxX64Test",
     floor = 280,
-    anchorSpecs = listOf("linuxX64Test.com.calypsan.listenup.server.NativeServerBootTest"),
+    anchorSpecs = listOf("com.calypsan.listenup.server.NativeServerBootTest"),
 )
 
 // Regenerate the committed golden schema snapshot from the runner (the SSOT after Flyway's

@@ -249,11 +249,11 @@ failBelowDiscoveredTestCount(
 // over zero discovered specs, which is indistinguishable from a healthy run. 4,053 ran green on
 // 2026-10-31, 57 of them in appleTest (the only source set that compiles appleMain); the other 3,996 are
 // common, and 90 % of the total is under that, so the floor is common + 1 rounded up. Native XML prefixes
-// every `classname` with the lane name, so the anchor carries the prefix.
+// every `classname` with the lane name, and the helper accepts that single lane segment before the anchor.
 failBelowDiscoveredTestCount(
     "iosSimulatorArm64Test",
     floor = 4000,
-    anchorSpecs = listOf("iosSimulatorArm64Test.com.calypsan.listenup.client.download.AppleDownloadPathsTest"),
+    anchorSpecs = listOf("com.calypsan.listenup.client.download.AppleDownloadPathsTest"),
 )
 
 // Kotest uses JUnit 5 as its runner on JVM
