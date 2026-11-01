@@ -108,7 +108,21 @@ class FakeBookRepository(
 
     private val details = MutableStateFlow<Map<String, BookDetail>>(emptyMap())
 
-    override fun observeBookDetail(id: String): Flow<BookDetail?> = details.asStateFlow().map { it[id] }
+    /** How many times [observeBookDetail] was subscribed to — the full read an always-on probe must not make. */
+    var observeBookDetailCalls = 0
+        private set
+
+    override fun observeBookDetail(id: String): Flow<BookDetail?> {
+        observeBookDetailCalls++
+        return details.asStateFlow().map { it[id] }
+    }
+
+    override fun observeBookExists(id: String): Flow<Boolean> = details.asStateFlow().map { id in it }
+
+    override fun observeBookDurationMs(id: String): Flow<Long?> = details.asStateFlow().map { it[id]?.duration }
+
+    override fun observeFirstSeriesId(id: String): Flow<String?> =
+        details.asStateFlow().map { it[id]?.series?.firstOrNull()?.seriesId }
 
     override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
 

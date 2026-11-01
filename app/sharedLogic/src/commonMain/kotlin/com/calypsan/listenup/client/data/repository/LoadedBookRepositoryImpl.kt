@@ -141,7 +141,7 @@ internal class LoadedBookRepositoryImpl(
 
     private fun observeLoaded(bookId: BookId): Flow<LoadedBook> =
         combine(
-            flow = bookRepository.observeBookDetail(bookId.value).map { it != null }.distinctUntilChanged(),
+            flow = bookRepository.observeBookExists(bookId.value).distinctUntilChanged(),
             flow2 = engine.loadedBookId,
             flow3 = engine.phase,
             flow4 = positionRepository.observe(bookId).map { it?.isFinished == true }.distinctUntilChanged(),

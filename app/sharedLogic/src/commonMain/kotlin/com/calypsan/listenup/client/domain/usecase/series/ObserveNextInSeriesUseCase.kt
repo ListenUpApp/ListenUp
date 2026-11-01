@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 
 /**
  * The next book in [bookId]'s first series, or null: the one derivation Home and Now Playing share (Home P-R4,
@@ -26,8 +25,7 @@ class ObserveNextInSeriesUseCase(
 ) {
     operator fun invoke(bookId: String): Flow<NextInSeries?> =
         bookRepository
-            .observeBookDetail(bookId)
-            .map { it?.series?.firstOrNull()?.seriesId }
+            .observeFirstSeriesId(bookId)
             .distinctUntilChanged()
             .flatMapLatest { seriesId ->
                 if (seriesId == null) {

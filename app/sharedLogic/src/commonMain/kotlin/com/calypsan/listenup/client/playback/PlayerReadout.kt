@@ -72,8 +72,8 @@ internal class PlayerReadout(
             .flatMapLatest { id ->
                 id?.let { bookId ->
                     bookRepository
-                        .observeBookDetail(bookId.value)
-                        .map { detail -> detail?.duration ?: 0L }
+                        .observeBookDurationMs(bookId.value)
+                        .map { duration -> duration ?: 0L }
                         .resubscribeOnFailure("readout.roomDurationMs")
                         .onStart { emit(0L) }
                 } ?: flowOf(0L)
@@ -204,7 +204,7 @@ internal class PlayerReadout(
                         flowOf(Liveness.Live)
                     } else {
                         combine(
-                            flow = bookRepository.observeBookDetail(id.value).map { it != null },
+                            flow = bookRepository.observeBookExists(id.value),
                             flow2 = bookRepository.observeIsBookLive(id.value),
                             flow3 = downloadRepository.observeBookStatus(id),
                             flow4 = positionRepository.observe(id),
