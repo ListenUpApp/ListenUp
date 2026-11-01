@@ -69,18 +69,18 @@ class SkipIntervalsHolder(
      */
     fun follow(scope: CoroutineScope) {
         scope.launch {
-            preferences.observeDefaultSkipForwardSec().collect {
-                forwardSec = it
+            preferences.observeDefaultSkipForwardSec().collect { seconds ->
+                forwardSec = seconds
                 changes.update { now ->
-                    now.copy(forwardSec = it)
+                    now.copy(forwardSec = seconds)
                 }
             }
         }
         scope.launch {
-            preferences.observeDefaultSkipBackwardSec().collect {
-                backwardSec = it
+            preferences.observeDefaultSkipBackwardSec().collect { seconds ->
+                backwardSec = seconds
                 changes.update { now ->
-                    now.copy(backwardSec = it)
+                    now.copy(backwardSec = seconds)
                 }
             }
         }

@@ -934,7 +934,10 @@ internal fun mediaButtonUpdates(
 ): List<Pair<MediaSession.ControllerInfo, List<CommandButton>>> =
     controllers
         .filter { (_, trust) -> trust.getsCustomButtons() }
-        .map { (controller, trust) -> controller to mediaButtonsFor(trust, backwardSec, forwardSec, words) }
+        .map { (controller, trust) ->
+            controller to
+                mediaButtonsFor(trust = trust, backwardSec = backwardSec, forwardSec = forwardSec, words = words)
+        }
 
 /** Convert Android's EXTRA_MEDIA_FOCUS string to our MediaFocus enum. */
 private fun String.toMediaFocus(): MediaFocus? =

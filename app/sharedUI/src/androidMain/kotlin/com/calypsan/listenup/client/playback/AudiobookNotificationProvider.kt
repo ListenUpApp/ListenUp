@@ -135,20 +135,22 @@ class AudiobookNotificationProvider(
 
         // Cover art. A miss builds without it and republishes once the decode lands, so the main thread never
         // decodes; the republish is dropped if the session has moved on to another cover meanwhile.
-        metadata.artworkUri?.let { uri ->
-            artwork
-                .load(uri) { decoded ->
+        val coverUri = metadata.artworkUri
+        if (coverUri != null) {
+            val cover =
+                artwork.load(coverUri) { decoded ->
                     if (mediaSession.player.mediaMetadata.artworkUri == decoded) {
                         onNotificationChangedCallback.onNotificationChanged(
                             createNotification(
-                                mediaSession,
-                                customLayout,
-                                actionFactory,
-                                onNotificationChangedCallback,
+                                mediaSession = mediaSession,
+                                customLayout = customLayout,
+                                actionFactory = actionFactory,
+                                onNotificationChangedCallback = onNotificationChangedCallback,
                             ),
                         )
                     }
-                }?.let(builder::setLargeIcon)
+                }
+            if (cover != null) builder.setLargeIcon(cover)
         }
 
         // Actions: 5 total, compact view shows 3 (indices 1, 2, 3)
