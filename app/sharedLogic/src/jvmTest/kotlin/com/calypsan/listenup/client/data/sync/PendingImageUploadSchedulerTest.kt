@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.repository.PendingImageUploadsImpl
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PendingImageKind
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
@@ -87,7 +88,7 @@ class PendingImageUploadSchedulerTest :
     FunSpec({
         class Fixture(
             online: Boolean,
-            scope: CoroutineScope,
+            private val scope: CoroutineScope,
         ) {
             val database = createInMemoryTestDatabase()
             val dir = Files.createTempDirectory("pending-image-scheduler")
@@ -125,8 +126,8 @@ class PendingImageUploadSchedulerTest :
                 uploads.record(PendingImageKind.BookCover, "b1")
             }
 
-            fun close() {
-                database.close()
+            suspend fun close() {
+                database.closeAfterCancelling(scope)
                 dir.toFile().deleteRecursively()
             }
         }

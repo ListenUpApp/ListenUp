@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -13,14 +14,12 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import com.calypsan.listenup.client.data.sync.testing.awaitUntil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
@@ -83,10 +82,7 @@ class ReconcileOnDrainTest :
                     db.pendingOperationV2Dao().countDispatchable(maxAttempts = 5) shouldBe 0
                     fetches.replayCache.none { it.first == "tags" } shouldBe true
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -125,10 +121,7 @@ class ReconcileOnDrainTest :
                     withTimeout(TIMEOUT_SECONDS.seconds) { sent.first { it == opId } }
                     awaitUntil(TIMEOUT_SECONDS.seconds) { db.pendingOperationV2Dao().get(opId) == null }
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -170,10 +163,7 @@ class ReconcileOnDrainTest :
                     delay(QUIET_WINDOW_MILLIS)
                     fetches.replayCache.none { it.first == "preferences" } shouldBe true
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

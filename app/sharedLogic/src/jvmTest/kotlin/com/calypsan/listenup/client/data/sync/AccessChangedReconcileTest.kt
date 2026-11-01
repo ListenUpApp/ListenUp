@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.error.SyncError
@@ -48,7 +49,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -904,8 +904,7 @@ private fun withReconcileEngine(
             store,
         )
     } finally {
-        scope.cancel()
-        db.close()
+        db.closeAfterCancelling(scope)
     }
 }
 

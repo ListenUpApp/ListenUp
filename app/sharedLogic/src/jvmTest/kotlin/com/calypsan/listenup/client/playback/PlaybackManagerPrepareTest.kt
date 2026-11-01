@@ -40,6 +40,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
@@ -228,7 +230,7 @@ class PlaybackManagerPrepareTest :
                     loaded.segments[1].hlsUrl shouldBe null
                     loaded.segments[2].hlsUrl shouldBe null
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
