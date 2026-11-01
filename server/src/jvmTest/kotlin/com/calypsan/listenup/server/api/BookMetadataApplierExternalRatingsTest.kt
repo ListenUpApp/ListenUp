@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ExternalRatingMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
@@ -136,7 +136,7 @@ class BookMetadataApplierExternalRatingsTest :
                 bookRepository = books,
                 contributorRepository = contributors,
                 seriesRepository = series,
-                imageStorage = ImageStorage(httpClient = HttpClient(engine)),
+                remoteImageFetcher = RemoteImageFetcher(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(IoPath(tempDir.resolve("covers").toString()), MAX_COVER_BYTES)),
                 matchSource = { _, _ -> AppResult.Success(MetadataMatch(match, emptyMap())) },
                 appliedBy = "test-user",

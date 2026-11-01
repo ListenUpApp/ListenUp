@@ -10,7 +10,7 @@ import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageKind
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import kotlinx.io.files.Path
@@ -93,7 +93,7 @@ internal fun framePartOf(field: String?): FramePart {
  * Reads the first file part of a multipart upload, enforces the [IMAGE_MAX_BYTES] cap DURING the read
  * (the streaming primitive aborts before an oversize part fully lands in memory — regardless of whether
  * the part declares a `Content-Length`), validates the bytes carry a recognised image magic number, and
- * writes them content-addressed to `<imageHome>/<subdir>/<sha256>.<ext>` via [imageStorage].
+ * writes them content-addressed to `<imageHome>/<subdir>/<sha256>.<ext>` via [remoteImageFetcher].
  *
  * Content-addressing is deliberate: a replacement image yields a new relative path, which is exactly
  * what clients key their image cache on (the path is the version). Returns 413 for an oversize part,
@@ -110,7 +110,7 @@ internal suspend fun storeMultipartImage(
     call: ApplicationCall,
     subdir: String,
     imageHome: Path,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
 ): ImageUploadOutcome {
     val received =
         when (val upload = receiveFramedImage(call, IMAGE_MAX_BYTES, "file")) {
@@ -126,7 +126,7 @@ internal suspend fun storeMultipartImage(
 
     val relPath = "$subdir/${hashBytesSha256(data)}.${kind.ext}"
     SystemFileSystem.createDirectories(Path(imageHome.toString(), subdir))
-    imageStorage.writeBytes(data, Path(imageHome.toString(), relPath))
+    remoteImageFetcher.writeBytes(data, Path(imageHome.toString(), relPath))
     return ImageUploadOutcome.Stored(relPath, frame)
 }
 
