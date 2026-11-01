@@ -228,6 +228,8 @@ internal fun bindMediaSession(
         job.cancel()
         TRANSPORT_ACTIONS.forEach { bridge.setHandler(it, null) }
         bridge.setSeekToHandler(null)
+        // Handlers alone leave the last book in the OS media hub; on a shared machine that is the previous reader's.
+        bridge.clear()
     }
 }
 
