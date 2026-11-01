@@ -24,7 +24,7 @@
 # an image that died on first boot with `no such module: fts5` — a release-blocking break that CI
 # could not see, because CI never builds this image and the tests run against the host's SQLite.
 # The verify step below turns that into a build failure instead of a runtime one.
-FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS libs
+FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
 # sqlite.org publishes only SHA3-256 for the current release: this SHA-256 was computed 2026-10-23 from a
 # download whose SHA3-256 matched the one on sqlite.org/download.html. Bump this together with the URL.
@@ -90,7 +90,7 @@ RUN mkdir -p /curl-deps \
 # Debian ships neither piece — no fdkaacdec in gstreamer1.0-plugins-bad, and libfdk-aac2t64 only in
 # non-free — so the plugin is built here. `-Dauto_features=disabled -Dfdkaac=enabled` builds that
 # one plugin rather than all of gst-plugins-bad, which takes about eight seconds.
-FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS media
+FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS media
 ARG GST_VERSION=1.26.11
 # Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum. Stay on the
 # release line of the builder's GStreamer (debian:13 ships 1.26): a stable plugins-bad requires a core
@@ -235,7 +235,7 @@ RUN set -eu; P=/usr/lib/x86_64-linux-gnu/gstreamer-1.0; mkdir -p /stage/plugins 
     cp /usr/bin/gst-launch-1.0 /usr/local/bin/ffmpeg /stage/; \
     du -sh /stage
 
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:08476c244888bfb425bae1ae4dd7c17f093e972aab8426883d97f3c6f280f7c1
 # None of these three are in distroless/cc. libcrypt.so.1 — Debian split it out of glibc into
 # libcrypt1 and the binary links crypt(3). libsqlite3.so.0 — our self-built build from the stage
 # above; the base ships no SQLite whatsoever. libargon2.so.1 — debian's.
