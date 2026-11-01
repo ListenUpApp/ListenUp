@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.features.settings.AndroidSettingsPlatformAct
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider
 import com.calypsan.listenup.client.logging.installCrashLogging
+import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -507,6 +508,7 @@ class ListenUp :
                     get<BackgroundSyncScheduler>().schedule()
                     get<PushRegistrar>().syncRegistration()
                     get<ListenUpShortcutManager>().updateShortcuts()
+                    get<DownloadService>().resumeIncompleteDownloads()
                 },
                 onSignedOut = {
                     get<BackgroundSyncScheduler>().cancel()
