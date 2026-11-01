@@ -214,4 +214,11 @@ struct PlayerFoldTests {
         #expect(!FullScreenPlayerView.showsChapterPanel(.compactHeight))
         #expect(!FullScreenPlayerView.showsChapterPanel(.tabletop(hinge: CGRect(x: 0, y: 420, width: 673, height: 0))))
     }
+
+    /// A chapterless book half open like a book gets facing pages (cover, then controls), not an empty chapter card.
+    @Test func bookPostureShowsTheChapterPanelOnlyForABookWithChapters() {
+        #expect(!FullScreenPlayerView.bookPostureShowsChapterPanel(chapterCount: 0))
+        #expect(FullScreenPlayerView.bookPostureShowsChapterPanel(chapterCount: 1))
+        #expect(FullScreenPlayerView.bookPostureShowsChapterPanel(chapterCount: 24))
+    }
 }

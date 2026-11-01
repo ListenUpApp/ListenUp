@@ -74,7 +74,7 @@ struct FullScreenPlayerView: View {
             )
             layout(mode, in: proxy.size)
                 // The panel takes over from the sheet when a window grows into `.regular` (Split View, Stage Manager).
-                .onChange(of: mode == .regular) { _, showsPanel in
+                .onChange(of: Self.showsChapterPanel(mode)) { _, showsPanel in
                     if showsPanel { showChapterList = false }
                 }
                 .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: mode)
@@ -523,21 +523,46 @@ extension FullScreenPlayerView {
         let columnWidth = max(0, hinge.minX - clearance)
         let paneWidth = max(0, size.width - hinge.maxX - clearance)
         let belowHeader = max(0, size.height - Self.headerHeight)
+        let hasChapterPanel = Self.bookPostureShowsChapterPanel(chapterCount: observer.chapterRows.count)
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 header(showsTitle: false)
-                stackedColumn(width: columnWidth, height: belowHeader, showsChapters: false)
+                if hasChapterPanel {
+                    stackedColumn(width: columnWidth, height: belowHeader, showsChapters: false)
+                } else {
+                    // No chapters, so no panel: the cover takes the near page.
+                    cover(side: max(0, min(columnWidth - 2 * margin, belowHeader - 2 * Spacing.m)))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
             .frame(width: columnWidth)
 
             Color.clear.frame(width: max(0, size.width - columnWidth - paneWidth))
 
-            NowPlayingChapterPanel(observer: observer)
-                .frame(width: max(0, paneWidth - Self.panelGap))
-                .padding(.vertical, Spacing.m)
-                .padding(.trailing, Self.panelGap)
-                .accessibilityFocused($chapterPanelFocused)
+            if hasChapterPanel {
+                NowPlayingChapterPanel(observer: observer)
+                    .frame(width: max(0, paneWidth - Self.panelGap))
+                    .padding(.vertical, Spacing.m)
+                    .padding(.trailing, Self.panelGap)
+                    .accessibilityFocused($chapterPanelFocused)
+            } else {
+                // The facing page carries the controls, as Android's half-open layout does.
+                ScrollView {
+                    controlsColumn(showsChapters: false, showsVolume: true, showsSeries: true)
+                        .padding(.horizontal, margin)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(width: paneWidth)
+            }
         }
+    }
+
+    /// Whether a book half open like a book shows the chapter panel on the far page: only when there are chapters to
+    /// pick from. A chapterless book puts the cover on the near page and the controls on the far one instead.
+    static func bookPostureShowsChapterPanel(chapterCount: Int) -> Bool {
+        chapterCount > 0
     }
 
     /// Whether the resolved layout already shows the chapter panel: the wide window, and a phone half open like a book.
