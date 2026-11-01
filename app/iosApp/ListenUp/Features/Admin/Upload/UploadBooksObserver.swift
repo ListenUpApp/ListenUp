@@ -68,10 +68,15 @@ final class UploadBooksObserver {
         Task {
             // The walk reads the filesystem, so it runs off the main actor; only the `Sendable`
             // picks cross back. The Kotlin candidates are not `Sendable` and are built here.
-            let picks = await Task.detached { select() }.value
+            let picks = await Self.walk(select)
             isPreparing = false
             offer(picks)
         }
+    }
+
+    @concurrent
+    private nonisolated static func walk(_ select: @Sendable () -> [UploadPick]) async -> [UploadPick] {
+        select()
     }
 
     private func offer(_ picks: [UploadPick]) {
