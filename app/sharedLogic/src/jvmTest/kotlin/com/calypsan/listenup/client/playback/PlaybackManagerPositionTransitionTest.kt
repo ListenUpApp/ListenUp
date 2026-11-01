@@ -42,6 +42,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -319,7 +321,7 @@ class PlaybackManagerPositionTransitionTest :
                         )
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -361,7 +363,7 @@ class PlaybackManagerPositionTransitionTest :
                         )
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -427,7 +429,7 @@ class PlaybackManagerPositionTransitionTest :
                         )
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -462,7 +464,7 @@ class PlaybackManagerPositionTransitionTest :
                         )
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -489,7 +491,7 @@ class PlaybackManagerPositionTransitionTest :
                         )
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()

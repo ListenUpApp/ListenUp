@@ -39,6 +39,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
@@ -251,7 +253,7 @@ class PlaybackManagerBufferingStateTest :
                     withClue("clearPlayback must reset buffering to false") { sut.buffering.value shouldBe false }
 
                     // Cancel to stop the infinite collect coroutines and let runTest complete.
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -282,7 +284,7 @@ class PlaybackManagerBufferingStateTest :
 
                     sut.playbackError.value shouldBe PlaybackError.UnsupportedFormat()
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -317,7 +319,7 @@ class PlaybackManagerBufferingStateTest :
                         sut.currentPositionMs.value shouldBe 754_000L
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -349,7 +351,7 @@ class PlaybackManagerBufferingStateTest :
                     advanceUntilIdle()
                     sut.playbackError.value shouldBe null
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -382,7 +384,7 @@ class PlaybackManagerBufferingStateTest :
                         (startedCount >= 1) shouldBe true
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -417,7 +419,7 @@ class PlaybackManagerBufferingStateTest :
                         (pausedCount >= 1) shouldBe true
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -460,7 +462,7 @@ class PlaybackManagerBufferingStateTest :
                         (startedCount >= 1) shouldBe true
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -491,7 +493,7 @@ class PlaybackManagerBufferingStateTest :
                         (pausedCount >= 1) shouldBe true
                     }
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()
@@ -515,7 +517,7 @@ class PlaybackManagerBufferingStateTest :
                     progressTracker.onPlaybackStartedCalls.size shouldBe 0
                     progressTracker.onPlaybackPausedCalls.size shouldBe 0
 
-                    managerScope.coroutineContext[Job]?.cancel()
+                    managerScope.coroutineContext.job.cancelAndJoin()
                 }
             } finally {
                 db.close()

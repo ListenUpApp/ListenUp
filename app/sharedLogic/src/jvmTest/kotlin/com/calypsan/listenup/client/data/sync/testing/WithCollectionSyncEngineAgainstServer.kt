@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.collectionServiceScopedTo
@@ -66,7 +67,6 @@ import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -268,8 +268,7 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                 engine.stopAndJoin()
             }
         } finally {
-            clientScope.cancel()
-            clientDb.close()
+            clientDb.closeAfterCancelling(clientScope)
             if (GlobalContext.getKoinApplicationOrNull() != null) {
                 GlobalContext.stopKoin()
             }

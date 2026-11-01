@@ -38,6 +38,10 @@ android {
             .get()
             .toInt()
 
+    ndkVersion =
+        libs.versions.android.ndk
+            .get()
+
     defaultConfig {
         applicationId = "com.calypsan.listenup.client"
         minSdk =
@@ -82,6 +86,10 @@ android {
             // storeFile is null and AGP will fail loud during packaging — which is the correct
             // behaviour for a production release build.
             signingConfig = signingConfigs.getByName("release")
+            // The app ships no native code of its own, but AndroidX does (libsqliteJni,
+            // libdatastore_shared_counter, libandroidx.graphics.path). Symbol tables in the bundle
+            // let Play symbolicate a native crash in them; Play reads them from the AAB itself.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
     }
 

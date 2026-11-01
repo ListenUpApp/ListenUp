@@ -274,11 +274,11 @@ jobs:
   test-jvm:
     name: Test (JVM)
     runs-on: ubuntu-latest
-    # 45m (matching the macOS lanes) is a safety net for a genuine deadlock. The real cause of the
+    # 60m is a safety net for a genuine deadlock. The real cause of the
     # old ~25m stalls / OOM-fails was the Kotlin compiler daemon hitting its -Xmx ceiling on the
     # grown :server source (fixed by raising kotlin.daemon.jvmargs to 6G in gradle.properties), not
     # a timeout or parallelism issue — this runner is the public 4-core/16G tier with RAM to spare.
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code

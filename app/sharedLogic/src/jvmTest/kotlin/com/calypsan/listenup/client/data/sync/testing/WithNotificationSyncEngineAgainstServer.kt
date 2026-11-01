@@ -62,8 +62,11 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.withContext
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -342,7 +345,8 @@ internal fun withNotificationSyncEngineAgainstServer(block: suspend Notification
                 bootedClients.forEach { it.engine.stopAndJoin() }
             }
         } finally {
-            clientScope.cancel()
+            // Every client shares clientScope, so join it once before closing any of their databases.
+            withContext(NonCancellable) { clientScope.coroutineContext.job.cancelAndJoin() }
             bootedClients.forEach { it.clientDatabase.close() }
             if (GlobalContext.getKoinApplicationOrNull() != null) {
                 GlobalContext.stopKoin()

@@ -5,7 +5,12 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.buildConfigured
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.withContext
 
 /**
  * Builds a fresh in-memory [ListenUpDatabase] for a single test.
@@ -31,3 +36,21 @@ internal fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatc
     Room
         .inMemoryDatabaseBuilder<ListenUpDatabase>()
         .buildConfigured(BundledSQLiteDriver(), queryContext)
+
+/**
+ * Cancels every coroutine in [scopes], waits for each one to finish, and only then closes this database.
+ *
+ * The order is the whole point. Cancelling a scope does not stop a statement the driver is already
+ * running on another thread, and the bundled SQLite driver frees its connection on [close] without
+ * waiting for one: the statement then reads freed memory and the JVM dies with SIGSEGV, killing the
+ * whole test run rather than failing a test. `scope.cancel()` followed by `db.close()` is exactly
+ * that race, so teardown of a test that runs database work in its own scope goes through here.
+ *
+ * Runs [NonCancellable] so a teardown in the `finally` of a cancelled or failed test still waits.
+ */
+internal suspend fun ListenUpDatabase.closeAfterCancelling(vararg scopes: CoroutineScope) {
+    withContext(NonCancellable) {
+        scopes.forEach { it.coroutineContext.job.cancelAndJoin() }
+    }
+    close()
+}

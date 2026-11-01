@@ -59,6 +59,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientG
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository as ClientSeriesRepository
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
@@ -132,7 +133,6 @@ import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -799,8 +799,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 engine.stopAndJoin()
             }
         } finally {
-            clientScope.cancel()
-            clientDb.close()
+            clientDb.closeAfterCancelling(clientScope)
             // Stop Koin so the next test starts fresh. Each test creates its own
             // `SyncRegistry` instance (passed into the per-test `TagRepository`),
             // so there's no process-wide state to clean up — `GlobalContext` is
