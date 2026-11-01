@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -27,6 +28,9 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 private const val MAX_NAME_LENGTH = 200
+
+// Matches the contract's genre description cap.
+private const val MAX_DESCRIPTION_LENGTH = 2_000
 private const val DISCOVER_LIMIT_MIN = 1
 private const val DISCOVER_LIMIT_MAX = 200
 
@@ -96,6 +100,7 @@ internal class ShelfServiceImpl(
     ): AppResult<Shelf> {
         val caller = resolveCaller() ?: return noPrincipal()
         val trimmed = validateName(name) ?: return AppResult.Failure(ShelfError.InvalidName())
+        if (description.length > MAX_DESCRIPTION_LENGTH) return AppResult.Failure(descriptionTooLong())
 
         val now = clock.now().toEpochMilliseconds()
         val payload =
@@ -141,6 +146,7 @@ internal class ShelfServiceImpl(
                 is OwnerGate.Allowed -> gate.owned
             }
         val trimmed = validateName(name) ?: return AppResult.Failure(ShelfError.InvalidName())
+        if (description.length > MAX_DESCRIPTION_LENGTH) return AppResult.Failure(descriptionTooLong())
 
         val updated =
             owned.shelf.copy(
@@ -342,6 +348,9 @@ internal class ShelfServiceImpl(
     private fun resolveCaller(): Caller? = principal.current()?.let { Caller(it.userId.value, it.role) }
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(ShelfError.NotFound())
+
+    private fun descriptionTooLong(): ValidationError =
+        ValidationError(message = "Keep the description to 2,000 characters.", field = "description")
 
     private fun validateName(name: String): String? {
         val trimmed = name.trim()

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
@@ -210,6 +211,53 @@ class ShelfServiceTest :
                     val result = makeService(sql, driver).actAs("u1").createShelf(name = "   ")
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ShelfError.InvalidName>()
+                }
+            }
+        }
+
+        test("createShelf rejects a description over 2,000 characters and creates nothing") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                runTest {
+                    val service = makeService(sql, driver).actAs("u1")
+                    val result = service.createShelf(name = "Long", description = "x".repeat(2_001))
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    val error = result.error.shouldBeInstanceOf<ValidationError>()
+                    error.field shouldBe "description"
+                    service.listMyShelves().value().shouldHaveSize(0)
+                }
+            }
+        }
+
+        test("createShelf accepts a description of exactly 2,000 characters") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                runTest {
+                    val service = makeService(sql, driver).actAs("u1")
+                    service.createShelf(name = "Boundary", description = "x".repeat(2_000)).value()
+                    service.listMyShelves().value().shouldHaveSize(1)
+                }
+            }
+        }
+
+        test("updateShelf rejects a description over 2,000 characters and keeps the old one") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                runTest {
+                    val service = makeService(sql, driver).actAs("u1")
+                    val created = service.createShelf(name = "Short", description = "ok").value()
+                    val result = service.updateShelf(created.id, name = "Short", description = "x".repeat(2_001), isPrivate = false)
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    val error = result.error.shouldBeInstanceOf<ValidationError>()
+                    error.field shouldBe "description"
+                    service
+                        .listMyShelves()
+                        .value()
+                        .single()
+                        .description shouldBe "ok"
                 }
             }
         }
