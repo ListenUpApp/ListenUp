@@ -95,13 +95,8 @@ actor AudioEngine: PlaybackEngine {
         // player entirely; state renders correctly only on real hardware.)
         nowPlayingSession.automaticallyPublishesNowPlayingInfo = false
 
-        var capturedContinuation: AsyncStream<AudioEngineEvent>.Continuation!
-        events = AsyncStream { capturedContinuation = $0 }
-        continuation = capturedContinuation
-
-        var capturedSignals: AsyncStream<EngineSignal>.Continuation!
-        signals = AsyncStream { capturedSignals = $0 }
-        signalContinuation = capturedSignals
+        (events, continuation) = AsyncStream.makeStream(of: AudioEngineEvent.self)
+        (signals, signalContinuation) = AsyncStream.makeStream(of: EngineSignal.self)
 
         // Start the single ordered drain loop: it processes each funneled callback to completion
         // before the next, so callbacks are handled strictly FIFO on the actor. Fire-and-forget —

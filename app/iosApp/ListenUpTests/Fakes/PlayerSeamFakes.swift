@@ -47,9 +47,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     private let gate = AsyncGate()
 
     init() {
-        var c: AsyncStream<AudioEngineEvent>.Continuation!
-        events = AsyncStream { c = $0 }
-        continuation = c
+        (events, continuation) = AsyncStream.makeStream(of: AudioEngineEvent.self)
     }
 
     /// Push an event into the coordinator's bound stream from a test.
@@ -270,10 +268,8 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
     /// Seeds each stream with an initial value, mirroring the real provider's first emission.
     init(initialForward: Int, initialBackward: Int) {
-        var fc: AsyncStream<Int>.Continuation!
-        forwardSeconds = AsyncStream { fc = $0 }; forwardContinuation = fc
-        var bc: AsyncStream<Int>.Continuation!
-        backwardSeconds = AsyncStream { bc = $0 }; backwardContinuation = bc
+        (forwardSeconds, forwardContinuation) = AsyncStream.makeStream(of: Int.self)
+        (backwardSeconds, backwardContinuation) = AsyncStream.makeStream(of: Int.self)
         forwardContinuation.yield(initialForward)
         backwardContinuation.yield(initialBackward)
     }
