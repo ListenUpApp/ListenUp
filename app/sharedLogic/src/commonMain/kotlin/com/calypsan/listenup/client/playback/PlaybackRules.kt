@@ -2,9 +2,6 @@ package com.calypsan.listenup.client.playback
 
 import kotlin.math.roundToInt
 
-/** The preset playback speeds the speed pickers offer, slowest first. */
-val PLAYBACK_SPEED_STEPS: List<Float> = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 2.5f, 3.0f)
-
 /** The slowest the player is asked to go. Below this a narrator stops being intelligible. */
 const val PLAYBACK_SPEED_MIN: Float = 0.5f
 

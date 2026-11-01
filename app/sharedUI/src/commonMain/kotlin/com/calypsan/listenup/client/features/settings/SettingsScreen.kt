@@ -141,7 +141,7 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subt
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -475,7 +475,7 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_default_speed),
             subtitle = stringResource(Res.string.settings_speed_used_for_new_books),
             selectedValue = state.defaultPlaybackSpeed,
-            options = PLAYBACK_SPEED_STEPS,
+            options = PlaybackPresets.SPEEDS,
             formatValue = { formatPlaybackSpeed(it) },
             onValueSelected = actions.onPlaybackSpeedChange,
             pillContainerColor = pillContainer,

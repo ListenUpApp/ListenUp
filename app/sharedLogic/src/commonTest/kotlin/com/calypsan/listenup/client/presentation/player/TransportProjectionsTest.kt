@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.presentation.player
 
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.skipDistanceMs
 import com.calypsan.listenup.client.playback.skipTargetMs
 import com.calypsan.listenup.client.playback.snapPlaybackSpeed
@@ -93,7 +93,7 @@ class PlaybackSpeedVocabularyTest :
             // ⛔ The bounds and the ladder are separate declarations, so nothing but this stops a
             // rung being added outside the range the slider can reach — a preset the chips offer
             // and the slider cannot represent.
-            PLAYBACK_SPEED_STEPS.forEach { rung ->
+            PlaybackPresets.SPEEDS.forEach { rung ->
                 (rung >= PLAYBACK_SPEED_MIN) shouldBe true
                 (rung <= PLAYBACK_SPEED_MAX) shouldBe true
             }
@@ -106,7 +106,7 @@ class PlaybackSpeedVocabularyTest :
         }
 
         test("two different rungs are never the same rate") {
-            PLAYBACK_SPEED_STEPS.zipWithNext().forEach { (lower, upper) ->
+            PlaybackPresets.SPEEDS.zipWithNext().forEach { (lower, upper) ->
                 isSamePlaybackSpeed(lower, upper) shouldBe false
             }
         }

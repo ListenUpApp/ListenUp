@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_INCREMENT
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.player.isSamePlaybackSpeed
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.dom.Button
@@ -36,7 +36,7 @@ import kotlin.math.roundToInt
  * `PlaybackSpeedSheet` offers exactly this pair; matching it means a listener who found their rate
  * on a phone is not told the browser has no such setting.
  *
- * The ladder, the bounds and the increment all come from commonMain — [PLAYBACK_SPEED_STEPS],
+ * The ladder, the bounds and the increment all come from commonMain — [PlaybackPresets.SPEEDS],
  * [PLAYBACK_SPEED_MIN], [PLAYBACK_SPEED_MAX], [PLAYBACK_SPEED_INCREMENT] — rather than being
  * restated here, so the browser cannot offer a different set of rates, a different range or a
  * finer adjustment than the phone does.
@@ -108,7 +108,7 @@ internal fun SpeedPicker(
         // reader says so ("1.25×, radio button, checked, 4 of 9"). A rate between rungs checks none.
         ChipRadioGroup(
             label = PlayerSheetWords.SPEED_PRESETS,
-            options = PLAYBACK_SPEED_STEPS.map { ChipOption(it, speedLabel(it)) },
+            options = PlaybackPresets.SPEEDS.map { ChipOption(it, speedLabel(it)) },
             selected = speed,
             onSelect = { preset ->
                 dragSpeed = preset

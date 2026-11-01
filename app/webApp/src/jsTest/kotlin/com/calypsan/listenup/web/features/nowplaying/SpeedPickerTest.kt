@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.stepPlaybackSpeed
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
@@ -92,12 +92,12 @@ class SpeedPickerTest :
         }
 
         test("it offers every rung of the shared ladder, and no others") {
-            // Read from PLAYBACK_SPEED_STEPS rather than restated, so a rung added in commonMain
+            // Read from PlaybackPresets.SPEEDS rather than restated, so a rung added in commonMain
             // cannot leave the browser showing a stale ladder.
             val host = picker()
 
-            host.querySelectorAll("[role=radio]").length shouldBe PLAYBACK_SPEED_STEPS.size
-            PLAYBACK_SPEED_STEPS.forEach { rung -> host.buttonSaying(speedLabel(rung)).shouldNotBeNull() }
+            host.querySelectorAll("[role=radio]").length shouldBe PlaybackPresets.SPEEDS.size
+            PlaybackPresets.SPEEDS.forEach { rung -> host.buttonSaying(speedLabel(rung)).shouldNotBeNull() }
 
             host.closeDialogs()
         }

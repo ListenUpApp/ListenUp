@@ -41,7 +41,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.player.isSamePlaybackSpeed
 import com.calypsan.listenup.client.playback.snapPlaybackSpeed
 import kotlin.math.roundToInt
@@ -120,8 +120,8 @@ fun PlaybackSpeedSheet(
         )
         Spacer(Modifier.height(Spacing.md))
         ConnectedSelectButtonGroup(
-            choices = PLAYBACK_SPEED_STEPS.map { ButtonGroupChoice<Float?>(it, formatPlaybackSpeed(it)) },
-            selected = PLAYBACK_SPEED_STEPS.firstOrNull { isSamePlaybackSpeed(it, sliderSpeed) },
+            choices = PlaybackPresets.SPEEDS.map { ButtonGroupChoice<Float?>(it, formatPlaybackSpeed(it)) },
+            selected = PlaybackPresets.SPEEDS.firstOrNull { isSamePlaybackSpeed(it, sliderSpeed) },
             onSelect = { preset ->
                 if (preset != null) {
                     sliderSpeed = preset

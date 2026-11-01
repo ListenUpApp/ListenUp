@@ -4,7 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -251,7 +251,7 @@ internal fun themeModeOf(raw: String): ThemeMode = ThemeMode.entries.firstOrNull
 
 /** The same ladder the transport bar cycles through, so the two never disagree about what exists. */
 private val SPEED_OPTIONS =
-    PLAYBACK_SPEED_STEPS.map { speed -> SelectOption(speedKey(speed), "${formatSpeedLabel(speed)}×") }
+    PlaybackPresets.SPEEDS.map { speed -> SelectOption(speedKey(speed), "${formatSpeedLabel(speed)}×") }
 
 private val SKIP_OPTIONS = listOf(5, 10, 15, 30, 45, 60).map { SelectOption(it.toString(), "$it seconds") }
 
