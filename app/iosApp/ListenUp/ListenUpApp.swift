@@ -122,6 +122,9 @@ private struct RootView: View {
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
                 // AppShell's once-per-session request). Later sign-ins re-sync the server only.
                 if newState == .authenticated {
+                    // Created on first authentication, not at launch, so the shared
+                    // ConnectionHealthViewModel graph is only resolved once a session exists.
+                    if connectionHealth == nil { connectionHealth = ConnectionHealthObserver() }
                     PushCoordinator.shared.activate()
                     // The error surface belongs to the authenticated shell, so it is built here
                     // rather than at launch — resolving the bus pre-auth would touch the shared
@@ -227,43 +230,38 @@ private struct RootView: View {
             NavigationStack {
                 PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
             }
-        case .sessionLapsed:
-            // Shell stays mounted (M2/M3): library, downloads, playback all work. The banner’s
-            // Sign-in presents the login flow as a dismissable sheet — never a forced wall.
-            authenticatedContent
-                .safeAreaInset(edge: .top) {
-                    SessionLapsedBanner(onSignIn: { showReauthSheet = true })
-                }
-                .sheet(isPresented: $showReauthSheet) {
-                    AuthFlowCoordinator(openRegistration: false)
-                }
-                // The player's Sign in (a session-expired book with nothing downloaded) opens the same sheet.
-                .onChange(of: dependencies.playerObserver.signInRequested) { _, requested in
-                    guard requested else { return }
-                    dependencies.playerObserver.signInRequested = false
-                    showReauthSheet = true
-                }
-        case .authenticated:
-            // Overlay a non-blocking banner when a version skew is detected (Update available).
-            // `sessionExpired` never surfaces here — it has the `.sessionLapsed` branch above. The
-            // observer is created lazily on first appear (not at RootView root), so the shared
-            // ConnectionHealthViewModel graph is only resolved once the user is authenticated.
-            authenticatedContent
-                .safeAreaInset(edge: .top) {
-                    // Only meaningful once the main app is mounted.
-                    if isMainAppMounted, let connectionHealth {
-                        ConnectionHealthBanner(
-                            kind: connectionHealth.kind,
-                            onDismiss: { connectionHealth.dismiss() }
-                        )
-                    }
-                }
-                .onAppear {
-                    if connectionHealth == nil {
-                        connectionHealth = ConnectionHealthObserver()
-                    }
-                }
+        case .authenticated, .sessionLapsed:
+            signedInContent
         }
+    }
+
+    /// One tree for `.authenticated` and `.sessionLapsed`: a lapsed session keeps the shell mounted
+    /// (library, downloads and playback all work), so moving between the two changes only the
+    /// banner and the re-auth sheet, never the shell's identity. The banner’s Sign-in presents the
+    /// login flow as a dismissable sheet — never a forced wall. The connection-health banner is
+    /// meaningful only for a live session; its observer is created lazily on the first
+    /// authentication (see `.onChange(of: auth.state)`).
+    private var signedInContent: some View {
+        authenticatedContent
+            .safeAreaInset(edge: .top) {
+                if auth.state == .sessionLapsed {
+                    SessionLapsedBanner(onSignIn: { showReauthSheet = true })
+                } else if isMainAppMounted, let connectionHealth {
+                    ConnectionHealthBanner(
+                        kind: connectionHealth.kind,
+                        onDismiss: { connectionHealth.dismiss() }
+                    )
+                }
+            }
+            .sheet(isPresented: $showReauthSheet) {
+                AuthFlowCoordinator(openRegistration: false)
+            }
+            // The player's Sign in (a session-expired book with nothing downloaded) opens the same sheet.
+            .onChange(of: dependencies.playerObserver.signInRequested) { _, requested in
+                guard requested, auth.state == .sessionLapsed else { return }
+                dependencies.playerObserver.signInRequested = false
+                showReauthSheet = true
+            }
     }
 
     /// Gate the authenticated window on library readiness. A first-run admin with no library
@@ -290,21 +288,22 @@ private struct RootView: View {
             .errorAlertHost(.shared, isFrontWindow: frontRoot.isFront(windowID))
     }
 
-    @ViewBuilder
     private var authenticatedPhase: some View {
-        switch readiness.phase {
-        case .checking:
-            LaunchScreen()
-        case .needsSetup:
-            LibrarySetupFlowCoordinator(onComplete: { readiness.onLibrarySetupComplete() })
-        case .populating:
-            LibraryScanView(
-                progress: readiness.scanProgress,
-                stalled: readiness.isPopulatingStalled,
-                onContinue: { readiness.onContinueToPartialLibrary() }
-            )
-        case .ready, .checkFailed:
+        ShellCoveringHost(phase: readiness.phase) {
             MainTabView()
+        } cover: { covering in
+            switch covering {
+            case .none, .launch:
+                LaunchScreen()
+            case .setup:
+                LibrarySetupFlowCoordinator(onComplete: { readiness.onLibrarySetupComplete() })
+            case .populating:
+                LibraryScanView(
+                    progress: readiness.scanProgress,
+                    stalled: readiness.isPopulatingStalled,
+                    onContinue: { readiness.onContinueToPartialLibrary() }
+                )
+            }
         }
     }
 }
