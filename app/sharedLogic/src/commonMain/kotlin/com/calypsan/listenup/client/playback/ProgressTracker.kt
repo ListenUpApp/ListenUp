@@ -537,7 +537,7 @@ open class ProgressTracker(
             // Mark book as complete. Routes through BookFinished (not markComplete) so the
             // stored row lands on the true final position — handleBookFinished sets positionMs,
             // markComplete never does, leaving the position up to one 30s heartbeat behind the
-            // end (C-C06).
+            // end.
             when (
                 val r =
                     positionRepository.savePlaybackState(

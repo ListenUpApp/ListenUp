@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 
 /**
- * How long a running sleep timer has left, and how full its meter is (spec §5.5.2, §5.6), decided once so every
+ * How long a running sleep timer has left, and how full its meter is, decided once so every
  * countdown agrees: the settings control, the mini line, the sheet's running view and its "Pauses at".
  *
  * Always **wall time**: a timer is about the clock, and "Pauses at 11:42 PM" must be right. A duration timer's own

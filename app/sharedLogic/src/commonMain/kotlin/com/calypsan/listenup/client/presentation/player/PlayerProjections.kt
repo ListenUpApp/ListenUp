@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlayerPhase
 
-/** The one main button for [phase] (§4.6). Pure. */
+/** The one main button for [phase]. Pure. */
 internal fun primaryControlFor(
     phase: PlayerPhase,
     isAdmin: Boolean,
@@ -35,7 +35,7 @@ private fun controlFor(
         else -> PrimaryControl.Retry
     }
 
-/** §3.5: back N shows only where there is a settled position to go back from. neither stall shows it (S12). */
+/** Back N shows only where there is a settled position to go back from; neither stall shows it. */
 internal fun showsSkipBackFor(phase: PlayerPhase): Boolean =
     phase == PlayerPhase.Playing ||
         phase == PlayerPhase.Paused ||
@@ -43,10 +43,10 @@ internal fun showsSkipBackFor(phase: PlayerPhase): Boolean =
         phase == PlayerPhase.SleepFading
 
 /**
- * The status slot (§4.7). [timelineFullyDownloaded] is null before a prepare; then [bookDownloaded] (from the
+ * The status slot. [timelineFullyDownloaded] is null before a prepare; then [bookDownloaded] (from the
  * download status) decides local vs streaming. Pure.
  */
-@Suppress("LongParameterList") // every input is one of §4.7's four sources, named
+@Suppress("LongParameterList") // every input is one of the four sources, named
 internal fun audioSourceOf(
     phase: PlayerPhase,
     outputDeviceName: String?,
@@ -74,7 +74,7 @@ internal fun audioSourceOf(
     }
 }
 
-/** The current chapter as surfaces draw it; null [info] is a chapterless book's one whole-book chapter (§3.2). */
+/** The current chapter as surfaces draw it; null [info] is a chapterless book's one whole-book chapter. */
 internal fun playerChapterOf(
     info: ChapterInfo?,
     bookDurationMs: Long,

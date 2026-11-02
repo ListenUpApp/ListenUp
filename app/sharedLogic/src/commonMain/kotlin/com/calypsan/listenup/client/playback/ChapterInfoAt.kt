@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
  *
  * A [ChapterInfo] view of [chapterWindowAt], the single derivation of "which chapter is playing": `PlaybackManagerImpl`,
  * `NativePlayerEngine` and the session's not-yet-prepared state all call it, so the Android notification, the lock
- * screen, the highlighted row and the chapter label can never disagree (spec §4.2, the §9.2 bug guard).
+ * screen, the highlighted row and the chapter label can never disagree.
  */
 internal fun chapterInfoAt(
     positionMs: Long,

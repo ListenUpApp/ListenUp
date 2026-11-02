@@ -39,7 +39,7 @@ internal sealed interface SessionStage {
         val error: AppError,
     ) : SessionStage
 
-    /** The liveness teardown stopped it; it stays loaded until Close (§3.4). */
+    /** The liveness teardown stopped it; it stays loaded until Close. */
     data class Gone(
         override val bookId: BookId,
     ) : SessionStage
@@ -143,7 +143,7 @@ private fun enginePhaseOf(
 private fun AppError.explainedBy(unavailable: AppError?): AppError =
     if (isCurableByNetwork() && unavailable.isServerOutOfReach()) unavailable ?: this else this
 
-/** Why a not-prepared book can't play right now, or null (§4.6 proactive causes). Pure. */
+/** Why a not-prepared book can't play right now, or null. Pure. */
 internal fun unavailableReasonOf(
     isHeld: Boolean,
     isSessionLapsed: Boolean,
@@ -160,7 +160,7 @@ internal fun unavailableReasonOf(
         else -> null
     }
 
-/** The loaded book's standing in the local mirror (§3.4). */
+/** The loaded book's standing in the local mirror. */
 internal enum class Liveness { Live, Revoked, RowGone }
 
 /** Pure. A revoked book that is downloaded and partway through keeps playing (the offline-grace rule). */

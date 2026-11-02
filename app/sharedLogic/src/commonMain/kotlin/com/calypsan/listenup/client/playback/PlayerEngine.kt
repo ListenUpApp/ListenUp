@@ -26,7 +26,7 @@ enum class EnginePhase {
 }
 
 /**
- * The audio engine the shared [PlayerSession] drives (spec §4.1, S1).
+ * The audio engine the shared [PlayerSession] drives.
  *
  * Two implementations: [ManagedPlayerEngine] over `PlaybackManager` + `PlaybackController` (Android,
  * desktop, web), and [NativePlayerEngine], which forwards commands to Swift's `PlayerCoordinator` (iOS).

@@ -4,31 +4,31 @@ import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
 
-/** What the player surfaces render: one value for the mini player, Now Playing and the reader strip (spec §4.2). */
+/** What the player surfaces render: one value for the mini player, Now Playing and the reader strip. */
 sealed interface PlayerUiState {
     /** Nothing is loaded: no mini player. */
     data object NothingLoaded : PlayerUiState
 
-    /** A book is loaded (§3.4). Never re-emitted on a position tick; ticks are [PlayerProgress]. */
+    /** A book is loaded. Never re-emitted on a position tick; ticks are [PlayerProgress]. */
     data class Loaded(
         val book: PlayerBook,
         val phase: PlayerPhase,
-        /** Never null: a chapterless book is one whole-book chapter (§3.2). */
+        /** Never null: a chapterless book is one whole-book chapter. */
         val chapter: PlayerChapter,
         val chapters: List<PlayerChapterRow>,
         val source: AudioSource,
         val settings: PlayerSettings,
         val sleepTimer: SleepTimerState,
         val primary: PrimaryControl,
-        /** §3.5 "Back N by state". */
+        /** Whether "Back N" shows, by state. */
         val showsSkipBack: Boolean,
-        /** False at the last chapter (§3.3). */
+        /** False at the last chapter. */
         val canSkipToNextChapter: Boolean,
         /** Non-null only in [PlayerPhase.Finished]. */
         val finished: FinishedInfo?,
     ) : PlayerUiState {
         /**
-         * False in a chapterless book, where previous would only jump to 0:00 (§3.3); true in every chapter of a
+         * False in a chapterless book, where previous would only jump to 0:00; true in every chapter of a
          * chaptered one, chapter 1 included, where it restarts the chapter. The same answer as
          * [com.calypsan.listenup.client.playback.ChapterNavigation.hasPrevious], read off the chapter every surface
          * already has.
@@ -40,7 +40,7 @@ sealed interface PlayerUiState {
     }
 }
 
-/** The loaded book's identity, from Room, so it is right before the prepare returns (§3.6). */
+/** The loaded book's identity, from Room, so it is right before the prepare returns. */
 data class PlayerBook(
     val id: String,
     val title: String,
@@ -71,7 +71,7 @@ data class PlayerSeriesRef(
 
 /**
  * The current chapter. [number] is 1-based. A chapterless book is chapter 1 of 1 with [isWholeBook] true and an
- * empty [title]; surfaces say "Whole book" there (§3.2).
+ * empty [title]; surfaces say "Whole book" there.
  */
 data class PlayerChapter(
     val index: Int,
@@ -105,7 +105,7 @@ data class PlayerSettings(
 )
 
 /**
- * The finished state's facts (§3.7). Rating is in half stars, 2..10, as ratings are stored (Decision 8).
+ * The finished state's facts. Rating is in half stars, 2..10, as ratings are stored.
  */
 data class FinishedInfo(
     val finishedAtMs: Long?,

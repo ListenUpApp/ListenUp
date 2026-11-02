@@ -80,7 +80,7 @@ internal class PlayerReadout(
             }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /**
-     * Where a not-prepared book shows it will start (Decision 5), or null for the saved position. Moves are shown
+     * Where a not-prepared book shows it will start, or null for the saved position. Moves are shown
      * from this device's saved position; Play replays them from the reconciled one, which may be another device's.
      */
     val pendingStartMs: StateFlow<Long?> =
@@ -193,7 +193,7 @@ internal class PlayerReadout(
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
 
     /**
-     * The loaded book's standing in the local mirror (§3.4), keyed on the book too: one revoked book straight after
+     * The loaded book's standing in the local mirror, keyed on the book too: one revoked book straight after
      * another must still tear the second down.
      */
     val liveness: Flow<Pair<BookId?, Liveness>> =

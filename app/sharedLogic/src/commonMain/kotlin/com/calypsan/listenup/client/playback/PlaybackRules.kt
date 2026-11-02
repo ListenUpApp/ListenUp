@@ -49,7 +49,7 @@ fun skipTargetMs(
 }
 
 /**
- * How much book a skip of [seconds] covers at [speed]: seconds of listening, so it scales with the rate (spec §3.3).
+ * How much book a skip of [seconds] covers at [speed]: seconds of listening, so it scales with the rate.
  * The app and every system skip (notification, lock screen, headset, car) move this far.
  */
 fun skipDistanceMs(

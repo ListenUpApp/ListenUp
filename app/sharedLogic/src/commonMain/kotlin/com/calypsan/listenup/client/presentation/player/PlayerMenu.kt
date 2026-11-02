@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** One row of Now Playing's More menu (spec §5.5.7). Each platform supplies its words, its glyph and the action. */
+/** One row of Now Playing's More menu. Each platform supplies its words, its glyph and the action. */
 sealed interface PlayerMenuItem {
     /** The loaded book's detail. */
     data object GoToBook : PlayerMenuItem
@@ -52,7 +52,7 @@ data class PlayerMenuGroup(
 /** Builds the More menu. An object, so Swift Export exposes it as `PlayerMenus.shared.moreMenu(...)`. */
 object PlayerMenus {
     /**
-     * The More menu for [state] (§5.5.7): Go to book; Go to series when [includesSeries] and the book has one; Go to
+     * The More menu for [state]: Go to book; Go to series when [includesSeries] and the book has one; Go to
      * author when [includesAuthor] and the book has one ([PlayerMenuItem.ChooseAuthor] when it has several); Open PDF
      * when it has one; Volume boost; Keyboard shortcuts when [includesShortcuts]; then Close book apart.
      * [includesSeries] is false where the screen already shows the series as a link (the native wide layouts).

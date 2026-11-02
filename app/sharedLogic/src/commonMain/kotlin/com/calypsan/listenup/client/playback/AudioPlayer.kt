@@ -92,7 +92,7 @@ sealed interface PlaybackState {
     data object Ended : PlaybackState
 
     /**
-     * The engine failed. [error] is already typed at the engine edge (spec §4.6): nothing downstream
+     * The engine failed. [error] is already typed at the engine edge: nothing downstream
      * re-derives a cause from text.
      */
     data class Error(

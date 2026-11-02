@@ -44,7 +44,7 @@ interface PlaybackStateWriter {
 
     fun updateSpeed(speed: Float)
 
-    /** The engine failed; [error] is typed at the engine's edge (spec §4.6). */
+    /** The engine failed; [error] is typed at the engine's edge. */
     fun reportError(error: AppError)
 
     /**

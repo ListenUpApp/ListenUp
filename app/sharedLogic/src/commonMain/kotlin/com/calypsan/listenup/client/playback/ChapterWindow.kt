@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
  *
  * The single derivation of "which chapter is playing, and where in it": the in-app chapter label and highlighted
  * row, Book Detail's current chapter, and Android's notification, lock screen and Auto card all read it, so they can
- * never disagree (spec §4.2, the §9.2 bug guard). Build one with [chapterWindowAt].
+ * never disagree. Build one with [chapterWindowAt].
  *
  * @property index Index into the chapters list, or `-1` when the book has no chapters (the whole book is then one
  *   window).
@@ -32,7 +32,7 @@ data class ChapterWindow(
     /** [positionMs] within the window, clamped to `[0, durationMs]`. */
     val positionInWindowMs: Long get() = (positionMs - startMs).coerceIn(0L, durationMs)
 
-    /** The time left in the window: content time, never divided by the speed (spec §3.2). */
+    /** The time left in the window: content time, never divided by the speed. */
     val remainingMs: Long get() = durationMs - positionInWindowMs
 
     /** The book-relative position of [offsetMs] into this window, clamped to the window's bounds. */

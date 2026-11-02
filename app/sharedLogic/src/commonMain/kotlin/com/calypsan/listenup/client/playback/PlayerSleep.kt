@@ -59,7 +59,7 @@ internal class PlayerSleep(
                 .filterNotNull()
         }
 
-    /** Start a timer. A duration takes any whole minutes within [SleepTimerChoices]' custom bounds (PT8). */
+    /** Start a timer. A duration takes any whole minutes within [SleepTimerChoices]' custom bounds. */
     fun set(mode: SleepTimerMode) {
         val bounded =
             if (mode is SleepTimerMode.Duration) {
@@ -75,7 +75,7 @@ internal class PlayerSleep(
     /** +5 / +10 / +15 (and the notification's +10). */
     fun extend(minutes: Int) = sleepTimer.extendTimer(minutes)
 
-    /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns (PT7). */
+    /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns. */
     fun cancel() {
         val wasFading = sleepTimer.state.value is SleepTimerState.FadingOut
         fadeJob?.cancel()

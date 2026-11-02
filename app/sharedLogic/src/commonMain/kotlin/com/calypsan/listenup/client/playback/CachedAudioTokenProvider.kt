@@ -160,7 +160,7 @@ class CachedAudioTokenProvider(
     private suspend fun performRefresh() {
         when (val result = withTimeoutOrNull(FORCED_REFRESH_BOUND) { authRepository.refreshAccessToken() }) {
             is AppResult.Success -> {
-                // Persistence already happened inside the single-flight refresh (C1); here we only
+                // Persistence already happened inside the single-flight refresh; here we only
                 // update this provider's in-memory cache so getToken() serves the fresh token.
                 val session = result.data
                 cachedToken = session.accessToken

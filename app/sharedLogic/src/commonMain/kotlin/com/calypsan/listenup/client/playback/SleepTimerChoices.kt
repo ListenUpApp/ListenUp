@@ -1,21 +1,21 @@
 package com.calypsan.listenup.client.playback
 
 /**
- * What the sleep sheet offers (spec §5.5.2, PT1–PT8), decided once so Android, iOS and web list the same choices in the
+ * What the sleep sheet offers, decided once so Android, iOS and web list the same choices in the
  * same order and apply the same two rules: End of chapter only for a chaptered book, and extend only for a duration.
  * An object, so Swift sees `SleepTimerChoices.shared`.
  */
 object SleepTimerChoices {
-    /** The durations, in minutes, in the order every sheet lists them after End of chapter (§5.5.2). */
+    /** The durations, in minutes, in the order every sheet lists them after End of chapter. */
     val DURATION_MINUTES: List<Int> = listOf(15, 30, 45, 60, 120)
 
-    /** What a running duration timer can be extended by, in minutes (PT5). */
+    /** What a running duration timer can be extended by, in minutes. */
     val EXTEND_MINUTES: List<Int> = listOf(5, 10, 15)
 
-    /** The fewest minutes a custom timer takes (PT8). */
+    /** The fewest minutes a custom timer takes. */
     const val CUSTOM_MIN_MINUTES: Int = 1
 
-    /** The most minutes a custom timer takes (PT8): twelve hours. */
+    /** The most minutes a custom timer takes: twelve hours. */
     const val CUSTOM_MAX_MINUTES: Int = 720
 
     /** How far the custom stepper's − and + move, in minutes (the boards: "5 minutes less / more"). */
@@ -24,17 +24,17 @@ object SleepTimerChoices {
     /** Where the custom stepper starts (the boards). */
     const val CUSTOM_DEFAULT_MINUTES: Int = 20
 
-    /** End of chapter is offered only when the book has chapters: a whole-book "chapter" ends with the book (PT1). */
+    /** End of chapter is offered only when the book has chapters: a whole-book "chapter" ends with the book. */
     fun offersEndOfChapter(isWholeBook: Boolean): Boolean = !isWholeBook
 
     /**
      * Only a running duration timer can be extended. An end-of-chapter timer ends with the chapter, and the shared
-     * timer ignores an extend there, so its +5 / +10 / +15 would do nothing (open question 1).
+     * timer ignores an extend there, so its +5 / +10 / +15 would do nothing.
      */
     fun canExtend(timer: SleepTimerState): Boolean = (timer as? SleepTimerState.Active)?.mode is SleepTimerMode.Duration
 
     /**
-     * One press of the custom stepper (PT8): a value off the five-minute grid first snaps onto it in the direction
+     * One press of the custom stepper: a value off the five-minute grid first snaps onto it in the direction
      * pressed, and the result stays within [CUSTOM_STEP_MINUTES]..[CUSTOM_MAX_MINUTES]. Pure.
      */
     fun stepCustom(
@@ -52,7 +52,7 @@ object SleepTimerChoices {
     }
 
     /**
-     * A typed custom value (web's number field, PT8): whole minutes clamped into
+     * A typed custom value (web's number field): whole minutes clamped into
      * [CUSTOM_MIN_MINUTES]..[CUSTOM_MAX_MINUTES], or null when [raw] is not a number. Pure.
      */
     fun parseCustom(raw: String): Int? = raw.trim().toIntOrNull()?.coerceIn(CUSTOM_MIN_MINUTES, CUSTOM_MAX_MINUTES)

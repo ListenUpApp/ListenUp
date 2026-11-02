@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.player
 
 /**
- * What a surface calls the current chapter (spec §5.7): the book's own title, never our counter, which counts front
+ * What a surface calls the current chapter: the book's own title, never our counter, which counts front
  * matter and so can disagree with the book's naming. The mini player, the system media card, the lock screen, the
  * browser's Media Session and the tab title all say what this says.
  */
