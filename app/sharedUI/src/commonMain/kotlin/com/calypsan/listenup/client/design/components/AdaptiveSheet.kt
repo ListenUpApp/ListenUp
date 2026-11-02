@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.features.nowplaying.components
+package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -45,12 +45,20 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close
 import org.jetbrains.compose.resources.stringResource
 
+/** Which chrome [AdaptiveSheet] is wearing, for a body whose layout differs between the two. */
+enum class SheetPresentation {
+    /** Compact and medium widths. */
+    BottomSheet,
+
+    /** Expanded width. */
+    Dialog,
+}
+
 /**
- * Adaptive chrome for the Now Playing panels (speed, sleep, boost, chapters; spec §3.8). A Material bottom sheet on
- * compact and medium widths, on `surfaceContainerLow` with 28dp top corners and a drag handle
- * (m3.material.io/components/bottom-sheets/guidelines); a centred dialog at expanded width, the same breakpoint
- * [com.calypsan.listenup.client.features.contributors.FullCastSheet] uses, so the player's overlays agree on when to
- * switch.
+ * The app's one "bottom sheet on a phone, dialog on a wide screen" chrome: the Now Playing panels (speed, sleep, boost,
+ * chapters; spec §3.8) and the full cast. A Material bottom sheet on compact and medium widths, on
+ * `surfaceContainerLow` with 28dp top corners and a drag handle (m3.material.io/components/bottom-sheets/guidelines); a
+ * centred dialog at expanded width. One breakpoint, so every overlay agrees on when to switch.
  *
  * The body scrolls when it is taller than the sheet or the dialog, which at the largest font the speed and sleep
  * sheets are (M3 bottom sheets scroll their content; §8). A panel that brings its own bounded `LazyColumn` (Chapters)
@@ -61,27 +69,31 @@ import org.jetbrains.compose.resources.stringResource
  * dialog's close is a 48dp tonal icon button (§8).
  *
  * @param title Panel heading, rendered in the display font.
+ * @param subtitle An optional supporting line under the title (the full cast's "14 narrators").
  * @param onDismiss Invoked when the sheet/dialog is dismissed (scrim tap, back, drag-down, close).
  * @param dialogWidth Max width of the expanded dialog (520.dp default; 560.dp for Chapters).
  * @param scrollable Whether the scaffold scrolls [content]; false only for content with its own lazy list.
- * @param content Panel body, laid out in a [ColumnScope].
+ * @param content Panel body, laid out in a [ColumnScope]; told the [SheetPresentation] it is in, for a body that lays
+ *   out differently as a dialog.
  */
 @Composable
-fun PlayerPanelScaffold(
+fun AdaptiveSheet(
     title: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     dialogWidth: Dp = 520.dp,
     scrollable: Boolean = true,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(SheetPresentation) -> Unit,
 ) {
     val expanded =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
     if (expanded) {
-        PlayerPanelDialog(
+        AdaptiveDialog(
             title = title,
+            subtitle = subtitle,
             onDismiss = onDismiss,
             dialogWidth = dialogWidth,
             scrollable = scrollable,
@@ -89,8 +101,9 @@ fun PlayerPanelScaffold(
             content = content,
         )
     } else {
-        PlayerPanelBottomSheet(
+        AdaptiveBottomSheet(
             title = title,
+            subtitle = subtitle,
             onDismiss = onDismiss,
             scrollable = scrollable,
             modifier = modifier,
@@ -101,12 +114,13 @@ fun PlayerPanelScaffold(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlayerPanelBottomSheet(
+private fun AdaptiveBottomSheet(
     title: String,
+    subtitle: String?,
     onDismiss: () -> Unit,
     scrollable: Boolean,
     modifier: Modifier,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(SheetPresentation) -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -127,9 +141,9 @@ private fun PlayerPanelBottomSheet(
                     bottom = 8.dp,
                 ),
         ) {
-            PanelTitle(title)
+            PanelTitle(title, subtitle)
             PanelBody(scrollable = scrollable) {
-                content()
+                content(SheetPresentation.BottomSheet)
                 Spacer(Modifier.height(16.dp))
             }
         }
@@ -138,13 +152,14 @@ private fun PlayerPanelBottomSheet(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PlayerPanelDialog(
+private fun AdaptiveDialog(
     title: String,
+    subtitle: String?,
     onDismiss: () -> Unit,
     dialogWidth: Dp,
     scrollable: Boolean,
     modifier: Modifier,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(SheetPresentation) -> Unit,
 ) {
     val windowHeight =
         with(LocalDensity.current) {
@@ -166,7 +181,7 @@ private fun PlayerPanelDialog(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    PanelTitle(title, modifier = Modifier.weight(1f))
+                    PanelTitle(title, subtitle, modifier = Modifier.weight(1f))
                     FilledTonalIconButton(
                         onClick = onDismiss,
                         shapes = IconButtonDefaults.shapes(),
@@ -183,7 +198,7 @@ private fun PlayerPanelDialog(
                         )
                     }
                 }
-                PanelBody(scrollable = scrollable, content = content)
+                PanelBody(scrollable = scrollable) { content(SheetPresentation.Dialog) }
             }
         }
     }
@@ -202,18 +217,27 @@ private fun ColumnScope.PanelBody(
 @Composable
 private fun PanelTitle(
     title: String,
+    subtitle: String?,
     modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = title,
-        modifier = modifier.padding(bottom = 4.dp),
-        style =
-            MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = DisplayFontFamily,
-                fontWeight = FontWeight.Medium,
-            ),
-        color = MaterialTheme.colorScheme.onSurface,
-    )
+    Column(modifier = modifier.padding(bottom = 4.dp)) {
+        Text(
+            text = title,
+            style =
+                MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Medium,
+                ),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        subtitle?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /** What the dialog leaves free above and below it, so a tall panel scrolls inside the dialog, not off the window. */

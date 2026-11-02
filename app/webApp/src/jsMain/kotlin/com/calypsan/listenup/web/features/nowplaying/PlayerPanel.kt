@@ -62,7 +62,7 @@ internal fun panelPlacementFor(opener: HTMLElement?): PanelPlacement {
  *   same [placeAgainst] every menu uses. Focus moves to its heading as it opens; Escape, Close or a press outside closes
  *   it; Tab out of it closes it too, since a popover traps nothing. Escape and Close hand focus back to the opener.
  *
- * Web's answer to `PlayerPanelScaffold`. Every player panel is a place you visit and leave, so both placements carry
+ * Web's answer to `AdaptiveSheet`. Every player panel is a place you visit and leave, so both placements carry
  * Close.
  */
 @Composable

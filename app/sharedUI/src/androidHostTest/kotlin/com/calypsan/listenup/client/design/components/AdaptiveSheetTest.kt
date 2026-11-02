@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.features.nowplaying
+package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
 import com.calypsan.listenup.client.testing.AtFontScale
 import com.calypsan.listenup.client.testing.assertTouchTargetAtLeast
 import com.calypsan.listenup.client.testing.textLayout
@@ -24,7 +23,7 @@ import org.robolectric.annotation.Config
 
 /** The sheets' one shell (§3.8, §8): it scrolls at large text, its title is Medium, and its close is 48dp. */
 @RunWith(RobolectricTestRunner::class)
-class PlayerPanelScaffoldTest {
+class AdaptiveSheetTest {
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -32,7 +31,7 @@ class PlayerPanelScaffoldTest {
         composeRule.setContent {
             AtFontScale {
                 MaterialTheme {
-                    PlayerPanelScaffold(title = "Playback speed", onDismiss = {}) {
+                    AdaptiveSheet(title = "Playback speed", onDismiss = {}) {
                         repeat(lines) { Text("Line $it") }
                     }
                 }

@@ -38,7 +38,7 @@ import com.calypsan.listenup.client.design.components.ButtonGroupChoice
 import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MAX
 import com.calypsan.listenup.client.playback.PLAYBACK_SPEED_MIN
 import com.calypsan.listenup.client.playback.PlaybackPresets
@@ -84,7 +84,7 @@ fun PlaybackSpeedSheet(
 ) {
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
 
-    PlayerPanelScaffold(title = stringResource(Res.string.player_playback_speed), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_playback_speed), onDismiss = onDismiss) {
         SpeedReadout(speed = sliderSpeed, bookRemainingAtSpeedMs = bookRemainingAtSpeedMs)
         Spacer(Modifier.height(Spacing.md))
         FineSpeedControl(

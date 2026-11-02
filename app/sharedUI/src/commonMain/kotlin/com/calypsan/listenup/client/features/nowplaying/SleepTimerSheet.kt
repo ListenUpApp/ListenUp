@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.features.nowplaying.components.SleepCustomStepper
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -95,7 +95,7 @@ internal data class SleepSheetState(
  * Running: the countdown in big m:ss (not a live region, §8), when it pauses by the device's clock, a gold meter of what
  * is left, +5 / +10 / +15 for a duration, and Cancel timer, which keeps the sheet open and returns to the choices (S13).
  * Fading: the same gold card Now Playing shows, with Keep listening (PT7). Adaptive sheet/dialog via
- * [PlayerPanelScaffold].
+ * [AdaptiveSheet].
  *
  * @param state What to draw.
  * @param onSetTimer Start a timer with the chosen [SleepTimerMode].
@@ -113,7 +113,7 @@ internal fun SleepTimerSheet(
     onKeepListening: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PlayerPanelScaffold(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) {
         when (val timer = state.timer) {
             SleepTimerState.Inactive -> {
                 SleepChoices(state = state, onSetTimer = onSetTimer)
