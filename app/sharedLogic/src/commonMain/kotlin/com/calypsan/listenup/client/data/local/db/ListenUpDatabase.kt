@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * not yet reached the server, retried until the server answers.
  * [MIGRATION_25_26] adds each photo's frame, `contributors.imageFrame` and `public_profiles.avatarFrame`.
  * [MIGRATION_26_27] adds `playback_positions.finishedCardDismissedAt`, when a book's finish card was dismissed.
+ * [MIGRATION_27_28] is data only: it rewinds the `contributors` and `public_profiles` cursors so photo frames arrive.
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -118,7 +119,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         WorldEventMentionEntity::class,
         PendingImageUploadEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = true,
 )
 @ColumnTypeConverters(

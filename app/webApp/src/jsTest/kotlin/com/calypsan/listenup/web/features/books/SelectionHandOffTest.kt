@@ -96,7 +96,7 @@ class SelectionHandOffTest :
                     BookSelectionScaffold(
                         fixedMultiSelect(
                             selectionMode = SelectionMode.Active(setOf("b1", "b2")),
-                            onEnter = { calls += "enter" },
+                            onDeselectAll = { calls += "deselect" },
                             onSelectAll = { calls += "all" },
                         ),
                         Router(),
@@ -109,7 +109,7 @@ class SelectionHandOffTest :
             root.querySelectorAll(".bulk button[aria-label^='Select all']").length shouldBe 0
             (root.querySelector(".bulk button[aria-label='Deselect all']") as HTMLElement).click()
 
-            calls shouldBe listOf("enter")
+            calls shouldBe listOf("deselect")
         }
 
         test("Home and Discover offer no Select all") {

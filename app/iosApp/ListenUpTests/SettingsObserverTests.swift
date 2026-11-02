@@ -20,9 +20,10 @@ struct SettingsObserverTests {
         #expect(SettingsFormat.skipLabel(seconds: 90) == "1m 30s")
     }
 
-    @Test func speedIsFixedToOneDecimal() {
-        #expect(SettingsFormat.speedLabel(1.0) == "1.0×")
-        #expect(SettingsFormat.speedLabel(1.5) == "1.5×")
+    /// 1.25 once read "1.2×" here (`%.1f` rounds it down); every surface now writes it the shared way.
+    @Test func aQuarterSpeedReadsAsOnePointTwoFive() {
+        #expect(PlaybackPresets.shared.speedLabel(speed: 1.25) == "1.25×")
+        #expect(PlaybackPresets.shared.speedLabel(speed: 1.0) == "1.0×")
     }
 
     @Test func sleepTimerNilUsesOffLabel() {

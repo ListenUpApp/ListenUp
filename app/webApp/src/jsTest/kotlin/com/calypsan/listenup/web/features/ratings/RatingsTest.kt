@@ -36,7 +36,6 @@ import com.calypsan.listenup.web.awaitPresent
 import com.calypsan.listenup.web.design.RatingStars
 import com.calypsan.listenup.web.design.halfStarsAt
 import com.calypsan.listenup.web.design.halfStarsForKey
-import com.calypsan.listenup.web.features.library.BOOK_SORT_CATEGORIES
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
@@ -998,10 +997,10 @@ class RatingsTest :
         }
 
         test("the library sorts books by the outside world's rating and by your listeners'") {
-            BOOK_SORT_CATEGORIES shouldContain SortCategory.RATING
-            BOOK_SORT_CATEGORIES shouldContain SortCategory.LISTENER_RATING
-            // Side by side, as board `Library-WebDesktop-Sort` lists them.
-            BOOK_SORT_CATEGORIES.indexOf(SortCategory.LISTENER_RATING) shouldBe
-                BOOK_SORT_CATEGORIES.indexOf(SortCategory.RATING) + 1
+            SortCategory.booksCategories shouldContain SortCategory.RATING
+            SortCategory.booksCategories shouldContain SortCategory.LISTENER_RATING
+            // Side by side, in the one order every platform sorts the Library by.
+            SortCategory.booksCategories.indexOf(SortCategory.LISTENER_RATING) shouldBe
+                SortCategory.booksCategories.indexOf(SortCategory.RATING) + 1
         }
     })

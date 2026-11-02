@@ -177,6 +177,12 @@ class FakeBookRepository : BookRepository {
 
     override fun observeBookDetail(id: String): Flow<BookDetail?> = MutableStateFlow(null)
 
+    override fun observeBookExists(id: String): Flow<Boolean> = MutableStateFlow(false)
+
+    override fun observeBookDurationMs(id: String): Flow<Long?> = MutableStateFlow(null)
+
+    override fun observeFirstSeriesId(id: String): Flow<String?> = MutableStateFlow(null)
+
     override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null

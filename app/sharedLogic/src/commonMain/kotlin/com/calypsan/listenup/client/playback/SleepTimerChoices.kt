@@ -1,7 +1,4 @@
-package com.calypsan.listenup.client.presentation.player
-
-import com.calypsan.listenup.client.playback.SleepTimerMode
-import com.calypsan.listenup.client.playback.SleepTimerState
+package com.calypsan.listenup.client.playback
 
 /**
  * What the sleep sheet offers (spec §5.5.2, PT1–PT8), decided once so Android, iOS and web list the same choices in the
@@ -28,7 +25,7 @@ object SleepTimerChoices {
     const val CUSTOM_DEFAULT_MINUTES: Int = 20
 
     /** End of chapter is offered only when the book has chapters: a whole-book "chapter" ends with the book (PT1). */
-    fun offersEndOfChapter(chapter: PlayerChapter): Boolean = !chapter.isWholeBook
+    fun offersEndOfChapter(isWholeBook: Boolean): Boolean = !isWholeBook
 
     /**
      * Only a running duration timer can be extended. An end-of-chapter timer ends with the chapter, and the shared

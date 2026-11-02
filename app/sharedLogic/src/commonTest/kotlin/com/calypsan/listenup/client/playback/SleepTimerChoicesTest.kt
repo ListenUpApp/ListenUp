@@ -1,23 +1,10 @@
-package com.calypsan.listenup.client.presentation.player
+package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.client.playback.SleepTimerMode
-import com.calypsan.listenup.client.playback.SleepTimerState
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 class SleepTimerChoicesTest :
     FunSpec({
-        fun chapter(isWholeBook: Boolean) =
-            PlayerChapter(
-                index = 0,
-                number = 1,
-                total = if (isWholeBook) 1 else 75,
-                title = if (isWholeBook) "" else "Prologue",
-                isGenericTitle = isWholeBook,
-                isWholeBook = isWholeBook,
-                startMs = 0,
-                durationMs = 1_200_000,
-            )
 
         test("the ladder every platform offers, in order") {
             SleepTimerChoices.DURATION_MINUTES shouldBe listOf(15, 30, 45, 60, 120)
@@ -25,8 +12,8 @@ class SleepTimerChoicesTest :
         }
 
         test("End of chapter is offered for a chaptered book, never for a whole-book one") {
-            SleepTimerChoices.offersEndOfChapter(chapter(isWholeBook = false)) shouldBe true
-            SleepTimerChoices.offersEndOfChapter(chapter(isWholeBook = true)) shouldBe false
+            SleepTimerChoices.offersEndOfChapter(isWholeBook = false) shouldBe true
+            SleepTimerChoices.offersEndOfChapter(isWholeBook = true) shouldBe false
         }
 
         test("only a duration can be extended") {

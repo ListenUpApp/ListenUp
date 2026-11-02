@@ -25,7 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.SleepTimerState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
@@ -54,7 +54,7 @@ fun PlayerSettingsRow(
     onChaptersClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val rate = formatPlaybackSpeed(speed)
+    val rate = PlaybackPresets.speedLabel(speed)
     val speedName = stringResource(Res.string.player_playback_speed)
     val chaptersName = stringResource(Res.string.player_chapters)
     val speedButton: @Composable () -> Unit = {

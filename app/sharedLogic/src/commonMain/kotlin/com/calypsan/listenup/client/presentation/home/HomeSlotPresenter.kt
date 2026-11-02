@@ -221,18 +221,22 @@ internal class HomeSlotPresenter(
         }
     }
 
-    private fun seriesCandidate(): Flow<NextInSeries?> =
-        positions
-            .observeAll()
-            .map { all -> all.mapKeys { (id, _) -> id.value } }
-            .flatMapLatest { byId ->
-                val walk = finishedNewestFirst(byId.values)
-                if (walk.isEmpty()) {
-                    flowOf(null)
-                } else {
-                    combine(walk.map(nextInSeries)) { nexts -> seriesCandidateOf(nexts.toList(), byId) }
+    /**
+     * The queries rebuild only when the walk's book ids change; a position save for any other book re-runs the pure
+     * pick over the live positions without resubscribing up to [SERIES_CANDIDATE_WALK] next-in-series flows.
+     */
+    private fun seriesCandidate(): Flow<NextInSeries?> {
+        val byId = positions.observeAll().map { all -> all.mapKeys { (id, _) -> id.value } }
+        val nexts =
+            byId
+                .map { finishedNewestFirst(it.values) }
+                .distinctUntilChanged()
+                .flatMapLatest { walk ->
+                    if (walk.isEmpty()) flowOf(emptyList()) else combine(walk.map(nextInSeries)) { it.toList() }
                 }
-            }.distinctUntilChanged()
+        return combine(nexts, byId) { walkNexts, positionsById -> seriesCandidateOf(walkNexts, positionsById) }
+            .distinctUntilChanged()
+    }
 }
 
 /** The facts the just-finished pick and the history test read, gathered from three sources. */

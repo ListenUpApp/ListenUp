@@ -13,18 +13,18 @@ enum BookContextMenuAction: Hashable {
     case editDetails
 }
 
-/// What a book's menu leads with, mirroring the shared `bookMenuPrimary` rule from the card's own state:
-/// a started book resumes (with its time left), a finished one is listened to again, anything else plays.
+/// What a book's menu leads with: the shared `bookMenuPrimary` rule's answer, mapped once. A started book resumes
+/// (with its time left), a finished one is listened to again, anything else plays.
 enum BookMenuPrimaryValue: Equatable {
     case play
     case resume(timeLeftMs: Int64)
     case listenAgain
 
-    init(_ state: LibraryCardState?) {
-        switch state {
-        case .inProgress(_, let timeLeftMs): self = .resume(timeLeftMs: timeLeftMs)
-        case .finished: self = .listenAgain
-        case .notStarted, nil: self = .play
+    init(_ primary: BookMenuPrimary) {
+        switch primary.sealedType() {
+        case .play: self = .play
+        case .resume(let resume): self = .resume(timeLeftMs: resume.value.timeLeftMs)
+        case .listenAgain: self = .listenAgain
         }
     }
 

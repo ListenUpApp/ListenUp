@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
+import com.calypsan.listenup.client.features.library.components.libraryCountLine
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuActions
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuHost
 import com.calypsan.listenup.client.features.library.components.LibraryInboxStrip
@@ -48,7 +49,9 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectAllOffer
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.books.selectAllOffer
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
@@ -328,12 +331,23 @@ internal fun LibraryLoadedContent(
                 )
             } else {
                 appHeader {
-                    Text(
-                        text = ShellDestination.Library.title,
-                        style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Column {
+                        Text(
+                            text = ShellDestination.Library.title,
+                            style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        // Spec L4, as on the tablet and the web: nothing until the library has books to count.
+                        if (state.statusCounts.all > 0) {
+                            Text(
+                                text = libraryCountLine(all = state.statusCounts.all, totalMs = state.totalDurationMs),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
 
                 // The four sections as one connected group. Wider chrome gets more air below the big header.
@@ -400,14 +414,16 @@ internal fun LibraryLoadedContent(
             state = selectionState,
             // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
             selectAll =
-                if (selectedSection == LibrarySection.Books && state.books.isNotEmpty()) {
-                    SelectAllAction(
-                        count = state.books.size,
-                        isAllSelected = state.books.all { it.id.value in selectedBookIds },
-                        onSelectAll = { multiSelect.selectAll(state.books.map { it.id.value }) },
-                        // Clears the picks and stays in selection (enterSelectionMode with none picked).
-                        onDeselectAll = { multiSelect.enterSelectionMode() },
-                    )
+                if (selectedSection == LibrarySection.Books) {
+                    val onScreen = state.books.map { it.id.value }
+                    selectAllOffer(onScreen, selectedBookIds)?.let { offer ->
+                        SelectAllAction(
+                            count = onScreen.size,
+                            isAllSelected = offer is SelectAllOffer.DeselectAll,
+                            onSelectAll = { multiSelect.selectAll(onScreen) },
+                            onDeselectAll = multiSelect::deselectAll,
+                        )
+                    }
                 } else {
                     null
                 },

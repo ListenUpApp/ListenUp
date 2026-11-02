@@ -4,8 +4,8 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.EnginePhase
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.chapterInfoAt
@@ -22,7 +22,7 @@ class FakePlayerEngine : PlayerEngine {
     override val speed = MutableStateFlow(1.0f)
     override val boostDb = MutableStateFlow(0f)
     override val chapters = MutableStateFlow<List<Chapter>>(emptyList())
-    override val currentChapter = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
+    override val currentChapter = MutableStateFlow<ChapterInfo?>(null)
     override val timeline = MutableStateFlow<PlaybackTimeline?>(null)
     override val outputDeviceName = MutableStateFlow<String?>(null)
     override val error = MutableStateFlow<AppError?>(null)

@@ -2,8 +2,9 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.PlayerSessionState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.ChapterInput
@@ -49,8 +50,9 @@ class ChapterEditorViewModel(
     bookRepository: BookRepository,
     private val bookEditRepository: BookEditRepository,
     private val errorBus: ErrorBus,
-    private val playbackManager: PlaybackManager,
-    private val playbackController: PlaybackController,
+    // Read only for the loaded book's file boundaries: the session exposes no timeline.
+    playbackManager: PlaybackManager,
+    private val playerSession: PlayerSession,
 ) : ViewModel() {
     /** The user's unsaved work, or null while the editor is simply following the mirror. */
     private val draft = MutableStateFlow<ChapterDraft?>(null)
@@ -230,13 +232,11 @@ class ChapterEditorViewModel(
      * playing, the same rule as "Add chapter at playhead".
      */
     fun playFrom(chapterId: String) {
-        if (playbackManager.currentTimeline.value?.bookId != BookId(bookId)) return
+        val loaded = playerSession.state.value as? PlayerSessionState.Loaded
+        if (loaded?.bookId != BookId(bookId)) return
         val editing = state.value as? ChapterEditorUiState.Editing ?: return
         val startMs = editing.chapters.firstOrNull { it.id == chapterId }?.startTime ?: return
-        playbackController.seekTo(startMs)
-        // So the playhead reads the new position at once, even before the player reports it.
-        playbackManager.updatePosition(startMs)
-        playbackController.play()
+        playerSession.playBook(loaded.bookId, startMs)
     }
 
     /** Removes [chapterId], merging its span into the chapter before it. */

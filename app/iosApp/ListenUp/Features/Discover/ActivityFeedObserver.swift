@@ -92,6 +92,10 @@ struct ActivityRowItem: Identifiable, Equatable {
     /// The book's cover content version; nil when it has none or the row is book-less.
     let coverHash: String?
     let occurredAt: Date
+    /// What the row offers beyond its tap, from the shared `activityRowActions` rule (plan C7).
+    let actions: [ActivityRowActions.Action]
+    /// The same, for a screen that cannot shelve one book (no selection, or one is under way).
+    let actionsWithoutShelving: [ActivityRowActions.Action]
 
     /// The book when there is one, else the shelf, else the actor.
     var destination: ActivityDestination {
@@ -117,6 +121,10 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.coverPath = model.bookCoverPath
         self.coverHash = model.bookCoverHash
         self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.discover.self
+        self.actions = rules.activityRowActions(row: model, canShelve: true).map(ActivityRowActions.Action.init)
+        self.actionsWithoutShelving = rules.activityRowActions(row: model, canShelve: false)
+            .map(ActivityRowActions.Action.init)
     }
 
     init(
@@ -132,7 +140,9 @@ struct ActivityRowItem: Identifiable, Equatable {
         isYou: Bool = false,
         actorName: String? = nil,
         coverPath: String? = nil,
-        coverHash: String? = nil
+        coverHash: String? = nil,
+        actions: [ActivityRowActions.Action] = [],
+        actionsWithoutShelving: [ActivityRowActions.Action] = []
     ) {
         self.id = id
         self.userId = userId
@@ -147,5 +157,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.coverPath = coverPath
         self.coverHash = coverHash
         self.occurredAt = occurredAt
+        self.actions = actions
+        self.actionsWithoutShelving = actionsWithoutShelving
     }
 }

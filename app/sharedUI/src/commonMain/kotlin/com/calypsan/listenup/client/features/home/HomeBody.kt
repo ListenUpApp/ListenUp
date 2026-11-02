@@ -18,9 +18,11 @@ import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.home.HomeBlock
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.homeBlocks
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_couldnt_load_listening
 import org.jetbrains.compose.resources.stringResource
@@ -65,7 +67,7 @@ internal fun HomeBody(
             continueListeningFailed = state.continueListeningError != null,
             showsStrip = state.showsArrivalStrip,
             hasEverythingInProgress = state.everythingInProgress.isNotEmpty(),
-            width = width,
+            isWide = width == HomeWidth.Expanded,
         ).forEach { block ->
             HomeBlockContent(
                 block = block,

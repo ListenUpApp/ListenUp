@@ -614,7 +614,8 @@ internal val MIGRATION_24_25 =
 /**
  * v25 → v26: each photo's frame — `contributors.imageFrame` and `public_profiles.avatarFrame`, ImageFraming JSON.
  * Non-destructive by construction: two nullable columns, so every existing row reads as "no frame", the centre crop it
- * shows today. The outbox and the sync cursors are untouched.
+ * shows today. The outbox and the sync cursors are untouched here, so frames set while a device ran an older app arrive
+ * only after [MIGRATION_27_28].
  */
 internal val MIGRATION_25_26 =
     object : Migration(25, 26) {
@@ -627,11 +628,32 @@ internal val MIGRATION_25_26 =
 /**
  * v26 → v27: `playback_positions.finishedCardDismissedAt`, when the reader last dismissed a book's "just finished"
  * card. Non-destructive by construction: one nullable column, so every row reads as "never dismissed". The cursor is
- * not rewound — no server row holds a dismissal yet, so there is nothing to re-pull.
+ * deliberately not rewound, even though a server row can already hold a dismissal: a dismissal matters only for the few
+ * days a "just finished" card shows, positions resolve newer-wins so a re-pull would compete with unsynced local
+ * positions on the most sensitive write path, and positions are the largest per-user domain.
  */
 internal val MIGRATION_26_27 =
     object : Migration(26, 27) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.executeDdl("ALTER TABLE `playback_positions` ADD COLUMN `finishedCardDismissedAt` INTEGER")
+        }
+    }
+
+/**
+ * v27 → v28: data only, no schema change. Rewinds the `contributors` and `public_profiles` cursors so the next
+ * catch-up re-pulls both domains. A device still on an older app decoded the photo-frame payloads with
+ * `ignoreUnknownKeys`, dropped the frame, and advanced its cursor past the row; [MIGRATION_25_26] then added the
+ * columns empty, and because revisions never changed neither the cursored pull nor the digest could see the gap.
+ * - Safe: both domains are server-wins and the revision guard skips only a strictly older row, so a re-pulled row at an
+ *   equal revision is applied and fills the frame. Contributor edits ride the outbox and the apply shields a photo with
+ *   a pending upload, so unsynced local edits survive; public profiles are server-owned.
+ * - `playback_positions` is left alone, for the reasons given on [MIGRATION_26_27].
+ * A missing cursor is `since = 0`.
+ */
+internal val MIGRATION_27_28 =
+    object : Migration(27, 28) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'contributors'")
+            connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'public_profiles'")
         }
     }

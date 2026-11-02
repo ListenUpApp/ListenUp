@@ -581,7 +581,7 @@ private fun BookSections(
     wide: Boolean,
     panes: SectionPanes,
 ) {
-    val order = state.shownSections()
+    val order = state.shownSections
     if (wide) {
         val columns = bookDetailColumns(order)
         Div(attrs = { classes("bd-cols") }) {
@@ -607,16 +607,6 @@ private fun BookSections(
         }
     }
 }
-
-/** The sections a page shows: a held book is triage-only, so its social sections and Series stay hidden. */
-internal fun BookDetailUiState.Ready.shownSections(): List<BookDetailSection> =
-    if (isHeld) {
-        sectionOrder.filter {
-            it == BookDetailSection.About || it == BookDetailSection.Chapters || it == BookDetailSection.Details
-        }
-    } else {
-        sectionOrder
-    }
 
 /** Who can't see this book. Admins only — a member's visibility is null — and never for a held book. */
 @Composable
@@ -710,12 +700,7 @@ private fun AboutPanel(
     wide: Boolean,
     panes: SectionPanes,
 ) {
-    val clampLines =
-        when {
-            wide -> null
-            state.readingStage == ReadingStage.NotStarted -> ABOUT_LINES_NOT_STARTED
-            else -> ABOUT_LINES
-        }
+    val clampLines = if (wide) null else state.aboutLineLimit
     // Bare, under the board's large heading: About is reading, not a card of reference facts (as Chapters).
     Section(attrs = { classes("bd-about") }) {
         H2(attrs = { classes("bd-sec-title") }) { Text("About") }
@@ -773,11 +758,6 @@ private fun ClampedDescription(
         }) { Text(if (expanded) "Read less" else "Read more") }
     }
 }
-
-/** Synopsis lines on a phone before "Read more". */
-private const val ABOUT_LINES_NOT_STARTED = 4
-
-private const val ABOUT_LINES = 2
 
 private const val ABOUT_HEADING_LEVEL = 2
 

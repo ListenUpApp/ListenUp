@@ -211,4 +211,25 @@ class SortStateTest :
                 restored shouldBe original
             }
         }
+
+        test("the Books sort list is one order on every platform") {
+            SortCategory.booksCategories shouldBe
+                listOf(
+                    SortCategory.TITLE,
+                    SortCategory.AUTHOR,
+                    SortCategory.DURATION,
+                    SortCategory.YEAR,
+                    SortCategory.ADDED,
+                    SortCategory.RATING,
+                    SortCategory.LISTENER_RATING,
+                    SortCategory.SERIES,
+                )
+        }
+
+        test("each list's keys, read back through fromKey, give the same list (the form iOS reads)") {
+            SortCategory.booksCategoryKeys.map { SortCategory.fromKey(it) } shouldBe SortCategory.booksCategories
+            SortCategory.seriesCategoryKeys.map { SortCategory.fromKey(it) } shouldBe SortCategory.seriesCategories
+            SortCategory.contributorCategoryKeys.map { SortCategory.fromKey(it) } shouldBe
+                SortCategory.contributorCategories
+        }
     })

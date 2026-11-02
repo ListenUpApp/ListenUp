@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
+import com.calypsan.listenup.client.presentation.sync.ManualSyncRefresh
 
 private val logger = KotlinLogging.logger {}
 
@@ -164,6 +165,7 @@ class LibraryViewModel(
     private val libraryPreferences: LibraryPreferences,
     private val syncStatusRepository: SyncStatusRepository,
     bookRatingRepository: BookRatingRepository,
+    private val manualSyncRefresh: ManualSyncRefresh,
     // CPU-bound sort/filter of the library runs on this dispatcher, off the main thread. Defaulted
     // for production; tests inject their scheduler-backed dispatcher so the pipeline stays controllable.
     private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -474,7 +476,7 @@ class LibraryViewModel(
                 // Only a failed pipeline is restarted. A healthy one is already live on Room, and
                 // re-running it would re-sort the whole library to say the same thing.
                 if (uiState.value is LibraryUiState.Error) pipelineRuns.update { it + 1 }
-                refreshBooks()
+                refreshLibrary()
             }
 
             // Books tab sort events
@@ -548,6 +550,11 @@ class LibraryViewModel(
                 .refreshBooks()
                 .onFailure { logger.warn { "Library refresh failed: ${it.message}" } }
         }
+    }
+
+    /** Pull-to-refresh is the same "sync now" the sync indicator offers, so a failure is heard, not just logged. */
+    private fun refreshLibrary() {
+        viewModelScope.launch { manualSyncRefresh.refresh() }
     }
 
     private fun persistBooksSort() {

@@ -16,6 +16,8 @@ ActivityFeedUiState_SealedType
 ActivityFeedViewModel
 ActivityParts
 ActivityRepository
+ActivityRowAction
+ActivityRowAction_SealedType
 ActivityUiModel
 AddSubSeriesEvent
 AddSubSeriesEvent_SealedType
@@ -197,6 +199,7 @@ ChapterEditorEvent_SealedType
 ChapterEditorUiState
 ChapterEditorUiState_SealedType
 ChapterEditorViewModel
+ChapterInfo
 ChapterInput
 ChapterListFollow
 ChapterListMove
@@ -212,6 +215,7 @@ ChapterSetProblem
 ChapterSetProblem_SealedType
 ChapterTimeFormat
 ChapterUiModel
+ChapterWindow
 ChildSeriesUi
 ClaimInviteUiState
 ClaimInviteUiState_SealedType
@@ -466,6 +470,8 @@ HiddenFrom
 HiddenFromNames
 HiddenFromSummary
 HiddenFrom_SealedType
+HomeBlock
+HomeBlock_SealedType
 HomeConnectivity
 HomeRepository
 HomeSlot
@@ -602,6 +608,8 @@ LoginUiState
 LoginUiState_SealedType
 LoginViewModel
 LoudnessMeter
+ManualRefresh
+ManualSyncRefresh
 MatchReason
 MatchReason_SealedType
 MatchReceipt
@@ -736,6 +744,7 @@ PlaybackPositionRepository
 PlaybackPreferences
 PlaybackPrepareRepository
 PlaybackPreparer
+PlaybackPresets
 PlaybackProgressReporter
 PlaybackStart
 PlaybackStartGate
@@ -871,6 +880,8 @@ SearchViewModel
 SeeAllSearchUiState
 SeeAllSearchUiState_SealedType
 SeeAllSearchViewModel
+SelectAllOffer
+SelectAllOffer_SealedType
 SelectionMode
 SelectionMode_SealedType
 Series
@@ -1000,6 +1011,8 @@ SyncIndicatorUiEvent_SealedType
 SyncIndicatorUiState
 SyncIndicatorViewModel
 SyncPhase
+SyncReadout
+SyncReadout_SealedType
 SyncRepository
 SyncState
 SyncState_SealedType

@@ -39,7 +39,7 @@ import com.calypsan.listenup.client.features.nowplaying.components.SleepCustomSt
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerChoices
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cancel_timer
 import listenup.composeapp.generated.resources.player_chapter_number
@@ -143,7 +143,7 @@ private fun SleepChoices(
 ) {
     var customMinutes by rememberSaveable { mutableIntStateOf(SleepTimerChoices.CUSTOM_DEFAULT_MINUTES) }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        if (SleepTimerChoices.offersEndOfChapter(state.chapter)) {
+        if (SleepTimerChoices.offersEndOfChapter(state.chapter.isWholeBook)) {
             EndOfChapterChoice(
                 chapterName = state.chapter.sleepName(),
                 chapterRemainingMs = state.chapterRemainingMs,

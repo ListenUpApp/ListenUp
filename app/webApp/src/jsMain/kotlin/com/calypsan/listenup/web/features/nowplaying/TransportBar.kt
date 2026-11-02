@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -412,12 +413,12 @@ private fun SessionControls(
     Button(attrs = {
         classes("tport-speed")
         attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
+        attr(ATTR_ARIA_LABEL, "Playback speed, ${PlaybackPresets.speedNumber(speed)} times")
         attr(ATTR_TITLE, NowPlayingWords.withKey("Playback speed", "< >"))
         attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SPEED)
         attr(ATTR_EXPANDED, (panels.speed != null).toString())
         onClick { event -> onOpenSpeed(event.currentTarget as? HTMLElement) }
-    }) { Text("${formatSpeed(speed)}\u00D7") }
+    }) { Text("${compactSpeedText(speed)}\u00D7") }
 
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
     // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
@@ -629,21 +630,12 @@ private fun SkipButton(
 }
 
 /**
- * A speed as the shortest text that still reads as that speed: `1x`, `1.5x`, `1.25x`.
+ * A speed for the transport bar's 40px control: `1×` is `1`, `1.5` and `1.25` as they are, the sign added by the caller.
  *
- * Trailing zeros are dropped because the control is 40px wide and "1.00" spends a third of it
- * saying nothing.
+ * The one place a speed is not written as [PlaybackPresets.speedLabel] ("1.0×"): the control is 40px wide, and the
+ * trailing ".0" spends a quarter of it saying nothing. It is built from the shared number, so it cannot drift from it.
  */
-internal fun formatSpeed(speed: Float): String {
-    val hundredths = (speed * HUNDREDTHS).roundToInt()
-    val whole = hundredths / HUNDREDTHS
-    val fraction = hundredths % HUNDREDTHS
-    return when {
-        fraction == 0 -> whole.toString()
-        fraction % TENTHS == 0 -> "$whole.${fraction / TENTHS}"
-        else -> "$whole.${fraction.toString().padStart(2, '0')}"
-    }
-}
+internal fun compactSpeedText(speed: Float): String = PlaybackPresets.speedNumber(speed).removeSuffix(".0")
 
 /**
  * `H:MM:SS` once a position reaches an hour, `M:SS` below it.
@@ -784,8 +776,3 @@ private const val BAR_COVER_RUNG = 112
 private const val BAR_COVER_RADIUS = 6
 
 private const val PERCENT = 100
-
-/** A speed is carried as hundredths so the ladder's quarter steps stay exact in integer maths. */
-private const val HUNDREDTHS = 100
-
-private const val TENTHS = 10

@@ -178,4 +178,49 @@ class NativePlayerEngineDropRecoveryTest :
                 }
             }
         }
+
+        test("a fresh prepare that fails while the device is offline keeps backing off until the network returns") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    var prepares = 0
+                    val engine =
+                        NativePlayerEngine(prepare = { id, _ ->
+                            prepares++
+                            if (prepares in 2..3) {
+                                AppResult.Failure(PlaybackError.ServerUnreachable())
+                            } else {
+                                AppResult.Success(preparedPlaybackFor(id.value))
+                            }
+                        }, scope = scope)
+                    engine.commands.test {
+                        engine.load(BookId("a"), start = PlaybackStart.Resume)
+                        awaitItem()
+                        engine.onPhase(1, EnginePhase.PLAYING)
+                        engine.reportConnectionLost(1, null)
+                        advanceTimeBy(1_000)
+                        runCurrent()
+                        prepares shouldBe 2
+                        engine.error.value shouldBe PlaybackError.ServerUnreachable()
+                        advanceTimeBy(1_999)
+                        runCurrent()
+                        prepares shouldBe 2
+                        advanceTimeBy(1)
+                        runCurrent()
+                        prepares shouldBe 3
+                        engine.error.value shouldBe PlaybackError.ServerUnreachable()
+                        expectNoEvents()
+                        advanceTimeBy(3_999)
+                        runCurrent()
+                        prepares shouldBe 3
+                        advanceTimeBy(1)
+                        runCurrent()
+                        prepares shouldBe 4
+                        awaitItem().shouldBeInstanceOf<EngineCommand.Load>().generation shouldBe 2
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
     })

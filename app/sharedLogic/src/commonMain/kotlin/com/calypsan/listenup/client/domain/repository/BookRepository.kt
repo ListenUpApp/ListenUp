@@ -152,6 +152,23 @@ interface BookRepository {
     fun observeBookDetail(id: String): Flow<BookDetail?>
 
     /**
+     * Whether a local row for [id] exists (a tombstone still counts). Room only — no network fallback; for
+     * always-on probes that must never re-insert a book.
+     */
+    fun observeBookExists(id: String): Flow<Boolean>
+
+    /**
+     * The book's duration in ms, or null while its row is absent. Room only — no network fallback; for always-on
+     * probes.
+     */
+    fun observeBookDurationMs(id: String): Flow<Long?>
+
+    /**
+     * The id of the book's first series, or null. Room only — no network fallback; for always-on probes.
+     */
+    fun observeFirstSeriesId(id: String): Flow<String?>
+
+    /**
      * Get a single book's [BookDetail] as a one-shot read.
      *
      * Snapshots the current book row + its genres + its tags. For reactive

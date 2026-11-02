@@ -51,5 +51,5 @@ object ChapterNavigation {
     private fun currentIndex(
         positionMs: Long,
         chapters: List<Chapter>,
-    ): Int = chapters.indexOfLast { it.startTime <= positionMs }.coerceAtLeast(0)
+    ): Int = chapterWindowAt(positionMs, chapters, totalDurationMs = null).index.coerceAtLeast(0)
 }

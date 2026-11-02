@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,8 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiState
+import com.calypsan.listenup.client.presentation.sync.SyncReadout
+import com.calypsan.listenup.client.presentation.sync.syncReadoutOf
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.common_retry
@@ -93,6 +96,8 @@ fun SyncDetailsDropdown(
                 pendingCount = state.pendingCount,
             )
 
+            SyncReadoutLine(state = state)
+
             // Failed operations section
             if (state.failedOperations.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
@@ -115,6 +120,24 @@ fun SyncDetailsDropdown(
             }
         }
     }
+}
+
+/** When the library last synced, or "Couldn't sync" after a refresh that failed. */
+@Composable
+private fun SyncReadoutLine(state: SyncIndicatorUiState) {
+    val nowMs by rememberMinuteClockMs()
+    val readout = syncReadoutOf(state, nowMs)
+    Text(
+        text = syncReadoutText(readout),
+        style = MaterialTheme.typography.bodySmall,
+        color =
+            if (readout == SyncReadout.CouldNotSync) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        modifier = Modifier.padding(top = 8.dp),
+    )
 }
 
 @Composable

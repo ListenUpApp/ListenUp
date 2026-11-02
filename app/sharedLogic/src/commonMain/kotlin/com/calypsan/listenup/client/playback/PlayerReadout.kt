@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.client.core.resubscribeOnFailure
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -45,19 +47,36 @@ internal class PlayerReadout(
 
     private val savedPosition: StateFlow<PlaybackPosition?> =
         stageBookId
-            .flatMapLatest { id -> id?.let(positionRepository::observe) ?: flowOf(null) }
-            .stateIn(scope, SharingStarted.Eagerly, null)
+            .flatMapLatest { id ->
+                id?.let { bookId ->
+                    positionRepository
+                        .observe(bookId)
+                        .resubscribeOnFailure("readout.savedPosition")
+                        .onStart { emit(null) }
+                } ?: flowOf(null)
+            }.stateIn(scope, SharingStarted.Eagerly, null)
 
     val roomChapters: StateFlow<List<Chapter>> =
         stageBookId
-            .flatMapLatest { id -> id?.let { bookRepository.observeChapters(it.value) } ?: flowOf(emptyList()) }
-            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+            .flatMapLatest { id ->
+                id?.let { bookId ->
+                    bookRepository
+                        .observeChapters(bookId.value)
+                        .resubscribeOnFailure("readout.roomChapters")
+                        .onStart { emit(emptyList()) }
+                } ?: flowOf(emptyList())
+            }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     val roomDurationMs: StateFlow<Long> =
         stageBookId
             .flatMapLatest { id ->
-                id?.let { bookRepository.observeBookDetail(it.value).map { detail -> detail?.duration ?: 0L } }
-                    ?: flowOf(0L)
+                id?.let { bookId ->
+                    bookRepository
+                        .observeBookDurationMs(bookId.value)
+                        .map { duration -> duration ?: 0L }
+                        .resubscribeOnFailure("readout.roomDurationMs")
+                        .onStart { emit(0L) }
+                } ?: flowOf(0L)
             }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /**
@@ -140,7 +159,7 @@ internal class PlayerReadout(
             .stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> =
+    val currentChapter: StateFlow<ChapterInfo?> =
         combine(
             flow = engineBound,
             flow2 = engine.currentChapter,
@@ -157,7 +176,7 @@ internal class PlayerReadout(
             flow = engineBound,
             flow2 = engine.speed,
             flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultPlaybackSpeed(),
+            flow4 = playbackPreferences.observeDefaultPlaybackSpeed().resubscribeOnFailure("readout.defaultSpeed"),
         ) { bound, engineSpeed, saved, default ->
             if (bound) engineSpeed else saved?.playbackSpeed ?: default
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_PLAYBACK_SPEED)
@@ -168,7 +187,7 @@ internal class PlayerReadout(
             flow = engineBound,
             flow2 = engine.boostDb,
             flow3 = savedPosition,
-            flow4 = playbackPreferences.observeDefaultVolumeBoostDb(),
+            flow4 = playbackPreferences.observeDefaultVolumeBoostDb().resubscribeOnFailure("readout.defaultBoostDb"),
         ) { bound, engineBoost, saved, default ->
             if (bound) engineBoost else saved?.volumeBoostDb ?: default
         }.stateIn(scope, SharingStarted.Eagerly, PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB)
@@ -185,7 +204,7 @@ internal class PlayerReadout(
                         flowOf(Liveness.Live)
                     } else {
                         combine(
-                            flow = bookRepository.observeBookDetail(id.value).map { it != null },
+                            flow = bookRepository.observeBookExists(id.value),
                             flow2 = bookRepository.observeIsBookLive(id.value),
                             flow3 = downloadRepository.observeBookStatus(id),
                             flow4 = positionRepository.observe(id),
@@ -197,7 +216,7 @@ internal class PlayerReadout(
                                 positionMs = position?.positionMs ?: 0L,
                                 isFinished = position?.isFinished == true,
                             )
-                        }
+                        }.resubscribeOnFailure("readout.liveness")
                     }
                 verdicts.map { verdict -> id to verdict }
             }.distinctUntilChanged()

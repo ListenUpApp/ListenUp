@@ -461,7 +461,7 @@ class PlaybackService :
 
     /** The whole minutes the card's line shows as left in the chapter at [positionMs]. */
     private fun minutesLeftOnCard(positionMs: Long): Long =
-        currentChapterWindow(playbackManager.chapters.value, positionMs, playbackManager.totalDurationMs.value)
+        chapterWindowAt(positionMs, playbackManager.chapters.value, playbackManager.totalDurationMs.value)
             .remainingMs / MS_PER_MINUTE
 
     private fun initializeNotificationProvider() {

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.client.design.components.PlaybackSlider
 import androidx.compose.animation.AnimatedVisibility
@@ -335,7 +336,7 @@ private fun SpeedButton(
     speed: Float,
     onClick: () -> Unit,
 ) {
-    val rate = formatPlaybackSpeed(speed)
+    val rate = PlaybackPresets.speedLabel(speed)
     val name = stringResource(Res.string.player_playback_speed)
     FilledTonalButton(
         onClick = onClick,

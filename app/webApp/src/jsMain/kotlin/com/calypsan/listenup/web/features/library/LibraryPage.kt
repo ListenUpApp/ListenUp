@@ -42,26 +42,6 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * Categories the Books tab sorts by.
- *
- * `SortCategory.entries` also carries categories that only make sense for the Series, Authors and
- * Narrators tabs, so the row is an explicit list rather than the whole enum — a filter by name would
- * silently pick up whatever a future entry happens to be called. In the order board
- * `Library-WebDesktop-Sort` lists them.
- */
-internal val BOOK_SORT_CATEGORIES =
-    listOf(
-        SortCategory.TITLE,
-        SortCategory.AUTHOR,
-        SortCategory.SERIES,
-        SortCategory.ADDED,
-        SortCategory.DURATION,
-        SortCategory.YEAR,
-        SortCategory.RATING,
-        SortCategory.LISTENER_RATING,
-    )
-
-/**
  * The Books tab of the library.
  *
  * Renders [LibraryUiState] and nothing else — the sort, the progress and the "is this empty or still
@@ -459,7 +439,7 @@ private fun BookSortControl(
 ) {
     SortDropdown(
         noun = "books",
-        categories = BOOK_SORT_CATEGORIES,
+        categories = SortCategory.booksCategories,
         state = state.booksSortState,
         onCategory = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },

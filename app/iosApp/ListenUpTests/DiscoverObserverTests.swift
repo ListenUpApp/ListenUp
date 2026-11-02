@@ -319,28 +319,16 @@ struct CurrentlyListeningMappingTests {
         #expect(row.lastActiveAt == Date(timeIntervalSince1970: 0.1))
     }
 
-    @Test func dedupsToOneRowPerUserKeepingMostRecentBook() {
-        let sessions = [
-            session(user: "u1", book: "old", lastActiveAt: 100),
-            session(user: "u1", book: "new", lastActiveAt: 200), // u1's latest
-            session(user: "u2", book: "solo", lastActiveAt: 150)
-        ]
-        let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
-
-        #expect(rows.count == 2)
-        let u1 = rows.first { $0.userId == "u1" }
-        #expect(u1?.bookId == "new")
-    }
-
-    @Test func sortsSurvivorsMostRecentFirst() {
+    @Test func keepsTheRostersOrderAndDoesNotReshuffleIt() {
+        // Live listeners lead, then the recent-listen fill: the shared roster's order, not a re-sort by time.
         let sessions = [
             session(user: "u1", book: "b1", lastActiveAt: 100),
-            session(user: "u2", book: "b2", lastActiveAt: 300),
-            session(user: "u3", book: "b3", lastActiveAt: 200)
+            session(user: "u2", book: "b2", lastActiveAt: 300, isLive: false),
+            session(user: "u3", book: "b3", lastActiveAt: 200, isLive: false)
         ]
         let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
 
-        #expect(rows.map(\.userId) == ["u2", "u3", "u1"])
+        #expect(rows.map(\.userId) == ["u1", "u2", "u3"])
     }
 
     @Test func emptySessionsProduceNoRows() {

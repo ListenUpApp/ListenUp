@@ -87,4 +87,5 @@ internal fun RoomDatabase.Builder<ListenUpDatabase>.buildConfigured(
             MIGRATION_24_25,
             MIGRATION_25_26,
             MIGRATION_26_27,
+            MIGRATION_27_28,
         ).build()

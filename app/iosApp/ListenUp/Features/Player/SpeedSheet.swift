@@ -6,12 +6,12 @@ import SwiftUI
 enum SpeedSheetModel {
     /// One 0.05× step, counted in the shared whole hundredths: thirty presses never drift off a rung.
     static func step(_ speed: Float, up: Bool) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed(speed: speed, up: up)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.stepPlaybackSpeed(speed: speed, up: up)
     }
 
     /// A dragged value, snapped to the nearest 0.05×.
     static func snapped(_ speed: Float) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed(speed: speed)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.snapPlaybackSpeed(speed: speed)
     }
 
     /// Whether `preset` is the speed playing, within the shared tolerance (a stored 1.5 comes back as 1.4999999).
@@ -26,7 +26,7 @@ enum SpeedSheetModel {
 
     /// "1.25 times": the slider's value as VoiceOver speaks it.
     static func spokenValue(_ speed: Float) -> String {
-        String(format: String(localized: "player.sheet_speed_times_ios"), PlaybackRates.number(speed))
+        String(format: String(localized: "player.sheet_speed_times_ios"), PlaybackPresets.shared.speedNumber(speed: speed))
     }
 
     /// "32 hr, 25 min left at this speed": the book's remainder in wall time, the sheet's one exception to content
@@ -60,13 +60,13 @@ struct SpeedSheetContent: View {
 
     /// "Reset to 1× (Your Default)".
     static func resetTitle(_ defaultSpeed: Float) -> String {
-        String(format: String(localized: "player.sheet_reset_speed_ios"), PlaybackRates.format(defaultSpeed))
+        String(format: String(localized: "player.sheet_reset_speed_ios"), PlaybackPresets.shared.speedLabel(speed: defaultSpeed))
     }
 
     var body: some View {
         VStack(spacing: Spacing.l) {
             VStack(spacing: Spacing.xxs) {
-                Text(PlaybackRates.format(speed))
+                Text(PlaybackPresets.shared.speedLabel(speed: speed))
                     .font(.largeTitle.weight(.bold))
                     .monospacedDigit()
                     // The slider speaks the same value; the readout would say it twice.
@@ -168,7 +168,7 @@ struct SpeedSheetContent: View {
     private func presetButton(_ preset: Float) -> some View {
         let isSelected = SpeedSheetModel.isSelected(preset, speed: speed)
         return Button { actions.setSpeed(preset) } label: {
-            Text(PlaybackRates.format(preset))
+            Text(PlaybackPresets.shared.speedLabel(speed: preset))
                 .font(.subheadline.weight(isSelected ? .semibold : .medium))
                 .monospacedDigit()
                 .foregroundStyle(isSelected ? Color.luOnTint : Color.primary)

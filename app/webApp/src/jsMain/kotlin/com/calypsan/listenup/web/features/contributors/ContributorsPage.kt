@@ -151,7 +151,7 @@ private fun ContributorSortControl(
     val isNarrator = role == ContributorRole.NARRATOR
     SortDropdown(
         noun = if (isNarrator) "narrators" else "authors",
-        categories = CONTRIBUTOR_SORT_CATEGORIES,
+        categories = SortCategory.contributorCategories,
         state = sortState,
         // A person's name never loses its article, so there is nothing to ignore.
         ignoreArticles = null,
@@ -172,14 +172,6 @@ private fun ContributorSortControl(
         },
     )
 }
-
-/**
- * Categories a contributor list sorts by — the two iOS's `ContributorListContent` offers.
- *
- * An explicit list rather than `SortCategory.entries` for the reason the Books and Series tabs keep
- * one: the enum carries categories that only mean something for a book.
- */
-private val CONTRIBUTOR_SORT_CATEGORIES = listOf(SortCategory.NAME, SortCategory.BOOK_COUNT)
 
 @Composable
 private fun LetterHeading(letter: Char) {

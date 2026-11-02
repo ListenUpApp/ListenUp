@@ -265,7 +265,7 @@ private fun WideBodyColumns(
     onShowAllCredits: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val columns = bookDetailColumns(state.shownSections())
+    val columns = bookDetailColumns(state.shownSections)
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(Spacing.xl),

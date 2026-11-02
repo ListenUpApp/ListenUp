@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -55,7 +57,17 @@ class FakePlaybackPositionRepository(
             stringKeyed.mapKeys { (k, _) -> BookId(k) }
         }
 
-    override fun observe(bookId: BookId): Flow<PlaybackPosition?> = state.asStateFlow().map { it[bookId.value] }
+    /** When set, the next collection of an [observe] flow throws it (a busy database), once; later ones behave. */
+    var failNextObserve: Throwable? = null
+
+    override fun observe(bookId: BookId): Flow<PlaybackPosition?> =
+        flow {
+            failNextObserve?.let { failure ->
+                failNextObserve = null
+                throw failure
+            }
+            emitAll(state.asStateFlow().map { it[bookId.value] })
+        }
 
     override suspend fun delete(bookId: BookId): AppResult<Unit> {
         state.value = state.value - bookId.value

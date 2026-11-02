@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.core.resubscribeOnFailure
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -72,7 +73,7 @@ internal class PlayerStateDerivation(
                         isFinishedRow = finished,
                         unavailable = unavailable,
                     )
-                }
+                }.resubscribeOnFailure("derivation.phaseInputs")
             }
         }
 

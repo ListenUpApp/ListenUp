@@ -2,9 +2,11 @@ package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.client.presentation.home.HomeBlock
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.homeBlocks
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState

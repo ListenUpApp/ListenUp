@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.player
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlayerPhase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -100,7 +100,7 @@ class PlayerProjectionsTest :
         context("playerChapterOf (§3.2)") {
             test("a chaptered book counts from 1") {
                 val info =
-                    PlaybackManager.ChapterInfo(
+                    ChapterInfo(
                         index = 5,
                         title = "Bridge Four",
                         startMs = 100,

@@ -4,7 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -79,7 +79,7 @@ fun SettingsPage(
             SelectField(
                 label = "Default speed",
                 value = speedKey(state.defaultPlaybackSpeed),
-                options = SPEED_OPTIONS,
+                options = speedOptions(state.defaultPlaybackSpeed),
                 onSelect = { raw -> raw?.toFloatOrNull()?.let(onDefaultSpeed) },
             )
             // Offered because the browser can now act on it: `WebGainStage` amplifies through a
@@ -94,13 +94,13 @@ fun SettingsPage(
             SelectField(
                 label = "Skip back",
                 value = state.defaultSkipBackwardSec.toString(),
-                options = SKIP_OPTIONS,
+                options = skipOptions(PlaybackPresets.skipBackwardChoicesIncluding(state.defaultSkipBackwardSec)),
                 onSelect = { raw -> raw?.toIntOrNull()?.let(onSkipBackward) },
             )
             SelectField(
                 label = "Skip forward",
                 value = state.defaultSkipForwardSec.toString(),
-                options = SKIP_OPTIONS,
+                options = skipOptions(PlaybackPresets.skipForwardChoicesIncluding(state.defaultSkipForwardSec)),
                 onSelect = { raw -> raw?.toIntOrNull()?.let(onSkipForward) },
             )
             CheckboxField(
@@ -249,11 +249,15 @@ private val THEME_OPTIONS =
  */
 internal fun themeModeOf(raw: String): ThemeMode = ThemeMode.entries.firstOrNull { it.name == raw } ?: ThemeMode.SYSTEM
 
-/** The same ladder the transport bar cycles through, so the two never disagree about what exists. */
-private val SPEED_OPTIONS =
-    PLAYBACK_SPEED_STEPS.map { speed -> SelectOption(speedKey(speed), "${formatSpeedLabel(speed)}×") }
+/** The shared ladder, plus a speed set on another device, so the select always has a chosen row. */
+private fun speedOptions(current: Float): List<SelectOption> =
+    PlaybackPresets.speedChoicesIncluding(current).map { speed ->
+        SelectOption(speedKey(speed), PlaybackPresets.speedLabel(speed))
+    }
 
-private val SKIP_OPTIONS = listOf(5, 10, 15, 30, 45, 60).map { SelectOption(it.toString(), "$it seconds") }
+/** One direction's shared choices, plus a length set on another device, so the select always has a chosen row. */
+private fun skipOptions(seconds: List<Int>): List<SelectOption> =
+    seconds.map { SelectOption(it.toString(), "$it seconds") }
 
 /** The same ladder the player's boost picker offers, from the contract both of them read. */
 private val BOOST_OPTIONS =
@@ -264,9 +268,3 @@ internal fun boostKey(boostDb: Float): String = boostDb.toString()
 
 /** A speed as its own `<option>` value — round-tripped through `toFloat`, so it must parse back. */
 internal fun speedKey(speed: Float): String = speed.toString()
-
-/** `1`, `1.5`, `1.25` — trailing zeros dropped, as on the transport bar. */
-internal fun formatSpeedLabel(speed: Float): String {
-    val whole = speed.toInt()
-    return if (speed == whole.toFloat()) whole.toString() else speed.toString()
-}

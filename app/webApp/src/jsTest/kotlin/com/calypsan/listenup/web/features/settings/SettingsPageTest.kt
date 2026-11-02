@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.settings
 import io.kotest.matchers.nulls.shouldNotBeNull
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.MountRegistry
@@ -19,10 +20,11 @@ import org.w3c.dom.events.Event
 /** A speed off the ladder's default rung, so a control that ignores its input cannot pass. */
 private const val CHOSEN_SPEED = 1.5f
 
-private const val QUARTER_SPEED = 1.25f
-
 /** A skip interval that is neither of the two defaults (10 back, 30 forward). */
 private const val CHOSEN_SKIP_SEC = 15
+
+/** A forward skip between two rungs of the shared list (another device may have set any length). */
+private const val OFF_LADDER_FORWARD_SEC = 25
 
 /** A boost off the floor, so a control that ignores its input cannot pass. */
 private const val CHOSEN_BOOST_DB = 6f
@@ -35,6 +37,8 @@ private const val SPEED_SELECT = 1
 private const val BOOST_SELECT = 2
 
 private const val SKIP_BACK_SELECT = 3
+
+private const val SKIP_FORWARD_SELECT = 4
 
 @Composable
 private fun page(
@@ -196,6 +200,31 @@ class SettingsPageTest :
             back shouldBe CHOSEN_SKIP_SEC
         }
 
+        test("a skip length set on another device is a chosen row, not a blank select") {
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSkipForwardSec = OFF_LADDER_FORWARD_SEC))
+                }
+
+            val forward = host.querySelectorAll("select").item(SKIP_FORWARD_SELECT) as HTMLSelectElement
+            forward.value shouldBe OFF_LADDER_FORWARD_SEC.toString()
+            forward.selectedIndex shouldBe
+                PlaybackPresets.skipForwardChoicesIncluding(OFF_LADDER_FORWARD_SEC).indexOf(OFF_LADDER_FORWARD_SEC)
+        }
+
+        test("skip forward and skip back offer their own lists") {
+            val host = mounts.mount { page(state = SettingsUiState(isLoading = false)) }
+
+            fun values(index: Int) =
+                (host.querySelectorAll("select").item(index) as HTMLSelectElement)
+                    .options
+                    .asList()
+                    .map { (it as org.w3c.dom.HTMLOptionElement).value.toInt() }
+
+            values(SKIP_FORWARD_SELECT) shouldBe PlaybackPresets.SKIP_FORWARD_SECONDS
+            values(SKIP_BACK_SELECT) shouldBe PlaybackPresets.SKIP_BACKWARD_SECONDS
+        }
+
         test("the current values are the ones selected") {
             val host =
                 mounts.mount {
@@ -211,12 +240,6 @@ class SettingsPageTest :
 
             (host.querySelectorAll("select").item(THEME_SELECT) as HTMLSelectElement).value shouldBe "DARK"
             (host.querySelectorAll("select").item(SKIP_BACK_SELECT) as HTMLSelectElement).value shouldBe CHOSEN_SKIP_SEC.toString()
-        }
-
-        test("a speed label drops the noise but never the meaning") {
-            formatSpeedLabel(1f) shouldBe "1"
-            formatSpeedLabel(CHOSEN_SPEED) shouldBe "1.5"
-            formatSpeedLabel(QUARTER_SPEED) shouldBe "1.25"
         }
 
         test("a server with no version reported says nothing rather than saying null") {

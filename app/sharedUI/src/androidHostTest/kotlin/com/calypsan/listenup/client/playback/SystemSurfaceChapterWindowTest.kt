@@ -17,7 +17,7 @@ private fun chapter(
 ) = Chapter(id = id, title = title, duration = duration, startTime = startTime)
 
 /**
- * Pure chapter-window-math tests for [currentChapterWindow] and [seekTargetToBookPosition]. Where previous
+ * Chapter-window cases the system surfaces depend on, over [chapterWindowAt] and [bookPositionAt]. Where previous
  * and next land is the shared `ChapterNavigation`'s rule, tested once in `ChapterNavigationTest`.
  *
  * The Media3-aware companion [ChapterWindowPlayer] is exercised on a real device (its
@@ -26,7 +26,7 @@ private fun chapter(
  * logic lives here so it can be verified without that runtime, mirroring the
  * [controllerTrustOf] / [ControllerGatingTest] split.
  */
-class ChapterWindowTest :
+class SystemSurfaceChapterWindowTest :
     FunSpec({
 
         val threeChapters =
@@ -37,69 +37,69 @@ class ChapterWindowTest :
             )
         val totalDurationMs = 300_000L
 
-        context("currentChapterWindow") {
+        context("chapterWindowAt") {
             test("position at the very start of the book resolves to chapter 0") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 0L, totalDurationMs)
-                window.chapterIndex shouldBe 0
-                window.windowStartMs shouldBe 0L
-                window.windowDurationMs shouldBe 100_000L
+                val window = chapterWindowAt(0L, threeChapters, totalDurationMs)
+                window.index shouldBe 0
+                window.startMs shouldBe 0L
+                window.durationMs shouldBe 100_000L
                 window.positionInWindowMs shouldBe 0L
             }
 
             test("mid-chapter position resolves relative position within that chapter") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                window.chapterIndex shouldBe 1
-                window.windowStartMs shouldBe 100_000L
-                window.windowDurationMs shouldBe 150_000L
+                val window = chapterWindowAt(150_000L, threeChapters, totalDurationMs)
+                window.index shouldBe 1
+                window.startMs shouldBe 100_000L
+                window.durationMs shouldBe 150_000L
                 window.positionInWindowMs shouldBe 50_000L
             }
 
             test("position exactly on a chapter boundary resolves to the new chapter, not the old one") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 100_000L, totalDurationMs)
-                window.chapterIndex shouldBe 1
+                val window = chapterWindowAt(100_000L, threeChapters, totalDurationMs)
+                window.index shouldBe 1
                 window.positionInWindowMs shouldBe 0L
             }
 
             test("last chapter's window duration runs to the end of the book") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 260_000L, totalDurationMs)
-                window.chapterIndex shouldBe 2
-                window.windowStartMs shouldBe 250_000L
-                window.windowDurationMs shouldBe 50_000L
+                val window = chapterWindowAt(260_000L, threeChapters, totalDurationMs)
+                window.index shouldBe 2
+                window.startMs shouldBe 250_000L
+                window.durationMs shouldBe 50_000L
                 window.positionInWindowMs shouldBe 10_000L
             }
 
             test("position past the last chapter's end clamps into that chapter's window") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 500_000L, totalDurationMs)
-                window.chapterIndex shouldBe 2
-                window.positionInWindowMs shouldBe window.windowDurationMs
+                val window = chapterWindowAt(500_000L, threeChapters, totalDurationMs)
+                window.index shouldBe 2
+                window.positionInWindowMs shouldBe window.durationMs
             }
 
             test("position before the first chapter's start (non-zero first chapter) clamps to window start") {
                 val chapters = listOf(chapter("c1", "Intro skipped", startTime = 5_000L, duration = 95_000L))
-                val window = currentChapterWindow(chapters, bookPositionMs = 0L, totalBookDurationMs = 100_000L)
-                window.chapterIndex shouldBe 0
+                val window = chapterWindowAt(0L, chapters, 100_000L)
+                window.index shouldBe 0
                 window.positionInWindowMs shouldBe 0L
             }
 
             test("chapterless book presents the whole book as a single window") {
-                val window = currentChapterWindow(emptyList(), bookPositionMs = 42_000L, totalDurationMs)
-                window.chapterIndex shouldBe -1
-                window.windowStartMs shouldBe 0L
-                window.windowDurationMs shouldBe totalDurationMs
+                val window = chapterWindowAt(42_000L, emptyList(), totalDurationMs)
+                window.index shouldBe -1
+                window.startMs shouldBe 0L
+                window.durationMs shouldBe totalDurationMs
                 window.positionInWindowMs shouldBe 42_000L
             }
         }
 
-        context("seekTargetToBookPosition") {
+        context("bookPositionAt") {
             test("in-window seek maps directly to a book position") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                window.seekTargetToBookPosition(30_000L) shouldBe 130_000L
+                val window = chapterWindowAt(150_000L, threeChapters, totalDurationMs)
+                window.bookPositionAt(30_000L) shouldBe 130_000L
             }
 
             test("out-of-range seek clamps to the window bounds") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                window.seekTargetToBookPosition(-10_000L) shouldBe 100_000L
-                window.seekTargetToBookPosition(999_000L) shouldBe 250_000L
+                val window = chapterWindowAt(150_000L, threeChapters, totalDurationMs)
+                window.bookPositionAt(-10_000L) shouldBe 100_000L
+                window.bookPositionAt(999_000L) shouldBe 250_000L
             }
 
             test("round-trips through a real PlaybackTimeline across a file boundary") {
@@ -140,19 +140,19 @@ class ChapterWindowTest :
                 val bookPositionMs = timeline.toBookPosition(mediaItemIndex = 1, positionInFileMs = 50_000L)
                 bookPositionMs shouldBe 230_000L
 
-                val window = currentChapterWindow(chapters, bookPositionMs, timeline.totalDurationMs)
-                window.chapterIndex shouldBe 1
+                val window = chapterWindowAt(bookPositionMs, chapters, timeline.totalDurationMs)
+                window.index shouldBe 1
                 window.positionInWindowMs shouldBe 80_000L
 
                 // Seek to 10s into chapter 2 — should land 20s before the file boundary, still file 0.
-                val seekBookPositionMs = window.seekTargetToBookPosition(10_000L)
+                val seekBookPositionMs = window.bookPositionAt(10_000L)
                 seekBookPositionMs shouldBe 160_000L
                 val resolved = timeline.resolve(seekBookPositionMs)
                 resolved.mediaItemIndex shouldBe 0
                 resolved.positionInFileMs shouldBe 160_000L
 
                 // Seek to 50s into chapter 2 — past the file boundary, into file 1.
-                val seekIntoFile2Ms = window.seekTargetToBookPosition(50_000L)
+                val seekIntoFile2Ms = window.bookPositionAt(50_000L)
                 seekIntoFile2Ms shouldBe 200_000L
                 val resolvedFile2 = timeline.resolve(seekIntoFile2Ms)
                 resolvedFile2.mediaItemIndex shouldBe 1
@@ -184,18 +184,18 @@ class ChapterWindowTest :
             }
 
             test("the window names its chapter the way the mini player does") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
+                val window = chapterWindowAt(150_000L, threeChapters, totalDurationMs)
                 window.chapterName(threeChapters) shouldBe ChapterName.Titled("Chapter Two")
 
                 val untitled = threeChapters.map { if (it.id == "c2") it.copy(title = " ") else it }
                 window.chapterName(untitled) shouldBe ChapterName.Untitled(2)
 
-                val whole = currentChapterWindow(emptyList(), bookPositionMs = 150_000L, totalDurationMs)
+                val whole = chapterWindowAt(150_000L, emptyList(), totalDurationMs)
                 whole.chapterName(emptyList()) shouldBe ChapterName.WholeBook
             }
 
             test("the time left is content time, the window's remainder") {
-                val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
+                val window = chapterWindowAt(150_000L, threeChapters, totalDurationMs)
                 window.remainingMs shouldBe 100_000L
             }
         }

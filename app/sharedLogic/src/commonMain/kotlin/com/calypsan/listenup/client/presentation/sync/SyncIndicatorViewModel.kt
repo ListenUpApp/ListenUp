@@ -17,11 +17,6 @@ import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.error.ErrorBus
-import io.github.oshai.kotlinlogging.KotlinLogging
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * A single pending operation for UI display.
@@ -121,12 +116,9 @@ sealed interface SyncIndicatorUiEvent {
  */
 class SyncIndicatorViewModel(
     private val pendingOperationRepository: PendingOperationRepository,
-    private val syncRepository: SyncRepository,
-    private val errorBus: ErrorBus,
+    syncRepository: SyncRepository,
+    private val manualSyncRefresh: ManualSyncRefresh,
 ) : ViewModel() {
-    /** A "sync now" this indicator started: running, or how the last one ended. */
-    private val manualRefresh = MutableStateFlow(ManualRefresh())
-
     /** The last successful sync's time, remembered across the syncs that follow it. */
     private val lastSyncedAtMs: Flow<Long?> =
         syncRepository.syncState
@@ -144,7 +136,7 @@ class SyncIndicatorViewModel(
             flow2 = pendingOperationRepository.observeInProgressOperation(),
             flow3 = pendingOperationRepository.observeFailedOperations(),
             flow4 = syncRepository.syncState,
-            flow5 = combine(lastSyncedAtMs, manualRefresh, ::Pair),
+            flow5 = combine(lastSyncedAtMs, manualSyncRefresh.state, ::Pair),
         ) { visibleOps, inProgress, failedOps, pullSyncState, (lastSynced, refresh) ->
             val pendingCount =
                 visibleOps.count {
@@ -214,21 +206,7 @@ class SyncIndicatorViewModel(
     }
 
     private fun refresh() {
-        if (manualRefresh.value.running) return
-        manualRefresh.value = ManualRefresh(running = true)
-        viewModelScope.launch {
-            when (val result = syncRepository.sync()) {
-                is AppResult.Success -> {
-                    manualRefresh.value = ManualRefresh()
-                }
-
-                is AppResult.Failure -> {
-                    logger.warn { "Refresh failed: ${result.error.code} ${result.error.debugInfo.orEmpty()}" }
-                    errorBus.emit(result.error)
-                    manualRefresh.value = ManualRefresh(failed = true)
-                }
-            }
-        }
+        viewModelScope.launch { manualSyncRefresh.refresh() }
     }
 
     private fun retryOperation(id: String) {
@@ -267,12 +245,6 @@ class SyncIndicatorViewModel(
         return operation.operationType.describe(entityName)
     }
 }
-
-/** A "sync now" started from the indicator: whether it is running, and whether the last one failed. */
-private data class ManualRefresh(
-    val running: Boolean = false,
-    val failed: Boolean = false,
-)
 
 internal sealed interface OpDescription {
     /** Operation describes work on a specific entity; [template] is invoked with the entity name. */

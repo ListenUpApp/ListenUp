@@ -140,39 +140,16 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads
 import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subtitle
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import org.koin.compose.viewmodel.koinViewModel
 
-/**
- * Preset durations for skip forward button (in seconds).
- */
-@Suppress("MagicNumber")
-object SkipForwardPresets {
-    val presets = listOf(10, 15, 20, 30, 45, 60, 90, 120)
-
-    fun format(seconds: Int): String =
-        when {
-            seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
-            seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
-            else -> "${seconds}s"
-        }
-}
-
-/**
- * Preset durations for skip backward button (in seconds).
- */
-@Suppress("MagicNumber")
-object SkipBackwardPresets {
-    val presets = listOf(5, 10, 15, 20, 30, 45, 60)
-
-    fun format(seconds: Int): String =
-        when {
-            seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
-            seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
-            else -> "${seconds}s"
-        }
-}
+/** How a skip length reads: `45s`, `2 min`, `1m 30s`. */
+private fun formatSkipSeconds(seconds: Int): String =
+    when {
+        seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
+        seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
+        else -> "${seconds}s"
+    }
 
 /**
  * Preset durations for sleep timer (in minutes).
@@ -475,8 +452,8 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_default_speed),
             subtitle = stringResource(Res.string.settings_speed_used_for_new_books),
             selectedValue = state.defaultPlaybackSpeed,
-            options = PLAYBACK_SPEED_STEPS,
-            formatValue = { formatPlaybackSpeed(it) },
+            options = PlaybackPresets.speedChoicesIncluding(state.defaultPlaybackSpeed),
+            formatValue = { PlaybackPresets.speedLabel(it) },
             onValueSelected = actions.onPlaybackSpeedChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
@@ -517,8 +494,8 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_skip_forward),
             subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
             selectedValue = state.defaultSkipForwardSec,
-            options = SkipForwardPresets.presets,
-            formatValue = { SkipForwardPresets.format(it) },
+            options = PlaybackPresets.skipForwardChoicesIncluding(state.defaultSkipForwardSec),
+            formatValue = ::formatSkipSeconds,
             onValueSelected = actions.onSkipForwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
@@ -529,8 +506,8 @@ private fun PlaybackSection(
             title = stringResource(Res.string.settings_skip_backward),
             subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
             selectedValue = state.defaultSkipBackwardSec,
-            options = SkipBackwardPresets.presets,
-            formatValue = { SkipBackwardPresets.format(it) },
+            options = PlaybackPresets.skipBackwardChoicesIncluding(state.defaultSkipBackwardSec),
+            formatValue = ::formatSkipSeconds,
             onValueSelected = actions.onSkipBackwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,

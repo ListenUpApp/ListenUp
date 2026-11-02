@@ -237,12 +237,24 @@ failBelowDiscoveredTestCount(
             "com.calypsan.listenup.client.di.AppCoreModuleVerifyTest",
         ),
 )
-// 3,174 ran green on 2026-10-09.
-failBelowDiscoveredTestCount("testAndroidHostTest", floor = 1950)
+// 4,039 ran green on 2026-10-31, 43 of them in androidHostTest alone (the other 3,996 are common). 90 % of
+// the total is under the common count, so the floor is common + 1 rounded up: a lane that lost its
+// lane-only source set — the only `verify()` of the player's DI modules — would count 3,996 and fail.
+failBelowDiscoveredTestCount(
+    "testAndroidHostTest",
+    floor = 4000,
+    anchorSpecs = listOf("com.calypsan.listenup.client.di.KoinModuleVerifyTest"),
+)
 // The Apple lane needs one more than most: a native lane missing its Kotest entry point reports green
-// over zero discovered specs, which is indistinguishable from a healthy run. 2,827 ran green on
-// 2026-09-04.
-failBelowDiscoveredTestCount("iosSimulatorArm64Test", floor = 2200)
+// over zero discovered specs, which is indistinguishable from a healthy run. 4,053 ran green on
+// 2026-10-31, 57 of them in appleTest (the only source set that compiles appleMain); the other 3,996 are
+// common, and 90 % of the total is under that, so the floor is common + 1 rounded up. Native XML prefixes
+// every `classname` with the lane name, and the helper accepts that single lane segment before the anchor.
+failBelowDiscoveredTestCount(
+    "iosSimulatorArm64Test",
+    floor = 4000,
+    anchorSpecs = listOf("com.calypsan.listenup.client.download.AppleDownloadPathsTest"),
+)
 
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<Test>("jvmTest") {

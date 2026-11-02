@@ -36,6 +36,7 @@ import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
@@ -82,14 +83,28 @@ internal class ShelfRepositoryImpl(
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
-        dao.observeMyShelvesWithBookCount().map { rows -> rows.map { it.toDomain() } }
+        combine(dao.observeMyShelvesWithBookCount(), dao.observeShelfBookFacts()) { rows, facts ->
+            val factsByShelf = facts.groupBy { it.shelfId }
+            val owner = userDao.getCurrentUser()
+            rows.map { row ->
+                row.shelf.toDomain(
+                    owner = owner,
+                    tiles = shelfTileFactsOf(factsByShelf[row.shelf.id].orEmpty()),
+                    bookCount = row.bookCount,
+                )
+            }
+        }
 
     override fun observeShelvesContainingBook(bookId: BookId): Flow<List<Shelf>> =
         dao.observeShelvesContainingBookWithBookCount(bookId.value).map { rows -> rows.map { it.toDomain() } }
 
     override fun observeById(id: ShelfId): Flow<Shelf?> =
-        dao.observeById(id.value).map { entity ->
-            entity?.let { deriveShelf(it) }
+        combine(dao.observeById(id.value), dao.observeShelfBookFactsFor(id.value)) { entity, facts ->
+            entity?.toDomain(
+                owner = userDao.getCurrentUser(),
+                tiles = shelfTileFactsOf(facts),
+                bookCount = dao.bookCountFor(entity.id),
+            )
         }
 
     override suspend fun getById(id: ShelfId): Shelf? = dao.getById(id.value)?.let { deriveShelf(it) }
@@ -118,6 +133,19 @@ internal class ShelfRepositoryImpl(
             bookId = bookId,
             coverPath = imageStorage.coverPathFor(BookId(bookId), coverDownloadedAt),
             coverHash = coverHash,
+        )
+
+    /** An own shelf with the [tiles] its card draws, from the reactive book facts. */
+    private fun ShelfEntity.toDomain(
+        owner: UserEntity?,
+        tiles: ShelfTileFacts,
+        bookCount: Int,
+    ): Shelf =
+        toDomain(
+            owner = owner,
+            covers = tiles.covers.map { it.toShelfCover() },
+            totalDurationMs = tiles.totalDurationMs,
+            bookCount = bookCount,
         )
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────

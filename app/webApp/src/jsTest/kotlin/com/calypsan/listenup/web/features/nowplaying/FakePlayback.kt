@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlaybackState
@@ -71,9 +72,9 @@ internal class FakePlaybackManager(
     override val playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
     override val playbackError = MutableStateFlow<AppError?>(null)
     override val chapters = MutableStateFlow<List<Chapter>>(emptyList())
-    override val currentChapter = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
+    override val currentChapter = MutableStateFlow<ChapterInfo?>(null)
     override val effectiveGainDb = MutableStateFlow(0f)
-    override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
+    override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
 
     override fun clearPlayback() {
         currentBookId.value = null

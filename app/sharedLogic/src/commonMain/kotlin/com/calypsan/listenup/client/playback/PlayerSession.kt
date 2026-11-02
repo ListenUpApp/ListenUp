@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -16,11 +15,6 @@ import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.player.skipDistanceMs
-import com.calypsan.listenup.client.presentation.player.skipTargetMs
-import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
@@ -115,7 +109,7 @@ class PlayerSession(
     val durationMs: StateFlow<Long> get() = readout.durationMs
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> get() = readout.currentChapter
+    val currentChapter: StateFlow<ChapterInfo?> get() = readout.currentChapter
 
     /** The rate: the engine's, else this book's saved rate, else the default. */
     val speed: StateFlow<Float> get() = readout.speed
@@ -184,7 +178,7 @@ class PlayerSession(
             persisted == null && current != null && isHeldInMemory(current) -> {
                 // A cleared key that lands under a load in flight or a book the engine plays is stale: the cold
                 // start's first read, or Close's clear arriving after the next Play. Write the book back.
-                scope.launch { loadedBooks.setLoaded(current.bookId) }
+                scope.launch { rememberLoaded(current.bookId) }
             }
 
             persisted == null -> {
@@ -218,7 +212,7 @@ class PlayerSession(
             current == null || current.bookId != held -> {
                 stage.value = SessionStage.Engine(held)
                 pendingStart.value = PlaybackStart.Resume
-                scope.launch { loadedBooks.setLoaded(held) }
+                scope.launch { rememberLoaded(held) }
             }
 
             current is SessionStage.Idle || current is SessionStage.Failed -> {
@@ -262,7 +256,7 @@ class PlayerSession(
                     loadedBooks.clear()
                     // A book loaded while the clear was being written (Close, then Play at once) is the loaded
                     // book: the clear must not leave the device thinking nothing is loaded.
-                    stage.value?.let { loadedBooks.setLoaded(it.bookId) }
+                    stage.value?.let { rememberLoaded(it.bookId) }
                 } finally {
                     closeClearsInFlight--
                 }
@@ -346,7 +340,7 @@ class PlayerSession(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var handedOver = false
                 try {
-                    loadedBooks.setLoaded(bookId)
+                    rememberLoaded(bookId)
                     val result = engine.load(bookId, start)
                     // A failure while the book still has a proactive reason (offline and not downloaded, server
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
@@ -385,6 +379,17 @@ class PlayerSession(
                     }
                 }
             }
+    }
+
+    /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
+    private suspend fun rememberLoaded(bookId: BookId) {
+        try {
+            loadedBooks.setLoaded(bookId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not remember ${bookId.value} as the loaded book" }
+        }
     }
 
     /** A scrub made while the book prepared ([seekTo]) lands on the engine now that it holds the book. */
@@ -579,15 +584,7 @@ class PlayerSession(
     /** [fraction] of the current chapter (the whole book when it has no chapters). */
     fun seekWithinChapter(fraction: Float) {
         onPlayer {
-            val clamped = fraction.coerceIn(0f, 1f)
-            val chapter = currentChapter.value
-            val target =
-                if (chapter == null) {
-                    (durationMs.value * clamped).toLong()
-                } else {
-                    chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
-                }
-            seekTo(target)
+            seekTo(chapterWindowAt(positionMs.value, chapters.value, durationMs.value).bookPositionAtFraction(fraction))
         }
     }
 
@@ -664,7 +661,7 @@ class PlayerSession(
             ) {
                 return@onPlayer
             }
-            if (cause.isTransport()) scope.launch { serverReachability.retry() }
+            if (cause.isCurableByNetwork()) scope.launch { serverReachability.retry() }
             val start = retryStart(loaded)
             engine.clearError()
             startLoad(loaded.bookId, start)
@@ -737,12 +734,6 @@ class PlayerSession(
                 }
             }
     }
-
-    private fun AppError.isTransport(): Boolean =
-        this is PlaybackError.ConnectionLost ||
-            this is PlaybackError.ServerUnreachable ||
-            this is PlaybackError.Stalled ||
-            this is PlaybackError.OfflineNotDownloaded
 
     // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
 

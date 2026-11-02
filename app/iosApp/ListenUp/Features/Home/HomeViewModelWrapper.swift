@@ -102,6 +102,15 @@ struct HomeReady: Equatable {
     let connectivity: HomeConnectivityState
     /// The Continue Listening failure's message while the rest of Home loaded, or nil.
     let continueListeningError: String?
+    /// Home's sections top to bottom in one column, decided by the shared `homeBlocks` (spec §2.1, §3.4).
+    private let columnBlocks: [HomeBlock]
+    /// The same, for a wide window (the slot beside the stats).
+    private let wideBlocks: [HomeBlock]
+
+    /// Home's sections for a window that is, or is not, wide.
+    func blocks(isWide: Bool) -> [HomeBlock] {
+        isWide ? wideBlocks : columnBlocks
+    }
 
     init(from ready: HomeUiStateReady) {
         self.shelves = ready.myShelves.map(ShelfItem.init(from:))
@@ -122,6 +131,58 @@ struct HomeReady: Equatable {
         }
         self.connectivity = HomeConnectivityState(kmp: ready.connectivity)
         self.continueListeningError = ready.continueListeningError?.message
+        func order(isWide: Bool) -> [HomeBlock] {
+            HomeBlock.order(
+                slot: ready.slot,
+                isOffline: ready.isOffline,
+                continueListeningFailed: ready.continueListeningError != nil,
+                showsStrip: ready.showsArrivalStrip,
+                hasEverythingInProgress: !ready.everythingInProgress.isEmpty,
+                isWide: isWide
+            )
+        }
+        self.columnBlocks = order(isWide: false)
+        self.wideBlocks = order(isWide: true)
+    }
+}
+
+extension HomeBlock {
+    /// Home's section order from the shared rule, mapped once to the native enum the view switches on.
+    static func order(
+        slot: HomeSlot,
+        isOffline: Bool,
+        continueListeningFailed: Bool,
+        showsStrip: Bool,
+        hasEverythingInProgress: Bool,
+        isWide: Bool
+    ) -> [HomeBlock] {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.home.self
+        return rules.homeBlocks(
+            slot: slot,
+            isOffline: isOffline,
+            continueListeningFailed: continueListeningFailed,
+            showsStrip: showsStrip,
+            hasEverythingInProgress: hasEverythingInProgress,
+            isWide: isWide
+        ).map { HomeBlock($0) }
+    }
+
+    /// Native projection of the shared sealed `HomeBlock`.
+    init(_ block: Shared.HomeBlock) {
+        switch block.sealedType() {
+        case .offline: self = .offline
+        case .firstSyncStrip: self = .firstSyncStrip
+        case .finished: self = .finished
+        case .nothingInProgress: self = .nothingInProgress
+        case .welcome: self = .welcome
+        case .firstSync: self = .firstSync
+        case .continueListeningFailed: self = .continueListeningFailed
+        case .slotBesideStats: self = .slotBesideStats
+        case .everythingInProgress: self = .everythingInProgress
+        case .stats: self = .stats
+        case .shelves: self = .shelves
+        case .statsBesideShelves: self = .statsBesideShelves
+        }
     }
 }
 

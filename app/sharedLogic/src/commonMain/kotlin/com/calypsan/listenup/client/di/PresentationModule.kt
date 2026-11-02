@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
+import com.calypsan.listenup.client.presentation.sync.ManualSyncRefresh
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import com.calypsan.listenup.client.domain.model.signedInUserId
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -302,6 +303,10 @@ internal val adminPresentationModule =
  */
 internal val libraryPresentationModule =
     module {
+        // One shared "sync now" (single: its state is the app's): the sync indicator's Refresh and the Library's
+        // pull-to-refresh report through it, so a failed pull is what the indicator says.
+        single { ManualSyncRefresh(syncRepository = get(), errorBus = get()) }
+
         // factory (NOT single): koinViewModel() then scopes a fresh instance to each
         // ViewModelStore. A singleton VM is fatal here — when the first owning store is cleared
         // (e.g. onboarding's backStack.clear()), onCleared() cancels the singleton's viewModelScope,
@@ -321,6 +326,7 @@ internal val libraryPresentationModule =
                 libraryPreferences = get(),
                 syncStatusRepository = get(),
                 bookRatingRepository = get(),
+                manualSyncRefresh = get(),
             )
         }
 
@@ -464,7 +470,7 @@ internal val bookPresentationModule =
                 bookEditRepository = get(),
                 errorBus = get(),
                 playbackManager = get(),
-                playbackController = get(),
+                playerSession = get(),
             )
         }
         factory {
@@ -767,7 +773,7 @@ internal val settingsPresentationModule =
         // DevicesViewModel for the Devices (active sessions) screen
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
-        factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get(), errorBus = get()) }
+        factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get(), manualSyncRefresh = get()) }
         // Shell connection-health banner VM, projecting ConnectionHealthStore.state.
         factory { ConnectionHealthViewModel(healthStore = get()) }
         // StorageViewModel for storage management screen

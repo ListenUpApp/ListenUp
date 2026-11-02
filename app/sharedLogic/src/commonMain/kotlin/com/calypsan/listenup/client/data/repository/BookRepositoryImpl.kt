@@ -319,6 +319,12 @@ internal class BookRepositoryImpl(
         }
     }
 
+    override fun observeBookExists(id: String): Flow<Boolean> = bookDao.observeRowExists(BookId(id))
+
+    override fun observeBookDurationMs(id: String): Flow<Long?> = bookDao.observeTotalDuration(BookId(id))
+
+    override fun observeFirstSeriesId(id: String): Flow<String?> = bookDao.observeFirstSeriesId(BookId(id))
+
     /**
      * One-shot on-demand fetch for a cache-missing book. Dispatches through the
      * [channel] (which folds transport faults to a typed [AppResult.Failure] and
