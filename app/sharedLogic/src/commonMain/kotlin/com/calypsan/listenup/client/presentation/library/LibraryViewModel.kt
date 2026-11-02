@@ -24,7 +24,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
-import com.calypsan.listenup.client.util.sortableTitle
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.concurrent.Volatile
 import kotlinx.atomicfu.atomic
