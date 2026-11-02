@@ -156,6 +156,8 @@ object LocalizationGenerator {
                 putJsonObject("strings") {
                     for (key in allKeys) {
                         putJsonObject(key) {
+                            // "manual" is what makes Xcode generate a Swift symbol for the key.
+                            put("extractionState", "manual")
                             putJsonObject("localizations") {
                                 val locales =
                                     localesByCode.entries
