@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.playback.SpeedStep
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -355,7 +356,7 @@ internal fun OverlayDispatch(
                     defaultSpeed = loaded.settings.defaultSpeed,
                     bookRemainingAtSpeedMs = { progress().bookRemainingAtSpeedMs(loaded.settings.speed) },
                     onSpeedChange = viewModel::setSpeed,
-                    onStep = viewModel::stepSpeed,
+                    onStep = { up -> viewModel.stepSpeed(if (up) SpeedStep.Faster else SpeedStep.Slower) },
                     onResetToDefault = viewModel::resetSpeed,
                     onDismiss = viewModel::hideOverlay,
                 )

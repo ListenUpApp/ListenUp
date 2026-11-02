@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
+import com.calypsan.listenup.client.playback.SpeedStep
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerEvent
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
@@ -165,7 +166,7 @@ internal class LivePlayback(
             onSeekToChapter = viewModel::seekToChapter,
             onSetSpeed = viewModel::setSpeed,
             onResetSpeed = viewModel::resetSpeed,
-            onStepSpeed = viewModel::stepSpeed,
+            onStepSpeed = { up -> viewModel.stepSpeed(if (up) SpeedStep.Faster else SpeedStep.Slower) },
             onSetBoost = viewModel::setBoost,
             onResetBoost = viewModel::resetBoost,
             onSetSleepTimer = viewModel::setSleepTimer,

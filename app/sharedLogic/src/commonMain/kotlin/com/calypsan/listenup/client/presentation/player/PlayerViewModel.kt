@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.playback.SpeedStep
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -124,9 +125,9 @@ class PlayerViewModel(
                 ?: flowOf(false)
         }
 
-    private val connectivity: Flow<Pair<Boolean, Boolean>> =
+    private val connectivity: Flow<Connectivity> =
         combine(networkMonitor.onlineFlow, serverReachability.state) { online, reach ->
-            online to (reach != Reachability.Unreachable)
+            Connectivity(isOnline = online, serverReachable = reach != Reachability.Unreachable)
         }
 
     private val source: Flow<AudioSource> =
@@ -136,7 +137,7 @@ class PlayerViewModel(
             flow3 = engine.timeline,
             flow4 = bookDownloaded,
             flow5 = connectivity,
-        ) { loaded, device, timeline, downloaded, (online, reachable) ->
+        ) { loaded, device, timeline, downloaded, link ->
             val bound = loaded?.isEngineBound == true
             audioSourceOf(
                 phase = loaded?.phase ?: PlayerPhase.Restored,
@@ -148,8 +149,8 @@ class PlayerViewModel(
                             it.localPath == null && it.hlsUrl != null
                         },
                 bookDownloaded = downloaded,
-                isDeviceOnline = online,
-                isServerReachable = reachable,
+                isDeviceOnline = link.isOnline,
+                isServerReachable = link.serverReachable,
                 offlineCopiesSupported = session.offlineCopiesSupported,
             )
         }.distinctUntilChanged()
@@ -267,10 +268,10 @@ class PlayerViewModel(
             flow4 = observeNextInSeries(id.value),
             // The finish dates live on the position row.
             flow5 = session.finishDates(id),
-        ) { duration, ratings, me, next, (finishedAt, startedAt) ->
+        ) { duration, ratings, me, next, dates ->
             FinishedInfo(
-                finishedAtMs = finishedAt,
-                startedAtMs = startedAt,
+                finishedAtMs = dates.finishedAtMs,
+                startedAtMs = dates.startedAtMs,
                 durationMs = duration,
                 yourHalfStars = ratings.firstOrNull { it.userId == me }?.halfStars,
                 nextBook = next,
@@ -388,8 +389,8 @@ class PlayerViewModel(
     }
 
     /** One step up or down the speed ladder. */
-    fun stepSpeed(up: Boolean) {
-        session.stepSpeed(up)
+    fun stepSpeed(direction: SpeedStep) {
+        session.stepSpeed(direction)
     }
 
     /** Back to the user's default speed. */
@@ -543,4 +544,10 @@ private data class Surroundings(
     val source: AudioSource,
     val sleepTimer: SleepTimerState,
     val isAdmin: Boolean,
+)
+
+/** Whether the device has a network and whether the server answers over it. */
+private data class Connectivity(
+    val isOnline: Boolean,
+    val serverReachable: Boolean,
 )

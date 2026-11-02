@@ -133,8 +133,11 @@ class PlayerSession(
     val sleepTimerState: StateFlow<SleepTimerState> get() = sleepTimer.state
 
     /** The finish and start instants on [bookId]'s position row (the finished state's "6 Sep – 10 Oct"). */
-    fun finishDates(bookId: BookId): Flow<Pair<Long?, Long?>> =
-        positionRepository.observe(bookId).map { it?.finishedAtMs to it?.startedAtMs }.distinctUntilChanged()
+    internal fun finishDates(bookId: BookId): Flow<FinishDates> =
+        positionRepository
+            .observe(bookId)
+            .map { FinishDates(finishedAtMs = it?.finishedAtMs, startedAtMs = it?.startedAtMs) }
+            .distinctUntilChanged()
 
     private val derivation =
         PlayerStateDerivation(
@@ -613,9 +616,9 @@ class PlayerSession(
     }
 
     /** ±0.05 within 0.5–3.0, with no float drift (§4.3, Q3). */
-    fun stepSpeed(up: Boolean) {
+    fun stepSpeed(direction: SpeedStep) {
         onPlayer {
-            setSpeed(stepPlaybackSpeed(speed.value, up))
+            setSpeed(stepPlaybackSpeed(speed.value, up = direction == SpeedStep.Faster))
         }
     }
 
@@ -752,3 +755,9 @@ class PlayerSession(
         onPlayer { sleep.cancel() }
     }
 }
+
+/** When a book was started and when it was finished, either of which may be unknown. */
+internal data class FinishDates(
+    val finishedAtMs: Long?,
+    val startedAtMs: Long?,
+)

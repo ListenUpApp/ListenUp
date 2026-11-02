@@ -514,7 +514,7 @@ final class PlayerObserver {
     func selectChapter(index: Int) { viewModel?.seekToChapter(index: Int32(index)) }
     func setSpeed(_ speed: Float) { viewModel?.setSpeed(speed: speed) }
     /// One 0.05× step slower or faster, counted in the shared whole hundredths so repeated steps never drift.
-    func stepSpeed(up: Bool) { viewModel?.stepSpeed(up: up) }
+    func stepSpeed(_ direction: SpeedStep) { viewModel?.stepSpeed(direction: direction) }
     /// Back to the user's default speed: the book's own speed is removed, not overwritten.
     func resetSpeed() { viewModel?.resetSpeed() }
     func setBoost(_ db: Float) { viewModel?.setBoost(boostDb: db) }

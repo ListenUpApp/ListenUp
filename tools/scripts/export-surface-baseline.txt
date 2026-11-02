@@ -988,6 +988,7 @@ SortDirection
 SortState
 SourceStatus
 SourceStatus_SealedType
+SpeedStep
 SpringCurve
 SpringParameters
 StatsRepository

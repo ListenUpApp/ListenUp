@@ -57,6 +57,15 @@ fun skipDistanceMs(
     speed: Float,
 ): Long = (seconds * speed * 1000).toLong()
 
+/** Which way one press on the speed ladder moves the rate. */
+enum class SpeedStep {
+    /** One [PLAYBACK_SPEED_INCREMENT] up. */
+    Faster,
+
+    /** One [PLAYBACK_SPEED_INCREMENT] down. */
+    Slower,
+}
+
 /**
  * One [PLAYBACK_SPEED_INCREMENT] up or down from [speed], clamped to [PLAYBACK_SPEED_MIN]..[PLAYBACK_SPEED_MAX].
  *

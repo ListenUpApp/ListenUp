@@ -193,7 +193,7 @@ struct SpeedSheet: View {
                 leftAtSpeedMs: observer.bookRemainingAtSpeedMs,
                 actions: SpeedSheetActions(
                     setSpeed: { observer.setSpeed($0) },
-                    step: { observer.stepSpeed(up: $0) },
+                    step: { observer.stepSpeed($0 ? .Faster : .Slower) },
                     reset: { observer.resetSpeed() }
                 )
             )
