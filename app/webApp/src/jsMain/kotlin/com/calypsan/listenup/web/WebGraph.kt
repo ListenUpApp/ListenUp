@@ -109,7 +109,7 @@ import org.koin.core.Koin
  * No member has a default, on purpose. A defaulted fake compiles clean and leaves a page silently
  * inert, and nothing looks broken from the outside:
  * - [openPlayback] is scoped to the shell rather than a route (what is playing outlives the page it
- *   was started from); a spec passes `fixedPlayback`.
+ *   was started from); a spec hands over a fixed session.
  * - [observeIsAdmin] gates the sidebar's Admin entry; a defaulted `flowOf(false)` would hide Admin
  *   from every admin.
  * - [openSearch] and [openHome] back the sidebar's Search item and the root route; a defaulted fake

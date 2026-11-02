@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -62,24 +61,5 @@ fun graphDeadLetters(koin: Koin): OpenDeadLetters =
                 scope.cancel()
                 store.clear()
             },
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedDeadLetters(
-    failed: List<PendingOperationUi> = emptyList(),
-    onRetry: (String) -> Unit = {},
-    onDismiss: (String) -> Unit = {},
-    onRetryAll: () -> Unit = {},
-    onDismissAll: () -> Unit = {},
-): OpenDeadLetters =
-    {
-        DeadLetterSession(
-            failed = MutableStateFlow(failed),
-            onRetry = onRetry,
-            onDismiss = onDismiss,
-            onRetryAll = onRetryAll,
-            onDismissAll = onDismissAll,
-            close = {},
         )
     }

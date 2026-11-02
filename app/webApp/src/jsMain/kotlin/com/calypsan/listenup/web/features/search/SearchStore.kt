@@ -8,9 +8,7 @@ import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.client.presentation.search.SearchViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
@@ -50,7 +48,7 @@ class SearchSession(
 
 /**
  * How the page gets its session. Production resolves the real ViewModel out of the client graph
- * ([graphSearch]); specs hand over a fixed state instead ([fixedSearch]), so the field, chip and
+ * ([graphSearch]); specs hand over a fixed state instead, so the field, chip and
  * five-state contracts can be driven without a database behind them.
  */
 typealias OpenSearch = () -> SearchSession
@@ -80,25 +78,6 @@ fun graphSearch(koin: Koin): OpenSearch =
             },
             navActions = viewModel.navActions,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedSearch(
-    state: SearchUiState,
-    onToggleType: (SearchHitType) -> Unit = {},
-    onClearTypes: () -> Unit = {},
-): OpenSearch =
-    {
-        SearchSession(
-            state = MutableStateFlow(state),
-            onQueryChanged = {},
-            onToggleType = onToggleType,
-            onClearTypes = onClearTypes,
-            onOpenHit = {},
-            retry = {},
-            navActions = emptyFlow(),
-            close = {},
         )
     }
 

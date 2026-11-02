@@ -20,7 +20,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.web.shell.nowMs
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -54,12 +53,6 @@ fun graphSyncIndicator(koin: Koin): OpenSyncIndicator =
             close = { store.clear() },
         )
     }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSyncIndicator(
-    state: SyncIndicatorUiState = SyncIndicatorUiState(),
-    onRefresh: () -> Unit = {},
-): OpenSyncIndicator = { SyncIndicatorSession(state = MutableStateFlow(state), onRefresh = onRefresh, close = {}) }
 
 /** "Synced 2 min ago", "Syncing…", "Couldn't sync", or "Not synced yet", measured against [now]: the shared rule, in English. */
 internal fun syncedWords(

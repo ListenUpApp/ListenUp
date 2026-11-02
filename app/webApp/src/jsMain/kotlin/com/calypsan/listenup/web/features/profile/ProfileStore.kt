@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -35,9 +34,3 @@ fun graphProfile(koin: Koin): OpenProfile =
             close = store::clear,
         )
     }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedProfile(
-    state: UserProfileUiState,
-    onRetry: () -> Unit = {},
-): OpenProfile = { ProfileSession(MutableStateFlow(state), onRetry, close = {}) }

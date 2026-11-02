@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewMode
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.core.GenreId
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -34,22 +33,6 @@ fun graphBrowseFacet(koin: Koin): OpenBrowseFacet =
         BrowseFacetSession(state = viewModel.state, close = store::clear)
     }
 
-/**
- * A session over a state that never changes — the shape specs pass in place of the graph.
- *
- * [onOpen] is what the route asked for. `/tag/x` and `/mood/x` differ only in the [FacetKind] the
- * route passes, so a fixture that swallowed its arguments could not tell a spec whether the two
- * paths are actually wired to different things.
- */
-fun fixedBrowseFacet(
-    state: BrowseFacetUiState,
-    onOpen: (FacetKind, String) -> Unit = { _, _ -> },
-): OpenBrowseFacet =
-    { kind, facetId ->
-        onOpen(kind, facetId)
-        BrowseFacetSession(state = MutableStateFlow(state), close = {})
-    }
-
 /** An open genre-destination session — one genre, its children, and the books under it. */
 class GenreDestinationSession(
     val state: StateFlow<GenreDestinationUiState>,
@@ -70,20 +53,5 @@ fun graphGenreDestination(koin: Koin): OpenGenreDestination =
             state = viewModel.state,
             onToggleSubGenres = viewModel::toggleIncludeSubGenres,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedGenreDestination(
-    state: GenreDestinationUiState,
-    onToggleSubGenres: () -> Unit = {},
-    onOpen: (String) -> Unit = {},
-): OpenGenreDestination =
-    { genreId ->
-        onOpen(genreId)
-        GenreDestinationSession(
-            state = MutableStateFlow(state),
-            onToggleSubGenres = onToggleSubGenres,
-            close = {},
         )
     }

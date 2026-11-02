@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.calypsan.listenup.web.logging.RecentLogBuffer
 import com.calypsan.listenup.web.logging.downloadRecentLogs
@@ -69,35 +68,6 @@ fun graphSettings(koin: Koin): OpenSettings =
             onHideSingleBookSeries = viewModel::setHideSingleBookSeries,
             close = store::clear,
             downloadLogs = koin.getOrNull<RecentLogBuffer>()?.let { buffer -> { downloadRecentLogs(buffer) } },
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSettings(
-    state: SettingsUiState = SettingsUiState(),
-    onThemeMode: (ThemeMode) -> Unit = {},
-    onDefaultSpeed: (Float) -> Unit = {},
-    onDefaultBoost: (Float) -> Unit = {},
-    onSkipForward: (Int) -> Unit = {},
-    onSkipBackward: (Int) -> Unit = {},
-    onAutoRewind: (Boolean) -> Unit = {},
-    onHideSingleBookSeries: (Boolean) -> Unit = {},
-    hardcoverRow: HardcoverRowState? = null,
-    canCurateLibrary: Boolean = false,
-): OpenSettings =
-    {
-        SettingsSession(
-            state = MutableStateFlow(state),
-            hardcoverRow = MutableStateFlow(hardcoverRow),
-            canCurateLibrary = MutableStateFlow(canCurateLibrary),
-            onThemeMode = onThemeMode,
-            onDefaultSpeed = onDefaultSpeed,
-            onDefaultBoost = onDefaultBoost,
-            onSkipForward = onSkipForward,
-            onSkipBackward = onSkipBackward,
-            onAutoRewind = onAutoRewind,
-            onHideSingleBookSeries = onHideSingleBookSeries,
-            close = {},
         )
     }
 

@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
 import com.calypsan.listenup.client.presentation.admin.UserPermissionsViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -36,23 +35,6 @@ fun graphCreateInvite(koin: Koin): OpenCreateInvite =
             onClearError = viewModel::clearError,
             onReset = viewModel::reset,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedCreateInvite(
-    state: CreateInviteUiState,
-    onCreate: (String, String, Int) -> Unit = { _, _, _ -> },
-    onClearError: () -> Unit = {},
-    onReset: () -> Unit = {},
-): OpenCreateInvite =
-    {
-        CreateInviteSession(
-            state = MutableStateFlow(state),
-            onCreate = onCreate,
-            onClearError = onClearError,
-            onReset = onReset,
-            close = {},
         )
     }
 
@@ -99,22 +81,5 @@ fun graphUserDetail(koin: Koin): OpenUserDetail =
                     onSave = permissions::save,
                 ),
             close = store::clear,
-        )
-    }
-
-/** A session over states that never change — the shape specs pass in place of the graph. */
-fun fixedUserDetail(
-    state: UserDetailUiState,
-    permissions: UserPermissionsUiState = UserPermissionsUiState.Loading,
-    actions: PermissionsPanelActions = PermissionsPanelActions(),
-    onOpen: (String) -> Unit = {},
-): OpenUserDetail =
-    { userId ->
-        onOpen(userId)
-        UserDetailSession(
-            state = MutableStateFlow(state),
-            permissions = MutableStateFlow(permissions),
-            actions = actions,
-            close = {},
         )
     }

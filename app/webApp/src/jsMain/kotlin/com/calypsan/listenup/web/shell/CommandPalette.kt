@@ -81,8 +81,8 @@ internal fun CommandPaletteHost(
         session = newSession
         // Computed synchronously from the fresh session's own StateFlow.value, not left for the
         // LaunchedEffect below to fill in — that effect only runs on the composition's next pass,
-        // one recompose later than this. A session opened via [fixedSearch]/[hitNavigatingSearch]
-        // already carries its Results on open, so waiting for the effect meant the very first
+        // one recompose later than this. A session a spec hands over already
+        // carries its Results on open, so waiting for the effect meant the very first
         // frame rendered with no row highlighted at all.
         highlighted = openableSearchHits(newSession.state.value, SEARCH_OPENABLE_TYPES).firstOrNull()
         isOpen = true

@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -44,7 +43,7 @@ class HomeSession(
 
 /**
  * How the page gets its session. Production resolves both real ViewModels out of the client graph
- * ([graphHome]); specs hand over fixed states instead ([fixedHome]), so the greeting, the
+ * ([graphHome]); specs hand over fixed states instead, so the greeting, the
  * Continue Listening row and the four stats states can be driven without a database behind them.
  */
 typealias OpenHome = () -> HomeSession
@@ -74,29 +73,6 @@ fun graphHome(koin: Koin): OpenHome =
             onRateFinished = home::rateFinished,
             onRetryConnection = home::retryConnection,
             close = store::clear,
-        )
-    }
-
-/** A session over states that never change — the shape specs use in place of the graph. */
-fun fixedHome(
-    state: HomeUiState,
-    stats: HomeStatsUiState = HomeStatsUiState.Loading,
-    onRetry: () -> Unit = {},
-    onRetryStats: () -> Unit = {},
-    onDismissFinished: (String) -> Unit = {},
-    onRateFinished: (String, Int) -> Unit = { _, _ -> },
-    onRetryConnection: () -> Unit = {},
-): OpenHome =
-    {
-        HomeSession(
-            state = MutableStateFlow(state),
-            stats = MutableStateFlow(stats),
-            onRetry = onRetry,
-            onRetryStats = onRetryStats,
-            onDismissFinished = onDismissFinished,
-            onRateFinished = onRateFinished,
-            onRetryConnection = onRetryConnection,
-            close = {},
         )
     }
 

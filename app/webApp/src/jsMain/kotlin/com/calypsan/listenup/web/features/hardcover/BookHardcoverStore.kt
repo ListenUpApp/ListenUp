@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -33,20 +32,5 @@ fun graphBookHardcover(koin: Koin): OpenBookHardcover =
             onRemoveMatch = viewModel::removeMatch,
             onSetSynced = viewModel::setSynced,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes, recording Remove match and the switch — for specs. */
-fun fixedBookHardcover(
-    state: BookHardcoverUiState = BookHardcoverUiState.Hidden,
-    onRemoveMatch: () -> Unit = {},
-    onSetSynced: (Boolean) -> Unit = {},
-): OpenBookHardcover =
-    {
-        BookHardcoverSession(
-            MutableStateFlow(state),
-            onRemoveMatch = onRemoveMatch,
-            onSetSynced = onSetSynced,
-            close = {},
         )
     }

@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -19,7 +18,7 @@ class ConnectionHealthSession(
  * How the shell learns whether anything is wrong with its connection.
  *
  * Production resolves the shared [ConnectionHealthViewModel] ([graphConnectionHealth]); specs hand
- * over a fixed projection ([fixedConnectionHealth]).
+ * over a fixed projection.
  */
 typealias OpenConnectionHealth = () -> ConnectionHealthSession
 
@@ -46,10 +45,3 @@ fun graphConnectionHealth(koin: Koin): OpenConnectionHealth =
             close = store::clear,
         )
     }
-
-/** A session over a projection that never changes — the shape specs use in place of the graph. */
-fun fixedConnectionHealth(
-    state: ConnectionHealthUi = ConnectionHealthUi.Hidden,
-    onDismiss: () -> Unit = {},
-): OpenConnectionHealth =
-    { ConnectionHealthSession(state = MutableStateFlow(state), onDismiss = onDismiss, close = {}) }
