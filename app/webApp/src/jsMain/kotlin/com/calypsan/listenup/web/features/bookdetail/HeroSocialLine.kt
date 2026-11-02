@@ -1,5 +1,11 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import org.w3c.dom.SMOOTH
+import org.w3c.dom.AUTO
+import org.w3c.dom.START
+import org.w3c.dom.ScrollBehavior
+import org.w3c.dom.ScrollLogicalPosition
+import org.w3c.dom.ScrollIntoViewOptions
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.bookdetail.ReaderRef
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
@@ -94,12 +100,11 @@ private fun clause(
 /**
  * `scrollIntoView` options: to the top of the panel, smoothly unless the reader asked for less motion.
  */
-private fun scrollToStart(): dynamic {
-    val options = js("{}")
-    options.block = "start"
-    options.behavior = if (prefersLessMotion()) "auto" else "smooth"
-    return options
-}
+private fun scrollToStart(): ScrollIntoViewOptions =
+    ScrollIntoViewOptions(
+        block = ScrollLogicalPosition.START,
+        behavior = if (prefersLessMotion()) ScrollBehavior.AUTO else ScrollBehavior.SMOOTH,
+    )
 
 private const val SOCIAL_AVATARS = 3
 

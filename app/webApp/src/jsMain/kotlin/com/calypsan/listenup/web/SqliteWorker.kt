@@ -34,10 +34,8 @@ fun createSqliteWorker(): Worker {
     worker.onerror = { event ->
         console.error("SQLite worker error: $event")
     }
-    // Through `asDynamic` because Kotlin's `Worker` external declaration predates
-    // `onmessageerror` and never got it; the DOM property has been there since 2018.
-    worker.asDynamic().onmessageerror = { event: Event ->
+    worker.addEventListener("messageerror", { event: Event ->
         console.error("SQLite worker message could not be deserialized: $event")
-    }
+    })
     return worker
 }

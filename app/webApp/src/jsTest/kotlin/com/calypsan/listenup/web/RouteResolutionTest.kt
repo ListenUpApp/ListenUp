@@ -21,7 +21,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.window
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withTimeout
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.shelf.fixedMyShelves
 
@@ -205,6 +207,20 @@ class RouteResolutionTest :
 
             try {
                 asked shouldBe listOf(listOf("b1", "b2", "b3"))
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("/books/edit?held=… whose selection is gone returns to the Library with a notice") {
+            val toasts = mutableListOf<String>()
+            val (_, router, composition) = mountAt("/books/edit?held=missing", onToast = { toasts += it })
+
+            try {
+                // The redirect is an effect, so it lands a frame after the first composition.
+                withTimeout(6_000) { while (window.location.pathname != "/library") delay(16) }
+                toasts shouldBe listOf("That selection has gone — pick the books again.")
             } finally {
                 composition.dispose()
                 router.dispose()

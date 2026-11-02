@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.dom.features
 import kotlinx.browser.window
 
 /**
@@ -19,8 +20,7 @@ private val APPLE_PLATFORM = Regex("mac|iphone|ipad|ipod", RegexOption.IGNORE_CA
 
 /** The browser's platform string: `navigator.userAgentData.platform` where the browser offers it, else `navigator.platform`. */
 internal fun browserPlatform(): String {
-    val navigator = window.navigator.asDynamic()
-    val hints = navigator.userAgentData
-    val fromHints = if (hints != null && hints != undefined) hints.platform as? String else null
-    return fromHints?.takeIf { it.isNotBlank() } ?: (navigator.platform as? String).orEmpty()
+    val navigator = window.navigator
+    val fromHints = navigator.features.userAgentData?.platform
+    return fromHints?.takeIf { it.isNotBlank() } ?: navigator.platform
 }

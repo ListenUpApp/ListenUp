@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.shell
 
+import com.calypsan.listenup.web.dom.popoverApiAvailable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberUpdatedState
@@ -136,10 +137,7 @@ fun keyTargetOf(event: KeyboardEvent): KeyTarget {
  * `:popover-open` only where the browser has the popover API, the same feature check `TopLayer` makes: Safari before 17
  * and Firefox before 125 throw a SyntaxError on the pseudo-class, which would take every player key down with it.
  */
-internal fun openModalSelector(): String {
-    val hasPopoverApi = document.body?.let { jsTypeOf(it.asDynamic().showPopover) == "function" } == true
-    return if (hasPopoverApi) "dialog[open], :popover-open" else "dialog[open]"
-}
+internal fun openModalSelector(): String = if (popoverApiAvailable) "dialog[open], :popover-open" else "dialog[open]"
 
 private const val KEYDOWN = "keydown"
 

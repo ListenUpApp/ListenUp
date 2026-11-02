@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.dom.showPopover
+import com.calypsan.listenup.web.dom.popoverApiAvailable
+import com.calypsan.listenup.web.dom.focusWithoutScrollingOptions
+import com.calypsan.listenup.web.dom.focus
 import org.w3c.dom.Element
 import org.w3c.dom.HTMLElement
 
@@ -31,21 +35,19 @@ internal data class MenuAnchor(
  * every clip but a transformed ancestor's.
  */
 internal fun HTMLElement.showInTopLayer() {
-    val element: dynamic = this
-    if (jsTypeOf(element.showPopover) == "function") element.showPopover()
+    if (popoverApiAvailable) showPopover()
 }
 
 /** Shows [this] again in the top layer if an attribute pass closed it; true when it had to. */
 internal fun HTMLElement.reopenInTopLayer(): Boolean {
-    val element: dynamic = this
-    val closed = jsTypeOf(element.showPopover) == "function" && !(element.matches(":popover-open") as Boolean)
-    if (closed) element.showPopover()
+    val closed = popoverApiAvailable && !matches(":popover-open")
+    if (closed) showPopover()
     return closed
 }
 
 /** Focuses [this] without scrolling any box to reveal it: a panel placed first must not drag its trigger away. */
 internal fun HTMLElement.focusWithoutScrolling() {
-    asDynamic().focus(js("({ preventScroll: true })"))
+    focus(focusWithoutScrollingOptions())
 }
 
 /**
@@ -53,7 +55,7 @@ internal fun HTMLElement.focusWithoutScrolling() {
  * would cross the viewport's, above it when only above has room, and — when neither side has room for all of it — on
  * the roomier side, scrolling within the space there (`max-height`).
  *
- * Measured rather than guessed from where the trigger sits, because only the rendered panel knows how big its content
+ * The panel's scroll position survives placement. Measured rather than guessed from where the trigger sits, because only the rendered panel knows how big its content
  * made it. One implementation for every menu ([MenuPanel]) and every popover (the player's panels), so the two cannot
  * disagree about which side of a trigger they open on or how close to the viewport's edge they may come.
  */
@@ -65,9 +67,10 @@ internal fun placeAgainst(
     val viewportWidth = viewport.clientWidth.toDouble()
     val viewportHeight = viewport.clientHeight.toDouble()
 
-    panel.style.removeProperty("max-height")
+    // The natural height is the content's plus the borders, read while any `max-height` stays in place: lifting it to
+    // measure would let the browser clamp the panel's scroll position back to the top on every placement.
     val width = panel.offsetWidth.toDouble()
-    val height = panel.offsetHeight.toDouble()
+    val height = (panel.scrollHeight + (panel.offsetHeight - panel.clientHeight)).toDouble()
 
     val fromLeft = anchor.left
     val left =
@@ -80,7 +83,11 @@ internal fun placeAgainst(
     val roomAbove = anchor.top - TRIGGER_GAP - VIEWPORT_GUTTER
     val opensBelow = height <= roomBelow || (height > roomAbove && roomBelow >= roomAbove)
     val room = if (opensBelow) roomBelow else roomAbove
-    if (height > room) panel.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
+    if (height > room) {
+        panel.style.setProperty("max-height", "${room.coerceAtLeast(0.0)}px")
+    } else if (panel.style.getPropertyValue("max-height").isNotEmpty()) {
+        panel.style.removeProperty("max-height")
+    }
     val top = if (opensBelow) below else anchor.top - TRIGGER_GAP - minOf(height, room)
 
     panel.style.setProperty("left", "${left}px")

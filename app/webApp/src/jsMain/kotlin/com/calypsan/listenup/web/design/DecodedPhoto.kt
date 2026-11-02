@@ -32,7 +32,7 @@ sealed interface DecodedPhoto {
  */
 suspend fun decodePhoto(blob: Blob): DecodedPhoto =
     try {
-        val bitmap = createImageBitmap(blob).await()
+        val bitmap = window.createImageBitmap(blob).await()
         val width = bitmap.width
         val height = bitmap.height
         bitmap.close()
@@ -69,14 +69,3 @@ suspend fun decodePhotoAt(url: String): DecodedPhoto =
         continuation.invokeOnCancellation { img.src = "" }
         img.src = url
     }
-
-/** The decoded bitmap, as much of it as the decode reads. Typed, so nothing here dispatches on `dynamic`. */
-private external interface DecodedBitmap {
-    val width: Int
-    val height: Int
-
-    fun close()
-}
-
-private fun createImageBitmap(blob: Blob): Promise<DecodedBitmap> =
-    window.asDynamic().createImageBitmap(blob).unsafeCast<Promise<DecodedBitmap>>()

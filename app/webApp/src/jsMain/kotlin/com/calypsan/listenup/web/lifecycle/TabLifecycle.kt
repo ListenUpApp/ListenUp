@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.lifecycle
 
+import org.w3c.dom.StorageEvent
 import com.calypsan.listenup.core.BookId
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -145,9 +146,10 @@ internal fun lapseWhenAnotherTabSignsOut(
     scope: CoroutineScope,
 ): () -> Unit {
     val onStorage: (Event) -> Unit = { event ->
-        // Dynamic reads: only the key and the new value matter, and `clear()` reports a null key.
-        val key = event.asDynamic().key as? String
-        val newValue = event.asDynamic().newValue as? String
+        // Only the key and the new value matter, and `clear()` reports a null key.
+        val storage = event.unsafeCast<StorageEvent>()
+        val key = storage.key
+        val newValue = storage.newValue
         if (key == REFRESH_TOKEN_STORAGE_KEY && newValue == null && isSignedIn()) {
             scope.launch {
                 try {

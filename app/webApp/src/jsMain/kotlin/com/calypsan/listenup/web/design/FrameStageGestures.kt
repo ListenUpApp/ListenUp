@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.dom.ResizeObserver
+import org.w3c.dom.AddEventListenerOptions
 import com.calypsan.listenup.client.core.image.NudgeDirection
 import com.calypsan.listenup.client.core.image.ZOOM_STEP
 import com.calypsan.listenup.client.core.image.wheelZoomFactor
@@ -65,7 +67,7 @@ internal class FrameStageGestures(
             "lostpointercapture",
         ).forEach { element.addEventListener(it, onPointerEnd) }
         // Not passive: the wheel zooms the photo, and must not also scroll the page under the dialog.
-        element.addEventListener("wheel", onWheel, js("({ passive: false })"))
+        element.addEventListener("wheel", onWheel, AddEventListenerOptions(passive = false))
         element.addEventListener("keydown", onKeyDown)
         resizes = ResizeObserver { _, _ -> measure() }.apply { observe(element) }
         window.requestAnimationFrame { measure() }
@@ -166,7 +168,7 @@ internal class FrameStageGestures(
     /** Pointer capture keeps a drag alive past the stage's edge; a synthetic pointer may refuse it. */
     private fun capture(pointerId: Int) {
         try {
-            stage?.asDynamic()?.setPointerCapture(pointerId)
+            stage?.setPointerCapture(pointerId)
         } catch (_: Throwable) {
             // Not capturable (a synthetic event): the drag still works while the pointer stays on the stage.
         }

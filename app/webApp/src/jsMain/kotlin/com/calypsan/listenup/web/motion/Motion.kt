@@ -1,5 +1,10 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.dom.animationTiming
+import com.calypsan.listenup.web.dom.animate
+import com.calypsan.listenup.web.dom.WebAnimation
+import com.calypsan.listenup.web.dom.motionFrame
+import com.calypsan.listenup.web.dom.MotionFrame
 import kotlinx.browser.window
 import org.w3c.dom.Element
 
@@ -63,8 +68,8 @@ internal class Keyframe private constructor(
     private val transform: String?,
 ) {
     /** This frame as the object `Element.animate` takes. [transformOrigin] is constant, never interpolated. */
-    internal fun toJs(transformOrigin: String?): dynamic {
-        val frame = js("{}")
+    internal fun toJs(transformOrigin: String?): MotionFrame {
+        val frame = motionFrame()
         if (opacity != null) frame.opacity = opacity
         if (transform != null) frame.transform = transform
         if (transformOrigin != null) frame.transformOrigin = transformOrigin
@@ -102,11 +107,11 @@ internal enum class MotionFill(
 
 /** A started motion — or, under reduced motion, one that has already finished. */
 internal class Motion(
-    private val animation: dynamic,
+    private val animation: WebAnimation?,
 ) {
     /** Stops this motion, leaving the element in its resting state. Nothing to stop if it never started. */
     fun cancel() {
-        if (animation != null) animation.cancel()
+        animation?.cancel()
     }
 }
 
@@ -127,12 +132,12 @@ internal fun animateComposited(
 ): Motion {
     if (prefersLessMotion()) return Motion(null)
     val frames = keyframes.map { it.toJs(transformOrigin) }.toTypedArray()
-    val options = js("{}")
-    options.duration = token.millis
-    options.easing = MOTION_EASING
-    options.delay = delayMs
-    options.fill = fill.value
-    return Motion(element.asDynamic().animate(frames, options))
+    val options =
+        animationTiming(token.millis, MOTION_EASING) {
+            delay = delayMs
+            this.fill = fill.value
+        }
+    return Motion(element.animate(frames, options))
 }
 
 /**

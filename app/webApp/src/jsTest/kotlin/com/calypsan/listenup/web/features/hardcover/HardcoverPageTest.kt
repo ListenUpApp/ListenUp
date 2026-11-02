@@ -229,6 +229,19 @@ class HardcoverPageTest :
             anchor.getAttribute("rel") shouldBe "noopener noreferrer"
         }
 
+        test("a verification link that is not http(s) is shown as an address, never as a link") {
+            // The link is relayed from a third-party response; a javascript: href would run on click.
+            val host = mount(LINKING.copy(verificationUriComplete = "javascript:alert(1)"))
+
+            host
+                .querySelectorAll("a")
+                .asList()
+                .map { it as HTMLAnchorElement }
+                .none { it.textContent.orEmpty().contains("Open Hardcover in a new tab") } shouldBe true
+            host.querySelector(".hc-open") shouldBe null
+            host.textContent.orEmpty() shouldContain "Open hardcover.app/link"
+        }
+
         test("the waiting line is announced politely") {
             val host = mount(LINKING)
 

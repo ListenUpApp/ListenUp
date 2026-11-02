@@ -1,5 +1,9 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.dom.customPropertyFrame
+import com.calypsan.listenup.web.dom.animationTiming
+import com.calypsan.listenup.web.dom.animate
+import com.calypsan.listenup.web.dom.WebAnimation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -105,11 +109,11 @@ class MorphController {
     private var travelPx: Double = 0.0
     private var pending: Pending? = null
     private var fadeThroughPending = false
-    private var animation: dynamic = null
+    private var animation: WebAnimation? = null
     private var quietArrivalPage: String? = null
 
-    /** The page `/playing` was opened from inside the app, for a drag down to show underneath; null for a deep link. */
-    private var returnRoute: Route? = null
+    /** Where a close will land, asked of [PlayingReturn] (the one owner) when a drag down needs the page to show under. */
+    internal var closeDestination: () -> Route = { Routes.home }
 
     /** Set while a finger's open is being started, so the open waits for the finger rather than playing. */
     private var openingByDrag = false
@@ -172,7 +176,6 @@ class MorphController {
 
     /** Called just before `/playing` is pushed from [from] (a click, P, Expand): measure the bar while it is drawn. */
     fun beforeOpen(from: Route) {
-        returnRoute = from
         open(from, arrivedInApp = true)
     }
 
@@ -203,7 +206,7 @@ class MorphController {
         if (!morphApplies(isPhone = isPhone(shell), barMounted = bar != null, arrivedInApp = true)) return false
         shell.style.setProperty(MORPH_PROGRESS, "1")
         heading = MorphEnd.Bar
-        underRoute = returnRoute ?: Routes.home
+        underRoute = closeDestination()
         frozenScrollRoute = null
         barRects = emptyMap()
         start(Pending.Hold(restoresUnderScroll = true))
@@ -295,8 +298,7 @@ class MorphController {
             }
 
             !wasPlaying && isPlaying -> {
-                // Forward counts as a deep link for closing (PlayingReturn), so a drag down shows Home underneath.
-                returnRoute = null
+                // Where a close lands is PlayingReturn's to say, so a history arrival needs no bookkeeping here.
                 open(from, arrivedInApp = true)
             }
 
@@ -396,18 +398,16 @@ class MorphController {
             land(if (target >= 1f) MorphEnd.NowPlaying else MorphEnd.Bar)
             return
         }
-        val options = js("{}")
-        if (isCrossfade) {
-            options.duration = (CROSSFADE_MS * abs(distance)).roundToInt().coerceAtLeast(1)
-            options.easing = "linear"
-        } else {
-            val easing = SpringEasing.of(spring, velocity / distance)
-            options.duration = easing.durationMs
-            options.easing = easing.easing
-        }
+        val options =
+            if (isCrossfade) {
+                animationTiming((CROSSFADE_MS * abs(distance)).roundToInt().coerceAtLeast(1), "linear")
+            } else {
+                val easing = SpringEasing.of(spring, velocity / distance)
+                animationTiming(easing.durationMs, easing.easing)
+            }
         // The end value is committed first, so the moment the animation ends the shell already rests there.
         shell.style.setProperty(MORPH_PROGRESS, target.toString())
-        val started = shell.asDynamic().animate(arrayOf(progressFrame(from), progressFrame(target)), options)
+        val started = shell.animate(arrayOf(progressFrame(from), progressFrame(target)), options)
         animation = started
         started.onfinish = { _: dynamic ->
             if (animation === started) {
@@ -614,11 +614,7 @@ private fun HTMLElement.morphRect(): MorphRect {
     )
 }
 
-private fun progressFrame(value: Float): dynamic {
-    val frame = js("{}")
-    frame[MORPH_PROGRESS] = value
-    return frame
-}
+private fun progressFrame(value: Float): Any = customPropertyFrame(MORPH_PROGRESS, value)
 
 private fun px(value: Number): String = "${value}px"
 

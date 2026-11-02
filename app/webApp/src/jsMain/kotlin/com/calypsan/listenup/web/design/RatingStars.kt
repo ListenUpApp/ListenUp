@@ -125,7 +125,7 @@ private fun capturePointer(
     pointerId: Int,
 ) {
     try {
-        element.asDynamic().setPointerCapture(pointerId)
+        element.setPointerCapture(pointerId)
     } catch (_: Throwable) {
         // Not capturable (a synthetic event, or a pointer already released): the drag still works
         // while the pointer stays over the stars.
