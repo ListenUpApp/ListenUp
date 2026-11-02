@@ -24,9 +24,9 @@ import org.koin.ktor.ext.inject
  * Suspends the module until the backfill is done, matching the genre-taxonomy seeder
  * in [launchSeeders].
  */
-internal suspend fun Application.backfillPublicProfiles() {
-    val sql by inject<ListenUpDatabase>()
-    val maintainer by inject<PublicProfileMaintainer>()
+internal suspend fun backfillPublicProfiles(application: Application) {
+    val sql by application.inject<ListenUpDatabase>()
+    val maintainer by application.inject<PublicProfileMaintainer>()
     runCatchingCancellable {
         val isEmpty =
             suspendTransaction(sql) {
@@ -48,9 +48,9 @@ internal suspend fun Application.backfillPublicProfiles() {
  * resolvable) — both are guaranteed by calling this from [module] after [installDependencies].
  * Mirrors [backfillPublicProfiles].
  */
-internal suspend fun Application.backfillAdminUserRoster() {
-    val sql by inject<ListenUpDatabase>()
-    val maintainer by inject<AdminUserRosterMaintainer>()
+internal suspend fun backfillAdminUserRoster(application: Application) {
+    val sql by application.inject<ListenUpDatabase>()
+    val maintainer by application.inject<AdminUserRosterMaintainer>()
     runCatchingCancellable {
         val isEmpty =
             suspendTransaction(sql) {
@@ -69,21 +69,22 @@ internal suspend fun Application.backfillAdminUserRoster() {
  * the genre tree is the curator's starting point, not demo content — the
  * seeder's `isAlreadySeeded` guard keeps subsequent runs no-ops.
  */
-internal suspend fun Application.launchSeeders(
+internal suspend fun launchSeeders(
+    application: Application,
     scope: CoroutineScope,
     seedProfile: String?,
     libraryConfigured: Boolean,
 ) {
     if (seedProfile == SEED_PROFILE_DEMO) {
-        val seedRunner by inject<SeedRunner>()
+        val seedRunner by application.inject<SeedRunner>()
         scope.launch {
             runCatchingCancellable { seedRunner.run() }
                 .onFailure { it.logFailure("demo seeding failed — server keeps running") }
         }
     } else if (libraryConfigured) {
-        val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
-        val moodSeeder by inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
-        val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
+        val genreSeeder by application.inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
+        val moodSeeder by application.inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
+        val pendingGenrePromotion by application.inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
         // Sequential, not launched — `module()` suspends until the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
         // on first install; subsequent boots are a single `count()` query via
