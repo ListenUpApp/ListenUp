@@ -230,9 +230,9 @@ private fun PanelTitle(
                 ),
             color = MaterialTheme.colorScheme.onSurface,
         )
-        subtitle?.let {
+        subtitle?.let { supportingLine ->
             Text(
-                text = it,
+                text = supportingLine,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

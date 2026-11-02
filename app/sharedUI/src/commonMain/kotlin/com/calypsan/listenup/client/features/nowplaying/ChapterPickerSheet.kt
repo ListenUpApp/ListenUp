@@ -66,7 +66,7 @@ fun ChapterPickerSheet(
         onDismiss = onDismiss,
         dialogWidth = 560.dp,
         scrollable = false,
-    ) {
+    ) { _ ->
         Text(
             text =
                 stringResource(

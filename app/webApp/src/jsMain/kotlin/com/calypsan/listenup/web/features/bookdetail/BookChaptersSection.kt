@@ -75,7 +75,11 @@ internal fun BookChaptersSection(
                                     Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
                                     Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) {
-                                        Text(DurationFormatter.playbackClock((chapter.startMs / MILLIS_PER_SECOND).toInt().seconds))
+                                        Text(
+                                            DurationFormatter.playbackClock(
+                                                (chapter.startMs / MILLIS_PER_SECOND).toInt().seconds,
+                                            ),
+                                        )
                                     }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
                                 }

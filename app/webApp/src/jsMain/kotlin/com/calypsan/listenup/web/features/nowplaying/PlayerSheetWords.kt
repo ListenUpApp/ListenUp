@@ -103,7 +103,9 @@ internal object PlayerSheetWords {
         if (isCurrent) {
             "Chapter ${row.number}, ${row.title}, now playing, ${spokenDuration(remainingMs)} left"
         } else {
-            "Play from chapter ${row.number}: ${row.title}, ${DurationFormatter.playbackClock(row.durationMs.milliseconds)}"
+            "Play from chapter ${row.number}: ${row.title}, ${DurationFormatter.playbackClock(
+                row.durationMs.milliseconds,
+            )}"
         }
 }
 

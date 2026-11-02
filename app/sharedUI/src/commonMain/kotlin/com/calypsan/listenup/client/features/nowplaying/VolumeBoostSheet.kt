@@ -76,7 +76,7 @@ fun VolumeBoostSheet(
 ) {
     var selectedBoostDb by remember(currentBoostDb) { mutableFloatStateOf(currentBoostDb) }
 
-    AdaptiveSheet(title = stringResource(Res.string.player_volume_boost), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_volume_boost), onDismiss = onDismiss) { _ ->
         Text(
             text = boostLabel(selectedBoostDb),
             style =

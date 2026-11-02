@@ -53,5 +53,4 @@ class PlayerMorphTimelineTest :
             sidesScale(0.55f) shouldBe 0.85f
             sidesScale(0.9f) shouldBe 1f
         }
-
     })

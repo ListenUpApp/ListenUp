@@ -115,7 +115,11 @@ private fun Inspector(
                         MetaEntry("Title", single.title),
                         MetaEntry("Starts", DurationFormatter.playbackClock(single.startSec.seconds), machine = true),
                         MetaEntry("Ends", DurationFormatter.playbackClock(single.endSec.seconds), machine = true),
-                        MetaEntry("Length", DurationFormatter.playbackClock(single.durationSec.seconds), machine = true),
+                        MetaEntry(
+                            "Length",
+                            DurationFormatter.playbackClock(single.durationSec.seconds),
+                            machine = true,
+                        ),
                     ),
                 )
             }

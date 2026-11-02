@@ -31,7 +31,7 @@ class AdaptiveSheetTest {
         composeRule.setContent {
             AtFontScale {
                 MaterialTheme {
-                    AdaptiveSheet(title = "Playback speed", onDismiss = {}) {
+                    AdaptiveSheet(title = "Playback speed", onDismiss = {}) { _ ->
                         repeat(lines) { Text("Line $it") }
                     }
                 }

@@ -84,7 +84,7 @@ fun PlaybackSpeedSheet(
 ) {
     var sliderSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed) }
 
-    AdaptiveSheet(title = stringResource(Res.string.player_playback_speed), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_playback_speed), onDismiss = onDismiss) { _ ->
         SpeedReadout(speed = sliderSpeed, bookRemainingAtSpeedMs = bookRemainingAtSpeedMs)
         Spacer(Modifier.height(Spacing.md))
         FineSpeedControl(

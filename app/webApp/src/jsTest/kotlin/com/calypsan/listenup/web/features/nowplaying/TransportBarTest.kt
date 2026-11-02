@@ -328,7 +328,8 @@ class TransportBarTest :
             times.item(0)!!.textContent shouldBe DurationFormatter.playbackClock(UNDER_AN_HOUR_MS.milliseconds)
             times.item(1)!!.textContent shouldBe "\u2212" + DurationFormatter.playbackClock((LONG_BOOK_MS - UNDER_AN_HOUR_MS).milliseconds)
             // …and not the same string, or the assertions above would survive a swap.
-            DurationFormatter.playbackClock(UNDER_AN_HOUR_MS.milliseconds) shouldNotBe DurationFormatter.playbackClock((LONG_BOOK_MS - UNDER_AN_HOUR_MS).milliseconds)
+            DurationFormatter.playbackClock(UNDER_AN_HOUR_MS.milliseconds) shouldNotBe
+                DurationFormatter.playbackClock((LONG_BOOK_MS - UNDER_AN_HOUR_MS).milliseconds)
         }
 
         test("the scrubber steps by a second, not a millisecond, and says the time out loud") {
@@ -340,7 +341,9 @@ class TransportBarTest :
             scrubber.getAttribute("step") shouldBe "1000"
             // Where you are, against the whole: "3:30 of 10:00", not a bare "3:30".
             scrubber.getAttribute("aria-valuetext") shouldBe
-                "${DurationFormatter.playbackClock(SEEK_TARGET_MS.milliseconds)} of ${DurationFormatter.playbackClock(SHORT_BOOK_MS.milliseconds)}"
+                "${DurationFormatter.playbackClock(
+                    SEEK_TARGET_MS.milliseconds,
+                )} of ${DurationFormatter.playbackClock(SHORT_BOOK_MS.milliseconds)}"
         }
 
         test("the body is one link to /playing, named for the book and its line") {

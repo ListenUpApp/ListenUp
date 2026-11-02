@@ -113,7 +113,7 @@ internal fun SleepTimerSheet(
     onKeepListening: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AdaptiveSheet(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) { _ ->
         when (val timer = state.timer) {
             SleepTimerState.Inactive -> {
                 SleepChoices(state = state, onSetTimer = onSetTimer)
@@ -310,7 +310,11 @@ private fun Countdown(
             SleepTimerMode.EndOfChapter -> if (fraction > 0f) (countdownMs / fraction).toLong() else countdownMs
         }
     val meterLabel =
-        stringResource(Res.string.player_sheet_meter_a11y, countdown, DurationFormatter.playbackClock(totalMs.milliseconds))
+        stringResource(
+            Res.string.player_sheet_meter_a11y,
+            countdown,
+            DurationFormatter.playbackClock(totalMs.milliseconds),
+        )
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
