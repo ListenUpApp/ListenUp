@@ -59,10 +59,10 @@ private val SHUFFLE_SIZE = 48.dp
  * shelf keeps offering a way in. Each pick says which book of its series it is and how long it runs;
  * Shuffle draws ten different books.
  *
- * Every state keeps the heading (spec §3.8): a skeleton while drawing, a line and Try again (a fresh draw) on
+ * Every state keeps the heading: a skeleton while drawing, a line and Try again (a fresh draw) on
  * failure, "You've started every book here." with Browse the Library, or a plain line for an empty library.
  *
- * @param wide A wide window: every pick in a wrapping grid (plan Q2) and a labelled Shuffle. Otherwise a
+ * @param wide A wide window: every pick in a wrapping grid and a labelled Shuffle. Otherwise a
  *   horizontal rail and an icon Shuffle.
  */
 @Composable

@@ -48,7 +48,7 @@ struct LeaderRow: View {
         .accessibilityAddTraits(.isLink)
     }
 
-    /// "Rank 1, Maya Chen, 14h 20m": the rank first, as the board reads it (spec §8.2).
+    /// "Rank 1, Maya Chen, 14h 20m": the rank first, as the board reads it.
     var accessibilityText: String {
         let rank = String(format: String(localized: "discover.leaderboard_rank_a11y"), Int32(row.rank))
         return "\(rank), \(name), \(row.value)"

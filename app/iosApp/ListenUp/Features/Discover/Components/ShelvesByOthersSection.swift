@@ -5,7 +5,7 @@ import SwiftUI
 /// and count. A rail of shelves per owner at compact width; at regular width owners sit side by side,
 /// each with an adaptive grid of their shelves.
 ///
-/// The heading stays in every state (spec §3.8): a skeleton while loading, "need a connection" (offline)
+/// The heading stays in every state: a skeleton while loading, "need a connection" (offline)
 /// or "Couldn't load" with Try Again on failure, and one line when nobody has made a shelf public.
 struct ShelvesByOthersSection: View {
     let phase: DiscoverShelvesPhase
@@ -13,7 +13,7 @@ struct ShelvesByOthersSection: View {
     let isRegular: Bool
     var onRetry: () -> Void = {}
 
-    /// Pure: blame the connection only when the failure is connectivity (plan Q3).
+    /// Pure: blame the connection only when the failure is connectivity.
     static func retryLine(needsConnection: Bool) -> String {
         needsConnection
             ? String(localized: "discover.shelves_need_connection")

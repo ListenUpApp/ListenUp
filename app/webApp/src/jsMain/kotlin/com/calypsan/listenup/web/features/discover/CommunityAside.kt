@@ -44,7 +44,7 @@ import org.jetbrains.compose.web.dom.Text
 
 /*
  * Leaderboard and Activity: the community record. On the web desktop they sit in their own aside
- * beside the main column (spec §3.7).
+ * beside the main column.
  */
 
 /**
@@ -56,7 +56,7 @@ import org.jetbrains.compose.web.dom.Text
  *
  * The controls render in every state, from [selection], as on Android and iOS: a period nobody
  * listened in is Empty, and the way out of it is another period. When you are alone the category
- * goes and the board closes with "Just you so far" (spec §3.8).
+ * goes and the board closes with "Just you so far".
  */
 @Composable
 internal fun LeaderboardSection(
@@ -80,7 +80,7 @@ internal fun LeaderboardSection(
     }
     Section(DiscoverWords.LEADERBOARD, id = LEADERBOARD_SECTION_ID, styleClass = "disc-lb-card") {
         ChipRadioGroup(DiscoverWords.PERIOD_GROUP, PERIOD_OPTIONS, selection.period, onSelectPeriod)
-        // Only you: all three categories would rank you first, so the choice goes (spec §3.8).
+        // Only you: all three categories would rank you first, so the choice goes.
         if (community != CommunitySize.JustYou) {
             ChipRadioGroup(
                 DiscoverWords.CATEGORY_GROUP,
@@ -98,7 +98,7 @@ internal fun LeaderboardSection(
 
             is LeaderboardUiState.Empty -> {
                 when (community) {
-                    // Never say "nobody" or "just you" before the roster has synced (plan C4).
+                    // Never say "nobody" or "just you" before the roster has synced.
                     CommunitySize.Unknown -> RowsSkeleton()
 
                     CommunitySize.JustYou -> QuietLine(DiscoverWords.LEADERBOARD_JUST_YOU)
@@ -267,7 +267,7 @@ internal fun ActivityFeedSection(
 
 /**
  * Activity rows in a feed; rows from [asideFrom] on wear `disc-aside-extra` (shown beside the main
- * column only). Shared by the section and the See all activity page (plan C6).
+ * column only). Shared by the section and the See all activity page.
  */
 @Composable
 internal fun ActivityRows(

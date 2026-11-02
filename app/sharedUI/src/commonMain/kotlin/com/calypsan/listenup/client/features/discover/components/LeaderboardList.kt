@@ -163,7 +163,7 @@ private fun LeaderboardEntryRow(
             modifier =
                 Modifier.clearAndSetSemantics {
                     contentDescription = rankLabel
-                    // The medal tone follows the rank number, so tied people wear the same one (spec §3.8).
+                    // The medal tone follows the rank number, so tied people wear the same one.
                     testTag = "rank-tier-${rankTier(entry.rank).name.lowercase()}"
                 },
             label = "rank",

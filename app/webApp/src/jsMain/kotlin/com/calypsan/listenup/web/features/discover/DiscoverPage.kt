@@ -67,7 +67,7 @@ fun DiscoverPage(
     onOpenProfile: (String) -> Unit,
     onSelectPeriod: (LeaderboardPeriod) -> Unit,
     onSelectCategory: (LeaderboardCategory) -> Unit,
-    /** Try again on a failed Listening now: that section's own restart (spec §3.8). */
+    /** Try again on a failed Listening now: that section's own restart. */
     onRetryListening: () -> Unit,
     /** Try again on a failed Recently added: that section's own restart. */
     onRetryRecent: () -> Unit,
@@ -81,7 +81,7 @@ fun DiscoverPage(
     onShuffle: () -> Unit,
     /** Opens the Library's Books sorted newest first, for this visit (Recently added's link). */
     onOpenLibraryNewest: () -> Unit,
-    /** Who else is on the server: chooses the only-you and nobody-listening treatments (spec §3.8). */
+    /** Who else is on the server: chooses the only-you and nobody-listening treatments. */
     communitySize: CommunitySize,
     /** Who is looking: the invitation's avatar, and whether Invite someone is theirs to offer. */
     viewer: DiscoverViewer?,
@@ -91,7 +91,7 @@ fun DiscoverPage(
     onBrowseLibrary: (() -> Unit)?,
     /**
      * Arrived at `/discover?section=leaderboard` (the stats card's footer link): select Week, then
-     * bring the leaderboard into view and focus its heading (spec §6.4).
+     * bring the leaderboard into view and focus its heading.
      */
     landOnLeaderboard: Boolean = false,
     /** Opens See all activity (`/discover/activity`, X33); null leaves the link out. */
@@ -105,7 +105,7 @@ fun DiscoverPage(
         PageHeader(title = "Discover", subtitle = DiscoverWords.PAGE_SUBTITLE)
 
         // The DOM is the reading order, and so the Tab order: spec order in one column, and the main
-        // column before the Community aside once the grid sets the aside beside it (plan D3).
+        // column before the Community aside once the grid sets the aside beside it.
         var body by remember { mutableStateOf<HTMLElement?>(null) }
         var isWide by remember { mutableStateOf(false) }
         TwoPaneWatch(body, useTwoPane = { isWide = it }, twoPaneQuery = DISCOVER_WIDE_QUERY)
@@ -199,7 +199,7 @@ fun DiscoverPage(
 internal enum class DiscoverBlock { ListeningNow, SomethingNew, Community, ShelvesByOthers, RecentlyAdded }
 
 /**
- * The blocks in DOM order, which is the focus order. One column follows the spec (§2.8, D3): the
+ * The blocks in DOM order, which is the focus order. One column follows the spec: the
  * aside straight after Something new. Wide, the grid sets the aside in its own column, so the DOM
  * runs down the main column first and Tab never jumps across and back.
  */

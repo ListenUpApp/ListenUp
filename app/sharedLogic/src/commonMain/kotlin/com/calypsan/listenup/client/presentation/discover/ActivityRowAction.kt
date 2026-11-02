@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.discover
 
-/** One thing an activity row can be asked to do beyond its tap (spec §3.5 row actions). */
+/** One thing an activity row can be asked to do beyond its tap. */
 sealed interface ActivityRowAction {
     /** Open the book the row is about. */
     data class OpenBook(
@@ -26,8 +26,8 @@ sealed interface ActivityRowAction {
 /**
  * The actions a row offers, in the board's order, decided once for every platform. A book row: the book, the
  * person, add to a shelf. A shelf row: the shelf and the person. A row about neither (a join, a milestone) offers
- * nothing, because its tap already opens the person (plan Q5). The menu, the screen readers' custom actions and the
- * Menu key all read this one list (plan C7).
+ * nothing, because its tap already opens the person. The menu, the screen readers' custom actions and the
+ * Menu key all read this one list.
  *
  * @param canShelve whether the screen can shelve one book from a row. False where there is no selection to shelve
  *   through, and while a selection is under way: shelving one book replaces the selection and ends it, which would

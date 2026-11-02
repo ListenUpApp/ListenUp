@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Recently Added, last on Discover (spec §2.8): what the library gained, each book saying when. The
+/// Recently Added, last on Discover: what the library gained, each book saying when. The
 /// heading is the way into the Library — Books sorted Added, newest first, for this session — drawn as
 /// a title with a chevron (HIG: a header that navigates). A rail at compact width; a grid of
-/// every book at regular width. Keeps its heading in every state (spec §3.8): a skeleton while loading,
+/// every book at regular width. Keeps its heading in every state: a skeleton while loading,
 /// a line and Try Again on failure.
 struct RecentlyAddedSection: View {
-    /// Cards per row in the regular-width grid: six books, as the board lays them (spec §3.7).
+    /// Cards per row in the regular-width grid: six books, as the board lays them.
     static let regularColumnCount = 6
 
     let phase: RecentlyAddedPhase

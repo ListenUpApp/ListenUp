@@ -20,7 +20,7 @@ import org.jetbrains.compose.web.dom.Text
 
 /**
  * See all activity (X33): the whole community feed (up to the 100 rows the feed keeps), in the
- * section's own [ActivityRow] with its ⋯ menu (plan C6). One H1, "Activity", under a breadcrumb back
+ * section's own [ActivityRow] with its ⋯ menu. One H1, "Activity", under a breadcrumb back
  * to Discover; Refresh asks the server for anything newer. Loading and failure match the section's.
  *
  * Pure in [state]; [ActivityFeedRoute] wires the session.

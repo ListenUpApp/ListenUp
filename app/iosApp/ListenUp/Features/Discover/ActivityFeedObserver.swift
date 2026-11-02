@@ -74,7 +74,7 @@ enum ActivityDestination: Hashable {
 
 /// One activity row: "**who** predicate **highlight** suffix" + a relative timestamp.
 ///
-/// The sentence is the shared `activityParts` every platform reads (spec §2.8), so iOS says exactly
+/// The sentence is the shared `activityParts` every platform reads, so iOS says exactly
 /// what Android and web say; only "You" on your own row is chosen here, from `isYou`.
 struct ActivityRowItem: Identifiable, Equatable {
     let id: String
@@ -97,7 +97,7 @@ struct ActivityRowItem: Identifiable, Equatable {
     /// The book's cover content version; nil when it has none or the row is book-less.
     let coverHash: String?
     let occurredAt: Date
-    /// What the row offers beyond its tap, from the shared `activityRowActions` rule (plan C7).
+    /// What the row offers beyond its tap, from the shared `activityRowActions` rule.
     let actions: [ActivityRowActions.Action]
     /// The same, for a screen that cannot shelve one book (no selection, or one is under way).
     let actionsWithoutShelving: [ActivityRowActions.Action]

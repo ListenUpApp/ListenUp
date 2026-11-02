@@ -66,7 +66,7 @@ import listenup.composeapp.generated.resources.discover_activity_your_profile_a1
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * One activity row, shared by the Discover section and the See all activity screen (plan C6): the
+ * One activity row, shared by the Discover section and the See all activity screen: the
  * avatar (its own profile link), then one link holding the sentence, when it happened and, for a
  * book, its cover.
  *

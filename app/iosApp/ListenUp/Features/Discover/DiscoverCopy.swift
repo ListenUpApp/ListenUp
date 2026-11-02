@@ -1,6 +1,6 @@
 import Foundation
 
-/// Discover's sentences that take numbers or dates, pure so they are tested off the view (spec §2.8).
+/// Discover's sentences that take numbers or dates, pure so they are tested off the view.
 /// Every string comes from the shared catalog, so iOS says what Android and web say.
 enum DiscoverCopy {
     /// "2 listening now · 3 more in the last two weeks"; nil when nobody is shown.

@@ -9,7 +9,7 @@ import org.koin.core.Koin
 
 /**
  * An open See all activity session (X33): the feed and its refresh, backed by a fresh
- * [ActivityFeedViewModel] of its own (plan C6), so leaving the page ends its scope.
+ * [ActivityFeedViewModel] of its own, so leaving the page ends its scope.
  */
 class ActivityFeedSession(
     val state: StateFlow<ActivityFeedUiState>,

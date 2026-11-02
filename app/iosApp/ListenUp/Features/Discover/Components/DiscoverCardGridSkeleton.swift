@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A Discover section's cards while they load, laid out by `DiscoverCardGrid` itself: a rail on iPhone
-/// and the section's grid on iPad, so the skeleton has the shape the cards will arrive in (spec §3.8).
+/// and the section's grid on iPad, so the skeleton has the shape the cards will arrive in.
 /// Each card is a square cover and its caption lines. Hidden from VoiceOver; the heading says what is coming.
 struct DiscoverCardGridSkeleton: View {
     let isRegular: Bool

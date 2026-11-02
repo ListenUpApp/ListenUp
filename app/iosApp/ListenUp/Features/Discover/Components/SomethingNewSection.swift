@@ -5,10 +5,10 @@ import SwiftUI
 /// regular width.
 ///
 /// Shuffle is a glass button (HIG, Buttons): an icon-only circle on iPhone, labelled on iPad; both are
-/// named for what they do. Every state keeps the heading (spec §3.8): a skeleton while drawing, a line
+/// named for what they do. Every state keeps the heading: a skeleton while drawing, a line
 /// and Try Again (a fresh draw) on failure, and "You've started every book here." with Browse the Library.
 struct SomethingNewSection: View {
-    /// Cards per row in the regular-width grid: five picks, as the board lays them (spec §3.7).
+    /// Cards per row in the regular-width grid: five picks, as the board lays them.
     static let regularColumnCount = 5
 
     let phase: DiscoverBooksPhase

@@ -55,7 +55,7 @@ internal fun Section(
 
 /**
  * The pre-first-emission state, said with a shape rather than a word: [count] cards drawn inside [gridClass],
- * the same grid the real cards fill, each a square cover and its caption lines (spec §3.8). Nothing moves when
+ * the same grid the real cards fill, each a square cover and its caption lines. Nothing moves when
  * the cards land. Hidden from assistive tech; the section heading already says what is coming.
  *
  * Deliberately silent about why: at this point the section does not know whether it is empty,
@@ -108,7 +108,7 @@ internal fun RowsSkeleton() {
 internal const val SKELETON_CARDS = 4
 
 /**
- * A section that failed, in its own words ("Couldn't load activity", spec §3.8), and — when [onRetry] is
+ * A section that failed, in its own words ("Couldn't load activity"), and — when [onRetry] is
  * given — that section's own restart, the one way back without reloading the tab.
  *
  * [onRetry] is passed only where the ViewModel can actually recover that section. A "Try again"
@@ -119,7 +119,7 @@ internal fun SectionError(
     message: String,
     onRetry: (() -> Unit)? = null,
 ) {
-    // A status line (spec §8.2): a screen reader hears the failure without losing its place.
+    // A status line: a screen reader hears the failure without losing its place.
     P(attrs = {
         classes("disc-error")
         attr("role", "status")
@@ -135,7 +135,7 @@ internal fun SectionError(
 
 /**
  * One quiet line in place of a section's content: what an empty section is waiting for ("Nobody's
- * listening right now…"), said once and plainly (spec §3.8), rather than a titled empty-state card.
+ * listening right now…"), said once and plainly, rather than a titled empty-state card.
  */
 @Composable
 internal fun QuietLine(text: String) {

@@ -3,7 +3,7 @@ import SwiftUI
 /// The Discover leaderboard, in a grouped card: the title, the period (Week / Month / Year / All Time)
 /// always in view, the metric (Time / Books / Streak), and the top five rows with Show All for the
 /// rest. Two segmented controls, not chips (HIG, Segmented controls) — menus at accessibility text
-/// sizes (`LeaderboardPickerForm`). The period stays in every state (spec §3.8): loading is a skeleton of
+/// sizes (`LeaderboardPickerForm`). The period stays in every state: loading is a skeleton of
 /// rows, a failure a line and Try Again, an empty period says so; when you are alone the metric goes
 /// (all three would rank you first) and the board closes with "Just you so far".
 struct LeaderboardSectionView: View {
@@ -187,7 +187,7 @@ struct LeaderboardSectionView: View {
     }
 }
 
-/// How the leaderboard's period and metric pickers draw (plan Q3). Equal segments at standard text
+/// How the leaderboard's period and metric pickers draw. Equal segments at standard text
 /// sizes; at accessibility sizes, where "All Time" no longer fits a quarter of the card, the HIG's
 /// compact form — a menu that still shows the current value. Keyed on the text size, not on measured
 /// width, so both pickers switch together and the choice is the same on every width.

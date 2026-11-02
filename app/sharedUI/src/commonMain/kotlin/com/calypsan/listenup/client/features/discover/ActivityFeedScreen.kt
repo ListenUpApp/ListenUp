@@ -54,7 +54,7 @@ private val ActivityColumnMinWidth = 360.dp
 
 /**
  * See all activity (X33): the community feed in full (up to the 100 rows the feed keeps), in the
- * section's own [ActivityRow] with the same actions (plan C6). Pull to refresh asks the server for
+ * section's own [ActivityRow] with the same actions. Pull to refresh asks the server for
  * anything newer. Backed by its own [ActivityFeedViewModel]; "Add {book} to a shelf" shelves one
  * book through this screen's own [BookSelectionScaffold].
  */

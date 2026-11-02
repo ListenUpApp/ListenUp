@@ -1,10 +1,10 @@
 import Foundation
 import Shared
 
-/// What an activity row offers beyond its tap, in the board's order (spec §3.5): a book row opens the
+/// What an activity row offers beyond its tap, in the board's order: a book row opens the
 /// book, views the person and adds the book to a shelf; a shelf row opens the shelf and views the
 /// person; a row about neither (a join, a milestone) offers nothing, since its tap already opens the
-/// person (plan Q5). The context menu and the VoiceOver actions read this one list (plan C7).
+/// person. The context menu and the VoiceOver actions read this one list.
 enum ActivityRowActions {
     enum Action: Hashable {
         case openBook(String)

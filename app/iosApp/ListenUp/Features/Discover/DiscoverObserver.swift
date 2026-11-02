@@ -182,7 +182,7 @@ enum CurrentlyListeningPhase: Equatable {
 enum DiscoverShelvesPhase: Equatable {
     case loading
     case ready([DiscoverShelfOwnerRow])
-    /// `needsConnection` is true for an offline or timed-out failure (plan Q3).
+    /// `needsConnection` is true for an offline or timed-out failure.
     case error(needsConnection: Bool)
 }
 
