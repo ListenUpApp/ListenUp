@@ -68,12 +68,12 @@ struct ListenUpCommands: Commands {
             .keyboardShortcut(.space, modifiers: [])
             .disabled(!state.canTogglePlayback)
         Divider()
-        Button(String(format: String(localized: "player.skip_backward"), "\(player?.skipBackwardSec ?? 0)")) {
+        Button(String(localized: .playerSkipBackward("\(player?.skipBackwardSec ?? 0)"))) {
             player?.skipBackward()
         }
             .keyboardShortcut(.leftArrow, modifiers: .command)
             .disabled(!state.canSeek)
-        Button(String(format: String(localized: "player.skip_forward"), "\(player?.skipForwardSec ?? 0)")) {
+        Button(String(localized: .playerSkipForward("\(player?.skipForwardSec ?? 0)"))) {
             player?.skipForward()
         }
             .keyboardShortcut(.rightArrow, modifiers: .command)

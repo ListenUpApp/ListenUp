@@ -30,7 +30,7 @@ enum SelectionFormatting {
     /// for both: the sentence never says which kind of thing it made.
     static func createdWithBooks(name: String, count: Int) -> String {
         count == 1
-            ? String(format: String(localized: "selection.created_with_books_one"), name)
+            ? String(localized: .selectionCreatedWithBooksOne(name))
             : String(format: String(localized: "selection.created_with_books_plural"), name, count)
     }
 }

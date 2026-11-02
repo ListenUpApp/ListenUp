@@ -20,14 +20,14 @@ enum BookDeletion {
     }
 
     static func title(bookTitle: String) -> String {
-        String(format: String(localized: "book.detail_delete_server_title_ios"), bookTitle)
+        String(localized: .bookDetailDeleteServerTitleIos(bookTitle))
     }
 
     /// `formattedSize` arrives formatted so the sentence stays testable; `ByteCountFormatter`'s
     /// output depends on the device's locale.
     static func message(fileCount: Int, formattedSize: String) -> String {
         fileCount == 1
-            ? String(format: String(localized: "book.detail_delete_server_body_one"), formattedSize)
+            ? String(localized: .bookDetailDeleteServerBodyOne(formattedSize))
             : String(
                 format: String(localized: "book.detail_delete_server_body"),
                 Int32(clamping: fileCount),
@@ -39,7 +39,7 @@ enum BookDeletion {
     /// the way (as Android and web say it); for anything else, the error's own message.
     static func refusal(for error: any AppError) -> String {
         guard let shared = error as? BookErrorFolderNotExclusive else { return error.message }
-        return String(format: String(localized: "book.detail_delete_book_blocked"), shared.otherBookTitle)
+        return String(localized: .bookDetailDeleteBookBlocked(shared.otherBookTitle))
     }
 
     /// Whether the refusal is the shared-folder one, which Book Detail's own alert presents.

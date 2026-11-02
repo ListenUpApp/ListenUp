@@ -40,7 +40,7 @@ struct UserDetailView: View {
 
     private func content(_ ready: UserDetailReadyModel) -> some View {
         Form {
-            Section(String(format: String(localized: "common.entity_information"), "User")) {
+            Section(String(localized: .commonEntityInformation("User"))) {
                 LabeledContent(String(localized: "common.display_name"), value: ready.displayName)
                 LabeledContent(String(localized: "common.email_address"), value: ready.email)
             }

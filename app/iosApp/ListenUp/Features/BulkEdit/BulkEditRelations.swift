@@ -204,7 +204,7 @@ private struct RelationChipRow: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(
-                        String(format: String(localized: "bulk_edit.remove_from_edit"), chip.label)
+                        String(localized: .bulkEditRemoveFromEdit(chip.label))
                     )
                 }
             }

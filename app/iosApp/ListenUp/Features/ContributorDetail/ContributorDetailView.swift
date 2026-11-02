@@ -92,7 +92,7 @@ struct ContributorDetailView: View {
             }
         }
         .confirmationDialog(
-            String(format: String(localized: "common.delete_name"), observer?.name ?? ""),
+            String(localized: .commonDeleteName(observer?.name ?? "")),
             isPresented: Binding(
                 get: { observer?.showDeleteConfirmation ?? false },
                 set: { _ in observer?.onDismissDelete() }
@@ -291,11 +291,11 @@ struct ContributorDetailView: View {
         let died = death.flatMap(displayDate)
         switch (born, died) {
         case let (born?, died?):
-            return String(format: String(localized: "contributor.life_span"), born, died)
+            return String(localized: .contributorLifeSpan(born, died))
         case let (born?, nil):
-            return String(format: String(localized: "contributor.born"), born)
+            return String(localized: .contributorBorn(born))
         case let (nil, died?):
-            return String(format: String(localized: "contributor.died"), died)
+            return String(localized: .contributorDied(died))
         default:
             return nil
         }

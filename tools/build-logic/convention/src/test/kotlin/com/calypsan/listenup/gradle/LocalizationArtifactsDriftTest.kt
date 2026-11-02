@@ -11,6 +11,14 @@ class LocalizationArtifactsDriftTest {
     private val rendered = mapOf(android to "<resources/>", catalog to "{}")
 
     @Test
+    fun `the renderer fingerprint is a stable sha-256, so generateStrings can declare it as an input`() {
+        val fingerprint = LocalizationArtifacts.implementationFingerprint()
+        assertEquals(64, fingerprint.length)
+        assertEquals(true, fingerprint.all { it in "0123456789abcdef" })
+        assertEquals(fingerprint, LocalizationArtifacts.implementationFingerprint())
+    }
+
+    @Test
     fun `no drift when every baseline matches the rendered content`() {
         assertEquals(emptyList(), LocalizationArtifacts.drift(rendered) { rendered[it] })
     }

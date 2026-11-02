@@ -17,8 +17,8 @@ enum HomeCardText {
     ) -> String {
         [
             title,
-            author.isEmpty ? nil : String(format: String(localized: "home.card_by_author"), author),
-            narrators.flatMap { $0.isEmpty ? nil : String(format: String(localized: "library.card_read_by"), $0) },
+            author.isEmpty ? nil : String(localized: .homeCardByAuthor(author)),
+            narrators.flatMap { $0.isEmpty ? nil : String(localized: .libraryCardReadBy($0)) },
             String(format: String(localized: "library.card_progress_a11y"), percent),
             needsConnection ? String(localized: "home.needs_connection_a11y") : timeLeft(remainingMs: remainingMs)
         ]
@@ -63,12 +63,8 @@ enum FinishedCardText {
         style.locale = locale
         style.calendar = calendar
         style.timeZone = calendar.timeZone
-        let range = String(
-            format: String(localized: "home.date_range"),
-            startedAt.formatted(style),
-            finishedAt.formatted(style)
-        )
-        return String(format: String(localized: "home.finished_line_no_range"), length, range)
+        let range = String(localized: .homeDateRange(startedAt.formatted(style), finishedAt.formatted(style)))
+        return String(localized: .homeFinishedLineNoRange(length, range))
     }
 
     /// "Maya, Tom and 3 more finished it too" (C9), or nil when nobody is named (open question 7).
@@ -76,9 +72,9 @@ enum FinishedCardText {
         let named = names.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         switch (named.count, more) {
         case (0, _): return nil
-        case (1, 0): return String(format: String(localized: "home.also_finished_one"), named[0])
+        case (1, 0): return String(localized: .homeAlsoFinishedOne(named[0]))
         case (1, _): return String(format: String(localized: "home.also_finished_one_more"), named[0], more)
-        case (_, 0): return String(format: String(localized: "home.also_finished_two"), named[0], named[1])
+        case (_, 0): return String(localized: .homeAlsoFinishedTwo(named[0], named[1]))
         default: return String(format: String(localized: "home.also_finished_two_more"), named[0], named[1], more)
         }
     }
@@ -89,8 +85,8 @@ enum QuietSlotText {
     /// "Stormlight Archive, Book 2 · 48 hr, 15 min", or "Stormlight Archive · 48 hr, 15 min" without a number.
     static func seriesLine(series: String, sequence: String?, durationMs: Int64) -> String {
         let length = DurationFormatting.abbreviated(ms: durationMs)
-        guard let sequence else { return String(format: String(localized: "home.series_length"), series, length) }
-        return String(format: String(localized: "home.series_book_length"), series, sequence, length)
+        guard let sequence else { return String(localized: .homeSeriesLength(series, length)) }
+        return String(localized: .homeSeriesBookLength(series, sequence, length))
     }
 }
 
@@ -100,12 +96,8 @@ enum FirstSyncText {
     static func title(count: ArrivalCount?) -> String {
         let building = String(localized: "library_setup.building_title")
         guard let count else { return building }
-        let books = String(
-            format: String(localized: "home.arriving_count"),
-            count.done.formatted(),
-            count.total.formatted()
-        )
-        return String(format: String(localized: "home.arriving_title"), building, books)
+        let books = String(localized: .homeArrivingCount(count.done.formatted(), count.total.formatted()))
+        return String(localized: .homeArrivingTitle(building, books))
     }
 }
 
@@ -123,9 +115,9 @@ enum HomeStatsText {
     static func chartSummary(days: [DayBar]) -> String {
         let parts = days.sorted { $0.dayOffset > $1.dayOffset }.map { day in
             let amount = DurationFormatting.accessibleHoursMinutes(seconds: day.seconds)
-            return day.dayOffset == 0 ? String(format: String(localized: "home.chart_today_a11y"), amount) : amount
+            return day.dayOffset == 0 ? String(localized: .homeChartTodayA11Y(amount)) : amount
         }
-        return String(format: String(localized: "home.chart_a11y"), parts.joined(separator: ", "))
+        return String(localized: .homeChartA11Y(parts.joined(separator: ", ")))
     }
 }
 
@@ -138,7 +130,7 @@ enum HomeShelfText {
             )
             : nil
         switch (bookCount, length) {
-        case (1, let length?): return String(format: String(localized: "home.shelf_one_book_duration"), length)
+        case (1, let length?): return String(localized: .homeShelfOneBookDuration(length))
         case (1, nil): return String(localized: "home.shelf_one_book")
         case (_, let length?):
             return String(format: String(localized: "home.shelf_books_count_duration"), bookCount, length)

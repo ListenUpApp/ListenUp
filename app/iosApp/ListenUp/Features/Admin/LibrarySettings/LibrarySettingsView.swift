@@ -70,7 +70,7 @@ struct LibrarySettingsView: View {
             }
             Button(String(localized: "common.cancel"), role: .cancel) { pendingRemove = nil }
         } message: { folder in
-            Text(String(format: String(localized: "admin.remove_path_from_library_scan"), folder.displayPath))
+            Text(String(localized: .adminRemovePathFromLibraryScan(folder.displayPath)))
         }
         .alert(
             String(localized: "common.something_went_wrong"),

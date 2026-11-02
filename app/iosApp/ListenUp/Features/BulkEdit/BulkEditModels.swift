@@ -296,7 +296,7 @@ enum BulkEditFormatting {
         let text: String =
             switch (sharedValue, bookCount) {
             case (let value?, 1):
-                String(format: String(localized: "bulk_edit.consequence_agreed_one"), value)
+                String(localized: .bulkEditConsequenceAgreedOne(value))
             case (let value?, _):
                 String(format: String(localized: "bulk_edit.consequence_agreed_plural"), bookCount, value)
             case (nil, 1):
@@ -347,7 +347,7 @@ enum BulkEditFormatting {
         let leftAlone = bookCount - affectedCount
         switch leftAlone {
         case ...0: return nil
-        case 1: return String(format: String(localized: "bulk_edit.preview_note_one"), value)
+        case 1: return String(localized: .bulkEditPreviewNoteOne(value))
         default: return String(format: String(localized: "bulk_edit.preview_note_plural"), leftAlone, value)
         }
     }

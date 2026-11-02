@@ -7,11 +7,7 @@ enum ScrubberAccessibility {
 
     /// "12 minutes, 34 seconds of 45 minutes" — a spoken time, never raw milliseconds.
     static func value(elapsedMs: Int64, durationMs: Int64) -> String {
-        String(
-            format: String(localized: "player.scrubber_value_a11y"),
-            spoken(ms: elapsedMs),
-            spoken(ms: durationMs)
-        )
+        String(localized: .playerScrubberValueA11Y(spoken(ms: elapsedMs), spoken(ms: durationMs)))
     }
 
     /// Swipe up skips forward and swipe down skips back, by the listener's own intervals — the

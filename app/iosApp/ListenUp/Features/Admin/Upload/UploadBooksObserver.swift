@@ -185,19 +185,13 @@ final class UploadBooksObserver {
             let refused = tooLargeType.value
             return UploadNotice(
                 title: String(localized: "admin.upload_books_too_large_title"),
-                message: String(
-                    format: String(localized: "admin.upload_books_too_large_body"),
-                    fileSize(refused.limitBytes), fileSize(refused.bytes)
-                )
+                message: String(localized: .adminUploadBooksTooLargeBody(fileSize(refused.limitBytes), fileSize(refused.bytes)))
             )
         case .fileTooLarge(let fileTooLargeType):
             let refused = fileTooLargeType.value
             return UploadNotice(
                 title: String(localized: "admin.upload_books_file_too_large_title"),
-                message: String(
-                    format: String(localized: "admin.upload_books_file_too_large_body"),
-                    refused.filename, fileSize(refused.bytes), fileSize(refused.limitBytes)
-                )
+                message: String(localized: .adminUploadBooksFileTooLargeBody(refused.filename, fileSize(refused.bytes), fileSize(refused.limitBytes)))
             )
         }
     }

@@ -582,7 +582,7 @@ struct AdminView: View {
     @ViewBuilder
     private var confirmationMessage: some View {
         if let user = pendingDelete {
-            Text(String(format: String(localized: "admin.confirm_delete_item"), user.name))
+            Text(String(localized: .adminConfirmDeleteItem(user.name)))
         } else if pendingRevoke != nil {
             Text(String(localized: "admin.they_wont_be_able_to"))
         } else if let user = pendingDeny {

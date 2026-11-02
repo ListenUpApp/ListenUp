@@ -70,7 +70,7 @@ extension BookDetailView {
             ShareLink(
                 item: url,
                 subject: Text(observer.title),
-                message: Text(String(format: String(localized: "common.share_book_text"), observer.title))
+                message: Text(String(localized: .commonShareBookText(observer.title)))
             ) {
                 Label(command.title, systemImage: command.systemImage)
             }

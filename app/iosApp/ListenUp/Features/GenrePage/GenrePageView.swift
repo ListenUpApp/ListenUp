@@ -51,7 +51,7 @@ struct GenrePageView: View {
             LoadingStateView()
         case .notFound:
             ContentUnavailableView(
-                String(format: String(localized: "common.not_found"), "Genre"),
+                String(localized: .commonNotFound("Genre")),
                 systemImage: "exclamationmark.triangle"
             )
         case .ready:

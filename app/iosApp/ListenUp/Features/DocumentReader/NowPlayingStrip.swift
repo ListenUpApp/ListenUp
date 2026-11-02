@@ -52,7 +52,7 @@ struct NowPlayingStripContent: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "\(model.skipBackSec)"))
+                .accessibilityLabel(String(localized: .playerSkipBackward("\(model.skipBackSec)")))
             }
             MiniPlayerPrimaryButton(model: model, action: onPrimary)
         }

@@ -43,7 +43,7 @@ struct SectionIndexBar: View {
                         .frame(width: 56, height: 56)
                         .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: Radius.m))
                         .transition(.scale.combined(with: .opacity))
-                        .accessibilityLabel(String(format: String(localized: "library.index_jump"), letter))
+                        .accessibilityLabel(String(localized: .libraryIndexJump(letter)))
                 }
 
                 // Letter column
@@ -76,7 +76,7 @@ struct SectionIndexBar: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(String(localized: "library.section_index"))
                 .accessibilityValue(
-                    currentLetter.map { String(format: String(localized: "library.index_jump"), $0) } ?? ""
+                    currentLetter.map { String(localized: .libraryIndexJump($0)) } ?? ""
                 )
                 .accessibilityAdjustableAction { direction in
                     guard !letters.isEmpty else { return }

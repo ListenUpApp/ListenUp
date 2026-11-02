@@ -150,10 +150,7 @@ struct BookReadersSection: View {
                 } else if let finished = reader.lastFinished, reader.lastFinishedAlsoOnHardcover {
                     finishedAlsoOnHardcover(finished)
                 } else if let finished = reader.lastFinished {
-                    Text(String(
-                        format: String(localized: "book.detail_readers_finished"),
-                        finished.formatted(date: .abbreviated, time: .omitted)
-                    ))
+                    Text(String(localized: .bookDetailReadersFinished(finished.formatted(date: .abbreviated, time: .omitted))))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 } else if reader.isRatedOnly {
@@ -163,7 +160,7 @@ struct BookReadersSection: View {
                 }
 
                 if let note = reader.note {
-                    Text(String(format: String(localized: "book.detail_readers_note"), note))
+                    Text(String(localized: .bookDetailReadersNote(note)))
                         .font(.footnote.italic())
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -184,10 +181,7 @@ struct BookReadersSection: View {
     /// "Read {date}" beside a Hardcover badge — or beneath it when the text size leaves no room, so a
     /// large Dynamic Type size wraps the badge rather than crushing the date.
     private func readOnHardcover(_ finished: Date) -> some View {
-        let read = Text(String(
-            format: String(localized: "book.detail_readers_read"),
-            finished.formatted(date: .abbreviated, time: .omitted)
-        ))
+        let read = Text(String(localized: .bookDetailReadersRead(finished.formatted(date: .abbreviated, time: .omitted))))
         .font(.footnote)
         .foregroundStyle(.secondary)
         let badge = SourceBadge(label: String(localized: "book.detail_readers_hardcover"))
@@ -207,10 +201,7 @@ struct BookReadersSection: View {
     /// "Finished {date}" beside an "Also on Hardcover" badge — one listen logged in both places. Wraps
     /// the badge beneath the date at large Dynamic Type sizes, like `readOnHardcover`.
     private func finishedAlsoOnHardcover(_ finished: Date) -> some View {
-        let date = Text(String(
-            format: String(localized: "book.detail_readers_finished"),
-            finished.formatted(date: .abbreviated, time: .omitted)
-        ))
+        let date = Text(String(localized: .bookDetailReadersFinished(finished.formatted(date: .abbreviated, time: .omitted))))
         .font(.footnote)
         .foregroundStyle(.secondary)
         let badge = SourceBadge(label: String(localized: "book.detail_readers_also_on_hardcover"))
@@ -292,7 +283,7 @@ struct BookReadersSection: View {
 
     private func name(for reader: BookReaderRow) -> String {
         reader.isYou
-            ? String(format: String(localized: "book.detail_readers_you"), reader.displayName)
+            ? String(localized: .bookDetailReadersYou(reader.displayName))
             : reader.displayName
     }
 
@@ -312,25 +303,13 @@ struct BookReadersSection: View {
             )
         }
         if let finished = reader.lastFinished, reader.lastFinishedOnHardcover {
-            return String(
-                format: String(localized: "book.detail_readers_a11y_read_on_hardcover"),
-                name(for: reader),
-                finished.formatted(date: .abbreviated, time: .omitted)
-            )
+            return String(localized: .bookDetailReadersA11YReadOnHardcover(name(for: reader), finished.formatted(date: .abbreviated, time: .omitted)))
         }
         if let finished = reader.lastFinished, reader.lastFinishedAlsoOnHardcover {
-            return String(
-                format: String(localized: "book.detail_readers_a11y_finished_also_on_hardcover"),
-                name(for: reader),
-                finished.formatted(date: .abbreviated, time: .omitted)
-            )
+            return String(localized: .bookDetailReadersA11YFinishedAlsoOnHardcover(name(for: reader), finished.formatted(date: .abbreviated, time: .omitted)))
         }
         if let finished = reader.lastFinished {
-            return String(
-                format: String(localized: "book.detail_readers_a11y_finished"),
-                name(for: reader),
-                finished.formatted(date: .abbreviated, time: .omitted)
-            )
+            return String(localized: .bookDetailReadersA11YFinished(name(for: reader), finished.formatted(date: .abbreviated, time: .omitted)))
         }
         if reader.isRatedOnly {
             return "\(name(for: reader)), \(String(localized: "book.detail_readers_rated"))"
@@ -344,7 +323,7 @@ struct BookReadersSection: View {
         guard let halfStars = reader.halfStars else { return nil }
         let stars = RatingStarsView.starsA11y(halfStars: halfStars)
         guard let note = reader.note else { return stars }
-        return "\(stars), \(String(format: String(localized: "book.detail_readers_note"), note))"
+        return "\(stars), \(String(localized: .bookDetailReadersNote(note)))"
     }
 }
 

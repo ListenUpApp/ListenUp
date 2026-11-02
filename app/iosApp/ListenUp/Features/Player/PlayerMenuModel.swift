@@ -44,7 +44,7 @@ enum PlayerMenuModel {
             case .chooseAuthor: String(localized: "player.go_to_author_multiple_ios")
             case .openPdf: String(localized: "player.open_pdf")
             case .volumeBoost(let db):
-                String(format: String(localized: "player.np_volume_boost_row_ios"), BoostPickerSheet.formatBoost(db))
+                String(localized: .playerNpVolumeBoostRowIos(BoostPickerSheet.formatBoost(db)))
             case .closeBook: String(localized: "player.np_close_book_ios")
             }
         }

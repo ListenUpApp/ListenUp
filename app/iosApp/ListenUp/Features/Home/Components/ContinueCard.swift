@@ -57,7 +57,7 @@ struct ContinueCard: View {
                         Text(item.author).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                     }
                     if showsNarrator, let narrators = item.narrators, !narrators.isEmpty {
-                        Text(String(format: String(localized: "library.card_read_by"), narrators))
+                        Text(String(localized: .libraryCardReadBy(narrators)))
                             .font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }

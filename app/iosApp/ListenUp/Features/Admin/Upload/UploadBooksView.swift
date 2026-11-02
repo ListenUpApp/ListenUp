@@ -128,7 +128,7 @@ struct UploadBooksView: View {
     private func uploadingSections(_ progress: UploadProgressModel) -> some View {
         Section {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(String(format: String(localized: "admin.upload_books_uploading"), progress.filename))
+                Text(String(localized: .adminUploadBooksUploading(progress.filename)))
                     .font(.body)
                     .lineLimit(2)
                     .truncationMode(.middle)

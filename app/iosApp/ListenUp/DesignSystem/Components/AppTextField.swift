@@ -196,7 +196,7 @@ struct AppTextField: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(format: String(localized: "bulk_edit.clear_field"), label ?? placeholder))
+                .accessibilityLabel(String(localized: .bulkEditClearField(label ?? placeholder)))
             }
         }
     }
@@ -219,7 +219,7 @@ struct AppTextField: View {
         }
         .font(.caption)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(format: String(localized: "common.error_a11y"), message))
+        .accessibilityLabel(String(localized: .commonErrorA11Y(message)))
         .accessibilityAddTraits(.isStaticText)
     }
 }

@@ -159,7 +159,7 @@ private struct SyncDetailsSheet: View {
             return String(localized: "shell.syncing")
         }
         if observer.pendingCount > 0 {
-            return String(format: String(localized: "shell.pendingcount_pending"), "\(observer.pendingCount)")
+            return String(localized: .shellPendingcountPending("\(observer.pendingCount)"))
         }
         return String(localized: "shell.all_synced")
     }
