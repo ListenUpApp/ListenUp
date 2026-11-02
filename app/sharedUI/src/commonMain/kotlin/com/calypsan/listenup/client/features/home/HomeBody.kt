@@ -27,11 +27,11 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_couldnt_load_listening
 import org.jetbrains.compose.resources.stringResource
 
-/** The stats card's width beside shelves or a slot on a tablet (spec §3.4). */
+/** The stats card's width beside shelves or a slot on a tablet. */
 private val WideStatsWidth = 400.dp
 
 /**
- * Home, drawn from fixed state (C12): the greeting in the shell header, then [homeBlocks]. No ViewModel, no Koin, so
+ * Home, drawn from fixed state: the greeting in the shell header, then [homeBlocks]. No ViewModel, no Koin, so
  * host tests render the real screen.
  */
 @Composable
@@ -173,7 +173,7 @@ private fun HomeBlockContent(
     }
 }
 
-/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+/** Whichever slot applies, drawn: every kind takes the same position. */
 @Composable
 private fun SlotContent(
     state: HomeUiState.Ready,

@@ -72,7 +72,7 @@ fun DailyListeningChart(
     val chartData =
         remember(dailyBuckets) { weekChartColumns(dailyBuckets) }
 
-    // The last bar reads "Today" (spec §2.6), as iOS draws it; the others keep their weekday letter.
+    // The last bar reads "Today", as iOS draws it; the others keep their weekday letter.
     val todayLabel = stringResource(Res.string.home_today)
     val dayLabels = chartData.map { if (it.isToday) todayLabel else it.label }
     val maxSeconds = chartData.maxOf { it.totalSeconds }.coerceAtLeast(1L).toFloat()

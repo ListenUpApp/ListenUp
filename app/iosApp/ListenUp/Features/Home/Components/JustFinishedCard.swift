@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The just-finished kind (spec §2.3): when it was finished, the book as one link, the next in its series with
-/// **Play Next Book** (the leading action, C16), the shared half-star control (Simon's decision, Q2) and who else
+/// The just-finished kind: when it was finished, the book as one link, the next in its series with
+/// **Play Next Book** (the leading action), the shared half-star control (Simon's decision) and who else
 /// finished it. ✕ dismisses it on every device. With no next book there is no primary button; the rating is the action.
 struct JustFinishedCard: View {
     let slot: FinishedSlot
@@ -11,7 +11,7 @@ struct JustFinishedCard: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The cover's colours (Home spec D3): neutral until known, at once on a revisit.
+    /// The cover's colours: neutral until known, at once on a revisit.
     @State private var coverTheme = CoverThemeObserver()
     /// The rating while a drag previews it; nil shows the saved one.
     @State private var dragging: Int?
@@ -48,7 +48,7 @@ struct JustFinishedCard: View {
             }
             rating
             if let line = FinishedCardText.alsoFinished(names: slot.alsoFinishedNames, more: slot.alsoFinishedOthers) {
-                // Book Detail, landed on its Readers (spec §6.4).
+                // Book Detail, landed on its Readers.
                 NavigationLink(value: BookDestination(id: slot.bookId, focus: .readers)) {
                     Text(line)
                         .font(.subheadline)

@@ -14,7 +14,7 @@ import org.w3c.dom.events.Event
 data class HomeActions(
     /** Opens a book. */
     val onOpenBook: (String) -> Unit,
-    /** P-R5: the player's play entry, from the saved position (C18). */
+    /** The player's play entry, from the saved position. */
     val onPlay: (String) -> Unit,
     /** Opens the Library (Browse the Library). */
     val onOpenLibrary: () -> Unit,
@@ -36,11 +36,11 @@ data class HomeActions(
     val onRateFinished: (String, Int) -> Unit = { _, _ -> },
     /** Asks for the server again (the "Can't reach your server" notice's Retry). */
     val onRetryConnection: () -> Unit = {},
-    /** Opens the Library filtered to In progress: Everything in progress's "In Library" (spec §6.4). */
+    /** Opens the Library filtered to In progress: Everything in progress's "In Library". */
     val onOpenInProgress: () -> Unit = {},
-    /** Opens Discover's leaderboard on Week: the stats footer (spec §6.4). */
+    /** Opens Discover's leaderboard on Week: the stats footer. */
     val onOpenLeaderboard: () -> Unit = {},
-    /** Opens the My shelves list: My shelves' See all (H24). */
+    /** Opens the My shelves list: My shelves' See all. */
     val onSeeAllShelves: () -> Unit = {},
 ) {
     /** Holds [None]. */
@@ -51,8 +51,8 @@ data class HomeActions(
 }
 
 /**
- * "Good evening, Simon" (spec §3.1, web): worded here, never by the ViewModel (H2). A new listener is greeted
- * "Welcome, Simon" ([isWelcome], spec §2.3 NewListener).
+ * "Good evening, Simon": worded here, never by the ViewModel. A new listener is greeted
+ * "Welcome, Simon" ([isWelcome]).
  */
 internal fun homeGreeting(
     timeOfDay: TimeOfDay,
@@ -63,10 +63,10 @@ internal fun homeGreeting(
     return if (firstName.isNullOrBlank()) greeting else "$greeting, $firstName"
 }
 
-/** The wide arrangement starts where the shell's sidebar does (spec §3.4 "desktop ≥ 1024 px"). */
+/** The wide arrangement starts where the shell's sidebar does. */
 internal const val HOME_WIDE_QUERY = "(min-width: 1024px)"
 
-/** Whether the page is wide, now and whenever the media query flips (C9). */
+/** Whether the page is wide, now and whenever the media query flips. */
 @Composable
 internal fun rememberHomeIsWide(): Boolean {
     var wide by remember { mutableStateOf(window.matchMedia(HOME_WIDE_QUERY).matches) }

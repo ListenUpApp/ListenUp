@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// Home's "Your Last 7 Days" card (spec §2.6): the week's total, the gold streak chip when a streak is live, the chart
+/// Home's "Your Last 7 Days" card: the week's total, the gold streak chip when a streak is live, the chart
 /// read aloud as one summary, the top genres with their share, and a footer with the best streak and the Leaderboard
 /// link. The card is pure — it renders whatever `StatsPhase` it's handed. Loading is a shimmer the size of the data,
-/// a new listener gets a one-line dashed invitation (never a zero chart), and an error offers Try Again (gap 17).
+/// a new listener gets a one-line dashed invitation (never a zero chart), and an error offers Try Again.
 struct HomeStatsCard: View {
     let statsPhase: StatsPhase
-    /// The footer's Leaderboard link: Discover's board, on Week (spec §6.4).
+    /// The footer's Leaderboard link: Discover's board, on Week.
     var onOpenLeaderboard: () -> Void = {}
     /// Try Again after an error: `HomeStatsViewModel.refresh()`.
     var onRetry: () -> Void = {}
@@ -148,7 +148,7 @@ struct HomeStatsCard: View {
     }
 }
 
-/// The gold streak chip (spec §2.6), read as its words.
+/// The gold streak chip, read as its words.
 private struct StreakChip: View {
     let days: Int
 

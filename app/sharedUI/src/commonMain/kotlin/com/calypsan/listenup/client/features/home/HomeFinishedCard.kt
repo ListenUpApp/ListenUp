@@ -60,15 +60,15 @@ import listenup.composeapp.generated.resources.home_you_finished_a_book_a11y
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 
-/** Test tag for the finish card's one link into the finished book (H15). */
+/** Test tag for the finish card's one link into the finished book. */
 internal const val HOME_FINISHED_IDENTITY_TAG = "home-finished-identity"
 
 private val FinishedCover = 120.dp
 private val PlayNextHeight = 56.dp
 
 /**
- * The just-finished kind (spec §2.3): when it was finished, the book as one link, the next in its series with
- * **Play next book** (the leading action, C16), the shared half-star control (Q2) and who else finished it. ✕ dismisses
+ * The just-finished kind: when it was finished, the book as one link, the next in its series with
+ * **Play next book** (the leading action), the shared half-star control and who else finished it. ✕ dismisses
  * it on every device. No next book: no primary button, and the rating is the action.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -212,7 +212,7 @@ private fun FinishedRating(
     }
 }
 
-/** "Maya, Tom and 3 more finished it too" (C9), or null when nobody is named (Q7). */
+/** "Maya, Tom and 3 more finished it too", or null when nobody is named. */
 @Composable
 private fun alsoFinishedText(also: AlsoFinished): String? {
     val names = also.names.filter { it.isNotBlank() }

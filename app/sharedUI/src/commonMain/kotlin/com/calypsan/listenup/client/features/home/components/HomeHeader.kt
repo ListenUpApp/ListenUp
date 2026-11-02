@@ -20,14 +20,14 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Home's greeting (spec §3.1): "Good evening," over the first name as the screen's one display moment. The name is the
+ * Home's greeting: "Good evening," over the first name as the screen's one display moment. The name is the
  * screen's heading; without a name the greeting stands alone.
  *
- * @param timeOfDay the part of the day the shared state chose (H2).
+ * @param timeOfDay the part of the day the shared state chose.
  * @param firstName the reader's first name, or null.
  * @param isWide true at medium widths and wider, where the name grows to `displayLarge`.
  * @param modifier Optional modifier.
- * @param isWelcome a new listener: "Welcome," in place of the part of the day (spec §2.3 NewListener).
+ * @param isWelcome a new listener: "Welcome," in place of the part of the day.
  */
 @Composable
 fun HomeHeader(

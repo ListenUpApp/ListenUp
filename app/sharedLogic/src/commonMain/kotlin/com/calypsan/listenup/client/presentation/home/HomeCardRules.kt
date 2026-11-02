@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.home
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 
 /**
- * Whether this Also-in-progress card needs a connection it does not have (spec §2.5 "Offline (A, i)"): the device or
+ * Whether this Also-in-progress card needs a connection it does not have: the device or
  * the server is out of reach and none of the book is on this device. The card stays tappable; Book Detail explains.
  */
 fun ContinueListeningBook.needsConnection(connectivity: HomeConnectivity): Boolean =
@@ -11,7 +11,7 @@ fun ContinueListeningBook.needsConnection(connectivity: HomeConnectivity): Boole
 
 private const val GROUP_DIGITS = 3
 
-/** "1,280": a whole count with its thousands grouped, as the first-sync strip writes it (open question 1). */
+/** "1,280": a whole count with its thousands grouped, as the first-sync strip writes it. */
 fun groupedCount(count: Int): String =
     count
         .toString()

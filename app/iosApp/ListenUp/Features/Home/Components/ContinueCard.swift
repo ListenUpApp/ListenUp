@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// A Home card (spec §2.5): square art with a white progress line on it (the ring retired), the title, the author,
-/// "Read by …" on wide layouts, and the time left in the action colour. One accessibility element with one label
-/// (§8.2). A loading item is a same-size shimmer. While selecting, a tap toggles selection. Out of reach and not
-/// downloaded, the art and title dim to half and the last line reads "Needs a connection"; it stays a link (§2.5).
+/// A Home card: square art with a white progress line on it (the ring retired), the title, the author,
+/// "Read by …" on wide layouts, and the time left in the action colour. One accessibility element with one label.
+/// A loading item is a same-size shimmer. While selecting, a tap toggles selection. Out of reach and not
+/// downloaded, the art and title dim to half and the last line reads "Needs a connection"; it stays a link.
 struct ContinueCard: View {
     let item: ContinueItem
     /// A rail card's fixed width, or nil to fill a row column.
@@ -91,7 +91,7 @@ struct ContinueCard: View {
     }
 }
 
-/// The white progress line on a card's art (spec §2.5, iOS). Decorative: the card's label carries the percent.
+/// The white progress line on a card's art. Decorative: the card's label carries the percent.
 private struct ArtProgressLine: View {
     let progress: Double
 

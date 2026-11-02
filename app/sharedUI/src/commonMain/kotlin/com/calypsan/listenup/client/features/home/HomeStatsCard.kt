@@ -73,9 +73,9 @@ private const val GAP = 4f
 internal const val HOME_STATS_SKELETON_TAG = "home-stats-skeleton"
 
 /**
- * "Your last 7 days" (spec §2.6). Stateless: the screen hands it [stats] from `HomeStatsViewModel` (C12). Loading is a
- * skeleton the size of the data; a new listener sees a one-line dashed invitation, never a zero chart (gap 6); an
- * error says so quietly with **Try again** (gap 17), which [onRetry] answers with `refresh()`.
+ * "Your last 7 days". Stateless: the screen hands it [stats] from `HomeStatsViewModel`. Loading is a
+ * skeleton the size of the data; a new listener sees a one-line dashed invitation, never a zero chart; an
+ * error says so quietly with **Try again**, which [onRetry] answers with `refresh()`.
  */
 @Composable
 internal fun HomeStatsCard(
@@ -113,7 +113,7 @@ internal fun HomeStatsCard(
 
                 is HomeStatsUiState.Error -> {
                     StatsHeading()
-                    // A quiet failure: onSurfaceVariant, not the error role (spec §2.6).
+                    // A quiet failure: onSurfaceVariant, not the error role.
                     Text(
                         text = stringResource(Res.string.home_couldnt_load_stats),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -213,7 +213,7 @@ private fun StatsData(
     StatsFooter(bestDays = streak.bestDays, onOpenLeaderboard = onOpenLeaderboard)
 }
 
-/** "Best streak 12 days" when there has been one, and the Leaderboard link to Discover's board on Week (spec §6.4). */
+/** "Best streak 12 days" when there has been one, and the Leaderboard link to Discover's board on Week. */
 @Composable
 private fun StatsFooter(
     bestDays: Int?,
@@ -250,7 +250,7 @@ private fun weekTotal(totalSeconds: Long): String {
     }
 }
 
-/** The gold chip (§2.6): `tertiaryContainer`, read as its words ("5-day streak"). */
+/** The gold chip: `tertiaryContainer`, read as its words ("5-day streak"). */
 @Composable
 private fun StreakChip(days: Int) {
     Surface(
@@ -269,7 +269,7 @@ private fun StreakChip(days: Int) {
     }
 }
 
-/** "Listening per day, oldest to today: 1h 10m, …, today 1h 20m" (C15), from the same columns the chart draws. */
+/** "Listening per day, oldest to today: 1h 10m, …, today 1h 20m", from the same columns the chart draws. */
 @Composable
 private fun chartDescription(stats: HomeStatsUiState.Data): String {
     val parts =

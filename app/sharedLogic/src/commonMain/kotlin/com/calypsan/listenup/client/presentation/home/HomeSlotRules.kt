@@ -6,19 +6,19 @@ import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.Reachability
 
-/** How long a finished book keeps its card (spec §2.2 row 2). */
+/** How long a finished book keeps its card. */
 internal const val JUST_FINISHED_WINDOW_MS: Long = 72L * 60 * 60 * 1000
 
-/** How many finished books the NothingInProgress candidate walk reads, newest finish first (plan call C16). */
+/** How many finished books the NothingInProgress candidate walk reads, newest finish first. */
 internal const val SERIES_CANDIDATE_WALK = 20
 
-/** How many covers a new listener's slot shows (spec §2.3). */
+/** How many covers a new listener's slot shows. */
 internal const val NEW_LISTENER_COVERS = 4
 
-/** How many fellow finishers the card names (spec §2.3). */
+/** How many fellow finishers the card names. */
 internal const val ALSO_FINISHED_NAMES = 2
 
-/** The loaded book as the slot decides on it: `isPlaying` dropped, so play/pause is never a decision point (P-R6). */
+/** The loaded book as the slot decides on it: `isPlaying` dropped, so play/pause is never a decision point. */
 internal sealed interface LoadedKey {
     /** The player has not yet read back which book was loaded. */
     data object Restoring : LoadedKey
@@ -40,7 +40,7 @@ internal fun LoadedBook.toKey(): LoadedKey =
         is LoadedBook.Loaded -> LoadedKey.Loaded(bookId, isFinished)
     }
 
-/** A book this Home visit watched being loaded, and when: a play the positions may not show yet (plan call C10). */
+/** A book this Home visit watched being loaded, and when: a play the positions may not show yet. */
 internal data class FreshLoad(
     val bookId: String,
     val atMs: Long,
@@ -82,7 +82,7 @@ internal fun nextLoadedView(
         }
     }
 
-/** The slot's kind, before its contents are read (spec §2.2). */
+/** The slot's kind, before its contents are read. */
 internal sealed interface SlotKind {
     /** The library's first sync is still arriving. */
     data object FirstSync : SlotKind
@@ -111,7 +111,7 @@ internal data class SlotInputs(
     val isLibraryArriving: Boolean,
 )
 
-/** Spec §2.2, top to bottom; the first that applies wins. Pure. */
+/** The rows, top to bottom; the first that applies wins. Pure. */
 internal fun slotKindFor(inputs: SlotInputs): SlotKind {
     val first = inputs.continueListening.firstOrNull()
     val anyReady = inputs.continueListening.any { it is ContinueListeningItem.Ready }
@@ -126,7 +126,7 @@ internal fun slotKindFor(inputs: SlotInputs): SlotKind {
 }
 
 /**
- * The book whose "just finished" card Home shows, or null (spec §2.2 row 2). It must be:
+ * The book whose "just finished" card Home shows, or null. It must be:
  * - finished within the window and not held;
  * - not dismissed for this finish — by a dismissal at or after it (synced) or by [dismissedHere] this visit;
  * - not moved on from — no other book played after the finish, nor [freshLoad]ed after it.
@@ -169,7 +169,7 @@ private fun movedOn(
     positions.any { it.bookId != bookId && (it.lastPlayedAtMs ?: Long.MIN_VALUE) > finishedAtMs } ||
         (freshLoad != null && freshLoad.bookId != bookId && freshLoad.atMs > finishedAtMs)
 
-/** When the slot may change kind (spec §2.1 rule 1): Home's own refresh/dismiss counter, and the loaded book. */
+/** When the slot may change kind: Home's own refresh/dismiss counter, and the loaded book. */
 internal data class DecisionPoint(
     val runs: Int,
     val loaded: LoadedKey,
@@ -190,7 +190,7 @@ internal fun isStillArriving(continueListening: List<ContinueListeningItem>): Bo
     continueListening.firstOrNull() is ContinueListeningItem.Loading
 
 /**
- * Spec §2.1: hold [previous] until a decision point passes. A FirstSync skeleton resolves in place (rule 4), and so
+ * Hold [previous] until a decision point passes. A FirstSync skeleton resolves in place (rule 4), and so
  * does a provisional decision — a first sign-in can settle on "nothing in progress" before its books land. So does the
  * welcome: any playback position ends it (Simon, 2026-10-14), and a store that is still filling can decide it before
  * the positions land. Pure.
@@ -237,7 +237,7 @@ internal fun finishedNewestFirst(positions: Collection<PlaybackPosition>): List<
         .toList()
 
 /**
- * The first next-in-series, in walk order, that is neither started nor finished (spec §2.3). [nextOfFinished] is
+ * The first next-in-series, in walk order, that is neither started nor finished. [nextOfFinished] is
  * aligned with [finishedNewestFirst]; held next books are already null ([ObserveNextInSeriesUseCase]). Pure.
  */
 internal fun seriesCandidateOf(
@@ -263,7 +263,7 @@ internal fun timeOfDayAt(hour: Int): TimeOfDay =
         else -> TimeOfDay.Night
     }
 
-/** The device's network first, then the server; unknown reads as online (spec §4.1). Pure. */
+/** The device's network first, then the server; unknown reads as online. Pure. */
 internal fun connectivityOf(
     isDeviceOnline: Boolean,
     reachability: Reachability,

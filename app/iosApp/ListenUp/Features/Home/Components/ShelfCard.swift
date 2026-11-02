@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A "My Shelves" card (spec §2.7): a 2×2 mosaic of the shelf's covers, its name (with a lock when it is private) and
+/// A "My Shelves" card: a 2×2 mosaic of the shelf's covers, its name (with a lock when it is private) and
 /// "6 books · 74 hr". `.tile` is the iPhone rail's square card; `.row` is the iPad list's horizontal card. One
 /// accessibility element. Pure visual — `MyShelvesSection` wraps it in a `NavigationLink(value:)`.
 struct ShelfCard: View {
@@ -76,9 +76,9 @@ struct ShelfCard: View {
 
 // MARK: - My Shelves section
 
-/// The "My Shelves" section (spec §2.7): a header with New Shelf (always there, so the first shelf is one tap away),
+/// The "My Shelves" section: a header with New Shelf (always there, so the first shelf is one tap away),
 /// then the reader's shelves — a scrolling rail of tiles in one column, a grid of row cards when Home is wide — or,
-/// with none yet, a line inviting the first. See All opens the My Shelves list once there is a shelf to see (H24).
+/// with none yet, a line inviting the first. See All opens the My Shelves list once there is a shelf to see.
 struct MyShelvesSection: View {
     let shelves: [ShelfItem]
     let layout: HomeLayout

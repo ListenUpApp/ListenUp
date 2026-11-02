@@ -34,10 +34,10 @@ import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/** The last bar's label (spec §2.6), sharedUI's `home_today` verbatim: the others keep their weekday letter. */
+/** The last bar's label, sharedUI's `home_today` verbatim: the others keep their weekday letter. */
 private const val TODAY_LABEL = "Today"
 
-/** Spec §2.5 caps: desktop one row of up to six; the phone CSS shows the first four (C10). */
+/** The caps: desktop one row of up to six; the phone CSS shows the first four. */
 internal const val EVERYTHING_IN_PROGRESS_CAP = 6
 
 /** The cover rung a card asks the server for, in px. */
@@ -54,7 +54,7 @@ private const val ARIA_LABEL = "aria-label"
 /** A section's own heading is an H2, so anything headed inside it is an H3. */
 internal const val SECTION_HEADING_LEVEL = 2
 
-/** "Everything in progress", the loaded book first, with its header link. Absent when nothing is in progress (§2.1). */
+/** "Everything in progress", the loaded book first, with its header link. Absent when nothing is in progress. */
 @Composable
 internal fun EverythingInProgress(
     items: List<ContinueListeningItem>,
@@ -72,7 +72,7 @@ internal fun EverythingInProgress(
                 classes("home-section-h", "home-progress-h")
             }) { Text(HomeWords.EVERYTHING_IN_PROGRESS) }
             Div(attrs = { classes("home-section-actions") }) {
-                // The way into selection on web (H16): a pointer has no long-press. Hidden while selecting — the bulk
+                // The way into selection on web: a pointer has no long-press. Hidden while selecting — the bulk
                 // bar's Done ends it.
                 if (selection != null && !selection.isSelecting) {
                     Button(kind = ButtonKind.Secondary, onClick = selection.onStart) { Text(HomeWords.SELECT) }
@@ -89,8 +89,8 @@ internal fun EverythingInProgress(
 }
 
 /**
- * A Home card (§2.5): square art with the coral line on its bottom edge and the lock, then title, author, "Read by …"
- * on wide pages, and the time left. One `aria-label` names it (C8, §8.2); the line is `aria-hidden`.
+ * A Home card: square art with the coral line on its bottom edge and the lock, then title, author, "Read by …"
+ * on wide pages, and the time left. One `aria-label` names it; the line is `aria-hidden`.
  *
  * A [ContinueListeningItem.Loading] keeps its place as a skeleton of the SAME size rather than being dropped: its
  * position row has already arrived, so the book is genuinely coming, and hiding it would shrink the row and then grow
@@ -169,11 +169,11 @@ private fun ReadyCard(
     }
 }
 
-/** "18h 40m left" — Library's wording on every card, whatever its length (open question 6: no "Almost done"). */
+/** "18h 40m left" — Library's wording on every card, whatever its length (no "Almost done"). */
 internal fun timeLeftText(remainingMs: Long): String =
     "${DurationFormatter.hoursMinutes(remainingMs.milliseconds)} left"
 
-/** "Babel, by R. F. Kuang, 11% listened, 18h 40m left" (§2.5); wide pages add ", read by …". */
+/** "Babel, by R. F. Kuang, 11% listened, 18h 40m left"; wide pages add ", read by …". */
 internal fun homeCardLabel(
     book: ContinueListeningBook,
     withNarrator: Boolean,
@@ -187,8 +187,8 @@ internal fun homeCardLabel(
     ).joinToString(", ")
 
 /**
- * "Your last 7 days" (spec §2.6): one card with its heading inside. Loading is a skeleton of the data's size, a new
- * listener gets a one-line invitation, and a failure says so with **Try again** (gap 17).
+ * "Your last 7 days": one card with its heading inside. Loading is a skeleton of the data's size, a new
+ * listener gets a one-line invitation, and a failure says so with **Try again**.
  */
 @Composable
 internal fun LastSevenDays(
@@ -210,7 +210,7 @@ internal fun LastSevenDays(
                 }
 
                 is HomeStatsUiState.Empty -> {
-                    // A one-line invitation, never a zeroed week (spec §2.6, gap 6).
+                    // A one-line invitation, never a zeroed week.
                     P(attrs = { classes("home-stats-invite") }) { Text(HomeWords.STATS_INVITATION_BODY) }
                 }
 
@@ -265,7 +265,7 @@ private fun StatsBody(
     }
 }
 
-/** "Listening per day, oldest to today: 1h 10m, …, today 1m" (C15): the chart's words, for one image. */
+/** "Listening per day, oldest to today: 1h 10m, …, today 1m": the chart's words, for one image. */
 internal fun weekChartLabel(columns: List<WeekChartColumn>): String =
     "Listening per day, oldest to today: " +
         columns.joinToString(", ") { column ->
@@ -330,8 +330,8 @@ private fun TopGenres(stats: HomeStatsUiState.Data) {
 }
 
 /**
- * "My shelves" (spec §2.7): the header always offers New shelf, so the first shelf is one press away, and See all once
- * there is a shelf to see (H24); the shelves are a grid of mosaic cards, or, with none yet, a line inviting the first.
+ * "My shelves": the header always offers New shelf, so the first shelf is one press away, and See all once
+ * there is a shelf to see; the shelves are a grid of mosaic cards, or, with none yet, a line inviting the first.
  */
 @Composable
 internal fun MyShelves(
@@ -362,7 +362,7 @@ internal fun MyShelves(
             }
         }
         if (isLoading) {
-            // The library is still arriving: no shelves yet is not yet the reader's, so no invitation (spec §2.1).
+            // The library is still arriving: no shelves yet is not yet the reader's, so no invitation.
             Div(attrs = {
                 classes("home-shelves")
                 attr("role", "img")

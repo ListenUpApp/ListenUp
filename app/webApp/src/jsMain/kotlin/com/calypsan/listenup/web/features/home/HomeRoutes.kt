@@ -39,7 +39,7 @@ internal fun HomeRoute(
                 feeds.onHeroBookIdChange(id)
                 router.navigate(Routes.Book.detail(id))
             },
-            // P-R5: the play entry Book Detail and Series use.
+            // The play entry Book Detail and Series use.
             onPlay = { id -> playback.onPlayBook(BookId(id), null) },
             onOpenLibrary = { router.navigate(Routes.library) },
             onOpenDiscover = { router.navigate(Routes.discover) },

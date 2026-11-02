@@ -26,8 +26,8 @@ private const val COVER_RUNG = 192
 private const val WELCOME_COVERS = 4
 
 /**
- * Nothing in progress, but the reader has listened before (spec §2.3): with a series candidate, its card with **Play**
- * and **Browse the Library**; without one, Browse the Library and Discover (H17).
+ * Nothing in progress, but the reader has listened before: with a series candidate, its card with **Play**
+ * and **Browse the Library**; without one, Browse the Library and Discover.
  */
 @Composable
 internal fun NothingInProgressSlot(
@@ -103,7 +103,7 @@ private fun CandidateIdentity(
 }
 
 /**
- * No listening history at all (spec §2.3 NewListener): four of the newest covers, "Pick something new", and the way
+ * No listening history at all: four of the newest covers, "Pick something new", and the way
  * in — Browse the Library (primary) and Discover. Never a count of the library (Simon, 2026-10-14).
  */
 @Composable
@@ -147,7 +147,7 @@ internal fun WelcomeSlot(
     }
 }
 
-/** The quiet slots' outlined pill (spec §2.4). */
+/** The quiet slots' outlined pill. */
 @Composable
 private fun SecondaryButton(
     text: String,

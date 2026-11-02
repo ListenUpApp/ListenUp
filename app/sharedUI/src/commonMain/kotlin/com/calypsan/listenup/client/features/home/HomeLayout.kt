@@ -4,7 +4,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.window.core.layout.WindowSizeClass
 
-/** How much width Home has (C6): phones, medium windows (600–839dp) and tablets (≥ 840dp, spec §3.4). */
+/** How much width Home has: phones, medium windows (600–839dp) and tablets (≥ 840dp). */
 internal enum class HomeWidth { Compact, Medium, Expanded }
 
 /** Home's width class, from the window (sharedUI rule 11). */
@@ -26,7 +26,7 @@ internal data class HomeActions(
     val onOpenLeaderboard: () -> Unit,
     val onOpenShelf: (String) -> Unit,
     val onCreateShelf: () -> Unit,
-    /** Opens Library filtered to In progress (Everything in progress's "In Library", spec §6.4). */
+    /** Opens Library filtered to In progress (Everything in progress's "In Library"). */
     val onOpenInProgress: () -> Unit = {},
     /** Opens Discover (the quiet slots' second button). */
     val onOpenDiscover: () -> Unit = {},
@@ -55,7 +55,7 @@ internal data class HomeActions(
     }
 }
 
-/** Multi-select as Home's cards see it (H16, unchanged behaviour). */
+/** Multi-select as Home's cards see it (unchanged behaviour). */
 internal data class HomeSelection(
     val isActive: Boolean,
     val selectedIds: Set<String>,

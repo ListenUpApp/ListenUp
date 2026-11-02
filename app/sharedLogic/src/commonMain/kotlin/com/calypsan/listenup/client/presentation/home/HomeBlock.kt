@@ -5,10 +5,10 @@ package com.calypsan.listenup.client.presentation.home
  * into Swift safely inside a list (a bridged `List<Enum>` traps on element access).
  */
 sealed interface HomeBlock {
-    /** The quiet offline notice, directly under the greeting (spec §3.1). */
+    /** The quiet offline notice, directly under the greeting. */
     data object Offline : HomeBlock
 
-    /** "Building your library", above the first-sync skeleton (spec §2.3 FirstSync, H5). */
+    /** "Building your library", above the first-sync skeleton. */
     data object FirstSyncStrip : HomeBlock
 
     /** The just-finished card. */
@@ -20,13 +20,13 @@ sealed interface HomeBlock {
     /** The new-listener welcome. */
     data object Welcome : HomeBlock
 
-    /** The skeleton slot that resolves in place (spec §2.1 rule 4). */
+    /** The skeleton slot that resolves in place. */
     data object FirstSync : HomeBlock
 
-    /** Continue Listening could not load: one line with Try again, in the slot's position (spec §3.3). */
+    /** Continue Listening could not load: one line with Try again, in the slot's position. */
     data object ContinueListeningFailed : HomeBlock
 
-    /** Whichever slot applies, beside the stats on a wide window (spec §3.4). */
+    /** Whichever slot applies, beside the stats on a wide window. */
     data object SlotBesideStats : HomeBlock
 
     /** Every book in progress. */
@@ -43,8 +43,8 @@ sealed interface HomeBlock {
 }
 
 /**
- * Home's sections, top to bottom (spec §2.1, §3.4), decided once for every platform. The offline notice sits under the
- * greeting ([isOffline]), then the library-arriving strip ([showsStrip], spec H5), then the slot — or, when Continue
+ * Home's sections, top to bottom, decided once for every platform. The offline notice sits under the
+ * greeting ([isOffline]), then the library-arriving strip ([showsStrip]), then the slot — or, when Continue
  * Listening failed and there is no slot, the one-line failure in its place. Offline and the failure are separate
  * signals, so both can show. Below the slot the order is always Everything in progress → Your last 7 days → My
  * shelves. A wide window ([isWide]) puts the slot beside the stats, and the stats beside the shelves when there is no

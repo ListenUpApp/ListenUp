@@ -13,8 +13,8 @@ import org.jetbrains.compose.web.dom.Text
 private const val SKELETON_RAIL_CARDS = 3
 
 /**
- * "Can't reach your server. Your library is here; playing needs the connection." with **Retry** (spec §3.1, web). A
- * tab holds no downloads, so the browser being offline and the server being unreachable read the same (C15).
+ * "Can't reach your server. Your library is here; playing needs the connection." with **Retry**. A
+ * tab holds no downloads, so the browser being offline and the server being unreachable read the same.
  */
 @Composable
 internal fun ServerNotice(onRetry: () -> Unit) {
@@ -30,7 +30,7 @@ internal fun ServerNotice(onRetry: () -> Unit) {
     }
 }
 
-/** Continue Listening could not load (spec §3.3): one line with **Try again**, in the slot's position. */
+/** Continue Listening could not load: one line with **Try again**, in the slot's position. */
 @Composable
 internal fun ContinueListeningFailedLine(onRetry: () -> Unit) {
     Div(attrs = {
@@ -42,7 +42,7 @@ internal fun ContinueListeningFailedLine(onRetry: () -> Unit) {
     }
 }
 
-/** Home could not load at all (spec §3.3): the slot's place says so, with **Try again**. The greeting stays above. */
+/** Home could not load at all: the slot's place says so, with **Try again**. The greeting stays above. */
 @Composable
 internal fun HomeErrorSlot(onRetry: () -> Unit) {
     Section(attrs = {
@@ -54,7 +54,7 @@ internal fun HomeErrorSlot(onRetry: () -> Unit) {
     }
 }
 
-/** The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading. */
+/** The slot's skeleton: a cover and three lines, while the first sync or the page is loading. */
 @Composable
 internal fun SlotSkeleton() {
     Section(attrs = {

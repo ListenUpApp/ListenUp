@@ -4,8 +4,8 @@ import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.ShelfCover
 
 /**
- * The one slot directly under Home's greeting (spec §2.2). Its kind is chosen at a decision point and held until the
- * next (§2.1); what is inside it stays live.
+ * The one slot directly under Home's greeting. Its kind is chosen at a decision point and held until the
+ * next; what is inside it stays live.
  */
 sealed interface HomeSlot {
     /**
@@ -14,10 +14,10 @@ sealed interface HomeSlot {
      */
     data object Absent : HomeSlot
 
-    /** The library's first sync is still arriving: a skeleton slot that resolves in place (§2.3). */
+    /** The library's first sync is still arriving: a skeleton slot that resolves in place. */
     data object FirstSync : HomeSlot
 
-    /** A book finished in the last 72 hours that the reader has neither dismissed nor moved on from (§2.2 row 2). */
+    /** A book finished in the last 72 hours that the reader has neither dismissed nor moved on from. */
     data class JustFinished(
         val card: FinishedCard,
     ) : HomeSlot
@@ -42,7 +42,7 @@ sealed interface HomeSlot {
 }
 
 /**
- * Everything the just-finished card shows (spec §2.3 JustFinished).
+ * Everything the just-finished card shows.
  *
  * @property startedAtMs when this device saw the read start, or null.
  * @property finishedAtMs when it was finished.
@@ -75,7 +75,7 @@ data class FinishedBook(
 )
 
 /**
- * "Maya and Tom finished it too" (spec §2.3): up to two names, and how many more. Both empty means no line.
+ * "Maya and Tom finished it too": up to two names, and how many more. Both empty means no line.
  *
  * @property names up to two display names, most recent finish first.
  * @property othersCount everyone else who finished it, named or not.
@@ -85,11 +85,11 @@ data class AlsoFinished(
     val othersCount: Int,
 )
 
-/** The part of the day Home greets in; each platform words it from its catalogs (H2). */
+/** The part of the day Home greets in; each platform words it from its catalogs. */
 enum class TimeOfDay { Morning, Afternoon, Evening, Night }
 
 /**
- * Whether Home can reach anything (spec §3.1 offline indicator): the device's network first, then the server. An
+ * Whether Home can reach anything: the device's network first, then the server. An
  * unknown reachability reads as [Online] — absence of evidence never blocks.
  */
 enum class HomeConnectivity { Online, Offline, ServerUnreachable }

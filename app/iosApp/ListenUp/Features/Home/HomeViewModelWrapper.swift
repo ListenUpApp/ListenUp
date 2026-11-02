@@ -76,7 +76,7 @@ final class HomeViewModelWrapper {
 enum HomePhase: Equatable {
     case loading
     case ready(HomeReady)
-    /// Home could not load; the greeting stays, from the part of the day (spec §3.3).
+    /// Home could not load; the greeting stays, from the part of the day.
     case error(message: String, timeOfDay: HomeTimeOfDay)
 
     init(error: HomeUiStateError) {
@@ -90,13 +90,13 @@ enum HomePhase: Equatable {
 struct HomeReady: Equatable {
     let shelves: [ShelfItem]
     let isSyncing: Bool
-    /// The library's first population or this device's first catch-up is running (spec H5).
+    /// The library's first population or this device's first catch-up is running.
     let isLibraryArriving: Bool
-    /// "412 of 1,280 books", only while a scan knows both numbers (open question 1).
+    /// "412 of 1,280 books", only while a scan knows both numbers.
     let arrivalCount: ArrivalCount?
-    /// The device or the server is out of reach (the shared rule, C15); independent of a failed row.
+    /// The device or the server is out of reach (the shared rule); independent of a failed row.
     let isOffline: Bool
-    /// The library-arriving strip shows above the slot (the shared rule, spec H5).
+    /// The library-arriving strip shows above the slot (the shared rule).
     let showsArrivalStrip: Bool
     /// My Shelves shows its loading state, not the invitation, while the library arrives (the shared rule).
     let showsShelvesLoading: Bool
@@ -108,7 +108,7 @@ struct HomeReady: Equatable {
     let connectivity: HomeConnectivityState
     /// The Continue Listening failure's message while the rest of Home loaded, or nil.
     let continueListeningError: String?
-    /// Home's sections top to bottom in one column, decided by the shared `homeBlocks` (spec §2.1, §3.4).
+    /// Home's sections top to bottom in one column, decided by the shared `homeBlocks`.
     private let columnBlocks: [HomeBlock]
     /// The same, for a wide window (the slot beside the stats).
     private let wideBlocks: [HomeBlock]
@@ -221,7 +221,7 @@ struct ContinueItem: Identifiable, Equatable {
     /// Every file is on this device, so it plays with no server.
     let isDownloaded: Bool
     let isLoading: Bool
-    /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (spec §2.5, the shared rule).
+    /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (the shared rule).
     var needsConnection = false
 
     /// A card online, as CarPlay and every other caller without a connectivity reads it.
@@ -329,7 +329,7 @@ struct ShelfItem: Identifiable, Equatable {
 
 // MARK: - Slot
 
-/// The one slot under Home's greeting, flattened from the sealed `HomeSlot` (spec §2.2).
+/// The one slot under Home's greeting, flattened from the sealed `HomeSlot`.
 enum HomeSlotItem: Equatable {
     case absent
     case firstSync
@@ -353,7 +353,7 @@ enum HomeSlotItem: Equatable {
     }
 }
 
-/// The just-finished card (spec §2.3).
+/// The just-finished card.
 struct FinishedSlot: Equatable {
     let bookId: String
     let title: String
@@ -425,7 +425,7 @@ enum HomeTimeOfDay: Equatable {
     }
 }
 
-/// Whether Home can reach anything (spec §3.1).
+/// Whether Home can reach anything.
 enum HomeConnectivityState: Equatable {
     case online, offline, serverUnreachable
 

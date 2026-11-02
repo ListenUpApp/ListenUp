@@ -30,12 +30,12 @@ import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Home screen: resolves Home's two ViewModels and draws [HomeBody] (C12). Pull-to-refresh and multi-select live here;
+ * Home screen: resolves Home's two ViewModels and draws [HomeBody]. Pull-to-refresh and multi-select live here;
  * everything Home draws lives in [HomeBody], [HomeLoadingBody] and [HomeErrorBody].
  *
  * @param appHeader The shell header slot; the greeting is its leading content.
  * @param onBookClick Opens a book.
- * @param onPlayBook The player's play entry, from the saved position (P-R5, C18).
+ * @param onPlayBook The player's play entry, from the saved position.
  * @param onNavigateToLibrary Opens the Library: Browse the Library, and In Library where the shell has no landings.
  * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button, and the stats footer's leaderboard link
  *   where the shell has no landings. Inside the shell, In Library and the footer land through [LocalShellLandings].

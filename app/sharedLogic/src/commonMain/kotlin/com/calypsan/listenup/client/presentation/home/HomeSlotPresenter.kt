@@ -37,8 +37,8 @@ internal data class HomeSlotState(
 )
 
 /**
- * Home's one slot (spec §2.1–§2.3). It decides the kind from the loaded book, positions and Continue Listening (§2.2),
- * holds it until a decision point (§2.1), and keeps the held kind's contents live. Room only, so it answers offline.
+ * Home's one slot. It decides the kind from the loaded book, positions and Continue Listening,
+ * holds it until a decision point, and keeps the held kind's contents live. Room only, so it answers offline.
  * Internal: [HomeViewModel] is its only consumer.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,9 +56,9 @@ internal class HomeSlotPresenter(
 ) {
     /**
      * The slot and its rail, or null until the loaded book has been restored — so no slot flashes in on a cold start
-     * and then vanishes (spec §4.1 loading guard). [isLibraryArriving] is true while the library's first population or
-     * this device's first catch-up is running. [decisionRuns] moves on every refresh and dismissal (§2.1 rules 1,
-     * 3); [dismissedHere] maps a book to the finish dismissed this visit, before Room has caught up.
+     * and then vanishes. [isLibraryArriving] is true while the library's first population or
+     * this device's first catch-up is running. [decisionRuns] moves on every refresh and dismissal;
+     * [dismissedHere] maps a book to the finish dismissed this visit, before Room has caught up.
      */
     fun observe(
         continueListening: Flow<List<ContinueListeningItem>>,

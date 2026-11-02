@@ -1,12 +1,12 @@
 import Foundation
 
-/// What a Home card says (spec §2.5, §8.2).
+/// What a Home card says.
 enum HomeCardText {
     static func timeLeft(remainingMs: Int64) -> String { DurationFormatting.timeLeft(ms: remainingMs) }
 
     /// "Babel, by R. F. Kuang, 11 percent listened, 18 hr, 40 min left"; wide cards add "Read by …". The time left is
-    /// one wording whatever its length (open question 6: no "Almost done").
-    /// A card that needs a connection it does not have ends "not downloaded, needs a connection" instead (§2.5).
+    /// one wording whatever its length (no "Almost done").
+    /// A card that needs a connection it does not have ends "not downloaded, needs a connection" instead.
     static func label(
         title: String,
         author: String,
@@ -32,7 +32,7 @@ enum HomeCardText {
     }
 }
 
-/// What the just-finished card says (spec §2.3, C9, C10).
+/// What the just-finished card says.
 enum FinishedCardText {
     /// "Finished Today", "Finished Yesterday", "Finished 3 Days Ago" — title case throughout, as Home's "Up Next"
     /// eyebrow is — by calendar day in [calendar]'s time zone.
@@ -49,7 +49,7 @@ enum FinishedCardText {
         }
     }
 
-    /// "45 hr, 30 min · Sep 6 – Oct 10", or the length alone when the start is unknown (open question 8).
+    /// "45 hr, 30 min · Sep 6 – Oct 10", or the length alone when the start is unknown.
     static func meta(
         durationMs: Int64,
         startedAt: Date?,
@@ -67,7 +67,7 @@ enum FinishedCardText {
         return String(localized: .homeFinishedLineNoRange(length, range))
     }
 
-    /// "Maya, Tom and 3 more finished it too" (C9), or nil when nobody is named (open question 7).
+    /// "Maya, Tom and 3 more finished it too", or nil when nobody is named.
     static func alsoFinished(names: [String], more: Int) -> String? {
         let named = names.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         switch (named.count, more) {
@@ -80,7 +80,7 @@ enum FinishedCardText {
     }
 }
 
-/// What Nothing in Progress says (spec §2.3).
+/// What Nothing in Progress says.
 enum QuietSlotText {
     /// "Stormlight Archive, Book 2 · 48 hr, 15 min", or "Stormlight Archive · 48 hr, 15 min" without a number.
     static func seriesLine(series: String, sequence: String?, durationMs: Int64) -> String {
@@ -90,7 +90,7 @@ enum QuietSlotText {
     }
 }
 
-/// What the first-sync strip says (spec §2.3 FirstSync, open question 1).
+/// What the first-sync strip says.
 enum FirstSyncText {
     /// "Building your library", with " · 412 of 1,280 books" while a scan knows both numbers.
     static func title(count: ArrivalCount?) -> String {
@@ -101,7 +101,7 @@ enum FirstSyncText {
     }
 }
 
-/// What the stats card says (spec §2.6, C15).
+/// What the stats card says.
 enum HomeStatsText {
     static func streakChip(days: Int) -> String { String(format: String(localized: "home.streak_chip"), days) }
 
@@ -121,7 +121,7 @@ enum HomeStatsText {
     }
 }
 
-/// "6 books · 74 hr" (spec §2.7).
+/// "6 books · 74 hr".
 enum HomeShelfText {
     static func meta(bookCount: Int, totalSeconds: Int) -> String {
         let length = totalSeconds > 0

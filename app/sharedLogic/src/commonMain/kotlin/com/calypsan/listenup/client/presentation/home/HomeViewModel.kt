@@ -40,10 +40,10 @@ private const val CONTINUE_LISTENING_LIMIT = 10
 
 /**
  * UI state for the Home screen: a per-screen sealed hierarchy composed from the user, Continue Listening, shelves, the
- * shell's sync/connectivity state and the slot (spec §4.1) via `combine(...).stateIn(WhileSubscribed)`.
+ * shell's sync/connectivity state and the slot via `combine(...).stateIn(WhileSubscribed)`.
  */
 sealed interface HomeUiState {
-    /** Before the first emission, and while the loaded book is still being restored (spec §4.1 loading guard). */
+    /** Before the first emission, and while the loaded book is still being restored. */
     data object Loading : HomeUiState
 
     /** Home ready: the slot, the other books in progress, the reader's shelves and the shell's state. */
@@ -68,34 +68,34 @@ sealed interface HomeUiState {
         val isBuildingInitialLibrary: Boolean,
         /**
          * Whether the library is still arriving on this device — its first population, or a fresh device's first
-         * catch-up (spec §3.2 H5). Home's first-sync strip reads this.
+         * catch-up. Home's first-sync strip reads this.
          */
         val isLibraryArriving: Boolean,
         val scanProgress: ScanProgressState?,
-        /** The part of the day; each platform words the greeting from its catalogs (H2). */
+        /** The part of the day; each platform words the greeting from its catalogs. */
         val timeOfDay: TimeOfDay,
         /** The reader's first name, or null when their profile has none. */
         val firstName: String?,
-        /** The one slot under the greeting (spec §2.2), held per §2.1. */
+        /** The one slot under the greeting, held until a decision point passes. */
         val slot: HomeSlot,
         /** Continue Listening, the loaded book first (Home's Everything in progress): every book in progress. */
         val everythingInProgress: List<ContinueListeningItem>,
-        /** Whether this device and the server can be reached (spec §3.1). */
+        /** Whether this device and the server can be reached. */
         val connectivity: HomeConnectivity,
         /**
-         * Why Continue Listening could not load while the rest of Home did, or null (spec §3.3). While it is set the
+         * Why Continue Listening could not load while the rest of Home did, or null. While it is set the
          * slot is [HomeSlot.Absent], so each platform draws the failure line in the slot's place.
          */
         val continueListeningError: AppError?,
     ) : HomeUiState {
         /**
-         * Whether this device cannot stream right now — offline, or the server is out of reach (C15). Independent of
+         * Whether this device cannot stream right now — offline, or the server is out of reach. Independent of
          * [continueListeningError]: both can show at once.
          */
         val isOffline: Boolean
             get() = connectivity != HomeConnectivity.Online
 
-        /** Whether Home shows the library-arriving strip above the slot (spec H5): arriving, or a scan is running. */
+        /** Whether Home shows the library-arriving strip above the slot: arriving, or a scan is running. */
         val showsArrivalStrip: Boolean
             get() = isLibraryArriving || scanProgress != null
 
@@ -114,17 +114,17 @@ sealed interface HomeUiState {
     /** Home could not load at all; [error] says why, as a typed value each platform words. The greeting stays. */
     data class Error(
         val error: AppError,
-        /** The part of the day, so the greeting survives the failure (spec §3.3). */
+        /** The part of the day, so the greeting survives the failure. */
         val timeOfDay: TimeOfDay,
     ) : HomeUiState
 }
 
 /**
- * ViewModel for the Home screen (spec §4.1).
+ * ViewModel for the Home screen.
  *
  * The slot comes from [HomeSlotPresenter]. This ViewModel adds the decision points only it can see — an explicit
  * [refresh] and a [dismissFinished] — and the two finish-card actions. Play actions are not here: platforms call the
- * player's play entry (spec §5 P-R5).
+ * player's play entry.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel internal constructor(
@@ -192,7 +192,7 @@ class HomeViewModel internal constructor(
      */
     private val pipelineRuns = MutableStateFlow(0)
 
-    /** Moves on every explicit refresh and dismissal: the slot's own decision points (spec §2.1 rules 1, 3). */
+    /** Moves on every explicit refresh and dismissal: the slot's own decision points. */
     private val decisionRuns = MutableStateFlow(0)
 
     /** Finishes dismissed this visit (book → its finishedAt), hidden before Room has caught up. */
@@ -239,7 +239,7 @@ class HomeViewModel internal constructor(
                         timeOfDay = timeOfDay,
                         firstName = firstName,
                         // A failed read leaves Continue Listening empty, which the slot rules would read as a new
-                        // listener or nothing in progress. The slot is the failure instead (spec §3.3).
+                        // listener or nothing in progress. The slot is the failure instead.
                         slot = if (read.error == null) slotState.slot else HomeSlot.Absent,
                         everythingInProgress = if (read.error == null) slotState.everythingInProgress else emptyList(),
                         connectivity = shell.connectivity,
@@ -253,7 +253,7 @@ class HomeViewModel internal constructor(
         }
 
     /**
-     * Refresh Home: a decision point for the slot (spec §2.1 rule 1), a full sync, and a re-run of a pipeline that
+     * Refresh Home: a decision point for the slot, a full sync, and a re-run of a pipeline that
      * failed. A healthy pipeline is already live on Room and is left alone.
      */
     fun refresh() {
@@ -277,8 +277,8 @@ class HomeViewModel internal constructor(
     }
 
     /**
-     * Dismiss the just-finished card for [bookId] on every device (spec §2.3, S2). The card goes at once (a decision
-     * point, §2.1 rule 3); if the dismissal cannot be saved, it comes back and the error bus says why.
+     * Dismiss the just-finished card for [bookId] on every device. The card goes at once (a decision
+     * point); if the dismissal cannot be saved, it comes back and the error bus says why.
      */
     fun dismissFinished(bookId: String) {
         val ready = state.value as? HomeUiState.Ready ?: return
@@ -295,7 +295,7 @@ class HomeViewModel internal constructor(
         }
     }
 
-    /** Ask for the server again (web's "Retry", spec §3.1). The answer arrives through [state]'s connectivity. */
+    /** Ask for the server again (web's "Retry"). The answer arrives through [state]'s connectivity. */
     fun retryConnection() {
         viewModelScope.launch { serverReachability.retry() }
     }

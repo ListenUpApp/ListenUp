@@ -66,7 +66,7 @@ private val RowMosaicGap = 3.dp
 private val LockSize = 14.dp
 
 /**
- * "My shelves" (spec §2.7): always shown, and New shelf always offered. See all opens the My shelves list (H24) once
+ * "My shelves": always shown, and New shelf always offered. See all opens the My shelves list once
  * there is a shelf to see; a host with no list ([onSeeAll] null) offers none.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
