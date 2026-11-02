@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.math.min
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -88,6 +89,15 @@ class PlaybackPositionRepository(
         key = SyncDomains.PLAYBACK_POSITIONS,
         clock = clock,
     ) {
+    /**
+     * Serializes [recordPositionDetailed] per `(user, book)`: it reads the stored row, decides in memory
+     * whether the write is newer, then writes in a second transaction, so without this two devices saving
+     * at once can leave the older write last, clash on the unique index, or both complete the book.
+     * Mirrors [ListeningEventRepository]'s `firstInsertLock`; per process, which is enough because one
+     * server runs per data home.
+     */
+    private val saveLock = KeyedMutex()
+
     override val userScoped: Boolean = true
 
     override fun idAsString(id: PlaybackPositionId): String = id.value
@@ -321,53 +331,64 @@ class PlaybackPositionRepository(
         // Clamped as lastPlayedAt is: a device clock set ahead must not hide every later re-read's card.
         val clampedDismissal = finishedCardDismissedAt?.let { min(it, now + SKEW_TOLERANCE_MS) }
 
-        val existing = getPosition(userId, bookId)
-        // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
-        // clamp existed — or written by any path that bypasses it — can carry a raw `lastPlayedAt`
-        // arbitrarily far in the future. No row this method writes can EVER legitimately exceed
-        // `now + SKEW_TOLERANCE` (clamp #1 guarantees that), so a stored value beyond that ceiling
-        // is definitionally corrupt — it can only have gotten there some other way. Such a row
-        // unconditionally LOSES to a fresh honest write, immediately, regardless of how far in the
-        // future its raw value is: healing must not depend on real time closing a gap that could be
-        // years wide.
-        val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
-        // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
-        if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) {
-            val stored =
-                when (val raised = raiseDismissal(existing, clampedDismissal, userId)) {
-                    is AppResult.Success -> raised.data
-                    is AppResult.Failure -> return raised
+        val saved =
+            saveLock.withLock("$userId:$bookId") {
+                val existing = getPosition(userId, bookId)
+                // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
+                // clamp existed — or written by any path that bypasses it — can carry a raw `lastPlayedAt`
+                // arbitrarily far in the future. No row this method writes can EVER legitimately exceed
+                // `now + SKEW_TOLERANCE` (clamp #1 guarantees that), so a stored value beyond that ceiling
+                // is definitionally corrupt — it can only have gotten there some other way. Such a row
+                // unconditionally LOSES to a fresh honest write, immediately, regardless of how far in the
+                // future its raw value is: healing must not depend on real time closing a gap that could be
+                // years wide.
+                val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
+                // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
+                if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) {
+                    val stored =
+                        when (val raised = raiseDismissal(existing, clampedDismissal, userId)) {
+                            is AppResult.Success -> raised.data
+                            is AppResult.Failure -> return@withLock SaveOutcome.Settled(raised)
+                        }
+                    return@withLock SaveOutcome.Settled(
+                        AppResult.Success(RecordPositionResult(position = stored, accepted = false, serverNowMs = now)),
+                    )
                 }
-            return AppResult.Success(RecordPositionResult(position = stored, accepted = false, serverNowMs = now))
-        }
 
-        val priorFinished = existing?.finished == true
-        val id = existing?.id ?: Uuid.random().toString()
-        val payload =
-            PlaybackPositionSyncPayload(
-                id = id,
-                bookId = bookId,
-                positionMs = positionMs,
-                lastPlayedAt = clampedLastPlayedAt,
-                finished = finished,
-                playbackSpeed = playbackSpeed,
-                currentChapterId = currentChapterId,
-                volumeBoostDb = volumeBoostDb,
-                measuredGainDb = measuredGainDb,
-                finishedAt = resolvedFinishedAt,
-                hasCustomSpeed = hasCustomSpeed,
-                hasCustomBoost = hasCustomBoost,
-                finishedCardDismissedAt = clampedDismissal,
-                revision = 0L,
-                updatedAt = 0L,
-                createdAt = 0L,
-                deletedAt = null,
-            )
-        val written =
-            when (val result = upsert(payload, clientOpId = null, userId = userId)) {
-                is AppResult.Success -> result.data
-                is AppResult.Failure -> return result
+                val id = existing?.id ?: Uuid.random().toString()
+                val payload =
+                    PlaybackPositionSyncPayload(
+                        id = id,
+                        bookId = bookId,
+                        positionMs = positionMs,
+                        lastPlayedAt = clampedLastPlayedAt,
+                        finished = finished,
+                        playbackSpeed = playbackSpeed,
+                        currentChapterId = currentChapterId,
+                        volumeBoostDb = volumeBoostDb,
+                        measuredGainDb = measuredGainDb,
+                        finishedAt = resolvedFinishedAt,
+                        hasCustomSpeed = hasCustomSpeed,
+                        hasCustomBoost = hasCustomBoost,
+                        finishedCardDismissedAt = clampedDismissal,
+                        revision = 0L,
+                        updatedAt = 0L,
+                        createdAt = 0L,
+                        deletedAt = null,
+                    )
+                val written =
+                    when (val result = upsert(payload, clientOpId = null, userId = userId)) {
+                        is AppResult.Success -> result.data
+                        is AppResult.Failure -> return@withLock SaveOutcome.Settled(result)
+                    }
+                SaveOutcome.Written(existing = existing, written = written)
             }
+        val (existing, written) =
+            when (saved) {
+                is SaveOutcome.Settled -> return saved.result
+                is SaveOutcome.Written -> saved
+            }
+        val priorFinished = existing?.finished == true
 
         // De-nested cascade (post-commit). Fire the finished flip when false → true; the caller is
         // responsible for detecting the flip condition. Each event routes through StatsRecorder,
@@ -420,7 +441,25 @@ class PlaybackPositionRepository(
         if (dismissedAt == null || dismissedAt <= (stored.finishedCardDismissedAt ?: Long.MIN_VALUE)) {
             return AppResult.Success(stored)
         }
-        return upsert(stored.copy(finishedCardDismissedAt = dismissedAt), clientOpId = null, userId = userId)
+        // Re-read inside the writing transaction: the full-row update must start from the row as it is
+        // now, never from [stored] as it was read earlier, or it could roll a newer place back.
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        return AppResult.Success(
+            suspendTransaction(db) {
+                val fresh =
+                    db.playbackPositionsQueries
+                        .selectById(stored.id)
+                        .executeAsOneOrNull()
+                        ?.toSyncPayload()
+                        ?: return@suspendTransaction stored
+                if (dismissedAt <= (fresh.finishedCardDismissedAt ?: Long.MIN_VALUE)) return@suspendTransaction fresh
+                upsertInOpenTransaction(
+                    value = fresh.copy(finishedCardDismissedAt = dismissedAt),
+                    suppressed = suppressed,
+                    userId = userId,
+                )
+            },
+        )
     }
 
     /**
@@ -804,3 +843,17 @@ data class RecentListen(
     val bookId: String,
     val lastPlayedAt: Long,
 )
+
+/** What [PlaybackPositionRepository.recordPositionDetailed] decided while holding its save lock. */
+private sealed interface SaveOutcome {
+    /** The write lost, or failed; [result] is the final answer and no hooks fire. */
+    data class Settled(
+        val result: AppResult<RecordPositionResult>,
+    ) : SaveOutcome
+
+    /** The write landed as [written]; [existing] is the row it replaced, if any, for the post-commit hooks. */
+    data class Written(
+        val existing: PlaybackPositionSyncPayload?,
+        val written: PlaybackPositionSyncPayload,
+    ) : SaveOutcome
+}

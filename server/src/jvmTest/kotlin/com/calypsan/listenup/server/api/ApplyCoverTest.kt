@@ -21,7 +21,7 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -123,7 +123,7 @@ class ApplyCoverTest :
 
 /**
  * Spins up an in-memory DB seeded with one book ("book1"), a cover-scoped [ImageStore] over a
- * temp dir, and a [MetadataLookupServiceImpl] whose [ImageStorage] serves [downloadBytes] for any
+ * temp dir, and a [MetadataLookupServiceImpl] whose [RemoteImageFetcher] serves [downloadBytes] for any
  * URL. Runs [block] inside `runTest` with the wired service and book repository.
  */
 private fun withCoverFixture(
@@ -179,7 +179,7 @@ private fun withCoverFixture(
                     seriesRepository = seriesRepo,
                     imageDeps =
                         MetadataImageDeps(
-                            imageStorage = ImageStorage(httpClient = mockHttp),
+                            remoteImageFetcher = RemoteImageFetcher(httpClient = mockHttp),
                             coverImageStore = coverStore,
                             imageHome = Path(tempDir.toString()),
                         ),

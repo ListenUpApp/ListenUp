@@ -20,7 +20,7 @@ import java.io.IOException
 import java.nio.file.Files
 
 /**
- * Tests for [ImageStorage].
+ * Tests for [RemoteImageFetcher].
  *
  * Uses [MockEngine] for HTTP and in-process temp directories for the
  * filesystem surface. Verifies the atomic-write-then-rename contract: readers
@@ -28,12 +28,12 @@ import java.nio.file.Files
  *
  * The URL policy, redirect handling, and byte ceiling that guard `downloadBytes` live in
  * [BoundedImageFetch] and are covered by [BoundedImageFetchTest]; this spec covers what
- * [ImageStorage] itself still owns — the disk write — plus the delegation.
+ * [RemoteImageFetcher] itself still owns — the disk write — plus the delegation.
  *
  * `java.nio.file.Files.createTempDirectory` is grandfathered — kotlinx-io has
  * no equivalent "create a temp directory" API.
  */
-class ImageStorageTest :
+class RemoteImageFetcherTest :
     FunSpec({
 
         test("writeBytes writes the bytes to the destination path") {
@@ -82,7 +82,7 @@ class ImageStorageTest :
             // detail stays server-side: the caller gets a constant debugInfo.
             val config = MockEngineConfig()
             config.addHandler { _ -> throw IOException("simulated network failure") }
-            val storage = ImageStorage(HttpClient(MockEngine(config)))
+            val storage = RemoteImageFetcher(HttpClient(MockEngine(config)))
 
             val result = storage.downloadBytes("https://example.com/bad.jpg")
 
@@ -92,9 +92,9 @@ class ImageStorageTest :
         }
     })
 
-/** An [ImageStorage] whose every request answers with [bytes] as a JPEG. */
-private fun storageWith(bytes: ByteArray): ImageStorage =
-    ImageStorage(
+/** An [RemoteImageFetcher] whose every request answers with [bytes] as a JPEG. */
+private fun storageWith(bytes: ByteArray): RemoteImageFetcher =
+    RemoteImageFetcher(
         HttpClient(
             MockEngine {
                 respond(

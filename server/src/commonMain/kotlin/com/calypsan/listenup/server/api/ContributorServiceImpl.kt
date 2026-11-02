@@ -11,12 +11,14 @@ import com.calypsan.listenup.api.metadata.ContributorField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.auth.OpenRead
+import com.calypsan.listenup.server.media.isManagedImagePath
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -146,6 +148,10 @@ internal class ContributorServiceImpl(
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
         patch.imageFrame?.validate()?.let { return AppResult.Failure(it) }
+        val photoPath = patch.imagePath
+        if (photoPath != null && !isManagedImagePath("contributors", photoPath)) {
+            return AppResult.Failure(ValidationError(message = "Choose a photo to upload.", field = "imagePath"))
+        }
         val editorId = principal.current()?.run { userId.value }
         return when (
             val patched =
@@ -153,7 +159,11 @@ internal class ContributorServiceImpl(
                     current.applyPatch(patch).let { applied ->
                         logDroppedFrame(id, patch, applied)
                         applied.copy(
-                            fieldProvenance = applied.fieldProvenance.stampUser(patch.touchedFields(), editorId),
+                            fieldProvenance =
+                                applied.fieldProvenance.stampUser(
+                                    patch.touchedFields(photoFrameChanged = applied.imageFrame != current.imageFrame),
+                                    editorId,
+                                ),
                         )
                     }
                 }
@@ -436,14 +446,17 @@ private fun mergeAliasesFor(
     return out
 }
 
-/** The tracked fields [this] patch writes — each becomes a hand edit. */
-private fun ContributorUpdate.touchedFields(): Set<ContributorField> =
+/**
+ * The tracked fields [this] patch writes — each becomes a hand edit. [photoFrameChanged] says the patch's frame was
+ * actually applied: a frame dropped for belonging to another photo changes nothing and marks nothing.
+ */
+private fun ContributorUpdate.touchedFields(photoFrameChanged: Boolean): Set<ContributorField> =
     buildSet {
         if (name != null) add(ContributorField.NAME)
         if (sortName != null) add(ContributorField.SORT_NAME)
         if (description != null) add(ContributorField.BIOGRAPHY)
         // Framing is a hand edit of the photo: it protects the photo from a later match, as a hand upload does.
-        if (imagePath != null || imageFrame != null) add(ContributorField.PHOTO)
+        if (imagePath != null || photoFrameChanged) add(ContributorField.PHOTO)
     }
 
 /**

@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -48,7 +48,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 fun Route.contributorRoutes(
     contributorService: ContributorService,
     imageHome: Path,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
 ) {
     put<ContributorResources.Image> { res ->
         val service = call.scoped(contributorService)
@@ -60,7 +60,7 @@ fun Route.contributorRoutes(
                 call = call,
                 subdir = "contributors",
                 imageHome = imageHome,
-                imageStorage = imageStorage,
+                remoteImageFetcher = remoteImageFetcher,
             )
         when (outcome) {
             is ImageUploadOutcome.Rejected -> {

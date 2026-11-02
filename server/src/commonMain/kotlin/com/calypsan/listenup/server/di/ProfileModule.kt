@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.media.AvatarWriteLock
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.routes.AVATAR_MAX_BYTES
 import kotlinx.io.files.Path
@@ -13,6 +14,7 @@ import org.koin.dsl.module
 fun profileModule(avatarsDir: Path): Module =
     module {
         single { ImageStore(avatarsDir, maxBytes = AVATAR_MAX_BYTES) }
+        single { AvatarWriteLock() }
         single<ProfileService> {
             ProfileServiceImpl(
                 sql = get<ListenUpDatabase>(),
@@ -21,6 +23,7 @@ fun profileModule(avatarsDir: Path): Module =
                 imageStore = get(),
                 sessions = get(),
                 clock = get(),
+                avatarWriteLock = get(),
             )
         }
     }

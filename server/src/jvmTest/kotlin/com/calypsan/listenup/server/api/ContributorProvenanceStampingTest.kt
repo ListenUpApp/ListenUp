@@ -81,7 +81,7 @@ class ContributorProvenanceStampingTest :
                 val rig = StampRig(this)
                 runTest {
                     val id = rig.contributors.resolveOrCreate("Ray Porter", sortName = null)
-                    rig.service.updateContributor(id, ContributorUpdate(imagePath = "contributors/abc.jpg"))
+                    rig.service.updateContributor(id, ContributorUpdate(imagePath = "contributors/$PHOTO_HEX.jpg"))
                     rig.service.updateContributor(id, ContributorUpdate(name = "R. Porter", sortName = "Porter, R."))
 
                     rig.contributors
@@ -119,3 +119,5 @@ class ContributorProvenanceStampingTest :
             }
         }
     })
+
+private const val PHOTO_HEX = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

@@ -24,7 +24,7 @@ import com.calypsan.listenup.server.matching.review.GenreLabelIdentity
 import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.matching.undo.MatchUndoer
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
 import com.calypsan.listenup.server.ratings.ExternalRatingsFetcher
 import com.calypsan.listenup.server.services.BookMoodWriter
@@ -87,7 +87,7 @@ internal fun Module.matchDetailsBindings(imageHome: Path) {
                                     ladderRungs = { ladder -> ladders.ensureLadder(ladder) },
                                     moodId = { mood -> moodWriter.resolveMoodId(mood) },
                                 ),
-                            covers = MatchCoverFiles(get<ImageStorage>(), get<CoverImageStore>()),
+                            covers = MatchCoverFiles(get<RemoteImageFetcher>(), get<CoverImageStore>()),
                             now = ::currentEpochMilliseconds,
                         ),
                     writer =
@@ -140,7 +140,7 @@ private fun Scope.personMatchDetails(
         applier =
             PersonMatchApplier(
                 reviewer = reviewer,
-                photoFiles = ContributorPhotoFiles(get<ImageStorage>(), imageHome),
+                photoFiles = ContributorPhotoFiles(get<RemoteImageFetcher>(), imageHome),
                 writer =
                     PersonMatchWriter(
                         db = db,

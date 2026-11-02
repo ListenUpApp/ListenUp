@@ -13,7 +13,7 @@ import kotlinx.io.files.Path
  * byte ceiling. This class adds only the disk half — an atomic write, so readers never see a
  * half-written file and a failed write leaves no temp behind.
  */
-class ImageStorage(
+class RemoteImageFetcher(
     httpClient: HttpClient,
     maxBytes: Long = DEFAULT_MAX_DOWNLOAD_BYTES,
 ) {

@@ -63,8 +63,7 @@ class MetadataImageRoutesTest :
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
-                    val imgFile = libraryRoot.resolve("brandon.jpg").toFile()
-                    imgFile.writeBytes(byteArrayOf(1, 2, 3, 4))
+                    libraryRoot.writeManaged(BRANDON_PHOTO, byteArrayOf(1, 2, 3, 4))
                     contributorRepo.upsert(
                         ContributorSyncPayload(
                             id = id.value,
@@ -74,7 +73,7 @@ class MetadataImageRoutesTest :
                             updatedAt = 1_000L,
                             createdAt = 1_000L,
                             deletedAt = null,
-                            imagePath = "brandon.jpg",
+                            imagePath = BRANDON_PHOTO,
                         ),
                         clientOpId = null,
                     )
@@ -158,7 +157,7 @@ class MetadataImageRoutesTest :
                             updatedAt = 1_000L,
                             createdAt = 1_000L,
                             deletedAt = null,
-                            imagePath = "does-not-exist.jpg",
+                            imagePath = ABSENT_PHOTO,
                         ),
                         clientOpId = null,
                     )
@@ -241,7 +240,7 @@ class MetadataImageRoutesTest :
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Range Author", sortName = null)
                     val imgBytes = ByteArray(200) { it.toByte() }
-                    libraryRoot.resolve("range.jpg").toFile().writeBytes(imgBytes)
+                    libraryRoot.writeManaged(RANGE_PHOTO, imgBytes)
                     contributorRepo.upsert(
                         ContributorSyncPayload(
                             id = id.value,
@@ -251,7 +250,7 @@ class MetadataImageRoutesTest :
                             updatedAt = 1_000L,
                             createdAt = 1_000L,
                             deletedAt = null,
-                            imagePath = "range.jpg",
+                            imagePath = RANGE_PHOTO,
                         ),
                         clientOpId = null,
                     )
@@ -283,8 +282,7 @@ class MetadataImageRoutesTest :
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("The Stormlight Archive")
-                    val coverFile = libraryRoot.resolve("stormlight.jpg").toFile()
-                    coverFile.writeBytes(byteArrayOf(5, 6, 7, 8))
+                    libraryRoot.writeManaged(STORMLIGHT_COVER, byteArrayOf(5, 6, 7, 8))
                     seriesRepo.upsert(
                         SeriesSyncPayload(
                             id = id.value,
@@ -294,7 +292,7 @@ class MetadataImageRoutesTest :
                             updatedAt = 1_000L,
                             createdAt = 1_000L,
                             deletedAt = null,
-                            coverPath = "stormlight.jpg",
+                            coverPath = STORMLIGHT_COVER,
                         ),
                         clientOpId = null,
                     )
@@ -378,7 +376,7 @@ class MetadataImageRoutesTest :
                             updatedAt = 1_000L,
                             createdAt = 1_000L,
                             deletedAt = null,
-                            coverPath = "does-not-exist.jpg",
+                            coverPath = ABSENT_COVER,
                         ),
                         clientOpId = null,
                     )
@@ -448,6 +446,109 @@ class MetadataImageRoutesTest :
                 libraryRoot.toFile().deleteRecursively()
             }
         }
+
+        // ─── Refused stored paths: only <folder>/<sha256>.<image ext> is served ───
+
+        data class RefusedPath(
+            val label: String,
+            val stored: String,
+        )
+
+        val refusedContributorPaths =
+            listOf(
+                RefusedPath("outside the contributors image folder", "decoy.txt"),
+                RefusedPath("in the wrong image folder", "series/$HEX.jpg"),
+                RefusedPath("with a non-image extension", "contributors/$HEX.txt"),
+            )
+
+        for (case in refusedContributorPaths) {
+            test("a stored contributor photo path ${case.label} is refused") {
+                val libraryRoot = Files.createTempDirectory("listenup-meta-img-contributor-refused-")
+                try {
+                    testApplication {
+                        useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
+                        application { module() }
+                        val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                        val token = mintAccessToken()
+
+                        val repo by application.inject<ContributorRepository>()
+                        val id = repo.resolveOrCreate("Refused Path", sortName = null)
+                        libraryRoot.writeManaged(case.stored, DECOY_BYTES)
+                        repo.upsert(
+                            ContributorSyncPayload(
+                                id = id.value,
+                                name = "Refused Path",
+                                sortName = null,
+                                revision = 1L,
+                                updatedAt = 1_000L,
+                                createdAt = 1_000L,
+                                deletedAt = null,
+                                imagePath = case.stored,
+                            ),
+                            clientOpId = null,
+                        )
+
+                        val response =
+                            client.get("/api/v1/contributors/${id.value}/photo") {
+                                bearerAuth(token)
+                            }
+
+                        response.status shouldBe HttpStatusCode.BadRequest
+                        response.body<ByteArray>().contentEquals(DECOY_BYTES) shouldBe false
+                    }
+                } finally {
+                    libraryRoot.toFile().deleteRecursively()
+                }
+            }
+        }
+
+        val refusedSeriesPaths =
+            listOf(
+                RefusedPath("outside the series image folder", "decoy.txt"),
+                RefusedPath("in the wrong image folder", "contributors/$HEX.jpg"),
+                RefusedPath("with a non-image extension", "series/$HEX.txt"),
+            )
+
+        for (case in refusedSeriesPaths) {
+            test("a stored series cover path ${case.label} is refused") {
+                val libraryRoot = Files.createTempDirectory("listenup-meta-img-series-refused-")
+                try {
+                    testApplication {
+                        useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
+                        application { module() }
+                        val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                        val token = mintAccessToken()
+
+                        val repo by application.inject<SeriesRepository>()
+                        val id = repo.resolveOrCreate("Refused Path")
+                        libraryRoot.writeManaged(case.stored, DECOY_BYTES)
+                        repo.upsert(
+                            SeriesSyncPayload(
+                                id = id.value,
+                                name = "Refused Path",
+                                sortName = null,
+                                revision = 1L,
+                                updatedAt = 1_000L,
+                                createdAt = 1_000L,
+                                deletedAt = null,
+                                coverPath = case.stored,
+                            ),
+                            clientOpId = null,
+                        )
+
+                        val response =
+                            client.get("/api/v1/series/${id.value}/cover") {
+                                bearerAuth(token)
+                            }
+
+                        response.status shouldBe HttpStatusCode.BadRequest
+                        response.body<ByteArray>().contentEquals(DECOY_BYTES) shouldBe false
+                    }
+                } finally {
+                    libraryRoot.toFile().deleteRecursively()
+                }
+            }
+        }
     })
 
 // ─── Auth helper (mirrors pattern in BookRoutesTest) ─────────────────────────
@@ -460,4 +561,25 @@ private suspend fun ApplicationTestBuilder.mintAccessToken(): String {
         .data
         .accessToken
         .value
+}
+
+// ─── Managed-path fixtures ───────────────────────────────────────────────────
+
+private const val HEX = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+private const val HEX_2 = "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+private const val HEX_3 = "2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+private const val BRANDON_PHOTO = "contributors/$HEX.jpg"
+private const val RANGE_PHOTO = "contributors/$HEX_2.jpg"
+private const val ABSENT_PHOTO = "contributors/$HEX_3.jpg"
+private const val STORMLIGHT_COVER = "series/$HEX.jpg"
+private const val ABSENT_COVER = "series/$HEX_3.jpg"
+private val DECOY_BYTES = byteArrayOf(9, 9, 9)
+
+private fun java.nio.file.Path.writeManaged(
+    relativePath: String,
+    bytes: ByteArray,
+) {
+    val file = resolve(relativePath).toFile()
+    file.parentFile.mkdirs()
+    file.writeBytes(bytes)
 }

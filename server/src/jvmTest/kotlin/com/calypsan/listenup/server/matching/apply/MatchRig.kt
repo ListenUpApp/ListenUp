@@ -25,7 +25,7 @@ import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.matching.undo.MatchUndoer
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
@@ -126,8 +126,8 @@ internal class MatchRig(
         )
     val receipts = MatchReceiptStore(db.sql)
     var fault: () -> Unit = {}
-    private val imageStorage =
-        ImageStorage(
+    private val remoteImageFetcher =
+        RemoteImageFetcher(
             HttpClient(
                 MockEngine { request ->
                     if ("broken" in request.url.toString()) {
@@ -148,7 +148,7 @@ internal class MatchRig(
                     ladderRungs = { GenreHierarchyFromLadder(db.sql, genres, GenreAutoCreator(genres)).ensureLadder(it) },
                     moodId = { moodWriter.resolveMoodId(it) },
                 ),
-            covers = MatchCoverFiles(imageStorage, coverStore),
+            covers = MatchCoverFiles(remoteImageFetcher, coverStore),
             now = { 1_000L },
         )
     val writer = BookMatchWriter(db.sql, books, bookMoods, receipts, { 1_000L }, beforeCommit = { fault() })
