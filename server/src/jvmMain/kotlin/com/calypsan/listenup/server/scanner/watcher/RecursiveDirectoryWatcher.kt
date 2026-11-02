@@ -7,7 +7,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
@@ -49,8 +48,8 @@ internal class RecursiveDirectoryWatcher(
     private val scope: CoroutineScope,
     private val watchService: WatchService = FileSystems.getDefault().newWatchService(),
 ) : LowLevelDirectoryWatcher {
-    private val emissions = MutableSharedFlow<DirectoryWatchEvent>(extraBufferCapacity = 256)
-    override val onEventFlow: Flow<DirectoryWatchEvent> = emissions.asSharedFlow()
+    override val onEventFlow: Flow<DirectoryWatchEvent>
+        field = MutableSharedFlow<DirectoryWatchEvent>(extraBufferCapacity = 256)
 
     private val keyToDir = ConcurrentHashMap<WatchKey, Path>()
 
@@ -92,7 +91,7 @@ internal class RecursiveDirectoryWatcher(
                     when (event.kind()) {
                         OVERFLOW -> {
                             // Events for this dir were lost — re-emit it so the subtree re-walks.
-                            emissions.emit(
+                            onEventFlow.emit(
                                 DirectoryWatchEvent(dir.toString(), dir.toString(), DirectoryWatchEventKind.Create),
                             )
                         }
@@ -121,7 +120,7 @@ internal class RecursiveDirectoryWatcher(
     ) {
         val name = event.context() as? Path ?: return
         val child = dir.resolve(name)
-        emissions.emit(DirectoryWatchEvent(dir.toString(), child.toString(), kind))
+        onEventFlow.emit(DirectoryWatchEvent(dir.toString(), child.toString(), kind))
         if (kind == DirectoryWatchEventKind.Create && Files.isDirectory(child)) {
             registerNewSubtree(child)
         }
@@ -146,7 +145,7 @@ internal class RecursiveDirectoryWatcher(
                     .onFailure { logger.warn(it) { "register failed for $p" } }
             } else {
                 val parent = p.parent ?: continue
-                emissions.emit(DirectoryWatchEvent(parent.toString(), p.toString(), DirectoryWatchEventKind.Create))
+                onEventFlow.emit(DirectoryWatchEvent(parent.toString(), p.toString(), DirectoryWatchEventKind.Create))
             }
         }
     }

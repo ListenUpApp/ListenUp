@@ -4,7 +4,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
@@ -24,14 +23,13 @@ internal const val PRESENCE_POLL_INTERVAL_MS = 60_000L
  * (currently-listening, book-readers) re-fetch their ACL-filtered RPC on each ping.
  */
 internal class PresenceRefreshSignal {
-    private val flow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
-
     /** Hot stream of presence-changed pings. */
-    val signal: SharedFlow<Unit> = flow.asSharedFlow()
+    val signal: SharedFlow<Unit>
+        field = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
 
     /** Emit a presence-changed ping (non-suspending, drops if no buffer — a missed ping is harmless). */
     fun ping() {
-        flow.tryEmit(Unit)
+        signal.tryEmit(Unit)
     }
 }
 

@@ -26,7 +26,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
@@ -87,8 +86,8 @@ private val SHUTDOWN_JOIN_TIMEOUT = 5.seconds
 internal class InotifyDirectoryWatcher(
     private val scope: CoroutineScope,
 ) : LowLevelDirectoryWatcher {
-    private val emissions = MutableSharedFlow<DirectoryWatchEvent>(extraBufferCapacity = 256)
-    override val onEventFlow: Flow<DirectoryWatchEvent> = emissions.asSharedFlow()
+    override val onEventFlow: Flow<DirectoryWatchEvent>
+        field = MutableSharedFlow<DirectoryWatchEvent>(extraBufferCapacity = 256)
 
     private val inotifyFd: Int = inotify_init1(IN_NONBLOCK)
 
@@ -183,7 +182,7 @@ internal class InotifyDirectoryWatcher(
         val dir = synchronized(stateLock) { wdToDir[wd] } ?: return
         if (mask and IN_Q_OVERFLOW.toUInt() != 0u) {
             // Events were lost — re-emit the directory so its subtree is re-walked.
-            emissions.emit(DirectoryWatchEvent(dir, dir, DirectoryWatchEventKind.Create))
+            onEventFlow.emit(DirectoryWatchEvent(dir, dir, DirectoryWatchEventKind.Create))
             return
         }
         if (name.isEmpty()) return
@@ -191,16 +190,16 @@ internal class InotifyDirectoryWatcher(
         val isDir = mask and IN_ISDIR.toUInt() != 0u
         when {
             mask and (IN_CREATE or IN_MOVED_TO).toUInt() != 0u -> {
-                emissions.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Create))
+                onEventFlow.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Create))
                 if (isDir) registerNewSubtree(child)
             }
 
             mask and IN_MODIFY.toUInt() != 0u -> {
-                emissions.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Modify))
+                onEventFlow.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Modify))
             }
 
             mask and (IN_DELETE or IN_MOVED_FROM).toUInt() != 0u -> {
-                emissions.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Delete))
+                onEventFlow.emit(DirectoryWatchEvent(dir, child, DirectoryWatchEventKind.Delete))
             }
         }
     }
@@ -228,7 +227,7 @@ internal class InotifyDirectoryWatcher(
                     register(child.toString())
                     stack.addLast(child)
                 } else {
-                    emissions.emit(
+                    onEventFlow.emit(
                         DirectoryWatchEvent(dir.toString(), child.toString(), DirectoryWatchEventKind.Create),
                     )
                 }
