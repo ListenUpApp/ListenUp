@@ -74,6 +74,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -925,7 +926,7 @@ private fun CategoryRow(
             null
         }
     var rowPosition by remember { mutableStateOf(Offset.Zero) }
-    var rowHeight by remember { mutableStateOf(0) }
+    var rowHeight by remember { mutableIntStateOf(0) }
 
     val dropHighlightColor = MaterialTheme.colorScheme.primaryContainer
     val selectedColor = MaterialTheme.colorScheme.secondaryContainer

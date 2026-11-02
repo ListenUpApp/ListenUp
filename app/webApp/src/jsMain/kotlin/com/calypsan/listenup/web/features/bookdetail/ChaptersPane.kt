@@ -4,7 +4,7 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.BulkBar
@@ -158,7 +158,7 @@ private fun ChapterMap(
     selection: Set<Int>,
     onToggle: (Int) -> Unit,
 ) {
-    var focused by remember(chapters.size) { mutableStateOf(0) }
+    var focused by remember(chapters.size) { mutableIntStateOf(0) }
     Div(attrs = {
         classes("chmap")
         attr("role", "group")

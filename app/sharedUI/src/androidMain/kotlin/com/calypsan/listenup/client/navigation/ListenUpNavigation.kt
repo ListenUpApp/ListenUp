@@ -27,6 +27,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -767,7 +768,7 @@ private fun AuthenticatedNavigation(
     }
 
     // Track profile refresh - incremented when profile is updated to trigger refresh
-    var profileRefreshKey by rememberSaveable { mutableStateOf(0) }
+    var profileRefreshKey by rememberSaveable { mutableIntStateOf(0) }
 
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }

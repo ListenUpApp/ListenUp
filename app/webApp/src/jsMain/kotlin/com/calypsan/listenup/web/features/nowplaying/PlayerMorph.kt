@@ -7,6 +7,7 @@ import com.calypsan.listenup.web.dom.WebAnimation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -93,7 +94,7 @@ class MorphController {
         private set
 
     /** Bumped at every morph's start, so Now Playing's slot measures the frame it lands in. */
-    var generation by mutableStateOf(0)
+    var generation by mutableIntStateOf(0)
         private set
 
     /** The page drawn under Now Playing while the URL is still `/playing`: the one it rose from, or will close onto. */

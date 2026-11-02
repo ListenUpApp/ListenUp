@@ -28,6 +28,7 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -77,7 +78,7 @@ fun TalentSection(
     onRemoveRoleSection: (ContributorRole) -> Unit,
 ) {
     var roleToRemove by remember { mutableStateOf<ContributorRole?>(null) }
-    var contributorsToRemoveCount by remember { mutableStateOf(0) }
+    var contributorsToRemoveCount by remember { mutableIntStateOf(0) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Show a section for each visible role
