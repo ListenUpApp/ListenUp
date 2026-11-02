@@ -90,7 +90,7 @@ struct ABSImportHubView: View {
                     .padding(.vertical, Spacing.m)
                     .readableWidth(640)
             }
-            .refreshable { observer.reload() }
+            .refreshable { await observer.reloadNow() }
         } else {
             List {
                 Section(String(localized: "import.hub_section_imports")) {
@@ -100,7 +100,7 @@ struct ABSImportHubView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .refreshable { observer.reload() }
+            .refreshable { await observer.reloadNow() }
         }
     }
 

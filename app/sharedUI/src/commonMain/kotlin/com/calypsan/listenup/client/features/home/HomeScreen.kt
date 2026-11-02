@@ -11,6 +11,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.components.rememberPullRefreshGate
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -129,8 +130,8 @@ fun HomeScreen(
                     multiSelect = multiSelect,
                     appHeader = appHeader,
                     onRefresh = {
-                        viewModel.refresh()
                         statsViewModel.refresh()
+                        viewModel.refreshNow()
                     },
                     onRetryStats = statsViewModel::refresh,
                     onEditSelected = onEditSelected,
@@ -149,7 +150,7 @@ private fun HomeReady(
     actions: HomeActions,
     multiSelect: BookMultiSelectViewModel,
     appHeader: AppHeaderSlot,
-    onRefresh: () -> Unit,
+    onRefresh: suspend () -> Unit,
     onRetryStats: () -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     contentPadding: PaddingValues,
@@ -171,12 +172,14 @@ private fun HomeReady(
         multiSelect.exitSelectionMode()
     }
 
+    val pullGate = rememberPullRefreshGate()
+
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
-            isRefreshing = state.isLoading,
+            isRefreshing = pullGate.isPulling || state.isLoading,
             onRefresh = {
                 haptics.thresholdActivate()
-                onRefresh()
+                pullGate.pull(onRefresh)
             },
             modifier = Modifier.fillMaxSize(),
         ) {

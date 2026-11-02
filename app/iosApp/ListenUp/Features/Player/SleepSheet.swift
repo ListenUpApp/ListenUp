@@ -267,7 +267,9 @@ struct SleepSheet: View {
     var body: some View {
         PlayerSheetChrome(title: String(localized: "player.sheet_sleep_title_ios"), scrolls: false) {
             SleepSheetContent(
-                model: .make(snapshot: observer.snapshot, progress: observer.progress, now: .now),
+                model: .make(
+                    snapshot: observer.snapshot, sleepRemainingMs: observer.sleepRemainingMs,
+                    progress: observer.progress, now: .now),
                 actions: SleepSheetActions(
                     endOfChapter: { observer.setSleepTimerEndOfChapter() },
                     minutes: { observer.setSleepTimer(minutes: $0) },

@@ -13,7 +13,7 @@ struct ShelfDetailView: View {
 
     @Environment(\.dependencies) private var deps
     @State private var observer: ShelfDetailObserver?
-    @State private var showEdit: Bool = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     var body: some View {
         Group {
@@ -28,11 +28,8 @@ struct ShelfDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(String(localized: "common.edit")) { showEdit = true }
+                Button(String(localized: "common.edit")) { presentShellSheet(.shelfForm(shelfId: shelfId)) }
             }
-        }
-        .sheet(isPresented: $showEdit) {
-            CreateEditShelfView(shelfId: shelfId)
         }
         .task(id: shelfId) {
             let obs = ShelfDetailObserver(viewModel: deps.createShelfDetailViewModel())

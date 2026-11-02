@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Testing
 @testable import ListenUp
 @preconcurrency import Shared
@@ -53,6 +54,26 @@ struct BookDeletionTests {
         #expect(BookDeletion.message(fileCount: 1, formattedSize: "1 KB") ==
             "This deletes 1 file (1 KB) and everything else in its folder from your server. Every member loses it, "
             + "and downloads are removed from their devices. This can’t be undone.")
+    }
+
+    @Test func aRefusalNamesTheBookThatSharesTheFolder() {
+        let error = BookErrorFolderNotExclusive(
+            otherBookId: "book-2", otherBookTitle: "Words of Radiance", correlationId: nil, debugInfo: nil)
+        #expect(BookDeletion.refusal(for: error) ==
+            "“Words of Radiance” is in the same folder, so deleting this book would take it too. "
+            + "Nothing was deleted.")
+        #expect(BookDeletion.isFolderRefusal(error))
+    }
+
+    @Test func anyOtherFailureReadsAsItsOwnMessage() {
+        let error = BookErrorNotFound(correlationId: nil, debugInfo: nil)
+        #expect(BookDeletion.refusal(for: error) == error.message)
+        #expect(!BookDeletion.isFolderRefusal(error))
+    }
+
+    @Test func theSharedAlertLeavesTheFolderRefusalToTheDeleteAlert() {
+        #expect(!GlobalErrorObserver.postsToSharedAlert(code: "BOOK_FOLDER_NOT_EXCLUSIVE"))
+        #expect(GlobalErrorObserver.postsToSharedAlert(code: "BOOK_NOT_FOUND"))
     }
 
     @Test func theVerbIsDeleteBook() {

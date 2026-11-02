@@ -24,7 +24,7 @@ struct SeriesDetailView: View {
     @Environment(\.dependencies) private var deps
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
-    @State private var showEdit: Bool = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
     @State private var showAuthors: Bool = false
     /// Set when an edit-sheet merge soft-deletes the series we are showing; from then on this screen
     /// shows the survivor instead.
@@ -62,7 +62,7 @@ struct SeriesDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
-                            showEdit = true
+                            presentShellSheet(.seriesEdit(seriesId: activeSeriesId))
                         } label: {
                             Label(String(localized: "common.edit"), systemImage: "pencil")
                         }
@@ -71,12 +71,6 @@ struct SeriesDetailView: View {
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showEdit) {
-            SeriesEditView(
-                seriesId: activeSeriesId,
-                onMergedInto: { survivor in mergedIntoSeriesId = survivor }
-            )
         }
         .sheet(isPresented: $showAuthors) {
             SeriesAuthorsSheet(

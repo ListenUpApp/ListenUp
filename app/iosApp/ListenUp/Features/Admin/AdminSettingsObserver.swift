@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `AdminSettingsViewModel` — flattens the sealed `AdminSettingsUiState` into a
 /// SwiftUI-native `AdminSettingsPhase` for the SERVER section of the admin screen.
@@ -34,6 +34,8 @@ final class AdminSettingsObserver {
     // MARK: - Actions
 
     func reload() { viewModel.loadSettings() }
+    /// `reload()` for a pull-to-refresh: returns when the settings have loaded.
+    func reloadNow() async { try? await viewModel.refreshNow() }
     func setServerName(_ name: String) { viewModel.setServerName(name: name) }
     func setRemoteUrl(_ url: String) { viewModel.setRemoteUrl(url: url) }
     func setHoldNewBooksForReview(_ enabled: Bool) { viewModel.setHoldNewBooksForReview(enabled: enabled) }

@@ -257,17 +257,23 @@ class HomeViewModel internal constructor(
      * failed. A healthy pipeline is already live on Room and is left alone.
      */
     fun refresh() {
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /**
+     * [refresh], but suspending until the sync has finished (success or failure), so a pull-to-refresh spinner can
+     * stay up for exactly as long as the refresh takes. Sync failures are logged, not thrown.
+     */
+    suspend fun refreshNow() {
         if (state.value is HomeUiState.Error || continueListeningFailed) {
             continueListeningFailed = false
             pipelineRuns.update { it + 1 }
         }
         decisionRuns.update { it + 1 }
-        viewModelScope.launch {
-            logger.debug { "Refresh: triggering sync to pull latest progress" }
-            syncRepository
-                .sync()
-                .onFailure { logger.warn { "Home refresh sync failed: ${it.message}" } }
-        }
+        logger.debug { "Refresh: triggering sync to pull latest progress" }
+        syncRepository
+            .sync()
+            .onFailure { logger.warn { "Home refresh sync failed: ${it.message}" } }
     }
 
     /**

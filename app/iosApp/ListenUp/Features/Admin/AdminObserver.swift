@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `AdminViewModel` — flattens the sealed `AdminUiState` into a SwiftUI-native
 /// `AdminPhase` (`loading` / `ready`) and surfaces the transient mutation error
@@ -35,6 +35,8 @@ final class AdminObserver {
     // MARK: - Actions
 
     func reload() { viewModel.loadData() }
+    /// `reload()` for a pull-to-refresh: returns when the data has loaded.
+    func reloadNow() async { try? await viewModel.refreshNow() }
     func deleteUser(id: String) { viewModel.deleteUser(userId: id) }
     func revokeInvite(id: String) { viewModel.revokeInvite(inviteId: id) }
     func approveUser(id: String) { viewModel.approveUser(userId: id) }

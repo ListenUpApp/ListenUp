@@ -19,7 +19,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -96,6 +98,24 @@ class AdminBackupViewModelTest :
                 ready.backups[0].id shouldBe "newer"
                 ready.backups[1].id shouldBe "middle"
                 ready.backups[2].id shouldBe "older"
+            }
+        }
+
+        test("refreshNow does not return while the list is loading, and returns once it lands") {
+            runTest(testDispatcher) {
+                val repo = FakeBackupRepository(listResult = AppResult.Success(emptyList()))
+                val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                advanceUntilIdle()
+                val gate = CompletableDeferred<Unit>()
+                repo.listGate = gate
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
             }
         }
 
@@ -404,7 +424,13 @@ private class FakeBackupRepository(
         return createResult
     }
 
-    override suspend fun listBackups(): AppResult<List<BackupSummary>> = if (queued.size > 1) queued.removeFirst() else queued.first()
+    /** When set, [listBackups] waits on it, so a spec can see a load in flight. */
+    var listGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun listBackups(): AppResult<List<BackupSummary>> {
+        listGate?.await()
+        return if (queued.size > 1) queued.removeFirst() else queued.first()
+    }
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         deletedId = id

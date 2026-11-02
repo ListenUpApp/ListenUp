@@ -70,3 +70,33 @@ struct CarPlayChapterButton: Equatable {
         }
     }
 }
+
+/// Which chapter moves the car can make: the only facts the custom now-playing buttons depend on.
+struct CarPlayNowPlayingButtons: Equatable, Sendable {
+    let hasPreviousChapter: Bool
+    let hasNextChapter: Bool
+}
+
+/// Hands the buttons to the template only when they differ from the ones already there. Rebuilding and re-pushing an
+/// identical set makes a head unit drop knob and touchpad focus, so a re-observation that changes nothing must stay
+/// silent.
+@MainActor
+final class CarPlayButtonsPresenter {
+    private let push: (CarPlayNowPlayingButtons) -> Void
+    private var lastPushed: CarPlayNowPlayingButtons?
+
+    init(push: @escaping (CarPlayNowPlayingButtons) -> Void) {
+        self.push = push
+    }
+
+    func show(_ buttons: CarPlayNowPlayingButtons) {
+        guard buttons != lastPushed else { return }
+        lastPushed = buttons
+        push(buttons)
+    }
+
+    /// Forgets what is on the template, which is being reset: the next connection must push afresh.
+    func reset() {
+        lastPushed = nil
+    }
+}

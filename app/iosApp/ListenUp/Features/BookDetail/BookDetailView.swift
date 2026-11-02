@@ -110,14 +110,6 @@ struct BookDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showEdit) {
-            BookEditView(bookId: bookId)
-        }
-        // A sheet like every other editor (HIG, Sheets); the editor holds its swipe-down while it
-        // has unsaved work, so the draft is never dropped without asking.
-        .sheet(isPresented: $showChapterEditor) {
-            ChapterEditorView(bookId: bookId)
-        }
         // Match details: pushed on a compact width, a full-screen split view on a regular one.
         .bookMatchDetails($matchTarget)
         // The receipt Match details leaves behind, with Undo and See What Changed.
@@ -161,11 +153,11 @@ struct BookDetailView: View {
                     .presentationDragIndicator(.visible)
             }
         }
-        .fullScreenCover(item: Binding(
-            get: { observer?.documentToOpen },
-            set: { if $0 == nil { observer?.dismissReader() } }
-        )) { doc in
-            DocumentReaderView(document: doc, onDone: { observer?.dismissReader() })
+        // The reader is presented by the shell, above the tabs, so a fold or resize does not close it.
+        .onChange(of: observer?.documentToOpen) { _, document in
+            guard let document else { return }
+            observer?.dismissReader()
+            presentShellCover(.documentReader(document))
         }
         .alert(
             String(localized: "book.detail_document_viewer_coming_soon"),
@@ -350,8 +342,9 @@ struct BookDetailView: View {
 
     /// The More menu's open question (mark not started, restart, delete from server), if any.
     @State var menuConfirmation: BookDetailMenuConfirmation?
-    @State var showEdit = false
-    @State var showChapterEditor = false
+    /// The editors are presented by the shell, above the tabs (see `ShellSheet`).
+    @Environment(\.presentShellSheet) var presentShellSheet
+    @Environment(\.presentShellCover) var presentShellCover
     /// Match details, open for this book. `nil` when closed; Match details clears it after Apply.
     @State var matchTarget: BookMatchTarget?
     @State var showReleaseConfirmation = false

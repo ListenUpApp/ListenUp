@@ -32,6 +32,7 @@ struct MiniPlayerBar: View {
         let model = MiniPlayerAccessoryModel.make(
             snapshot: observer.snapshot,
             chapterRemainingMs: max(0, observer.chapterDurationMs - observer.displayChapterPositionMs),
+            sleepRemainingMs: observer.sleepRemainingMs,
             chapterFraction: chapterFraction,
             isInline: isInline,
             isWide: sizeClass == .regular)

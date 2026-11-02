@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `HomeViewModel` — flattens the sealed `HomeUiState` into a SwiftUI-native
 /// `HomePhase`, and surfaces a Continue Listening failure as a clearable inline error.
@@ -36,6 +36,12 @@ final class HomeViewModelWrapper {
     func refresh() {
         inlineError = nil
         viewModel.refresh()
+    }
+
+    /// `refresh()` for a pull-to-refresh: returns when the sync has finished, so the spinner stays up exactly that long.
+    func refreshNow() async {
+        inlineError = nil
+        try? await viewModel.refreshNow()
     }
 
     /// Dismiss a book's just-finished card on every device.

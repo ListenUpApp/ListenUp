@@ -26,7 +26,7 @@ struct AdminView: View {
 
     @State private var admin: AdminObserver?
     @State private var settings: AdminSettingsObserver?
-    @State private var showingInviteSheet = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
     @State private var pendingDelete: AdminUserRowModel?
     @State private var pendingRevoke: AdminInviteRowModel?
     @State private var pendingDeny: AdminUserRowModel?
@@ -56,9 +56,6 @@ struct AdminView: View {
         .onAppear {
             if admin == nil { admin = AdminObserver(viewModel: deps.createAdminViewModel()) }
             if settings == nil { settings = AdminSettingsObserver(viewModel: deps.createAdminSettingsViewModel()) }
-        }
-        .sheet(isPresented: $showingInviteSheet) {
-            CreateInviteView()
         }
         .messageAlert(alertBinding) { admin?.clearError() }
         .confirmationDialog(
@@ -161,8 +158,9 @@ struct AdminView: View {
         }
         .readableListWidth(720)
         .refreshable {
-            admin.reload()
-            settings.reload()
+            async let adminData: Void = admin.reloadNow()
+            async let settingsData: Void = settings.reloadNow()
+            _ = await (adminData, settingsData)
         }
     }
 
@@ -295,7 +293,7 @@ struct AdminView: View {
             }
         } header: {
             AdminSectionHeader("\(String(localized: "common.users")) · \(ready.users.count)") {
-                Button { showingInviteSheet = true } label: {
+                Button { presentShellSheet(.createInvite) } label: {
                     Label(String(localized: "common.invite"), systemImage: "plus")
                 }
             }
@@ -396,7 +394,7 @@ struct AdminView: View {
                 systemImage: "person.2.fill",
                 title: String(localized: "admin.invite_someone"),
                 subtitle: String(localized: "admin.share_your_audiobook_library_with"),
-                action: { showingInviteSheet = true }
+                action: { presentShellSheet(.createInvite) }
             )
             // Unconditional, matching Android. Hold-for-review governs whether *healthy*
             // books wait here; a folder the scanner could not import lands here regardless,

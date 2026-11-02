@@ -257,6 +257,15 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
+        // `refreshNow` is the awaitable twin of refresh()/load(), for native pull-to-refresh; web has no
+        // pull-to-refresh and its stores call the fire-and-forget refresh().
+        "HomeViewModel.refreshNow",
+        "DiscoverViewModel.refreshNow",
+        "ActivityFeedViewModel.refreshNow",
+        "AdminViewModel.refreshNow",
+        "AdminSettingsViewModel.refreshNow",
+        "AdminBackupViewModel.refreshNow",
+        "ABSImportHubViewModel.refreshNow",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.

@@ -35,7 +35,7 @@ struct DiscoverView: View {
     @State private var handledLanding = 0
     @AccessibilityFocusState private var leaderboardFocused: Bool
     /// The create-invite sheet, presented from the only-you invitation (an admin's), as Admin presents it.
-    @State private var isInviting = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -67,9 +67,6 @@ struct DiscoverView: View {
             }
         }
         .bookSelectionChrome(selection)
-        .sheet(isPresented: $isInviting) {
-            CreateInviteView()
-        }
         .onAppear {
             if discover == nil { discover = DiscoverObserver() }
             if leaderboard == nil { leaderboard = LeaderboardObserver() }
@@ -104,9 +101,11 @@ struct DiscoverView: View {
                 .padding(.vertical, Spacing.xs)
             }
             .refreshable {
-                discover.refresh()
+                // The leaderboard only re-runs a failed observation (nothing to wait for).
                 leaderboard.refresh()
-                activity.refresh()
+                async let shelves: Void = discover.refreshNow()
+                async let feed: Void = activity.refreshNow()
+                _ = await (shelves, feed)
             }
             .onAppear { landIfRequested(proxy, leaderboard: leaderboard) }
             .onChange(of: leaderboardLandingRequest) { _, _ in landIfRequested(proxy, leaderboard: leaderboard) }
@@ -158,7 +157,7 @@ struct DiscoverView: View {
                 selection: selection,
                 community: discover.communitySize,
                 viewer: discover.viewer,
-                onInvite: discover.viewer?.canInvite == true ? { isInviting = true } : nil,
+                onInvite: discover.viewer?.canInvite == true ? { presentShellSheet(.createInvite) } : nil,
                 onRetry: { discover.retryListeningNow() }
             )
         case .somethingNew:

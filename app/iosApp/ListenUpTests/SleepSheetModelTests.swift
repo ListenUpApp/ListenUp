@@ -34,7 +34,8 @@ struct SleepSheetModelTests {
 
     static func model(_ state: PlayerUiStateLoaded) -> SleepSheetModel {
         SleepSheetModel.make(
-            snapshot: PlayerSnapshot.from(state), progress: progress, now: now, locale: english, timeZone: utc)
+            snapshot: PlayerSnapshot.from(state), sleepRemainingMs: PlayerSnapshot.sleepRemainingMs(of: state),
+            progress: progress, now: now, locale: english, timeZone: utc)
     }
 
     /// The system's own spaces (a narrow no-break space before "PM") read as plain ones.

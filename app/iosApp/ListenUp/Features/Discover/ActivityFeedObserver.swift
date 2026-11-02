@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `ActivityFeedViewModel` — flattens the sealed `ActivityFeedUiState` into a
 /// SwiftUI-native `ActivityFeedPhase`. Each `ActivityUiModel` becomes an `ActivityRowItem`
@@ -31,6 +31,11 @@ final class ActivityFeedObserver {
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    /// `refresh()` for a pull-to-refresh: returns when the reconcile has finished.
+    func refreshNow() async {
+        try? await viewModel.refreshNow()
     }
 
     // MARK: - State mapping

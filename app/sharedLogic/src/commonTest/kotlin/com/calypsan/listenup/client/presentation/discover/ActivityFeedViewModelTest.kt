@@ -304,6 +304,25 @@ class ActivityFeedViewModelTest :
             }
         }
 
+        test("refreshNow does not return while the reconcile is under way, and returns when it lands") {
+            runTest {
+                val fixture = createFixture()
+                val gate = CompletableDeferred<Unit>()
+                fixture.syncRepository.hold = gate
+                val viewModel = fixture.build()
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+                viewModel.refreshing.value shouldBe true
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+                viewModel.refreshing.value shouldBe false
+            }
+        }
+
         test("an activity's cover path and hash reach the UI model") {
             runTest {
                 val fixture = createFixture()

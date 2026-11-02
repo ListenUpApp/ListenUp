@@ -63,10 +63,8 @@ final class KotlinSkipIntervalProviding: SkipIntervalProviding {
 
     init(preferences: PlaybackPreferences) {
         self.bridge = FlowBridge()
-        var fc: AsyncStream<Int>.Continuation!
-        forwardSeconds = AsyncStream { fc = $0 }; forwardContinuation = fc
-        var bc: AsyncStream<Int>.Continuation!
-        backwardSeconds = AsyncStream { bc = $0 }; backwardContinuation = bc
+        (forwardSeconds, forwardContinuation) = AsyncStream.makeStream(of: Int.self)
+        (backwardSeconds, backwardContinuation) = AsyncStream.makeStream(of: Int.self)
         // A cold Kotlin `Flow` is exposed over Swift Export via `asAsyncSequence()` (the
         // `observeDocuments` precedent), as a `KotlinFlowSequence<Int32>`. The explicit
         // `Int32` annotation steers `bind` to its `AsyncSequence` overload; convert to `Int`.

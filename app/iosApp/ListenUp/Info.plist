@@ -43,6 +43,9 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.calypsan.listenup.sync</string>
+		<!-- Continued-processing tasks (a user-started upload): the identifier must begin with the
+		     bundle identifier and end in a wildcard; ContinuedUpload submits it with a unique suffix. -->
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).upload.*</string>
 	</array>
 	<!-- Two scenes: the SwiftUI window the phone shows, and the CarPlay template scene a head
 	     unit connects to. The window role is declared with NO delegate class on purpose —

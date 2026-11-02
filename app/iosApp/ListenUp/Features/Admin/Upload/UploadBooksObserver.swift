@@ -10,9 +10,9 @@ import UIKit
 /// **What it holds for the length of an upload.** The picker's security-scoped access: the shared
 /// `FileSource`s open their files lazily, file by file, as the request body drains them, so access
 /// taken for the pick and released straight after would fail on the second file. And the
-/// `UploadKeepAlive`: the screen stays awake, and a short background task lets the file in flight
-/// finish if the app is sent to the background. iOS gives an app no more than that — a transfer of
-/// this shape cannot continue in the background, so the screen asks people to keep ListenUp open.
+/// `ContinuedUpload`: an iOS 26 continued-processing task keeps the transfer going, with system
+/// progress UI, after the app is sent to the background. Where the system will not run one, the
+/// `UploadKeepAlive` fallback keeps the screen awake and lets the file in flight finish.
 ///
 /// A session failure reaches the user through the shared `ErrorBus`, which the ViewModel emits to and
 /// `GlobalErrorObserver` presents (iosApp rule 10); the phase's own message is the screen's inline
@@ -32,11 +32,12 @@ final class UploadBooksObserver {
 
     private let viewModel: UploadBooksViewModel
     private let bridge = FlowBridge()
-    private let keepAlive = UploadKeepAlive()
+    private let continued: ContinuedUpload
     private var scopedURLs: [URL] = []
 
-    init(viewModel: UploadBooksViewModel) {
+    init(viewModel: UploadBooksViewModel, continued: ContinuedUpload = .shared) {
         self.viewModel = viewModel
+        self.continued = continued
         bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply(Self.phase(from: $0)) }
     }
@@ -68,10 +69,15 @@ final class UploadBooksObserver {
         Task {
             // The walk reads the filesystem, so it runs off the main actor; only the `Sendable`
             // picks cross back. The Kotlin candidates are not `Sendable` and are built here.
-            let picks = await Task.detached { select() }.value
+            let picks = await Self.walk(select)
             isPreparing = false
             offer(picks)
         }
+    }
+
+    @concurrent
+    private nonisolated static func walk(_ select: @Sendable () -> [UploadPick]) async -> [UploadPick] {
+        select()
     }
 
     private func offer(_ picks: [UploadPick]) {
@@ -100,9 +106,16 @@ final class UploadBooksObserver {
     private func apply(_ newPhase: UploadBooksPhase) {
         phase = newPhase
         if newPhase.isBusy {
-            keepAlive.hold()
+            continued.start(
+                title: String(localized: "admin.upload_books"),
+                subtitle: Self.subtitle(for: newPhase),
+                cancel: { [weak self] in self?.cancel() }
+            )
+            if case .uploading(let progress) = newPhase {
+                continued.update(progress, subtitle: Self.subtitle(for: newPhase))
+            }
         } else {
-            keepAlive.release()
+            continued.finish(success: newPhase.isSuccessfulEnd)
             // While a pick is still being walked the ViewModel is idle but the files are about to
             // be opened; access goes only once nothing is left that could open one.
             if !isPreparing { releaseAccess() }
@@ -115,6 +128,19 @@ final class UploadBooksObserver {
     }
 
     // MARK: - Mapping
+
+    /// The system progress UI's second line: "File N of M" while uploading, then the server's turn.
+    nonisolated static func subtitle(for phase: UploadBooksPhase) -> String {
+        switch phase {
+        case .uploading(let progress):
+            String(
+                format: String(localized: "admin.upload_books_file_progress"),
+                progress.fileNumber, progress.fileCount
+            )
+        default:
+            String(localized: "admin.upload_books_finalizing")
+        }
+    }
 
     nonisolated static func phase(from state: UploadBooksUiState) -> UploadBooksPhase {
         switch state.sealedType() {
@@ -198,6 +224,11 @@ enum UploadBooksPhase: Equatable {
         case .idle, .finished, .error: false
         }
     }
+
+    /// The upload ended with files delivered, rather than being stopped or failing.
+    var isSuccessfulEnd: Bool {
+        if case .finished = self { true } else { false }
+    }
 }
 
 /// A file on the wire, counted from one.
@@ -236,11 +267,11 @@ struct UploadNotice: Equatable, Identifiable {
 
 // MARK: - Keep-alive
 
-/// Keeps an upload going for as long as iOS allows: the screen stays awake while it runs, and a
+/// The fallback when no continued-processing task can run: the screen stays awake while it runs, and a
 /// background task lets the file in flight finish if ListenUp is sent to the background. Background
 /// time is short and ends when iOS says so; the expiry handler gives the time back as it must.
 @MainActor
-private final class UploadKeepAlive {
+final class UploadKeepAlive: UploadHold {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     func hold() {
