@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
@@ -39,8 +40,8 @@ import listenup.composeapp.generated.resources.search_keep_typing_description
  * Results are displayed below the search field when available.
  *
  * @param T Type of result items
- * @param value Current search text
- * @param onValueChange Callback when text changes
+ * @param state Search text and selection; the caller reads edits with `ForwardEdits` and clears it
+ *   when a result is picked
  * @param results List of search results to display
  * @param onResultSelected Callback when a result is clicked
  * @param onSubmit Callback when Enter is pressed (receives current text)
@@ -57,8 +58,7 @@ import listenup.composeapp.generated.resources.search_keep_typing_description
 @Composable
 @Suppress("UnusedParameter")
 fun <T> ListenUpAutocompleteField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     results: List<T>,
     onResultSelected: (T) -> Unit,
     onSubmit: (String) -> Unit,
@@ -73,12 +73,11 @@ fun <T> ListenUpAutocompleteField(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         ListenUpSearchField(
-            value = value,
-            onValueChange = onValueChange,
-            onSubmit = { onSubmit(value) },
+            state = state,
+            onSubmit = { onSubmit(state.text.toString()) },
             placeholder = placeholder,
             isLoading = isLoading,
-            onClear = { onValueChange("") },
+            clearable = true,
         )
 
         // Show results dropdown when there are results
@@ -92,7 +91,7 @@ fun <T> ListenUpAutocompleteField(
                     }
                 }
             }
-        } else if (value.isNotBlank() && !isLoading && emptyResultsContent != null) {
+        } else if (state.text.isNotBlank() && !isLoading && emptyResultsContent != null) {
             // Show empty state whenever there's a query and no results. Previously gated on
             // `value.length >= 2`, which silently dropped a 1-character query entirely (no
             // dropdown, no hint) — the caller, not this generic field, owns the notion of a

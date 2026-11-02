@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,14 +21,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.rememberOwnedTextFieldState
+import com.calypsan.listenup.client.design.components.transformedBy
 
 /**
  * How many characters the out-of-band reset code carries. Must match the server's
@@ -57,33 +57,22 @@ const val CODE_FIELD_TAG: String = "code-field"
  * separator a person naturally speaks or types is the most likely mistranscription, and rejecting
  * it would fail the exact user this flow exists to rescue.
  *
- * Owns its text locally (see [rememberOwnedTextFieldState]): because the input is transformed
- * before propagating, the caller's echo never equals the raw keystroke, so a `String`-overload
- * field would churn its buffer against every stale echo and silently drop characters.
+ * The caller owns the [state]; normalisation runs inside the field as an input transformation, so
+ * the text the screen forwards is already the code the server would read and nothing echoes back.
  */
 @Composable
 internal fun CodeBoxes(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
     onDone: () -> Unit = {},
 ) {
-    val ownedText = rememberOwnedTextFieldState(value)
     BasicTextField(
-        value = ownedText.fieldValue,
-        onValueChange = { raw ->
-            // Normalise before storing, so the local truth — and therefore the echo the caller
-            // sends back — is always the code the server would read. Caret to the end of the
-            // normalised text: dropped separators shift it, and the code is only ever appended to.
-            // Rebuilding the value discards any IME composition span on every keystroke —
-            // acceptable here because the code alphabet is uppercase ASCII with a hidden caret,
-            // so there is no composition UI to preserve.
-            val normalized = raw.text.normalizedCode()
-            if (ownedText.edit(TextFieldValue(normalized, TextRange(normalized.length)))) {
-                onValueChange(normalized)
-            }
-        },
+        state = state,
+        // Normalise before storing. The caret follows the normalised text; the code is only ever
+        // appended to, and the alphabet is uppercase ASCII with a hidden caret, so there is no
+        // composition UI to preserve.
+        inputTransformation = codeInputTransformation,
         modifier = modifier.testTag(CODE_FIELD_TAG),
         textStyle = MaterialTheme.typography.headlineSmall,
         // The cells carry their own focus affordance; a caret floating over them would be a second,
@@ -95,9 +84,9 @@ internal fun CodeBoxes(
                 capitalization = KeyboardCapitalization.Characters,
                 imeAction = ImeAction.Next,
             ),
-        keyboardActions = KeyboardActions(onNext = { onDone() }),
-        singleLine = true,
-        decorationBox = { CodeCells(ownedText.fieldValue.text, isError) },
+        onKeyboardAction = KeyboardActionHandler { onDone() },
+        lineLimits = TextFieldLineLimits.SingleLine,
+        decorator = { CodeCells(state.text.toString(), isError) },
     )
 }
 
@@ -154,6 +143,8 @@ private fun CodeCell(
 
 /** Upper-case, `[0-9A-Z]` only, never longer than the code — the server's own normalise. */
 private fun String.normalizedCode(): String = uppercase().filter { it in '0'..'9' || it in 'A'..'Z' }.take(CODE_LENGTH)
+
+private val codeInputTransformation = transformedBy { it.normalizedCode() }
 
 // Sized so eight cells, seven gaps and the group dash fit a compact-width phone with the
 // auth screens' horizontal padding: 8×36 + 7×6 + 12 = 342dp.

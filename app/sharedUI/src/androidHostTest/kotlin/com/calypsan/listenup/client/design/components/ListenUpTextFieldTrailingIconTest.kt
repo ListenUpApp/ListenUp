@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
@@ -37,8 +38,7 @@ class ListenUpTextFieldTrailingIconTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Password",
                     trailingIcon = Icons.Default.Search,
                     onTrailingClick = {},
@@ -56,8 +56,7 @@ class ListenUpTextFieldTrailingIconTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Password",
                     trailingIcon = Icons.Default.Search,
                     onTrailingClick = { clicks++ },
@@ -76,8 +75,7 @@ class ListenUpTextFieldTrailingIconTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Password",
                     trailingIcon = Icons.Default.Search,
                     trailingIconContentDescription = SHOW_PASSWORD,
@@ -93,8 +91,7 @@ class ListenUpTextFieldTrailingIconTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Search",
                     trailingIcon = Icons.Default.Search,
                     onTrailingClick = {},
