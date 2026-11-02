@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -19,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -210,7 +207,7 @@ private fun ChapterRowActions(
         haptics.press()
         onNudge(-nudgeStepMs)
     }
-    RowAction(Icons.Outlined.Add, stringResource(Res.string.chapter_editor_nudge_forward)) {
+    RowAction(ListenUpIcons.Add, stringResource(Res.string.chapter_editor_nudge_forward)) {
         haptics.press()
         onNudge(nudgeStepMs)
     }
@@ -219,7 +216,7 @@ private fun ChapterRowActions(
         onSnapToPlayhead()
     }
     RowAction(
-        icon = if (isLocked) Icons.Filled.Lock else Icons.Outlined.LockOpen,
+        icon = if (isLocked) ListenUpIcons.LockFilled else Icons.Outlined.LockOpen,
         description =
             stringResource(
                 if (isLocked) Res.string.chapter_editor_unlock else Res.string.chapter_editor_lock,
@@ -289,7 +286,7 @@ private fun ChapterOverflowMenu(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_rename_title)) },
-                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.Edit, contentDescription = null) },
                 onClick = { choose { menu.onRename(chapter.id) } },
             )
             DropdownMenuItem(
@@ -309,7 +306,7 @@ private fun ChapterOverflowMenu(
             val destructive = MaterialTheme.colorScheme.error
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_delete_chapter), color = destructive) },
-                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = destructive) },
+                leadingIcon = { Icon(ListenUpIcons.Delete, contentDescription = null, tint = destructive) },
                 onClick = { choose { menu.onDelete(chapter.id) } },
             )
         }

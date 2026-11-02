@@ -1,0 +1,20 @@
+# Kotlin name | Material Symbol | fill (0 = outline, 1 = filled) | autoMirror (true/false)
+# Append a line and re-run tools/scripts/generate-listenup-icons.py; never hand-edit ListenUpIcons.kt.
+Add             | add         | 0 | false
+AddFilled       | add         | 1 | false
+ArrowBack       | arrow_back  | 0 | true
+ArrowBackFilled | arrow_back  | 1 | true
+Check           | check       | 0 | false
+CheckFilled     | check       | 1 | false
+Close           | close       | 0 | false
+CloseFilled     | close       | 1 | false
+Delete          | delete      | 0 | false
+Edit            | edit        | 0 | false
+EditFilled      | edit        | 1 | false
+Info            | info        | 0 | false
+Lock            | lock        | 0 | false
+LockFilled      | lock        | 1 | false
+Person          | person      | 0 | false
+PersonFilled    | person      | 1 | false
+Search          | search      | 0 | false
+SearchFilled    | search      | 1 | false
