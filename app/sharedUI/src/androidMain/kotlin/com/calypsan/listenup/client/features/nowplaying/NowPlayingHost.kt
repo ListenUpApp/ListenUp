@@ -390,6 +390,7 @@ private fun PlayerUiState.Loaded.sleepSheetState(progress: () -> PlayerProgress)
         countdownMs = { SleepCountdowns.remainingMs(sleepTimer, progress(), settings.speed) },
         meterFraction = { SleepCountdowns.meterFraction(sleepTimer, progress()) },
         nowMs = { Clock.System.now().toEpochMilliseconds() },
+        defaultMinutes = settings.defaultSleepMinutes,
     )
 
 /**

@@ -127,6 +127,7 @@ internal fun sleepSheetState(
         (timer as? SleepTimerState.Active)?.takeIf { it.totalMs > 0 }?.let { it.remainingMs.toFloat() / it.totalMs }
             ?: 0f,
     nowMs: Long = SLEEP_SHEET_NOW_MS,
+    defaultMinutes: Int? = null,
 ): SleepSheetState =
     SleepSheetState(
         timer = timer,
@@ -135,6 +136,7 @@ internal fun sleepSheetState(
         countdownMs = { countdownMs },
         meterFraction = { meterFraction },
         nowMs = { nowMs },
+        defaultMinutes = defaultMinutes,
     )
 
 /** The fixture book's length, 45h 30m, which its [bookChapterRows] sum to. */

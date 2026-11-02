@@ -79,7 +79,7 @@ import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
 import listenup.composeapp.generated.resources.settings_autorewind_on_resume
-import listenup.composeapp.generated.resources.settings_autostart_sleep_timer_when_playing
+import listenup.composeapp.generated.resources.settings_default_timer_hint
 import listenup.composeapp.generated.resources.settings_boost_used_for_new_books
 import listenup.composeapp.generated.resources.settings_choose_light_dark_or_follow
 import listenup.composeapp.generated.resources.settings_default_boost
@@ -117,6 +117,8 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subt
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import com.calypsan.listenup.client.playback.PlaybackPresets
+import com.calypsan.listenup.client.playback.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.settings_dynamic_colors
 
@@ -127,24 +129,6 @@ private fun formatSkipSeconds(seconds: Int): String =
         seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
         else -> "${seconds}s"
     }
-
-/**
- * Preset durations for sleep timer (in minutes).
- * Includes "Off" option represented as null.
- */
-@Suppress("MagicNumber")
-object SleepTimerPresets {
-    val presets: List<Int?> = listOf(null, 5, 10, 15, 20, 30, 45, 60, 90, 120)
-
-    fun format(minutes: Int?): String =
-        when (minutes) {
-            null -> "Off"
-            60 -> "1 hour"
-            90 -> "1.5 hours"
-            120 -> "2 hours"
-            else -> "$minutes min"
-        }
-}
 
 /**
  * Settings screen.
@@ -513,10 +497,10 @@ private fun SleepTimerSection(
             icon = ListenUpIcons.TimerFilled,
             accent = accent,
             title = stringResource(Res.string.settings_default_timer),
-            subtitle = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
+            subtitle = stringResource(Res.string.settings_default_timer_hint),
             selectedValue = state.defaultSleepTimerMin,
-            options = SleepTimerPresets.presets,
-            formatValue = { SleepTimerPresets.format(it) },
+            options = SleepTimerChoices.defaultChoicesIncluding(state.defaultSleepTimerMin),
+            formatValue = { minutes -> minutes?.let { SleepTimerMode.Duration(it).label } ?: "Off" },
             onValueSelected = actions.onSleepTimerChange,
             pillContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             pillContentColor = MaterialTheme.colorScheme.onSecondaryContainer,

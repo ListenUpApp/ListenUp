@@ -48,6 +48,7 @@ import listenup.composeapp.generated.resources.player_extend_minutes
 import listenup.composeapp.generated.resources.player_sheet_durations
 import listenup.composeapp.generated.resources.player_sheet_end_of_chapter_after
 import listenup.composeapp.generated.resources.player_sheet_fades_out
+import listenup.composeapp.generated.resources.player_sheet_your_default
 import listenup.composeapp.generated.resources.player_sleep_timer
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ButtonGroup
@@ -75,6 +76,8 @@ import androidx.compose.ui.semantics.contentDescription
  * @property countdownMs Wall-clock time until the timer pauses (`SleepCountdowns.remainingMs`); null with no timer.
  * @property meterFraction The share of the timer still to run (`SleepCountdowns.meterFraction`).
  * @property nowMs The wall clock, injected so "Pauses at" is testable.
+ * @property defaultMinutes The user's default sleep timer: the custom stepper opens at it and the matching duration is
+ *   marked "Your default". Null (Off) leaves the stepper at 20 and marks nothing.
  */
 @Immutable
 internal data class SleepSheetState(
@@ -84,6 +87,7 @@ internal data class SleepSheetState(
     val countdownMs: () -> Long?,
     val meterFraction: () -> Float,
     val nowMs: () -> Long,
+    val defaultMinutes: Int?,
 )
 
 /**
@@ -140,7 +144,9 @@ private fun SleepChoices(
     state: SleepSheetState,
     onSetTimer: (SleepTimerMode) -> Unit,
 ) {
-    var customMinutes by rememberSaveable { mutableIntStateOf(SleepTimerChoices.CUSTOM_DEFAULT_MINUTES) }
+    var customMinutes by rememberSaveable(state.defaultMinutes) {
+        mutableIntStateOf(SleepTimerChoices.startingCustomMinutes(state.defaultMinutes))
+    }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         if (SleepTimerChoices.offersEndOfChapter(state.chapter.isWholeBook)) {
             EndOfChapterChoice(
@@ -149,7 +155,10 @@ private fun SleepChoices(
                 onClick = { onSetTimer(SleepTimerMode.EndOfChapter) },
             )
         }
-        DurationGrid(onPick = { minutes -> onSetTimer(SleepTimerMode.Duration(minutes)) })
+        DurationGrid(
+            defaultMinutes = state.defaultMinutes,
+            onPick = { minutes -> onSetTimer(SleepTimerMode.Duration(minutes)) },
+        )
         SleepCustomStepper(
             minutes = customMinutes,
             onStep = { up -> customMinutes = SleepTimerChoices.stepCustom(customMinutes, up) },
@@ -208,7 +217,10 @@ private fun EndOfChapterChoice(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun DurationGrid(onPick: (minutes: Int) -> Unit) {
+private fun DurationGrid(
+    defaultMinutes: Int?,
+    onPick: (minutes: Int) -> Unit,
+) {
     val groupLabel = stringResource(Res.string.player_sheet_durations)
     Column(
         modifier = Modifier.fillMaxWidth().semantics { contentDescription = groupLabel },
@@ -226,7 +238,17 @@ private fun DurationGrid(onPick: (minutes: Int) -> Unit) {
                                 contentColor = MaterialTheme.colorScheme.onSurface,
                             ),
                         modifier = Modifier.weight(1f).heightIn(min = DURATION_HEIGHT),
-                    ) { Text(SleepTimerMode.Duration(minutes).label) }
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(SleepTimerMode.Duration(minutes).label)
+                            if (minutes == defaultMinutes) {
+                                Text(
+                                    text = stringResource(Res.string.player_sheet_your_default),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
                 }
                 repeat(DURATIONS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
             }

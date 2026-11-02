@@ -666,6 +666,7 @@ private fun mockSleepSheetState(timer: SleepTimerState): SleepSheetState =
         countdownMs = { if (timer is SleepTimerState.Active && timer.remainingMs > 0) timer.remainingMs else 480_000 },
         meterFraction = { 0.79f },
         nowMs = { MOCK_NOW_MS },
+        defaultMinutes = 45,
     )
 
 /** The gallery's own switch between the light and dark schemes for the panels; gallery chrome, not app copy. */

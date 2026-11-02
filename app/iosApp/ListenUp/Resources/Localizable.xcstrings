@@ -25048,6 +25048,28 @@
         }
       }
     },
+    "player.sheet_your_default": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your default"
+          }
+        }
+      }
+    },
+    "player.sheet_your_default_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Default"
+          }
+        }
+      }
+    },
     "player.skip_backward": {
       "extractionState": "manual",
       "localizations": {
@@ -27336,17 +27358,6 @@
         }
       }
     },
-    "settings.autostart_sleep_timer_when_playing": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auto-start sleep timer when playing"
-          }
-        }
-      }
-    },
     "settings.book_downloaded_count": {
       "extractionState": "manual",
       "localizations": {
@@ -27464,6 +27475,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Default timer"
+          }
+        }
+      }
+    },
+    "settings.default_timer_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where the sleep timer starts"
           }
         }
       }

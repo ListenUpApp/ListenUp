@@ -2278,6 +2278,8 @@ One beautiful library.</string>
     <string name="player_sheet_this_book_only">Applies to this book only.</string>
     <string name="player_sheet_turn_off_timer_ios">Turn Off Timer</string>
     <string name="player_sheet_until_end_of">Until the end of %1$s · %2$s</string>
+    <string name="player_sheet_your_default">Your default</string>
+    <string name="player_sheet_your_default_ios">Your Default</string>
     <string name="player_skip_backward">Skip back %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
     <string name="player_sleep">Sleep</string>
@@ -2486,7 +2488,6 @@ One beautiful library.</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_are_you_sure_you_want">Are you sure you want to sign out? You'll need to sign in again to access your library.</string>
     <string name="settings_autorewind_on_resume">Auto-rewind on resume</string>
-    <string name="settings_autostart_sleep_timer_when_playing">Auto-start sleep timer when playing</string>
     <string name="settings_book_downloaded_count">%1$d book downloaded</string>
     <string name="settings_books_downloaded_count">%1$d books downloaded</string>
     <string name="settings_boost_used_for_new_books">Volume boost used for new books</string>
@@ -2498,6 +2499,7 @@ One beautiful library.</string>
     <string name="settings_default_boost">Default volume boost</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_default_timer">Default timer</string>
+    <string name="settings_default_timer_hint">Where the sleep timer starts</string>
     <string name="settings_delete_blocked_message">Stop playback of “%1$s” before deleting its download.</string>
     <string name="settings_delete_blocked_title">Can't delete while playing</string>
     <string name="settings_devices">Devices</string>
