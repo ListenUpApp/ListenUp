@@ -221,6 +221,7 @@ JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (
 - Small functions that do one thing well
 - No clever code — clever code is code the next person cannot read
 - Comments explain _why_, not _what_
+- Comments cite only what a reader can open: a public standard (`RFC 1951 §3.2.7`) or a path in this repository, never a plan or spec code (`spec §2.3`, `Task 14`, `H24`). `CommentsCiteOpenableSourcesRule` ratchets the existing citations down.
 - Delete dead code — don't comment it out
 - No `@file:Suppress` — if a metric fires, fix the code, don't suppress the detector (`NoFileLevelSuppressRule` fails the build on one)
 
