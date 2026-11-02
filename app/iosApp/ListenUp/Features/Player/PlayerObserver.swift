@@ -25,7 +25,7 @@ struct SeriesNavRef: Hashable, Sendable {
     let sequenceLabel: String?
 }
 
-/// The native primary control (spec §4.6): what the one big button does, decided in shared code.
+/// The native primary control: what the one big button does, decided in shared code.
 enum PlayerPrimary: Sendable, Equatable {
     case pause, play, busy, retry, listenAgain, signIn, openInbox, close, tapToPlay
 
@@ -44,7 +44,7 @@ enum PlayerPrimary: Sendable, Equatable {
     }
 }
 
-/// The mini player's second line (spec §5.1), mapped once from the shared `MiniPlayerLine` (rule 8). A chapter is
+/// The mini player's second line, mapped once from the shared `MiniPlayerLine` (rule 8). A chapter is
 /// named by the book's own `title`; `number` is set only for a chaptered book's untitled chapter; both nil is a
 /// chapterless book. `sleepArmed` says a timer is running; the surface supplies its countdown, which follows the
 /// progress (`PlayerSnapshot.sleepCountdownMs`).
@@ -107,7 +107,7 @@ struct PlayerSnapshot: Equatable {
     var chapterIndex = 0
     /// The current chapter's own number, as the book counts it (front matter included), for naming an untitled chapter.
     var chapterNumber = 1
-    /// A chapterless book is one whole-book chapter (§3.2), so this is never 0 for a loaded book.
+    /// A chapterless book is one whole-book chapter, so this is never 0 for a loaded book.
     var totalChapters = 0
     /// The current chapter's title; nil for a chapterless book.
     var chapterTitle: String?
@@ -146,7 +146,7 @@ struct PlayerSnapshot: Equatable {
     var offersEndOfChapter = false
     /// The sleep timer is fading the audio out before it pauses.
     var isSleepFading = false
-    /// Now Playing's status slot (§3.1): only news (offline, unreachable, transcoded, not playable), from the shared
+    /// Now Playing's status slot: only news (offline, unreachable, transcoded, not playable), from the shared
     /// `SourceStatus`; nil hides it. Casting says nothing here: AirPlay's caption names the device.
     var statusText: String?
     /// The audio is going to another device.
@@ -155,15 +155,15 @@ struct PlayerSnapshot: Equatable {
     var castDeviceName: String?
     /// The card that takes the transport's place (P32), decided in shared code; nil while the transport shows.
     var card: PlayerCardModel?
-    /// The More menu (§5.5.7), from the shared builder.
+    /// The More menu, from the shared builder.
     var menu: [PlayerMenuSection] = []
     /// The same menu where the series and the authors are already links on screen (iPad's wide player, P10): no Go to
     /// Series, no Go to Author.
     var menuWithoutSeries: [PlayerMenuSection] = []
-    /// Now Playing closes: nothing is loaded, or the book was revoked (§5.6).
+    /// Now Playing closes: nothing is loaded, or the book was revoked.
     var closesNowPlaying = false
     /// "Chapter 6 of 75" shows only beside a chapter's own, non-generic title, where the counter cannot disagree with
-    /// the book's naming (Simon, 2026-10-14; plan C6). Never for a chapterless book.
+    /// the book's naming. Never for a chapterless book.
     var showsChapterCounter = false
     /// A chapterless book: Now Playing reads "Whole Book".
     var isWholeBook = false
@@ -282,7 +282,7 @@ struct PlayerSnapshot: Equatable {
         errorMessage = Self.title(for: error)
     }
 
-    /// The card title for `error` (spec §4.6, Decision 7): `player.title_<code>`, else its own message.
+    /// The card title for `error`: `player.title_<code>`, else its own message.
     static func title(for error: any AppError) -> String {
         let key = "player.title_" + error.code.lowercased()
         let title = String(localized: String.LocalizationValue(key))
@@ -296,7 +296,7 @@ struct PlayerSnapshot: Equatable {
         return cause == key ? nil : cause
     }
 
-    /// The mini line for `error`: `player.mini_<code>`, else the card title (§4.6).
+    /// The mini line for `error`: `player.mini_<code>`, else the card title.
     static func miniTitle(for error: any AppError) -> String {
         let key = "player.mini_" + error.code.lowercased()
         let text = String(localized: String.LocalizationValue(key))

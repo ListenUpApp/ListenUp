@@ -29,7 +29,7 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Sleep: a moon; armed, the countdown on `tertiaryContainer` (§3.9, §5.1 M16, §5.2). Shared by Now Playing's settings
+ * Sleep: a moon; armed, the countdown on `tertiaryContainer`. Shared by Now Playing's settings
  * row, where the idle moon is a tonal button ([tonalWhenIdle]), and the wide toolbar, where it is a plain icon.
  *
  * The countdown is [countdownMs] — `SleepCountdowns.remainingMs`, wall time — never the timer's own `remainingMs`, which

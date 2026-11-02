@@ -36,9 +36,9 @@ internal const val CHAPTER_LIST_TAG = "player-chapter-list"
 internal fun chapterRowTag(index: Int): String = "player-chapter-$index"
 
 /**
- * The Chapters sheet (spec §5.5.4, PC1–PC4; `Sheets-Android`): "Chapters" over "75 chapters · 45h 30m", then every
- * chapter as a [PlayerChapterRow], opening centred on the one playing (§3.11's opening rule) once the sheet has laid
- * out (§9.2). A tap plays from that chapter and closes the sheet (PC4; the view model closes it). Adaptive sheet/dialog
+ * The Chapters sheet: "Chapters" over "75 chapters · 45h 30m", then every
+ * chapter as a [PlayerChapterRow], opening centred on the one playing once the sheet has laid
+ * out. A tap plays from that chapter and closes the sheet (the view model closes it). Adaptive sheet/dialog
  * via [AdaptiveSheet]; the list scrolls itself, so the scaffold does not.
  *
  * @param chapters Every chapter of the loaded book; the current one carries [ChapterRowState.isCurrent].

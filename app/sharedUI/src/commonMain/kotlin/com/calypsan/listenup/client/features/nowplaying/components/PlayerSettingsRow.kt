@@ -32,13 +32,13 @@ import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_playback_speed
 import org.jetbrains.compose.resources.stringResource
 
-/** At this font scale the row wraps instead of overflowing (§5.2). */
+/** At this font scale the row wraps instead of overflowing. */
 private const val LARGE_FONT_SCALE = 1.5f
 
 /**
- * This book's settings (spec §3.1.5, §5.2): Speed (with the rate) · Sleep · Chapters, one standard button group of
+ * This book's settings: Speed (with the rate) · Sleep · Chapters, one standard button group of
  * tonal buttons (m3.material.io/components/button-groups: standard groups for rows of actions). Each opens a sheet.
- * Cast is not here: it sits in the top bar beside More (Simon, 2026-10-27). At large font scale it wraps (§5.2).
+ * Cast is not here: it sits in the top bar beside More (Simon, 2026-10-27). At large font scale it wraps.
  * [showsChapters] is false where the chapter list is always visible.
  */
 @Suppress("LongParameterList") // one callback per control the board draws

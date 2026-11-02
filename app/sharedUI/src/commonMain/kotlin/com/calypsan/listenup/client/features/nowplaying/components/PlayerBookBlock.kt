@@ -300,7 +300,7 @@ private fun WideTitleBlock(
 
 /**
  * "The Stormlight Archive · Book 1", or the bare name when the book has no place in the series: a text link to the
- * series page with a 48dp target (§8). TalkBack hears the words, "button", and "double tap to go to series".
+ * series page with a 48dp target. TalkBack hears the words, "button", and "double tap to go to series".
  */
 @Composable
 private fun SeriesLink(

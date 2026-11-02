@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the mini player accessory draws in one state (spec §5.1; boards `Mini-iPhone`, `Mini-iPad`, `States-iPhone`).
+/// What the mini player accessory draws in one state.
 /// A pure value, so every state is testable without SwiftUI; `MiniPlayerAccessoryContent` only lays it out.
 struct MiniPlayerAccessoryModel: Equatable {
     /// The one main button's look.

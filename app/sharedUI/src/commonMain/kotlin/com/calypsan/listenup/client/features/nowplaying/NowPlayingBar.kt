@@ -100,7 +100,7 @@ internal val MiniBarRowHeight = 64.dp
 /** The phone bar's whole height above any system inset. */
 internal val MiniBarHeight = MiniProgressSlotHeight + MiniBarRowHeight
 
-/** The phone bar's play/pause container: the wide 56×48 (§5.1 M10). */
+/** The phone bar's play/pause container: the wide 56×48. */
 internal val MiniPhonePlaySize = DpSize(56.dp, 48.dp)
 
 /** The phone bar's cover. */
@@ -119,12 +119,12 @@ internal const val MINI_BODY_TAG = "mini-body"
 internal const val MINI_COVER_TAG = "mini-cover"
 
 /**
- * The phone mini player (spec §5.1, board `Main`): a flat docked toolbar, full width on `surfaceContainerHigh`,
+ * The phone mini player: a flat docked toolbar, full width on `surfaceContainerHigh`,
  * directly above the 64dp navigation bar — or, on a detail screen, at the bottom edge with its row padded clear of
  * the gesture area ([bottomInset]). A chapter line along the top is the wave while playing, flat otherwise.
  *
  * The body (cover, title, line) is one target, "Open Now Playing", and back N and the main button are its siblings,
- * never inside it (§8). A failure tints the bar `errorContainer`; the bar never hides while a book is loaded (gap 6).
+ * never inside it. A failure tints the bar `errorContainer`; the bar never hides while a book is loaded.
  *
  * @param onPrimary The main button's action, decided by [PlayerUiState.Loaded.primary].
  * @param onKeepListening The main button's action during the sleep fade, where it reads Keep listening: cancel the
@@ -249,7 +249,7 @@ private fun PhoneBarContent(
     }
 }
 
-/** "Resume" for Android's background refusal (§4.6), whose primary is Play; null keeps "Play". */
+/** "Resume" for Android's background refusal, whose primary is Play; null keeps "Play". */
 @Composable
 internal fun miniPlayLabel(line: MiniPlayerLine): String? =
     if (line is MiniPlayerLine.Problem && line.error is PlaybackError.BlockedInBackground) {
@@ -264,7 +264,7 @@ internal fun miniBusyLabel(line: MiniPlayerLine): String? =
     if (line == MiniPlayerLine.Reconnecting) stringResource(Res.string.player_mini_reconnecting_a11y) else null
 
 /**
- * The open target: cover, title and line, one node named "Open Now Playing" (§8). The cover is decorative (the title
+ * The open target: cover, title and line, one node named "Open Now Playing". The cover is decorative (the title
  * beside it names the book) and steps aside at a large font, where the title needs the width more than the bar needs
  * the picture.
  */

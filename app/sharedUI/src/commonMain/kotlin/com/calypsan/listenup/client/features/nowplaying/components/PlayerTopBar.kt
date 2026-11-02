@@ -71,7 +71,7 @@ import kotlin.math.roundToInt
 private val MenuShape = RoundedCornerShape(16.dp)
 
 /**
- * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
+ * Now Playing's top bar, with the status slot.
  *
  * **Compact** (`wide = false`): Collapse · the [StatusChip] in the space between · Cast · More.
  * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip

@@ -24,7 +24,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
 
-/** Where a player panel opens (spec §3.8): a bottom dialog on the phone page, a popover against its opener on wide. */
+/** Where a player panel opens: a bottom dialog on the phone page, a popover against its opener on wide. */
 internal sealed interface PanelPlacement {
     /** The phone page: a modal bottom `<dialog>` with Close. */
     data object Sheet : PanelPlacement
@@ -36,9 +36,8 @@ internal sealed interface PanelPlacement {
 }
 
 /**
- * The width from which a player panel opens as a popover from its opener rather than as a bottom sheet (open question 4,
- * C9's default): the page's own breakpoint, where the bar becomes the transport. Between 760 and 1023px the bar is the
- * only transport (PR 3 C8), so its panels hang from it there too.
+ * The width from which a player panel opens as a popover from its opener rather than as a bottom sheet: the page's own breakpoint, where the bar becomes the transport. Between 760 and 1023px the bar is the
+ * only transport, so its panels hang from it there too.
  */
 internal const val PANEL_POPOVER_MIN_WIDTH_PX = 760
 
@@ -54,7 +53,7 @@ internal fun panelPlacementFor(opener: HTMLElement?): PanelPlacement {
 }
 
 /**
- * The shell every player panel wears (§3.8, drift row 30), in one of two placements.
+ * The shell every player panel wears, in one of two placements.
  *
  * - [PanelPlacement.Sheet]: the app's one [ModalDialog] — focus trap, inert page, Escape — docked to the bottom and
  *   rounded on top (`.panel-sheet`), with Close beside the heading (`Sheets-WebPhone`).

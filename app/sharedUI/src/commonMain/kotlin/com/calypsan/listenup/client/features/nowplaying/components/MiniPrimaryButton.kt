@@ -43,8 +43,7 @@ import org.jetbrains.compose.resources.stringResource
 private val MiniBusyIndicatorSize = 24.dp
 
 /**
- * The mini player's one main button, drawn from the shared [PrimaryControl] (spec §3.5, §4.6; the `Main`,
- * `Mini-AndroidTablet` and `States-Android` boards). Play and pause are a filled icon button in `primary`; a stall keeps
+ * The mini player's one main button, drawn from the shared [PrimaryControl]. Play and pause are a filled icon button in `primary`; a stall keeps
  * that button, its size, shape and colour, with the uncontained M3 loading indicator in the glyph's colour in place of
  * the glyph, still pressable to pause (Simon, 2026-10-27); a way out of a problem is a labelled button,
  * because a glyph alone does not say "Sign in".

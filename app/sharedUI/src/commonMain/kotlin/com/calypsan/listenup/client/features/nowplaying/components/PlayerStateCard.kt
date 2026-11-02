@@ -75,7 +75,7 @@ import kotlin.time.Clock
 private val NextCover = 56.dp
 
 /**
- * The card that takes the transport's place (spec P32, §3.7, §4.6, §5.6): a problem with its ways out, the finished
+ * The card that takes the transport's place: a problem with its ways out, the finished
  * book, or the sleep timer's fade. The actions are decided in shared code ([com.calypsan.listenup.client.presentation.player.PlayerCards]); this
  * draws them. Flat, on a container chosen by tone (m3.material.io/styles/color/roles), 28dp corners, no shadow (F6).
  */
@@ -111,9 +111,9 @@ fun PlayerStateCard(
 }
 
 /**
- * The sleep timer's fade (§5.6 "Sleep fading", `States-Android`): the sleep gold, `tertiaryContainer`, with the moon,
+ * The sleep timer's fade: the sleep gold, `tertiaryContainer`, with the moon,
  * "Fading out…", what is happening, and one button, Keep listening, on `tertiary`. Announced politely: nothing failed.
- * Now Playing draws it in the transport's place; the sleep sheet draws the same card while the fade runs (PT7).
+ * Now Playing draws it in the transport's place; the sleep sheet draws the same card while the fade runs.
  */
 @Composable
 internal fun SleepFadingCard(
@@ -299,7 +299,7 @@ private fun PlayerCardTone.colors(): Pair<Color, Color> =
         }
     }
 
-/** The card's buttons: the primary filled, the secondary tonal, one standard group (§6 Groups). */
+/** The card's buttons: the primary filled, the secondary tonal, one standard group. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CardActions(

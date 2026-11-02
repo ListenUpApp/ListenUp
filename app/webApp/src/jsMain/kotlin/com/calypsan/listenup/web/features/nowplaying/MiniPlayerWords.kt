@@ -14,7 +14,7 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Which parts of the line the bar shows (spec §5.1 M6/M7). */
+/** Which parts of the line the bar shows. */
 internal enum class MiniLineFit {
     /** ≥ 760px: "Bridge Four · Brandon Sanderson"; the times sit by the scrubber, a timer on the moon. */
     Desktop,
@@ -116,7 +116,7 @@ internal fun miniLineLabel(
         }
     }
 
-/** The short line for a book that can't play, or the card title where the player has none (§4.6). */
+/** The short line for a book that can't play, or the card title where the player has none. */
 internal fun AppError.miniPlayerWords(): String =
     when (this) {
         is PlaybackError.ServerUnreachable -> "Can't reach your server"
@@ -163,7 +163,7 @@ private fun chapterWords(
 ): String = title ?: number?.let { "Chapter $it" } ?: "Whole book"
 
 /**
- * What the tab puts in front of the page's name while a book plays (spec §5.7, C11): "Bridge Four · The Way of Kings",
+ * What the tab puts in front of the page's name while a book plays: "Bridge Four · The Way of Kings",
  * the chapter as the book names it; null while it is paused, finished, failing or not loaded, so a paused book does not
  * rename every tab for days.
  */

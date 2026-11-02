@@ -55,10 +55,10 @@ object VolumeBoostPresets {
 }
 
 /**
- * The Boost sheet (spec §5.5.3, PB1–PB5; `Sheets-Android`): the level as the sheet's display figure ("+6 dB"), what
+ * The Boost sheet: the level as the sheet's display figure ("+6 dB"), what
  * boost is for, the five levels as one connected single-select group (m3.material.io/components/button-groups/guidelines:
  * connected groups for selection), and reset to the listener's own default. A discrete catalogue by design — no slider
- * (iOS parity). It stays open while the listener compares levels (§3.8). Adaptive sheet/dialog via [AdaptiveSheet].
+ * (iOS parity). It stays open while the listener compares levels. Adaptive sheet/dialog via [AdaptiveSheet].
  *
  * @param currentBoostDb This book's boost, in dB.
  * @param defaultBoostDb The listener's default boost, in dB, which reset returns to.

@@ -43,7 +43,7 @@ import listenup.composeapp.generated.resources.player_sheet_start
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The sleep sheet's custom time (PT8, `Sheets-Android`): "Custom", then − N min + in [SleepTimerChoices]' steps, and
+ * The sleep sheet's custom time: "Custom", then − N min + in [SleepTimerChoices]' steps, and
  * Start. The minutes are a polite live region, so each press is spoken; − and + stop at the bounds. At a large font
  * Start wraps under the stepper rather than running off the sheet.
  *

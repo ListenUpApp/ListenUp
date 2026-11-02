@@ -24,17 +24,16 @@ import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.dom.Button as DomButton
 
 /**
- * Stop listening at a time you choose, without having to be awake for it (§5.5.2, PT1–PT8, `Sheets-WebPhone`).
+ * Stop listening at a time you choose, without having to be awake for it.
  *
  * Three states, because a sleep timer is three different questions:
  * - nothing running asks *when*: End of chapter first and largest, in the sleep gold, saying which chapter and how long
- *   (content time, open question 2); then the durations; then a custom number of minutes (C3: 1–720, any whole minute,
+ *   (content time); then the durations; then a custom number of minutes (1–720, any whole minute,
  *   since a typed number has no step to fight);
  * - something running asks *how much longer, and do you want more*: the wall-clock countdown ([countdownMs], from the
  *   shared `SleepCountdowns`), when it pauses by the browser's clock, a gold meter of what is left, +5 / +10 / +15 for a
- *   duration (C6), and Cancel timer, which keeps the panel open on the choices (S13);
- * - a fade under way is the fade card's words, with Keep listening, which cancels the timer and puts full volume back
- *   (PT7).
+ *   duration, and Cancel timer, which keeps the panel open on the choices;
+ * - a fade under way is the fade card's words, with Keep listening, which cancels the timer and puts full volume back.
  *
  * The ladders and the two rules come from the shared [SleepTimerChoices], so the browser offers exactly what the phone
  * does.
@@ -102,7 +101,7 @@ private fun IdleOptions(
     chapterRemainingMs: Long,
     onSet: (SleepTimerMode) -> Unit,
 ) {
-    // Only when the book has marks (PT1). End-of-chapter waits to be told a chapter turned over, and a whole-book
+    // Only when the book has marks. End-of-chapter waits to be told a chapter turned over, and a whole-book
     // "chapter" ends with the book, so the timer would quietly do nothing until then.
     if (SleepTimerChoices.offersEndOfChapter(chapter.isWholeBook)) {
         DomButton(attrs = {
@@ -140,7 +139,7 @@ private fun IdleOptions(
 }
 
 /**
- * "Custom (minutes)" and Start (PT8): any whole minute, clamped into the shared bounds by [SleepTimerChoices.parseCustom];
+ * "Custom (minutes)" and Start: any whole minute, clamped into the shared bounds by [SleepTimerChoices.parseCustom];
  * Start is disabled while the field holds nothing it can read.
  */
 @Composable
@@ -202,7 +201,7 @@ private fun RunningTimer(
         )
     }
 
-    // What is LEFT, in gold (§3.9): "23:41 of 30:00 remaining". An end-of-chapter timer's share is the chapter's.
+    // What is LEFT, in gold: "23:41 of 30:00 remaining". An end-of-chapter timer's share is the chapter's.
     val meterLabel =
         when (mode) {
             is SleepTimerMode.Duration -> PlayerSheetWords.meterLabel(countdownMs, state.totalMs)
@@ -219,7 +218,7 @@ private fun RunningTimer(
         })
     }
 
-    // Extending is arithmetic on a countdown, so it is offered only for a duration (C6): the shared timer ignores an
+    // Extending is arithmetic on a countdown, so it is offered only for a duration: the shared timer ignores an
     // extend on an end-of-chapter timer, so "+5 min" there would be a button whose press changes nothing.
     if (SleepTimerChoices.canExtend(state)) {
         Div(attrs = {
@@ -265,7 +264,7 @@ private const val CUSTOM_FIELD_ID = "sleep-custom-minutes"
 private val DEFAULT_CUSTOM = SleepTimerChoices.CUSTOM_DEFAULT_MINUTES.toString()
 
 /**
- * The custom field's ceiling (open question 3, C3's default): the spec's shared bound, 720 minutes, which overrules the
+ * The custom field's ceiling: the shared bound, 720 minutes, which overrules the
  * web board's `max=600`. One constant, so the call is easy to change.
  */
 private const val CUSTOM_FIELD_MAX = SleepTimerChoices.CUSTOM_MAX_MINUTES

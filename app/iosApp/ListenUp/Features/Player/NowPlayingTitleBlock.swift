@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One person in the byline's folded menu: their name and their books in your library (spec §5.5.5, PK1).
+/// One person in the byline's folded menu: their name and their books in your library.
 struct BylineMenuRow: Equatable, Identifiable {
     let id: String
     let name: String
@@ -8,7 +8,7 @@ struct BylineMenuRow: Equatable, Identifiable {
     let books: String?
 }
 
-/// Now Playing's title block (player spec §5.2, iOS; the `NP-iPhone` and `NP-iPad` boards). On iPhone (`.phone`) three
+/// Now Playing's title block (iOS). On iPhone (`.phone`) three
 /// centred lines: the title, the chapter's own title and who narrates it. On iPad's wide player the series as a link
 /// above the title (P10), then the book's title, the author and "Read by" line whose names are links, then the chapter
 /// line. More than three people in a role fold to "Michael Kramer & 3 more", a pull-down menu of the names (HIG,
@@ -44,7 +44,7 @@ struct NowPlayingTitleBlock: View {
     /// More than this many names in a role fold behind a menu.
     static let foldThreshold = 3
 
-    /// "Chapter 6 of 75 · Bridge Four": the counter only where it cannot disagree with the book's own naming (plan C6);
+    /// "Chapter 6 of 75 · Bridge Four": the counter only where it cannot disagree with the book's own naming;
     /// the book's own title alone otherwise; "Chapter 6" for an untitled chapter; "Whole book" for a chapterless book.
     static func chapterLine(number: Int, total: Int, title: String, showsCounter: Bool, isWholeBook: Bool) -> String {
         if isWholeBook { return String(localized: "player.np_whole_book") }

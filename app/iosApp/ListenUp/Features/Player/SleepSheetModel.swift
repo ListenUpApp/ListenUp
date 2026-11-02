@@ -1,11 +1,11 @@
 import Foundation
 @preconcurrency import Shared
 
-/// What the Sleep sheet shows (player spec §5.5.2, PT1–PT8): choosing a timer, a running one, or the fade. A pure value
+/// What the Sleep sheet shows: choosing a timer, a running one, or the fade. A pure value
 /// built from the snapshot, the progress and the clock, so every face is testable without SwiftUI.
 ///
-/// Times follow open question 2's default: a countdown and "Pauses at" are wall time (the shared `SleepCountdowns`),
-/// while "After Bridge Four · in 8 min" is the chapter's content time, like every other "left" (S10).
+/// A countdown and "Pauses at" are wall time (the shared `SleepCountdowns`),
+/// while "After Bridge Four · in 8 min" is the chapter's content time, like every other "left".
 struct SleepSheetModel: Equatable {
     enum Mode: Equatable {
         /// `endOfChapter` is End of Chapter's line ("After Bridge Four · in 8 min"), nil for a chapterless book.

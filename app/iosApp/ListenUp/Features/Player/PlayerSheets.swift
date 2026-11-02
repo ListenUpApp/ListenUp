@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Boost Picker Sheet
 
-/// Volume Boost (player spec §5.5.3, PB1–PB5; the `Sheets-iPhone` board): the coral readout, the five levels as a
+/// Volume Boost: the coral readout, the five levels as a
 /// segmented control, the note, and Reset. HIG, Segmented controls: one choice among a few closely related ones. It
 /// stays open after a pick, so the reader can hear each level and settle (PB5); the close button or a swipe ends it.
 struct BoostPickerSheet: View {
@@ -96,15 +96,15 @@ struct BoostPickerSheet: View {
 // MARK: - Chapter Row
 
 /// One chapter line — number · title · duration, with a now-playing equalizer on the current chapter and a play glyph
-/// on the rest. The current chapter sits on a coral tint (plan C14: tinted on iOS) with "Now Playing · 8 min left";
+/// on the rest. The current chapter sits on a coral tint (tinted on iOS) with "Now Playing · 8 min left";
 /// others carry a leading-inset hairline. Shared by `ChapterListSheet` (the sheet) and the iPad's `NowPlayingChapterPanel`
 /// so both surfaces render chapters identically; only the panel draws the current row's chapter bar (`chapterFraction`),
-/// because the panel stays open while the chapter plays (§3.11).
+/// because the panel stays open while the chapter plays.
 ///
 /// Text stays `.primary` or `luQuietInk` (4.5:1, unlike the system's secondary and tertiary labels) on every row: the
 /// tint is decoration (the wash and the equalizer), never the colour
 /// a title is read in. The current row is also `.isSelected` and says "now playing", so it is marked by more than colour.
-/// VoiceOver hears one label per row (spec §8): "Chapter 6, Bridge Four, now playing, 8 minutes left" (the visible
+/// VoiceOver hears one label per row: "Chapter 6, Bridge Four, now playing, 8 minutes left" (the visible
 /// "8 min" in words), or "Play from chapter 7: Anything Reasonable, 33:18". At accessibility text sizes the row stacks
 /// (HIG, Typography).
 struct ChapterRow: View {
@@ -125,7 +125,7 @@ struct ChapterRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The current row's tint: the coral at this opacity (plan C14: tinted on iOS, never filled).
+    /// The current row's tint: the coral at this opacity (tinted on iOS, never filled).
     static let currentTintOpacity = 0.10
 
     private var isStacked: Bool { dynamicTypeSize.isAccessibilitySize }
@@ -253,9 +253,9 @@ struct ChapterRowSpokenLabel: ViewModifier {
     }
 }
 
-/// The current row's chapter progress in the iPad panel (spec §3.11; verify c5): an 80pt capsule, its fill in the deeper
+/// The current row's chapter progress in the iPad panel: an 80pt capsule, its fill in the deeper
 /// coral ink on a coral track, so the moving part reads at 3:1 or more against its own track on every wash (WCAG 1.4.11;
-/// plan C7 — the board's pale track under a light fill would all but vanish). Decorative to VoiceOver: the row already
+/// a pale track under a light fill would all but vanish). Decorative to VoiceOver: the row already
 /// says the time left. Its own view, so the fraction is read here and a progress tick redraws only the bar.
 struct ChapterRowBar: View {
     let fraction: () -> Float
@@ -283,9 +283,9 @@ struct ChapterRowBar: View {
 
 // MARK: - Chapter List Sheet
 
-/// The Chapters sheet (player spec §5.5.4, PC1–PC4): "75 chapters · 45 hr 30 min", then every chapter, opening centred
+/// The Chapters sheet: "75 chapters · 45 hr 30 min", then every chapter, opening centred
 /// on the one you're in — after the sheet has laid out, and without animating, since the jump isn't motion the reader
-/// asked for (§9.2). Tapping a row plays from it and closes the sheet (PC4).
+/// asked for. Tapping a row plays from it and closes the sheet.
 struct ChapterListSheet: View {
     let observer: PlayerObserver
     let onDismiss: () -> Void
@@ -342,7 +342,7 @@ struct ChapterListSheet: View {
                 .padding(.vertical, Spacing.xs)
                 .scrollTargetLayout()
             }
-            // The scroll position starts on the current row, so the first layout is already centred (§9.2: centring
+            // The scroll position starts on the current row, so the first layout is already centred (centring
             // before the container has laid out is what left the web's list at chapter 1).
             .scrollPosition(id: $centredRowId, anchor: .center)
             .task {

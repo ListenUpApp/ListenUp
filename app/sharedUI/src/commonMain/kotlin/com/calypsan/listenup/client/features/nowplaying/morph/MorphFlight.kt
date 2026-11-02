@@ -91,7 +91,7 @@ private val ThumbHeight = 44.dp
 private val BarGlyph = 24.dp
 private val PageGlyph = 40.dp
 
-/** The bar's title fades out across this window, Now Playing's fades in across the next (Call C6). */
+/** The bar's title fades out across this window, Now Playing's fades in across the next. */
 private val BarTitleOut = MorphWindow(0.35f, 0.5f)
 private val PageTitleIn = MorphWindow(0.5f, 0.65f)
 

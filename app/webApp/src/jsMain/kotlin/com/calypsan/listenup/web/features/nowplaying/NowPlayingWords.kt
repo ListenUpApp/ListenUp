@@ -31,13 +31,13 @@ internal object NowPlayingWords {
     const val KEYBOARD_SHORTCUTS = "Keyboard shortcuts"
     const val PRESS_FOR_SHORTCUTS = "Press ? for keyboard shortcuts."
 
-    /** A tooltip that names its key (spec §5.8): "Sleep timer (T)". */
+    /** A tooltip that names its key: "Sleep timer (T)". */
     fun withKey(
         label: String,
         key: String,
     ): String = "$label ($key)"
 
-    /** The status slot's news (§3.1), with the browser's wording for an unreachable server. */
+    /** The status slot's news, with the browser's wording for an unreachable server. */
     fun status(status: SourceStatus): String =
         when (status) {
             SourceStatus.Offline -> "Offline"
@@ -56,7 +56,7 @@ internal object NowPlayingWords {
     ): String = "Chapter $number of $total"
 
     /**
-     * The chapter line (C6): "Chapter 6 of 75 · Bridge Four" when the chapter has a real title; the book's own generic
+     * The chapter line: "Chapter 6 of 75 · Bridge Four" when the chapter has a real title; the book's own generic
      * title alone ("Chapter 14"), with no counter that could disagree with it; "Whole book" for a chapterless book.
      */
     fun chapterLine(chapter: PlayerChapter): String =
@@ -120,5 +120,5 @@ internal object NowPlayingWords {
     fun moreFor(title: String): String = "More actions for $title"
 }
 
-/** C6, the one place the counter's rule lives: only beside a real title, never for a chapterless book. */
+/** The one place the counter's rule lives: only beside a real title, never for a chapterless book. */
 private fun showsCounter(chapter: PlayerChapter): Boolean = !chapter.isWholeBook && !chapter.isGenericTitle

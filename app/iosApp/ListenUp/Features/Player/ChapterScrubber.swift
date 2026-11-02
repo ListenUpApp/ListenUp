@@ -26,7 +26,7 @@ enum ScrubberAccessibility {
     }
 }
 
-/// The chapter slider over elapsed · −remaining (player spec §3.2: everything that moves is chapter-scoped). Its own
+/// The chapter slider over elapsed · −remaining (everything that moves is chapter-scoped). Its own
 /// view so the per-frame position reads that drive the moving thumb re-evaluate only this small view, not the whole
 /// player.
 struct ChapterScrubberSection: View {

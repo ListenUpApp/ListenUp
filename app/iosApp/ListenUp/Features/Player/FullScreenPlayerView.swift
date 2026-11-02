@@ -4,7 +4,7 @@ import SwiftUI
 /// The full-screen audiobook player, presented by `MainTabView` as a `fullScreenCover` that zooms
 /// out of the mini player's cover.
 ///
-/// Surface: the cover's wash (player spec §3.9, the same `CoverThemeObserver` Book Detail and Home use), or the
+/// Surface: the cover's wash (the same `CoverThemeObserver` Book Detail and Home use), or the
 /// player's warm neutral until it resolves or when the cover gives none — the player is content, and HIG, Materials:
 /// "Don't use Liquid Glass in the content layer". Glass is kept for the floating header controls. The system
 /// presentation supplies VoiceOver modality, the swipe-down dismiss, and the zoom back into the mini player.
@@ -22,7 +22,7 @@ import SwiftUI
 /// (small phones, AX text sizes) the column scrolls instead of clipping.
 ///
 /// The header reads Collapse · where the audio is · More. When the book can't play, or has finished, the shared state
-/// card takes the transport's place; everything else stays, so the reader's place stays in view (plan C5).
+/// card takes the transport's place; everything else stays, so the reader's place stays in view.
 struct FullScreenPlayerView: View {
     let observer: PlayerObserver
     /// Dismiss the player and navigate to the current book's detail screen.
@@ -97,7 +97,7 @@ struct FullScreenPlayerView: View {
         }
         .animation(CoverThemeMotion.animation(fadesIn: coverTheme.fadesIn, reduceMotion: reduceMotion),
                    value: coverTheme.colors)
-        // A revoked book closes Now Playing (§5.6); the mini player then says why.
+        // A revoked book closes Now Playing; the mini player then says why.
         .onChange(of: observer.closesNowPlaying) { _, closes in
             if closes { dismiss() }
         }
@@ -295,7 +295,7 @@ struct FullScreenPlayerView: View {
             Spacer().frame(height: 18)
             // Chapter-scoped progress — its own view so its per-frame position reads don't
             // re-evaluate the rest of the player. Still under a problem card, live on a finished book (a seek there is
-            // Listen Again from that point, §4.5).
+            // Listen Again from that point).
             ChapterScrubberSection(observer: observer)
                 .disabled(isShowingProblem)
             Spacer().frame(height: 14)
@@ -367,7 +367,7 @@ struct FullScreenPlayerView: View {
 
             Spacer(minLength: Spacing.xs)
 
-            // Only news (§3.1, Simon 2026-10-27): plain status text, not a chip (HIG; plan F7). Downloaded, streaming
+            // Only news: plain status text, not a chip (HIG). Downloaded, streaming
             // and casting say nothing; AirPlay's caption names a device.
             if let statusText = observer.statusText {
                 Text(statusText)
@@ -399,7 +399,7 @@ struct FullScreenPlayerView: View {
             .accessibilityShowsLargeContentViewer()
     }
 
-    /// The shared More menu (§5.5.7): the places, then Close Book in its own section, destructive (HIG, Menus). The phone's
+    /// The shared More menu: the places, then Close Book in its own section, destructive (HIG, Menus). The phone's
     /// title block names the narrators only, so More carries Go to Author (a submenu for several, HIG Menus); iPad's
     /// wide player shows the authors and the series as links, so its More has neither. Never Go to Narrator: the
     /// narrator line's names are the way there.

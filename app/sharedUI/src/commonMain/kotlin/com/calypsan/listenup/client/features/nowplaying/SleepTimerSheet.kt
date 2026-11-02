@@ -67,7 +67,7 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
 
 /**
- * What the sleep sheet draws (spec §5.5.2), built by the host from the loaded state. Everything that moves with the
+ * What the sleep sheet draws, built by the host from the loaded state. Everything that moves with the
  * position is a lambda, read in the leaf that shows it, so the 4 Hz tick never recomposes the sheet.
  *
  * @property timer The sleep timer: which view the sheet shows.
@@ -88,20 +88,20 @@ internal data class SleepSheetState(
 )
 
 /**
- * The Sleep sheet (spec §5.5.2, PT1–PT8; `Sheets-Android`). With no timer: End of chapter first and largest, in the
+ * The Sleep sheet. With no timer: End of chapter first and largest, in the
  * timer's gold, with the chapter and how long it has left (hidden for a chapterless book); then the durations; then a
- * custom time. Starting a timer closes the sheet (§3.8).
+ * custom time. Starting a timer closes the sheet.
  *
- * Running: the countdown in big m:ss (not a live region, §8), when it pauses by the device's clock, a gold meter of what
+ * Running: the countdown in big m:ss (not a live region), when it pauses by the device's clock, a gold meter of what
  * is left, +5 / +10 / +15 for a duration, and Cancel timer, which keeps the sheet open and returns to the choices (S13).
- * Fading: the same gold card Now Playing shows, with Keep listening (PT7). Adaptive sheet/dialog via
+ * Fading: the same gold card Now Playing shows, with Keep listening. Adaptive sheet/dialog via
  * [AdaptiveSheet].
  *
  * @param state What to draw.
  * @param onSetTimer Start a timer with the chosen [SleepTimerMode].
  * @param onCancelTimer Cancel the running timer.
  * @param onExtendTimer Add the given number of minutes to a running duration timer.
- * @param onKeepListening Cancel the timer during its fade; full volume returns (PT7).
+ * @param onKeepListening Cancel the timer during its fade; full volume returns.
  * @param onDismiss Dismiss the panel.
  */
 @Composable
@@ -165,7 +165,7 @@ private fun SleepChoices(
 }
 
 /**
- * The sheet's one emphasised choice, in the gold of the running timer (§3.9): the moon, "End of chapter" and "Pauses
+ * The sheet's one emphasised choice, in the gold of the running timer: the moon, "End of chapter" and "Pauses
  * after Bridge Four · in 8m" — content time, like every chapter remainder (S10).
  */
 @Composable
@@ -250,7 +250,7 @@ private val DURATION_HEIGHT = 56.dp
 private const val DURATIONS_PER_ROW = 3
 
 /**
- * A running timer (PT3–PT6): the countdown, "Pauses at 11:42 PM · 30 min timer" (or, for End of chapter, "Until the end
+ * A running timer: the countdown, "Pauses at 11:42 PM · 30 min timer" (or, for End of chapter, "Until the end
  * of Bridge Four · 8m"), the meter, the extend group for a duration ([SleepTimerChoices.canExtend]), and Cancel timer.
  */
 @Composable

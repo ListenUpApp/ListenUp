@@ -1,7 +1,7 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// The Speed sheet's rules, each the shared one (player spec §5.5.1, PS1–PS5), so iOS can't disagree with Android or the
+/// The Speed sheet's rules, each the shared one, so iOS can't disagree with Android or the
 /// web about where a step lands or which preset is on.
 enum SpeedSheetModel {
     /// One 0.05× step, counted in the shared whole hundredths: thirty presses never drift off a rung.
@@ -43,7 +43,7 @@ struct SpeedSheetActions {
     var reset: () -> Void
 }
 
-/// The Speed sheet's content (§5.5.1, iOS column; the `Sheets-iPhone` board): the readout and its wall-time line, a fine
+/// The Speed sheet's content: the readout and its wall-time line, a fine
 /// `Slider` between − and +, the nine presets, Reset and the note. It stays open while the reader tries speeds (HIG,
 /// Sheets: values here are adjusted, not picked once).
 struct SpeedSheetContent: View {

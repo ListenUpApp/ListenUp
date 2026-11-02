@@ -38,7 +38,7 @@ import listenup.composeapp.generated.resources.player_mini_whole_book
 import listenup.composeapp.generated.resources.player_reconnecting
 import org.jetbrains.compose.resources.stringResource
 
-/** Which parts of [MiniPlayerLine] a surface has room for (spec §5.1 M6/M7). */
+/** Which parts of [MiniPlayerLine] a surface has room for. */
 internal enum class MiniLineFit {
     /** The phone bar and the reader strip: "Bridge Four · 8m left"; an armed timer: "Bridge Four · Sleep · 23m". */
     WithTimeLeft,
@@ -174,7 +174,7 @@ private fun trailing(
     }
 }
 
-/** The short mini-player line for a book that can't play, or the card title where there is none (§4.6). */
+/** The short mini-player line for a book that can't play, or the card title where there is none. */
 @Composable
 internal fun AppError.miniPlayerWords(): String =
     when (this) {

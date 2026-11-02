@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.LazyListState
 private const val EDGE_SLACK_PX = 0.5f
 
 /**
- * Whether the item at [index] is laid out wholly inside the viewport: §3.11's one input to `ChapterListFollow`
+ * Whether the item at [index] is laid out wholly inside the viewport: the one input to `ChapterListFollow`
  * ("follow only when the old current row was fully visible"). A row cut by either edge, or not laid out, is not.
  */
 internal fun LazyListState.isItemFullyVisible(index: Int): Boolean {
@@ -20,13 +20,13 @@ internal fun LazyListState.isItemFullyVisible(index: Int): Boolean {
 }
 
 /**
- * Scrolls so the item at [index] sits in the middle of the viewport (spec §3.11's opening rule), or as near as the
+ * Scrolls so the item at [index] sits in the middle of the viewport, or as near as the
  * list's ends allow. Reads the item's laid-out size, so it is right for any row height. Call it once the list has laid
- * out (§9.2: centring before the container is open lands on the wrong place).
+ * out (centring before the container is open lands on the wrong place).
  *
  * Used by the phone chapter sheet (a jump, PR 4) and the wide chapter panel (a jump on open, a glide on follow, PR 5).
  * With [animate] the list glides there on the scroll's default spring, which Compose's motion scale cuts to nothing
- * when the system's "Remove animations" is on (§8).
+ * when the system's "Remove animations" is on.
  */
 internal suspend fun LazyListState.centreOn(
     index: Int,

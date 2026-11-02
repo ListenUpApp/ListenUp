@@ -345,7 +345,7 @@ private fun CompactCase(
     }
 }
 
-/** The wide previews' window sizes (spec §5.3): three columns, an upright tablet's column and panel, and no panel. */
+/** The wide previews' window sizes: three columns, an upright tablet's column and panel, and no panel. */
 private val wideWindows =
     listOf(
         "1280×800 — three columns" to (1280.dp to 800.dp),

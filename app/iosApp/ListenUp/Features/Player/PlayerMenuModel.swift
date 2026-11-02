@@ -1,7 +1,7 @@
 import Foundation
 @preconcurrency import Shared
 
-/// One section of Now Playing's More menu, from the shared `PlayerMenus` (§5.5.7). Close Book's section is destructive.
+/// One section of Now Playing's More menu, from the shared `PlayerMenus`. Close Book's section is destructive.
 struct PlayerMenuSection: Equatable {
     let rows: [PlayerMenuModel.Row]
     let isDestructive: Bool

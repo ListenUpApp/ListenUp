@@ -1,6 +1,6 @@
 @preconcurrency import Shared
 
-/// The §3.11 follow rule for the iPad chapter panel. The shared `ChapterListFollow` decides, so the panel, Android's
+/// The follow rule for the iPad chapter panel. The shared `ChapterListFollow` decides, so the panel, Android's
 /// and the web's cannot disagree; this keeps the one fact it needs — which rows are fully in view, from
 /// `onScrollVisibilityChange(threshold: 1.0)` — and says how to move. Pure, so the decision is tested without a scroll
 /// view.
@@ -29,7 +29,7 @@ struct ChapterPanelFollow: Equatable {
     }
 
     /// What to do now that `index` is the current chapter. The first is always a jump to the centre: the panel opens on
-    /// your chapter, and that isn't motion the reader asked for (§9.2).
+    /// your chapter, and that isn't motion the reader asked for.
     mutating func onCurrent(_ index: Int) -> Move {
         defer { current = index }
         guard let previous = current else { return .centre(animated: false) }

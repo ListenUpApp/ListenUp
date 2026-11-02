@@ -34,7 +34,7 @@ extension PlayerCoordinator {
         let name = AVAudioSession.routeChangeNotification
         bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
             guard let self else { return }
-            // The status slot names an AirPlay device (spec §4.7); every route change may move it.
+            // The status slot names an AirPlay device; every route change may move it.
             let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
             facts.route(outputs.first { $0.portType == .airPlay }?.portName)
             guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
@@ -78,7 +78,7 @@ extension PlayerCoordinator {
         }
     }
 
-    // MARK: - RemoteCommandHandler (Decision 12: engine-level, the session sees the resulting facts)
+    // MARK: - RemoteCommandHandler (engine-level: the session sees the resulting facts)
     //
     // Each callback only enqueues; the guards that read state run when the step does, in order with everything else.
 
@@ -86,7 +86,7 @@ extension PlayerCoordinator {
     func remotePlay() { steps.yield(.remote(.play)) }
     func remotePause() { steps.yield(.remote(.pause)) }
     /// The lock screen's, AirPods' and CarPlay's skips move what the app's do: the interval in seconds of listening,
-    /// so interval × speed of book (§3.3, the shared `skipTargetMs`).
+    /// so interval × speed of book (the shared `skipTargetMs`).
     func remoteSkipForward() { steps.yield(.remote(.skipForward)) }
     func remoteSkipBackward() { steps.yield(.remote(.skipBackward)) }
     func remoteSetRate(_ rate: Float) {
@@ -97,7 +97,7 @@ extension PlayerCoordinator {
     /// it reports is window-relative; the step translates it back to a book position.
     func remoteSeek(toWindowPositionMs positionMs: Int64) { steps.yield(.remote(.seekWindow(positionMs))) }
 
-    /// Previous chapter by the shared rule (§3.3), the one every surface uses; nothing in a chapterless book, and the
+    /// Previous chapter by the shared rule, the one every surface uses; nothing in a chapterless book, and the
     /// system is told so. The decision is synchronous (it only reads chapters); the seek is a queued step.
     func remotePreviousTrack() -> Bool {
         guard let target = ChapterNavigation.shared.previousStartMs(positionMs: bookPositionMs, chapters: chapters)
@@ -145,7 +145,7 @@ extension PlayerCoordinator {
     }
 
     /// Where a remote skip lands: the interval in seconds of listening, so interval × speed of book, as the app's own
-    /// skip moves (§3.3, the shared `skipTargetMs`).
+    /// skip moves (the shared `skipTargetMs`).
     func remoteSkipTarget(forward: Bool) -> Int64 {
         ExportedKotlinPackages.com.calypsan.listenup.client.playback.skipTargetMs(
             currentPositionMs: bookPositionMs,

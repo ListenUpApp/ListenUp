@@ -33,7 +33,7 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The page's chapter list (§3.11): a "Chapters" heading over how many and how long, then number · title · duration, the
+ * The page's chapter list: a "Chapters" heading over how many and how long, then number · title · duration, the
  * current row filled and saying "Playing · 8m left" after a bar of how far through the chapter the playhead is.
  *
  * It opens centred on the current chapter and follows the playhead by the shared [ChapterListFollow] rule: a chapter
@@ -43,7 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * The heading carries [CHAPTERS_HEADING_ID], so the page's region can be named by it; neither it nor the decorative
  * bar is a tab stop, so the page's focus order is the rows' alone.
  *
- * ⛔ Centred from an effect after a frame, never from a `ref` (§9.2): a `ref` runs while the container may not be laid
+ * ⛔ Centred from an effect after a frame, never from a `ref`: a `ref` runs while the container may not be laid
  * out, and the scroll landed on the wrong row.
  */
 @Composable
@@ -151,8 +151,8 @@ private fun ChapterRow(
 }
 
 /**
- * How far through the chapter the playhead is, as the tablet's panel draws it (§5.3): an 80px track in the pressed coral
- * with a white fill, which reads at 3:1 against both its track and the row (C7). Hidden from assistive tech: the row's
+ * How far through the chapter the playhead is, as the tablet's panel draws it: an 80px track in the pressed coral
+ * with a white fill, which reads at 3:1 against both its track and the row. Hidden from assistive tech: the row's
  * name already says the time left, so the bar adds no stop and no name. A tick only restyles the fill's width.
  */
 @Composable

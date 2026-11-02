@@ -49,7 +49,7 @@ import kotlin.math.roundToInt
  * nothing for [PlayerUiState.NothingLoaded].
  *
  * The bar shows from the moment a book is asked for: while it prepares it already names the new book, with
- * a spinner on the main button (§3.6). The main button is whatever [PlayerUiState.Loaded.primary] says
+ * a spinner on the main button. The main button is whatever [PlayerUiState.Loaded.primary] says
  * (Play, Pause, Retry, Listen again, …), and it acts through [onPrimary], so the bar never decides on its
  * own what a press means.
  *
@@ -63,7 +63,7 @@ import kotlin.math.roundToInt
  * a seek per pointer sample, which on the HLS path means
  * [com.calypsan.listenup.web.playback.HtmlAudioPlayer] re-running `attach` per sample, destroying
  * and rebuilding an hls.js instance and re-fetching its playlists tens of times a second.
- * Committing once, on release, fixes both. On the bar and the phone Now Playing page it spans the chapter (M10, gap 8).
+ * Committing once, on release, fixes both. On the bar and the phone Now Playing page it spans the chapter.
  */
 @Composable
 fun TransportBar(
@@ -89,7 +89,7 @@ fun TransportBar(
     onFocusChapters: (() -> Unit)? = null,
 ) {
     LocalCompositionProbe.current(TRANSPORT_BAR_PROBE)
-    // Where each panel is open, or null: the bar's controls hang popovers from themselves (§5.1), or open sheets where
+    // Where each panel is open, or null: the bar's controls hang popovers from themselves, or open sheets where
     // the window is narrower than PANEL_POPOVER_MIN_WIDTH_PX (panelPlacementFor).
     val panels = remember { BarPanels() }
     var boostOpen by remember { mutableStateOf(false) }
@@ -192,7 +192,7 @@ fun TransportBar(
                 sleepCountdownMs = sleepCountdownMs,
                 panels = panels,
                 onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
-                // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
+                // On the page, wider than a phone, the list is already there: Chapters takes focus to it.
                 onOpenChapters = { opener ->
                     if (isNowPlayingOpen && onFocusChapters != null) {
                         onFocusChapters()
@@ -219,7 +219,7 @@ fun TransportBar(
 internal const val TRANSPORT_BAR_PROBE = "transport-bar"
 
 /**
- * The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
+ * The keyboard shortcuts (`?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
  * settings group, so it steps aside with them below 760px, where the web phone has none.
  */
 @Composable
@@ -236,7 +236,7 @@ private fun ShortcutsButton(panels: BarPanels) {
     }) { Icon(WebIcon.Keyboard, size = CHAPTER_ICON_SIZE) }
 }
 
-/** Open ↔ Close: on the page it is the way back (§5.1), and says so; P opens it, and P or Esc closes it. */
+/** Open ↔ Close: on the page it is the way back, and says so; P opens it, and P or Esc closes it. */
 @Composable
 private fun ExpandButton(
     isNowPlayingOpen: Boolean,
@@ -294,7 +294,7 @@ private fun BarBook(
         })
     }
 
-    // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once (§8).
+    // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once.
     Span(attrs = {
         classes("sr-only")
         attr(ATTR_ROLE, "status")
@@ -354,7 +354,7 @@ private fun BarTransport(
     val settings = state.settings
     Div(attrs = { classes("tport-mid") }) {
         Div(attrs = { classes("tport-transport") }) {
-            // Its slot is kept while hidden (§3.5's stalls), so the main button never moves under the cursor.
+            // Its slot is kept while hidden, so the main button never moves under the cursor.
             SkipButton(
                 icon = WebIcon.SkipBack,
                 seconds = settings.skipBackSec,
@@ -392,9 +392,7 @@ private fun BarTransport(
 }
 
 /**
- * Speed · Sleep · Chapters: the three that change how this book plays rather than where it is (§5.1 M13, M16,
- * M14). Volume boost left the bar with the redesign; it is one tap away in Now Playing until PR 4 moves it
- * into More.
+ * Speed · Sleep · Chapters: the three that change how this book plays rather than where it is. Volume boost is not on the bar; it lives in More.
  */
 @Composable
 private fun SessionControls(
@@ -423,7 +421,7 @@ private fun SessionControls(
     }) { Text("${compactSpeedText(speed)}\u00D7") }
 
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
-    // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
+    // control, in gold: a timer nobody can see is one the listener forgets setting — and finding out it was
     // armed by having the book stop is the one way this feature can feel broken rather than kind.
     val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(PlayerSheetWords::countdown)
     val sleepLabel = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer"

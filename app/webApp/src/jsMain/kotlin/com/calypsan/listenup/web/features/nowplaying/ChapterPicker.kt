@@ -60,9 +60,9 @@ internal fun ChapterPicker(
                 }
             }
         }
-        // Centred on the chapter being listened to (§3.11, §5.5.4) only once the panel is open and laid out: two
+        // Centred on the chapter being listened to only once the panel is open and laid out: two
         // frames after it is shown, never from the row's own `ref`, which fired while the `<dialog>` was still closed
-        // and left the list at chapter 1 (§9.2, hypothesis 2). `behavior: "auto"`, so nothing animates on open.
+        // and left the list at chapter 1. `behavior: "auto"`, so nothing animates on open.
         DisposableEffect(Unit) {
             var live = true
             window.requestAnimationFrame {
@@ -76,8 +76,8 @@ internal fun ChapterPicker(
 }
 
 /**
- * One chapter: its number, its title (with "Playing · 8m left" under the current one), and its **duration** (gap 16),
- * named for what pressing it does (§8).
+ * One chapter: its number, its title (with "Playing · 8m left" under the current one), and its **duration**,
+ * named for what pressing it does.
  */
 @Composable
 private fun ChapterRow(

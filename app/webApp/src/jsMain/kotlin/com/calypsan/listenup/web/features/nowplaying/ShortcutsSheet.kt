@@ -9,7 +9,7 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * The keyboard shortcuts (spec §5.8, `Shortcuts-WebDesktop`), from `?`, the bar's Shortcuts button and More: one row per
+ * The keyboard shortcuts, from `?`, the bar's Shortcuts button and More: one row per
  * [playerShortcuts] entry, read as pairs (a `<dl>`: the keys, then what they do). A [PlayerPanel], so it hangs from
  * its opener on wide and is a bottom sheet on a phone, and Esc or Close hand focus back.
  */

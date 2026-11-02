@@ -10,7 +10,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
 
 /**
- * The player's keyboard (spec §5.8), registered with the shell's one key dispatcher at [KeyPriority.Player] for the
+ * The player's keyboard, registered with the shell's one key dispatcher at [KeyPriority.Player] for the
  * shell's lifetime, so it works on every page while a book is loaded. [onTogglePlayer] opens Now Playing (or closes it
  * there) and [onClosePlayer] closes it; T, C and ? press the control the reader can see, so its panel opens against it
  * and focus goes back to it, exactly as a click does.

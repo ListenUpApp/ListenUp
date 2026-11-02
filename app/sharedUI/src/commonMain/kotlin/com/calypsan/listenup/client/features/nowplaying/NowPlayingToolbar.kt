@@ -66,7 +66,7 @@ import listenup.composeapp.generated.resources.player_skip_backward
 import listenup.composeapp.generated.resources.player_skip_forward
 import org.jetbrains.compose.resources.stringResource
 
-/** The narrowest toolbar that holds the whole wide set (§3.5); below it the scrubber and the settings step aside. */
+/** The narrowest toolbar that holds the whole wide set; below it the scrubber and the settings step aside. */
 internal val ToolbarFullSetMinWidth = 840.dp
 
 /** The gap the toolbar floats at, from the window edges and the rail (FloatingToolbar's external padding). */
@@ -96,7 +96,7 @@ private val ToolbarCoverSize = 60.dp
 private const val FOCUSED_SCALE = 1.02f
 
 /**
- * The wide mini player: tablets, unfolded foldables and TV (spec §5.1, board `Mini-AndroidTablet`). An M3 floating
+ * The wide mini player: tablets, unfolded foldables and TV. An M3 floating
  * toolbar on `surfaceContainer` with 28dp corners and the player's one shadow. Back N follows the shared state;
  * forward stays. The chapter scrubber and Speed · Sleep · Chapters appear when the toolbar is at least
  * [ToolbarFullSetMinWidth] wide — the width decides, not the device (sharedUI rule 11).
@@ -331,7 +331,7 @@ private fun ToolbarScrubber(
     )
 }
 
-/** Speed: a tonal button carrying the rate (§5.1 M13). */
+/** Speed: a tonal button carrying the rate. */
 @Composable
 private fun SpeedButton(
     speed: Float,

@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The player panels' words (spec §5.5): speed, sleep, boost, chapters and people. Web keeps no string catalog; these
+ * The player panels' words: speed, sleep, boost, chapters and people. Web keeps no string catalog; these
  * mirror the sentences `en.json` gives the native clients as `player.sheet_*`. Kept apart from [NowPlayingWords], the
  * page's own words, so each object stays one concern.
  */
@@ -41,7 +41,7 @@ internal object PlayerSheetWords {
     /** "Reset to Off (your default)". */
     fun resetBoost(boostText: String): String = "Reset to $boostText (your default)"
 
-    /** End of chapter's line: "Pauses after Bridge Four · in 8m", in content time (open question 2). */
+    /** End of chapter's line: "Pauses after Bridge Four · in 8m", in content time. */
     fun endOfChapterAfter(
         chapterTitle: String,
         chapterRemainingMs: Long,
@@ -55,7 +55,7 @@ internal object PlayerSheetWords {
 
     /**
      * "Pauses at 11:42 PM · 30 min timer", or "Pauses at 11:42 PM" without [minutes]: the browser's own clock format,
-     * so a 24-hour locale reads "23:42" (C16).
+     * so a 24-hour locale reads "23:42".
      */
     fun pausesAt(
         epochMs: Long,
@@ -77,7 +77,7 @@ internal object PlayerSheetWords {
     /** "+5 min". */
     fun extend(minutes: Int): String = "+$minutes min"
 
-    /** A person's books beside their name: "14 books", "1 book", and no line at all for none (C12). */
+    /** A person's books beside their name: "14 books", "1 book", and no line at all for none. */
     fun books(count: Int): String? =
         when {
             count <= 0 -> null

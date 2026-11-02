@@ -38,7 +38,7 @@ internal val PlayerBook.authorLine: String
 
 /**
  * "Chapter 6 of 75" (P7), or null where it must not show: a chapterless book, or a generic title, which our counter
- * could contradict ("Chapter 16 of 75 · Chapter 14"; Simon, 2026-10-14). Open question 1's default (C6).
+ * could contradict ("Chapter 16 of 75 · Chapter 14"; Simon, 2026-10-14). Open question 1's default.
  */
 @Composable
 internal fun PlayerUiState.Loaded.chapterCounter(): String? =
@@ -48,7 +48,7 @@ internal fun PlayerUiState.Loaded.chapterCounter(): String? =
         stringResource(Res.string.player_chapter_of, chapter.number.toString(), chapter.total.toString())
     }
 
-/** The chapter's own title; "Whole book" for a chapterless book, "Chapter N" for an untitled one (§3.2). */
+/** The chapter's own title; "Whole book" for a chapterless book, "Chapter N" for an untitled one. */
 @Composable
 internal fun PlayerUiState.Loaded.chapterTitleLine(): String =
     when {

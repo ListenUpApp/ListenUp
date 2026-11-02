@@ -42,10 +42,10 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration
 
 /**
- * One row of the chapter list (spec §5.5.4, `Sheets-Android`): number · title · duration. The current chapter is filled
- * coral (`primary` / `onPrimary`, C14) and says "Playing · 8m left" under its title; there is no trailing glyph, because
+ * One row of the chapter list: number · title · duration. The current chapter is filled
+ * coral (`primary` / `onPrimary`) and says "Playing · 8m left" under its title; there is no trailing glyph, because
  * the words say it. Screen readers hear what a tap does — "Play from chapter 7: Anything Reasonable, 33:18" — or, on
- * the current row, "Chapter 6, Bridge Four, now playing, 8 minutes left" (§8): the screen's "8m" in words, so it is
+ * the current row, "Chapter 6, Bridge Four, now playing, 8 minutes left": the screen's "8m" in words, so it is
  * never heard as "8 metres". The current row is selected.
  *
  * @param number The chapter's own number.
@@ -54,9 +54,9 @@ import kotlin.time.Duration
  * @param isCurrent Whether this is the chapter playing now.
  * @param playingLeft The current chapter's remainder, floored to the minute ([chapterLeftToTheMinute]), read in this
  *   leaf so the tick recomposes only this row; null where no row is current.
- * @param chapterFraction How far through the current chapter, 0..1, for the bar under its title (§5.3: linear, not
+ * @param chapterFraction How far through the current chapter, 0..1, for the bar under its title (linear, not
  *   wavy); null where no bar is drawn (the phone sheet). Read only while the bar draws, so a tick never recomposes the
- *   row. The bar is decorative: the row's label already says how long is left (§8).
+ *   row. The bar is decorative: the row's label already says how long is left.
  * @param onClick The row was tapped.
  */
 @Composable
@@ -143,10 +143,10 @@ private val ROW_MIN_HEIGHT = 56.dp
 internal const val CHAPTER_ROW_BAR_TAG = "player-chapter-row-bar"
 
 /**
- * The current row's chapter bar (spec §5.3, the board's 80 × 4dp): M3's linear progress indicator
+ * The current row's chapter bar: M3's linear progress indicator
  * (m3.material.io/components/progress-indicators), with no gap and no stop mark, as the board draws it. The fill is
  * `onPrimary`, the row's own ink; the track is `onPrimaryContainer`, darker than the board's pale `#FFDBD1` so the fill
- * reads against it at 3:1 or better (WCAG 1.4.11; plan C7). Silent to TalkBack: the row's label says the time left.
+ * reads against it at 3:1 or better (WCAG 1.4.11). Silent to TalkBack: the row's label says the time left.
  */
 @Composable
 private fun ChapterRowBar(fraction: () -> Float) {

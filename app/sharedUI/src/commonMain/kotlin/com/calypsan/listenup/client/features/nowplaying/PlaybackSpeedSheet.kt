@@ -57,11 +57,11 @@ import listenup.composeapp.generated.resources.player_sheet_speed_times
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The Speed sheet (spec §5.5.1, PS1–PS5; `Sheets-Android`): the rate as the sheet's one display figure, beside how long
+ * The Speed sheet: the rate as the sheet's one display figure, beside how long
  * the book has left at it (S10's single wall-time exception); − slider + in 0.05 steps (an M3 slider with tonal icon
  * buttons at its ends, m3.material.io/components/sliders/guidelines); the nine presets as one connected single-select
  * group (m3.material.io/components/button-groups/guidelines: connected groups for selection); reset to the listener's
- * own default; and that the speed belongs to this book. It stays open while the listener adjusts (§3.8).
+ * own default; and that the speed belongs to this book. It stays open while the listener adjusts.
  *
  * @param currentSpeed This book's speed.
  * @param defaultSpeed The listener's default speed, which reset returns to.

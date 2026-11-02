@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// The chapter panel beside the player on iPad (player spec §3.11, §5.3; the `NP-iPad` board): "Chapters" over "68
+/// The chapter panel beside the player on iPad: "Chapters" over "68
 /// chapters · 1 hr, 8 min", then every chapter. It replaces the Chapters button and its sheet wherever it shows (P22).
 ///
-/// It opens centred on the chapter you're in, after it has laid out and without animating (§9.2). When the chapter
+/// It opens centred on the chapter you're in, after it has laid out and without animating. When the chapter
 /// changes it follows only if the old current row was fully in view; once you've scrolled away it holds still and
-/// offers "Back to Current Chapter" (§3.11). The decision is the shared `ChapterListFollow`, through
+/// offers "Back to Current Chapter". The decision is the shared `ChapterListFollow`, through
 /// `ChapterPanelFollow`, so iPad, Android and the web cannot disagree.
 ///
 /// A card on the wash (HIG, Materials: "Don't use Liquid Glass in the content layer"): the board's translucent fill,
@@ -103,7 +103,7 @@ struct NowPlayingChapterPanel: View {
                     }
                     .scrollTargetLayout()
                 }
-                // The first layout already rests on the current row (§9.2: centring before the container has laid out
+                // The first layout already rests on the current row (centring before the container has laid out
                 // is what left the web's list at chapter 1).
                 .scrollPosition(id: $centredRowId, anchor: .center)
                 // Reduce Motion can change while the panel is open; every move after that obeys it.
@@ -122,7 +122,7 @@ struct NowPlayingChapterPanel: View {
         }
     }
 
-    /// "Back to Current Chapter", at the foot of the list while the current row is out of view (§3.11). A bordered
+    /// "Back to Current Chapter", at the foot of the list while the current row is out of view. A bordered
     /// coral button (HIG, Buttons), its words in the deeper coral ink so they read at 4.5:1 on the tint.
     private func backToCurrent(_ proxy: ScrollViewProxy) -> some View {
         Button {
