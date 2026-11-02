@@ -2,8 +2,8 @@
 android-compileSdk = "37"
 android-minSdk = "33"
 android-targetSdk = "37"
-agp = "9.4.1"
-# The NDK AGP 9.4.1 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
+agp = "9.5.0"
+# The NDK AGP 9.5.0 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
 # Only :app:androidApp uses it: to strip the AndroidX .so files and extract the symbol tables Play reads.
 android-ndk = "28.2.13676358"
 androidx-benchmark = "1.5.0"
@@ -40,7 +40,7 @@ compose-material3 = "1.12.0-alpha03"
 kotlin = "2.4.20"
 ksp = "2.3.12"
 mokkery = "3.5.1"
-ktor = "3.6.0"
+ktor = "3.6.1"
 # Ahead of Ktor 3.6.0's own OkHttp 5.5.0: 5.5.1 blocks the eight compromised eMudhra intermediate
 # certificates on JVMs and AOSP devices without the Play Services trust update. Drop the pin when
 # a Ktor release depends on okhttp >= 5.5.1.
@@ -88,7 +88,7 @@ google-services = "4.5.0"
 firebase-messaging = "26.0.1"
 
 # Desktop
-logback = "1.6.5"
+logback = "1.6.6"
 jmdns = "3.6.4"
 javacpp = "1.5.14"
 ffmpeg-javacpp = "8.1.2-1.5.14"
@@ -106,7 +106,7 @@ kover = "0.9.11"
 atomicfu = "0.33.0"
 
 # Server persistence + password hashing
-sqlite-jdbc = "3.53.4.0"
+sqlite-jdbc = "3.54.1.0"
 password4j = "1.8.4"
 konsist = "0.18.1"
 ksp-symbol-processing-api = "2.3.12" # matches project ksp version — bump in lockstep with `ksp`
