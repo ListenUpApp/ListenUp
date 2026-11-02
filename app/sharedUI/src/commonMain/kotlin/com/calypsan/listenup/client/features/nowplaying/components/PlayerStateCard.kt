@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
@@ -38,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.RatingStars
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.domain.model.NextInSeries
@@ -130,7 +129,7 @@ internal fun SleepFadingCard(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         ) {
-            Icon(Icons.Default.Bedtime, contentDescription = null)
+            Icon(ListenUpIcons.BedtimeFilled, contentDescription = null)
             Text(stringResource(Res.string.player_sheet_fading_title), style = MaterialTheme.typography.titleMedium)
         }
         Text(stringResource(Res.string.player_sheet_fading_body), style = MaterialTheme.typography.bodyMedium)

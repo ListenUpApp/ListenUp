@@ -23,9 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetRailWidth
@@ -342,7 +340,7 @@ private fun PreviewCovers(
                         .testTag(PREVIEW_COVER_TAG),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Book,
+                    imageVector = ListenUpIcons.Book,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(PREVIEW_GLYPH_SIZE),
@@ -382,7 +380,7 @@ private fun AuthorsEmptyState() {
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Person,
+                imageVector = ListenUpIcons.Person,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.outline,

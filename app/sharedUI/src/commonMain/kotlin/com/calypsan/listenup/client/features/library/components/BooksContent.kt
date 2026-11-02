@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.aspectRatio
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
 import listenup.composeapp.generated.resources.library_arriving_placeholder_a11y
@@ -31,9 +32,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -632,7 +630,7 @@ private fun BooksEmptyState() {
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
+                imageVector = ListenUpIcons.LibraryBooksFilled,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -670,7 +668,7 @@ private fun BooksErrorState(
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.ErrorOutline,
+                imageVector = ListenUpIcons.ErrorOutlineFilled,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.error,

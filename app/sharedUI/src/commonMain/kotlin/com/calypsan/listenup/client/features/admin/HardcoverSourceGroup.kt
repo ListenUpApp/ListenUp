@@ -10,12 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +35,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.HardcoverTokenSave
 import com.calypsan.listenup.client.presentation.error.localized
@@ -117,12 +112,12 @@ internal fun HardcoverSourceGroup(
         }
         SettingRow(
             title = stringResource(Res.string.admin_hardcover_token_get),
-            icon = Icons.AutoMirrored.Outlined.OpenInNew,
+            icon = ListenUpIcons.OpenInNew,
             onClick = { uriHandler.openUri(HARDCOVER_API_PAGE) },
             onClickLabel = stringResource(Res.string.common_open_in_browser),
         )
         SettingToggleRow(
-            icon = Icons.Outlined.Category,
+            icon = ListenUpIcons.Category,
             title = stringResource(Res.string.admin_hardcover_metadata_title),
             subtitle =
                 stringResource(
@@ -225,8 +220,8 @@ private fun TokenEntry(
                 enabled = !busy,
                 isError = refusal != null,
                 supportingText = refusal,
-                leadingIcon = Icons.Outlined.Lock,
-                trailingIcon = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                leadingIcon = ListenUpIcons.Lock,
+                trailingIcon = if (visible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
                 onTrailingClick = { visible = !visible },
                 trailingIconContentDescription = passwordVisibilityDescription(visible),
                 obfuscation = if (visible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,

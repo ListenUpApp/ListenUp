@@ -1,12 +1,8 @@
 package com.calypsan.listenup.client.features.admin.upload
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.design.components.FlowStep
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_upload_books_step_choose
@@ -27,22 +23,22 @@ import org.jetbrains.compose.resources.stringResource
 internal fun uploadFlowSteps(): List<FlowStep> =
     listOf(
         FlowStep(
-            icon = Icons.Outlined.FolderOpen,
+            icon = ListenUpIcons.FolderOpen,
             title = stringResource(Res.string.admin_upload_books_step_choose),
             subtitle = stringResource(Res.string.admin_upload_books_step_choose_sub),
         ),
         FlowStep(
-            icon = Icons.Outlined.CloudUpload,
+            icon = ListenUpIcons.CloudUpload,
             title = stringResource(Res.string.admin_upload_books_step_upload),
             subtitle = stringResource(Res.string.admin_upload_books_step_upload_sub),
         ),
         FlowStep(
-            icon = Icons.AutoMirrored.Outlined.LibraryBooks,
+            icon = ListenUpIcons.LibraryBooks,
             title = stringResource(Res.string.admin_upload_books_step_import),
             subtitle = stringResource(Res.string.admin_upload_books_step_import_sub),
         ),
         FlowStep(
-            icon = Icons.Outlined.Headphones,
+            icon = ListenUpIcons.Headphones,
             title = stringResource(Res.string.admin_upload_books_step_listen),
             subtitle = stringResource(Res.string.admin_upload_books_step_listen_sub),
         ),

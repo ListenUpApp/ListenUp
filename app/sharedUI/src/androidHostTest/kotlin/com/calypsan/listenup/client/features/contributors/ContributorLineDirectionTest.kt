@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.features.contributors
 
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -11,6 +9,7 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.RightToLeft
 import com.calypsan.listenup.client.domain.model.BookContributor
 import io.kotest.matchers.floats.plusOrMinus
@@ -43,7 +42,7 @@ class ContributorLineDirectionTest {
                     nameColor = Color.Black,
                     separatorColor = Color.Black,
                     leadingIcon = {
-                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, modifier = Modifier.testTag(ICON))
+                        Icon(ListenUpIcons.RecordVoiceOverFilled, contentDescription = null, modifier = Modifier.testTag(ICON))
                     },
                     prefix = "Narrated by ",
                 )
@@ -70,7 +69,7 @@ class ContributorLineDirectionTest {
                     nameColor = Color.Black,
                     separatorColor = Color.Black,
                     leadingIcon = {
-                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, modifier = Modifier.testTag(ICON))
+                        Icon(ListenUpIcons.RecordVoiceOverFilled, contentDescription = null, modifier = Modifier.testTag(ICON))
                     },
                 )
             }

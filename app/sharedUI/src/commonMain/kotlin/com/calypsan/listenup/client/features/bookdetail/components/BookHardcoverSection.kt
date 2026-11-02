@@ -10,15 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.LinkOff
-import androidx.compose.material.icons.outlined.PauseCircle
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -49,6 +40,7 @@ import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.components.switchRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.features.settings.byline
@@ -222,7 +214,7 @@ private fun SyncSwitchRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (isOn) Icons.Outlined.Link else Icons.Outlined.LinkOff,
+            imageVector = if (isOn) ListenUpIcons.Link else ListenUpIcons.LinkOff,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(SwitchGlyphSize),
@@ -240,7 +232,7 @@ private fun SyncSwitchRow(
                 if (isOn) {
                     {
                         Icon(
-                            Icons.Filled.Check,
+                            ListenUpIcons.CheckFilled,
                             contentDescription = null,
                             modifier = Modifier.size(SwitchDefaults.IconSize),
                         )
@@ -278,7 +270,7 @@ private fun NeedsMatchBody(onFindMatch: () -> Unit) {
     TonalAction(
         text = stringResource(Res.string.hardcover_find_on_hardcover),
         onClick = onFindMatch,
-        icon = Icons.Outlined.Search,
+        icon = ListenUpIcons.Search,
     )
 }
 
@@ -328,7 +320,7 @@ private fun SyncStatus(state: BookHardcoverUiState.Linked) {
     val success = MaterialTheme.extendedColors.success
     val (icon, text, color) =
         if (state.justMatched) {
-            Triple(Icons.Outlined.CheckCircle, Res.string.hardcover_book_row_just_matched, success)
+            Triple(ListenUpIcons.CheckCircle, Res.string.hardcover_book_row_just_matched, success)
         } else {
             state.sync.status(success)
         }
@@ -352,12 +344,12 @@ private fun SyncStatus(state: BookHardcoverUiState.Linked) {
 private fun HardcoverBookSync.status(success: Color): Triple<ImageVector, StringResource, Color> =
     when (this) {
         HardcoverBookSync.UP_TO_DATE -> {
-            Triple(Icons.Outlined.CheckCircle, Res.string.hardcover_book_sync_up_to_date, success)
+            Triple(ListenUpIcons.CheckCircle, Res.string.hardcover_book_sync_up_to_date, success)
         }
 
         HardcoverBookSync.WAITING -> {
             Triple(
-                Icons.Outlined.Sync,
+                ListenUpIcons.Sync,
                 Res.string.hardcover_book_sync_waiting,
                 MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -365,7 +357,7 @@ private fun HardcoverBookSync.status(success: Color): Triple<ImageVector, String
 
         HardcoverBookSync.NOTHING_SENT_YET -> {
             Triple(
-                Icons.Outlined.Schedule,
+                ListenUpIcons.Schedule,
                 Res.string.hardcover_book_sync_nothing_yet,
                 MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -374,7 +366,7 @@ private fun HardcoverBookSync.status(success: Color): Triple<ImageVector, String
         // Amber and calm: nothing is lost, and listening again starts a new read.
         HardcoverBookSync.REMOVED_ON_HARDCOVER -> {
             Triple(
-                Icons.Outlined.PauseCircle,
+                ListenUpIcons.PauseCircle,
                 Res.string.hardcover_book_sync_removed,
                 MaterialTheme.colorScheme.tertiary,
             )

@@ -1,10 +1,5 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
-import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -39,10 +32,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Chapter
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_delete_chapter
@@ -203,7 +196,7 @@ private fun ChapterRowActions(
     val haptics = LocalHaptics.current
     val colors = MaterialTheme.colorScheme
 
-    RowAction(Icons.Outlined.Remove, stringResource(Res.string.chapter_editor_nudge_back)) {
+    RowAction(ListenUpIcons.Remove, stringResource(Res.string.chapter_editor_nudge_back)) {
         haptics.press()
         onNudge(-nudgeStepMs)
     }
@@ -211,12 +204,12 @@ private fun ChapterRowActions(
         haptics.press()
         onNudge(nudgeStepMs)
     }
-    RowAction(Icons.Outlined.MyLocation, stringResource(Res.string.chapter_editor_snap_to_playhead)) {
+    RowAction(ListenUpIcons.MyLocation, stringResource(Res.string.chapter_editor_snap_to_playhead)) {
         haptics.press()
         onSnapToPlayhead()
     }
     RowAction(
-        icon = if (isLocked) ListenUpIcons.LockFilled else Icons.Outlined.LockOpen,
+        icon = if (isLocked) ListenUpIcons.LockFilled else ListenUpIcons.LockOpen,
         description =
             stringResource(
                 if (isLocked) Res.string.chapter_editor_unlock else Res.string.chapter_editor_lock,
@@ -279,7 +272,7 @@ private fun ChapterOverflowMenu(
     }
 
     Box {
-        RowAction(Icons.Outlined.MoreVert, stringResource(Res.string.chapter_editor_more_for, chapter.title)) {
+        RowAction(ListenUpIcons.MoreVert, stringResource(Res.string.chapter_editor_more_for, chapter.title)) {
             haptics.press()
             expanded = true
         }
@@ -291,7 +284,7 @@ private fun ChapterOverflowMenu(
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_insert_below)) },
-                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.PlaylistAdd, contentDescription = null) },
                 onClick = { choose { menu.onInsertBelow(chapter.id) } },
             )
             // Disabled rather than absent while another book (or nothing) is loaded, so the menu
@@ -299,7 +292,7 @@ private fun ChapterOverflowMenu(
             val onPlayFromHere = menu.onPlayFromHere
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_play_from_here)) },
-                leadingIcon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.PlayArrow, contentDescription = null) },
                 enabled = onPlayFromHere != null,
                 onClick = { choose { onPlayFromHere?.invoke(chapter.id) } },
             )

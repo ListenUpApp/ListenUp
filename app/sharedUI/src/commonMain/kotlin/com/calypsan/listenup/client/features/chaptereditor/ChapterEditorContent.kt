@@ -20,11 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.chapter_editor_add_at_playhead
 import listenup.composeapp.generated.resources.chapter_editor_clear_search
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
@@ -221,8 +218,8 @@ private fun ChapterListPane(
         ListenUpTextField(
             state = queryState,
             placeholder = stringResource(Res.string.chapter_editor_jump_to_title),
-            leadingIcon = Icons.Default.Search,
-            trailingIcon = if (queryState.text.isEmpty()) null else Icons.Default.Close,
+            leadingIcon = ListenUpIcons.SearchFilled,
+            trailingIcon = if (queryState.text.isEmpty()) null else ListenUpIcons.CloseFilled,
             onTrailingClick = queryState::clearText,
             trailingIconContentDescription = stringResource(Res.string.chapter_editor_clear_search),
             modifier = Modifier.fillMaxWidth(),
@@ -268,7 +265,7 @@ private fun ChapterListPane(
                         onClick = onAddAtPlayhead,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     ) {
-                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Icon(ListenUpIcons.AddFilled, contentDescription = null)
                         Text(
                             text = stringResource(Res.string.chapter_editor_add_at_playhead),
                             modifier = Modifier.padding(start = 8.dp),

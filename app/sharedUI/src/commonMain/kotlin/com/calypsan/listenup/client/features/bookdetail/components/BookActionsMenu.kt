@@ -1,16 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.RestartAlt
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -24,6 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import com.calypsan.listenup.client.design.components.MenuGroupLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuGroup
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuHeading
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailMenuItem
@@ -135,13 +126,13 @@ private fun BookDetailMenuItem.label(): StringResource =
 
 private fun BookDetailMenuItem.icon(): ImageVector =
     when (this) {
-        BookDetailMenuItem.Share -> Icons.Outlined.Share
-        BookDetailMenuItem.MarkFinished -> Icons.Outlined.CheckCircle
-        BookDetailMenuItem.Restart -> Icons.Outlined.RestartAlt
-        BookDetailMenuItem.MarkNotStarted -> Icons.Outlined.RadioButtonUnchecked
-        BookDetailMenuItem.EditDetails -> Icons.Outlined.Edit
-        BookDetailMenuItem.MatchDetails -> Icons.Outlined.Search
-        BookDetailMenuItem.EditChapters -> Icons.Outlined.FormatListNumbered
-        BookDetailMenuItem.AddToCollection -> Icons.AutoMirrored.Outlined.PlaylistAdd
-        BookDetailMenuItem.DeleteFromServer -> Icons.Outlined.Delete
+        BookDetailMenuItem.Share -> ListenUpIcons.Share
+        BookDetailMenuItem.MarkFinished -> ListenUpIcons.CheckCircle
+        BookDetailMenuItem.Restart -> ListenUpIcons.RestartAlt
+        BookDetailMenuItem.MarkNotStarted -> ListenUpIcons.RadioButtonUnchecked
+        BookDetailMenuItem.EditDetails -> ListenUpIcons.Edit
+        BookDetailMenuItem.MatchDetails -> ListenUpIcons.Search
+        BookDetailMenuItem.EditChapters -> ListenUpIcons.FormatListNumbered
+        BookDetailMenuItem.AddToCollection -> ListenUpIcons.PlaylistAdd
+        BookDetailMenuItem.DeleteFromServer -> ListenUpIcons.Delete
     }

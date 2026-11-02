@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +36,7 @@ import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
@@ -171,7 +169,7 @@ internal fun RestoreBackupContent(
                     "account from this backup. This cannot be undone.",
             confirmText = "Restore",
             onConfirm = onConfirmRestore,
-            icon = Icons.Default.Warning,
+            icon = ListenUpIcons.WarningFilled,
         )
     }
 }
@@ -209,7 +207,7 @@ private fun IdleContent(
         ) {
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
-                    icon = Icons.Default.Warning,
+                    icon = ListenUpIcons.WarningFilled,
                     title = stringResource(Res.string.admin_restore_destructive_title),
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
@@ -282,7 +280,7 @@ private fun CompletedContent(
         ) {
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 HeaderRow(
-                    icon = Icons.Default.CheckCircle,
+                    icon = ListenUpIcons.CheckCircleFilled,
                     title = stringResource(Res.string.admin_restore_complete),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

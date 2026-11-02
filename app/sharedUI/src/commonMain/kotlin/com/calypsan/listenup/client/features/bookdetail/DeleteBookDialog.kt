@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
@@ -75,7 +74,7 @@ fun DeleteBookDialog(
         onDismiss = onDismiss,
         // The board's trash: the remove-download confirm wears no icon now, so the two no longer need telling apart
         // by glyph, and this is the one that deletes files.
-        icon = Icons.Outlined.Delete,
+        icon = ListenUpIcons.Delete,
         focusDismissFirst = true,
     )
 }

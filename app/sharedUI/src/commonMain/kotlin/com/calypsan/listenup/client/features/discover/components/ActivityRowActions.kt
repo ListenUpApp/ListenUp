@@ -1,12 +1,8 @@
 package com.calypsan.listenup.client.features.discover.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.activityParts
@@ -44,8 +40,8 @@ internal fun ActivityRowAction.label(row: ActivityUiModel): String {
 internal val ActivityRowAction.icon: ImageVector
     get() =
         when (this) {
-            is ActivityRowAction.OpenBook -> Icons.AutoMirrored.Filled.MenuBook
-            is ActivityRowAction.OpenShelf -> Icons.AutoMirrored.Filled.LibraryBooks
-            is ActivityRowAction.OpenProfile -> Icons.Default.Person
-            is ActivityRowAction.AddToShelf -> Icons.AutoMirrored.Filled.PlaylistAdd
+            is ActivityRowAction.OpenBook -> ListenUpIcons.MenuBookFilled
+            is ActivityRowAction.OpenShelf -> ListenUpIcons.LibraryBooksFilled
+            is ActivityRowAction.OpenProfile -> ListenUpIcons.PersonFilled
+            is ActivityRowAction.AddToShelf -> ListenUpIcons.PlaylistAddFilled
         }

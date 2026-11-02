@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mood
-import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.foundation.shape.CircleShape
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * The three classification axes shown on Book Detail. Each book is described along three
@@ -90,7 +88,7 @@ private fun BookFacet.style(): FacetStyle =
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 borderColor = null,
-                leadingIcon = Icons.Default.Tag,
+                leadingIcon = ListenUpIcons.TagFilled,
                 textStyle = MaterialTheme.typography.labelMedium,
                 labelWeight = FontWeight.Bold,
                 contentPadding = PaddingValues(start = 11.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
@@ -104,7 +102,7 @@ private fun BookFacet.style(): FacetStyle =
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 borderColor = null,
-                leadingIcon = Icons.Default.Mood,
+                leadingIcon = ListenUpIcons.MoodFilled,
                 textStyle = MaterialTheme.typography.labelMedium,
                 labelWeight = FontWeight.Bold,
                 contentPadding = PaddingValues(start = 11.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),

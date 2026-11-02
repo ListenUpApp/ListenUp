@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +41,7 @@ class TouchTargetTest {
             MaterialTheme {
                 Row(Modifier.padding(24.dp).testTag(ROW)) {
                     IconButton(onClick = { taps++ }, modifier = Modifier.compactTouchTarget(footprint = 32.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = LABEL, modifier = Modifier.size(20.dp))
+                        Icon(ListenUpIcons.CloseFilled, contentDescription = LABEL, modifier = Modifier.size(20.dp))
                     }
                     Box(Modifier.size(1.dp))
                 }

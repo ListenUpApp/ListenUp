@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.bookedit.components
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
-import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.animation.AnimatedVisibility
@@ -27,8 +26,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +47,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -120,7 +118,7 @@ fun IdentityHeader(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        imageVector = ListenUpIcons.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),
                     )
                 }
@@ -174,7 +172,7 @@ fun IdentityHeader(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.CameraAlt,
+                                imageVector = ListenUpIcons.CameraAlt,
                                 contentDescription = stringResource(Res.string.book_edit_change_cover),
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary,

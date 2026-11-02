@@ -13,13 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AdminPanelSettings
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -42,6 +35,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -192,7 +186,7 @@ private fun CreateAccountScreen(
     val badge =
         if (mode == CreateAccountMode.Setup) {
             AuthBadge(
-                icon = Icons.Outlined.AdminPanelSettings,
+                icon = ListenUpIcons.AdminPanelSettings,
                 label = stringResource(Res.string.auth_server_administrator),
             )
         } else {
@@ -302,7 +296,7 @@ internal fun CreateAccountFields(
         label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == SetupField.EMAIL,
-        leadingIcon = Icons.Outlined.MailOutline,
+        leadingIcon = ListenUpIcons.MailOutline,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
         onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
     )
@@ -312,8 +306,8 @@ internal fun CreateAccountFields(
         label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == SetupField.PASSWORD,
-        leadingIcon = Icons.Outlined.Lock,
-        trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+        leadingIcon = ListenUpIcons.Lock,
+        trailingIcon = if (passwordVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
         trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
         obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
@@ -327,8 +321,8 @@ internal fun CreateAccountFields(
         enabled = !isLoading,
         isError = validationField == SetupField.PASSWORD_CONFIRM || confirmMismatch,
         supportingText = if (confirmMismatch) stringResource(Res.string.auth_passwords_dont_match) else null,
-        leadingIcon = Icons.Outlined.Lock,
-        trailingIcon = if (confirmVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+        leadingIcon = ListenUpIcons.Lock,
+        trailingIcon = if (confirmVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
         onTrailingClick = { confirmVisible = !confirmVisible },
         trailingIconContentDescription = passwordVisibilityDescription(confirmVisible),
         obfuscation = if (confirmVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
@@ -339,7 +333,7 @@ internal fun CreateAccountFields(
     ListenUpButton(
         onClick = { submit() },
         text = submitLabel,
-        leadingIcon = Icons.Outlined.PersonAdd,
+        leadingIcon = ListenUpIcons.PersonAdd,
         enabled = canSubmit,
         isLoading = isLoading,
     )

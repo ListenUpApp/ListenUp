@@ -18,14 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Headphones
-import androidx.compose.material.icons.outlined.Mail
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,6 +55,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SelectableOptionCard
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.rememberCopyToClipboard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType
@@ -154,7 +147,7 @@ fun CreateInviteScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.admin_create_invite),
-                badgeIcon = Icons.Outlined.PersonAdd,
+                badgeIcon = ListenUpIcons.PersonAdd,
                 onBack = onBackClick,
                 supportingText = stringResource(Res.string.admin_create_an_invite_to_share),
             )
@@ -261,7 +254,7 @@ private fun CreateInviteForm(
         ListenUpButton(
             onClick = { onSubmit(email.text.toString(), role, expiresInDays) },
             text = stringResource(Res.string.admin_create_invite),
-            leadingIcon = Icons.AutoMirrored.Outlined.Send,
+            leadingIcon = ListenUpIcons.Send,
             enabled = !isSubmitting,
             isLoading = isSubmitting,
             modifier = Modifier.fillMaxWidth(),
@@ -308,13 +301,13 @@ private fun WhosJoiningSection(
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionHeader(
             label = stringResource(Res.string.admin_whos_joining),
-            icon = Icons.Outlined.PersonAdd,
+            icon = ListenUpIcons.PersonAdd,
             accent = MaterialTheme.colorScheme.primary,
         )
         ListenUpTextField(
             state = email,
             label = stringResource(Res.string.common_email_address),
-            leadingIcon = Icons.Outlined.Mail,
+            leadingIcon = ListenUpIcons.Mail,
             enabled = !isSubmitting,
             isError = validationField == CreateInviteField.EMAIL,
             supportingText =
@@ -341,14 +334,14 @@ private fun AccessLevelSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(
             label = stringResource(Res.string.admin_access_level),
-            icon = Icons.Outlined.Shield,
+            icon = ListenUpIcons.Shield,
             accent = MaterialTheme.colorScheme.secondary,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SelectableOptionCard(
                 title = stringResource(Res.string.common_member),
                 subtitle = stringResource(Res.string.admin_can_access_the_library),
-                icon = Icons.Outlined.Headphones,
+                icon = ListenUpIcons.Headphones,
                 selected = role == ROLE_MEMBER,
                 onClick = { onRoleChange(ROLE_MEMBER) },
                 modifier = Modifier.weight(1f),
@@ -356,7 +349,7 @@ private fun AccessLevelSection(
             SelectableOptionCard(
                 title = stringResource(Res.string.common_admin),
                 subtitle = stringResource(Res.string.admin_can_manage_users_and_invites),
-                icon = Icons.Outlined.Shield,
+                icon = ListenUpIcons.Shield,
                 selected = role == ROLE_ADMIN,
                 onClick = { onRoleChange(ROLE_ADMIN) },
                 modifier = Modifier.weight(1f),
@@ -374,7 +367,7 @@ private fun ExpirySection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(
             label = stringResource(Res.string.admin_invite_expires_in),
-            icon = Icons.Outlined.Schedule,
+            icon = ListenUpIcons.Schedule,
             accent = MaterialTheme.colorScheme.tertiary,
         )
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -504,7 +497,7 @@ private fun LinkPreviewCard(
             ) {
                 ScallopBadge(size = 52.dp, containerColor = colors.primary) {
                     Icon(
-                        imageVector = Icons.Outlined.PersonAdd,
+                        imageVector = ListenUpIcons.PersonAdd,
                         contentDescription = null,
                         modifier = Modifier.size(28.dp),
                         tint = colors.onPrimary,
@@ -547,7 +540,7 @@ private fun LinkPreviewCard(
                     ListenUpButton(
                         onClick = onCopyClick,
                         text = stringResource(Res.string.common_copy),
-                        leadingIcon = Icons.Outlined.ContentCopy,
+                        leadingIcon = ListenUpIcons.ContentCopy,
                         fillMaxWidth = false,
                     )
                 }

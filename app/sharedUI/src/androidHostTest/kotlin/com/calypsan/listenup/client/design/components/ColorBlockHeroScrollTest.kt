@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -15,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.testing.AtFontScale
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +41,7 @@ class ColorBlockHeroScrollTest {
                         topBar = {
                             ColorBlockHero(
                                 title = TITLE,
-                                badgeIcon = Icons.Outlined.Shield,
+                                badgeIcon = ListenUpIcons.Shield,
                                 onBack = {},
                                 scrollBehavior = heroScroll,
                             )

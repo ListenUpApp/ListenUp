@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.InboxGlyphTile
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -98,7 +97,7 @@ fun LibraryInboxStrip(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
-            Icon(imageVector = Icons.Outlined.ChevronRight, contentDescription = null)
+            Icon(imageVector = ListenUpIcons.ChevronRight, contentDescription = null)
         }
     }
 }
@@ -161,7 +160,7 @@ fun LibraryInboxPill(
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
             )
-            Icon(imageVector = Icons.Outlined.ChevronRight, contentDescription = null)
+            Icon(imageVector = ListenUpIcons.ChevronRight, contentDescription = null)
         }
     }
 }

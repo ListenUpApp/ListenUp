@@ -1,16 +1,14 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.foundation.layout.consumeWindowInsets
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Chapter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -161,12 +159,12 @@ fun ChapterEditorScreen(
                         enabled = editing != null && editing.chapters.size > 1 && editing.drift == null,
                     ) {
                         Icon(
-                            Icons.Outlined.Timeline,
+                            ListenUpIcons.Timeline,
                             stringResource(Res.string.chapter_editor_drift_title),
                         )
                     }
                     IconButton(onClick = viewModel::undo, enabled = editing?.canUndo == true) {
-                        Icon(Icons.AutoMirrored.Outlined.Undo, stringResource(Res.string.chapter_editor_undo))
+                        Icon(ListenUpIcons.Undo, stringResource(Res.string.chapter_editor_undo))
                     }
                     EditorStatus(editing)
                     TextButton(

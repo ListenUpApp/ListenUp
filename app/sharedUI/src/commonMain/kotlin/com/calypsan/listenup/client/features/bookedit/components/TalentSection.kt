@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.input.clearText
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,10 +15,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -182,7 +179,7 @@ private fun RoleContributorSection(
                 modifier = Modifier.compactTouchTarget(footprint = 32.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = ListenUpIcons.CloseFilled,
                     contentDescription = stringResource(Res.string.book_edit_remove_role_section, role.displayName),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -259,7 +256,7 @@ private fun RoleContributorSection(
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
                 },
             )
         }
@@ -277,7 +274,7 @@ private fun ContributorChip(
         label = { Text(contributor.name) },
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Person,
+                imageVector = ListenUpIcons.PersonFilled,
                 contentDescription = null,
                 modifier = Modifier.size(InputChipDefaults.AvatarSize),
             )
@@ -307,7 +304,7 @@ private fun AddRoleButton(
             },
             label = { Text(stringResource(Res.string.book_edit_add_role)) },
             leadingIcon = {
-                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
             },
         )
 

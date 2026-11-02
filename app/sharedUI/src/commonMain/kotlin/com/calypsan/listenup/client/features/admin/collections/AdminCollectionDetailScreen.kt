@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.design.components.ForwardEdits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.common_remove_name
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.IconButton
@@ -32,14 +33,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FolderSpecial
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -447,7 +440,7 @@ private fun DetailHero(
                     containerColor = HeroInk.wash(),
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.FolderSpecial,
+                        imageVector = ListenUpIcons.FolderSpecial,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(HERO_BADGE_SIZE_DP.dp * HERO_BADGE_ICON_RATIO),
@@ -476,7 +469,7 @@ private fun DetailHero(
                 horizontalArrangement = Arrangement.spacedBy(CHIP_SPACING_DP.dp),
             ) {
                 CountChip(
-                    icon = Icons.AutoMirrored.Outlined.MenuBook,
+                    icon = ListenUpIcons.MenuBook,
                     count =
                         if (state.collection.bookCount == 1) {
                             stringResource(Res.string.common_book_count, state.collection.bookCount)
@@ -485,7 +478,7 @@ private fun DetailHero(
                         },
                 )
                 CountChip(
-                    icon = Icons.Outlined.Group,
+                    icon = ListenUpIcons.Group,
                     count = stringResource(Res.string.admin_collection_members_count, state.shares.size),
                 )
             }
@@ -590,7 +583,7 @@ private fun BooksSection(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Add,
+                            imageVector = ListenUpIcons.Add,
                             contentDescription = null,
                             modifier = Modifier.size(ADD_ICON_SIZE_DP.dp),
                         )
@@ -641,7 +634,7 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+            imageVector = ListenUpIcons.MenuBook,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
@@ -728,7 +721,7 @@ private fun MembersSection(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.PersonAdd,
+                    imageVector = ListenUpIcons.PersonAdd,
                     contentDescription = null,
                     modifier = Modifier.size(ADD_ICON_SIZE_DP.dp),
                 )
@@ -761,7 +754,7 @@ private fun EmptyMembersPanel(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Person,
+            imageVector = ListenUpIcons.Person,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
@@ -815,7 +808,7 @@ private fun MemberRow(
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     TonalIconTile(
-                        icon = Icons.Outlined.Delete,
+                        icon = ListenUpIcons.Delete,
                         size = DELETE_TILE_SIZE_DP.dp,
                         danger = true,
                         contentDescription = stringResource(Res.string.common_remove_name, memberName),
@@ -885,7 +878,7 @@ private fun AddMemberEmptyPanel() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Person,
+            imageVector = ListenUpIcons.Person,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(EMPTY_ICON_SIZE_DP.dp),
@@ -921,7 +914,7 @@ private fun AddMemberUserList(
                 }
             },
             leadingContent = {
-                Icon(imageVector = Icons.Outlined.Person, contentDescription = null)
+                Icon(imageVector = ListenUpIcons.Person, contentDescription = null)
             },
             trailingContent = {
                 if (isSharing) ListenUpLoadingIndicatorSmall()
@@ -989,7 +982,7 @@ private fun AddBooksToCollectionSheet(
                         supportingContent = hit.author?.let { author -> { Text(author) } },
                         trailingContent = {
                             Icon(
-                                imageVector = Icons.Outlined.Add,
+                                imageVector = ListenUpIcons.Add,
                                 contentDescription = stringResource(Res.string.admin_add_books),
                             )
                         },

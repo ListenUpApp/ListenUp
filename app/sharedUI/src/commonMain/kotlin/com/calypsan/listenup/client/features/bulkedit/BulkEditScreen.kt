@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,6 +35,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.features.bookedit.components.StudioCard
@@ -396,7 +394,7 @@ private fun ConfirmButton(
         modifier = modifier,
         enabled = state.canApply && !state.isApplying,
         fillMaxWidth = fillWidth,
-        leadingIcon = Icons.Outlined.Check,
+        leadingIcon = ListenUpIcons.Check,
     )
 }
 
@@ -427,7 +425,7 @@ private fun SomeNotLoadedNotice(
             modifier = Modifier.padding(Spacing.lg),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(NoticeIconSize))
+            Icon(ListenUpIcons.CloudOff, contentDescription = null, modifier = Modifier.size(NoticeIconSize))
             Text(
                 text =
                     if (missing == 1) {

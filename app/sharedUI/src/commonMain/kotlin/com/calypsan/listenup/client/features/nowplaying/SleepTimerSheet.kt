@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -34,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.features.nowplaying.components.SleepCustomStepper
@@ -186,7 +185,7 @@ private fun EndOfChapterChoice(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(ListenUpIcons.BedtimeFilled, contentDescription = null, modifier = Modifier.size(24.dp))
             Column {
                 Text(stringResource(Res.string.player_end_of_chapter), style = MaterialTheme.typography.titleMedium)
                 Text(

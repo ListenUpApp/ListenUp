@@ -4,7 +4,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
@@ -24,13 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +54,7 @@ import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
@@ -283,7 +276,7 @@ private fun ShelfFormPhoneLayout(
                         stringResource(Res.string.shelf_create_shelf_title)
                     },
                 leadingIcon =
-                    if (formState.isEditing) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkAdd,
+                    if (formState.isEditing) ListenUpIcons.Bookmark else ListenUpIcons.BookmarkAdd,
                 onClick = formState.onSave,
                 enabled = formState.canSave,
                 isLoading = formState.isSaving,
@@ -357,7 +350,7 @@ private fun ShelfFormWideLayout(
                             stringResource(Res.string.shelf_create_shelf_title)
                         },
                     leadingIcon =
-                        if (formState.isEditing) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkAdd,
+                        if (formState.isEditing) ListenUpIcons.Bookmark else ListenUpIcons.BookmarkAdd,
                     onClick = formState.onSave,
                     enabled = formState.canSave,
                     isLoading = formState.isSaving,
@@ -441,7 +434,7 @@ private fun ShelfHeroNavRow(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.BookmarkAdd,
+                        imageVector = ListenUpIcons.BookmarkAdd,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(if (isWide) 32.dp else 26.dp),
@@ -507,7 +500,7 @@ private fun DeleteHeroButton(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Delete,
+                    imageVector = ListenUpIcons.Delete,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                 )
@@ -533,7 +526,7 @@ private fun DeleteHeroButton(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
+                        imageVector = ListenUpIcons.Delete,
                         contentDescription = stringResource(Res.string.shelf_delete_shelf),
                         modifier = Modifier.size(22.dp),
                     )
@@ -564,7 +557,7 @@ private fun ShelfDetailsSection(
                     state = name,
                     label = stringResource(Res.string.shelf_form_name),
                     placeholder = stringResource(Res.string.common_shelf_name_hint),
-                    leadingIcon = Icons.AutoMirrored.Outlined.Label,
+                    leadingIcon = ListenUpIcons.Label,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
 
@@ -598,7 +591,7 @@ private fun ShelfVisibilitySection(
                 } else {
                     stringResource(Res.string.shelf_visible_to_anyone)
                 },
-            icon = if (isPrivate) Icons.Outlined.Lock else Icons.Outlined.LockOpen,
+            icon = if (isPrivate) ListenUpIcons.Lock else ListenUpIcons.LockOpen,
             accent = MaterialTheme.colorScheme.tertiary,
             checked = isPrivate,
             onCheckedChange = onPrivateChange,
@@ -635,7 +628,7 @@ private fun ShelfPreviewHeader() {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Visibility,
+            imageVector = ListenUpIcons.Visibility,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
         )
@@ -664,7 +657,7 @@ private fun ShelfPreviewContent(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.Outlined.BookmarkAdd,
+                    imageVector = ListenUpIcons.BookmarkAdd,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
@@ -684,7 +677,7 @@ private fun ShelfPreviewContent(
                 )
                 if (isPrivate) {
                     Icon(
-                        imageVector = Icons.Outlined.Lock,
+                        imageVector = ListenUpIcons.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = HeroInk.muted(),

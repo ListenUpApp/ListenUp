@@ -14,11 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +47,7 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.match.CandidateUi
 import com.calypsan.listenup.client.presentation.match.FindUiState
@@ -200,12 +196,12 @@ internal fun MatchSearchField(
                 onSearch = onSearch,
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
                 placeholder = { Text(label) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.SearchFilled, contentDescription = null) },
                 trailingIcon = {
                     if (textState.text.isNotEmpty()) {
                         IconButton(onClick = { textState.setTextAndPlaceCursorAtEnd("") }) {
                             Icon(
-                                Icons.Default.Close,
+                                ListenUpIcons.CloseFilled,
                                 contentDescription = stringResource(Res.string.match_clear_search),
                             )
                         }
@@ -232,7 +228,7 @@ private fun StoreButton(
         ) {
             Text(stringResource(Res.string.match_store_button, region.source.label, region.region.displayName))
             Icon(
-                Icons.Default.KeyboardArrowDown,
+                ListenUpIcons.KeyboardArrowDownFilled,
                 contentDescription = null,
                 modifier = Modifier.padding(start = Spacing.xs),
             )
@@ -250,7 +246,7 @@ private fun StoreButton(
                     text = { Text(choice.displayName) },
                     trailingIcon =
                         if (current) {
-                            { Icon(Icons.Default.Check, contentDescription = null) }
+                            { Icon(ListenUpIcons.CheckFilled, contentDescription = null) }
                         } else {
                             null
                         },

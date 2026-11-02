@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * A small filled-tonal role badge: a [TonalLabel] pill carrying a bold [label].
@@ -27,6 +26,6 @@ fun RoleChip(
         modifier = modifier,
         containerColor = if (isRoot) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
         contentColor = if (isRoot) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-        icon = if (isRoot) Icons.Filled.Shield else null,
+        icon = if (isRoot) ListenUpIcons.ShieldFilled else null,
     )
 }

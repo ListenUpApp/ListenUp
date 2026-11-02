@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -42,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_edit
@@ -166,14 +162,14 @@ fun SelectionToolbar(
                 modifier = Modifier.testTag("selection-actions"),
             ) {
                 SelectionActionButton(
-                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    icon = ListenUpIcons.PlaylistAddFilled,
                     label = stringResource(Res.string.selection_add_to_shelf),
                     enabled = selectedCount > 0,
                     onClick = onAddToShelf,
                 )
                 if (onAddToCollection != null) {
                     SelectionActionButton(
-                        icon = Icons.Outlined.CollectionsBookmark,
+                        icon = ListenUpIcons.CollectionsBookmark,
                         label = stringResource(Res.string.selection_add_to_collection),
                         enabled = selectedCount > 0,
                         onClick = onAddToCollection,
@@ -181,7 +177,7 @@ fun SelectionToolbar(
                 }
                 if (onEdit != null) {
                     SelectionActionButton(
-                        icon = Icons.Default.Edit,
+                        icon = ListenUpIcons.EditFilled,
                         label = stringResource(Res.string.common_edit),
                         enabled = selectedCount > 0,
                         onClick = onEdit,
@@ -221,7 +217,7 @@ private fun SelectionHeader(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = ListenUpIcons.CloseFilled,
                     contentDescription = stringResource(Res.string.selection_cancel_a11y),
                 )
             }

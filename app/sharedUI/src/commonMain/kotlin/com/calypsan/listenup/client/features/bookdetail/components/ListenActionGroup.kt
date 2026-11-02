@@ -9,10 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
@@ -35,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.features.bookdetail.DownloadSplitTrailingButton
 import com.calypsan.listenup.client.features.bookdetail.DownloadLabelledButton
@@ -165,7 +162,7 @@ private fun PhoneActionRow(
             onClick = actions.onAddToShelf,
             shapes = IconButtonDefaults.shapes(),
             modifier = Modifier.size(ActionHeight).semantics { contentDescription = shelfName },
-        ) { Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null) }
+        ) { Icon(ListenUpIcons.PlaylistAdd, contentDescription = null) }
     }
 }
 
@@ -229,7 +226,7 @@ private fun TabletActionGroup(
                     interactionSource = shelfSource,
                     modifier = Modifier.animateWidth(shelfSource).heightIn(min = ActionHeight),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
+                    Icon(ListenUpIcons.PlaylistAdd, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(shelfName, maxLines = 1)
                 }
@@ -249,11 +246,11 @@ private fun PrimaryContent(label: PrimaryLabel) {
         }
 
         PrimaryLabel.UnavailableOffline -> {
-            Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(ListenUpIcons.CloudOff, contentDescription = null, modifier = Modifier.size(24.dp))
         }
 
         PrimaryLabel.Play, PrimaryLabel.Resume, PrimaryLabel.ListenAgain -> {
-            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(ListenUpIcons.PlayArrowFilled, contentDescription = null, modifier = Modifier.size(24.dp))
         }
     }
     Spacer(Modifier.width(8.dp))

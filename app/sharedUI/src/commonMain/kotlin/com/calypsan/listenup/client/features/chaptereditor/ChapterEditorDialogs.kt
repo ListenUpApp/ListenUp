@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.chaptereditor
 import com.calypsan.listenup.client.design.components.transformedBy
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_invalid
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_label
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_title
@@ -12,8 +13,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +50,7 @@ internal fun DeleteChapterDialog(
         confirmText = stringResource(Res.string.common_delete),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
-        icon = Icons.Default.Delete,
+        icon = ListenUpIcons.DeleteFilled,
     )
 }
 

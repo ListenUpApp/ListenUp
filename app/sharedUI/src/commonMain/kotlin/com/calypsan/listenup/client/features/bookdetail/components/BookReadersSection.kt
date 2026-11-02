@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,6 +39,7 @@ import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.readers.Reader
@@ -99,9 +96,9 @@ private const val MAX_COLLAPSED_READERS = 3
  * @property userId Stable user identifier; forwarded to [UserAvatar] and the row click callback.
  * @property name Display name shown as the row title.
  * @property isReading `true` when the reader is actively listening — drives the active-ring avatar
- *   and the [Icons.Default.GraphicEq] trailing indicator. `false` renders the finished treatment.
+ *   and the [ListenUpIcons.GraphicEqFilled] trailing indicator. `false` renders the finished treatment.
  * @property progressPct Listening progress in `0..100` when reading *and* known; `null` when reading
- *   but the percentage is unknown — the ring + [Icons.Default.GraphicEq] still show, but no bar.
+ *   but the percentage is unknown — the ring + [ListenUpIcons.GraphicEqFilled] still show, but no bar.
  * @property finishedWhen Human-readable completion marker (e.g. `"Apr 12"`) when finished; `null`
  *   while reading.
  * @property halfStars The person's rating (2..10) on their first row; `null` on later rows and for
@@ -394,9 +391,9 @@ fun BookReadersContent(
  *
  * When [ReaderRowUi.isReading] is true the avatar gets a 2.5dp [MaterialTheme.colorScheme.primary]
  * ring offset 2dp from the circle, a thin progress bar + percentage label show when
- * [ReaderRowUi.progressPct] is known, and a trailing [Icons.Default.GraphicEq] indicates active
+ * [ReaderRowUi.progressPct] is known, and a trailing [ListenUpIcons.GraphicEqFilled] indicates active
  * listening. When finished, a "Finished {when}" line shows under the name with a trailing
- * [Icons.Default.CheckCircle]. A rated-only row reads "Rated" with a trailing star. When the row
+ * [ListenUpIcons.CheckCircleFilled]. A rated-only row reads "Rated" with a trailing star. When the row
  * carries a rating, small stars sit beside the name and the note, in quotes, beneath it.
  *
  * @param reader The reader row model to display.
@@ -477,10 +474,10 @@ internal fun ReaderRow(
         // bar says how far, and nothing claims they are listening.
         val mark =
             when {
-                reader.isLive -> Icons.Default.GraphicEq
+                reader.isLive -> ListenUpIcons.GraphicEqFilled
                 reader.isReading -> null
-                reader.isRatedOnly -> Icons.Rounded.Star
-                else -> Icons.Default.CheckCircle
+                reader.isRatedOnly -> ListenUpIcons.StarFilled
+                else -> ListenUpIcons.CheckCircleFilled
             }
         if (mark != null) {
             Icon(

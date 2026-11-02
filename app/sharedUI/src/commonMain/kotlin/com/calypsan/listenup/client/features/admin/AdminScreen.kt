@@ -4,7 +4,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.ForwardEdits
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
@@ -23,26 +22,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.Badge
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.HowToReg
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -99,6 +78,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.isJustNow
 import com.calypsan.listenup.client.design.util.relativeTime
@@ -279,7 +259,7 @@ fun AdminScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.common_administration),
-                badgeIcon = Icons.Outlined.Shield,
+                badgeIcon = ListenUpIcons.Shield,
                 onBack = requestLeave,
                 overline = serverName,
                 scrollBehavior = heroScroll,
@@ -779,14 +759,14 @@ private fun ServerSettingsSection(
                     state = serverNameState,
                     label = stringResource(Res.string.admin_server_name),
                     placeholder = stringResource(Res.string.connect_listenup_server),
-                    leadingIcon = Icons.Outlined.Badge,
+                    leadingIcon = ListenUpIcons.Badge,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
                 ListenUpTextField(
                     state = remoteUrlState,
                     label = stringResource(Res.string.admin_remote_url),
                     placeholder = stringResource(Res.string.admin_remote_url_placeholder),
-                    leadingIcon = Icons.Outlined.CloudDownload,
+                    leadingIcon = ListenUpIcons.CloudDownload,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
             }
@@ -799,14 +779,14 @@ private fun ServerSettingsSection(
             )
         }
         SettingToggleRow(
-            icon = Icons.Outlined.Inbox,
+            icon = ListenUpIcons.Inbox,
             title = stringResource(Res.string.admin_inbox_setting_title),
             subtitle = stringResource(Res.string.admin_inbox_setting_subtitle),
             checked = holdNewBooksForReview,
             onCheckedChange = onHoldNewBooksForReviewChange,
         )
         SettingToggleRow(
-            icon = Icons.Outlined.Notifications,
+            icon = ListenUpIcons.Notifications,
             title = stringResource(Res.string.admin_push_setting_title),
             subtitle = stringResource(Res.string.admin_push_setting_subtitle),
             checked = pushNotificationsEnabled,
@@ -839,7 +819,7 @@ private fun RegistrationPolicyControl(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Outlined.HowToReg,
+                imageVector = ListenUpIcons.HowToReg,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -945,7 +925,7 @@ private fun RatingSourceRow(
             ?.takeIf { status.source == ExternalRatingSource.HARDCOVER }
             ?.let { stringResource(Res.string.admin_rating_source_using_connection, it) }
     SettingToggleRow(
-        icon = Icons.Outlined.Star,
+        icon = ListenUpIcons.Star,
         title = ratingSourceLabel(status.source),
         subtitle = listOfNotNull(healthLine, connectionLine).joinToString("\n"),
         checked = status.enabled,
@@ -1117,7 +1097,7 @@ private fun UsersGroup(
             PillChip(
                 label = stringResource(Res.string.common_invite),
                 onClick = onInviteClick,
-                leadingIcon = Icons.Outlined.PersonAdd,
+                leadingIcon = ListenUpIcons.PersonAdd,
             )
         },
     ) {
@@ -1176,7 +1156,7 @@ internal fun UserRow(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Delete,
+                            imageVector = ListenUpIcons.Delete,
                             contentDescription = stringResource(Res.string.common_delete),
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -1264,7 +1244,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = denyLabel,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1276,7 +1256,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Check,
+                                imageVector = ListenUpIcons.Check,
                                 contentDescription = approveLabel,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1294,7 +1274,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1308,7 +1288,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Check,
+                                imageVector = ListenUpIcons.Check,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1354,7 +1334,7 @@ private fun InviteRow(
 ) {
     val haptics = LocalHaptics.current
     SettingRow(
-        icon = Icons.Outlined.PersonAdd,
+        icon = ListenUpIcons.PersonAdd,
         accent = accent,
         title = invite.name,
         subtitle = invite.email,
@@ -1371,7 +1351,7 @@ private fun InviteRow(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.ContentCopy,
+                    imageVector = ListenUpIcons.ContentCopy,
                     contentDescription = stringResource(Res.string.admin_copy_link),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1386,7 +1366,7 @@ private fun InviteRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
+                        imageVector = ListenUpIcons.Delete,
                         contentDescription = stringResource(Res.string.common_revoke),
                         tint = MaterialTheme.colorScheme.error,
                     )
@@ -1465,7 +1445,7 @@ private fun PasswordResetRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Close,
+                        imageVector = ListenUpIcons.Close,
                         contentDescription = denyLabel,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1477,7 +1457,7 @@ private fun PasswordResetRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Check,
+                        imageVector = ListenUpIcons.Check,
                         contentDescription = approveLabel,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1510,8 +1490,8 @@ private fun PasswordResetCodeDialog(
         onConfirm = onDone,
         dismissText = stringResource(Res.string.common_copy),
         onDismiss = onCopyClick,
-        icon = Icons.Outlined.Key,
-        dismissIcon = Icons.Outlined.ContentCopy,
+        icon = ListenUpIcons.Key,
+        dismissIcon = ListenUpIcons.ContentCopy,
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1563,7 +1543,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_library_settings),
             subtitle = stringResource(Res.string.admin_library_settings_subtitle),
-            icon = Icons.Outlined.FolderOpen,
+            icon = ListenUpIcons.FolderOpen,
             onClick = onLibrarySettingsClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1572,7 +1552,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_upload_books),
             subtitle = stringResource(Res.string.admin_upload_books_subtitle),
-            icon = Icons.Outlined.CloudUpload,
+            icon = ListenUpIcons.CloudUpload,
             onClick = onUploadBooksClick,
             containerColor = colors.primaryContainer,
             badgeColor = colors.primary,
@@ -1581,7 +1561,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_organize),
             subtitle = stringResource(Res.string.admin_organize_subtitle),
-            icon = Icons.AutoMirrored.Outlined.DriveFileMove,
+            icon = ListenUpIcons.DriveFileMove,
             onClick = onOrganizeClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1593,7 +1573,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_inbox),
             subtitle = stringResource(Res.string.admin_inbox_subtitle),
-            icon = Icons.Outlined.Inbox,
+            icon = ListenUpIcons.Inbox,
             onClick = onInboxClick,
             containerColor = colors.tertiaryContainer,
             badgeColor = colors.tertiary,
@@ -1602,7 +1582,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_invite_someone),
             subtitle = stringResource(Res.string.admin_share_your_audiobook_library_with),
-            icon = Icons.Outlined.PersonAdd,
+            icon = ListenUpIcons.PersonAdd,
             onClick = onInviteClick,
             containerColor = colors.primaryContainer,
             badgeColor = colors.primary,
@@ -1611,7 +1591,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.common_collections),
             subtitle = stringResource(Res.string.admin_organize_books_into_collections_for),
-            icon = Icons.Outlined.Folder,
+            icon = ListenUpIcons.Folder,
             onClick = onCollectionsClick,
             containerColor = colors.tertiaryContainer,
             badgeColor = colors.tertiary,
@@ -1620,7 +1600,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.common_categories),
             subtitle = stringResource(Res.string.admin_view_the_genre_hierarchy_tree),
-            icon = Icons.Outlined.Category,
+            icon = ListenUpIcons.Category,
             onClick = onCategoriesClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1629,7 +1609,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_backup_restore),
             subtitle = stringResource(Res.string.admin_create_backups_and_restore_server),
-            icon = Icons.Outlined.Backup,
+            icon = ListenUpIcons.Backup,
             onClick = onBackupClick,
             containerColor = colors.surfaceContainerHigh,
             badgeColor = colors.tertiary,
@@ -1638,7 +1618,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.import_title),
             subtitle = stringResource(Res.string.import_entry_subtitle),
-            icon = Icons.Outlined.CloudDownload,
+            icon = ListenUpIcons.CloudDownload,
             onClick = onImportClick,
             containerColor = colors.surfaceContainerHigh,
             badgeColor = colors.tertiary,

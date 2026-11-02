@@ -13,16 +13,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Mood
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AssistChip
@@ -46,6 +36,7 @@ import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.Genre
@@ -202,7 +193,7 @@ internal fun <T> BulkRelationField(
                         label = { Text(chip.label) },
                         trailingIcon = {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = stringResource(Res.string.bulk_edit_remove_from_edit, chip.label),
                                 modifier = Modifier.size(ChipIconSize),
                             )
@@ -253,7 +244,7 @@ internal fun <T> BulkRelationField(
                 label = { Text(stringResource(Res.string.bulk_edit_add_trimmed, trimmed)) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Outlined.Add,
+                        imageVector = ListenUpIcons.Add,
                         contentDescription = null,
                         modifier = Modifier.size(ChipIconSize),
                     )
@@ -270,7 +261,7 @@ internal fun <T> BulkRelationField(
 internal fun untouchedRelationConsequence(): FieldConsequence =
     FieldConsequence(
         text = stringResource(Res.string.bulk_edit_relation_untouched),
-        icon = Icons.Outlined.LockOpen,
+        icon = ListenUpIcons.LockOpen,
         writes = false,
     )
 
@@ -336,7 +327,7 @@ internal fun BulkEditCredits(
             matchLabel = { it.name },
             // Where it sits and how big it is: "in Cosmere › Mistborn · 8 books".
             matchSupporting = { seriesPlacementLine(it.parentPath, it.bookCount) },
-            matchIcon = Icons.AutoMirrored.Outlined.MenuBook,
+            matchIcon = ListenUpIcons.MenuBook,
             onPick = { match ->
                 actions.onSeriesChange(BookSeriesInput(id = SeriesId(match.id), name = match.name))
                 seriesQuery.clearText()
@@ -362,7 +353,7 @@ internal fun BulkEditCredits(
                 matches = offers.contributorMatches,
                 matchLabel = { it.name },
                 matchSupporting = { null },
-                matchIcon = Icons.Outlined.Person,
+                matchIcon = ListenUpIcons.Person,
                 onPick = { match ->
                     // Position is a per-book ordinal the planner renumbers, so any value here is
                     // arbitrary; zero says "let the planner decide" without pretending otherwise.
@@ -430,7 +421,7 @@ internal fun BulkEditClassification(
                     .filterNot { it.id in chosenGenreIds },
             matchLabel = { it.name },
             matchSupporting = { it.parentPath },
-            matchIcon = Icons.Outlined.Category,
+            matchIcon = ListenUpIcons.Category,
             onPick = { genre ->
                 actions.onGenresChange(state.genreInput + BookGenreInput(genreId = GenreId(genre.id)))
                 genreQuery.clearText()
@@ -455,7 +446,7 @@ internal fun BulkEditClassification(
             onChange = actions.onTagsChange,
             onQueryConsumed = tagQuery::clearText,
             consequence = state.armedConsequenceOf<BulkEdit.AddTags>() ?: untouchedRelationConsequence(),
-            matchIcon = Icons.AutoMirrored.Outlined.Label,
+            matchIcon = ListenUpIcons.Label,
             enabled = enabled,
         )
         NameRelationField(
@@ -467,7 +458,7 @@ internal fun BulkEditClassification(
             onChange = actions.onMoodsChange,
             onQueryConsumed = moodQuery::clearText,
             consequence = state.armedConsequenceOf<BulkEdit.AddMoods>() ?: untouchedRelationConsequence(),
-            matchIcon = Icons.Outlined.Mood,
+            matchIcon = ListenUpIcons.Mood,
             enabled = enabled,
         )
     }
@@ -529,7 +520,7 @@ private fun RolePicker(
     Box {
         TextButton(onClick = { expanded = true }, enabled = enabled) {
             Text("${stringResource(Res.string.bulk_edit_role)}: ${roleLabel(role)}")
-            Icon(imageVector = Icons.Outlined.ArrowDropDown, contentDescription = null)
+            Icon(imageVector = ListenUpIcons.ArrowDropDown, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             ContributorRole.entries.filter { it.isAssignable }.forEach { option ->

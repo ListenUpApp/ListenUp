@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +31,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.match.CandidateUi
@@ -176,13 +172,13 @@ private fun CandidateRow(
                                 label = stringResource(Res.string.match_best_match),
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                icon = Icons.Outlined.StarOutline,
+                                icon = ListenUpIcons.StarOutline,
                             )
                         }
                         if (candidate.isCurrentLink) {
                             TonalLabel(
                                 label = stringResource(Res.string.match_your_current_link),
-                                icon = Icons.Outlined.Link,
+                                icon = ListenUpIcons.Link,
                             )
                         }
                     }
@@ -205,7 +201,7 @@ private fun CandidateRow(
             }
             IconButton(onClick = onCompare) {
                 Icon(
-                    imageVector = Icons.Outlined.Info,
+                    imageVector = ListenUpIcons.Info,
                     contentDescription = stringResource(Res.string.match_compare_a11y, candidate.title),
                 )
             }
@@ -221,7 +217,7 @@ private fun ReasonsLine(candidate: CandidateUi) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         if (strong) {
             Icon(
-                imageVector = Icons.Filled.CheckCircle,
+                imageVector = ListenUpIcons.CheckCircleFilled,
                 contentDescription = null,
                 tint = MaterialTheme.extendedColors.success,
                 modifier = Modifier.size(16.dp),

@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
@@ -36,6 +33,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.DailyListeningChart
 import com.calypsan.listenup.client.features.home.components.GenreBreakdownBars
@@ -233,7 +231,7 @@ private fun StatsFooter(
         )
         TextButton(onClick = onOpenLeaderboard, modifier = Modifier.heightIn(min = MinTouchTarget)) {
             Text(stringResource(Res.string.home_leaderboard))
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+            Icon(ListenUpIcons.KeyboardArrowRightFilled, contentDescription = null)
         }
     }
 }
@@ -263,7 +261,7 @@ private fun StreakChip(days: Int) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null)
+            Icon(ListenUpIcons.LocalFireDepartment, contentDescription = null)
             Text(stringResource(Res.string.home_streak_chip, days), style = MaterialTheme.typography.labelLarge)
         }
     }

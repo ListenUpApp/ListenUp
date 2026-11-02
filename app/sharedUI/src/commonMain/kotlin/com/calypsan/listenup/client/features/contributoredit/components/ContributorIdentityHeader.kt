@@ -21,10 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -46,6 +42,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpTextFieldVariant
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.stringResource
@@ -106,7 +103,7 @@ fun ContributorIdentityHeader(
                         ),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = ListenUpIcons.ArrowBackFilled,
                     contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
@@ -242,7 +239,7 @@ private fun EditableAvatar(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CameraAlt,
+                            imageVector = ListenUpIcons.CameraAltFilled,
                             contentDescription = stringResource(Res.string.contributor_change_photo),
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -253,7 +250,7 @@ private fun EditableAvatar(
         }
         if (onAdjustPhoto != null) {
             OutlinedButton(onClick = onAdjustPhoto, enabled = !isUploadingImage) {
-                Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(ListenUpIcons.CropFilled, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.size(8.dp))
                 Text(stringResource(Res.string.edit_adjust_photo))
             }

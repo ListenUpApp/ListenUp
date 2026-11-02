@@ -8,9 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -31,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.LayoutEnd
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.MinTouchTarget
@@ -188,7 +186,7 @@ private fun FineSpeedControl(
             shapes = IconButtonDefaults.shapes(),
             modifier = Modifier.size(MinTouchTarget),
         ) {
-            Icon(Icons.Default.Remove, contentDescription = stringResource(Res.string.player_sheet_slower))
+            Icon(ListenUpIcons.RemoveFilled, contentDescription = stringResource(Res.string.player_sheet_slower))
         }
         Slider(
             value = speed,
@@ -208,7 +206,7 @@ private fun FineSpeedControl(
             shapes = IconButtonDefaults.shapes(),
             modifier = Modifier.size(MinTouchTarget),
         ) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(Res.string.player_sheet_faster))
+            Icon(ListenUpIcons.AddFilled, contentDescription = stringResource(Res.string.player_sheet_faster))
         }
     }
     Row(

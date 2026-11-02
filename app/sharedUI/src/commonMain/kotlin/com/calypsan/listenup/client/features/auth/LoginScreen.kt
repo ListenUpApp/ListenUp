@@ -19,13 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +44,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -185,7 +179,7 @@ internal fun LoginFields(
         label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == LoginField.EMAIL,
-        leadingIcon = Icons.Outlined.MailOutline,
+        leadingIcon = ListenUpIcons.MailOutline,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
         onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
     )
@@ -195,8 +189,8 @@ internal fun LoginFields(
         label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == LoginField.PASSWORD,
-        leadingIcon = Icons.Outlined.Lock,
-        trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+        leadingIcon = ListenUpIcons.Lock,
+        trailingIcon = if (passwordVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
         trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
         obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
@@ -219,7 +213,7 @@ internal fun LoginFields(
     ListenUpButton(
         onClick = { submit() },
         text = stringResource(Res.string.auth_sign_in),
-        leadingIcon = Icons.AutoMirrored.Outlined.Login,
+        leadingIcon = ListenUpIcons.Login,
         enabled = !isLoading,
         isLoading = isLoading,
     )
@@ -263,7 +257,7 @@ internal fun LoginFooter(
         },
         modifier = Modifier.fillMaxWidth().height(52.dp),
     ) {
-        Icon(Icons.Outlined.Dns, contentDescription = null)
+        Icon(ListenUpIcons.Dns, contentDescription = null)
         Spacer(Modifier.width(8.dp))
         Text(stringResource(Res.string.auth_change_server))
     }
@@ -375,7 +369,7 @@ private fun RootResetDialog(
                 enabled = !isSubmitting,
                 isError = errorMessage != null,
                 supportingText = errorMessage,
-                trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                trailingIcon = if (passwordVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
                 onTrailingClick = { passwordVisible = !passwordVisible },
                 trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
                 obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,

@@ -19,12 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +47,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
@@ -121,7 +116,7 @@ fun LibrarySettingsScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.admin_library_settings),
-                badgeIcon = Icons.Outlined.FolderOpen,
+                badgeIcon = ListenUpIcons.FolderOpen,
                 onBack = onBackClick,
             )
         },
@@ -251,7 +246,7 @@ private fun ScanPathsSection(
             val canRemove = library.folders.size > 1 && !state.isSaving
             SettingRow(
                 title = folder.rootPath ?: folder.id,
-                icon = Icons.Outlined.Folder,
+                icon = ListenUpIcons.Folder,
                 accent = MaterialTheme.colorScheme.secondary,
                 trailing =
                     if (canRemove) {
@@ -263,7 +258,7 @@ private fun ScanPathsSection(
                                 },
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Close,
+                                    imageVector = ListenUpIcons.Close,
                                     contentDescription = stringResource(Res.string.admin_remove_path),
                                     tint = MaterialTheme.colorScheme.error,
                                 )
@@ -276,7 +271,7 @@ private fun ScanPathsSection(
         }
         SettingRow(
             title = stringResource(Res.string.admin_add_folder),
-            icon = Icons.Outlined.Add,
+            icon = ListenUpIcons.Add,
             accent = MaterialTheme.colorScheme.primary,
             onClick = if (state.isSaving) null else onAddFolder,
         )
@@ -295,7 +290,7 @@ private fun ScanningSection(
         SettingRow(
             title = stringResource(Res.string.admin_rescan_library),
             subtitle = stringResource(Res.string.admin_scan_all_paths_for_new),
-            icon = Icons.Outlined.Refresh,
+            icon = ListenUpIcons.Refresh,
             onClick = if (isScanning) null else onTriggerScan,
             trailing =
                 if (isScanning) {
@@ -342,7 +337,7 @@ private fun FolderBrowserDialog(
                                 onDismiss()
                             },
                         ) {
-                            Icon(Icons.Outlined.Close, "Close")
+                            Icon(ListenUpIcons.Close, "Close")
                         }
                     },
                 )
@@ -360,7 +355,7 @@ private fun FolderBrowserDialog(
                     onClick = { onSelectPath(state.browserPath) },
                     modifier = Modifier.padding(horizontal = 8.dp),
                 ) {
-                    Icon(Icons.Outlined.Add, null, modifier = Modifier.padding(end = 4.dp))
+                    Icon(ListenUpIcons.Add, null, modifier = Modifier.padding(end = 4.dp))
                     Text(stringResource(Res.string.admin_save_and_scan_folder))
                 }
 
@@ -385,7 +380,7 @@ private fun FolderBrowserDialog(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 Icon(
-                                    Icons.Outlined.Folder,
+                                    ListenUpIcons.Folder,
                                     null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +43,7 @@ import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.RankBadge
 import com.calypsan.listenup.client.design.components.rankTier
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
@@ -113,9 +111,9 @@ fun LeaderboardList(
                 Icon(
                     imageVector =
                         if (isExpanded) {
-                            Icons.Default.KeyboardArrowUp
+                            ListenUpIcons.KeyboardArrowUpFilled
                         } else {
-                            Icons.Default.KeyboardArrowDown
+                            ListenUpIcons.KeyboardArrowDownFilled
                         },
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),

@@ -7,11 +7,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudDone
-import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.auth.components.AuthHelperCard
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -119,7 +115,7 @@ internal fun ServerSetupContent(
                 isError = errorState != null,
                 // The permission card below says it with the fix attached; don't say it twice.
                 supportingText = errorState?.error?.takeUnless { blockedByPermission }?.localized(),
-                leadingIcon = Icons.Outlined.Link,
+                leadingIcon = ListenUpIcons.Link,
                 keyboardOptions =
                     KeyboardOptions(
                         autoCorrectEnabled = false,
@@ -139,14 +135,14 @@ internal fun ServerSetupContent(
             }
 
             AuthHelperCard(
-                icon = Icons.Outlined.Lightbulb,
+                icon = ListenUpIcons.Lightbulb,
                 text = stringResource(Res.string.connect_server_url_hint),
             )
 
             ListenUpButton(
                 text = stringResource(Res.string.connect_connect),
                 onClick = onConnect,
-                leadingIcon = Icons.Outlined.CloudDone,
+                leadingIcon = ListenUpIcons.CloudDone,
                 isLoading = isVerifying,
                 enabled = serverUrl.text.isNotBlank() && !isVerifying,
             )
@@ -163,7 +159,7 @@ private fun LocalNetworkAccessCard(localNetwork: LocalNetworkPermissionRecovery)
     val explanation = ServerConnectError.LocalNetworkPermissionDenied().localized()
     val opensSettings = localNetwork.action == LocalNetworkRecoveryAction.OpenSettings
     AuthHelperCard(
-        icon = Icons.Outlined.WifiOff,
+        icon = ListenUpIcons.WifiOff,
         text = explanation,
         action = {
             if (opensSettings) {

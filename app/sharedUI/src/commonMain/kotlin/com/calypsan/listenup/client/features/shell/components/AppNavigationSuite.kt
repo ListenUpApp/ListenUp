@@ -8,6 +8,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import com.calypsan.listenup.client.design.components.CountBadge
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.admin.inbox.heldWaitingDescription
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
@@ -149,7 +148,7 @@ fun AppNavigationSuite(
                     },
                     icon = {
                         Icon(
-                            Icons.AutoMirrored.Outlined.Logout,
+                            ListenUpIcons.Logout,
                             contentDescription = stringResource(Res.string.shell_logout),
                         )
                     },

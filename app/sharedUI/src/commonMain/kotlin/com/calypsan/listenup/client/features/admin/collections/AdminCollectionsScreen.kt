@@ -23,13 +23,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.FolderSpecial
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
@@ -60,6 +53,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
@@ -150,7 +144,7 @@ fun AdminCollectionsScreen(
             if (state is AdminCollectionsUiState.Ready) {
                 ListenUpFab(
                     onClick = { showCreateDialog = true },
-                    icon = Icons.Outlined.Add,
+                    icon = ListenUpIcons.Add,
                     contentDescription = stringResource(Res.string.admin_create_collection),
                 )
             }
@@ -282,7 +276,7 @@ private fun CollectionsReadyContent(
     Column(modifier = Modifier.fillMaxSize()) {
         ColorBlockHero(
             title = stringResource(Res.string.common_collections),
-            badgeIcon = Icons.Outlined.FolderSpecial,
+            badgeIcon = ListenUpIcons.FolderSpecial,
             onBack = onBackClick,
             overline = if (isWide) stringResource(Res.string.common_administration) else null,
             supportingText = subtitle,
@@ -385,7 +379,7 @@ private fun CollectionCardTopRow(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         ) {
             androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.FolderSpecial,
+                imageVector = ListenUpIcons.FolderSpecial,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.size(badgeSize * 0.5f),
@@ -395,7 +389,7 @@ private fun CollectionCardTopRow(
         when {
             isSystem -> {
                 TonalIconTile(
-                    icon = Icons.Outlined.Lock,
+                    icon = ListenUpIcons.Lock,
                     size = DELETE_TILE_SIZE_DP.dp,
                     danger = false,
                 )
@@ -414,7 +408,7 @@ private fun CollectionCardTopRow(
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     TonalIconTile(
-                        icon = Icons.Outlined.Delete,
+                        icon = ListenUpIcons.Delete,
                         size = DELETE_TILE_SIZE_DP.dp,
                         danger = true,
                         contentDescription = stringResource(Res.string.common_delete_name, collectionName),
@@ -473,7 +467,7 @@ private fun CollectionCardSubtitle(
                     .background(MaterialTheme.colorScheme.outline, shape = CircleShape),
         )
         androidx.compose.material3.Icon(
-            imageVector = Icons.Outlined.Group,
+            imageVector = ListenUpIcons.Group,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.tertiary,
             modifier = Modifier.size(ACCESS_ICON_SIZE_DP.dp),
@@ -510,7 +504,7 @@ private fun NewCollectionCard(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             ) {
                 androidx.compose.material3.Icon(
-                    imageVector = Icons.Outlined.Add,
+                    imageVector = ListenUpIcons.Add,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(if (isWide) 32.dp else 28.dp),
@@ -539,7 +533,7 @@ private fun CollectionsEmptyState(modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.FolderOpen,
+                imageVector = ListenUpIcons.FolderOpen,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(EMPTY_BADGE_ICON_DP.dp),

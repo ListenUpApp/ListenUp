@@ -16,12 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -47,6 +41,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.match.ChapterNamesUi
 import com.calypsan.listenup.client.presentation.match.ChapterRowUi
@@ -188,7 +183,7 @@ private fun CoverTile(
             )
             if (selected) {
                 Icon(
-                    imageVector = Icons.Filled.CheckCircle,
+                    imageVector = ListenUpIcons.CheckCircleFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.xs),
@@ -316,7 +311,7 @@ private fun YourLabelChip(
         label = { Text(label.label, textDecoration = if (label.removed) TextDecoration.LineThrough else null) },
         trailingIcon = {
             Icon(
-                if (label.removed) Icons.AutoMirrored.Filled.Undo else Icons.Filled.Close,
+                if (label.removed) ListenUpIcons.UndoFilled else ListenUpIcons.CloseFilled,
                 contentDescription = null,
             )
         },
@@ -344,7 +339,7 @@ private fun SuggestionChip(
         label = { Text(if (showSources) suggestion.label + DOT + sources else suggestion.label) },
         leadingIcon = {
             Icon(
-                if (suggestion.selected) Icons.Filled.Check else Icons.Filled.Add,
+                if (suggestion.selected) ListenUpIcons.CheckFilled else ListenUpIcons.AddFilled,
                 contentDescription = null,
             )
         },

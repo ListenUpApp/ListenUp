@@ -20,10 +20,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesBookSection
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -339,7 +336,7 @@ private fun HeadingLink(
         }
         if (onClick != null) {
             Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                ListenUpIcons.KeyboardArrowRightFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -361,7 +358,7 @@ private fun FoldToggle(
         },
     ) {
         Icon(
-            imageVector = if (section.isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+            imageVector = if (section.isCollapsed) ListenUpIcons.ExpandMoreFilled else ListenUpIcons.ExpandLessFilled,
             contentDescription = "$label ${section.title}",
         )
     }

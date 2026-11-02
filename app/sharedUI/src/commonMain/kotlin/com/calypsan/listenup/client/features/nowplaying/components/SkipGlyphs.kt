@@ -1,15 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.Forward10
-import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Forward5
-import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material.icons.filled.Replay30
-import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /** Intervals Material ships a numbered skip glyph for. */
 private const val SECONDS_5 = 5
@@ -31,18 +23,18 @@ object SkipGlyphs {
     /** Icon for a forward skip of [seconds]. */
     fun forward(seconds: Int): ImageVector =
         when (seconds) {
-            SECONDS_5 -> Icons.Default.Forward5
-            SECONDS_10 -> Icons.Default.Forward10
-            SECONDS_30 -> Icons.Default.Forward30
-            else -> Icons.Default.FastForward
+            SECONDS_5 -> ListenUpIcons.Forward5Filled
+            SECONDS_10 -> ListenUpIcons.Forward10Filled
+            SECONDS_30 -> ListenUpIcons.Forward30Filled
+            else -> ListenUpIcons.FastForwardFilled
         }
 
     /** Icon for a backward skip of [seconds]. */
     fun backward(seconds: Int): ImageVector =
         when (seconds) {
-            SECONDS_5 -> Icons.Default.Replay5
-            SECONDS_10 -> Icons.Default.Replay10
-            SECONDS_30 -> Icons.Default.Replay30
-            else -> Icons.Default.FastRewind
+            SECONDS_5 -> ListenUpIcons.Replay5Filled
+            SECONDS_10 -> ListenUpIcons.Replay10Filled
+            SECONDS_30 -> ListenUpIcons.Replay30Filled
+            else -> ListenUpIcons.FastRewindFilled
         }
 }

@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -26,6 +22,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -120,7 +117,7 @@ fun AutocompleteEmptyResultsHint(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = ListenUpIcons.SearchFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp),
@@ -160,7 +157,7 @@ fun AutocompleteResultItem(
     isLoading: Boolean = false,
     leadingIcon: @Composable () -> Unit = {
         Icon(
-            imageVector = Icons.Default.Person,
+            imageVector = ListenUpIcons.PersonFilled,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp),
@@ -203,7 +200,7 @@ fun AutocompleteResultItem(
             )
         } else {
             Icon(
-                imageVector = Icons.Default.Add,
+                imageVector = ListenUpIcons.AddFilled,
                 contentDescription = stringResource(Res.string.common_add_name, name),
                 tint = MaterialTheme.colorScheme.primary,
             )

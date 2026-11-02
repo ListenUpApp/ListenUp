@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -26,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookedit.EditableCollection
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableMood
@@ -283,7 +280,7 @@ private fun TagsSubsection(
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
                 },
             )
         }
@@ -378,7 +375,7 @@ private fun MoodsSubsection(
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
                 },
             )
         }
@@ -415,7 +412,7 @@ internal fun CollectionsSubsection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Inbox,
+                    imageVector = ListenUpIcons.Inbox,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(18.dp),
@@ -477,7 +474,7 @@ private fun GenreChip(
         label = { Text(genre.name) },
         trailingIcon = {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = ListenUpIcons.CloseFilled,
                 contentDescription = stringResource(Res.string.common_remove_name, genre.name),
                 modifier =
                     Modifier
@@ -503,7 +500,7 @@ private fun TagChip(
         label = { Text(tag.displayName()) },
         trailingIcon = {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = ListenUpIcons.CloseFilled,
                 contentDescription = stringResource(Res.string.common_remove_name, tag.displayName()),
                 modifier =
                     Modifier
@@ -529,7 +526,7 @@ private fun MoodChip(
         label = { Text(mood.displayName()) },
         trailingIcon = {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = ListenUpIcons.CloseFilled,
                 contentDescription = stringResource(Res.string.common_remove_name, mood.displayName()),
                 modifier =
                     Modifier
@@ -555,7 +552,7 @@ private fun CollectionChip(
         label = { Text(collection.name) },
         trailingIcon = {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = ListenUpIcons.CloseFilled,
                 contentDescription = stringResource(Res.string.common_remove_name, collection.name),
                 modifier =
                     Modifier

@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Badge
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -37,6 +31,7 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -174,7 +169,7 @@ private fun CodeEntryStep(
         ListenUpTextField(
             state = code,
             label = stringResource(Res.string.invite_code_placeholder),
-            leadingIcon = Icons.Outlined.Badge,
+            leadingIcon = ListenUpIcons.Badge,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             onKeyboardAction = {
                 focusManager.clearFocus()
@@ -219,7 +214,7 @@ private fun ConfirmServerStep(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(Icons.Outlined.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(ListenUpIcons.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(
                     text = host,
                     style = MaterialTheme.typography.titleMedium,
@@ -275,7 +270,7 @@ internal fun ClaimStep(
     AuthScaffold(
         title = stringResource(Res.string.invite_invited_title),
         subtitle = "${preview.invitedByName} invited you to ${preview.serverName}. Set a password to finish.",
-        badge = AuthBadge(icon = Icons.Outlined.Storage, label = preview.serverName),
+        badge = AuthBadge(icon = ListenUpIcons.Storage, label = preview.serverName),
         onBack = onCancel,
         modifier = modifier,
     ) {
@@ -284,7 +279,7 @@ internal fun ClaimStep(
         ListenUpTextField(
             state = firstName,
             label = stringResource(Res.string.auth_first_name),
-            leadingIcon = Icons.Outlined.Person,
+            leadingIcon = ListenUpIcons.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
@@ -292,7 +287,7 @@ internal fun ClaimStep(
         ListenUpTextField(
             state = lastName,
             label = stringResource(Res.string.auth_last_name),
-            leadingIcon = Icons.Outlined.Person,
+            leadingIcon = ListenUpIcons.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
@@ -301,7 +296,7 @@ internal fun ClaimStep(
             state = password,
             label = stringResource(Res.string.auth_password_label),
             supportingText = "At least 8 characters",
-            leadingIcon = Icons.Outlined.Lock,
+            leadingIcon = ListenUpIcons.Lock,
             obfuscation = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             onKeyboardAction = {
@@ -313,7 +308,7 @@ internal fun ClaimStep(
         ListenUpButton(
             onClick = { onClaim(password.text.toString(), firstName.text.toString(), lastName.text.toString()) },
             text = stringResource(Res.string.invite_get_started),
-            leadingIcon = Icons.AutoMirrored.Outlined.Login,
+            leadingIcon = ListenUpIcons.Login,
             enabled = firstName.text.isNotBlank() && lastName.text.isNotBlank() && password.text.isNotBlank(),
         )
     }
@@ -336,12 +331,12 @@ private fun InvitePreviewCard(
             PreviewRow(
                 label = stringResource(Res.string.common_server),
                 value = preview.serverName,
-                icon = Icons.Outlined.Storage,
+                icon = ListenUpIcons.Storage,
             )
             PreviewRow(
                 label = stringResource(Res.string.invite_invited_by),
                 value = preview.invitedByName,
-                icon = Icons.Outlined.Person,
+                icon = ListenUpIcons.Person,
             )
             Text(
                 text = stringResource(Res.string.auth_your_email, preview.email),

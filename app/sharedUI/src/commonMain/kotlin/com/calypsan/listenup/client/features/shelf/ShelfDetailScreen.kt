@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.shelf
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.forProse
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
@@ -30,14 +31,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -158,7 +151,7 @@ fun ShelfDetailScreen(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
+                                imageVector = ListenUpIcons.EditFilled,
                                 contentDescription = stringResource(Res.string.shelf_edit_shelf),
                             )
                         }
@@ -451,7 +444,7 @@ private fun ShelfBadge() {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
+            imageVector = ListenUpIcons.LibraryBooksFilled,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(46.dp),
@@ -475,7 +468,7 @@ private fun ShelfHeroTexts(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Lock,
+                    imageVector = ListenUpIcons.LockFilled,
                     contentDescription = null,
                     tint = HeroInk.muted(),
                     modifier = Modifier.size(16.dp),
@@ -501,7 +494,7 @@ private fun ShelfHeroTexts(
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ShelfStatChip(
-                icon = Icons.AutoMirrored.Filled.LibraryBooks,
+                icon = ListenUpIcons.LibraryBooksFilled,
                 value = "${detail.bookCount}",
                 label =
                     if (detail.bookCount == 1) {
@@ -511,7 +504,7 @@ private fun ShelfHeroTexts(
                     },
             )
             ShelfStatChip(
-                icon = Icons.Default.Schedule,
+                icon = ListenUpIcons.ScheduleFilled,
                 value = totalDuration,
                 label = stringResource(Res.string.shelf_stat_total),
             )
@@ -606,7 +599,7 @@ private fun ShelfSortPill(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                    imageVector = ListenUpIcons.SortFilled,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
@@ -633,7 +626,7 @@ private fun ShelfSortPill(
                         },
                     trailingIcon =
                         if (option == sort) {
-                            { Icon(Icons.Default.Check, contentDescription = null) }
+                            { Icon(ListenUpIcons.CheckFilled, contentDescription = null) }
                         } else {
                             null
                         },
@@ -684,7 +677,7 @@ private fun ShelfEmptyState(isOwner: Boolean) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Default.Book,
+                imageVector = ListenUpIcons.BookFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(46.dp),

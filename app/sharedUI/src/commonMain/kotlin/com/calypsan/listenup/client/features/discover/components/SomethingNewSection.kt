@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -27,6 +25,7 @@ import com.calypsan.listenup.client.design.components.AdaptiveCardGrid
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.heightIn
@@ -224,7 +223,11 @@ private fun ShuffleButton(
                 },
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
         ) {
-            Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Icon(
+                ListenUpIcons.ShuffleFilled,
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text(stringResource(Res.string.discover_shuffle))
         }
@@ -234,7 +237,7 @@ private fun ShuffleButton(
             modifier = Modifier.size(SHUFFLE_SIZE),
             shape = MaterialTheme.shapes.large,
         ) {
-            Icon(Icons.Filled.Shuffle, contentDescription = description)
+            Icon(ListenUpIcons.ShuffleFilled, contentDescription = description)
         }
     }
 }

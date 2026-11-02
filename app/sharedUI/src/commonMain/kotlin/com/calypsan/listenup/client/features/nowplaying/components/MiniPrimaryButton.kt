@@ -2,10 +2,6 @@ package com.calypsan.listenup.client.features.nowplaying.components
 
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -25,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_sign_in
@@ -92,7 +89,7 @@ internal fun MiniPrimaryButton(
                 modifier = modifier.size(size),
             ) {
                 Icon(
-                    imageVector = if (isPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    imageVector = if (isPause) ListenUpIcons.PauseFilled else ListenUpIcons.PlayArrowFilled,
                     contentDescription =
                         if (isPause) {
                             stringResource(Res.string.player_pause)
@@ -145,7 +142,7 @@ internal fun MiniPrimaryButton(
 
         PrimaryControl.Close -> {
             IconButton(onClick = onClick, modifier = modifier.size(MinTouchTarget)) {
-                Icon(Icons.Rounded.Close, contentDescription = stringResource(Res.string.player_close_book))
+                Icon(ListenUpIcons.CloseFilled, contentDescription = stringResource(Res.string.player_close_book))
             }
         }
     }

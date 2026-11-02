@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -12,6 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.testing.AtFontScale
 import com.calypsan.listenup.client.testing.assertNotClipped
 import io.kotest.matchers.comparables.shouldBeGreaterThan
@@ -43,7 +42,7 @@ class ListenUpButtonLargeTextTest {
                             text = APPLY,
                             onClick = {},
                             filled = filled,
-                            leadingIcon = Icons.Outlined.Check,
+                            leadingIcon = ListenUpIcons.Check,
                             modifier = Modifier.testTag(BUTTON),
                         )
                     }

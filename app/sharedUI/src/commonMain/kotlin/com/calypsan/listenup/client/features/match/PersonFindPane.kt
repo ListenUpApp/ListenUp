@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +23,7 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.match.InLibraryUi
 import com.calypsan.listenup.client.presentation.match.PersonFindUiState
@@ -172,7 +171,7 @@ private fun stripWidth(covers: Int) = STRIP_COVER + (STRIP_COVER - STRIP_OVERLAP
 @Composable
 private fun NoProfiles(onEditByHand: () -> Unit) {
     FailureMessage(
-        icon = Icons.Outlined.PersonSearch,
+        icon = ListenUpIcons.PersonSearch,
         title = stringResource(Res.string.match_no_profiles_title),
         body = stringResource(Res.string.match_no_profiles_body),
     ) {

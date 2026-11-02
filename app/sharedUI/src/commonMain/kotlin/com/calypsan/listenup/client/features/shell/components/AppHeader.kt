@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +37,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.NotificationBell
 import com.calypsan.listenup.client.design.components.UserAvatarMenu
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
@@ -160,7 +157,7 @@ fun AppHeader(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = ListenUpIcons.ArrowBackFilled,
                         contentDescription = stringResource(Res.string.shell_close_search),
                     )
                 }
@@ -197,7 +194,7 @@ fun AppHeader(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Search,
+                            imageVector = ListenUpIcons.SearchFilled,
                             contentDescription = stringResource(Res.string.common_search),
                         )
                     }
@@ -317,7 +314,7 @@ private fun HeaderSearchField(
         placeholder = { Text(stringResource(Res.string.common_search)) },
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = ListenUpIcons.SearchFilled,
                 contentDescription = stringResource(Res.string.common_search),
             )
         },
@@ -408,7 +405,7 @@ private fun SyncIndicator(
 private fun SyncErrorGlyph(onClick: () -> Unit) {
     val haptics = LocalHaptics.current
     Icon(
-        imageVector = Icons.Default.CloudOff,
+        imageVector = ListenUpIcons.CloudOffFilled,
         contentDescription = stringResource(Res.string.shell_sync_error),
         tint = MaterialTheme.colorScheme.error,
         modifier =

@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DeleteSweep
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
@@ -26,8 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -109,7 +106,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.common_delete),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Outlined.Delete,
+                    icon = ListenUpIcons.Delete,
                 )
             }
 
@@ -124,7 +121,7 @@ fun StorageScreen(
                     confirmText = stringResource(Res.string.settings_clear_all),
                     onConfirm = viewModel::executeDelete,
                     onDismiss = viewModel::cancelDelete,
-                    icon = Icons.Outlined.DeleteSweep,
+                    icon = ListenUpIcons.DeleteSweep,
                 )
             }
         }
@@ -441,7 +438,7 @@ private fun EmptyDownloadsMessage() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.CloudDownload,
+            imageVector = ListenUpIcons.CloudDownload,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -540,7 +537,7 @@ private fun DownloadedBookItem(
                 enabled = !isDeleting,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Delete,
+                    imageVector = ListenUpIcons.Delete,
                     contentDescription = stringResource(Res.string.book_delete_download),
                     tint = MaterialTheme.colorScheme.error,
                 )

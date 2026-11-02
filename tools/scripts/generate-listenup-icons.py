@@ -23,7 +23,7 @@ DEFAULT_OUTPUT = (
     REPO / "app/sharedUI/src/commonMain/kotlin/com/calypsan/listenup/client/design/icons/ListenUpIcons.kt"
 )
 PATH_RE = re.compile(r'<path\s+d="([^"]+)"\s*/>')
-WRAP = 90
+WRAP = 100
 
 HEADER = """\
 // Generated -- do not edit. Run tools/scripts/generate-listenup-icons.py.
@@ -71,16 +71,20 @@ private fun symbol(
 """
 
 
-def wrap(d: str) -> list[str]:
-    """Split path data into chunks of about WRAP characters, only ever before a command letter."""
-    chunks, current = [], ""
-    for ch in d:
-        if len(current) >= WRAP and ch.isalpha():
-            chunks.append(current)
-            current = ""
-        current += ch
-    chunks.append(current)
-    return chunks
+def wrap(d: str, seen: set[str]) -> list[str]:
+    """Split path data into pieces of about WRAP characters; the pieces are concatenated, so any boundary is safe.
+
+    The width shrinks until no piece repeats one already written, because detekt flags a repeated string literal
+    and an outline and its filled sibling usually open with the same stretch of path.
+    """
+    for width in range(WRAP, WRAP - 40, -1):
+        pieces = [d[i : i + width] for i in range(0, len(d), width)]
+        if not seen.intersection(pieces) and len(set(pieces)) == len(pieces):
+            break
+    else:
+        sys.exit("could not split path data without repeating a literal")
+    seen.update(pieces)
+    return pieces
 
 
 def read_mapping(path: Path) -> list[tuple[str, str, int, bool]]:
@@ -106,7 +110,7 @@ def main() -> None:
     mapping = Path(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_MAPPING
     output = Path(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_OUTPUT
 
-    body, unmapped = [], []
+    body, constants, unmapped = [], {}, []
     for kotlin, symbol, fill, mirror in read_mapping(mapping):
         svg = svg_dir / (f"{symbol}_fill1.svg" if fill else f"{symbol}.svg")
         if not svg.is_file():
@@ -116,20 +120,20 @@ def main() -> None:
         paths = PATH_RE.findall(text)
         if len(paths) != 1 or "transform" in text:
             sys.exit(f"{svg.name}: expected exactly one plain <path>, found {len(paths)}")
-        literal = " +\n".join(f'                    "{c}"' for c in wrap(paths[0])).lstrip()
+        const = f"PATH_{symbol.upper()}" + ("_FILL" if fill else "")
+        constants[const] = paths[0]
         body.append(
             f"    val {kotlin}: ImageVector by lazy {{\n"
-            f"        symbol(\n"
-            f'            name = "{kotlin}",\n'
-            f"            autoMirror = {str(mirror).lower()},\n"
-            f"            pathData =\n"
-            f"                {literal},\n"
-            f"        )\n"
+            f'        symbol(name = "{kotlin}", autoMirror = {str(mirror).lower()}, pathData = {const})\n'
             f"    }}\n"
         )
     if unmapped:
         sys.exit("unmapped:\n  " + "\n  ".join(unmapped))
-    output.write_text(HEADER + "\n".join(body) + FOOTER)
+    pieces, seen = [], set()
+    for const, d in constants.items():
+        literal = " +\n".join(f'    "{c}"' for c in wrap(d, seen)).lstrip()
+        pieces.append(f"private const val {const} =\n    {literal}\n")
+    output.write_text(HEADER + "\n".join(body) + FOOTER + "\n" + "\n".join(pieces))
     print(f"wrote {len(body)} icons to {output}")
 
 

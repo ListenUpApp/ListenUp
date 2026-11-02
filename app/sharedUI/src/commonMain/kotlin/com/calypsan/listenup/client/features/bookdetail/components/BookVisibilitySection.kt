@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CollectionsBookmark
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,6 +32,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookVisibility
 import com.calypsan.listenup.client.domain.model.CollectionRef
@@ -89,7 +86,7 @@ fun BookVisibilitySection(
         is BookVisibility.Restricted -> {
             VisibilityCard(
                 container = MaterialTheme.colorScheme.surfaceContainer,
-                glyph = Icons.Outlined.Lock,
+                glyph = ListenUpIcons.Lock,
                 titleColor = MaterialTheme.colorScheme.primary,
                 modifier = modifier,
             ) {
@@ -100,7 +97,7 @@ fun BookVisibilitySection(
         BookVisibility.Stranded -> {
             VisibilityCard(
                 container = MaterialTheme.colorScheme.tertiaryContainer,
-                glyph = Icons.Outlined.WarningAmber,
+                glyph = ListenUpIcons.WarningAmber,
                 titleColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = modifier,
             ) {
@@ -198,10 +195,10 @@ private fun CollectionName(
         PillChip(
             label = collection.name,
             onClick = { onCollectionClick(collection.id) },
-            leadingIcon = Icons.Outlined.CollectionsBookmark,
+            leadingIcon = ListenUpIcons.CollectionsBookmark,
         )
     } else {
-        TonalLabel(label = collection.name, icon = Icons.Outlined.CollectionsBookmark)
+        TonalLabel(label = collection.name, icon = ListenUpIcons.CollectionsBookmark)
     }
 }
 

@@ -36,22 +36,13 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesPlacementLine
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -260,7 +251,7 @@ private fun SearchPillBar(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = ListenUpIcons.ArrowBackFilled,
                     contentDescription = stringResource(Res.string.shell_close_search),
                 )
             }
@@ -279,7 +270,7 @@ private fun SearchPillBar(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = ListenUpIcons.CloseFilled,
                     contentDescription = stringResource(Res.string.shell_close_search),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -308,35 +299,35 @@ private fun TypeFilterRow(
             onClick = onSelectAll,
             selected = selectedTypes.isEmpty(),
             selectionRole = Role.Checkbox,
-            leadingIcon = Icons.Default.Apps,
+            leadingIcon = ListenUpIcons.AppsFilled,
         )
         PillChip(
             label = stringResource(Res.string.library_books),
             onClick = { onToggle(SearchHitType.BOOK) },
             selected = SearchHitType.BOOK in selectedTypes,
             selectionRole = Role.Checkbox,
-            leadingIcon = Icons.Default.Book,
+            leadingIcon = ListenUpIcons.BookFilled,
         )
         PillChip(
             label = stringResource(Res.string.search_people),
             onClick = { onToggle(SearchHitType.CONTRIBUTOR) },
             selected = SearchHitType.CONTRIBUTOR in selectedTypes,
             selectionRole = Role.Checkbox,
-            leadingIcon = Icons.Default.Person,
+            leadingIcon = ListenUpIcons.PersonFilled,
         )
         PillChip(
             label = stringResource(Res.string.common_series),
             onClick = { onToggle(SearchHitType.SERIES) },
             selected = SearchHitType.SERIES in selectedTypes,
             selectionRole = Role.Checkbox,
-            leadingIcon = Icons.AutoMirrored.Filled.PlaylistPlay,
+            leadingIcon = ListenUpIcons.PlaylistPlayFilled,
         )
         PillChip(
             label = stringResource(Res.string.book_detail_tags),
             onClick = { onToggle(SearchHitType.TAG) },
             selected = SearchHitType.TAG in selectedTypes,
             selectionRole = Role.Checkbox,
-            leadingIcon = Icons.Default.Tag,
+            leadingIcon = ListenUpIcons.TagFilled,
         )
     }
 }
@@ -694,7 +685,7 @@ private fun SeeAllAction(
                 color = MaterialTheme.colorScheme.primary,
             )
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = ListenUpIcons.KeyboardArrowRightFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
@@ -789,7 +780,7 @@ private fun SeeAllTopBar(
             },
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                imageVector = ListenUpIcons.ArrowBackFilled,
                 contentDescription = stringResource(Res.string.shell_close_search),
             )
         }
@@ -946,7 +937,7 @@ internal fun PersonResultRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Default.Person,
+                    ListenUpIcons.PersonFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -982,7 +973,7 @@ internal fun SeriesResultRow(
     ContentRow(onClick = onClick, modifier = modifier) {
         ScallopBadge(size = 52.dp, containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
             Icon(
-                Icons.AutoMirrored.Filled.PlaylistPlay,
+                ListenUpIcons.PlaylistPlayFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
             )
@@ -1038,7 +1029,7 @@ private fun TagFlow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Tag,
+                        imageVector = ListenUpIcons.TagFilled,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
@@ -1092,7 +1083,7 @@ private fun TooShortState(modifier: Modifier = Modifier) {
         title = stringResource(Res.string.search_keep_typing),
         subtitle = stringResource(Res.string.search_keep_typing_description, MIN_SEARCH_QUERY_LENGTH),
         modifier = modifier,
-        icon = Icons.Default.Search,
+        icon = ListenUpIcons.SearchFilled,
     )
 }
 

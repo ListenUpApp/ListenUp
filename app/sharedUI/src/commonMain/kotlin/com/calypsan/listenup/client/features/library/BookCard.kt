@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.library
 
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -10,6 +9,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.selection_select
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -37,9 +37,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -522,7 +519,7 @@ private fun DocumentsBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+            imageVector = ListenUpIcons.MenuBook,
             contentDescription = stringResource(Res.string.library_has_documents_badge),
             tint = MaterialTheme.colorScheme.onSecondary,
             modifier = Modifier.size(16.dp),
@@ -693,7 +690,7 @@ private fun SelectionIndicator(
     ) {
         if (isSelected) {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = ListenUpIcons.CheckCircleFilled,
                 contentDescription = stringResource(Res.string.common_selected),
                 tint = iconTint,
                 modifier = Modifier.size(20.dp),
@@ -726,7 +723,7 @@ private fun CompletionBadge(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.Check,
+            imageVector = ListenUpIcons.CheckFilled,
             contentDescription = stringResource(Res.string.common_completed),
             tint = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.size(18.dp),

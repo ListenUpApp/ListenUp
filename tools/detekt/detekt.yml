@@ -27,8 +27,9 @@ complexity:
     active: true
     allowedLines: 600
     # A spec with many cases is one class by construction; splitting it to satisfy a line count
-    # scatters the behaviour it documents.
-    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**']
+    # scatters the behaviour it documents. ListenUpIcons is generated (tools/scripts/generate-listenup-icons.py):
+    # one property per glyph is the API, so splitting the object would split the namespace callers use.
+    excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**', '**/androidHostTest/**', '**/desktopTest/**', '**/appleTest/**', '**/jsTest/**', '**/linuxX64Test/**', '**/design/icons/ListenUpIcons.kt']
   LongMethod:
     active: true
     allowedLines: 120  # Composables and media player logic are naturally verbose

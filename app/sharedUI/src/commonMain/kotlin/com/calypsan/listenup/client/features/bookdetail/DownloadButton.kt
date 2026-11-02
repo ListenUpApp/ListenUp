@@ -6,11 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -29,6 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.bookdetail.components.DownloadAction
 import com.calypsan.listenup.client.features.bookdetail.components.DownloadActionKind
 import com.calypsan.listenup.client.features.bookdetail.components.DownloadTap
@@ -143,7 +139,7 @@ private fun downloadLabel(kind: DownloadActionKind): String =
 private fun DownloadGlyph(kind: DownloadActionKind) {
     when (kind) {
         DownloadActionKind.Download -> {
-            Icon(Icons.Outlined.Download, contentDescription = null)
+            Icon(ListenUpIcons.Download, contentDescription = null)
         }
 
         DownloadActionKind.Queued -> {
@@ -151,7 +147,7 @@ private fun DownloadGlyph(kind: DownloadActionKind) {
         }
 
         DownloadActionKind.WaitingForWifi -> {
-            Icon(Icons.Outlined.WifiOff, contentDescription = null)
+            Icon(ListenUpIcons.WifiOff, contentDescription = null)
         }
 
         is DownloadActionKind.Downloading -> {
@@ -164,11 +160,11 @@ private fun DownloadGlyph(kind: DownloadActionKind) {
         }
 
         DownloadActionKind.Downloaded -> {
-            Icon(Icons.Outlined.Delete, contentDescription = null)
+            Icon(ListenUpIcons.Delete, contentDescription = null)
         }
 
         DownloadActionKind.Retry -> {
-            Icon(Icons.Outlined.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            Icon(ListenUpIcons.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
         }
     }
 }

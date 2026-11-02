@@ -14,12 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrokenImage
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +59,7 @@ import com.calypsan.listenup.client.core.image.zoomLabel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.imageframe.FrameEditor
 import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import listenup.composeapp.generated.resources.Res
@@ -283,7 +278,7 @@ private fun FullScreenEditor(
             ListenUpTopAppBar(
                 title = stringResource(Res.string.edit_frame_title),
                 onBack = onCancel,
-                navigationIcon = Icons.Default.Close,
+                navigationIcon = ListenUpIcons.CloseFilled,
                 navigationContentDescription = stringResource(Res.string.common_cancel),
                 actions = {
                     ConfirmButton(confirm, onConfirm, modifier = Modifier.padding(end = 8.dp))
@@ -330,7 +325,7 @@ private fun DialogEditor(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (editor != null && frame != null) {
                     TextButton(onClick = editor::reset, enabled = !frame.isCentreCrop()) {
-                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(ListenUpIcons.RestartAltFilled, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(Res.string.edit_frame_reset))
                     }
@@ -399,7 +394,7 @@ private fun CouldNotOpen(onChooseAnother: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            imageVector = Icons.Default.BrokenImage,
+            imageVector = ListenUpIcons.BrokenImageFilled,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = Color.White,
@@ -457,7 +452,7 @@ private fun FrameControls(
             )
         }
         OutlinedButton(onClick = editor::reset, enabled = !frame.isCentreCrop()) {
-            Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(ListenUpIcons.RestartAltFilled, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(Res.string.edit_frame_reset))
         }
@@ -476,7 +471,7 @@ private fun ZoomRow(
     val zoomName = stringResource(Res.string.edit_frame_zoom)
     val zoomValue = stringResource(Res.string.edit_frame_zoom_value, zoomLabel(frame.zoom))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Icon(Icons.Default.ZoomOut, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(ListenUpIcons.ZoomOutFilled, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(
             value = sliderPositionForZoom(frame.zoom).toFloat(),
             onValueChange = { editor.zoomTo(zoomForSliderPosition(it.toDouble())) },
@@ -487,7 +482,7 @@ private fun ZoomRow(
                     stateDescription = zoomValue
                 },
         )
-        Icon(Icons.Default.ZoomIn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(ListenUpIcons.ZoomInFilled, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

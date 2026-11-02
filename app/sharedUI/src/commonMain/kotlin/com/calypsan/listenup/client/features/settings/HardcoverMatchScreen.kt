@@ -27,10 +27,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ManageSearch
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -69,6 +65,7 @@ import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.RatingLabels
@@ -641,7 +638,7 @@ private fun WeakResultsHint(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(ListenUpIcons.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         stringResource(Res.string.hardcover_match_weak_title, author),
@@ -679,7 +676,7 @@ private fun NoResults(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Outlined.SearchOff,
+                ListenUpIcons.SearchOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -722,7 +719,7 @@ private fun SuggestionChips(
             PillChip(
                 label = suggestion,
                 onClick = { onSearchFor(suggestion) },
-                leadingIcon = Icons.AutoMirrored.Outlined.ManageSearch,
+                leadingIcon = ListenUpIcons.ManageSearch,
                 modifier = Modifier.semantics { contentDescription = spoken },
             )
         }

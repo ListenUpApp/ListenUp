@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.LayoutStart
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -278,7 +276,7 @@ private fun PlayFlight(
             )
         } else {
             Icon(
-                imageVector = if (isPause) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                imageVector = if (isPause) ListenUpIcons.PauseFilled else ListenUpIcons.PlayArrowFilled,
                 contentDescription = null,
                 tint = colors.onPrimary,
                 modifier = glyphScale.size(PageGlyph),

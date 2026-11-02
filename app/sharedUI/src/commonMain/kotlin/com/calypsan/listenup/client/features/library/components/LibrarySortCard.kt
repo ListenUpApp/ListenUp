@@ -18,10 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -44,6 +40,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
@@ -226,7 +223,7 @@ internal fun SortTrigger(
                         .padding(start = 10.dp, end = 14.dp),
             ) {
                 Icon(
-                    imageVector = if (status == null) Icons.Default.SwapVert else Icons.Default.FilterList,
+                    imageVector = if (status == null) ListenUpIcons.SwapVertFilled else ListenUpIcons.FilterListFilled,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
@@ -401,7 +398,7 @@ private fun CheckableMenuItem(
         leadingIcon = {
             if (checked) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = ListenUpIcons.CheckFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp),

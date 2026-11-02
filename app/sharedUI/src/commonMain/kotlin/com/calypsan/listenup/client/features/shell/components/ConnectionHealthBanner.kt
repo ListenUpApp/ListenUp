@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -24,6 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import listenup.composeapp.generated.resources.Res
@@ -68,7 +65,7 @@ fun ConnectionHealthBanner(
                 modifier = modifier,
                 container = MaterialTheme.colorScheme.errorContainer,
                 onContainer = MaterialTheme.colorScheme.onErrorContainer,
-                icon = Icons.Default.AccountCircle,
+                icon = ListenUpIcons.AccountCircleFilled,
                 title = stringResource(Res.string.shell_session_lapsed_title),
                 body = stringResource(Res.string.shell_session_lapsed_body),
                 actionLabel = stringResource(Res.string.shell_session_lapsed_sign_in),
@@ -88,7 +85,7 @@ fun ConnectionHealthBanner(
                 modifier = modifier,
                 container = MaterialTheme.colorScheme.tertiaryContainer,
                 onContainer = MaterialTheme.colorScheme.onTertiaryContainer,
-                icon = Icons.Default.Info,
+                icon = ListenUpIcons.InfoFilled,
                 title = stringResource(Res.string.shell_update_available_title),
                 body =
                     stringResource(
@@ -171,7 +168,7 @@ private fun BannerPill(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = ListenUpIcons.CloseFilled,
                         contentDescription = stringResource(Res.string.common_dismiss),
                         tint = onContainer,
                     )

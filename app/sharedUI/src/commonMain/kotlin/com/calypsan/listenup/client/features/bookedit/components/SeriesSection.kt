@@ -4,6 +4,7 @@ import androidx.compose.runtime.key
 import com.calypsan.listenup.client.design.components.transformedBy
 import androidx.compose.foundation.text.input.clearText
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -126,7 +125,7 @@ fun SeriesSection(
                 onClick = { enterSeries(trimmedQuery) },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
                 },
             )
         }

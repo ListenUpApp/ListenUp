@@ -1,12 +1,11 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.extendedColors
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_held
@@ -26,7 +25,7 @@ fun HeldLabel(modifier: Modifier = Modifier) {
     val description = stringResource(Res.string.admin_held_a11y)
     TonalLabel(
         label = stringResource(Res.string.admin_held),
-        icon = Icons.Outlined.Inbox,
+        icon = ListenUpIcons.Inbox,
         containerColor = MaterialTheme.extendedColors.heldContainer,
         contentColor = MaterialTheme.extendedColors.onHeldContainer,
         modifier = modifier.clearAndSetSemantics { contentDescription = description },

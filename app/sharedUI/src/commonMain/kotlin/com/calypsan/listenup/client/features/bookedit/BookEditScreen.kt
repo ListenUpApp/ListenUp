@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +28,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
@@ -116,7 +115,7 @@ fun BookEditScreen(
                         onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
                         enabled = state.hasChanges && !state.isSaving,
                         isLoading = state.isSaving,
-                        leadingIcon = Icons.Default.Save,
+                        leadingIcon = ListenUpIcons.SaveFilled,
                         modifier = Modifier.padding(Spacing.lg),
                     )
                 }

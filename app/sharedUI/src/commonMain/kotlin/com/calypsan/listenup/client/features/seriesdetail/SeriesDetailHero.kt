@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +32,7 @@ import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
@@ -98,7 +94,7 @@ internal fun SeriesColorHero(
                                 .background(MaterialTheme.colorScheme.surfaceContainerLow, CircleShape),
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Edit,
+                            imageVector = ListenUpIcons.EditFilled,
                             contentDescription = stringResource(Res.string.series_edit_series),
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -205,12 +201,12 @@ internal fun HeroBody(
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
             HeroStat(
-                icon = Icons.AutoMirrored.Filled.MenuBook,
+                icon = ListenUpIcons.MenuBookFilled,
                 value = "${state.books.size} books",
                 label = stringResource(Res.string.series_finished_count, state.finishedCount),
             )
             HeroStat(
-                icon = Icons.Default.Schedule,
+                icon = ListenUpIcons.ScheduleFilled,
                 value = state.formatTotalDuration(),
                 label = stringResource(Res.string.series_stat_total),
             )
@@ -233,7 +229,7 @@ internal fun HeroActionRow(
                 onBackClick()
             },
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.common_back), tint = tint)
+            Icon(ListenUpIcons.ArrowBackFilled, stringResource(Res.string.common_back), tint = tint)
         }
         Spacer(Modifier.weight(1f))
         if (onEditClick != null && !LocalDeviceContext.current.isLeanback) {
@@ -243,7 +239,7 @@ internal fun HeroActionRow(
                     onEditClick()
                 },
             ) {
-                Icon(Icons.Default.Edit, stringResource(Res.string.series_edit_series), tint = tint)
+                Icon(ListenUpIcons.EditFilled, stringResource(Res.string.series_edit_series), tint = tint)
             }
         }
     }

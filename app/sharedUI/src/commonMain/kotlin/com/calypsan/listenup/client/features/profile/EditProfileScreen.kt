@@ -22,12 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material3.OutlinedButton
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.design.components.UserAvatarImage
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.image.FrameConfirm
 import com.calypsan.listenup.client.design.image.FrameEditorDialog
 import com.calypsan.listenup.client.design.image.FrameEditorSource
@@ -35,9 +33,6 @@ import com.calypsan.listenup.client.design.image.scallopFramePreviews
 import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import listenup.composeapp.generated.resources.edit_adjust_photo
 import listenup.composeapp.generated.resources.edit_frame_preview_profile_label
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -420,7 +415,7 @@ private fun AvatarEditRow(
                 enabled = !isSaving,
             ) {
                 Icon(
-                    imageVector = Icons.Default.CameraAlt,
+                    imageVector = ListenUpIcons.CameraAltFilled,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
@@ -439,7 +434,7 @@ private fun AvatarEditRow(
                     enabled = !isSaving,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Crop,
+                        imageVector = ListenUpIcons.CropFilled,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -457,7 +452,7 @@ private fun AvatarEditRow(
                     enabled = !isSaving,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = ListenUpIcons.DeleteFilled,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
@@ -674,7 +669,7 @@ private fun PasswordInputField(
         enabled = enabled,
         obfuscation = if (visible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        trailingIcon = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+        trailingIcon = if (visible) ListenUpIcons.VisibilityOffFilled else ListenUpIcons.VisibilityFilled,
         onTrailingClick = { visible = !visible },
         trailingIconContentDescription = passwordVisibilityDescription(visible),
     )

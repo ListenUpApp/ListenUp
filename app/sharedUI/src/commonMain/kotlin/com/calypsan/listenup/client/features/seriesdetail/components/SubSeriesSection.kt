@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.seriesdetail.ChildSeriesUi
 import listenup.composeapp.generated.resources.Res
@@ -188,7 +186,7 @@ internal fun SubSeriesCard(
             )
             if (child.isFinished) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = ListenUpIcons.CheckFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(14.dp),
@@ -246,7 +244,7 @@ private fun AddSubSeriesTile(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            Icon(ListenUpIcons.AddFilled, contentDescription = null)
             Text(
                 text = stringResource(Res.string.series_add_subseries),
                 style = MaterialTheme.typography.titleSmall,

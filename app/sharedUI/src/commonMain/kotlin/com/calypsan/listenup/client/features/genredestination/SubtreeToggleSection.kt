@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -27,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.genredestination.FacetIdentity
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
@@ -98,7 +97,7 @@ private fun SubtreeToggleRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Icon(
-            imageVector = Icons.Filled.AccountTree,
+            imageVector = ListenUpIcons.AccountTreeFilled,
             contentDescription = null,
             tint = contentColor,
         )

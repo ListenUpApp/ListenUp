@@ -7,9 +7,6 @@ import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_clear_search
@@ -65,7 +63,7 @@ fun ListenUpSearchField(
         shape = MaterialTheme.shapes.medium,
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = ListenUpIcons.SearchFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -84,7 +82,7 @@ fun ListenUpSearchField(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Clear,
+                            imageVector = ListenUpIcons.ClearFilled,
                             contentDescription = stringResource(Res.string.common_clear_search),
                         )
                     }

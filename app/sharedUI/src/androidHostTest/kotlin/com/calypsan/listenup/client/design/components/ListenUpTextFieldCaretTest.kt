@@ -5,8 +5,6 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -26,6 +24,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -222,7 +221,7 @@ class ListenUpTextFieldCaretTest {
                 ListenUpTextField(
                     state = rememberTextFieldState(),
                     label = "Search",
-                    trailingIcon = Icons.Default.Search,
+                    trailingIcon = ListenUpIcons.SearchFilled,
                     onTrailingClick = {},
                     trailingContent = { Text("custom", modifier = Modifier.testTag(TRAILING_TAG)) },
                     modifier = Modifier.testTag(FIELD_TAG),

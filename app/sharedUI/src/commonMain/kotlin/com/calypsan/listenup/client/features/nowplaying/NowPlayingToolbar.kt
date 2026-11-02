@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.client.design.components.PlaybackSlider
@@ -18,9 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -253,7 +251,7 @@ private fun RowScope.ToolbarContent(
             tonalWhenIdle = false,
         )
         PlayerIconButton(
-            icon = Icons.AutoMirrored.Filled.List,
+            icon = ListenUpIcons.ListFilled,
             contentDescription = stringResource(Res.string.player_chapters),
             onClick = actions.onChaptersClick,
             size = MinTouchTarget,
@@ -262,7 +260,7 @@ private fun RowScope.ToolbarContent(
         )
     }
     PlayerIconButton(
-        icon = Icons.Default.KeyboardArrowUp,
+        icon = ListenUpIcons.KeyboardArrowUpFilled,
         contentDescription = stringResource(Res.string.player_mini_open),
         onClick = actions.onOpen,
         size = MinTouchTarget,

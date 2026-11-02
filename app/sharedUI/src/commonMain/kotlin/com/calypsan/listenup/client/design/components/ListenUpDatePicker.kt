@@ -4,9 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -90,13 +88,13 @@ fun ListenUpDatePicker(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Clear,
+                            imageVector = ListenUpIcons.ClearFilled,
                             contentDescription = stringResource(Res.string.common_clear_date),
                         )
                     }
                 } else {
                     Icon(
-                        imageVector = Icons.Default.CalendarMonth,
+                        imageVector = ListenUpIcons.CalendarMonthFilled,
                         contentDescription = stringResource(Res.string.common_select_date),
                     )
                 }

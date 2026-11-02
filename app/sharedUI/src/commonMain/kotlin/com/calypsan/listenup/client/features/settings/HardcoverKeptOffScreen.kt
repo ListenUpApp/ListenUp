@@ -13,8 +13,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
@@ -40,6 +38,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingNavigationRow
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.presentation.hardcover.KeptOffBook
@@ -223,7 +222,7 @@ internal fun HardcoverKeptOffRow(
             } else {
                 stringResource(Res.string.hardcover_kept_off_row_detail, books)
             },
-        icon = Icons.Outlined.LinkOff,
+        icon = ListenUpIcons.LinkOff,
         accent = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }

@@ -5,16 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmarks
-import androidx.compose.material.icons.outlined.Business
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Mood
-import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.LayoutEnd
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.TonalIconTile
@@ -154,7 +145,7 @@ private fun NothingToChangeYet(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         TonalIconTile(
-            icon = Icons.Outlined.EditNote,
+            icon = ListenUpIcons.EditNote,
             size = EmptyStateTileSize,
             accent = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -234,14 +225,14 @@ private fun labelOf(edit: BulkEdit): StringResource =
 /** The glyph that stands for the field — the same one the form uses, where the two overlap. */
 private fun iconOf(edit: BulkEdit): ImageVector =
     when (edit) {
-        is BulkEdit.SetPublisher -> Icons.Outlined.Business
-        is BulkEdit.SetPublishYear -> Icons.Outlined.CalendarMonth
-        is BulkEdit.SetLanguage -> Icons.Outlined.Language
-        is BulkEdit.AddToSeries -> Icons.Outlined.Bookmarks
-        is BulkEdit.AddContributors -> Icons.Outlined.Groups
-        is BulkEdit.AddGenres -> Icons.Outlined.Category
-        is BulkEdit.AddTags -> Icons.Outlined.Sell
-        is BulkEdit.AddMoods -> Icons.Outlined.Mood
+        is BulkEdit.SetPublisher -> ListenUpIcons.Business
+        is BulkEdit.SetPublishYear -> ListenUpIcons.CalendarMonth
+        is BulkEdit.SetLanguage -> ListenUpIcons.Language
+        is BulkEdit.AddToSeries -> ListenUpIcons.Bookmarks
+        is BulkEdit.AddContributors -> ListenUpIcons.Groups
+        is BulkEdit.AddGenres -> ListenUpIcons.Category
+        is BulkEdit.AddTags -> ListenUpIcons.Sell
+        is BulkEdit.AddMoods -> ListenUpIcons.Mood
     }
 
 /**

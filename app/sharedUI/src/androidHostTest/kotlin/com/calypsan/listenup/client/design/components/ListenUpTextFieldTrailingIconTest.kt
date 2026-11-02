@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -11,6 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -40,7 +39,7 @@ class ListenUpTextFieldTrailingIconTest {
                 ListenUpTextField(
                     state = rememberTextFieldState(),
                     label = "Password",
-                    trailingIcon = Icons.Default.Search,
+                    trailingIcon = ListenUpIcons.SearchFilled,
                     onTrailingClick = {},
                     trailingIconContentDescription = SHOW_PASSWORD,
                 )
@@ -58,7 +57,7 @@ class ListenUpTextFieldTrailingIconTest {
                 ListenUpTextField(
                     state = rememberTextFieldState(),
                     label = "Password",
-                    trailingIcon = Icons.Default.Search,
+                    trailingIcon = ListenUpIcons.SearchFilled,
                     onTrailingClick = { clicks++ },
                     trailingIconContentDescription = SHOW_PASSWORD,
                 )
@@ -77,7 +76,7 @@ class ListenUpTextFieldTrailingIconTest {
                 ListenUpTextField(
                     state = rememberTextFieldState(),
                     label = "Password",
-                    trailingIcon = Icons.Default.Search,
+                    trailingIcon = ListenUpIcons.SearchFilled,
                     trailingIconContentDescription = SHOW_PASSWORD,
                 )
             }
@@ -93,7 +92,7 @@ class ListenUpTextFieldTrailingIconTest {
                 ListenUpTextField(
                     state = rememberTextFieldState(),
                     label = "Search",
-                    trailingIcon = Icons.Default.Search,
+                    trailingIcon = ListenUpIcons.SearchFilled,
                     onTrailingClick = {},
                     trailingIconContentDescription = SHOW_PASSWORD,
                     trailingContent = { Text("custom", modifier = Modifier.testTag(TRAILING_TAG)) },

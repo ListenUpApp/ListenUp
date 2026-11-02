@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +13,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.notifications_title
 import listenup.composeapp.generated.resources.notifications_unread_count_a11y
@@ -76,7 +74,7 @@ fun NotificationBell(
         ) {
             Icon(
                 imageVector =
-                    if (unreadCount > 0) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                    if (unreadCount > 0) ListenUpIcons.NotificationsFilled else ListenUpIcons.Notifications,
                 contentDescription = stringResource(Res.string.notifications_title),
             )
         }
