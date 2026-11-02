@@ -100,19 +100,11 @@ import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.share.shareBookText
 
 /**
- * Immersive book detail screen following Material 3 Expressive Design.
+ * The book detail screen: a hero band (cover, title, byline, quick stats), the listen actions, then the
+ * sections in the order the visit's stage calls for.
  *
- * Design Philosophy: "Identity -> Talent -> Action -> Story -> Details"
- * Uses Palette API to extract colors from cover art for dynamic theming.
- *
- * Layout Hierarchy (Strict Order):
- * 1. Hero Section - Identity (Cover, Title, Subtitle) with color-extracted gradient
- * 2. The Talent - Who made this (Authors, Narrators - clickable)
- * 3. Primary Actions - What can I do (Play, Download)
- * 4. Context Metadata - Series, Stats, Genres
- * 5. The Hook - What's it about (Description)
- * 6. Tags - User categorization
- * 7. Chapters - Deep dive content
+ * Android takes no cover-derived colour: the screen stays on Material You colour roles by design, so there
+ * is no cover wash behind the hero.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

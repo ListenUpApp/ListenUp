@@ -91,7 +91,7 @@ javacpp = "1.5.14"
 ffmpeg-javacpp = "8.1.2-1.5.14"
 jnativehook = "2.2.2"
 
-# Multiplatform (JetBrains) - using dev builds from compose-dev repo
+# Multiplatform (JetBrains) navigation and adaptive-layout artifacts
 navigation3-multiplatform = "1.2.0"
 material3-adaptive-multiplatform = "1.3.0"
 

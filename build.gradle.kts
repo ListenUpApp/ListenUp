@@ -46,7 +46,7 @@ plugins {
 // through 7.0.4, and GHSA-m5mm-p8h7-m29v / CVE-2026-115897 (XSS via an unescaped `</script`
 // at the end of a serialized string) through 7.1.2.
 //
-// ktor-client-core 3.5.2's js artifact declares an *exact* "ws": "8.20.1", which the Kotlin
+// ktor-client-core 3.6.0's js artifact declares an *exact* "ws": "8.20.1", which the Kotlin
 // Multiplatform Gradle plugin copies into every generated package.json. Everything below 8.21.0
 // carries GHSA-96hv-2xvq-fx4p / CVE-2026-48779 — a high-severity memory-exhaustion DoS where a
 // flood of tiny frames allocates far past the documented limit and kills the process. Our other

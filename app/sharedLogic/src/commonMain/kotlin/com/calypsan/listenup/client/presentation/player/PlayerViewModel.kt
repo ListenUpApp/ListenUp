@@ -378,7 +378,7 @@ class PlayerViewModel(
         session.seekWithinChapter(fraction)
     }
 
-    /** A book-relative seek (today's web scrubber and Media Session `seekto`; PR 3/6 move them to the chapter). */
+    /** A book-relative seek, used by the web scrubber and the Media Session `seekto` action. */
     fun seekTo(positionMs: Long) {
         session.seekTo(positionMs)
     }

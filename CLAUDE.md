@@ -59,7 +59,7 @@ TDD is not optional. It is a commitment to excellence.
 - If something is hard to test, the design is probably wrong
 - Seam-level tests use fakes with in-memory state, not mocks (see Testing section of the rubric)
 - Flow assertions use Turbine (`flow.test { awaitItem() }`)
-- Every Koin leaf module is covered by `module.verify()` — the specs live in `jvmTest` (`*ModuleVerifyTest`)
+- Every Koin leaf module is covered by `module.verify()` — the specs live in `jvmTest` (`*ModuleVerifyTest`), except the Android-only modules, whose specs live in `androidHostTest` (`KoinModuleVerifyTest`, `PlaybackModuleVerifyTest`)
 - **Kotest FunSpec is canonical for new tests.** `kotlin-test` is legacy — pre-existing tests on it migrate to Kotest as their files are touched for any reason; don't burn down the backlog in one sweep. The auth surface is already fully on Kotest as of Phase 1.
 
 ### Read the Codebase
