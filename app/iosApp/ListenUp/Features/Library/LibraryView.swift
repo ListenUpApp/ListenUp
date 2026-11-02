@@ -133,7 +133,7 @@ struct LibraryView: View {
                 selected: selection.selectedBookIds
             )
             BookSelectionToolbar(selection: selection, isAllSelected: readsDeselectAll) {
-                // Every book the grid shows, as filtered (open question 8).
+                // Every book the grid shows, as filtered.
                 selection.selectAll(onScreen)
             }
         }

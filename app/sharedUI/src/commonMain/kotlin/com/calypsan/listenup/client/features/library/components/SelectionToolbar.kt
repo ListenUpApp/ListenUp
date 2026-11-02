@@ -53,7 +53,7 @@ import listenup.composeapp.generated.resources.selection_cancel_a11y
 import listenup.composeapp.generated.resources.selection_n_selected
 import org.jetbrains.compose.resources.stringResource
 
-/** The floating toolbar's elevation: M3 level 3, the one shadow the selection bar casts (plan Q8). */
+/** The floating toolbar's elevation: M3 level 3, the one shadow the selection bar casts. */
 private val SelectionToolbarElevation = 6.dp
 
 /** The header's height: a standard M3 top bar's. */
@@ -104,7 +104,7 @@ data class SelectAllAction(
 )
 
 /**
- * The selection bar, in two parts laid over the host's full-size `Box` (spec §6.1):
+ * The selection bar, in two parts laid over the host's full-size `Box`:
  * - a `primaryContainer` **header** at the top with **Cancel selection** (✕) and "N selected", which
  *   TalkBack announces as the count changes;
  * - a vibrant **floating toolbar** at the bottom (`primaryContainer` / `onPrimaryContainer`) holding

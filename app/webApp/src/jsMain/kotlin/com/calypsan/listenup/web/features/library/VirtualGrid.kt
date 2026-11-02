@@ -148,7 +148,7 @@ private fun ArrivingPlaceholderCard(isNamed: Boolean) {
 private const val NBSP = "\u00A0"
 
 /**
- * The Library's Books grid with its A–Z jump rail beside it (spec §5.2): the rail's letters are the
+ * The Library's Books grid with its A–Z jump rail beside it: the rail's letters are the
  * shared [letters], and pressing one brings that section to the top and focuses its first book.
  */
 @Composable

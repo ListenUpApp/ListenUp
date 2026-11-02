@@ -35,7 +35,7 @@ internal fun railLetters(sections: List<LetterSection>): List<RailLetter> {
 }
 
 /**
- * The Library's A–Z jump rail (spec §5.2, board `Library-WebDesktop`): real buttons, each named
+ * The Library's A–Z jump rail: real buttons, each named
  * "Jump to S", small glyphs with 44px hit areas, in a landmark named "Jump to letter". A letter with
  * no section is shown but disabled; [current] (the section at the top of the list) is marked.
  */

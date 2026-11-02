@@ -199,8 +199,8 @@ fun DiscoverPage(
 internal enum class DiscoverBlock { ListeningNow, SomethingNew, Community, ShelvesByOthers, RecentlyAdded }
 
 /**
- * The blocks in DOM order, which is the focus order. One column follows the spec: the
- * aside straight after Something new. Wide, the grid sets the aside in its own column, so the DOM
+ * The blocks in DOM order, which is the focus order. In one column the
+ * aside follows Something new straight away. Wide, the grid sets the aside in its own column, so the DOM
  * runs down the main column first and Tab never jumps across and back.
  */
 internal fun discoverReadingOrder(isWide: Boolean): List<DiscoverBlock> =

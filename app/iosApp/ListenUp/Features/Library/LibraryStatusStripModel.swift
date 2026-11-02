@@ -1,7 +1,7 @@
 import Foundation
 @preconcurrency import Shared
 
-/// The Library's one status strip as a Swift value (spec §3.1.1 L27/L28), mapped from the shared
+/// The Library's one status strip as a Swift value, mapped from the shared
 /// `LibraryStatusStrip` decision: a scan, or a library still arriving. nil is the hidden slot.
 enum LibraryStatusStripModel: Equatable {
     /// The server is scanning: `done` of `total` books, `added` of them new. `phase` names the work while

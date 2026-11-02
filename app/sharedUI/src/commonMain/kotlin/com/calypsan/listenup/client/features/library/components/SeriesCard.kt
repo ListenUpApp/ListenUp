@@ -133,7 +133,7 @@ fun SeriesCard(
                 covers = deckCovers,
                 size = 104.dp,
                 peek = 24.dp,
-                // Up to three covers, and the count for the rest (spec c6, open question 10).
+                // Up to three covers, and the count for the rest (spec c6).
                 max = 3,
                 animate = true,
                 countBadge = bookCount.takeIf { it > 1 },

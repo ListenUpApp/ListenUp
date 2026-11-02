@@ -643,7 +643,7 @@ sealed interface LibraryUiEvent {
 
     /**
      * Discover's "In Library" link: Books sorted Added, newest first, for this session only. Unlike a
-     * sort the reader picks, it is not saved, so the next launch opens on their own sort (spec §6.3).
+     * sort the reader picks, it is not saved, so the next launch opens on their own sort.
      */
     data object BooksShownNewestFirst : LibraryUiEvent
 

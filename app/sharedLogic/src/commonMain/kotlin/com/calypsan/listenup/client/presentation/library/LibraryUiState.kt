@@ -78,7 +78,7 @@ sealed interface LibraryUiState {
          * device).
          */
         val isLibraryArriving: Boolean = false,
-        /** What the status-strip slot above the grid says (spec L27/L28). */
+        /** What the status-strip slot above the grid says. */
         val statusStrip: LibraryStatusStrip = LibraryStatusStrip.Hidden,
         /** The active reading-state filter. [books] is already filtered by it. Session-scoped. */
         val statusFilter: BookStatusFilter = BookStatusFilter.ALL,

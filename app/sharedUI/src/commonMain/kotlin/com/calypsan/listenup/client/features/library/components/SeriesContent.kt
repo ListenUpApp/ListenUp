@@ -148,7 +148,7 @@ fun SeriesContent(
 }
 
 /**
- * The Series grid's rows: a full-width header before each letter on a name sort (spec L25), from the
+ * The Series grid's rows: a full-width header before each letter on a name sort, from the
  * shared `seriesLetters`, and a card per series.
  */
 private fun LazyGridScope.seriesRows(

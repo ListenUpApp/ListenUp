@@ -67,7 +67,7 @@ import androidx.compose.foundation.shape.CircleShape
  * the sort category, the Ascending/Descending direction, and the "ignore leading articles" toggle
  * together.
  *
- * Layout: a tonal, capsule-shaped trigger that says the sort in words ("Title, A–Z", spec §5.1 c5),
+ * Layout: a tonal, capsule-shaped trigger that says the sort in words ("Title, A–Z"),
  * after a muted "{count} {unit}" label when there is a count. Tapping the trigger opens a single
  * [DropdownMenu] that groups everything — category items (checked when selected), then both
  * directions named for the category, then (when [showArticleToggle]) the article toggle. Every label

@@ -78,7 +78,7 @@ fun NarratorsContent(
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
-                // The same sort control as Books and Series, at the top of the list (spec §5.1 c5).
+                // The same sort control as Books and Series, at the top of the list.
                 LibrarySortCard(
                     state = sortState,
                     categories = SortCategory.contributorCategories,

@@ -7,7 +7,7 @@ import Shared
 /// - iPhone: vertical list of standalone `SeriesRowCard` components (each its own rounded surface)
 /// - iPad / wide: width-responsive `LazyVGrid` of `SeriesGridCard` components (columns flow from
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
-/// - Under a name sort, a lettered header per shared letter run (spec L25), pinned while its series
+/// - Under a name sort, a lettered header per shared letter run, pinned while its series
 ///   scroll past, as the Authors and Narrators lists have, plus the section index
 /// - Empty state when no series
 struct SeriesContent: View {

@@ -151,7 +151,7 @@ fun BookSelectionScaffold(
 /**
  * Which picker is up over a [BookSelectionScaffold], and whether it was opened for one book.
  *
- * "Add {book} to a shelf" from a row's menu (plan C5) shelves one book through the same picker and
+ * "Add {book} to a shelf" from a row's menu shelves one book through the same picker and
  * the same feedback as a multi-book selection: it selects that book, opens the picker, and ends the
  * selection when the picker closes, by dismissal or success, so no selection is left behind. iOS's
  * `addOneBookToShelf` follows the same rule. Add {book} to a collection (the Library menu's admin group) is the same

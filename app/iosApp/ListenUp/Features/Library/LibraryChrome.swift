@@ -50,7 +50,7 @@ enum LibrarySortOptions {
     }
 }
 
-/// The Books subtitle ("248 books · 41 days of listening", spec L4) and the filtered-empty copy, pure for testing.
+/// The Books subtitle ("248 books · 41 days of listening") and the filtered-empty copy, pure for testing.
 /// The filter and the sort are shown checked in the toolbar menus, so the subtitle does not repeat them.
 enum LibrarySubtitle {
     /// "248 books · 41 days of listening": the whole library and its length in the largest whole unit, from the one

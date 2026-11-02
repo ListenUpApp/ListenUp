@@ -106,7 +106,7 @@ fun AuthorsContent(
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
-                // The same sort control as Books and Series, at the top of the list (spec §5.1 c5).
+                // The same sort control as Books and Series, at the top of the list.
                 LibrarySortCard(
                     state = sortState,
                     categories = SortCategory.contributorCategories,
@@ -165,7 +165,7 @@ fun AuthorsContent(
 }
 
 /**
- * An Authors or Narrators list's rows: a header before each letter on a name sort (spec L25), from
+ * An Authors or Narrators list's rows: a header before each letter on a name sort, from
  * the shared sections, and a card per person.
  */
 internal fun LazyListScope.contributorRows(
@@ -201,7 +201,7 @@ internal fun LazyListScope.contributorRows(
  * Shows contributor image if available, otherwise displays initials.
  *
  * On a wide Library ([showCovers]) the row ends in the contributor's two newest covers (spec c7). They are decoration:
- * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6). Beside the letter index
+ * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie. Beside the letter index
  * ([reserveRail]) they stop short of it, so the index never sits over a cover.
  */
 @Composable

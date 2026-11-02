@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.library
 
 /**
- * One run of a sorted Library list that files under a single index letter (spec §3.1.1 L25/L26).
+ * One run of a sorted Library list that files under a single index letter.
  *
  * Indexes refer to the list the section was derived from (`Loaded.books`, `.series`, `.authors`,
  * `.narrators`). Sections are in list order, so a descending sort runs Z→A. A letter MAY recur when

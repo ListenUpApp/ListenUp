@@ -269,7 +269,7 @@ private fun CardBody(
         menuTarget?.invoke(this)
         classes("lib-card")
         if (selecting && isSelected) classes("on")
-        // The dense desktop grid drops the narrator line; the tooltip carries it (spec §2.6).
+        // The dense desktop grid drops the narrator line; the tooltip carries it.
         attr("title", cardTooltip(book))
         // A click target owes the same affordance to a reader who is not using a mouse. A bare
         // Div is not focusable, so before this the library could not be reached by keyboard at
@@ -406,7 +406,7 @@ private fun LibraryControls(
 ) {
     Div(attrs = { classes("lib-controls") }) {
         Div(attrs = { classes("lib-controls-end") }) {
-            // A phone's count, beside Sort (spec §3.1.7); the desktop says it in the page header instead.
+            // A phone's count, beside Sort; the desktop says it in the page header instead.
             Span(attrs = { classes("lib-count") }) {
                 Text(if (state.statusCounts.all == 1) "1 book" else "${groupedCount(state.statusCounts.all)} books")
             }

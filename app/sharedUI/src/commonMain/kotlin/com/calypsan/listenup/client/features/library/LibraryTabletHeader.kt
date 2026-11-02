@@ -24,7 +24,7 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 
 /**
- * The Android tablet Library's two header bands (spec §3.1.3, board `Library-AndroidTablet`), at ≥ 840dp.
+ * The Android tablet Library's two header bands, at ≥ 840dp.
  *
  * - **Band 1:** the title over "248 books · 41 days of listening", the four sections, and the Inbox pill at the end.
  * - **Band 2 (Books only):** Filter and sort at the end ("All · Title, A–Z"; the status lives in its menu). While

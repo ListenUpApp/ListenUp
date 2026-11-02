@@ -91,7 +91,7 @@ internal const val LIBRARY_CARD_PROGRESS_TAG = "library-card-progress"
 // Material 3's hover state-layer opacity.
 private const val HOVER_STATE_LAYER_ALPHA = 0.08f
 
-/** How far an unavailable card's art and title fade (Home offline, spec §2.5). */
+/** How far an unavailable card's art and title fade (Home offline). */
 private const val UNAVAILABLE_ALPHA = 0.5f
 
 /**
@@ -127,15 +127,15 @@ private const val UNAVAILABLE_ALPHA = 0.5f
  * @param isSelected Whether this book is currently selected
  * @param onLongPress Callback when card is long-pressed or right-clicked (selection, or the Library's book menu)
  * @param longPressLabel What TalkBack calls the long press ("Book actions" in the Library); "Select" when null
- * @param coverOverlay Drawn last inside the cover's box, so a menu placed there hangs from the cover (spec §3.1.2)
+ * @param coverOverlay Drawn last inside the cover's box, so a menu placed there hangs from the cover
  * @param cardWidth Fixed width for horizontal rows, or null to fill parent (library grid)
  * @param narrators "Read by …" line. Library grids pass it; their `Adaptive(160.dp)` cells always meet
- *   spec §2.6's 160 dp floor.
+ *   the 160 dp floor.
  * @param libraryStatus When non-null, this card is a Library card: the status drives the progress mark,
  *   finished badge and last line, and overrides [duration], [progress], [timeRemaining] and [isFinished].
  * @param progressUnderTitle Compact Library grid (Android phone, board `Main`): a wavy indicator under
  *   the title instead of a progress mark on the art.
- * @param accessibilityLabel When non-null the card is one accessibility element announced by this text (spec §8.2):
+ * @param accessibilityLabel When non-null the card is one accessibility element announced by this text:
  *   its title, author, progress and time left stop being separate stops. Click and long-press stay actions on it.
  * @param modifier Optional modifier for the card
  */
@@ -256,7 +256,7 @@ fun BookCard(
                         )
                     },
                 ).then(
-                    // In multi-select a tap toggles the book: a checkbox, checked or not (spec §5.2), not just a border.
+                    // In multi-select a tap toggles the book: a checkbox, checked or not, not just a border.
                     if (isInSelectionMode) {
                         Modifier.semantics {
                             role = Role.Checkbox
@@ -442,7 +442,7 @@ fun BookCard(
 }
 
 /**
- * A Library card's last line (spec §2.6): time left in the Library action colour, with a wavy progress
+ * A Library card's last line: time left in the Library action colour, with a wavy progress
  * mark when [progressUnderTitle]; "Finished · 12h 4m"; or the book's length.
  */
 @Composable

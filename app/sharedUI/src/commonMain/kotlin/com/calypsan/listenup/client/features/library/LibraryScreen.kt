@@ -245,13 +245,13 @@ internal fun LibraryLoadedContent(
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
-    // The tablet layout (spec §3.1.3, ≥ 840dp): two header bands. Medium widths keep the phone header.
+    // The tablet layout (≥ 840dp): two header bands. Medium widths keep the phone header.
     val isExpanded =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
-    // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only, open question 1:
+    // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only:
     // Home, Discover and shelves keep long press = Select). Select is one tap inside it.
     val bookMenu =
         LibraryBookMenuHost(
@@ -341,7 +341,7 @@ internal fun LibraryLoadedContent(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        // Spec L4, as on the tablet and the web: nothing until the library has books to count.
+                        // As on the tablet and the web: nothing until the library has books to count.
                         if (state.statusCounts.all > 0) {
                             Text(
                                 text = libraryCountLine(all = state.statusCounts.all, totalMs = state.totalDurationMs),
@@ -415,7 +415,7 @@ internal fun LibraryLoadedContent(
             multiSelect = multiSelect,
             onEditSelected = onEditSelected,
             state = selectionState,
-            // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
+            // Every book the Books grid shows, as filtered. The other sections pick no books.
             selectAll =
                 if (selectedSection == LibrarySection.Books) {
                     val onScreen = state.books.map { it.id.value }

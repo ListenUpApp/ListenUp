@@ -55,7 +55,7 @@ internal data class LibraryBookMenuHost(
 )
 
 /**
- * A Library book's menu (spec §3.1.2; Simon's M3E call): one M3 menu hung from the cover a long press or right-click
+ * A Library book's menu (Simon's M3E call): one M3 menu hung from the cover a long press or right-click
  * landed on (m3.material.io/components/menus), with no lifted preview. The groups, in the board's order: the primary
  * (Play, Resume with its time left, or Listen again) in the Library coral; Add to shelf… and Share…; Select; then, for
  * an admin, an "Admin" group of Add to collection… and Edit details. Each item closes the menu after it acts.

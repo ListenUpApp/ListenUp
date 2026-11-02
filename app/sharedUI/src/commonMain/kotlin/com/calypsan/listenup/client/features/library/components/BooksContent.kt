@@ -143,7 +143,7 @@ internal fun SectionHeader(
  * @param sortState Current sort state (category + direction)
  * @param ignoreTitleArticles Whether to ignore articles (A, An, The) when sorting by title
  * @param bookLetters The shared letter sections over [books]; empty for a sort with no letters
- * @param bookStatus What each book's card says about where the reader is with it (spec §2.6)
+ * @param bookStatus What each book's card says about where the reader is with it
  * @param progressUnderTitle Compact grid: the progress mark sits under the title, not on the art
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
@@ -151,7 +151,7 @@ internal fun SectionHeader(
  * @param onDirectionToggle Called when the user toggles sort direction
  * @param onToggleIgnoreArticles Called when the "Ignore articles" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
- * @param bookMenu A book's menu, opened by a long press or right-click on its cover (spec §3.1.2); Select is one tap
+ * @param bookMenu A book's menu, opened by a long press or right-click on its cover; Select is one tap
  *   inside it. Null = no menu. While selecting there is none: a tap already toggles.
  * @param onRetry Callback when retry is clicked in error state
  * @param isFilteredEmpty The library has books but [statusFilter] matches none of them

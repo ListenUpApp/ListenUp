@@ -16,7 +16,7 @@ enum LibraryCardState: Equatable {
         }
     }
 
-    /// The card's last line (spec §2.6): "40h 31m left", "Finished · 12h 4m", or the length.
+    /// The card's last line: "40h 31m left", "Finished · 12h 4m", or the length.
     var lastLine: String {
         switch self {
         case .inProgress(_, let timeLeftMs):

@@ -83,7 +83,7 @@ internal fun LibraryRouteContent(
     feeds: FeedSelection,
     router: Router,
     heroBookId: String?,
-    /** The URL's query: a one-visit sort or status filter landing (spec §6.4). */
+    /** The URL's query: a one-visit sort or status filter landing. */
     query: Map<String, String> = emptyMap(),
     /** Plays a book from its menu: the shell's one play entry. */
     onPlayBook: (String) -> Unit = {},
@@ -99,7 +99,7 @@ internal fun LibraryRouteContent(
     // Navigate away mid-share and the share is cancelled rather than toasting over a page the reader has left.
     val shareScope = rememberCoroutineScope()
     val libraryState = librarySession.state.collectAsState().value
-    // Select all takes what the Books grid shows, as filtered (open question 8).
+    // Select all takes what the Books grid shows, as filtered.
     val onScreen = (libraryState as? LibraryUiState.Loaded)?.books?.map { it.id.value }.orEmpty()
     BookSelectionScaffold(feeds.openMultiSelect, router, onToast, selectAllOf = { onScreen }) { selection ->
         LibraryPage(
@@ -147,7 +147,7 @@ internal fun LibraryRouteContent(
 
 /**
  * `/library?sort=added-desc` (Discover's "Newest in Library →"): the Books, newest first, for this
- * visit only; the reader's saved sort is untouched (plan Q6). Any other value, or none, asks nothing. [onApplied] runs
+ * visit only; the reader's saved sort is untouched. Any other value, or none, asks nothing. [onApplied] runs
  * once the sort is asked for, so the route can drop the query.
  */
 @Composable
@@ -221,7 +221,7 @@ internal fun BookSelectionScaffold(
     val isAdmin = session.adminAccess.collectAsState().value
     var picking by remember { mutableStateOf<SelectionDestination?>(null) }
     // A row menu's "Add {book} to a shelf" selects that one book and opens the picker; when the picker
-    // closes, by dismissal or success, the selection it made ends with it (plan C5, iOS's rule).
+    // closes, by dismissal or success, the selection it made ends with it (iOS's rule).
     var shelvingOne by remember { mutableStateOf(false) }
 
     fun closePicker() {
