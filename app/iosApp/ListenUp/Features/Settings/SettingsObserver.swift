@@ -136,6 +136,12 @@ enum SettingsFormat {
         return "\(minutes) min"
     }
 
+    /// What the default-timer picker offers: nil for Off, then the shared ladder, with [current] added in order when it
+    /// is something else, so a stored value is a checked row (shared `SleepTimerChoices`).
+    static func sleepTimerChoices(including current: Int?) -> [Int?] {
+        SleepTimerChoices.shared.defaultChoicesIncluding(current: current.map { Int32($0) }).map { $0.map { Int($0) } }
+    }
+
     /// The localized-string key for a theme mode, used by the picker.
     static func themeKey(_ mode: ThemeMode) -> String {
         switch mode {

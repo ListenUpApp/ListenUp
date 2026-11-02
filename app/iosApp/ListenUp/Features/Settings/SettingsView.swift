@@ -201,12 +201,13 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func sleepTimerSection(_ observer: SettingsObserver) -> some View {
-        Section(String(localized: "settings.sleep_timer")) {
+        Section {
             Picker(selection: sleepTimerBinding(observer)) {
-                Text(String(localized: "settings.timer_off")).tag(Int?.none)
-                ForEach(Self.sleepTimerOptions, id: \.self) { minutes in
-                    Text(SettingsFormat.sleepTimerLabel(minutes: minutes, offLabel: ""))
-                        .tag(Int?.some(minutes))
+                let choices = SettingsFormat.sleepTimerChoices(including: observer.defaultSleepTimerMin)
+                ForEach(choices, id: \.self) { minutes in
+                    Text(SettingsFormat.sleepTimerLabel(
+                        minutes: minutes, offLabel: String(localized: "settings.timer_off")))
+                        .tag(minutes)
                 }
             } label: {
                 SettingsLabel(
@@ -216,6 +217,10 @@ struct SettingsView: View {
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSleepTimerMin)
+        } header: {
+            Text(String(localized: "settings.sleep_timer"))
+        } footer: {
+            Text(String(localized: "settings.default_timer_hint"))
         }
     }
 
@@ -417,8 +422,6 @@ struct SettingsView: View {
     private static func skipBackwardOptions(including current: Int) -> [Int] {
         PlaybackPresets.shared.skipBackwardChoicesIncluding(current: Int32(current)).map { Int($0) }
     }
-
-    private static let sleepTimerOptions: [Int] = [5, 10, 15, 30, 45, 60]
 
     // MARK: - Bindings (read flat state, write through the observer's forwarders)
 

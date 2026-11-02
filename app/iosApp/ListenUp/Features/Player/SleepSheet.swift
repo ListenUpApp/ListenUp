@@ -21,7 +21,7 @@ struct SleepSheetContent: View {
     let model: SleepSheetModel
     let actions: SleepSheetActions
 
-    @State private var customMinutes = Int(SleepTimerChoices.shared.CUSTOM_DEFAULT_MINUTES)
+    @State private var customMinutes: Int
     /// Starting a timer is a choice that moves you on, so it closes the sheet, as Android and web do. Adding time
     /// and turning the timer off keep it open (S13).
     @Environment(\.dismiss) private var dismiss
@@ -29,6 +29,13 @@ struct SleepSheetContent: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .largeTitle) private var ringSide: CGFloat = 200
     @ScaledMetric(relativeTo: .body) private var stepSide: CGFloat = 44
+
+    /// The custom time opens at the user's default sleep timer, or at the shared 20 with none.
+    init(model: SleepSheetModel, actions: SleepSheetActions) {
+        self.model = model
+        self.actions = actions
+        _customMinutes = State(initialValue: model.startingCustomMinutes)
+    }
 
     var body: some View {
         switch model.mode {
@@ -69,8 +76,18 @@ struct SleepSheetContent: View {
                     }
                 }
                 ForEach(SleepTimerOption.durationMinutes, id: \.self) { minutes in
-                    Button(SleepTimerOption.formatDuration(minutes)) { start { actions.minutes(minutes) } }
-                        .frame(minHeight: TapTarget.minimum)
+                    Button { start { actions.minutes(minutes) } } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(SleepTimerOption.formatDuration(minutes))
+                            if model.isDefault(minutes) {
+                                Text(String(localized: "player.sheet_your_default_ios"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: TapTarget.minimum, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
                 }
             }
             Section {

@@ -135,6 +135,8 @@ struct PlayerSnapshot: Equatable {
     var defaultVolumeBoostDb: Float = 0
     var skipForwardSec = 30
     var skipBackwardSec = 10
+    /// The user's default sleep timer in minutes, nil for Off: the Sleep sheet starts from it.
+    var defaultSleepMinutes: Int?
     var sleepTimerActive = false
     var sleepTimerIsEndOfChapter = false
     /// What a duration timer was armed with; 0 for end of chapter.
@@ -203,6 +205,7 @@ struct PlayerSnapshot: Equatable {
         snapshot.defaultVolumeBoostDb = settings.defaultBoostDb
         snapshot.skipForwardSec = Int(settings.skipForwardSec)
         snapshot.skipBackwardSec = Int(settings.skipBackSec)
+        snapshot.defaultSleepMinutes = settings.defaultSleepMinutes.map { Int($0) }
         snapshot.applySleepTimer(loaded.sleepTimer)
         snapshot.applySource(loaded.source, status: loaded.status)
         snapshot.card = PlayerCards.shared.of(state: loaded).map(PlayerCardModel.init)

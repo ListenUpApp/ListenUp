@@ -16,6 +16,16 @@ struct SleepSheetModel: Equatable {
     }
 
     let mode: Mode
+    /// The user's default sleep timer in minutes, nil for Off.
+    var defaultMinutes: Int?
+
+    /// Where the custom time starts: the default (clamped), or the shared 20 with none.
+    var startingCustomMinutes: Int {
+        Int(SleepTimerChoices.shared.startingCustomMinutes(defaultMinutes: defaultMinutes.map { Int32($0) }))
+    }
+
+    /// Whether [minutes] is the user's default, so its row says so.
+    func isDefault(_ minutes: Int) -> Bool { defaultMinutes == minutes }
 
     static func make(
         snapshot: PlayerSnapshot,
@@ -25,14 +35,15 @@ struct SleepSheetModel: Equatable {
         locale: Locale = .autoupdatingCurrent,
         timeZone: TimeZone = .autoupdatingCurrent
     ) -> SleepSheetModel {
-        if snapshot.isSleepFading { return SleepSheetModel(mode: .fading) }
+        let defaultMinutes = snapshot.defaultSleepMinutes
+        if snapshot.isSleepFading { return SleepSheetModel(mode: .fading, defaultMinutes: defaultMinutes) }
         guard let countdownMs = snapshot.sleepCountdownMs(
             chapterRemainingMs: progress.chapterRemainingMs, sleepRemainingMs: sleepRemainingMs
         ) else {
             let line = snapshot.offersEndOfChapter
                 ? String(localized: .playerSheetEndOfChapterAfterIos(chapterName(snapshot), MiniPlayerAccessoryModel.shortDuration(ms: progress.chapterRemainingMs)))
                 : nil
-            return SleepSheetModel(mode: .choosing(endOfChapter: line))
+            return SleepSheetModel(mode: .choosing(endOfChapter: line), defaultMinutes: defaultMinutes)
         }
         var clock = Date.FormatStyle(date: .omitted, time: .shortened)
         clock.locale = locale
@@ -47,7 +58,7 @@ struct SleepSheetModel: Equatable {
             meter: meter(snapshot, sleepRemainingMs: sleepRemainingMs, progress),
             canExtend: snapshot.sleepTimerCanExtend,
             chapterLine: chapterLine
-        ))
+        ), defaultMinutes: defaultMinutes)
     }
 
     /// The chapter by the book's own title, or by its own number ("Chapter 8") when it has none, as Android and the

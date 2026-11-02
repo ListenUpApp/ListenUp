@@ -34,6 +34,15 @@ struct SettingsObserverTests {
         #expect(SettingsFormat.sleepTimerLabel(minutes: 30, offLabel: "Off") == "30 min")
     }
 
+    @Test func defaultTimerOffersOffThenTheLadder() {
+        #expect(SettingsFormat.sleepTimerChoices(including: nil) == [nil, 15, 30, 45, 60, 120])
+    }
+
+    @Test func aStoredDefaultOffTheLadderIsStillARow() {
+        #expect(SettingsFormat.sleepTimerChoices(including: 20) == [nil, 15, 20, 30, 45, 60, 120])
+        #expect(SettingsFormat.sleepTimerChoices(including: 30) == [nil, 15, 30, 45, 60, 120])
+    }
+
     @Test func themeKeyMapsEachMode() {
         #expect(SettingsFormat.themeKey(.system) == "settings.theme_automatic")
         #expect(SettingsFormat.themeKey(.light) == "settings.theme_light")

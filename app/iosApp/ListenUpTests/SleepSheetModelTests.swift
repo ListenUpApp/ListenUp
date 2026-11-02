@@ -26,10 +26,12 @@ struct SleepSheetModelTests {
         wholeBook: Bool = false,
         speed: Float = 1.0,
         chapterTitle: String = "Bridge Four",
-        numberOffset: Int = 0
+        numberOffset: Int = 0,
+        defaultSleepMinutes: Int? = nil
     ) -> PlayerUiStateLoaded {
         .fixture(phase: phase, currentIndex: 5, wholeBook: wholeBook, sleepTimer: sleepTimer,
-                 chapterTitle: chapterTitle, chapterDurationMs: 1_200_000, speed: speed, numberOffset: numberOffset)
+                 chapterTitle: chapterTitle, chapterDurationMs: 1_200_000, speed: speed, numberOffset: numberOffset,
+                 defaultSleepMinutes: defaultSleepMinutes)
     }
 
     static func model(_ state: PlayerUiStateLoaded) -> SleepSheetModel {
@@ -48,6 +50,27 @@ struct SleepSheetModelTests {
         #expect(Self.model(Self.state()).mode == .choosing(endOfChapter: "After Bridge Four · in \(systemMinutes(8))"))
         #expect(Self.model(Self.state(speed: 2.0)).mode
             == .choosing(endOfChapter: "After Bridge Four · in \(systemMinutes(8))"))
+    }
+
+    @Test("a default of 45 minutes starts the custom time at 45 and marks the 45 minute row")
+    func startsFromTheDefault() {
+        let model = Self.model(Self.state(defaultSleepMinutes: 45))
+        #expect(model.startingCustomMinutes == 45)
+        #expect(SleepTimerOption.durationMinutes.filter { model.isDefault($0) } == [45])
+    }
+
+    @Test("with no default the custom time starts at 20 and no row is marked")
+    func startsFromTwentyWithNoDefault() {
+        let model = Self.model(Self.state())
+        #expect(model.startingCustomMinutes == 20)
+        #expect(SleepTimerOption.durationMinutes.allSatisfy { !model.isDefault($0) })
+    }
+
+    @Test("a default off the ladder starts the custom time there and marks no row")
+    func offLadderDefault() {
+        let model = Self.model(Self.state(defaultSleepMinutes: 20))
+        #expect(model.startingCustomMinutes == 20)
+        #expect(SleepTimerOption.durationMinutes.allSatisfy { !model.isDefault($0) })
     }
 
     @Test("an untitled chapter is named by the book's own number, not its position")

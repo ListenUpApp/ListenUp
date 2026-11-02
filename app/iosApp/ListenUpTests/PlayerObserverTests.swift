@@ -243,7 +243,8 @@ extension PlayerUiStateLoaded {
         defaultSpeed: Float = 1.0,
         numberOffset: Int = 0,
         title: String = "The Way of Kings",
-        authors: [PlayerContributor] = [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)]
+        authors: [PlayerContributor] = [PlayerContributor(id: "a1", name: "Brandon Sanderson", bookCount: 3)],
+        defaultSleepMinutes: Int? = nil
     ) -> PlayerUiStateLoaded {
         let total = wholeBook ? 1 : chapterCount
         let bookMs = Int64(chapterCount) * chapterDurationMs
@@ -272,7 +273,7 @@ extension PlayerUiStateLoaded {
             source: source,
             settings: PlayerSettings(
                 speed: speed, defaultSpeed: defaultSpeed, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
-                skipForwardSec: 30, defaultSleepMinutes: nil),
+                skipForwardSec: 30, defaultSleepMinutes: defaultSleepMinutes.map { Int32($0) }),
             sleepTimer: sleepTimer,
             primary: primary,
             showsSkipBack: showsSkipBack,
