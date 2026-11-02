@@ -3,25 +3,21 @@ package com.calypsan.listenup.client.presentation.player
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.ListenerRating
-import com.calypsan.listenup.client.domain.repository.BookRatingRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
-import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.usecase.series.ObserveNextInSeriesUseCase
 import com.calypsan.listenup.client.playback.PlayerSessionRig
+import com.calypsan.listenup.client.test.fake.FakeBookRatingRepository
+import com.calypsan.listenup.client.test.fake.FakeDocumentRepository
 import com.calypsan.listenup.client.test.fake.FakeUserRepository
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.TestScope
 
 /** A [PlayerViewModel] over a [PlayerSessionRig]'s fakes, plus the Room reads only the projection makes. */
@@ -36,9 +32,6 @@ internal class PlayerViewModelRig(
     /** Every loaded book's documents. */
     val documentList = MutableStateFlow<List<BookDocument>>(emptyList())
 
-    /** What [DocumentRepository.ensureLocal] answers. */
-    var ensureLocalResult: AppResult<String> = AppResult.Success("/cache/doc.pdf")
-
     /** Every loaded book's listener ratings. */
     val ratingList = MutableStateFlow<List<ListenerRating>>(emptyList())
 
@@ -46,17 +39,22 @@ internal class PlayerViewModelRig(
     val documentGates = mutableMapOf<String, CompletableDeferred<Unit>>()
 
     val documents =
-        mock<DocumentRepository> {
-            every { observeDocuments(any()) } calls { (id: BookId) ->
-                documentList.onStart { documentGates[id.value]?.await() }
-            }
-            everySuspend { ensureLocal(any(), any()) } calls { ensureLocalResult }
+        FakeDocumentRepository(
+            documents = documentList,
+            beforeObserve = { id -> documentGates[id.value]?.await() },
+        )
+
+    /** What [DocumentRepository.ensureLocal] answers. */
+    var ensureLocalResult: AppResult<String>
+        get() = documents.ensureLocalResult
+        set(value) {
+            documents.ensureLocalResult = value
         }
     val contributors =
         mock<ContributorRepository> {
             every { observeRolesWithCountForContributor(any()) } returns flowOf(emptyList())
         }
-    val ratings = mock<BookRatingRepository> { every { observeForBook(any()) } returns ratingList }
+    val ratings = FakeBookRatingRepository(ratings = ratingList)
     val series = mock<SeriesRepository> { every { observeSeriesWithBooks(any()) } returns flowOf(null) }
     val errorBus = ErrorBus()
     val sheet = PlayerSheetState()

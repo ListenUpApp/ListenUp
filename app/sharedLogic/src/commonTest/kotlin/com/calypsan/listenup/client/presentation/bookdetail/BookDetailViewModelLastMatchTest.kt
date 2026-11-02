@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.test.fake.FakeLoadedBookRepository
+import com.calypsan.listenup.client.test.fake.FakeLoadedBookPlayhead
 import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.api.dto.auth.Permission

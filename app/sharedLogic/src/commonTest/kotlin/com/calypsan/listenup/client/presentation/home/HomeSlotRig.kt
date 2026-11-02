@@ -4,29 +4,20 @@ import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
-import com.calypsan.listenup.client.domain.model.LibraryShowcase
-import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.client.domain.repository.ActivityRepository
-import com.calypsan.listenup.client.domain.repository.BookRatingRepository
-import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
+import com.calypsan.listenup.client.test.fake.FakeActivityRepository
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.client.test.fake.FakeBookRatingRepository
+import com.calypsan.listenup.client.test.fake.FakeHomeRepository
+import com.calypsan.listenup.client.test.fake.FakeLoadedBookRepository
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.core.BookId
-import dev.mokkery.MockMode
-import dev.mokkery.answering.calls
-import dev.mokkery.answering.returns
-import dev.mokkery.every
-import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
-import dev.mokkery.mock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -47,9 +38,12 @@ internal class HomeSlotRig(
     val inbox = FakeInboxRepository()
     val nextByBook = MutableStateFlow<Map<String, NextInSeries>>(emptyMap())
     val books = FakeBookRepository()
-    val ratingsFlow = MutableStateFlow<List<ListenerRating>>(emptyList())
-    val finishers = MutableStateFlow<List<String>>(emptyList())
-    val showcase = MutableStateFlow(LibraryShowcase(covers = emptyList()))
+    val ratings = FakeBookRatingRepository()
+    val ratingsFlow = ratings.ratings
+    private val activities = FakeActivityRepository()
+    val finishers = activities.finishers
+    private val home = FakeHomeRepository()
+    val showcase = home.showcase
     val continueListening = MutableStateFlow<List<ContinueListeningItem>>(emptyList())
     val building = MutableStateFlow(false)
     val runs = MutableStateFlow(0)
@@ -60,13 +54,12 @@ internal class HomeSlotRig(
         private set
 
     /** What the next rating write answers; a test flips it to a failure. */
-    var rateResult: AppResult<Unit> = AppResult.Success(Unit)
-
-    val ratings: BookRatingRepository =
-        mock(MockMode.autoUnit) {
-            every { observeForBook(any()) } returns ratingsFlow
-            everySuspend { rate(any(), any(), any()) } calls { rateResult }
+    var rateResult: AppResult<Unit>
+        get() = ratings.rateResult
+        set(value) {
+            ratings.rateResult = value
         }
+
     private val writablePositions: PlaybackPositionRepository =
         if (failWrites) {
             object : PlaybackPositionRepository by positions {
@@ -79,10 +72,7 @@ internal class HomeSlotRig(
             positions
         }
 
-    private val activities: ActivityRepository =
-        mock { every { observeOtherFinishers(any(), any()) } returns finishers }
-    private val home: HomeRepository = mock { every { observeLibraryShowcase(any()) } returns showcase }
-    private val loadedBooks: LoadedBookRepository = mock { every { observe() } returns loaded }
+    private val loadedBooks = FakeLoadedBookRepository(loaded = loaded)
 
     fun presenter(): HomeSlotPresenter =
         HomeSlotPresenter(

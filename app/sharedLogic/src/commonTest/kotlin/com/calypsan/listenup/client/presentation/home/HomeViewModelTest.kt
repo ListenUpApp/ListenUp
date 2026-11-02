@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.client.test.fake.FakeBookRatingRepository
 import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
 import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import com.calypsan.listenup.core.BookId
@@ -825,7 +826,7 @@ class HomeViewModelTest :
 
                 viewModel.rateFinished("done", halfStars = 8)
                 advanceUntilIdle()
-                verifySuspend { fixture.rig.ratings.rate("done", 8, null) }
+                fixture.rig.ratings.rated shouldBe listOf(FakeBookRatingRepository.RatingWrite("done", 8, null))
                 errors shouldBe emptyList()
 
                 fixture.rig.rateResult = AppResult.Failure(UnexpectedClientError())
@@ -1033,7 +1034,7 @@ class HomeViewModelTest :
                 viewModel.rateFinished("wok", halfStars = 7)
                 advanceUntilIdle()
 
-                verifySuspend { fixture.rig.ratings.rate("wok", 7, null) }
+                fixture.rig.ratings.rated shouldBe listOf(FakeBookRatingRepository.RatingWrite("wok", 7, null))
                 errors shouldBe emptyList()
             }
         }

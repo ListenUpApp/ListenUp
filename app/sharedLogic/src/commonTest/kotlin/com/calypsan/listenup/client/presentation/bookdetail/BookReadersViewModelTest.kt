@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.test.fake.FakeLoadedBookRepository
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader

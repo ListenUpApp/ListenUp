@@ -15,12 +15,12 @@ import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
+import com.calypsan.listenup.client.test.fake.FakePlaybackPreferences
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakePlayer
@@ -127,14 +127,11 @@ class PlayerSessionFailedSwitchTest :
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
-            val playbackPreferences: PlaybackPreferences = mock()
-            everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
-            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
                 serverConfig = serverConfig,
-                playbackPreferences = playbackPreferences,
+                playbackPreferences = FakePlaybackPreferences(),
                 bookDao = db.bookDao(),
                 audioFileDao = db.audioFileDao(),
                 chapterDao = db.chapterDao(),

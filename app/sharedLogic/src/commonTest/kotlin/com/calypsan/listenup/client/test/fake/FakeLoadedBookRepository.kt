@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.bookdetail
+package com.calypsan.listenup.client.test.fake
 
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
