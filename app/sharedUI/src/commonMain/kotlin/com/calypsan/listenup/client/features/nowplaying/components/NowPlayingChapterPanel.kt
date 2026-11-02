@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.chapterRowTag
@@ -166,7 +165,7 @@ internal fun NowPlayingChapterPanel(
                         PlayerChapterRow(
                             number = row.number,
                             title = row.title,
-                            durationLabel = row.durationMs.milliseconds.formatPlaybackTime(),
+                            durationLabel = DurationFormatter.playbackClock(row.durationMs.milliseconds),
                             isCurrent = isCurrent,
                             playingLeft = { left }.takeIf { isCurrent },
                             chapterFraction = { progress().chapterFraction }.takeIf { isCurrent },

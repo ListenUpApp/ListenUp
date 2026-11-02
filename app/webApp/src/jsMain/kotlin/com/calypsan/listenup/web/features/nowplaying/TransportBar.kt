@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -23,6 +24,7 @@ import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.isPlainPrimaryClick
+import kotlin.time.Duration.Companion.milliseconds
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.disabled
@@ -638,21 +640,6 @@ private fun SkipButton(
 internal fun compactSpeedText(speed: Float): String = PlaybackPresets.speedNumber(speed).removeSuffix(".0")
 
 /**
- * `H:MM:SS` once a position reaches an hour, `M:SS` below it.
- *
- * Dropping the hour field below an hour is not cosmetic: `0:02:05` and `2:05` are the same moment,
- * but a bar that always shows three fields makes a 40-minute lecture look like a 40-hour epic at a
- * glance, which is the one thing this label exists to convey.
- */
-internal fun formatElapsed(positionMs: Long): String {
-    val totalSeconds = positionMs.coerceAtLeast(0L) / MILLIS_PER_SECOND
-    val hours = totalSeconds / SECONDS_PER_HOUR
-    val minutes = totalSeconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
-    val seconds = totalSeconds % SECONDS_PER_MINUTE
-    return if (hours > 0) "$hours:${twoDigits(minutes)}:${twoDigits(seconds)}" else "$minutes:${twoDigits(seconds)}"
-}
-
-/**
  * The element's own `value` string as a position, or null when it is not one.
  *
  * Read off the element rather than the event's `valueAsNumber` so there is exactly one parse to
@@ -660,8 +647,6 @@ internal fun formatElapsed(positionMs: Long): String {
  * is the worst available guess at what an unreadable value meant.
  */
 private fun scrubbedMs(raw: String): Long? = raw.toDoubleOrNull()?.takeIf { it.isFinite() }?.toLong()
-
-private fun twoDigits(value: Long): String = value.toString().padStart(2, '0')
 
 /**
  * Elapsed time, the seek range, and total time — the three things that always move together.
@@ -691,7 +676,7 @@ internal fun Playhead(
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: positionMs
 
-    Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(shownPositionMs)) }
+    Span(attrs = { classes("mono", timeClass) }) { Text(DurationFormatter.playbackClock(shownPositionMs.milliseconds)) }
 
     // A place in the story, never in a file: both ranges span the chapter
     // ([startMs] is where that span begins in the book, so a release seeks book-relative either way).
@@ -708,7 +693,11 @@ internal fun Playhead(
         // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
         // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
         // "3:30 of 42:00", not just "3:30": where you are only means something against the whole.
-        attr("aria-valuetext", "${formatElapsed(shownPositionMs)} of ${formatElapsed(durationMs)}")
+        attr(
+            "aria-valuetext",
+            "${DurationFormatter.playbackClock(shownPositionMs.milliseconds)} of " +
+                DurationFormatter.playbackClock(durationMs.milliseconds),
+        )
         value(shownPositionMs.toString())
         onInput { event -> dragPositionMs = scrubbedMs(event.target.value) }
         onChange { event ->
@@ -722,20 +711,12 @@ internal fun Playhead(
     val trailing =
         if (showsRemaining) {
             "\u2212" +
-                formatElapsed(
-                    (durationMs - shownPositionMs).coerceAtLeast(0L),
-                )
+                DurationFormatter.playbackClock((durationMs - shownPositionMs).coerceAtLeast(0L).milliseconds)
         } else {
-            formatElapsed(durationMs)
+            DurationFormatter.playbackClock(durationMs.milliseconds)
         }
     Span(attrs = { classes("mono", timeClass) }) { Text(trailing) }
 }
-
-private const val MILLIS_PER_SECOND = 1_000L
-
-private const val SECONDS_PER_MINUTE = 60L
-
-private const val SECONDS_PER_HOUR = 3_600L
 
 /** One second per keyboard step — the unit a listener actually thinks in. */
 private const val STEP_MS = 1_000L

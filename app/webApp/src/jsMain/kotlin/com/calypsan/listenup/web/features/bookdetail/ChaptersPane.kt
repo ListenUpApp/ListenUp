@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import com.calypsan.listenup.web.design.SelectionLabel
 import com.calypsan.listenup.web.design.focusSibling
 import com.calypsan.listenup.web.design.rovingTarget
 import com.calypsan.listenup.web.design.TableColumn
+import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import com.calypsan.listenup.web.design.Icon
@@ -111,9 +113,9 @@ private fun Inspector(
                 MetaList(
                     listOf(
                         MetaEntry("Title", single.title),
-                        MetaEntry("Starts", formatClock(single.startSec), machine = true),
-                        MetaEntry("Ends", formatClock(single.endSec), machine = true),
-                        MetaEntry("Length", formatClock(single.durationSec), machine = true),
+                        MetaEntry("Starts", DurationFormatter.playbackClock(single.startSec.seconds), machine = true),
+                        MetaEntry("Ends", DurationFormatter.playbackClock(single.endSec.seconds), machine = true),
+                        MetaEntry("Length", DurationFormatter.playbackClock(single.durationSec.seconds), machine = true),
                     ),
                 )
             }
@@ -165,7 +167,7 @@ private fun ChapterMap(
         attr("aria-label", "Chapter map")
     }) {
         chapters.forEachIndexed { index, chapter ->
-            val summary = "${chapter.title} · ${formatClock(chapter.durationSec)}"
+            val summary = "${chapter.title} · ${DurationFormatter.playbackClock(chapter.durationSec.seconds)}"
             Button(attrs = {
                 if (chapter.number in selection) classes("on")
                 attr("type", "button")
@@ -195,10 +197,10 @@ private val CHAPTER_COLUMNS =
         TableColumn<WebChapter>("n", "#", width = 46, mono = true) { Text(it.number.toString()) },
         TableColumn("title", "Title") { Text(it.title) },
         TableColumn("start", "Start", width = 96, align = ColumnAlign.End, mono = true) {
-            Text(formatClock(it.startSec))
+            Text(DurationFormatter.playbackClock(it.startSec.seconds))
         },
         TableColumn("length", "Length", width = 88, align = ColumnAlign.End, mono = true) {
-            Text(formatClock(it.durationSec))
+            Text(DurationFormatter.playbackClock(it.durationSec.seconds))
         },
     )
 

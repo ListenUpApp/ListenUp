@@ -6,9 +6,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
+import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -73,7 +75,7 @@ internal fun BookChaptersSection(
                                     Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
                                     Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) {
-                                        Text(formatClock((chapter.startMs / MILLIS_PER_SECOND).toInt()))
+                                        Text(DurationFormatter.playbackClock((chapter.startMs / MILLIS_PER_SECOND).toInt().seconds))
                                     }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
                                 }

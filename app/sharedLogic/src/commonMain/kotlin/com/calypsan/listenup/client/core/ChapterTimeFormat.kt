@@ -28,7 +28,7 @@ private val TYPED_TIME = Regex("""^(\d+(?::\d{1,2}){0,2})(?:\.(\d{1,3}))?$""")
  */
 object ChapterTimeFormat {
     /**
-     * `41:12:08` — the transport readout.
+     * `41:12:08` — the chapter editor's three-field readout.
      *
      * Hours are not wrapped at 24: a 65-hour book genuinely has an `h` field of 41, and rolling it
      * over would address the wrong instant.

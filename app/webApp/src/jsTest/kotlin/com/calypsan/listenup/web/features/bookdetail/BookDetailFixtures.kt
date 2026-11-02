@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composition
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -18,6 +19,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * A loaded book, for specs about layout, URL contracts and selection.
@@ -160,7 +162,7 @@ internal fun sampleChapters(): List<ChapterUiModel> {
             ChapterUiModel(
                 id = "ch-${index + 1}",
                 title = "Chapter ${index + 1}",
-                duration = formatClock(duration),
+                duration = DurationFormatter.playbackClock(duration.seconds),
                 imageUrl = null,
                 startMs = start * MILLIS_PER_SECOND,
                 durationMs = duration * MILLIS_PER_SECOND.toLong(),

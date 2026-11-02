@@ -75,6 +75,17 @@ class DurationFormatterTest :
             DurationFormatter.minutesSecondsClock(-(5.seconds)) shouldBe "00:00"
         }
 
+        test("playbackClock: m:ss below an hour, h:mm:ss from it, hours never wrap, negatives clamp") {
+            DurationFormatter.playbackClock(0.seconds) shouldBe "0:00"
+            DurationFormatter.playbackClock(59.seconds) shouldBe "0:59"
+            DurationFormatter.playbackClock(61.seconds) shouldBe "1:01"
+            DurationFormatter.playbackClock(59.minutes + 59.seconds) shouldBe "59:59"
+            DurationFormatter.playbackClock(3_600.seconds) shouldBe "1:00:00"
+            DurationFormatter.playbackClock(3_723.seconds) shouldBe "1:02:03"
+            DurationFormatter.playbackClock(65.hours) shouldBe "65:00:00"
+            DurationFormatter.playbackClock(-(5.seconds)) shouldBe "0:00"
+        }
+
         test("timeLeft: boundaries are load-bearing") {
             DurationFormatter.timeLeft(0.milliseconds) shouldBe "Almost done"
             DurationFormatter.timeLeft(-(30.seconds)) shouldBe "Almost done"

@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.client.playback.PlayerPhase
@@ -24,6 +25,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import kotlin.time.Duration.Companion.milliseconds
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLDialogElement
@@ -255,15 +257,6 @@ class TransportBarTest :
             compactSpeedText(TRIPLE_SPEED) shouldBe "3"
         }
 
-        test("elapsed time reads H:MM:SS at an hour and M:SS below it") {
-            // The boundary is the whole claim: one second either side of an hour must not render
-            // the same shape, or a nine-hour book reads as nine minutes.
-            formatElapsed(UNDER_AN_HOUR_MS) shouldBe "2:05"
-            formatElapsed(ONE_HOUR_MS) shouldBe "1:00:00"
-            formatElapsed(ONE_HOUR_MS - 1_000) shouldBe "59:59"
-            formatElapsed(LONG_BOOK_MS) shouldBe "2:30:00"
-        }
-
         test("with no book loaded the bar renders nothing at all") {
             // An empty transport bar is chrome that lies about there being something to play.
             val host = mounts.mount { TransportBarHost(fixedPlayback()(), onOpenBook = {}) }
@@ -332,10 +325,10 @@ class TransportBarTest :
             host.querySelector(".tport-t")!!.textContent shouldBe "Dune"
             val times = host.querySelectorAll(".tport-time")
             times.length shouldBe 2
-            times.item(0)!!.textContent shouldBe formatElapsed(UNDER_AN_HOUR_MS)
-            times.item(1)!!.textContent shouldBe "\u2212" + formatElapsed(LONG_BOOK_MS - UNDER_AN_HOUR_MS)
+            times.item(0)!!.textContent shouldBe DurationFormatter.playbackClock(UNDER_AN_HOUR_MS.milliseconds)
+            times.item(1)!!.textContent shouldBe "\u2212" + DurationFormatter.playbackClock((LONG_BOOK_MS - UNDER_AN_HOUR_MS).milliseconds)
             // …and not the same string, or the assertions above would survive a swap.
-            formatElapsed(UNDER_AN_HOUR_MS) shouldNotBe formatElapsed(LONG_BOOK_MS - UNDER_AN_HOUR_MS)
+            DurationFormatter.playbackClock(UNDER_AN_HOUR_MS.milliseconds) shouldNotBe DurationFormatter.playbackClock((LONG_BOOK_MS - UNDER_AN_HOUR_MS).milliseconds)
         }
 
         test("the scrubber steps by a second, not a millisecond, and says the time out loud") {
@@ -347,7 +340,7 @@ class TransportBarTest :
             scrubber.getAttribute("step") shouldBe "1000"
             // Where you are, against the whole: "3:30 of 10:00", not a bare "3:30".
             scrubber.getAttribute("aria-valuetext") shouldBe
-                "${formatElapsed(SEEK_TARGET_MS)} of ${formatElapsed(SHORT_BOOK_MS)}"
+                "${DurationFormatter.playbackClock(SEEK_TARGET_MS.milliseconds)} of ${DurationFormatter.playbackClock(SHORT_BOOK_MS.milliseconds)}"
         }
 
         test("the body is one link to /playing, named for the book and its line") {

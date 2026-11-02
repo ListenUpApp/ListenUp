@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerChapterRow
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
@@ -93,7 +92,7 @@ fun ChapterPickerSheet(
                 PlayerChapterRow(
                     number = chapter.number,
                     title = chapter.title,
-                    durationLabel = chapter.durationMs.milliseconds.formatPlaybackTime(),
+                    durationLabel = DurationFormatter.playbackClock(chapter.durationMs.milliseconds),
                     isCurrent = chapter.isCurrent,
                     playingLeft = playingLeft.takeIf { chapter.isCurrent },
                     onClick = { onChapterSelected(chapter.index) },

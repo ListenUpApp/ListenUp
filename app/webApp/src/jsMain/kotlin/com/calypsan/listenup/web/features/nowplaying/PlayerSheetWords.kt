@@ -66,7 +66,7 @@ internal object PlayerSheetWords {
     }
 
     /** A sleep countdown: "23:41", "1:05:00" past an hour. */
-    fun countdown(wallMs: Long): String = formatElapsed(wallMs)
+    fun countdown(wallMs: Long): String = DurationFormatter.playbackClock(wallMs.milliseconds)
 
     /** The gold meter's name: "23:41 of 30:00 remaining". */
     fun meterLabel(
@@ -103,7 +103,7 @@ internal object PlayerSheetWords {
         if (isCurrent) {
             "Chapter ${row.number}, ${row.title}, now playing, ${spokenDuration(remainingMs)} left"
         } else {
-            "Play from chapter ${row.number}: ${row.title}, ${formatElapsed(row.durationMs)}"
+            "Play from chapter ${row.number}: ${row.title}, ${DurationFormatter.playbackClock(row.durationMs.milliseconds)}"
         }
 }
 

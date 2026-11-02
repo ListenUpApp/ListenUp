@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
@@ -54,7 +55,6 @@ import androidx.compose.material3.ButtonGroup
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.features.nowplaying.components.SleepFadingCard
 import com.calypsan.listenup.client.features.nowplaying.components.rememberClockTimeFormatter
@@ -282,7 +282,7 @@ private fun Countdown(
     state: SleepSheetState,
 ) {
     val countdownMs = state.countdownMs() ?: 0L
-    val countdown = countdownMs.milliseconds.formatPlaybackTime()
+    val countdown = DurationFormatter.playbackClock(countdownMs.milliseconds)
     val fraction = state.meterFraction()
     val formatClock = rememberClockTimeFormatter()
     val mode = timer.mode
@@ -310,7 +310,7 @@ private fun Countdown(
             SleepTimerMode.EndOfChapter -> if (fraction > 0f) (countdownMs / fraction).toLong() else countdownMs
         }
     val meterLabel =
-        stringResource(Res.string.player_sheet_meter_a11y, countdown, totalMs.milliseconds.formatPlaybackTime())
+        stringResource(Res.string.player_sheet_meter_a11y, countdown, DurationFormatter.playbackClock(totalMs.milliseconds))
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
 import org.w3c.dom.AUTO
 import org.w3c.dom.CENTER
 import org.w3c.dom.ScrollBehavior
@@ -110,7 +112,7 @@ private fun ChapterRow(
                 ) { Text(NowPlayingWords.playingLeft(chapterRemainingMs)) }
             }
         }
-        Span(attrs = { classes("chap-dur") }) { Text(formatElapsed(chapter.durationMs)) }
+        Span(attrs = { classes("chap-dur") }) { Text(DurationFormatter.playbackClock(chapter.durationMs.milliseconds)) }
     }
 }
 

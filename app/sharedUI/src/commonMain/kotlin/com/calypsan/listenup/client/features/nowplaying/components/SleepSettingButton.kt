@@ -18,8 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.features.nowplaying.MiniPlayerGlyphSize
 import com.calypsan.listenup.client.playback.SleepTimerState
 import listenup.composeapp.generated.resources.Res
@@ -44,7 +44,7 @@ internal fun SleepSettingButton(
     tonalWhenIdle: Boolean,
 ) {
     if (timer is SleepTimerState.Active) {
-        val left = (countdownMs() ?: 0L).coerceAtLeast(0L).milliseconds.formatPlaybackTime()
+        val left = DurationFormatter.playbackClock((countdownMs() ?: 0L).coerceAtLeast(0L).milliseconds)
         val armedLabel = stringResource(Res.string.player_mini_sleep_left, left)
         FilledTonalButton(
             onClick = onClick,
