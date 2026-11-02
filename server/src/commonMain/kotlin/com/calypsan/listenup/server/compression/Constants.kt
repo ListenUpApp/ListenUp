@@ -134,7 +134,7 @@ internal val DIST_EXTRA =
         13,
     )
 
-// Order of the code-length-code lengths in a dynamic block header (RFC §3.2.7).
+// Order of the code-length-code lengths in a dynamic block header (RFC 1951 §3.2.7).
 internal val CODE_LENGTH_ORDER =
     intArrayOf(
         16,

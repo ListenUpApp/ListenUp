@@ -130,7 +130,7 @@ public class DeflateRawSink(
 /** Bytes accumulated before a window is cut and emitted as one block — bounds the working-set size. */
 private const val BLOCK_INPUT_SIZE = 1 shl 20 // 1 MiB
 
-/** Maximum back-reference distance retained as history between blocks (DEFLATE's window, RFC §3.2.5). */
+/** Maximum back-reference distance retained as history between blocks (DEFLATE's window, RFC 1951 §3.2.5). */
 private const val MAX_HISTORY = 32768
 
 private val EMPTY = ByteArray(0)

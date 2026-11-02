@@ -202,11 +202,7 @@ server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/Argon2Limiter.kt 
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/AuthServiceImpl.kt 6
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/LoginRateLimiter.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/SessionService.kt 4
-server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/Constants.kt 1
-server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/Deflate.kt 1
-server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/DynamicBlock.kt 6
-server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/Huffman.kt 3
-server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/Inflate.kt 6
+server/src/commonMain/kotlin/com/calypsan/listenup/server/compression/DynamicBlock.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/cover/ManagedCoverFiles.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/di/AuthModule.kt 5
 server/src/commonMain/kotlin/com/calypsan/listenup/server/embeddedmeta/format/mp4/Mp4CodecExtractor.kt 1
