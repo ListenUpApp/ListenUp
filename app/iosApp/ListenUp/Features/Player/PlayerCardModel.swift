@@ -91,7 +91,7 @@ struct PlayerCardModel: Equatable {
                 title: PlayerSnapshot.title(for: error),
                 cause: PlayerSnapshot.cause(for: error),
                 placeSaved: problem.placeSaved,
-                reference: error.correlationId.map { String(format: String(localized: "player.reference"), $0) },
+                reference: error.correlationId.map { String(localized: .playerReference($0)) },
                 tone: Tone(problem.tone)
             )
             primary = Action(problem.primaryAction)

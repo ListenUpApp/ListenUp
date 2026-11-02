@@ -163,9 +163,9 @@ struct SeriesContent: View {
     private var emptyState: some View {
         LibrarySectionState(picker: picker) {
             ContentUnavailableView(
-                String(format: String(localized: "common.no_items_yet"), "series"),
+                String(localized: .commonNoItemsYet("series")),
                 systemImage: "books.vertical",
-                description: Text(String(format: String(localized: "library.empty_tab_description"), "Series"))
+                description: Text(String(localized: .libraryEmptyTabDescription("Series")))
             )
         }
     }

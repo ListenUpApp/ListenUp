@@ -91,8 +91,8 @@ struct CreateInviteView: View {
             Section(String(localized: "admin.invite_expires_in")) {
                 Picker(String(localized: "admin.invite_expires_in"), selection: $expiresInDays) {
                     Text(String(localized: "admin.1_day")).tag(1)
-                    Text(String(format: String(localized: "common.n_days"), "7")).tag(7)
-                    Text(String(format: String(localized: "common.n_days"), "30")).tag(30)
+                    Text(String(localized: .commonNDays("7"))).tag(7)
+                    Text(String(localized: .commonNDays("30"))).tag(30)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -127,8 +127,8 @@ struct CreateInviteView: View {
     private func successContent(observer: CreateInviteObserver, invite: CreatedInviteModel) -> some View {
         VStack(spacing: 16) {
             InvitePreviewCard(
-                title: String(format: String(localized: "admin.name_is_invited"), invite.name),
-                subtitle: String(format: String(localized: "common.n_days"), String(expiresInDays)),
+                title: String(localized: .adminNameIsInvited(invite.name)),
+                subtitle: String(localized: .commonNDays(String(expiresInDays))),
                 url: invite.url,
                 onCopy: { UIPasteboard.general.string = invite.url }
             )

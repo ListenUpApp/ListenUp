@@ -50,7 +50,7 @@ struct NowPlayingTitleBlock: View {
         if isWholeBook { return String(localized: "player.np_whole_book") }
         guard !title.isEmpty else { return String(format: String(localized: "player.chapter_number"), number) }
         guard showsCounter else { return title }
-        return String(format: String(localized: "player.chapter_of"), "\(number)", "\(total)") + " · " + title
+        return String(localized: .playerChapterOf("\(number)", "\(total)")) + " · " + title
     }
 
     /// The phone's chapter line: the chapter's own title, with no counter; "Chapter 6" untitled; "Whole Book" chapterless.
@@ -61,7 +61,7 @@ struct NowPlayingTitleBlock: View {
     /// "The Stormlight Archive · Book 1", or the series alone when the book has no place in it.
     static func seriesLine(_ series: SeriesNavRef) -> String {
         guard let sequence = series.sequenceLabel, !sequence.isEmpty else { return series.name }
-        return String(format: String(localized: "player.np_series_book"), series.name, sequence)
+        return String(localized: .playerNpSeriesBook(series.name, sequence))
     }
 
     /// "Narrator 1 & 4 more" for more than three people, else nil (the names are listed).

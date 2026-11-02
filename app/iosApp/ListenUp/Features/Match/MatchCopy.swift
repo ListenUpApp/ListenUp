@@ -16,8 +16,8 @@ enum MatchCopy {
         switch items.count {
         case 0: return ""
         case 1: return items[0]
-        case 2: return String(format: String(localized: "match.list_two"), items[0], items[1])
-        default: return String(format: String(localized: "match.list_many"), items[0], list(Array(items.dropFirst())))
+        case 2: return String(localized: .matchListTwo(items[0], items[1]))
+        default: return String(localized: .matchListMany(items[0], list(Array(items.dropFirst()))))
         }
     }
 
@@ -56,9 +56,9 @@ enum MatchCopy {
                 format: String(localized: "match.reason_different_chapter_count"), Int(differentType.value.theirs)
             )
         case .differentStore(let storeType):
-            return String(format: String(localized: "match.reason_different_store"), storeType.value.region.displayName)
+            return String(localized: .matchReasonDifferentStore(storeType.value.region.displayName))
         case .differentEdition(let editionType):
-            return String(format: String(localized: "match.reason_different_edition"), format(editionType.value.format))
+            return String(localized: .matchReasonDifferentEdition(format(editionType.value.format)))
         }
     }
 
@@ -124,15 +124,15 @@ enum MatchCopy {
         let phrases = steps.map(step)
         guard var joined = phrases.first else { return nil }
         for next in phrases.dropFirst() {
-            joined = String(format: String(localized: "match.steps_join"), joined, next)
+            joined = String(localized: .matchStepsJoin(joined, next))
         }
-        return String(format: String(localized: "match.steps_started_from"), joined)
+        return String(localized: .matchStepsStartedFrom(joined))
     }
 
     private static func step(_ step: any SearchStep) -> String {
         switch step.sealedType() {
         case .existingLink(let linkType):
-            return String(format: String(localized: "match.step_existing_link"), linkType.value.source.label)
+            return String(localized: .matchStepExistingLink(linkType.value.source.label))
         case .identifier(let identifierType):
             switch identifierType.value.kind {
             case .asin: return String(localized: "match.step_asin")
@@ -141,7 +141,7 @@ enum MatchCopy {
         case .titleAuthorLength:
             return String(localized: "match.step_title_author_length")
         case .yourQuery(let queryType):
-            return String(format: String(localized: "match.step_your_query"), queryType.value.query)
+            return String(localized: .matchStepYourQuery(queryType.value.query))
         }
     }
 
@@ -153,17 +153,15 @@ enum MatchCopy {
 
     /// "Audible store: United States".
     static func storeButton(source: MetadataSource, store: MetadataLocale) -> String {
-        String(format: String(localized: "match.store_button"), source.label, store.displayName)
+        String(localized: .matchStoreButton(source.label, store.displayName))
     }
 
     /// "Hardcover didn't answer, so these results are from Audible and iTunes."
     static func partialBanner(_ partial: PartialFailure) -> MatchPartialBanner {
         let failed = list(sourceLabels(partial.failed))
         return MatchPartialBanner(
-            message: String(
-                format: String(localized: "match.partial_banner"), failed, list(sourceLabels(partial.answered))
-            ),
-            retryTitle: String(format: String(localized: "match.retry_source"), failed)
+            message: String(localized: .matchPartialBanner(failed, list(sourceLabels(partial.answered)))),
+            retryTitle: String(localized: .matchRetrySource(failed))
         )
     }
 
@@ -216,7 +214,7 @@ enum MatchCopy {
         case .seriesEntries(let seriesType):
             return seriesType.value.entries.map { entry in
                 guard let sequence = entry.sequence, !sequence.isEmpty else { return entry.name }
-                return String(format: String(localized: "match.series_entry"), entry.name, sequence)
+                return String(localized: .matchSeriesEntry(entry.name, sequence))
             }
             .joined(separator: ", ")
         case .year(let yearType):
@@ -240,14 +238,14 @@ enum MatchCopy {
     static func editedNote(_ edit: HandEdit?, viewerId: String?, locale: Locale = .current) -> String {
         let date = edit?.at.flatMap { $0 > 0 ? day($0, locale: locale) : nil }
         if let byUserId = edit?.byUserId, let viewerId, byUserId == viewerId {
-            return date.map { String(format: String(localized: "match.edited_by_you"), $0) }
+            return date.map { String(localized: .matchEditedByYou($0)) }
                 ?? String(localized: "match.edited_by_you_undated")
         }
         if let name = edit?.byName, !name.isEmpty {
-            return date.map { String(format: String(localized: "match.edited_by_name"), name, $0) }
-                ?? String(format: String(localized: "match.edited_by_name_undated"), name)
+            return date.map { String(localized: .matchEditedByName(name, $0)) }
+                ?? String(localized: .matchEditedByNameUndated(name))
         }
-        return date.map { String(format: String(localized: "match.edited_by_hand"), $0) }
+        return date.map { String(localized: .matchEditedByHand($0)) }
             ?? String(localized: "match.edited_by_hand_undated")
     }
 
@@ -264,7 +262,7 @@ enum MatchCopy {
         guard !names.isEmpty else { return nil }
         let joined = names.joined(separator: ", ")
         return names.count == 1
-            ? String(format: String(localized: "match.already_same_one"), joined)
+            ? String(localized: .matchAlreadySameOne(joined))
             : String(format: String(localized: "match.already_same_summary"), names.count, joined)
     }
 
@@ -299,7 +297,7 @@ enum MatchCopy {
             items.append(MatchSummaryItem(
                 section: .cover,
                 value: String(localized: "match.sum_cover"),
-                caption: String(format: String(localized: "match.sum_from"), source.label)
+                caption: String(localized: .matchSumFrom(source.label))
             ))
         }
         func add(_ count: Int32, _ section: MatchReviewSection, one: String, many: String) {
@@ -349,7 +347,7 @@ enum MatchCopy {
     static func undoExpired(_ subject: MatchReceiptSubject) -> String {
         switch subject {
         case .book: String(localized: "match.undo_expired")
-        case .person(let name): String(format: String(localized: "match.undo_expired_person"), name)
+        case .person(let name): String(localized: .matchUndoExpiredPerson(name))
         }
     }
 
@@ -362,7 +360,7 @@ enum MatchCopy {
             parts.append(String(format: String(localized: "match.receipt_fields"), Int(receipt.fieldCount)))
         }
         if let cover = receipt.coverSource {
-            parts.append(String(format: String(localized: "match.receipt_cover_from"), cover.label))
+            parts.append(String(localized: .matchReceiptCoverFrom(cover.label)))
         }
         if receipt.chapterNameCount == 1 {
             parts.append(String(localized: "match.receipt_chapter_name_one"))
@@ -371,7 +369,7 @@ enum MatchCopy {
             parts.append(String(format: pattern, Int(receipt.chapterNameCount)))
         }
         guard !parts.isEmpty else { return String(localized: "match.receipt_nothing") }
-        return String(format: String(localized: "match.receipt_changed"), parts.joined(separator: ", "))
+        return String(localized: .matchReceiptChanged(parts.joined(separator: ", ")))
     }
 
     /// One applied change as See What Changed lists it, with its source.
@@ -379,9 +377,9 @@ enum MatchCopy {
         switch change.sealedType() {
         case .field(let fieldType):
             let field = fieldType.value
-            return [String(format: String(localized: "match.change_field"), fieldName(field.field), field.source.label)]
+            return [String(localized: .matchChangeField(fieldName(field.field), field.source.label))]
         case .cover(let coverType):
-            return [String(format: String(localized: "match.change_cover"), coverType.value.source.label)]
+            return [String(localized: .matchChangeCover(coverType.value.source.label))]
         case .genres(let genresType):
             return labelLines(
                 added: genresType.value.added, removed: genresType.value.removed,
@@ -399,9 +397,9 @@ enum MatchCopy {
             let pattern = String(localized: "match.change_chapter_names")
             return [String(format: pattern, Int(names.count), names.source.label)]
         case .photo(let photoType):
-            return [String(format: String(localized: "match.change_photo"), photoType.value.source.label)]
+            return [String(localized: .matchChangePhoto(photoType.value.source.label))]
         case .biography(let biographyType):
-            return [String(format: String(localized: "match.change_biography"), biographyType.value.source.label)]
+            return [String(localized: .matchChangeBiography(biographyType.value.source.label))]
         }
     }
 
@@ -458,7 +456,7 @@ extension MatchCopy {
     /// Nil when they did nothing here.
     static func creditsLine(_ credits: [LibraryCredit]) -> String? {
         guard let first = credits.first else { return nil }
-        let lead = String(format: String(localized: "match.credit_of_your_books"), creditPhrase(first))
+        let lead = String(localized: .matchCreditOfYourBooks(creditPhrase(first)))
         return ([lead] + credits.dropFirst().map(creditPhrase)).joined(separator: " · ")
     }
 
@@ -466,15 +464,15 @@ extension MatchCopy {
     static func libraryStripLine(credits: [LibraryCredit], titles: [String]) -> String {
         let line = creditsLine(credits) ?? String(localized: "match.no_books_in_library")
         guard !titles.isEmpty else { return line }
-        return String(format: String(localized: "match.in_library_titles"), line, titles.joined(separator: ", "))
+        return String(localized: .matchInLibraryTitles(line, titles.joined(separator: ", ")))
     }
 
     /// "Narrator · from Hardcover", "From Hardcover" when the sources name no role, or just the role.
     static func personHeaderFrom(role: String?, sources: String) -> String {
         switch (role, sources.isEmpty) {
-        case (let role?, false): String(format: String(localized: "match.person_header_from"), role, sources)
+        case (let role?, false): String(localized: .matchPersonHeaderFrom(role, sources))
         case (let role?, true): role
-        case (nil, false): String(format: String(localized: "match.person_header_found_in"), sources)
+        case (nil, false): String(localized: .matchPersonHeaderFoundIn(sources))
         case (nil, true): ""
         }
     }
@@ -484,22 +482,22 @@ extension MatchCopy {
         let phrases = steps.map { personStep($0, name: name) }
         guard var joined = phrases.first else { return nil }
         for next in phrases.dropFirst() {
-            joined = String(format: String(localized: "match.steps_join"), joined, next)
+            joined = String(localized: .matchStepsJoin(joined, next))
         }
-        return String(format: String(localized: "match.steps_started_from"), joined)
+        return String(localized: .matchStepsStartedFrom(joined))
     }
 
     private static func personStep(_ step: any PersonSearchStep, name: String) -> String {
         switch step.sealedType() {
         case .existingLink(let linkType):
-            return String(format: String(localized: "match.step_existing_link"), linkType.value.source.label)
+            return String(localized: .matchStepExistingLink(linkType.value.source.label))
         case .viaYourBooks(let viaType):
             let count = Int(viaType.value.bookCount)
             return count == 1
-                ? String(format: String(localized: "match.step_via_books_one"), name)
+                ? String(localized: .matchStepViaBooksOne(name))
                 : String(format: String(localized: "match.step_via_books"), count, name)
         case .byName(let byNameType):
-            return String(format: String(localized: "match.step_by_name"), byNameType.value.query)
+            return String(localized: .matchStepByName(byNameType.value.query))
         }
     }
 
@@ -532,7 +530,7 @@ extension MatchCopy {
         case (false, false): return String(localized: "match.bar_nothing")
         }
         let sources = list(sourceLabels(summary.sources))
-        return sources.isEmpty ? what : String(format: String(localized: "match.person_header_from"), what, sources)
+        return sources.isEmpty ? what : String(localized: .matchPersonHeaderFrom(what, sources))
     }
 
     /// A Review section's state beside its heading: "Changes", "Fills a gap", "You edited this", "Already the same".

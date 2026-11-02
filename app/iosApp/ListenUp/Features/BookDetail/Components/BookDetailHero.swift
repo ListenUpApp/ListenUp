@@ -161,7 +161,7 @@ struct BookDetailHero: View {
             )
             .font(.subheadline)
         } else if !narratorsText.isEmpty {
-            Text(String(format: String(localized: "book.detail_narrated_by_value"), narratorsText))
+            Text(String(localized: .bookDetailNarratedByValue(narratorsText)))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -236,7 +236,7 @@ struct BookDetailHero: View {
         if let subtitle, !subtitle.isEmpty { parts.append(subtitle) }
         if !author.isEmpty { parts.append(author) }
         if !narratorsText.isEmpty {
-            parts.append(String(format: String(localized: "book.detail_narrated_by_value"), narratorsText))
+            parts.append(String(localized: .bookDetailNarratedByValue(narratorsText)))
         }
         return parts.joined(separator: ", ")
     }

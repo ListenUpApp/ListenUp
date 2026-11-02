@@ -60,6 +60,6 @@ final class GlobalErrorObserver {
         guard code == "INTERNAL_ERROR",
               let id = correlationId?.trimmingCharacters(in: .whitespaces), !id.isEmpty
         else { return message }
-        return String(format: String(localized: "error.server_reference"), String(id.prefix(8)))
+        return String(localized: .errorServerReference(String(id.prefix(8))))
     }
 }

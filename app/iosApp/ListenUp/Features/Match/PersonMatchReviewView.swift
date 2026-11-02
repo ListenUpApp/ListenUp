@@ -193,9 +193,7 @@ struct PersonPhotoRowView: View {
                 if photo.setByHandNote != nil { MatchEditedFlag() }
                 figures
                 MatchSourceSwitch(
-                    label: String(
-                        format: String(localized: "match.source_switch_a11y"), String(localized: "match.section_photo")
-                    ),
+                    label: String(localized: .matchSourceSwitchA11Y(String(localized: "match.section_photo"))),
                     segments: photo.segments,
                     selected: photo.selectedSegment,
                     style: photo.switchStyle,
@@ -267,7 +265,7 @@ struct PersonBiographyRowView: View {
                 if biography.isEdited { MatchEditedFlag() }
                 MatchValuesView(values: biography.values)
                 MatchSourceSwitch(
-                    label: String(format: String(localized: "match.source_switch_a11y"), biography.values.name),
+                    label: String(localized: .matchSourceSwitchA11Y(biography.values.name)),
                     segments: biography.segments,
                     selected: biography.selectedSegment,
                     style: biography.switchStyle,

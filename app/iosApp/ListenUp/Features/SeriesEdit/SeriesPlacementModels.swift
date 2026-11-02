@@ -34,7 +34,7 @@ enum ParentPickerReason: Hashable {
         switch self {
         case .currentParent: String(localized: "series.picker_current")
         case .thisSeries: String(localized: "series.picker_self")
-        case .insideThisSeries: String(format: String(localized: "series.picker_inside"), seriesName)
+        case .insideThisSeries: String(localized: .seriesPickerInside(seriesName))
         }
     }
 }

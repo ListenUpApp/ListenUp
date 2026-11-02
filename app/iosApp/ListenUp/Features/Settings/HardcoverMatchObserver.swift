@@ -201,6 +201,6 @@ final class HardcoverMatchObserver {
     nonisolated static func ratingsText(_ count: Int32?) -> String {
         guard let count, count > 0 else { return String(localized: "hardcover.match_ratings_none") }
         if count == 1 { return String(localized: "hardcover.match_ratings_one") }
-        return String(format: String(localized: "hardcover.match_ratings"), Int(count).formatted())
+        return String(localized: .hardcoverMatchRatings(Int(count).formatted()))
     }
 }

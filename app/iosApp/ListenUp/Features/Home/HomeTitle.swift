@@ -16,6 +16,6 @@ enum HomeTitle {
     nonisolated static func subtitle(timeOfDay: HomeTimeOfDay, firstName: String?, isWelcome: Bool = false) -> String {
         let greeting = isWelcome ? String(localized: "home.welcome") : greeting(timeOfDay)
         guard let firstName, !firstName.isEmpty else { return greeting }
-        return String(format: String(localized: "home.greeting_with_name"), greeting, firstName)
+        return String(localized: .homeGreetingWithName(greeting, firstName))
     }
 }

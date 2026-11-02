@@ -126,11 +126,7 @@ struct ContributorEditView: View {
                         observer.onDismissRenameCollision()
                     }
                 } message: { candidate in
-                    Text(String(
-                        format: String(localized: "contributor.rename_collision_body"),
-                        observer.name,
-                        candidate.name
-                    ))
+                    Text(String(localized: .contributorRenameCollisionBody(observer.name, candidate.name)))
                 }
                 .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
                     ContributorMergeSheet(
@@ -210,7 +206,7 @@ private struct AliasesEditSection: View {
                 }
             }
             .confirmationDialog(
-                pendingUnmerge.map { String(format: String(localized: "contributor.unmerge_aliasname"), $0) } ?? "",
+                pendingUnmerge.map { String(localized: .contributorUnmergeAliasname($0)) } ?? "",
                 isPresented: Binding(get: { pendingUnmerge != nil }, set: { if !$0 { pendingUnmerge = nil } }),
                 titleVisibility: .visible
             ) {
@@ -221,7 +217,7 @@ private struct AliasesEditSection: View {
                 Button(String(localized: "common.cancel"), role: .cancel) { pendingUnmerge = nil }
             } message: {
                 if let alias = pendingUnmerge {
-                    Text(String(format: String(localized: "contributor.unmerge_body"), alias))
+                    Text(String(localized: .contributorUnmergeBody(alias)))
                 }
             }
 
@@ -250,7 +246,7 @@ private struct AliasChip: View {
                         .foregroundStyle(Color.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
+                .accessibilityLabel(String(localized: .contributorRemoveAliasname(alias)))
             }
         }
         .padding(.horizontal, Spacing.s)

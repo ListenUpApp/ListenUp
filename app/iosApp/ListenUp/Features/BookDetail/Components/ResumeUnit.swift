@@ -88,10 +88,10 @@ struct ResumeUnit: View {
     static func finishedText(_ span: BookFinishedSpan) -> String {
         let finished = date(ms: span.finishedAtMs).formatted(.dateTime.day().month(.abbreviated).year())
         guard let started = span.startedAtMs else {
-            return String(format: String(localized: "book.detail_finished_on"), finished)
+            return String(localized: .bookDetailFinishedOn(finished))
         }
         let start = date(ms: started).formatted(.dateTime.day().month(.abbreviated))
-        return String(format: String(localized: "book.detail_finished_span"), start, finished)
+        return String(localized: .bookDetailFinishedSpan(start, finished))
     }
 
     private static func date(ms: Int64) -> Date { Date(timeIntervalSince1970: TimeInterval(ms) / 1000) }

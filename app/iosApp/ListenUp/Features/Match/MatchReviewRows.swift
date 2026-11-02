@@ -37,7 +37,7 @@ struct MatchFieldRowView: View {
                 if row.isEdited { MatchEditedFlag() }
                 MatchValuesView(values: row.values)
                 MatchSourceSwitch(
-                    label: String(format: String(localized: "match.source_switch_a11y"), row.name),
+                    label: String(localized: .matchSourceSwitchA11Y(row.name)),
                     segments: row.segments,
                     selected: row.selectedSegment,
                     style: row.switchStyle,

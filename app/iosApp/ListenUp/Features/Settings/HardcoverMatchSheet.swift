@@ -137,7 +137,7 @@ struct HardcoverMatchList: View {
 
     /// "Matching **Project Hail Mary** · Andy Weir": what is being matched, under the field.
     private var matchingCaption: some View {
-        var caption = AttributedString(String(format: String(localized: "hardcover.match_matching"), model.bookTitle))
+        var caption = AttributedString(String(localized: .hardcoverMatchMatching(model.bookTitle)))
         if let range = caption.range(of: model.bookTitle) {
             caption[range].inlinePresentationIntent = .stronglyEmphasized
             caption[range].foregroundColor = .primary
@@ -160,7 +160,7 @@ struct HardcoverMatchList: View {
     private var resultsFor: String? {
         guard dynamicTypeSize.isAccessibilitySize, case .results = model.search,
               !model.query.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
-        return String(format: String(localized: "hardcover.match_results_for"), model.query)
+        return String(localized: .hardcoverMatchResultsFor(model.query))
     }
 
     private func currentMatchSection(_ current: HardcoverCurrentMatch) -> some View {
@@ -209,10 +209,10 @@ struct HardcoverMatchList: View {
                 ContentUnavailableView {
                     Label(String(localized: "hardcover.match_no_results_title"), systemImage: "magnifyingglass")
                 } description: {
-                    Text(String(format: String(localized: "hardcover.match_no_results_detail"), model.query))
+                    Text(String(localized: .hardcoverMatchNoResultsDetail(model.query)))
                 } actions: {
                     ForEach(model.suggestions, id: \.self) { suggestion in
-                        Button(String(format: String(localized: "hardcover.match_search_for"), suggestion)) {
+                        Button(String(localized: .hardcoverMatchSearchFor(suggestion))) {
                             onSearchFor(suggestion)
                         }
                         .buttonStyle(.bordered)
@@ -239,7 +239,7 @@ struct HardcoverMatchList: View {
                 weakResultsSection(author: author)
             }
             if !byAuthor.isEmpty, let author = model.leadAuthor {
-                Section(String(format: String(localized: "hardcover.match_by_author"), author)) {
+                Section(String(localized: .hardcoverMatchByAuthor(author))) {
                     candidateRows(byAuthor)
                 }
             }
@@ -260,7 +260,7 @@ struct HardcoverMatchList: View {
         Section {
             Label {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: String(localized: "hardcover.match_weak_title"), author))
+                    Text(String(localized: .hardcoverMatchWeakTitle(author)))
                         .font(.body)
                     Text(String(localized: "hardcover.match_weak_detail"))
                         .font(.subheadline)
@@ -272,7 +272,7 @@ struct HardcoverMatchList: View {
             }
             .accessibilityElement(children: .combine)
             ForEach(model.suggestions, id: \.self) { suggestion in
-                Button(String(format: String(localized: "hardcover.match_search_for"), suggestion)) {
+                Button(String(localized: .hardcoverMatchSearchFor(suggestion))) {
                     onSearchFor(suggestion)
                 }
             }
@@ -285,7 +285,7 @@ struct HardcoverMatchList: View {
                 HardcoverCandidateRowView(row: row, isLinking: model.linkingId == row.id)
             }
             .disabled(model.isBusy)
-            .accessibilityLabel(String(format: String(localized: "hardcover.match_pick_a11y"), row.title))
+            .accessibilityLabel(String(localized: .hardcoverMatchPickA11Y(row.title)))
             .accessibilityValue([row.authors, row.detail, row.ratings].compactMap { $0 }.joined(separator: ", "))
         }
     }

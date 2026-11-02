@@ -110,7 +110,7 @@ struct StorageView: View {
                     observer.dismissDeleteBlocked()
                 }
             } message: { title in
-                Text(String(format: String(localized: "settings.delete_blocked_message"), title))
+                Text(String(localized: .settingsDeleteBlockedMessage(title)))
             }
     }
 
@@ -126,7 +126,7 @@ struct StorageView: View {
     private func deletionMessage(_ deletion: StoragePendingDeletion) -> String {
         switch deletion {
         case .single(let title, _):
-            String(format: String(localized: "book.detail_remove_the_downloaded_files_for"), title)
+            String(localized: .bookDetailRemoveTheDownloadedFilesFor(title))
                 + String(localized: "book.detail_you_can_redownload_anytime_by")
         case .all:
             String(localized: "settings.you_can_redownload_books_anytime")
@@ -180,7 +180,7 @@ private struct StorageSummaryCard: View {
                     .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(String(format: String(localized: "settings.storage_available"), StorageFormat.byteSize(available)))
+                Text(String(localized: .settingsStorageAvailable(StorageFormat.byteSize(available))))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

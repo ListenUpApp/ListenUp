@@ -118,7 +118,7 @@ struct BookRatingSection: View {
             if dragging != nil {
                 hint(String(localized: "book.detail_rating_saved_on_lift"))
             } else if let note = snapshot.mine?.note, !note.isEmpty {
-                Text(String(format: String(localized: "book.detail_readers_note"), note))
+                Text(String(localized: .bookDetailReadersNote(note)))
                     .font(.subheadline)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -300,10 +300,7 @@ struct BookRatingSection: View {
     /// "12k ratings", or "1 rating".
     nonisolated static func countLabel(_ count: Int) -> String {
         if count == 1 { return String(localized: "book.detail_rating_count_one") }
-        return String(
-            format: String(localized: "book.detail_rating_count"),
-            RatingLabels.shared.compactCount(count: Int32(count))
-        )
+        return String(localized: .bookDetailRatingCount(RatingLabels.shared.compactCount(count: Int32(count))))
     }
 
     /// "Audible, Hardcover, your listeners".
@@ -315,11 +312,7 @@ struct BookRatingSection: View {
 
     /// "12k ratings · Audible, Hardcover, your listeners".
     nonisolated static func scoreDetail(_ score: ExternalScore, _ snapshot: BookRatingsSnapshot) -> String {
-        String(
-            format: String(localized: "book.detail_rating_score_detail"),
-            countLabel(score.count),
-            sourcesLabel(snapshot)
-        )
+        String(localized: .bookDetailRatingScoreDetail(countLabel(score.count), sourcesLabel(snapshot)))
     }
 
     /// What VoiceOver says for the score's row.
@@ -327,16 +320,16 @@ struct BookRatingSection: View {
         let average = RatingLabels.shared.averageLabel(average: score.average)
         let sources = sourcesLabel(snapshot)
         if score.count == 1 {
-            return String(format: String(localized: "book.detail_rating_score_a11y_one"), average, sources)
+            return String(localized: .bookDetailRatingScoreA11YOne(average, sources))
         }
         let compact = RatingLabels.shared.compactCount(count: Int32(score.count))
-        return String(format: String(localized: "book.detail_rating_score_a11y"), average, compact, sources)
+        return String(localized: .bookDetailRatingScoreA11Y(average, compact, sources))
     }
 
     /// What VoiceOver says for your listeners' row — one decimal, and "1 rating", never "1 ratings".
     nonisolated static func listenersSentence(_ listeners: ListenersAverage) -> String {
         if listeners.count == 1 {
-            return String(format: String(localized: "book.detail_rating_listeners_a11y_one"), listeners.label)
+            return String(localized: .bookDetailRatingListenersA11YOne(listeners.label))
         }
         return String(
             format: String(localized: "book.detail_rating_listeners_a11y"),

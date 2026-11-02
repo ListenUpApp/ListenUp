@@ -113,7 +113,7 @@ struct HardcoverConnectedPhase: View {
                             .foregroundStyle(.green)
                     }
                     .font(.subheadline)
-                    Text(String(format: String(localized: "hardcover.connected_since"), sinceText))
+                    Text(String(localized: .hardcoverConnectedSince(sinceText)))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

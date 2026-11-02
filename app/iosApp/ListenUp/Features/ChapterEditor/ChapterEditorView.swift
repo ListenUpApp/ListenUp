@@ -200,7 +200,7 @@ struct ChapterEditorView: View {
             Section { emptyState(observer) }
         } else if rows.isEmpty {
             Section {
-                Text(String(format: String(localized: "chapter_editor.no_matches"), query))
+                Text(String(localized: .chapterEditorNoMatches(query)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

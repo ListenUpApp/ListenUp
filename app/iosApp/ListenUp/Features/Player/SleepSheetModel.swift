@@ -30,10 +30,7 @@ struct SleepSheetModel: Equatable {
             chapterRemainingMs: progress.chapterRemainingMs, sleepRemainingMs: sleepRemainingMs
         ) else {
             let line = snapshot.offersEndOfChapter
-                ? String(
-                    format: String(localized: "player.sheet_end_of_chapter_after_ios"),
-                    chapterName(snapshot),
-                    MiniPlayerAccessoryModel.shortDuration(ms: progress.chapterRemainingMs))
+                ? String(localized: .playerSheetEndOfChapterAfterIos(chapterName(snapshot), MiniPlayerAccessoryModel.shortDuration(ms: progress.chapterRemainingMs)))
                 : nil
             return SleepSheetModel(mode: .choosing(endOfChapter: line))
         }
@@ -42,13 +39,11 @@ struct SleepSheetModel: Equatable {
         clock.timeZone = timeZone
         let pausesAt = now.addingTimeInterval(TimeInterval(countdownMs) / 1000).formatted(clock)
         let chapterLine = snapshot.sleepTimerIsEndOfChapter
-            ? String(
-                format: String(localized: "player.sheet_until_end_of"),
-                chapterName(snapshot), MiniPlayerAccessoryModel.shortDuration(ms: countdownMs))
+            ? String(localized: .playerSheetUntilEndOf(chapterName(snapshot), MiniPlayerAccessoryModel.shortDuration(ms: countdownMs)))
             : nil
         return SleepSheetModel(mode: .running(
             countdown: DurationFormatting.clock(ms: countdownMs),
-            pausesAt: String(format: String(localized: "player.sheet_pauses_at"), pausesAt),
+            pausesAt: String(localized: .playerSheetPausesAt(pausesAt)),
             meter: meter(snapshot, sleepRemainingMs: sleepRemainingMs, progress),
             canExtend: snapshot.sleepTimerCanExtend,
             chapterLine: chapterLine

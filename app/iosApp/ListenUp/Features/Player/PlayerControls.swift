@@ -48,7 +48,7 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)"),
+                label: String(localized: .playerSkipBackward("\(observer.skipBackwardSec)")),
                 isEnabled: canSkip
             ) {
                 observer.skipBackward()
@@ -63,7 +63,7 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)"),
+                label: String(localized: .playerSkipForward("\(observer.skipForwardSec)")),
                 isEnabled: canSkip
             ) {
                 observer.skipForward()
@@ -203,7 +203,7 @@ struct PlayerSecondaryControls: View {
                 RoutePickerView(
                     tint: Color(.label), activeTint: .luTint,
                     playingOn: observer.castDeviceName.map {
-                        String(format: String(localized: "player.np_status_playing_on"), $0)
+                        String(localized: .playerNpStatusPlayingOn($0))
                     })
                     .frame(width: 44, height: 44)
             }

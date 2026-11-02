@@ -45,7 +45,7 @@ struct ActivityRow: View {
     private var profileLabel: String {
         item.isYou
             ? String(localized: "discover.activity_your_profile_a11y")
-            : String(format: String(localized: "discover.activity_profile_a11y"), item.who)
+            : String(localized: .discoverActivityProfileA11Y(item.who))
     }
 
     var body: some View {

@@ -78,7 +78,7 @@ struct AdminBackupsView: View {
             }
         } message: {
             if let pendingDelete {
-                Text(String(format: String(localized: "admin.confirm_delete_backup"), pendingDelete.id))
+                Text(String(localized: .adminConfirmDeleteBackup(pendingDelete.id)))
             }
         }
         .messageAlert(errorAlertBinding) { observer?.clearError() }
@@ -187,7 +187,7 @@ struct AdminBackupsView: View {
             VStack(spacing: 20) {
                 ProgressView()
                     .controlSize(.large)
-                Text(String(format: String(localized: "admin.restore_from_file_uploading"), filename))
+                Text(String(localized: .adminRestoreFromFileUploading(filename)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -371,7 +371,7 @@ private struct BackupRow: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Text(String(format: String(localized: "admin.backup_size"), backup.sizeFormatted))
+                    Text(String(localized: .adminBackupSize(backup.sizeFormatted)))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)

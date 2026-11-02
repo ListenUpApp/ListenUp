@@ -40,10 +40,7 @@ struct MatchCompareSheet: View {
                         ActionLabel(title: String(localized: "match.review_this_match_title"))
                     }
                     .prominentAction()
-                    .accessibilityLabel(String(
-                        format: String(localized: "match.review_this_match_a11y"),
-                        candidate.title, candidate.foundInList
-                    ))
+                    .accessibilityLabel(String(localized: .matchReviewThisMatchA11Y(candidate.title, candidate.foundInList)))
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
 

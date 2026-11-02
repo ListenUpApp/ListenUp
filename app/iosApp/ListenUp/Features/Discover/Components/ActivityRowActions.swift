@@ -31,13 +31,13 @@ enum ActivityRowActions {
     static func title(_ action: Action, item: ActivityRowItem) -> String {
         switch action {
         case .openBook, .openShelf:
-            return String(format: String(localized: "discover.activity_open"), item.highlight ?? "")
+            return String(localized: .discoverActivityOpen(item.highlight ?? ""))
         case .viewPerson:
             return item.isYou
                 ? String(localized: "discover.activity_your_profile_a11y")
-                : String(format: String(localized: "discover.activity_view_person_ios"), item.actorName)
+                : String(localized: .discoverActivityViewPersonIos(item.actorName))
         case .addToShelf:
-            return String(format: String(localized: "discover.activity_add_book_to_shelf"), item.highlight ?? "")
+            return String(localized: .discoverActivityAddBookToShelf(item.highlight ?? ""))
         }
     }
 

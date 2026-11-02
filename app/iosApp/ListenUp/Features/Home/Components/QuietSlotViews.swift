@@ -54,7 +54,7 @@ struct NothingInProgressView: View {
                     .foregroundStyle(.secondary)
                 Text(next.title).font(.title3.bold())
                 if let narrators = next.narrators, !narrators.isEmpty {
-                    Text(String(format: String(localized: "library.card_read_by"), narrators))
+                    Text(String(localized: .libraryCardReadBy(narrators)))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

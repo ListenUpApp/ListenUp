@@ -34,11 +34,7 @@ enum BookMenuPrimaryValue: Equatable {
         case .play:
             String(localized: "book.detail_play_ios")
         case .resume(let timeLeftMs):
-            String(
-                format: String(localized: "library.menu_primary_with_time"),
-                String(localized: "book.detail_resume_ios"),
-                DurationFormatting.hoursMinutes(ms: timeLeftMs)
-            )
+            String(localized: .libraryMenuPrimaryWithTime(String(localized: "book.detail_resume_ios"), DurationFormatting.hoursMinutes(ms: timeLeftMs)))
         case .listenAgain:
             String(localized: "book.detail_listen_again_ios")
         }

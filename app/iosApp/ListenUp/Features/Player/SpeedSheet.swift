@@ -26,13 +26,13 @@ enum SpeedSheetModel {
 
     /// "1.25 times": the slider's value as VoiceOver speaks it.
     static func spokenValue(_ speed: Float) -> String {
-        String(format: String(localized: "player.sheet_speed_times_ios"), PlaybackRates.number(speed))
+        String(localized: .playerSheetSpeedTimesIos(PlaybackRates.number(speed)))
     }
 
     /// "32 hr, 25 min left at this speed": the book's remainder in wall time, the sheet's one exception to content
     /// time (S10).
     static func leftLine(ms: Int64) -> String {
-        String(format: String(localized: "player.sheet_left_at_speed"), DurationFormatting.abbreviated(ms: ms))
+        String(localized: .playerSheetLeftAtSpeed(DurationFormatting.abbreviated(ms: ms)))
     }
 }
 
@@ -60,7 +60,7 @@ struct SpeedSheetContent: View {
 
     /// "Reset to 1× (Your Default)".
     static func resetTitle(_ defaultSpeed: Float) -> String {
-        String(format: String(localized: "player.sheet_reset_speed_ios"), PlaybackRates.format(defaultSpeed))
+        String(localized: .playerSheetResetSpeedIos(PlaybackRates.format(defaultSpeed)))
     }
 
     var body: some View {

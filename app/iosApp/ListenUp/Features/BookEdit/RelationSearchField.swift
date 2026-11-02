@@ -109,7 +109,7 @@ struct RelationSearchField: View {
             .contentShape(Rectangle())
         }
         .foregroundStyle(Color.primary)
-        .accessibilityLabel(String(format: String(localized: "common.add_name"), result.name))
+        .accessibilityLabel(String(localized: .commonAddName(result.name)))
     }
 
     private var createRow: some View {
@@ -118,7 +118,7 @@ struct RelationSearchField: View {
                 Image(systemName: "plus")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.luTint)
-                Text(String(format: String(localized: "book.edit_add_trimmedquery"), trimmedQuery))
+                Text(String(localized: .bookEditAddTrimmedquery(trimmedQuery)))
                     .font(.subheadline)
                     .foregroundStyle(Color.luTint)
                     .lineLimit(1)
@@ -126,7 +126,7 @@ struct RelationSearchField: View {
             }
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(String(format: String(localized: "common.add_name"), trimmedQuery))
+        .accessibilityLabel(String(localized: .commonAddName(trimmedQuery)))
     }
 
     /// Submit picks the top result if there is one, otherwise creates from free text when allowed.

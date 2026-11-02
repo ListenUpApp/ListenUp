@@ -44,7 +44,7 @@ struct JustFinishedCard: View {
                 .prominentAction()
                 .tint(coverTheme.colors?.action)
                 .buttonBorderShape(.capsule)
-                .accessibilityLabel(String(format: String(localized: "home.play_next_book_a11y_ios"), next.title))
+                .accessibilityLabel(String(localized: .homePlayNextBookA11YIos(next.title)))
             }
             rating
             if let line = FinishedCardText.alsoFinished(names: slot.alsoFinishedNames, more: slot.alsoFinishedOthers) {

@@ -156,7 +156,7 @@ struct RatingSourceRowModel: Equatable, Identifiable {
     /// "Using simonhull's Hardcover account" — Hardcover only, and only once someone has connected.
     nonisolated var connectionLine: String? {
         guard source == .hardcover, let connectionUsername else { return nil }
-        return String(format: String(localized: "admin.rating_source_using_connection"), connectionUsername)
+        return String(localized: .adminRatingSourceUsingConnection(connectionUsername))
     }
 
     /// The health line, in the priority the type documents. A pause names a future date, so it
@@ -175,19 +175,19 @@ struct RatingSourceRowModel: Equatable, Identifiable {
             style.timeZone = timeZone
             let until = Date(timeIntervalSince1970: Double(pausedUntilMs) / 1000).formatted(style)
             if let lastError {
-                return String(format: String(localized: "admin.rating_source_paused"), until, lastError)
+                return String(localized: .adminRatingSourcePaused(until, lastError))
             }
-            return String(format: String(localized: "admin.rating_source_paused_plain"), until)
+            return String(localized: .adminRatingSourcePausedPlain(until))
         }
         if let lastError {
-            return String(format: String(localized: "admin.rating_source_error"), lastError)
+            return String(localized: .adminRatingSourceError(lastError))
         }
         if let lastFetchedAtMs {
             let fetched = Date(timeIntervalSince1970: Double(lastFetchedAtMs) / 1000)
             let relative = RelativeDateTimeFormatter()
             relative.unitsStyle = .full
             let phrase = relative.localizedString(for: fetched, relativeTo: now)
-            return String(format: String(localized: "admin.rating_source_last_fetched"), phrase)
+            return String(localized: .adminRatingSourceLastFetched(phrase))
         }
         return String(localized: "admin.rating_source_never_fetched")
     }

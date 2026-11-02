@@ -46,12 +46,12 @@ enum LibraryStatusStripModel: Equatable {
                     format: String(localized: "library.scan_strip_progress_new"),
                     done.formatted(), total.formatted(), added
                 )
-                : String(format: String(localized: "library.scan_strip_progress"), done.formatted(), total.formatted())
+                : String(localized: .libraryScanStripProgress(done.formatted(), total.formatted()))
         case .arriving(let booksSoFar):
             switch booksSoFar {
             case 0: return String(localized: "library.arriving_none_yet")
             case 1: return String(localized: "library.arriving_so_far_one")
-            default: return String(format: String(localized: "library.arriving_so_far"), booksSoFar.formatted())
+            default: return String(localized: .libraryArrivingSoFar(booksSoFar.formatted()))
             }
         }
     }

@@ -91,8 +91,7 @@ struct BookListenActions: View {
     /// Spec N2: before it is saved, the download names its size — "Download, 1.29 GB" — never the book's length.
     private var downloadAccessibilityLabel: String {
         downloadState == .notDownloaded
-            ? String(format: String(localized: "book.detail_download_size_a11y"),
-                     StorageFormat.byteSize(downloadSizeBytes))
+            ? String(localized: .bookDetailDownloadSizeA11Y(StorageFormat.byteSize(downloadSizeBytes)))
             : control.accessibilityLabel
     }
 
@@ -143,7 +142,7 @@ enum RemoveDownloadCopy {
 
     /// `formattedSize` arrives formatted so the sentence stays testable.
     static func message(formattedSize: String) -> String {
-        String(format: String(localized: "book.detail_remove_download_body"), formattedSize)
+        String(localized: .bookDetailRemoveDownloadBody(formattedSize))
     }
 }
 

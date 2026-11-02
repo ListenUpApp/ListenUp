@@ -162,7 +162,7 @@ private struct FrameEditorStage: View {
         .gesture(dragGesture.simultaneously(with: magnifyGesture(cut: cut)))
         .accessibilityElement()
         .accessibilityLabel(String(localized: "edit.frame_photo_position"))
-        .accessibilityValue(String(format: String(localized: "edit.frame_zoom_value"), model.zoomText))
+        .accessibilityValue(String(localized: .editFrameZoomValue(model.zoomText)))
         .accessibilityHint(String(localized: "edit.frame_hint_ios"))
         .accessibilityAdjustableAction { direction in
             switch direction {

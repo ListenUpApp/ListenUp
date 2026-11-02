@@ -30,7 +30,7 @@ enum SeriesHierarchyText {
     static func placement(path names: [String], bookCount: Int?) -> String? {
         var parts: [String] = []
         if !names.isEmpty {
-            parts.append(String(format: String(localized: "series.in_path"), path(names)))
+            parts.append(String(localized: .seriesInPath(path(names))))
         }
         if let bookCount, bookCount > 0 { parts.append(books(bookCount)) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -67,23 +67,23 @@ enum SeriesHierarchyText {
     /// "Continue The Hero of Ages" — a grouped page names the book, because "Continue Book 3" is
     /// ambiguous when the books come from four series.
     static func continueTitle(bookTitle: String) -> String {
-        String(format: String(localized: "series.continue_title"), bookTitle)
+        String(localized: .seriesContinueTitle(bookTitle))
     }
 
     /// "Start The Final Empire" — the grouped page's button on a series not yet begun.
     static func startTitle(bookTitle: String) -> String {
-        String(format: String(localized: "series.start_title"), bookTitle)
+        String(localized: .seriesStartTitle(bookTitle))
     }
 
     /// "Mistborn Era 1 · Book 3" under the grouped page's Continue; just the series when unnumbered.
     static func continueWhere(seriesName: String, sequence: String?) -> String {
         guard let sequence, !sequence.isEmpty else { return seriesName }
-        return String(format: String(localized: "series.continue_where"), seriesName, sequence)
+        return String(localized: .seriesContinueWhere(seriesName, sequence))
     }
 
     /// "Also in Cosmere" — a series' own books, after its sub-series.
     static func alsoIn(_ seriesName: String) -> String {
-        String(format: String(localized: "series.also_in"), seriesName)
+        String(localized: .seriesAlsoIn(seriesName))
     }
 
     /// "Show all 4" — expands a folded group in place.
@@ -100,35 +100,35 @@ enum SeriesHierarchyText {
 
     /// "Move City Watch out of Discworld into Cosmere?"
     static func moveConfirmTitle(series: String, from: String, into: String) -> String {
-        String(format: String(localized: "series.move_confirm_title"), series, from, into)
+        String(localized: .seriesMoveConfirmTitle(series, from, into))
     }
 
     /// "Add sub-series to Cosmere"
     static func addSubSeriesTitle(parent: String) -> String {
-        String(format: String(localized: "series.add_subseries_to"), parent)
+        String(localized: .seriesAddSubseriesTo(parent))
     }
 
     /// "Move “Mistborn” into…"
     static func moveIntoTitle(series: String) -> String {
-        String(format: String(localized: "series.move_into_named"), series)
+        String(localized: .seriesMoveIntoNamed(series))
     }
 
     /// "Creates “White Sand” inside Cosmere." — nil until a name is typed.
     static func newSubSeriesBody(name: String, parent: String) -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return String(format: String(localized: "series.new_subseries_body"), trimmed, parent)
+        return String(localized: .seriesNewSubseriesBody(trimmed, parent))
     }
 
     /// "Creates “Cosmere” and moves Mistborn into it." — nil until a name is typed.
     static func newParentBody(name: String, series: String) -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return String(format: String(localized: "series.new_parent_body"), trimmed, series)
+        return String(localized: .seriesNewParentBody(trimmed, series))
     }
 
     /// "“Cosmere” already exists."
     static func nameExists(_ name: String) -> String {
-        String(format: String(localized: "series.name_exists_inline"), name)
+        String(localized: .seriesNameExistsInline(name))
     }
 }

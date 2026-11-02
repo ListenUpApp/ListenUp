@@ -61,7 +61,7 @@ struct BoostPickerSheet: View {
     @ViewBuilder
     private var resetRow: some View {
         if let defaultBoostDb, abs(defaultBoostDb - currentBoostDb) >= 0.01 {
-            Button(String(format: String(localized: "player.sheet_reset_boost_ios"), Self.formatBoost(defaultBoostDb))) {
+            Button(String(localized: .playerSheetResetBoostIos(Self.formatBoost(defaultBoostDb)))) {
                 onUseDefault()
             }
             .buttonStyle(.borderless)
@@ -132,9 +132,7 @@ struct ChapterRow: View {
 
     /// "Now Playing · 8 min left": the current row's visible line.
     static func currentLine(remainingMs: Int64) -> String {
-        String(
-            format: String(localized: "player.sheet_playing_left_ios"),
-            MiniPlayerAccessoryModel.shortDuration(ms: remainingMs))
+        String(localized: .playerSheetPlayingLeftIos(MiniPlayerAccessoryModel.shortDuration(ms: remainingMs)))
     }
 
     /// The row as VoiceOver reads it: `remainingMs` is the current row's time left, nil on every other row.

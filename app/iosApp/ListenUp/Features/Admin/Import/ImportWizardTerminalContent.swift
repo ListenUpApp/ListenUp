@@ -121,18 +121,12 @@ struct ImportReviewContent: View {
             }
             if review.autoMatchedCount > 0 {
                 summaryLine(
-                    String(
-                        format: String(localized: "import.books_matched"),
-                        String(review.autoMatchedCount)
-                    )
+                    String(localized: .importBooksMatched(String(review.autoMatchedCount)))
                 )
             }
             if review.importableSessionCount > 0 {
                 summaryLine(
-                    String(
-                        format: String(localized: "import.sessions_importable"),
-                        String(review.importableSessionCount)
-                    )
+                    String(localized: .importSessionsImportable(String(review.importableSessionCount)))
                 )
             }
         }
@@ -205,8 +199,7 @@ struct ImportReviewContent: View {
             // The localized format uses a `%@` slot (generated from `%s`); it must be fed a String,
             // NOT a raw Int. Passing an Int makes `String(format:)` treat it as a pointer — Foundation
             // logs a format mismatch and the warning fails to render, stalling the import terminal.
-            String(format: String(localized: "import.review_users_unresolved_warning"),
-                   String(review.unresolvedCount)),
+            String(localized: .importReviewUsersUnresolvedWarning(String(review.unresolvedCount))),
             systemImage: "exclamationmark.triangle"
         )
         .font(.footnote)

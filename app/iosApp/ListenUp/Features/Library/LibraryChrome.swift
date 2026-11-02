@@ -68,7 +68,7 @@ enum LibrarySubtitle {
         let books = count == 1
             ? String(format: String(localized: "library.book_count"), count)
             : String(format: String(localized: "library.book_count_plural"), count)
-        return String(format: String(localized: "library.ipad_books_subtitle"), books, sortLabel.lowercased())
+        return String(localized: .libraryIpadBooksSubtitle(books, sortLabel.lowercased()))
     }
 
     static func filteredEmpty(_ filter: BookStatusFilter) -> String {
