@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.foundation.text.input.clearText
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -144,6 +146,11 @@ private fun GenresSubsection(
     onGenreSelected: (EditableGenre) -> Unit,
     onRemoveGenre: (EditableGenre) -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onSearchQueryChange)
+    val selectGenre: (EditableGenre) -> Unit = { picked ->
+        onGenreSelected(picked)
+        queryState.clearText()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(Res.string.common_genres),
@@ -166,21 +173,20 @@ private fun GenresSubsection(
         }
 
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = { genre -> onGenreSelected(genre) },
+            onResultSelected = { genre -> selectGenre(genre) },
             onSubmit = { query ->
                 val topResult = searchResults.firstOrNull()
                 if (topResult != null) {
-                    onGenreSelected(topResult)
+                    selectGenre(topResult)
                 }
             },
             resultContent = { genre ->
                 AutocompleteResultItem(
                     name = genre.name,
                     subtitle = genre.parentPath,
-                    onClick = { onGenreSelected(genre) },
+                    onClick = { selectGenre(genre) },
                 )
             },
             placeholder = stringResource(Res.string.book_edit_add_genre),
@@ -201,6 +207,15 @@ private fun TagsSubsection(
     onTagEntered: (String) -> Unit,
     onRemoveTag: (EditableTag) -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onSearchQueryChange)
+    val selectTag: (EditableTag) -> Unit = { picked ->
+        onTagSelected(picked)
+        queryState.clearText()
+    }
+    val enterTag: (String) -> Unit = { picked ->
+        onTagEntered(picked)
+        queryState.clearText()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(Res.string.book_detail_tags),
@@ -223,18 +238,17 @@ private fun TagsSubsection(
         }
 
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = { tag -> onTagSelected(tag) },
+            onResultSelected = { tag -> selectTag(tag) },
             onSubmit = { query ->
                 val trimmed = query.trim()
                 if (trimmed.isNotEmpty()) {
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
-                        onTagSelected(topResult)
+                        selectTag(topResult)
                     } else if (trimmed.length >= 2) {
-                        onTagEntered(trimmed)
+                        enterTag(trimmed)
                     }
                 }
             },
@@ -242,7 +256,7 @@ private fun TagsSubsection(
                 AutocompleteResultItem(
                     name = tag.displayName(),
                     subtitle = null,
-                    onClick = { onTagSelected(tag) },
+                    onClick = { selectTag(tag) },
                 )
             },
             placeholder = stringResource(Res.string.book_edit_add_tag),
@@ -265,7 +279,7 @@ private fun TagsSubsection(
             AssistChip(
                 onClick = {
                     haptics.press()
-                    onTagEntered(trimmedQuery)
+                    enterTag(trimmedQuery)
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
@@ -288,6 +302,15 @@ private fun MoodsSubsection(
     onMoodEntered: (String) -> Unit,
     onRemoveMood: (EditableMood) -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onSearchQueryChange)
+    val selectMood: (EditableMood) -> Unit = { picked ->
+        onMoodSelected(picked)
+        queryState.clearText()
+    }
+    val enterMood: (String) -> Unit = { picked ->
+        onMoodEntered(picked)
+        queryState.clearText()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(Res.string.book_detail_mood),
@@ -310,18 +333,17 @@ private fun MoodsSubsection(
         }
 
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = { mood -> onMoodSelected(mood) },
+            onResultSelected = { mood -> selectMood(mood) },
             onSubmit = { query ->
                 val trimmed = query.trim()
                 if (trimmed.isNotEmpty()) {
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
-                        onMoodSelected(topResult)
+                        selectMood(topResult)
                     } else if (trimmed.length >= 2) {
-                        onMoodEntered(trimmed)
+                        enterMood(trimmed)
                     }
                 }
             },
@@ -329,7 +351,7 @@ private fun MoodsSubsection(
                 AutocompleteResultItem(
                     name = mood.displayName(),
                     subtitle = null,
-                    onClick = { onMoodSelected(mood) },
+                    onClick = { selectMood(mood) },
                 )
             },
             placeholder = stringResource(Res.string.book_edit_add_mood),
@@ -352,7 +374,7 @@ private fun MoodsSubsection(
             AssistChip(
                 onClick = {
                     haptics.press()
-                    onMoodEntered(trimmedQuery)
+                    enterMood(trimmedQuery)
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
@@ -373,6 +395,11 @@ internal fun CollectionsSubsection(
     onRemoveCollection: (EditableCollection) -> Unit,
     isHeld: Boolean = false,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onSearchQueryChange)
+    val selectCollection: (EditableCollection) -> Unit = { picked ->
+        onCollectionSelected(picked)
+        queryState.clearText()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(Res.string.common_collections),
@@ -416,21 +443,20 @@ internal fun CollectionsSubsection(
         }
 
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = { collection -> onCollectionSelected(collection) },
+            onResultSelected = { collection -> selectCollection(collection) },
             onSubmit = {
                 val topResult = searchResults.firstOrNull()
                 if (topResult != null) {
-                    onCollectionSelected(topResult)
+                    selectCollection(topResult)
                 }
             },
             resultContent = { collection ->
                 AutocompleteResultItem(
                     name = collection.name,
                     subtitle = null,
-                    onClick = { onCollectionSelected(collection) },
+                    onClick = { selectCollection(collection) },
                 )
             },
             placeholder = stringResource(Res.string.book_edit_add_collection),

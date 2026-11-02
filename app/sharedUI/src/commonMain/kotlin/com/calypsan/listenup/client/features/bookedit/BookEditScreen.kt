@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.bookedit
 
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +21,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -257,14 +257,15 @@ private fun SingleColumnCardsLayout(
         modifier = Modifier.padding(Spacing.lg),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        val descriptionState =
+            rememberForwardingTextFieldState(state.description) { onEvent(BookEditUiEvent.DescriptionChanged(it)) }
         // People-first order (matches the flat iOS form): Description → Talent → Series →
         // Classification → Publishing → Identifiers → Library. Sort Title lives in the header.
 
         // Description (The Hook)
         StudioCard(title = stringResource(Res.string.common_description)) {
             ListenUpTextArea(
-                value = state.description,
-                onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
+                state = descriptionState,
                 label = stringResource(Res.string.book_edit_description_label),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )
@@ -421,11 +422,12 @@ private fun TwoColumnCardsLayout(
         modifier = Modifier.padding(Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        val descriptionState =
+            rememberForwardingTextFieldState(state.description) { onEvent(BookEditUiEvent.DescriptionChanged(it)) }
         // Full-width: Description (The Hook) - Primary content
         StudioCard(title = stringResource(Res.string.common_description)) {
             ListenUpTextArea(
-                value = state.description,
-                onValueChange = { onEvent(BookEditUiEvent.DescriptionChanged(it)) },
+                state = descriptionState,
                 label = stringResource(Res.string.book_edit_description_label),
                 placeholder = stringResource(Res.string.book_edit_enter_a_description),
             )

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.MoreVert
@@ -46,10 +49,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -613,9 +614,9 @@ private fun SeriesIdentityHeader(
                 }
 
                 // Name field - Large editorial style
+                val nameState = rememberForwardingTextFieldState(name, onEdited = onNameChange)
                 ListenUpTextField(
-                    value = name,
-                    onValueChange = onNameChange,
+                    state = nameState,
                     textStyle =
                         MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = DisplayFontFamily,
@@ -659,9 +660,10 @@ private fun DescriptionCard(
     modifier: Modifier = Modifier,
 ) {
     SeriesStudioCard(title = stringResource(Res.string.common_description), modifier = modifier) {
+        val description =
+            rememberForwardingTextFieldState(state.description) { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) }
         ListenUpTextArea(
-            value = state.description,
-            onValueChange = { onEvent(SeriesEditUiEvent.DescriptionChanged(it)) },
+            state = description,
             label = stringResource(Res.string.common_description),
             placeholder = stringResource(Res.string.series_enter_a_description_for_this),
         )

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.design.components.transformedBy
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,10 +31,11 @@ fun PublishingSection(
     onPublishYearChange: (String) -> Unit,
     onLanguageChange: (String?) -> Unit,
 ) {
+    val publisherState = rememberForwardingTextFieldState(publisher, onEdited = onPublisherChange)
+    val yearState = rememberForwardingTextFieldState(publishYear, onEdited = onPublishYearChange)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ListenUpTextField(
-            value = publisher,
-            onValueChange = onPublisherChange,
+            state = publisherState,
             label = stringResource(Res.string.book_edit_publisher),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
@@ -42,13 +45,12 @@ fun PublishingSection(
             modifier = Modifier.fillMaxWidth(),
         ) {
             ListenUpTextField(
-                value = publishYear,
-                onValueChange = onPublishYearChange,
+                state = yearState,
                 label = stringResource(Res.string.book_edit_year),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                // Restrict inside the component (echo-verbatim contract): the VM stores what it
-                // receives verbatim and re-normalizes once more at the save boundary.
-                transform = { it.filter(Char::isDigit).take(4) },
+                // Restricted inside the field: the VM only ever hears digits, and re-normalizes once
+                // more at the save boundary.
+                inputTransformation = yearTransformation,
                 modifier = Modifier.weight(1f),
             )
 
@@ -60,3 +62,5 @@ fun PublishingSection(
         }
     }
 }
+
+private val yearTransformation = transformedBy { it.filter(Char::isDigit).take(4) }

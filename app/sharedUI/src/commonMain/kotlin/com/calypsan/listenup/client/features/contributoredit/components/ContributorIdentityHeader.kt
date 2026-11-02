@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
@@ -30,10 +33,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -136,9 +137,9 @@ fun ContributorIdentityHeader(
             )
 
             // Name field — large editorial hero variant of the canonical text field.
+            val nameState = rememberForwardingTextFieldState(name, onEdited = onNameChange)
             ListenUpTextField(
-                value = name,
-                onValueChange = onNameChange,
+                state = nameState,
                 placeholder = stringResource(Res.string.common_name),
                 variant = ListenUpTextFieldVariant.Hero,
                 heroContainerColor = surfaceColor,

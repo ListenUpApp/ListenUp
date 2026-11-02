@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesedit.components
 
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -108,6 +109,8 @@ internal fun MoveIntoPicker(
 ) {
     val haptics = LocalHaptics.current
     val searching = state.parentQuery.isNotBlank()
+    // The picker opens blank (closing it resets the query) and owns the text while it is open.
+    val query = rememberForwardingTextFieldState(state.parentQuery) { onEvent(SeriesEditUiEvent.ParentQueryChanged(it)) }
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.series_move_into_named, state.name),
@@ -116,11 +119,10 @@ internal fun MoveIntoPicker(
             modifier = Modifier.padding(horizontal = Spacing.screenMargin).semantics { heading() },
         )
         ListenUpSearchField(
-            value = state.parentQuery,
-            onValueChange = { onEvent(SeriesEditUiEvent.ParentQueryChanged(it)) },
+            state = query,
             onSubmit = {},
             placeholder = stringResource(Res.string.series_merge_search_placeholder),
-            onClear = { onEvent(SeriesEditUiEvent.ParentQueryChanged("")) },
+            clearable = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 12.dp),
         )
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {

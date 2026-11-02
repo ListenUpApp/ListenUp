@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
@@ -34,10 +37,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -187,10 +188,12 @@ fun IdentityHeader(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    val titleState = rememberForwardingTextFieldState(title, onEdited = onTitleChange)
+                    val subtitleState = rememberForwardingTextFieldState(subtitle, onEdited = onSubtitleChange)
+                    val sortTitleState = rememberForwardingTextFieldState(sortTitle, onEdited = onSortTitleChange)
                     // Title - Large editorial style
                     ListenUpTextField(
-                        value = title,
-                        onValueChange = onTitleChange,
+                        state = titleState,
                         textStyle =
                             MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = DisplayFontFamily,
@@ -221,8 +224,7 @@ fun IdentityHeader(
                         exit = shrinkVertically(),
                     ) {
                         ListenUpTextField(
-                            value = subtitle,
-                            onValueChange = onSubtitleChange,
+                            state = subtitleState,
                             textStyle =
                                 MaterialTheme.typography.titleMedium.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -266,8 +268,7 @@ fun IdentityHeader(
                     // Sort Title — the title's alphabetization form, kept with the identity fields
                     // so its order matches the flat iOS form (Cover, Title, Subtitle, Sort Title).
                     ListenUpTextField(
-                        value = sortTitle,
-                        onValueChange = onSortTitleChange,
+                        state = sortTitleState,
                         label = stringResource(Res.string.book_edit_sort_title),
                         textStyle =
                             MaterialTheme.typography.bodyLarge.copy(

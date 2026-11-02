@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.clearText
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.background
@@ -29,8 +32,6 @@ import listenup.composeapp.generated.resources.chapter_editor_no_matches
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -201,6 +202,7 @@ private fun ChapterListPane(
     // Filtered here, after numbering: `chapters` arrives numbered against the whole book, so a
     // narrowed list still calls chapter 213 by its real number. See [matching].
     val visible = chapters.matching(query)
+    val queryState = rememberForwardingTextFieldState(query, onEdited = onQueryChange)
     // Derived, so a tick inside the same chapter changes nothing a row can see. The rows recompose
     // when the playing chapter changes, not every time the playhead moves.
     val currentChapters by rememberUpdatedState(chapters)
@@ -217,12 +219,11 @@ private fun ChapterListPane(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ListenUpTextField(
-            value = query,
-            onValueChange = onQueryChange,
+            state = queryState,
             placeholder = stringResource(Res.string.chapter_editor_jump_to_title),
             leadingIcon = Icons.Default.Search,
-            trailingIcon = if (query.isEmpty()) null else Icons.Default.Close,
-            onTrailingClick = { onQueryChange("") },
+            trailingIcon = if (queryState.text.isEmpty()) null else Icons.Default.Close,
+            onTrailingClick = queryState::clearText,
             trailingIconContentDescription = stringResource(Res.string.chapter_editor_clear_search),
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
