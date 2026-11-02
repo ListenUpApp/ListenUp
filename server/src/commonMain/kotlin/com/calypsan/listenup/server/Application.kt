@@ -18,7 +18,7 @@ internal val logger = KotlinLogging.logger("com.calypsan.listenup.server.Applica
 
 internal const val SEED_PROFILE_DEMO = "demo"
 
-fun Application.module() {
+suspend fun Application.module() {
     installCorePlugins()
 
     val seedProfile = resolveSeedProfile()

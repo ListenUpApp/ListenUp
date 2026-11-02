@@ -9,7 +9,6 @@ import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.ktor.server.application.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.koin.ktor.ext.inject
 
 /**
@@ -22,22 +21,20 @@ import org.koin.ktor.ext.inject
  * [PublicProfileMaintainer] is resolvable) — both are guaranteed by calling this
  * from [module] after [installDependencies].
  *
- * Runs synchronously on the module init thread via [runBlocking], matching the idiom
- * used by the genre-taxonomy seeder in [launchSeeders].
+ * Suspends the module until the backfill is done, matching the genre-taxonomy seeder
+ * in [launchSeeders].
  */
-internal fun Application.backfillPublicProfiles() {
+internal suspend fun Application.backfillPublicProfiles() {
     val sql by inject<ListenUpDatabase>()
     val maintainer by inject<PublicProfileMaintainer>()
-    runBlocking {
-        runCatchingCancellable {
-            val isEmpty =
-                suspendTransaction(sql) {
-                    sql.publicProfilesQueries.isEmpty().executeAsOne()
-                }
-            if (isEmpty) maintainer.backfillAll()
-        }.onFailure { e ->
-            logger.error(e) { "public_profiles startup backfill failed — projection will self-heal on next refresh" }
-        }
+    runCatchingCancellable {
+        val isEmpty =
+            suspendTransaction(sql) {
+                sql.publicProfilesQueries.isEmpty().executeAsOne()
+            }
+        if (isEmpty) maintainer.backfillAll()
+    }.onFailure { e ->
+        logger.error(e) { "public_profiles startup backfill failed — projection will self-heal on next refresh" }
     }
 }
 
@@ -51,19 +48,17 @@ internal fun Application.backfillPublicProfiles() {
  * resolvable) — both are guaranteed by calling this from [module] after [installDependencies].
  * Mirrors [backfillPublicProfiles].
  */
-internal fun Application.backfillAdminUserRoster() {
+internal suspend fun Application.backfillAdminUserRoster() {
     val sql by inject<ListenUpDatabase>()
     val maintainer by inject<AdminUserRosterMaintainer>()
-    runBlocking {
-        runCatchingCancellable {
-            val isEmpty =
-                suspendTransaction(sql) {
-                    sql.adminUserRosterQueries.isEmpty().executeAsOne()
-                }
-            if (isEmpty) maintainer.backfillAll()
-        }.onFailure { e ->
-            logger.error(e) { "admin_user_roster startup backfill failed — projection will self-heal on next refresh" }
-        }
+    runCatchingCancellable {
+        val isEmpty =
+            suspendTransaction(sql) {
+                sql.adminUserRosterQueries.isEmpty().executeAsOne()
+            }
+        if (isEmpty) maintainer.backfillAll()
+    }.onFailure { e ->
+        logger.error(e) { "admin_user_roster startup backfill failed — projection will self-heal on next refresh" }
     }
 }
 
@@ -74,7 +69,7 @@ internal fun Application.backfillAdminUserRoster() {
  * the genre tree is the curator's starting point, not demo content — the
  * seeder's `isAlreadySeeded` guard keeps subsequent runs no-ops.
  */
-internal fun Application.launchSeeders(
+internal suspend fun Application.launchSeeders(
     scope: CoroutineScope,
     seedProfile: String?,
     libraryConfigured: Boolean,
@@ -89,27 +84,25 @@ internal fun Application.launchSeeders(
         val genreSeeder by inject<com.calypsan.listenup.server.seed.GenreDomainSeeder>()
         val moodSeeder by inject<com.calypsan.listenup.server.seed.MoodDomainSeeder>()
         val pendingGenrePromotion by inject<com.calypsan.listenup.server.services.PendingGenrePromotion>()
-        // Synchronous on the module init thread — `module()` returns only after the
+        // Sequential, not launched — `module()` suspends until the
         // default taxonomy is in place. Pays the cost (~50-100ms of SQLite writes) once
         // on first install; subsequent boots are a single `count()` query via
         // `isAlreadySeeded`. The async-launch alternative leaked seed coroutines past
         // test boundaries on CI, racing scanner-test bootstrap scans.
-        kotlinx.coroutines.runBlocking {
-            runCatchingCancellable {
-                if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
-            }.onFailure { it.logFailure("genre default-taxonomy seeding failed — server keeps running") }
-            // Seed the canonical Audible mood vocabulary on fresh installs (curator
-            // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
-            runCatchingCancellable {
-                if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
-            }.onFailure { it.logFailure("mood vocabulary seeding failed — server keeps running") }
-            // One-time: drain the legacy pending-genre backlog into live genres so an
-            // existing library lights up. Runs after seeding (resolution prefers the
-            // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
-            // subsequent boots a single empty-queue query.
-            runCatchingCancellable { pendingGenrePromotion.run() }
-                .onFailure { it.logFailure("pending-genre backlog promotion failed — server keeps running") }
-        }
+        runCatchingCancellable {
+            if (!genreSeeder.isAlreadySeeded()) genreSeeder.seed()
+        }.onFailure { it.logFailure("genre default-taxonomy seeding failed — server keeps running") }
+        // Seed the canonical Audible mood vocabulary on fresh installs (curator
+        // dedupe anchors, not demo content). Idempotent via `isAlreadySeeded`.
+        runCatchingCancellable {
+            if (!moodSeeder.isAlreadySeeded()) moodSeeder.seed()
+        }.onFailure { it.logFailure("mood vocabulary seeding failed — server keeps running") }
+        // One-time: drain the legacy pending-genre backlog into live genres so an
+        // existing library lights up. Runs after seeding (resolution prefers the
+        // seeded taxonomy before auto-creating). Idempotent — a drained queue makes
+        // subsequent boots a single empty-queue query.
+        runCatchingCancellable { pendingGenrePromotion.run() }
+            .onFailure { it.logFailure("pending-genre backlog promotion failed — server keeps running") }
     }
 }
 
