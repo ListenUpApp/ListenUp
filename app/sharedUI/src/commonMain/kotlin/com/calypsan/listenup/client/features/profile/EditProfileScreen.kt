@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.profile
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import com.calypsan.listenup.client.design.components.limitedTo
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,11 +53,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,8 +64,6 @@ import com.calypsan.listenup.client.design.image.FramedCrop
 import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -558,20 +561,22 @@ private fun TaglineCard(
     viewModel: EditProfileViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val tagline = rememberTextFieldState(ready.tagline)
+    tagline.ForwardEdits(viewModel::setTagline)
     ProfileSectionCard(
         title = stringResource(Res.string.profile_tagline),
         subtitle = stringResource(Res.string.profile_tagline_description),
         modifier = modifier,
     ) {
         ListenUpTextField(
-            value = ready.tagline,
-            onValueChange = viewModel::setTagline,
+            state = tagline,
+            inputTransformation = limitedTo(EditProfileViewModel.MAX_TAGLINE_LENGTH),
             label = stringResource(Res.string.profile_tagline),
             enabled = !ready.isSaving,
             supportingText =
                 stringResource(
                     Res.string.profile_tagline_char_count,
-                    ready.tagline.length,
+                    tagline.text.length,
                     EditProfileViewModel.MAX_TAGLINE_LENGTH,
                 ),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -587,6 +592,10 @@ private fun NameCard(
     viewModel: EditProfileViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val firstName = rememberTextFieldState(ready.firstName)
+    val lastName = rememberTextFieldState(ready.lastName)
+    firstName.ForwardEdits(viewModel::setFirstName)
+    lastName.ForwardEdits(viewModel::setLastName)
     ProfileSectionCard(
         title = stringResource(Res.string.profile_name),
         subtitle = stringResource(Res.string.profile_name_description),
@@ -594,15 +603,13 @@ private fun NameCard(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ListenUpTextField(
-                value = ready.firstName,
-                onValueChange = viewModel::setFirstName,
+                state = firstName,
                 label = stringResource(Res.string.auth_first_name),
                 enabled = !ready.isSaving,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
             )
             ListenUpTextField(
-                value = ready.lastName,
-                onValueChange = viewModel::setLastName,
+                state = lastName,
                 label = stringResource(Res.string.auth_last_name),
                 enabled = !ready.isSaving,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -619,6 +626,13 @@ private fun PasswordCard(
     viewModel: EditProfileViewModel,
     modifier: Modifier = Modifier,
 ) {
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val currentPassword = remember { TextFieldState(ready.currentPassword) }
+    val newPassword = remember { TextFieldState(ready.newPassword) }
+    val confirmPassword = remember { TextFieldState(ready.confirmPassword) }
+    currentPassword.ForwardEdits(viewModel::setCurrentPassword)
+    newPassword.ForwardEdits(viewModel::setNewPassword)
+    confirmPassword.ForwardEdits(viewModel::setConfirmPassword)
     ProfileSectionCard(
         title = stringResource(Res.string.profile_change_password),
         subtitle = stringResource(Res.string.profile_password_description),
@@ -626,20 +640,17 @@ private fun PasswordCard(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PasswordInputField(
-                value = ready.currentPassword,
-                onValueChange = viewModel::setCurrentPassword,
+                state = currentPassword,
                 label = stringResource(Res.string.profile_current_password),
                 enabled = !ready.isSaving,
             )
             PasswordInputField(
-                value = ready.newPassword,
-                onValueChange = viewModel::setNewPassword,
+                state = newPassword,
                 label = stringResource(Res.string.profile_new_password),
                 enabled = !ready.isSaving,
             )
             PasswordInputField(
-                value = ready.confirmPassword,
-                onValueChange = viewModel::setConfirmPassword,
+                state = confirmPassword,
                 label = stringResource(Res.string.auth_confirm_password),
                 enabled = !ready.isSaving,
             )
@@ -649,8 +660,7 @@ private fun PasswordCard(
 
 @Composable
 private fun PasswordInputField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     label: String,
     enabled: Boolean,
     modifier: Modifier = Modifier,
@@ -658,12 +668,11 @@ private fun PasswordInputField(
     var visible by rememberSaveable { mutableStateOf(false) }
 
     ListenUpTextField(
-        value = value,
-        onValueChange = onValueChange,
+        state = state,
         label = label,
         modifier = modifier,
         enabled = enabled,
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        obfuscation = if (visible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
         onTrailingClick = { visible = !visible },

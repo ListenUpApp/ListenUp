@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.invite
 
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Login
@@ -21,18 +24,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.invite.InvitePreview
@@ -164,7 +162,7 @@ private fun CodeEntryStep(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var code by remember { mutableStateOf("") }
+    val code = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
@@ -174,23 +172,19 @@ private fun CodeEntryStep(
         modifier = modifier,
     ) {
         ListenUpTextField(
-            value = code,
-            onValueChange = { code = it },
+            state = code,
             label = stringResource(Res.string.invite_code_placeholder),
             leadingIcon = Icons.Outlined.Badge,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (code.isNotBlank()) onCodeEntered(code.trim())
-                    },
-                ),
+            onKeyboardAction = {
+                focusManager.clearFocus()
+                if (code.text.isNotBlank()) onCodeEntered(code.text.toString().trim())
+            },
         )
         ListenUpButton(
-            onClick = { onCodeEntered(code.trim()) },
+            onClick = { onCodeEntered(code.text.toString().trim()) },
             text = stringResource(Res.string.common_continue),
-            enabled = code.isNotBlank(),
+            enabled = code.text.isNotBlank(),
         )
     }
 }
@@ -272,9 +266,10 @@ internal fun ClaimStep(
         return
     }
 
-    var password by remember { mutableStateOf("") }
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val password = remember { TextFieldState() }
+    val firstName = rememberTextFieldState()
+    val lastName = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
@@ -287,45 +282,39 @@ internal fun ClaimStep(
         InvitePreviewCard(preview)
 
         ListenUpTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
+            state = firstName,
             label = stringResource(Res.string.auth_first_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
 
         ListenUpTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
+            state = lastName,
             label = stringResource(Res.string.auth_last_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
 
         ListenUpTextField(
-            value = password,
-            onValueChange = { password = it },
+            state = password,
             label = stringResource(Res.string.auth_password_label),
             supportingText = "At least 8 characters",
             leadingIcon = Icons.Outlined.Lock,
-            visualTransformation = PasswordVisualTransformation(),
+            obfuscation = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        onClaim(password, firstName, lastName)
-                    },
-                ),
+            onKeyboardAction = {
+                focusManager.clearFocus()
+                onClaim(password.text.toString(), firstName.text.toString(), lastName.text.toString())
+            },
         )
 
         ListenUpButton(
-            onClick = { onClaim(password, firstName, lastName) },
+            onClick = { onClaim(password.text.toString(), firstName.text.toString(), lastName.text.toString()) },
             text = stringResource(Res.string.invite_get_started),
             leadingIcon = Icons.AutoMirrored.Outlined.Login,
-            enabled = firstName.isNotBlank() && lastName.isNotBlank() && password.isNotBlank(),
+            enabled = firstName.text.isNotBlank() && lastName.text.isNotBlank() && password.text.isNotBlank(),
         )
     }
 }

@@ -1,8 +1,11 @@
 package com.calypsan.listenup.client.features.connect
 
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudDone
@@ -13,10 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -62,7 +61,9 @@ fun ServerSetupScreen(
     viewModel: ServerConnectViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var serverUrl by rememberSaveable { mutableStateOf("") }
+    val serverUrl = rememberTextFieldState()
+    // Typing a new address retires the last failure; seeding the field does not.
+    serverUrl.ForwardEdits { viewModel.clearError() }
     val localNetwork = rememberLocalNetworkPermissionRecovery()
 
     LaunchedEffect(state) {
@@ -80,11 +81,7 @@ fun ServerSetupScreen(
     ServerSetupContent(
         state = state,
         serverUrl = serverUrl,
-        onServerUrlChange = { url ->
-            serverUrl = url
-            viewModel.clearError()
-        },
-        onConnect = { viewModel.submitUrl(serverUrl) },
+        onConnect = { viewModel.submitUrl(serverUrl.text.toString()) },
         localNetwork = localNetwork,
         onBack = onBack,
         modifier = modifier,
@@ -99,8 +96,7 @@ fun ServerSetupScreen(
 @Composable
 internal fun ServerSetupContent(
     state: ServerConnectUiState,
-    serverUrl: String,
-    onServerUrlChange: (String) -> Unit,
+    serverUrl: TextFieldState,
     onConnect: () -> Unit,
     localNetwork: LocalNetworkPermissionRecovery,
     onBack: (() -> Unit)?,
@@ -117,8 +113,7 @@ internal fun ServerSetupContent(
             val blockedByPermission = errorState?.error is ServerConnectError.LocalNetworkPermissionDenied
 
             ListenUpTextField(
-                value = serverUrl,
-                onValueChange = onServerUrlChange,
+                state = serverUrl,
                 label = stringResource(Res.string.connect_server_url),
                 placeholder = stringResource(Res.string.connect_server_url_placeholder),
                 isError = errorState != null,
@@ -132,13 +127,13 @@ internal fun ServerSetupContent(
                         keyboardType = KeyboardType.Uri,
                         imeAction = ImeAction.Done,
                     ),
-                keyboardActions = KeyboardActions(onDone = { onConnect() }),
+                onKeyboardAction = { onConnect() },
             )
 
             // Shown up front whenever the permission is missing, not only after a failed connect:
             // on Android 17 every LAN address will fail without it. It steps aside while the typed
             // address is clearly remote, which the permission can't be what blocks.
-            val upFront = !localNetwork.isGranted && !isClearlyRemoteServerAddress(serverUrl)
+            val upFront = !localNetwork.isGranted && !isClearlyRemoteServerAddress(serverUrl.text.toString())
             if (upFront || blockedByPermission) {
                 LocalNetworkAccessCard(localNetwork)
             }
@@ -153,7 +148,7 @@ internal fun ServerSetupContent(
                 onClick = onConnect,
                 leadingIcon = Icons.Outlined.CloudDone,
                 isLoading = isVerifying,
-                enabled = serverUrl.isNotBlank() && !isVerifying,
+                enabled = serverUrl.text.isNotBlank() && !isVerifying,
             )
         }
     }
