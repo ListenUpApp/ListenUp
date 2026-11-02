@@ -514,56 +514,6 @@
             ]
         },
         {
-            "uniqueId": "androidx.compose.material:material-icons-core",
-            "artifactVersion": "1.7.8",
-            "name": "Compose Material Icons Core",
-            "description": "Compose Material Design core icons. This module contains the most commonly used set of Material icons.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material#1.7.8",
-            "developers": [
-                {
-                    "name": "The Android Open Source Project"
-                }
-            ],
-            "organization": {
-                "name": "The Android Open Source Project"
-            },
-            "scm": {
-                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
-                "url": "https://cs.android.com/androidx/platform/frameworks/support"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
-            "uniqueId": "androidx.compose.material:material-icons-extended",
-            "artifactVersion": "1.7.8",
-            "name": "Compose Material Icons Extended",
-            "description": "Compose Material Design extended icons. This module contains all Material icons. It is a very large dependency and should not be included directly.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material#1.7.8",
-            "developers": [
-                {
-                    "name": "The Android Open Source Project"
-                }
-            ],
-            "organization": {
-                "name": "The Android Open Source Project"
-            },
-            "scm": {
-                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
-                "url": "https://cs.android.com/androidx/platform/frameworks/support"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
             "uniqueId": "androidx.compose.material:material-ripple",
             "artifactVersion": "1.12.0-beta01",
             "name": "Compose Material Ripple",
