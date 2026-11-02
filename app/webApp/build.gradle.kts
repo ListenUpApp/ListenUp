@@ -116,8 +116,8 @@ kotlin {
 
     sourceSets {
         jsMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.html.core)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.html.core)
             implementation(projects.app.sharedLogic)
             // The web application starts Koin and holds the Book Detail ViewModel's lifetime
             // itself (a browser has no ViewModelStore), so it names both directly — :app:
