@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
@@ -35,11 +38,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -565,22 +566,21 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
+    val name = rememberTextFieldState()
 
     ListenUpAlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
         title = stringResource(Res.string.admin_create_collection),
         confirmText = stringResource(Res.string.common_create),
-        onConfirm = { onConfirm(name) },
+        onConfirm = { onConfirm(name.text.toString()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
-        confirmEnabled = name.isNotBlank(),
+        confirmEnabled = name.text.isNotBlank(),
         confirmBusy = isCreating,
         dismissEnabled = !isCreating,
     ) {
         ListenUpTextField(
-            value = name,
-            onValueChange = { name = it },
+            state = name,
             label = stringResource(Res.string.admin_collection_name),
             enabled = !isCreating,
             supportingText = stringResource(Res.string.admin_enter_a_name_for_the),

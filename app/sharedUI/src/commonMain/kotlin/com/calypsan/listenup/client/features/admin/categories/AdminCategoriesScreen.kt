@@ -1,6 +1,9 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -71,10 +74,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -654,16 +655,16 @@ private fun GenreNameDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
 ) {
-    var name by remember { mutableStateOf(initialName) }
+    val name = rememberTextFieldState(initialName)
 
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
         title = title,
         confirmText = confirmLabel,
-        onConfirm = { onConfirm(name.trim()) },
+        onConfirm = { onConfirm(name.text.toString().trim()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
-        confirmEnabled = name.isNotBlank(),
+        confirmEnabled = name.text.isNotBlank(),
     ) {
         Column {
             if (subtitle != null) {
@@ -675,8 +676,7 @@ private fun GenreNameDialog(
                 )
             }
             ListenUpTextField(
-                value = name,
-                onValueChange = { name = it },
+                state = name,
                 label = stringResource(Res.string.admin_genre_name),
                 // Keep the pre-migration corner radius (the OutlinedTextField default).
                 shape = OutlinedTextFieldDefaults.shape,

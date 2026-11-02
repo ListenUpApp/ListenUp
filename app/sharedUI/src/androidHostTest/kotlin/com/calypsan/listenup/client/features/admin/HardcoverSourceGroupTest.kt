@@ -84,6 +84,8 @@ class HardcoverSourceGroupTest {
 
         composeRule.onNodeWithText("Hardcover didn't accept that token. Check it and try again.").assertIsDisplayed()
         composeRule.onNodeWithTag("hardcoverTokenField").performTextInput("x")
+        // Edits are reported on the next frame: the field owns the text, nothing waits on the ViewModel.
+        composeRule.waitForIdle()
 
         cleared shouldBe 1
     }

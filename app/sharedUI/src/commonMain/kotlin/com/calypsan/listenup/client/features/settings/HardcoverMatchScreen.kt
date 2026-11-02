@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +42,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -246,6 +248,13 @@ private fun ReadyContent(
     onRemoveMatch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Seeded with the query Find opened on; the field owns the text from there. A tapped suggestion is
+    // the screen's own doing, so the screen puts it in the field before asking for the search.
+    val queryState = rememberForwardingTextFieldState(state.query, onEdited = onQueryChange)
+    val searchFor: (String) -> Unit = { text ->
+        queryState.setTextAndPlaceCursorAtEnd(text)
+        onSearchFor(text)
+    }
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         // The same count GridCells.Adaptive arrives at, so a one-column list draws as one segmented group.
         val columns = columnsFor(maxWidth - Spacing.lg * 2)
@@ -259,12 +268,11 @@ private fun ReadyContent(
             fullWidth {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     ListenUpSearchField(
-                        value = state.query,
-                        onValueChange = onQueryChange,
+                        state = queryState,
                         onSubmit = onSearch,
                         placeholder = stringResource(Res.string.hardcover_match_search_placeholder),
                         label = stringResource(Res.string.hardcover_match_search_label),
-                        onClear = { onQueryChange("") },
+                        clearable = true,
                     )
                     MatchingLine(state)
                     state.currentMatch?.let { currentMatch ->
@@ -280,7 +288,7 @@ private fun ReadyContent(
                 state = state,
                 columns = columns,
                 onSearch = onSearch,
-                onSearchFor = onSearchFor,
+                onSearchFor = searchFor,
                 onPick = onPick,
             )
         }

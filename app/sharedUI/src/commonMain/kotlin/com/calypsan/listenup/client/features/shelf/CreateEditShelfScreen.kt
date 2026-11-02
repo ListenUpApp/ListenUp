@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.shelf
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
@@ -37,11 +41,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,15 +101,13 @@ import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
  */
 private data class ShelfFormState(
     val isEditing: Boolean,
-    val name: String,
-    val description: String,
+    val name: TextFieldState,
+    val description: TextFieldState,
     val isPrivate: Boolean,
     val isSaving: Boolean,
     val canSave: Boolean,
     val onBack: () -> Unit,
     val onDeleteClick: () -> Unit,
-    val onNameChange: (String) -> Unit,
-    val onDescriptionChange: (String) -> Unit,
     val onPrivateChange: (Boolean) -> Unit,
     val onSave: () -> Unit,
 )
@@ -142,8 +142,8 @@ fun CreateEditShelfScreen(
 
     // Screen-owned text state: seeded once from Loaded, keyed on shelfId so a
     // navigation-to-new-shelf discards stale saved text.
-    var name by rememberSaveable(shelfId) { mutableStateOf("") }
-    var description by rememberSaveable(shelfId) { mutableStateOf("") }
+    val name = rememberSaveable(shelfId, saver = TextFieldState.Saver) { TextFieldState() }
+    val description = rememberSaveable(shelfId, saver = TextFieldState.Saver) { TextFieldState() }
     var isPrivate by rememberSaveable(shelfId) { mutableStateOf(false) }
     var seeded by rememberSaveable(shelfId) { mutableStateOf(false) }
 
@@ -154,8 +154,8 @@ fun CreateEditShelfScreen(
     LaunchedEffect(state) {
         val current = state
         if (current is CreateEditShelfUiState.Loaded && !seeded) {
-            name = current.name
-            description = current.description
+            name.setTextAndPlaceCursorAtEnd(current.name)
+            description.setTextAndPlaceCursorAtEnd(current.description)
             isPrivate = current.isPrivate
             seeded = true
         }
@@ -183,7 +183,9 @@ fun CreateEditShelfScreen(
     // Edit mode has nothing to lose until the loaded shelf has been seeded into the inputs.
     val requestLeave =
         rememberUnsavedWorkGuard(
-            dirty = (!isEditing || seeded) && viewModel.hasChanges(name, description, isPrivate),
+            dirty =
+                (!isEditing || seeded) &&
+                    viewModel.hasChanges(name.text.toString(), description.text.toString(), isPrivate),
             onLeave = onBack,
         )
 
@@ -194,13 +196,11 @@ fun CreateEditShelfScreen(
             description = description,
             isPrivate = isPrivate,
             isSaving = isSaving,
-            canSave = name.isNotBlank() && !isSaving,
+            canSave = name.text.isNotBlank() && !isSaving,
             onBack = requestLeave,
             onDeleteClick = { showDeleteDialog = true },
-            onNameChange = { name = it },
-            onDescriptionChange = { description = it },
             onPrivateChange = { isPrivate = it },
-            onSave = { viewModel.save(name, description, isPrivate) },
+            onSave = { viewModel.save(name.text.toString(), description.text.toString(), isPrivate) },
         )
 
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -266,8 +266,6 @@ private fun ShelfFormPhoneLayout(
             ShelfDetailsSection(
                 name = formState.name,
                 description = formState.description,
-                onNameChange = formState.onNameChange,
-                onDescriptionChange = formState.onDescriptionChange,
             )
 
             ShelfVisibilitySection(
@@ -275,7 +273,7 @@ private fun ShelfFormPhoneLayout(
                 onPrivateChange = formState.onPrivateChange,
             )
 
-            ShelfPreviewTile(name = formState.name, isPrivate = formState.isPrivate)
+            ShelfPreviewTile(name = formState.name.text.toString(), isPrivate = formState.isPrivate)
 
             ListenUpButton(
                 text =
@@ -331,8 +329,6 @@ private fun ShelfFormWideLayout(
                 ShelfDetailsSection(
                     name = formState.name,
                     description = formState.description,
-                    onNameChange = formState.onNameChange,
-                    onDescriptionChange = formState.onDescriptionChange,
                 )
 
                 ShelfVisibilitySection(
@@ -349,7 +345,7 @@ private fun ShelfFormWideLayout(
                         .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                ShelfPreviewTile(name = formState.name, isPrivate = formState.isPrivate)
+                ShelfPreviewTile(name = formState.name.text.toString(), isPrivate = formState.isPrivate)
 
                 ShelfAboutCard()
 
@@ -551,10 +547,8 @@ private fun DeleteHeroButton(
 
 @Composable
 private fun ShelfDetailsSection(
-    name: String,
-    description: String,
-    onNameChange: (String) -> Unit,
-    onDescriptionChange: (String) -> Unit,
+    name: TextFieldState,
+    description: TextFieldState,
     modifier: Modifier = Modifier,
 ) {
     SectionGroup(
@@ -567,8 +561,7 @@ private fun ShelfDetailsSection(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 ListenUpTextField(
-                    value = name,
-                    onValueChange = onNameChange,
+                    state = name,
                     label = stringResource(Res.string.shelf_form_name),
                     placeholder = stringResource(Res.string.common_shelf_name_hint),
                     leadingIcon = Icons.AutoMirrored.Outlined.Label,
@@ -576,8 +569,7 @@ private fun ShelfDetailsSection(
                 )
 
                 ListenUpTextArea(
-                    value = description,
-                    onValueChange = onDescriptionChange,
+                    state = description,
                     label = stringResource(Res.string.shelf_description_optional),
                     placeholder = stringResource(Res.string.shelf_whats_this_shelf_for),
                     minLines = 3,

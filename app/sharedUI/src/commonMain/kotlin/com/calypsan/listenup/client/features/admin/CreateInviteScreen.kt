@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,13 +40,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -221,7 +221,7 @@ private fun CreateInviteForm(
     onSubmit: (String, String, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
+    val email = rememberTextFieldState()
     var role by remember { mutableStateOf(ROLE_MEMBER) }
     var expiresInDays by remember { mutableIntStateOf(7) }
 
@@ -241,10 +241,9 @@ private fun CreateInviteForm(
         Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
             WhosJoiningSection(
                 email = email,
-                onEmailChange = { email = it },
                 isSubmitting = isSubmitting,
                 validationField = validationField,
-                onSubmit = { onSubmit(email, role, expiresInDays) },
+                onSubmit = { onSubmit(email.text.toString(), role, expiresInDays) },
             )
             AccessLevelSection(
                 role = role,
@@ -260,7 +259,7 @@ private fun CreateInviteForm(
 
     val submitButton: @Composable () -> Unit = {
         ListenUpButton(
-            onClick = { onSubmit(email, role, expiresInDays) },
+            onClick = { onSubmit(email.text.toString(), role, expiresInDays) },
             text = stringResource(Res.string.admin_create_invite),
             leadingIcon = Icons.AutoMirrored.Outlined.Send,
             enabled = !isSubmitting,
@@ -300,8 +299,7 @@ private fun CreateInviteForm(
 
 @Composable
 private fun WhosJoiningSection(
-    email: String,
-    onEmailChange: (String) -> Unit,
+    email: TextFieldState,
     isSubmitting: Boolean,
     validationField: CreateInviteField?,
     onSubmit: () -> Unit,
@@ -314,8 +312,7 @@ private fun WhosJoiningSection(
             accent = MaterialTheme.colorScheme.primary,
         )
         ListenUpTextField(
-            value = email,
-            onValueChange = onEmailChange,
+            state = email,
             label = stringResource(Res.string.common_email_address),
             leadingIcon = Icons.Outlined.Mail,
             enabled = !isSubmitting,
@@ -327,13 +324,10 @@ private fun WhosJoiningSection(
                     "Their email address for login"
                 },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (!isSubmitting) onSubmit()
-                    },
-                ),
+            onKeyboardAction = {
+                focusManager.clearFocus()
+                if (!isSubmitting) onSubmit()
+            },
             modifier = Modifier.fillMaxWidth(),
         )
     }

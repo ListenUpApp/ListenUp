@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
@@ -34,11 +37,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -368,8 +369,8 @@ private fun CreateShelfDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    var shelfName by rememberSaveable { mutableStateOf("") }
-    val isValid = shelfName.isNotBlank()
+    val shelfName = rememberTextFieldState()
+    val isValid = shelfName.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -382,14 +383,13 @@ private fun CreateShelfDialog(
         onDismissRequest = onDismiss,
         title = stringResource(Res.string.library_create_new_shelf),
         confirmText = stringResource(Res.string.library_create_add),
-        onConfirm = { onCreate(shelfName.trim()) },
+        onConfirm = { onCreate(shelfName.text.toString().trim()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
         confirmEnabled = isValid,
     ) {
         ListenUpTextField(
-            value = shelfName,
-            onValueChange = { shelfName = it },
+            state = shelfName,
             label = stringResource(Res.string.library_shelf_name),
             placeholder = stringResource(Res.string.common_shelf_name_hint),
             modifier = Modifier.focusRequester(focusRequester),
