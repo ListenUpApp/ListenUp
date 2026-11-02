@@ -154,7 +154,6 @@ kotlin {
                 implementation(libs.ktor.server.status.pages)
                 implementation(libs.ktor.server.auth)
                 implementation(libs.ktor.server.call.id)
-                implementation(libs.ktor.server.rate.limit)
                 implementation(libs.ktor.server.forwarded.header)
                 // PartialContent — byte-range/seek support behind the file-response seam
                 // (respondSeekable). Publishes a linuxX64 variant.
@@ -187,7 +186,7 @@ kotlin {
         getByName("jvmMain") {
             dependencies {
                 // Ktor server core + CIO engine + content-negotiation + serialization-json plus
-                // the resources/status-pages/auth/sse/call-id/rate-limit plugins are in commonMain
+                // the resources/status-pages/auth/sse/call-id plugins are in commonMain
                 // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
                 implementation(libs.ktor.server.auto.head.response)
