@@ -70,7 +70,7 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.util.isLargeFontScale
-import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerIconButton
 import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitch
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
@@ -225,7 +225,7 @@ private fun PhoneBarContent(
             )
             if (state.showsSkipBack) {
                 Box(Modifier.morphAnchor(BarDetail.SkipBack)) {
-                    Ctrl(
+                    PlayerIconButton(
                         icon = SkipGlyphs.backward(skipBackwardSec),
                         contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
                         onClick = onSkipBack,

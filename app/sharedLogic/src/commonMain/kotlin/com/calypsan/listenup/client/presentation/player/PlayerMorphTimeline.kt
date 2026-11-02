@@ -98,16 +98,7 @@ fun fade(
 /** The sheet's top corners as a share of their full radius: `sin(πp)`, 0 at both ends, full halfway. Pure. */
 fun sheetCornerFraction(p: Float): Float = sin(PI.toFloat() * p.coerceIn(0f, 1f))
 
-/** The whole player's opacity: always 1 while it morphs, and progress itself under the crossfade. Pure. */
-fun playerOpacity(
-    p: Float,
-    mode: MorphMode,
-): Float = if (mode == MorphMode.Crossfade) p.coerceIn(0f, 1f) else 1f
-
 /** The transport's side buttons grow from 85 % across their window. Pure. */
 fun sidesScale(p: Float): Float = 1f - (1f - SIDES_START_SCALE) * (1f - reveal(MorphElement.TransportSides, p))
 
 private const val SIDES_START_SCALE = 0.85f
-
-/** Whether the title has switched to Now Playing's weight (and, on web, its face): past halfway. Pure. */
-fun titleIsLarge(p: Float): Boolean = p > PlayerMorph.HALFWAY

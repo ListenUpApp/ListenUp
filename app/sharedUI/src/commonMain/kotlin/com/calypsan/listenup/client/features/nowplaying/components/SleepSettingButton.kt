@@ -67,7 +67,7 @@ internal fun SleepSettingButton(
             Icon(Icons.Default.Bedtime, contentDescription = stringResource(Res.string.player_sleep_timer))
         }
     } else {
-        Ctrl(
+        PlayerIconButton(
             icon = Icons.Default.Bedtime,
             contentDescription = stringResource(Res.string.player_sleep_timer),
             onClick = onClick,

@@ -45,7 +45,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerIconButton
+import com.calypsan.listenup.client.features.nowplaying.components.PressFeedback
 import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitch
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
@@ -211,7 +212,7 @@ private fun RowScope.ToolbarContent(
         modifier = if (fullSet) Modifier.width(ToolbarBodyWidth) else Modifier.weight(1f),
     )
     if (state.showsSkipBack) {
-        Ctrl(
+        PlayerIconButton(
             icon = SkipGlyphs.backward(skipBackwardSec),
             contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
             onClick = actions.onSkipBack,
@@ -229,7 +230,7 @@ private fun RowScope.ToolbarContent(
         busyLabel = miniBusyLabel(line),
         onKeepListening = actions.onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
     )
-    Ctrl(
+    PlayerIconButton(
         icon = SkipGlyphs.forward(skipForwardSec),
         contentDescription = stringResource(Res.string.player_skip_forward, skipForwardSec),
         onClick = actions.onSkipForward,
@@ -251,7 +252,7 @@ private fun RowScope.ToolbarContent(
             onClick = actions.onSleepClick,
             tonalWhenIdle = false,
         )
-        Ctrl(
+        PlayerIconButton(
             icon = Icons.AutoMirrored.Filled.List,
             contentDescription = stringResource(Res.string.player_chapters),
             onClick = actions.onChaptersClick,
@@ -260,14 +261,14 @@ private fun RowScope.ToolbarContent(
             tint = LocalContentColor.current,
         )
     }
-    Ctrl(
+    PlayerIconButton(
         icon = Icons.Default.KeyboardArrowUp,
         contentDescription = stringResource(Res.string.player_mini_open),
         onClick = actions.onOpen,
         size = MinTouchTarget,
         iconSize = MiniPlayerGlyphSize,
         tint = LocalContentColor.current,
-        pressFeedback = false,
+        feedback = PressFeedback.None,
     )
 }
 

@@ -44,11 +44,9 @@ class PlayerMorphTimelineTest :
             sheetCornerFraction(0.5f) shouldBe (1f plusOrMinus 1e-6f)
         }
 
-        test("under Crossfade every element is at rest, and only the whole player's opacity follows p") {
+        test("under Crossfade every element is at rest") {
             reveal(MorphElement.Header, 0.3f, MorphMode.Crossfade) shouldBe 1f
             fade(MorphElement.BarSecondLine, 0.3f, MorphMode.Crossfade) shouldBe 1f
-            playerOpacity(0.3f, MorphMode.Crossfade) shouldBe 0.3f
-            playerOpacity(0.3f, MorphMode.Morph) shouldBe 1f
         }
 
         test("transport sides grow from 85 %") {
@@ -56,8 +54,4 @@ class PlayerMorphTimelineTest :
             sidesScale(0.9f) shouldBe 1f
         }
 
-        test("the title switches weight (and on web its face) at halfway") {
-            titleIsLarge(0.49f) shouldBe false
-            titleIsLarge(0.51f) shouldBe true
-        }
     })

@@ -1,11 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Login
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Inbox
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -16,29 +11,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.presentation.player.PrimaryControl
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.auth_sign_in
-import listenup.composeapp.generated.resources.common_inbox
-import listenup.composeapp.generated.resources.player_close
-import listenup.composeapp.generated.resources.player_retry
-import org.jetbrains.compose.resources.StringResource
 
-/** The glyph and label for a primary that is a way out rather than play/pause, or null for play/pause/busy. */
-internal fun PrimaryControl.wayOut(): Pair<ImageVector, StringResource>? =
-    when (this) {
-        PrimaryControl.Retry -> Icons.Rounded.Refresh to Res.string.player_retry
+/**
+ * Whether tapping a [PlayerIconButton] fires [com.calypsan.listenup.client.design.haptics.Haptics.press]. Transport
+ * actions press; chrome that only navigates passes [None] — you should feel a transport press, not a trip to
+ * another screen.
+ */
+enum class PressFeedback {
+    /** The tap does something to playback (skip, chapter step): it presses. */
+    Press,
 
-        PrimaryControl.SignIn -> Icons.AutoMirrored.Rounded.Login to Res.string.auth_sign_in
-
-        PrimaryControl.OpenInbox -> Icons.Rounded.Inbox to Res.string.common_inbox
-
-        PrimaryControl.Close -> Icons.Rounded.Close to Res.string.player_close
-
-        PrimaryControl.Pause, PrimaryControl.Play, PrimaryControl.Busy, PrimaryControl.ListenAgain,
-        PrimaryControl.TapToPlay,
-        -> null
-    }
+    /** The tap only navigates (the docked bar's expand control): it stays silent. */
+    None,
+}
 
 /**
  * Round transparent icon-button.
@@ -50,26 +35,23 @@ internal fun PrimaryControl.wayOut(): Pair<ImageVector, StringResource>? =
  * @param iconSize The glyph's size — the control's visual size, so a compact bar can keep a small
  * glyph on a full 48dp target. Half of [size] by default.
  * @param tint Icon colour.
- * @param pressFeedback Whether tapping fires
- * [com.calypsan.listenup.client.design.haptics.Haptics.press]. Defaults to true because every
- * transport use of this button *does* something (skip, chapter step); pass false for chrome that
- * merely navigates, like the docked bar's expand control — you should feel a transport press, not
- * a trip to another screen.
+ * @param feedback Whether tapping presses. Defaults to [PressFeedback.Press] because every transport use of this
+ * button *does* something (skip, chapter step).
  */
 @Composable
-fun Ctrl(
+fun PlayerIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
     size: Dp = 60.dp,
     iconSize: Dp = size * 0.5f,
     tint: Color = MaterialTheme.colorScheme.onSurface,
-    pressFeedback: Boolean = true,
+    feedback: PressFeedback = PressFeedback.Press,
 ) {
     val haptics = LocalHaptics.current
     IconButton(
         onClick = {
-            if (pressFeedback) haptics.press()
+            if (feedback == PressFeedback.Press) haptics.press()
             onClick()
         },
         modifier = Modifier.size(size),
