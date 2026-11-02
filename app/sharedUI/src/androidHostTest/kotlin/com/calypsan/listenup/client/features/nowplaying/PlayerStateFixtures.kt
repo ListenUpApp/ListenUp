@@ -88,7 +88,7 @@ internal fun loadedPlayerState(
                 PlayerChapterRow(it, it + 1, "Chapter ${it + 1}", it * 1_000L, 1_000L, isCurrent = it == 5)
             },
         source = source,
-        settings = PlayerSettings(1.0f, 1.0f, boostDb, 0f, skipBackSec, skipForwardSec),
+        settings = PlayerSettings(1.0f, 1.0f, boostDb, 0f, skipBackSec, skipForwardSec, null),
         sleepTimer = sleepTimer,
         primary = primary,
         showsSkipBack = showsSkipBack,

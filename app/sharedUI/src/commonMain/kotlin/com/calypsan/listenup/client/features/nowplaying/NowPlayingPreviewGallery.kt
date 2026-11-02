@@ -155,6 +155,7 @@ private val mockActiveState =
                 defaultBoostDb = 0f,
                 skipBackSec = 10,
                 skipForwardSec = 30,
+                defaultSleepMinutes = 45,
             ),
         sleepTimer = SleepTimerState.Inactive,
         primary = PrimaryControl.Pause,

@@ -376,6 +376,26 @@ class PlayerViewModelTest :
             }
         }
 
+        test("settings carry the user's default sleep timer, following a change after load") {
+            runTest {
+                val rig = PlayerViewModelRig(this)
+                try {
+                    rig.s.withBook("b1")
+                    rig.s.preferences.defaultSleepMinutes.value = 45
+                    rig.vm.uiState.test {
+                        rig.vm.playBook(BookId("b1"), null)
+                        runCurrent()
+                        expectMostRecentLoaded().settings.defaultSleepMinutes shouldBe 45
+                        rig.s.preferences.defaultSleepMinutes.value = null
+                        runCurrent()
+                        expectMostRecentLoaded().settings.defaultSleepMinutes shouldBe null
+                    }
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
         test("preparingBookId names a slow prepare only after the debounce, and clears when it lands") {
             runTest {
                 val rig = PlayerViewModelRig(this)

@@ -41,4 +41,17 @@ class SleepTimerChoicesTest :
             SleepTimerChoices.parseCustom("") shouldBe null
             SleepTimerChoices.parseCustom("ten") shouldBe null
         }
+
+        test("the custom stepper starts at the user's default, clamped, and at 20 with none") {
+            SleepTimerChoices.startingCustomMinutes(null) shouldBe 20
+            SleepTimerChoices.startingCustomMinutes(30) shouldBe 30
+            SleepTimerChoices.startingCustomMinutes(900) shouldBe 720
+            SleepTimerChoices.startingCustomMinutes(0) shouldBe 1
+        }
+
+        test("Settings offers Off, the ladder, and the current value when it is something else") {
+            SleepTimerChoices.defaultChoicesIncluding(null) shouldBe listOf(null, 15, 30, 45, 60, 120)
+            SleepTimerChoices.defaultChoicesIncluding(20) shouldBe listOf(null, 15, 20, 30, 45, 60, 120)
+            SleepTimerChoices.defaultChoicesIncluding(30) shouldBe listOf(null, 15, 30, 45, 60, 120)
+        }
     })

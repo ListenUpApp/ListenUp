@@ -102,6 +102,7 @@ data class PlayerSettings(
     val defaultBoostDb: Float,
     val skipBackSec: Int,
     val skipForwardSec: Int,
+    val defaultSleepMinutes: Int?,
 )
 
 /**

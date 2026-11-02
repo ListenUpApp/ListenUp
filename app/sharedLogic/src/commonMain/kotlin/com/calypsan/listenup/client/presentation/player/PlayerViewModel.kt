@@ -106,9 +106,9 @@ class PlayerViewModel(
         combine(
             flow = combine(session.speed, playbackPreferences.observeDefaultPlaybackSpeed()) { a, b -> a to b },
             flow2 = combine(session.boostDb, playbackPreferences.observeDefaultVolumeBoostDb()) { a, b -> a to b },
-            flow3 = session.skipBackwardSec,
-            flow4 = session.skipForwardSec,
-        ) { (speed, defaultSpeed), (boost, defaultBoost), back, forward ->
+            flow3 = combine(session.skipBackwardSec, session.skipForwardSec) { back, forward -> back to forward },
+            flow4 = playbackPreferences.observeDefaultSleepTimerMin(),
+        ) { (speed, defaultSpeed), (boost, defaultBoost), (back, forward), defaultSleep ->
             PlayerSettings(
                 speed = speed,
                 defaultSpeed = defaultSpeed,
@@ -116,6 +116,7 @@ class PlayerViewModel(
                 defaultBoostDb = defaultBoost,
                 skipBackSec = back,
                 skipForwardSec = forward,
+                defaultSleepMinutes = defaultSleep,
             )
         }.distinctUntilChanged()
 

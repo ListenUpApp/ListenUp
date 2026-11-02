@@ -164,7 +164,7 @@ private fun loaded(
         chapter = PlayerChapter(5, 6, 75, "Bridge Four", isGenericTitle = false, isWholeBook = false, startMs = 0, durationMs = 1_235_000),
         chapters = emptyList(),
         source = AudioSource.Streaming,
-        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30),
+        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30, null),
         sleepTimer = SleepTimerState.Inactive,
         primary = primary,
         showsSkipBack = false,

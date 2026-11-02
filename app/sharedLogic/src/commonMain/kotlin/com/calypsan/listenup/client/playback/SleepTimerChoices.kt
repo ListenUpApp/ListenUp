@@ -56,4 +56,28 @@ object SleepTimerChoices {
      * [CUSTOM_MIN_MINUTES]..[CUSTOM_MAX_MINUTES], or null when [raw] is not a number. Pure.
      */
     fun parseCustom(raw: String): Int? = raw.trim().toIntOrNull()?.coerceIn(CUSTOM_MIN_MINUTES, CUSTOM_MAX_MINUTES)
+
+    /**
+     * Where the custom stepper opens: the user's default sleep timer clamped into
+     * [CUSTOM_MIN_MINUTES]..[CUSTOM_MAX_MINUTES], or [CUSTOM_DEFAULT_MINUTES] when there is none (Off). Pure.
+     */
+    fun startingCustomMinutes(defaultMinutes: Int?): Int =
+        defaultMinutes?.coerceIn(CUSTOM_MIN_MINUTES, CUSTOM_MAX_MINUTES) ?: CUSTOM_DEFAULT_MINUTES
+
+    /**
+     * What every Settings screen offers as the default sleep timer: Off (`null`), then [DURATION_MINUTES], with
+     * [current] added in order when it is something else (an old 5, 10, 20 or 90), so a stored value is a checked row,
+     * never a blank one.
+     */
+    fun defaultChoicesIncluding(current: Int?): List<Int?> {
+        val durations =
+            if (current == null ||
+                current in DURATION_MINUTES
+            ) {
+                DURATION_MINUTES
+            } else {
+                (DURATION_MINUTES + current).sorted()
+            }
+        return listOf(null) + durations
+    }
 }

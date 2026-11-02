@@ -272,7 +272,7 @@ extension PlayerUiStateLoaded {
             source: source,
             settings: PlayerSettings(
                 speed: speed, defaultSpeed: defaultSpeed, boostDb: boostDb, defaultBoostDb: 0, skipBackSec: 10,
-                skipForwardSec: 30),
+                skipForwardSec: 30, defaultSleepMinutes: nil),
             sleepTimer: sleepTimer,
             primary: primary,
             showsSkipBack: showsSkipBack,
