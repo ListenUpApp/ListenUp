@@ -34,7 +34,7 @@ enum class StatChipTone {
 }
 
 /**
- * The hero's quick stats as chips: length · year · Unabridged/Abridged (spec D9/D10). Text only, on the
+ * The hero's quick stats as chips: length · year · Unabridged/Abridged. Text only, on the
  * [StatChipTone.Accent] container: Android takes no cover-derived accent, so the chips stay on a colour role and
  * follow Material You when it is on.
  */

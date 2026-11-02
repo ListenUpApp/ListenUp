@@ -74,7 +74,7 @@ private val CardCorner = 20.dp
  * [onCollectionClick] is given (null renders plain labels — the frozen desktop has no route).
  *
  * Stranded is the one problem state: amber, a warning glyph in place of the lock, and two fixes. "Show to all members"
- * does not ask first (spec §7) — it restores what was meant to be public, and is undoable.
+ * does not ask first — it restores what was meant to be public, and is undoable.
  */
 @Composable
 fun BookVisibilitySection(

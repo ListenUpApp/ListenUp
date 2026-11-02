@@ -12,7 +12,7 @@ import SwiftUI
 /// Hardcover badge; one whose newest ListenUp finish was logged on Hardcover too reads "Finished {date}"
 /// with an "Also on Hardcover" badge. Tapping a row opens that reader's profile.
 ///
-/// On Book Detail the rows are capped at three (spec §2.10, on every platform) and "See All N Readers" opens the
+/// On Book Detail the rows are capped at three (on every platform) and "See All N Readers" opens the
 /// whole list (`BookReadersListView`); a reader's progress is a bar, its percent spoken in the row's label.
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
@@ -235,7 +235,7 @@ struct BookReadersSection: View {
              : String(localized: "book.detail_reader_listening"))
             .font(.footnote)
             .foregroundStyle(.secondary)
-        // The bar replaces the number (spec §5.2); the percent is in the row's VoiceOver label.
+        // The bar replaces the number; the percent is in the row's VoiceOver label.
         if let pct = reader.progressPercent {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {

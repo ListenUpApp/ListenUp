@@ -27,7 +27,7 @@ import listenup.composeapp.generated.resources.book_detail_retry
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book Detail when the book cannot be shown (spec §3.2.3 Error, gap 24): what happened, Retry when asking again could
+ * Book Detail when the book cannot be shown: what happened, Retry when asking again could
  * help ([AppError.isRetryable]; the page turns Ready by itself when the book arrives) and the way back to the Library.
  */
 @Composable

@@ -20,7 +20,7 @@ import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
 
 /**
- * The hero's social line (spec §2.10): up to three overlapping avatars and one sentence, as one in-page link to the
+ * The hero's social line: up to three overlapping avatars and one sentence, as one in-page link to the
  * Readers panel. The avatars are hidden from assistive tech; the sentence names the readers. Nothing when nobody but
  * you has read the book.
  */

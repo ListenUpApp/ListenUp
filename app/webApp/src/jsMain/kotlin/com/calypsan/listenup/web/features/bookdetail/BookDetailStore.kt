@@ -112,7 +112,7 @@ class BookDetailSession(
     /**
      * Puts a stranded book — in no collection, so hidden from every member — back into All Books.
      * Offered only while `Ready.visibility` is `BookVisibility.Stranded`; only an admin's device
-     * ever computes a visibility, so this is admin-only by construction. No confirmation (spec §7).
+     * ever computes a visibility, so this is admin-only by construction. No confirmation.
      */
     val onRestoreToAllBooks: () -> Unit,
     /**

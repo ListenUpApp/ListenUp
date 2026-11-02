@@ -2,7 +2,7 @@ import Foundation
 import ListenupContract
 import Shared
 
-/// What Delete from Server's alert says, and what it counts (spec §2.8, the iOS Confirms board's words).
+/// What Delete from Server's alert says, and what it counts.
 ///
 /// The title names the book and the server; the message counts the files ListenUp *tracks* in its folder (audio plus
 /// documents) and what they weigh, says everything else in its folder goes too, for every member, and that it can't be

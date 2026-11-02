@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-/** One command in Book Detail's More menu (spec §2.7). Each platform supplies its words, its glyph and the action. */
+/** One command in Book Detail's More menu. Each platform supplies its words, its glyph and the action. */
 sealed interface BookDetailMenuItem {
     /** Share a link to the book. */
     data object Share : BookDetailMenuItem
@@ -56,7 +56,7 @@ data class BookDetailMenuGroup(
 )
 
 /**
- * Book Detail's More menu for [ready] (spec §2.7): Share; Progress; Edit (with Edit metadata); Admin; then Delete alone
+ * Book Detail's More menu for [ready]: Share; Progress; Edit (with Edit metadata); Admin; then Delete alone
  * (admins). Empty groups are left out, and a held book has no menu at all (its triage panel replaces it). Add to shelf
  * is never here: it is a visible action. Pure.
  */

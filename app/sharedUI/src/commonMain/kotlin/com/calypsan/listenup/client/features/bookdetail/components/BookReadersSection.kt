@@ -86,7 +86,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.focusable
 
-/** Rows the section shows before "See all N readers" (spec §2.10: three, on every platform and width). */
+/** Rows the section shows before "See all N readers" (three, on every platform and width). */
 private const val MAX_COLLAPSED_READERS = 3
 
 /**
@@ -226,7 +226,7 @@ internal fun List<ReaderLine>.toReaderRows(nowMs: Long): List<ReaderRowUi> =
  * @param isCard When true, wraps the rendered content in a `surfaceContainerLow` card; otherwise
  *   renders frameless.
  * @param focusHeadingOnArrival Move focus (and with it TalkBack's) to the Readers heading once it is drawn: Home's
- *   finishers line lands here (spec §6.4).
+ *   finishers line lands here.
  * @param onHeadingFocused Called once the heading has taken that focus.
  * @param viewModel The ViewModel for loading readers data; scoped to [bookId].
  */
@@ -281,7 +281,7 @@ fun BookReadersSection(
  * @param onSeeAllClick Callback for the "See all" affordance, shown only when [totalCount] exceeds
  *   the number of rendered rows.
  * @param modifier Optional modifier.
- * @param focusHeadingOnArrival Move focus to the heading once it is drawn (the Readers landing, spec §6.4).
+ * @param focusHeadingOnArrival Move focus to the heading once it is drawn (the Readers landing).
  * @param onHeadingFocused Called once the heading has taken that focus.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -511,7 +511,7 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
             modifier = Modifier.padding(top = 1.dp),
         )
         if (reader.progressPct != null) {
-            // The bar replaces the number (spec §5.2); the number is spoken, merged into the row.
+            // The bar replaces the number; the number is spoken, merged into the row.
             val spoken = stringResource(Res.string.book_detail_readers_a11y_reading, reader.name, reader.progressPct)
             LinearProgressIndicator(
                 progress = { reader.progressPct.coerceIn(0, 100) / 100f },

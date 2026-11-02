@@ -3,7 +3,7 @@ import SwiftUI
 /// Centered hero for the redesigned Book Detail screen.
 ///
 /// Renders the cover, the book's series paths (one line per series, every name a link), the title, author line, a
-/// tappable "Narrated by …" line, and the stats line ("45 hr 30 min · 2010 · Unabridged", spec D9/D10, omitting a
+/// tappable "Narrated by …" line, and the stats line ("45 hr 30 min · 2010 · Unabridged", omitting a
 /// missing year). Interactive accents use the app's coral action tint.
 ///
 /// Pure/presentational: it takes display values and navigates via value-typed routes
@@ -213,7 +213,7 @@ struct BookDetailHero: View {
 
     // MARK: - Stats line
 
-    /// "45 hr 30 min · 2010 · Unabridged" (spec D9/D10). The chapter count lives with the chapters.
+    /// "45 hr 30 min · 2010 · Unabridged". The chapter count lives with the chapters.
     static func statsLine(duration: String, year: Int?, isAbridged: Bool) -> String {
         var parts = [duration]
         if let year { parts.append(String(year)) }

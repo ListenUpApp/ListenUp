@@ -76,7 +76,7 @@ import androidx.compose.ui.semantics.semantics
  * @param isLoadingTags True while tags are being fetched; the Tags block stays visible meanwhile.
  * @param isCard        When true, wraps content in a [surfaceContainerLow] card; otherwise
  *                      renders frameless.
- * @param collapsedLines How many lines the description shows before "Read more" (spec §3.2.1 D29: four while
+ * @param collapsedLines How many lines the description shows before "Read more" (four while
  *                      deciding, two otherwise, on phones); null shows the whole text with no toggle (wide layouts).
  * @param isDescriptionExpanded   Whether the description is currently fully expanded.
  * @param onToggleDescriptionExpanded   Called when the user taps "Read more" / "Read less".

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Everyone reading a book, uncapped: where Book Detail's "See All N Readers" leads (spec §2.10).
+/// Everyone reading a book, uncapped: where Book Detail's "See All N Readers" leads.
 struct BookReadersListView: View {
     let bookId: String
 

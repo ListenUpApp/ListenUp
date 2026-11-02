@@ -51,7 +51,7 @@ private val finishedOrder =
     )
 
 /**
- * The sections below the action unit, in the order [stage] puts them (spec §2.4), minus those [presence] knows are
+ * The sections below the action unit, in the order [stage] puts them, minus those [presence] knows are
  * absent. Pure; the ViewModel latches the answer once per visit.
  */
 internal fun sectionOrderFor(
@@ -95,7 +95,7 @@ internal fun primaryActionFor(
         else -> PrimaryAction.Play
     }
 
-/** How many chapter rows Book Detail shows collapsed (spec §2.5). */
+/** How many chapter rows Book Detail shows collapsed. */
 internal const val CHAPTER_WINDOW_SIZE = 5
 
 /** The chapter [positionMs] sits in, or null when there are no chapters. Pure. */

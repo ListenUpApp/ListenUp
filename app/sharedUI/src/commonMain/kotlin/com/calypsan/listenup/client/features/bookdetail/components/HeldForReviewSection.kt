@@ -56,7 +56,7 @@ private val ReleaseMinHeight = 72.dp
 private val SecondaryMinHeight = 64.dp
 
 /**
- * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be. Amber, not
+ * Book Detail's triage panel for a book held for review, where the action unit would be. Amber, not
  * coral: the fixed held roles ([com.calypsan.listenup.client.design.theme.ListenUpExtendedColors.held]), the app's
  * "waiting for you" colour, which dynamic colour never turns into the wallpaper's tertiary. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
  * played until you release it."), then the only things a held book allows: **Release to members** (asks first) across

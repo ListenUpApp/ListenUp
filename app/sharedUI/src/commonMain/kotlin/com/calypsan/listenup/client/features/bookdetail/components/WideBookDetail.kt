@@ -41,7 +41,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.bookDetailColumns
 import com.calypsan.listenup.client.presentation.bookdetail.bookDetailMoreMenu
 import kotlinx.coroutines.launch
 
-/** The side column's width (spec §3.2.4 "Side (360 px)"; the Android tablet board's side column is the same). */
+/** The side column's width (360 px). */
 private val RIGHT_COLUMN_MAX_WIDTH = 360.dp
 
 /**
@@ -49,7 +49,7 @@ private val RIGHT_COLUMN_MAX_WIDTH = 360.dp
  *
  * A plain, untitled [BookDetailTopBar] is hoisted above the scroll; the scrolling [Column] then carries, in
  * order: the admin's [ScanWarningBanner], the [WideHeroBand] (identity, then the
- * [ResumeUnit], a labelled [ListenActionGroup] and the [HeroSocialLine] inside it, spec §3.2.4), and the two columns
+ * [ResumeUnit], a labelled [ListenActionGroup] and the [HeroSocialLine] inside it), and the two columns
  * from [bookDetailColumns]: the reading column (Chapters, About, Series) and the side column (Readers, Ratings,
  * Hardcover, Details), each in the visit's stage order. A section never changes column.
  *
@@ -64,10 +64,10 @@ fun WideBookDetail(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row, at the top of the main column. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
-    /** Scroll the Readers card into view once, on arrival (spec §6.4). */
+    /** Scroll the Readers card into view once, on arrival. */
     landOnReaders: Boolean = false,
 ) {
-    // The Readers card's anchor: the social line, and Home's finishers line on arrival (spec §6.4), bring it into view.
+    // The Readers card's anchor: the social line, and Home's finishers line on arrival, bring it into view.
     val readersRequester = remember { BringIntoViewRequester() }
     // Once per entry: a return to this screen (or a rotation) keeps wherever the reader scrolled to.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
@@ -121,7 +121,7 @@ fun WideBookDetail(
                 )
             }
 
-            // Identity, then the Resume unit, the action group and the social line inside the hero (spec §3.2.4).
+            // Identity, then the Resume unit, the action group and the social line inside the hero.
             WideHero(
                 bookId = bookId,
                 state = state,
@@ -168,7 +168,7 @@ fun WideBookDetail(
 }
 
 /**
- * The wide hero (spec §3.2.4): identity, then the Resume unit, the labelled action group and the social line inside
+ * The wide hero: identity, then the Resume unit, the labelled action group and the social line inside
  * it, unless the book is held (the triage panel replaces the action unit) or playback is unavailable here.
  */
 @Composable
@@ -211,7 +211,7 @@ private fun WideHero(
         },
         actions = {
             if (showListen) {
-                // Why the primary below is disabled, directly above it (spec §2.9).
+                // Why the primary below is disabled, directly above it.
                 if (state.primaryAction == PrimaryAction.UnavailableOffline) {
                     OfflineReason(onRetry = actions.onRetryConnection)
                 }
@@ -233,7 +233,7 @@ private fun WideHero(
             }
         },
         social = {
-            // Hidden for a held book, as its Readers section is (spec §2.10).
+            // Hidden for a held book, as its Readers section is.
             if (!state.isHeld && summary != null) {
                 HeroSocialLine(
                     summary = summary,
@@ -247,7 +247,7 @@ private fun WideHero(
 }
 
 /**
- * The two wide columns (spec §3.2.4). Main: the held triage panel when held, the last match, then Chapters, About and
+ * The two wide columns. Main: the held triage panel when held, the last match, then Chapters, About and
  * Series in stage order. Side: the admins' Visibility card at its top (rule 4), then Readers, Ratings, Hardcover and
  * Details in stage order.
  */
@@ -271,7 +271,7 @@ private fun WideBodyColumns(
         horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
-            // A held book is triage-only (spec §8, §10): the held section stands at the top of the body, and the hero
+            // A held book is triage-only: the held section stands at the top of the body, and the hero
             // carries no Resume unit or action group.
             if (state.isHeld) {
                 HeldForReviewSection(

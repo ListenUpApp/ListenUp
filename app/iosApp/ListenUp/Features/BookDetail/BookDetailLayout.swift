@@ -1,4 +1,4 @@
-/// Which Book Detail a book gets. A held book is triage-only (spec §8): its page offers Edit and
+/// Which Book Detail a book gets. A held book is triage-only: its page offers Edit and
 /// Release and nothing else. One switch, read in one place per region, so a new section cannot
 /// forget the rule by omission — it has to choose a side.
 enum BookDetailLayout: Equatable {
@@ -9,14 +9,14 @@ enum BookDetailLayout: Equatable {
 
     /// The listen unit: the Resume unit, the offline reason, and the actions (Play, Download, Add to Shelf).
     var showsPlayback: Bool { self == .full }
-    /// Rating, readers and Hardcover — hidden for a held book (spec §9: hidden, not refused).
+    /// Rating, readers and Hardcover — hidden for a held book (hidden, not refused).
     var showsSocial: Bool { self == .full }
     /// The More menu; a held book has none — its toolbar shows the Held pill instead.
     var showsOverflowMenu: Bool { self == .full }
     /// "Held for review", with Release, Match and Edit chapters.
     var showsHeldSection: Bool { self == .triage }
 
-    /// What a held book allows (spec §8, §10, §3.2.3): Release and Edit Details, plus the two metadata fixes that
+    /// What a held book allows: Release and Edit Details, plus the two metadata fixes that
     /// otherwise live in the More menu — all four in the held card (`BookDetailHeldSection.arrange`). Empty for an
     /// ordinary book, whose actions are the menu's.
     var triageActions: [TriageAction] { self == .triage ? [.release, .edit, .match, .editChapters] : [] }

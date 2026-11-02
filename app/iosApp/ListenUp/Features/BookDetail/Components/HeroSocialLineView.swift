@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The hero's social line (spec §2.10): up to three overlapping avatars and one sentence, read as one element, that
+/// The hero's social line: up to three overlapping avatars and one sentence, read as one element, that
 /// brings the Readers section into view. The avatars are hidden from VoiceOver: the sentence names the readers.
 struct HeroSocialLineView: View {
     let line: ReadersSocialLine

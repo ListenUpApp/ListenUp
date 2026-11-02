@@ -11,7 +11,7 @@ import listenup.composeapp.generated.resources.book_detail_remove_download_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Confirmation for removing a book's download (spec §2.8): what it frees, and that the book stays in the library, keeps
+ * Confirmation for removing a book's download: what it frees, and that the book stays in the library, keeps
  * your place and streams when online. Keep / Remove. Not destructive-red: downloading again undoes it.
  */
 @Composable

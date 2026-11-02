@@ -1,6 +1,6 @@
 import Foundation
 
-/// The primary button's words and state (spec §2.9). Preparing keeps the stage's word and shows a busy indicator,
+/// The primary button's words and state. Preparing keeps the stage's word and shows a busy indicator,
 /// as `ActionLabel` already does, so VoiceOver still hears what the button does, with a "Loading" value.
 struct BookPrimaryActionLabel: Equatable {
     let key: String

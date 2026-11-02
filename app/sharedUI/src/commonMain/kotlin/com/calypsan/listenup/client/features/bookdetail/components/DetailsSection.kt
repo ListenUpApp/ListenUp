@@ -51,7 +51,7 @@ import listenup.composeapp.generated.resources.book_detail_unabridged
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book Detail's "Details" section (spec §3.2.1 D31), drawn from [rows] (`bookDetailRows`): Publisher, Released, Genre,
+ * Book Detail's "Details" section, drawn from [rows] (`bookDetailRows`): Publisher, Released, Genre,
  * Language, Length, Added, ISBN, ASIN, then three links: **All credits** ([onAllCredits]), **Files & audio**
  * ([onFilesAndAudio]: the format rows live in its sheet) and **Maps & illustrations** ([onMaps], handed its row so the
  * caller can open one document at once or the list). A row whose datum is absent is not in [rows]; with no rows at

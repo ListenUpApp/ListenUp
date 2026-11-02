@@ -39,7 +39,7 @@ import listenup.composeapp.generated.resources.book_detail_documents_sheet_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Maps & illustrations (spec §3.2.1 D36), when the book has more than one document: a sheet of document cards. Tapping
+ * Maps & illustrations, when the book has more than one document: a sheet of document cards. Tapping
  * one calls [onOpen] with its id (the ViewModel dispatches by format). One document opens at once from the Details row
  * and never reaches this sheet.
  */

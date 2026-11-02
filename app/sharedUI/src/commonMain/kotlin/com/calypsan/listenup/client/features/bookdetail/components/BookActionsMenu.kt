@@ -45,7 +45,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book Detail's ⋮ menu (spec §2.7), drawn from [groups] ([bookDetailMoreMenu]): Share; Progress; Edit; Admin; then
+ * Book Detail's ⋮ menu, drawn from [groups] ([bookDetailMoreMenu]): Share; Progress; Edit; Admin; then
  * Delete from server… alone, in the error colour. `DropdownMenu` has no native sections, so each group after the first
  * opens with a `HorizontalDivider`, and a named group with a [MenuGroupLabel] (m3.material.io/components/menus). While
  * [progressBusy], the three progress items wait. Choosing an item closes the menu first.

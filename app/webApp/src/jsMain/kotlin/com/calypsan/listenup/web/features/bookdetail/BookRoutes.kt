@@ -347,7 +347,7 @@ private fun BookDetailRoute(
         onOpenLibrary = { router.navigate(Routes.library) },
         bookId = bookId,
         onPlay = { playback.onPlayBook(BookId(bookId), null) },
-        // A seek when this book is loaded, otherwise a prepare there (the player decides; spec §2.5).
+        // A seek when this book is loaded, otherwise a prepare there (the player decides).
         onPlayFromChapter = { startMs -> playback.onPlayBook(BookId(bookId), startMs) },
         onOpenChapterMap = { router.navigate(Routes.Book.chapterMap(bookId)) },
         onOpenFiles = { router.navigate(Routes.Book.files(bookId)) },

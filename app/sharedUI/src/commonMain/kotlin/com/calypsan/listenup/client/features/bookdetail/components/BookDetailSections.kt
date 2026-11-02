@@ -23,7 +23,7 @@ internal data class DescriptionExpansion(
 )
 
 /**
- * Home's finishers line landing on Readers (spec §6.4): once the section is there, its heading takes focus.
+ * Home's finishers line landing on Readers: once the section is there, its heading takes focus.
  *
  * @property focusHeading Move focus (and TalkBack's) to the Readers heading once it is drawn.
  * @property onHeadingFocused Called once the heading has taken that focus.
@@ -35,7 +35,7 @@ internal data class ReadersLanding(
 
 /**
  * Renders one Book Detail section, the same on the phone list and in the wide columns. A section with nothing to show
- * renders nothing (spec §2.4: skipped, not left as a gap): Readers, Ratings and Hardcover gate themselves; Series and
+ * renders nothing (skipped, not left as a gap): Readers, Ratings and Hardcover gate themselves; Series and
  * Chapters are already dropped from the order by the ViewModel when absent.
  *
  * @param isWide True in the wide columns, where the synopsis shows in full.
@@ -114,7 +114,7 @@ internal fun BookDetailSectionContent(
             )
         }
 
-        // The Details rows, ending in All credits, Files & audio and Maps & illustrations (spec D31, D32, D36).
+        // The Details rows, ending in All credits, Files & audio and Maps & illustrations.
         BookDetailSection.Details -> {
             DetailsSection(
                 rows = remember(state, documents) { bookDetailRows(state, documents) },

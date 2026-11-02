@@ -31,7 +31,7 @@ struct BookDetailCell: Equatable {
     var linkTitle: String { String(localized: .bookDetailLinkRow(label, value)) }
 }
 
-/// One Details row (spec §3.2.1 D31). Native projection of the shared `BookDetailRow`; values only, so the words and
+/// One Details row. Native projection of the shared `BookDetailRow`; values only, so the words and
 /// units are this platform's.
 enum BookDetailRowValue: Equatable {
     case publisher(String)

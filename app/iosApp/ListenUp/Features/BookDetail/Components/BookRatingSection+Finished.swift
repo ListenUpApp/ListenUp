@@ -1,6 +1,6 @@
 import Foundation
 
-/// The finished reader's words (spec §3.2.3 Finished): "How Was It?" leads, and the note is for their listeners.
+/// The finished reader's words: "How Was It?" leads, and the note is for their listeners.
 extension BookRatingSection {
     /// "How Was It?" once finished; "Your Rating" otherwise.
     nonisolated static func heading(isFinished: Bool) -> String {

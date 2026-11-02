@@ -126,7 +126,7 @@ fun BookDetailScreen(
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     /** Opens the in-app reader on a downloaded document, titled with this book's name. */
     onOpenDocumentViewer: (localPath: String, bookTitle: String) -> Unit = { _, _ -> },
-    /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
+    /** Open with the Readers section in view, once: Home's finishers line. */
     landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
@@ -515,7 +515,7 @@ private fun BookDetailReadyContent(
             )
         }
 
-        // Release asks first (spec §7). Confirming closes the question at once; the held section's
+        // Release asks first. Confirming closes the question at once; the held section's
         // Release button carries the in-flight state, and success turns this into the ordinary page.
         BookDetailDialog.ReleaseFromInbox -> {
             if (state.isHeld) {
@@ -609,7 +609,7 @@ fun BookDetailContent(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
-    /** Scroll the Readers section into view once, on arrival (spec §6.4). */
+    /** Scroll the Readers section into view once, on arrival. */
     landOnReaders: Boolean = false,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -645,7 +645,7 @@ fun BookDetailContent(
     }
 }
 
-/** The phone column's Resume unit over its action group (spec §2.9). */
+/** The phone column's Resume unit over its action group. */
 @Composable
 private fun PhoneListenUnit(
     state: BookDetailUiState.Ready,
@@ -664,7 +664,7 @@ private fun PhoneListenUnit(
             progress = state.progress,
             finishedSpan = state.finishedSpan,
         )
-        // Why the primary below is disabled, directly above it (spec §2.9).
+        // Why the primary below is disabled, directly above it.
         if (state.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetry = actions.onRetryConnection)
         ListenActionGroup(
             primaryAction = state.primaryAction,
@@ -721,7 +721,7 @@ internal sealed interface PhoneDetailItem {
         override val key = "social"
     }
 
-    /** Who can't see this book (admins only), directly under the actions (spec §3.2.4 rule 4). */
+    /** Who can't see this book (admins only), directly under the actions. */
     data object Visibility : PhoneDetailItem {
         override val key = "visibility"
     }
@@ -753,7 +753,7 @@ private fun BookDetailSection.itemKey(): String =
 internal const val READERS_ITEM_KEY = "readers"
 
 /**
- * The phone column's items, in the order it draws them (spec §2.4): the admin's scan warning, the hero, the action unit (or the held
+ * The phone column's items, in the order it draws them: the admin's scan warning, the hero, the action unit (or the held
  * panel), the social line, the Visibility card, the last match, then the sections in the visit's stage order.
  */
 internal fun phoneDetailItems(
@@ -809,7 +809,7 @@ private fun ImmersiveBookDetail(
     val readersIndex = readersItemIndex(items)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    // Home's finishers line lands here (spec §6.4), once per entry: a return to this screen (or a rotation) keeps
+    // Home's finishers line lands here, once per entry: a return to this screen (or a rotation) keeps
     // wherever the reader scrolled to. The index is read off the same list the column draws.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
     // Focus goes to the Readers heading on a landing, and on every social-line tap: TalkBack follows the jump.
@@ -872,7 +872,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match, Edit
+                        // A held book is triage-only: the held section — Release, Edit, Match, Edit
                         // chapters — stands where the action unit would, under the title.
                         PhoneDetailItem.Held -> {
                             HeldForReviewSection(
@@ -885,7 +885,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // The Resume unit directly over the action group (spec §2.9): where you are, then what next.
+                        // The Resume unit directly over the action group: where you are, then what next.
                         PhoneDetailItem.Listen -> {
                             PhoneListenUnit(
                                 state = state,
@@ -895,7 +895,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // Who else is reading (spec §2.10): a tap brings the Readers section into view.
+                        // Who else is reading: a tap brings the Readers section into view.
                         PhoneDetailItem.Social -> {
                             if (summary != null) {
                                 HeroSocialLine(

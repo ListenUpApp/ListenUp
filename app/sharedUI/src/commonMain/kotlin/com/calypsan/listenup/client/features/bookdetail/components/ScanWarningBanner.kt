@@ -28,7 +28,7 @@ import listenup.composeapp.generated.resources.book_detail_scan_review
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The scanner's flag on this book, for an admin (spec §3.2.3 Scan warning): one sentence at the top of the hero, and
+ * The scanner's flag on this book, for an admin: one sentence at the top of the hero, and
  * **Review**, which opens Files & audio. Singular on purpose: the state carries no per-file count (spec R8). Opaque
  * `errorContainer`, M3E's role for an error the reader should look at.
  */

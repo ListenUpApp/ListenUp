@@ -18,5 +18,5 @@ internal fun primaryLabelFor(
         else -> PrimaryLabel.Play
     }
 
-/** Spec §2.9 / N8: the primary is disabled for Unavailable offline and nothing else. */
+/** The primary is disabled for Unavailable offline and nothing else. */
 internal fun isPrimaryEnabled(action: PrimaryAction): Boolean = action != PrimaryAction.UnavailableOffline

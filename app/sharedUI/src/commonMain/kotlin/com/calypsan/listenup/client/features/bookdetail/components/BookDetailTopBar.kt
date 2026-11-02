@@ -34,11 +34,11 @@ import org.jetbrains.compose.resources.stringResource
  * Plain (non-collapsing) top app bar for the Book Detail screen.
  *
  * Back ("Back to Library") and the ⋮ "More actions" menu ([BookActionsMenu], drawn from [menu]); no title, because the
- * hero names the book right under it (spec D1: the duplicate title goes). Beside a list (see [LocalInDetailPane]) the
+ * hero names the book right under it (the duplicate title goes). Beside a list (see [LocalInDetailPane]) the
  * back arrow becomes a Close. Container colour is [MaterialTheme.colorScheme.surface], the surface the hero sits on, so
  * the two read as one. The ⋮ stays in the bar on every width (m3.material.io/components/top-app-bar: actions live in
  * the bar, which never scrolls away). An empty [menu] draws no ⋮ (the loading frame, the error state). A book held for
- * review ([isHeld]) has no menu: the bar shows the Held pill instead (spec §3.2.3).
+ * review ([isHeld]) has no menu: the bar shows the Held pill instead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -8,7 +8,7 @@ enum BookDetailMenuConfirmation: Identifiable {
     var id: Self { self }
 }
 
-/// Book Detail's More menu (spec §2.7), drawn from the shared rule (`bookDetailMoreMenu`): Share first, in an unnamed
+/// Book Detail's More menu, drawn from the shared rule (`bookDetailMoreMenu`): Share first, in an unnamed
 /// section; then Progress, Edit and Admin, each a named `Section`; then Delete from Server… alone in a last unnamed
 /// section with the destructive role (HIG, Pull-down buttons and Menus: group related items, destructive items at the
 /// end). A held book has no menu: the toolbar shows the Held pill, and its actions are the held card's.

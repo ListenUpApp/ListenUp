@@ -26,10 +26,10 @@ import org.jetbrains.compose.web.dom.Thead
 import org.jetbrains.compose.web.dom.Tr
 
 /**
- * Chapters that play from the chapter they name (spec §2.5): a table with start times on a desktop, button rows on a
+ * Chapters that play from the chapter they name: a table with start times on a desktop, button rows on a
  * phone, both collapsed to [preview] (the 5-row window around the current chapter, or the first five) with "Show all N
  * chapters" expanding in place and "Show fewer chapters" collapsing it. Every row's title is a button named "Play from chapter N: title"; the current row
- * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map (D35).
+ * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map.
  */
 @Composable
 internal fun BookChaptersSection(
@@ -102,7 +102,7 @@ internal fun BookChaptersSection(
                     }
                 }
             }
-            // Expands in place and collapses again; aria-expanded says which (spec §2.5).
+            // Expands in place and collapses again; aria-expanded says which.
             if (chapters.size > preview.size) {
                 Button(attrs = {
                     classes("bd-ch-all")
@@ -150,7 +150,7 @@ private fun ChapterButton(
 /** The Chapters section's element id. */
 internal const val CHAPTERS_SECTION_ID = "bd-chapters"
 
-/** The desktop table's columns (spec §2.5: the start time is what a desktop reader scans for). */
+/** The desktop table's columns (the start time is what a desktop reader scans for). */
 private val CHAPTER_TABLE_HEADINGS = listOf("#", "Title", "Starts", "Length")
 
 private const val MILLIS_PER_SECOND = 1000

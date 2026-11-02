@@ -142,7 +142,7 @@ fun BookRatingBlock(
  * @param onOpenSources Opens the sources sheet; the score's row invokes it.
  * @param onRefreshExternal Re-fetches every enabled outside source now (admin).
  * @param isCard When true, wraps the section in a `surfaceContainerLow` card, like the Readers card.
- * @param isFinished The reader has finished the book: "You" asks "How was it?" (spec §3.2.3 Finished).
+ * @param isFinished The reader has finished the book: "You" asks "How was it?".
  */
 @Composable
 fun BookRatingSection(

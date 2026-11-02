@@ -158,7 +158,7 @@ final class BookDetailObserver {
 
     /// True while a play request for THIS book is in flight — drives the Resume/Play button's busy variant
     /// (spinner + "Preparing…" label, including to VoiceOver). Sourced from the shared player's debounced
-    /// `preparingBookId` (Decision 11: a fast prepare doesn't flash the button). `@Observable` composes
+    /// `preparingBookId` (a fast prepare doesn't flash the button). `@Observable` composes
     /// across the two objects, so this recomputes whenever `playerObserver.preparingBookId` changes.
     var isPlayPending: Bool {
         Self.isPlayPending(preparingBookId: playerObserver.preparingBookId, bookId: book?.idString)

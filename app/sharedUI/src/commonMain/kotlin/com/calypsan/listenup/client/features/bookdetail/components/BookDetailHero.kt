@@ -51,7 +51,7 @@ internal val PhoneHeroCoverSize = 232.dp
 private val WideHeroCoverSize = 240.dp
 
 /**
- * Book Detail's hero on a phone (spec §3.2.1 D2–D10): a flat square cover, the series path, the title (the screen's
+ * Book Detail's hero on a phone: a flat square cover, the series path, the title (the screen's
  * one display moment), the subtitle, the authors, "Read by … · All credits", and the quick-stat chips. It sits on the
  * screen's own `surface`: on Android the cover carries the colour and the hero takes no wash (Simon, 2026-10-10:
  * surface roles only, so Material You stays coherent). No shadow under the cover (M3E: elevation by tone, not shadow).
@@ -105,7 +105,7 @@ internal fun BookDetailHeroBand(
 }
 
 /**
- * Book Detail's hero on a wide layout (spec §3.2.4: Android tablet ≥ 840 dp): the cover on the left, and beside it
+ * Book Detail's hero on a wide layout (Android tablet ≥ 840 dp): the cover on the left, and beside it
  * the same identity as the phone, then the [resumeUnit], the [actions] and the [social] line inside the hero so the
  * Resume unit, the action group and who else is reading stay with the book they act on. On `surface`, like the phone
  * hero.
@@ -277,7 +277,7 @@ private fun ColumnScope.HeroIdentity(
     )
 }
 
-/** "Read by Michael Kramer & Kate Reading · All credits": narrator links, then one link to the whole cast (D7, D8). */
+/** "Read by Michael Kramer & Kate Reading · All credits": narrator links, then one link to the whole cast. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NarratorsAndCredits(

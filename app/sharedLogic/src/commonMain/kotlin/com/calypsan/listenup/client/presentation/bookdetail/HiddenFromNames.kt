@@ -13,7 +13,7 @@ data class HiddenFromSummary(
 )
 
 /**
- * The one rule for long "Hidden from" lists (spec §7): three names, then a count, with Show all
+ * The one rule for long "Hidden from" lists: three names, then a count, with Show all
  * revealing the rest. Shared so Android, iOS and web cannot cut the list at different places.
  */
 object HiddenFromNames {

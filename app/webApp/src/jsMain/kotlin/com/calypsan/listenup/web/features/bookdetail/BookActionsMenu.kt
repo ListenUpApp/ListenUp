@@ -18,7 +18,7 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.buttonClasses
 
 /**
- * Book Detail's More menu (spec §2.7): a "More ▾" text button after Resume and Add to shelf, opening the shared rule's
+ * Book Detail's More menu: a "More ▾" text button after Resume and Add to shelf, opening the shared rule's
  * groups ([bookDetailMoreMenu]) — Share…; Progress; Edit; Admin; then Delete from server… alone, in the danger colour,
  * with no heading. The same rule Android and iOS draw, so the three cannot disagree about who gets what.
  *

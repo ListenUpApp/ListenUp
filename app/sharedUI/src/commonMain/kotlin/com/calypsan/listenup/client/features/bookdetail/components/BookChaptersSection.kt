@@ -58,11 +58,11 @@ import kotlin.time.Duration.Companion.milliseconds
 private val ChapterRowMinHeight = 56.dp
 
 /**
- * Chapters that play from the chapter they name (spec §2.5). Collapsed, [preview] (the 5-row window around the current
+ * Chapters that play from the chapter they name. Collapsed, [preview] (the 5-row window around the current
  * chapter, or the first five); "All N chapters" expands in place to [chapters], "Fewer chapters" collapses it. Every row is a button; the current row
  * sits on the primary container and says how far in it is. Rows are disabled with the primary when the book can't play.
  *
- * Not lazy, on purpose (plan Decision 13): the section is one item of the page, so the social line's scroll target has
+ * Not lazy, on purpose: the section is one item of the page, so the social line's scroll target has
  * a fixed index, and a long book composes its rows once, on "All".
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

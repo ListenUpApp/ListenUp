@@ -18,7 +18,7 @@ struct BookRatingSection: View {
     let onRemove: () -> Void
     let onOpenSources: () -> Void
     let onRefreshExternal: () -> Void
-    /// The reader has finished the book: "How Was It?" leads, and the note is for their listeners (spec §3.2.3).
+    /// The reader has finished the book: "How Was It?" leads, and the note is for their listeners.
     var isFinished = false
 
     /// The stars a drag is previewing, until the finger lifts.

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.mostSpecificGenre
 
-/** One row of Book Detail's Details section (spec §3.2.1 D31). Values only: the words and units are each platform's. */
+/** One row of Book Detail's Details section. Values only: the words and units are each platform's. */
 sealed interface BookDetailRow {
     /** The publisher's name. */
     data class Publisher(

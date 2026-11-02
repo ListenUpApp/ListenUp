@@ -25,7 +25,7 @@ import listenup.composeapp.generated.resources.book_detail_retry
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Why Book Detail's primary is disabled (spec §2.9, §3.2.3 Offline): the server is unreachable and the book is not
+ * Why Book Detail's primary is disabled: the server is unreachable and the book is not
  * downloaded. It sits between the progress unit and the disabled primary, with Retry (a reconnect). Opaque, no alpha
  * fills (M3E: role surfaces).
  */

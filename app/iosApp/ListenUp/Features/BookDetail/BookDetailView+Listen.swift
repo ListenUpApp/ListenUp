@@ -26,7 +26,7 @@ extension BookDetailView {
         )
     }
 
-    /// The Resume unit over the actions (spec §2.9): where you are with the book, then what to do next.
+    /// The Resume unit over the actions: where you are with the book, then what to do next.
     func listenUnit(_ observer: BookDetailObserver) -> some View {
         VStack(spacing: 14) {
             ResumeUnit(
@@ -37,7 +37,7 @@ extension BookDetailView {
                 finishedSpan: observer.reading.finishedSpan,
                 cover: coverTheme.colors
             )
-            // Why the primary below is disabled, directly above it (spec §2.9).
+            // Why the primary below is disabled, directly above it.
             if observer.reading.primaryAction == .unavailableOffline {
                 OfflineReasonView { observer.retryConnection() }
             }
