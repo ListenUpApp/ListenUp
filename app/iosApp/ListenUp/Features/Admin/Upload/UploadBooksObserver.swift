@@ -245,7 +245,7 @@ struct UploadNotice: Equatable, Identifiable {
 /// background task lets the file in flight finish if ListenUp is sent to the background. Background
 /// time is short and ends when iOS says so; the expiry handler gives the time back as it must.
 @MainActor
-private final class UploadKeepAlive {
+final class UploadKeepAlive: UploadHold {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     func hold() {
