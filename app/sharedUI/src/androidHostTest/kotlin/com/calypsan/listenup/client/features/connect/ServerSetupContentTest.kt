@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.connect
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -41,8 +42,7 @@ class ServerSetupContentTest {
             MaterialTheme {
                 ServerSetupContent(
                     state = state,
-                    serverUrl = serverUrl,
-                    onServerUrlChange = {},
+                    serverUrl = rememberTextFieldState(serverUrl),
                     onConnect = {},
                     localNetwork = localNetwork,
                     onBack = null,

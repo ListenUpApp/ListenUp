@@ -29,6 +29,19 @@ internal fun fileCancelTag(audioFileId: String): String = "download_file_$audioF
 internal fun fileWorkName(audioFileId: String): String = "download_$audioFileId"
 
 /**
+ * The incomplete [rows] recovery should reset and re-enqueue, leaving out those whose worker is
+ * already running ([runningAudioFileIds]).
+ *
+ * A running worker writes DOWNLOADING once, at its start, so demoting its row to QUEUED would make a
+ * live download read "Queued" for the rest of the file. Mirrors the in-flight filter in
+ * `AppleDownloadService.resumeIncompleteDownloads`.
+ */
+internal fun rowsToRequeue(
+    rows: List<DownloadEntity>,
+    runningAudioFileIds: Set<String>,
+): List<DownloadEntity> = rows.filterNot { it.audioFileId in runningAudioFileIds }
+
+/**
  * Network constraint for a download, from the live Wi-Fi-only preference.
  *
  * `UNMETERED` is Wi-Fi/ethernet only; `CONNECTED` is any network including cellular.

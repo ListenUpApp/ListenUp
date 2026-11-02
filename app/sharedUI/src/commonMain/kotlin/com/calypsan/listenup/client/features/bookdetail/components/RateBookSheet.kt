@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -15,11 +18,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -62,7 +62,8 @@ fun RateBookSheet(
 ) {
     val haptics = LocalHaptics.current
     var halfStars by rememberSaveable { mutableIntStateOf(current?.halfStars ?: 0) }
-    var note by rememberSaveable { mutableStateOf(current?.note.orEmpty()) }
+    val noteState = rememberTextFieldState(current?.note.orEmpty())
+    val note = noteState.text.toString()
 
     // Swiping the sheet away or pressing Back asks first when the draft differs from your rating.
     val requestDismiss =
@@ -104,8 +105,7 @@ fun RateBookSheet(
             RatingStars(halfStars = halfStars, onHalfStarsChange = { halfStars = it })
 
             ListenUpTextArea(
-                value = note,
-                onValueChange = { note = it },
+                state = noteState,
                 label = stringResource(Res.string.book_detail_rating_note_hint),
                 maxLength = ListenerRatingLimits.NOTE_MAX_CHARS,
                 supportingText =

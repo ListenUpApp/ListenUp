@@ -58,6 +58,9 @@ import listenup.composeapp.generated.resources.scan_files_total
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.library_scan_books
+import listenup.composeapp.generated.resources.library_scan_hours
+import listenup.composeapp.generated.resources.library_scan_authors
 
 private const val ETA_TICK_MS = 1_000L
 
@@ -360,19 +363,19 @@ private fun ScanStatsBlock(
         StatChip(
             icon = Icons.AutoMirrored.Outlined.MenuBook,
             value = progress.books,
-            label = "Books",
+            label = stringResource(Res.string.library_scan_books),
             modifier = Modifier.weight(1f),
         )
         StatChip(
             icon = Icons.Outlined.Person,
             value = progress.authors,
-            label = "Authors",
+            label = stringResource(Res.string.library_scan_authors),
             modifier = Modifier.weight(1f),
         )
         StatChip(
             icon = Icons.Outlined.Schedule,
             value = progress.hours,
-            label = "Hours",
+            label = stringResource(Res.string.library_scan_hours),
             modifier = Modifier.weight(1f),
         )
     }

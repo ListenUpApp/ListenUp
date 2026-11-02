@@ -1,12 +1,14 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
@@ -31,20 +33,15 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * [ListenUpTextField]'s value round-trips asynchronously (field → ViewModel `StateFlow` →
- * recomposition), so a recomposition can arrive carrying a STALE string while the user is still
- * typing. The `String`-overload `OutlinedTextField` treats the incoming string as authoritative
- * and re-clamps its internal selection against it — on a phone that is the "cannot put the cursor
- * at the end of the author field" bug, and under fast typing it silently drops whole bursts of
- * input.
+ * [ListenUpTextField] holds a screen-owned `TextFieldState`: the field owns the text and the caret
+ * and tells the screen about edits, so nothing round-trips through a ViewModel while the person
+ * types. A `String`-overload field treated a late, stale echo of the user's own keystroke as
+ * authoritative and re-clamped the caret against it ("cannot put the cursor at the end of the
+ * author field"), dropping whole bursts of input under latency.
  *
- * These tests pin the fix: the field owns its text + caret locally, ignores stale echoes of the
- * user's own keystrokes, and adopts only genuine external replacements (caret to the end).
- *
- * The lagging echo is simulated deterministically: `onValueChange` emissions are recorded and
- * played back into the hosted value via [androidx.compose.ui.test.junit4.ComposeContentTestRule
- * .runOnIdle] frames later — the same staleness a `LaunchedEffect { delay(...) }` round-trip
- * produces, without tying the test to Robolectric's clock.
+ * These tests pin the guarantees that fix must keep: fast typing survives a slow collector with the
+ * caret at the end, a replacement the screen makes lands with the caret at the end, caret moves are
+ * silent, an in-field transformation holds the caret and a fully rejected edit says nothing.
  */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -53,50 +50,44 @@ class ListenUpTextFieldCaretTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `fast typing survives a lagging echo with the caret at the end`() {
-        var vmValue by mutableStateOf("")
+    fun `fast typing survives a slow collector with the caret at the end`() {
         val emissions = mutableListOf<String>()
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = vmValue,
-                    onValueChange = { emissions += it },
+                    state = rememberForwardingTextFieldState("") { emissions += it },
                     label = "Author",
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
             }
         }
 
-        // Two bursts of typing while the caller's echo is still in flight (vmValue lags behind).
+        // Two bursts of typing; the collector (the ViewModel side) only sees them frames later.
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("Bran")
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("don")
-
-        // The echoes land late: first a stale one, then the up-to-date one.
-        composeRule.runOnIdle { vmValue = emissions.first() }
-        composeRule.waitForIdle()
-        composeRule.runOnIdle { vmValue = emissions.last() }
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("Brandon")
         composeRule.onNodeWithTag(FIELD_TAG).assertSelection(TextRange(7))
+        composeRule.runOnIdle { emissions.last() shouldBe "Brandon" }
     }
 
     @Test
-    fun `an external replacement is adopted with the caret at the end`() {
-        var vmValue by mutableStateOf("Mistborn")
+    fun `a replacement the screen makes is adopted with the caret at the end`() {
+        lateinit var state: TextFieldState
         composeRule.setContent {
             MaterialTheme {
+                state = rememberTextFieldState("Mistborn")
                 ListenUpTextField(
-                    value = vmValue,
-                    onValueChange = { vmValue = it },
+                    state = state,
                     label = "Title",
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
             }
         }
 
-        // The ViewModel replaces the text wholesale — e.g. a metadata fetch filled the field.
-        composeRule.runOnIdle { vmValue = "The Way of Kings" }
+        // The screen replaces the text wholesale — e.g. a metadata fetch filled the field.
+        composeRule.runOnIdle { state.setTextAndPlaceCursorAtEnd("The Way of Kings") }
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("The Way of Kings")
@@ -104,17 +95,12 @@ class ListenUpTextFieldCaretTest {
     }
 
     @Test
-    fun `moving the caret without typing does not fire onValueChange`() {
-        var vmValue by mutableStateOf("Brandon")
+    fun `moving the caret without typing does not report an edit`() {
         var calls = 0
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = vmValue,
-                    onValueChange = { newValue ->
-                        calls++
-                        vmValue = newValue
-                    },
+                    state = rememberForwardingTextFieldState("Brandon") { calls++ },
                     label = "Author",
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
@@ -125,28 +111,26 @@ class ListenUpTextFieldCaretTest {
         composeRule.onNodeWithTag(FIELD_TAG).performTextInputSelection(TextRange(2))
         composeRule.runOnIdle { calls shouldBe 0 }
 
-        // The counter-case that stops the guard from over-suppressing: real typing still fires.
+        // The counter-case that stops the guard from over-suppressing: real typing still reports.
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("X")
         composeRule.runOnIdle { calls shouldBe 1 }
     }
 
     @Test
-    fun `a caller that never echoes keeps every keystroke past the ledger cap`() {
-        // Pathological caller: onValueChange is discarded and the value stays pinned at "", so no
-        // echo ever arrives and the ledger can only shed entries through its cap. Typing past the
-        // cap must neither lose text nor let the pinned value read as an external replacement.
+    fun `a collector that never reads keeps every keystroke`() {
+        // Pathological screen: nobody listens at all, so nothing is ever acknowledged. Typing a long
+        // run must neither lose text nor move the caret off the end.
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Author",
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
             }
         }
 
-        val typed = MAX_TRACKED_ECHOES + 8
+        val typed = 40
         repeat(typed) {
             composeRule.onNodeWithTag(FIELD_TAG).performTextInput("a")
         }
@@ -156,62 +140,79 @@ class ListenUpTextFieldCaretTest {
     }
 
     @Test
-    fun `a transform runs inside the component so echoes stay verbatim and the caret holds`() {
-        var vmValue by mutableStateOf("")
+    fun `a transformation runs inside the field so the screen only hears clean text and the caret holds`() {
         val emissions = mutableListOf<String>()
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = vmValue,
-                    onValueChange = { emissions += it },
+                    state = rememberForwardingTextFieldState("") { emissions += it },
                     label = "Year",
-                    transform = { it.filter(Char::isDigit).take(4) },
+                    inputTransformation = transformedBy { it.filter(Char::isDigit).take(4) },
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
             }
         }
 
-        // Mixed input: the transform strips the stray letter before the ledger or caller see it.
+        // Mixed input: the transformation strips the stray letter before the screen ever sees it.
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("19")
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("x8")
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("4")
+        composeRule.waitForIdle()
 
-        // Only transformed text ever reaches the caller — never the raw keystrokes.
+        // Only transformed text ever reaches the screen — never the raw keystrokes.
         composeRule.runOnIdle { emissions shouldBe listOf("19", "198", "1984") }
-
-        // The echoes land late, stale-first: verbatim by construction, so the field must not churn.
-        composeRule.runOnIdle { vmValue = emissions.first() }
-        composeRule.waitForIdle()
-        composeRule.runOnIdle { vmValue = emissions.last() }
-        composeRule.waitForIdle()
-
         composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("1984")
         composeRule.onNodeWithTag(FIELD_TAG).assertSelection(TextRange(4))
     }
 
     @Test
-    fun `a fully-rejected edit never invokes the caller`() {
+    fun `a fully-rejected edit reports nothing`() {
         var calls = 0
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = { calls++ },
+                    state = rememberForwardingTextFieldState("") { calls++ },
                     label = "Year",
-                    transform = { it.filter(Char::isDigit).take(4) },
+                    inputTransformation = transformedBy { it.filter(Char::isDigit).take(4) },
                     modifier = Modifier.testTag(FIELD_TAG),
                 )
             }
         }
 
-        // A single rejected character: the transform strips it, edit() reports no text
-        // change, and the caller must hear nothing at all — not even an unchanged echo.
+        // A single rejected character: the transformation reverts the edit, so the screen hears
+        // nothing at all — not even an unchanged text.
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("x")
         composeRule.runOnIdle { calls shouldBe 0 }
 
-        // Counter-case that keeps the guard honest: an accepted character still fires.
+        // Counter-case that keeps the guard honest: an accepted character still reports.
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("7")
         composeRule.runOnIdle { calls shouldBe 1 }
+    }
+
+    @Test
+    fun `a password field is a secure field and an ordinary one is not`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    ListenUpTextField(
+                        state = rememberTextFieldState("hunter2"),
+                        label = "Password",
+                        obfuscation = TextObfuscationMode.Hidden,
+                        modifier = Modifier.testTag(FIELD_TAG),
+                    )
+                    ListenUpTextField(
+                        state = rememberTextFieldState("visible"),
+                        label = "Name",
+                        modifier = Modifier.testTag(TRAILING_TAG),
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(FIELD_TAG).assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Password))
+        composeRule.onNodeWithTag(TRAILING_TAG).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Password))
     }
 
     @Test
@@ -219,8 +220,7 @@ class ListenUpTextFieldCaretTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Search",
                     trailingIcon = Icons.Default.Search,
                     onTrailingClick = {},
@@ -238,8 +238,7 @@ class ListenUpTextFieldCaretTest {
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextField(
-                    value = "",
-                    onValueChange = {},
+                    state = rememberTextFieldState(),
                     label = "Author",
                     modifier = Modifier.testTag(FIELD_TAG),
                 )

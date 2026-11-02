@@ -55,8 +55,11 @@ internal class PlayerMorphState(
     private val onExpand: () -> Unit,
     private val onCollapse: () -> Unit,
 ) {
-    /** Where the morph is, 0 (the bar) to 1 (Now Playing); a spring may carry it a little past 1. */
-    var progress: Float by mutableFloatStateOf(0f)
+    /**
+     * Where the morph is, 0 (the bar) to 1 (Now Playing); a spring may carry it a little past 1. It starts at the
+     * shared destination, so a recreated screen whose player is already open does not replay the opening.
+     */
+    var progress: Float by mutableFloatStateOf((if (isExpanded()) MorphEnd.NowPlaying else MorphEnd.Bar).progress)
         private set
 
     /** True from a drag's first move or a settle's start until it comes to rest at an end. */

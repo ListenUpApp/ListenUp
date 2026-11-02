@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.features.settings.AndroidSettingsPlatformAct
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider
 import com.calypsan.listenup.client.logging.installCrashLogging
+import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -59,6 +60,7 @@ import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.SleepTimerControls
 import com.calypsan.listenup.client.playback.SleepTimerNotifier
 import com.calypsan.listenup.client.presentation.player.ChapterNaming
+import com.calypsan.listenup.client.presentation.player.PlayerSheetState
 import kotlinx.coroutines.flow.map
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SkipIntervalsHolder
@@ -506,10 +508,13 @@ class ListenUp :
                     get<BackgroundSyncScheduler>().schedule()
                     get<PushRegistrar>().syncRegistration()
                     get<ListenUpShortcutManager>().updateShortcuts()
+                    get<DownloadService>().resumeIncompleteDownloads()
                 },
                 onSignedOut = {
                     get<BackgroundSyncScheduler>().cancel()
                     get<ListenUpShortcutManager>().clearShortcuts()
+                    // The next account's first Now Playing must not open already expanded.
+                    get<PlayerSheetState>().collapse()
                 },
             ).run()
         }

@@ -4,11 +4,15 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.AppError
 import android.content.ComponentName
 import android.content.Context
+import android.os.Bundle
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -127,7 +131,30 @@ class MediaControllerHolder(
     private val disconnectListener =
         object : MediaController.Listener {
             override fun onDisconnected(controller: MediaController) = handleDisconnect()
+
+            override fun onCustomCommand(
+                controller: MediaController,
+                command: SessionCommand,
+                args: Bundle,
+            ): ListenableFuture<SessionResult> {
+                val handled = onServiceCustomCommand(command.customAction)
+                val code = if (handled) SessionResult.RESULT_SUCCESS else SessionResult.RESULT_ERROR_NOT_SUPPORTED
+                return Futures.immediateFuture(SessionResult(code))
+            }
         }
+
+    /**
+     * Reacts to a custom command the service sent. [COMMAND_IDLE_RELEASED] means the idle timeout released the
+     * local player, so the engine no longer holds the book: clear it, and the session falls back to Restored with
+     * Play re-preparing from the saved place. Returns whether [customAction] was one this holder handles.
+     * `internal` so tests can drive it without a real [SessionCommand] (which needs Robolectric).
+     */
+    internal fun onServiceCustomCommand(customAction: String): Boolean {
+        if (customAction != COMMAND_IDLE_RELEASED) return false
+        logger.info { "MediaControllerHolder: service released the idle player" }
+        playbackManager.clearPlayback()
+        return true
+    }
 
     val connected: StateFlow<Boolean>
         field = MutableStateFlow(false)
@@ -232,6 +259,8 @@ class MediaControllerHolder(
     suspend fun awaitController(): MediaController? {
         controller?.let { return it }
 
+        // A connection that failed left nothing in flight; this call is the retry. No-op while one is.
+        reconnectIfAcquired()
         if (!awaitReady(connected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
             logger.error { "MediaControllerHolder.awaitController: timed out waiting for connection" }
             playbackManager.reportError(
@@ -242,6 +271,11 @@ class MediaControllerHolder(
             return null
         }
         return controller
+    }
+
+    @Synchronized
+    private fun reconnectIfAcquired() {
+        if (refCount.load() > 0) connect()
     }
 
     private fun connect() {
@@ -262,7 +296,10 @@ class MediaControllerHolder(
                 logger.info { "MediaControllerHolder: connected" }
             } catch (e: Exception) {
                 logger.error(e) { "MediaControllerHolder: connection failed" }
+                // Freed so the next awaitController can try again, instead of latching on a dead future.
+                controllerFuture = null
                 connected.value = false
+                MediaController.releaseFuture(future)
             }
         }, MoreExecutors.directExecutor())
     }

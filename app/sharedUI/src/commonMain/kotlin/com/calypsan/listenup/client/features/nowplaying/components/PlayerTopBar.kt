@@ -275,7 +275,7 @@ private fun PlayerMenuItem.label(): String =
             stringResource(Res.string.player_np_volume_boost_row, value)
         }
 
-        // Never offered here (includesShortcuts = false: Android has no app shortcuts); named for exhaustiveness.
+        // Never offered here (includesShortcuts = false: Android lists its keys in the system's shortcuts helper); named for exhaustiveness.
         PlayerMenuItem.KeyboardShortcuts -> {
             stringResource(Res.string.player_keyboard_shortcuts)
         }

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.admin.import
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
@@ -46,10 +50,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -948,11 +950,13 @@ private fun BookSearchPanel(
     onSelectBook: (BookId) -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    // openBookSearch starts every item's search blank, so the panel owns the text from there.
+    val query = remember(bookSearch.absItemId) { TextFieldState(bookSearch.query) }
+    query.ForwardEdits(onSearchQueryChange)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ListenUpTextField(
-                value = bookSearch.query,
-                onValueChange = onSearchQueryChange,
+                state = query,
                 placeholder = stringResource(Res.string.import_book_search_hint),
                 placeholderStyle = MaterialTheme.typography.bodySmall,
                 shape = MaterialTheme.shapes.large,

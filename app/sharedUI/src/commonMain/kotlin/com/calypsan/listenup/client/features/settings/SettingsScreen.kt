@@ -142,6 +142,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import com.calypsan.listenup.client.playback.PlaybackPresets
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.settings_dynamic_colors
 
 /** How a skip length reads: `45s`, `2 min`, `1m 30s`. */
 private fun formatSkipSeconds(seconds: Int): String =
@@ -426,7 +427,7 @@ private fun AppearanceSection(
             SettingToggleRow(
                 icon = Icons.Default.Palette,
                 accent = MaterialTheme.colorScheme.primary,
-                title = "Dynamic colors",
+                title = stringResource(Res.string.settings_dynamic_colors),
                 subtitle = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
                 onCheckedChange = actions.onDynamicColorsChange,

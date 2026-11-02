@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.hardcover
 
+import app.cash.turbine.Event
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookCandidate
 import com.calypsan.listenup.api.dto.hardcover.HardcoverBookMatch
@@ -83,6 +84,23 @@ class HardcoverMatchViewModelTest :
                         listOf(427_578L, 1L)
                 }
                 repo.searches shouldBe listOf("Project Hail Mary")
+            }
+        }
+
+        test("no Ready state ever shows an empty query, so the search field can be seeded from the first one") {
+            runTest {
+                val repo = FakeHardcoverRepository().apply { searchResult = AppResult.Success(listOf(REAL)) }
+                val vm = matchViewModel(repo)
+                vm.uiState.test {
+                    advanceUntilIdle()
+                    val ready =
+                        cancelAndConsumeRemainingEvents()
+                            .filterIsInstance<Event.Item<HardcoverMatchUiState>>()
+                            .map { it.value }
+                            .filterIsInstance<HardcoverMatchUiState.Ready>()
+                    ready.isNotEmpty() shouldBe true
+                    ready.map { it.query }.toSet() shouldBe setOf("Project Hail Mary")
+                }
             }
         }
 

@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.playback
 
+import android.os.Bundle
 import androidx.media3.session.CommandButton
+import androidx.media3.session.MediaSession
 import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.localization.SystemStrings
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,5 +62,45 @@ class MediaButtonPreferencesTest {
     fun `system controllers we do not know get no custom buttons`() {
         mediaButtonsFor(ControllerTrust.TRUSTED_SYSTEM, 10, 30, words).shouldBeEmpty()
         mediaButtonsFor(ControllerTrust.UNKNOWN, 10, 30, words).shouldBeEmpty()
+    }
+
+    private fun controller(packageName: String): MediaSession.ControllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            packageName,
+            // pid =
+            0,
+            // uid =
+            0,
+            // libraryVersion =
+            0,
+            // interfaceVersion =
+            0,
+            // trusted =
+            true,
+            Bundle.EMPTY,
+            // isPackageNameVerified =
+            true,
+        )
+
+    @Test
+    fun `a change of interval re-offers fresh buttons to the notification and no one else`() {
+        val notification = controller("com.android.systemui")
+        val stranger = controller("com.example.stranger")
+
+        val updates =
+            mediaButtonUpdates(
+                controllers =
+                    listOf(
+                        notification to ControllerTrust.MEDIA_NOTIFICATION,
+                        stranger to ControllerTrust.UNKNOWN,
+                    ),
+                backwardSec = 15,
+                forwardSec = 45,
+                words = words,
+            )
+
+        updates shouldHaveSize 1
+        updates[0].first shouldBe notification
+        updates[0].second.map { it.displayName.toString() } shouldBe listOf("Back 15s", "Forward 45s", "Speed")
     }
 }

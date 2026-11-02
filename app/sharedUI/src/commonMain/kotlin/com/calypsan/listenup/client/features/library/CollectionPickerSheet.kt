@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
@@ -32,11 +35,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -380,8 +381,8 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    var collectionName by rememberSaveable { mutableStateOf("") }
-    val isValid = collectionName.isNotBlank()
+    val collectionName = rememberTextFieldState()
+    val isValid = collectionName.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -394,14 +395,13 @@ private fun CreateCollectionDialog(
         onDismissRequest = onDismiss,
         title = stringResource(Res.string.library_create_new_collection),
         confirmText = stringResource(Res.string.library_create_add),
-        onConfirm = { onCreate(collectionName.trim()) },
+        onConfirm = { onCreate(collectionName.text.toString().trim()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
         confirmEnabled = isValid,
     ) {
         ListenUpTextField(
-            value = collectionName,
-            onValueChange = { collectionName = it },
+            state = collectionName,
             label = stringResource(Res.string.library_collection_name),
             placeholder = stringResource(Res.string.common_collection_name_hint),
             modifier = Modifier.focusRequester(focusRequester),

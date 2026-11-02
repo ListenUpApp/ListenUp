@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.download
 
 import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.await
 import com.calypsan.listenup.api.result.AppResult
@@ -20,7 +21,10 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.core.IODispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
 
@@ -301,7 +305,8 @@ class DownloadManager internal constructor(
         // Sweep orphaned .tmp partials from prior runs: any .tmp whose audioFileId is not in the
         // active (non-terminal) set is a leftover from a cancelled or crashed download.
         val activeIds = incomplete.map { it.audioFileId }.toSet()
-        val swept = fileManager.sweepOrphanedTempFiles(activeIds)
+        // The sweep is a blocking recursive disk walk, so it runs off the caller's dispatcher.
+        val swept = withContext(IODispatcher) { fileManager.sweepOrphanedTempFiles(activeIds) }
         if (swept > 0) {
             logger.info { "Swept $swept orphaned .tmp file(s) on startup" }
         }
@@ -312,12 +317,24 @@ class DownloadManager internal constructor(
 
         val wifiOnly = localPreferences.wifiOnlyDownloads.value
 
-        for (download in incomplete) {
+        // A worker that is running right now owns its row; demoting it would make a live download read "Queued".
+        val runningAudioFileIds =
+            incomplete
+                .filter { it.state == DownloadState.DOWNLOADING }
+                .map { it.audioFileId }
+                .filter { id ->
+                    workManager
+                        .getWorkInfosForUniqueWorkFlow(fileWorkName(id))
+                        .first()
+                        .any { it.state == WorkInfo.State.RUNNING }
+                }.toSet()
+
+        for (download in rowsToRequeue(incomplete, runningAudioFileIds)) {
             // KEEP policy avoids displacing a worker that's already running for this row.
-            // Reset PAUSED and stale DOWNLOADING rows to QUEUED (B10a): at app startup no worker is
-            // running, so a row left in DOWNLOADING after a crash would show "downloading" forever if
-            // the (re-enqueued) worker is blocked by the wifi constraint. QUEUED reflects the truth
-            // and lets the re-enqueue below drive it. The subsequent worker owns further transitions.
+            // Reset PAUSED and stale DOWNLOADING rows to QUEUED (B10a): a row left in DOWNLOADING after a
+            // crash (no running worker) would show "downloading" forever if the (re-enqueued) worker is
+            // blocked by the wifi constraint. QUEUED reflects the truth and lets the re-enqueue below
+            // drive it. The subsequent worker owns further transitions.
             if (download.state == DownloadState.PAUSED || download.state == DownloadState.DOWNLOADING) {
                 downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
             }

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.contributoredit
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.foundation.background
@@ -22,10 +25,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,6 +79,9 @@ import listenup.composeapp.generated.resources.contributor_select_death_date
 import listenup.composeapp.generated.resources.error_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.contributor_edit_website_placeholder
+import listenup.composeapp.generated.resources.contributor_edit_website
+import listenup.composeapp.generated.resources.contributor_edit_bio
 
 /**
  * Artist Studio - immersive contributor editing experience.
@@ -482,10 +486,11 @@ private fun BiographyCardContent(
     state: ContributorEditUiState,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val description =
+        rememberForwardingTextFieldState(state.description) { onEvent(ContributorEditUiEvent.DescriptionChanged(it)) }
     ListenUpTextArea(
-        value = state.description,
-        onValueChange = { onEvent(ContributorEditUiEvent.DescriptionChanged(it)) },
-        label = "Bio",
+        state = description,
+        label = stringResource(Res.string.contributor_edit_bio),
         placeholder = stringResource(Res.string.contributor_enter_a_biography),
     )
 }
@@ -495,11 +500,12 @@ private fun LinksCardContent(
     state: ContributorEditUiState,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val website =
+        rememberForwardingTextFieldState(state.website) { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) }
     ListenUpTextField(
-        value = state.website,
-        onValueChange = { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) },
-        label = "Website",
-        placeholder = "https://...",
+        state = website,
+        label = stringResource(Res.string.contributor_edit_website),
+        placeholder = stringResource(Res.string.contributor_edit_website_placeholder),
         // A URL keyboard alone still autocorrects words and injects spaces; disable text
         // assistance so URLs are typed verbatim.
         keyboardOptions =

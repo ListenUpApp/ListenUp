@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SettingToggleRow
@@ -57,11 +61,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -194,6 +196,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
+import listenup.composeapp.generated.resources.admin_confirm_delete_user
+import listenup.composeapp.generated.resources.admin_confirm_deny_reset
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -220,6 +224,7 @@ fun AdminScreen(
     onServerNameChange: (String) -> Unit = {},
     remoteUrl: String = "",
     onRemoteUrlChange: (String) -> Unit = {},
+    serverSettingsLoaded: Boolean = true,
     holdNewBooksForReview: Boolean = false,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit = {},
     pushNotificationsEnabled: Boolean = true,
@@ -318,6 +323,7 @@ fun AdminScreen(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -381,7 +387,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { userToDelete = null },
             title = stringResource(Res.string.common_delete_name, "User"),
-            text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone.",
+            text = stringResource(Res.string.admin_confirm_delete_user, user.displayName ?: user.email),
             confirmText = stringResource(Res.string.common_delete),
             onConfirm = {
                 viewModel.deleteUser(user.id)
@@ -430,7 +436,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { resetToDeny = null },
             title = stringResource(Res.string.admin_deny_reset),
-            text = "Are you sure you want to deny the password reset for ${request.displayName}?",
+            text = stringResource(Res.string.admin_confirm_deny_reset, request.displayName),
             confirmText = stringResource(Res.string.common_deny),
             onConfirm = {
                 viewModel.decidePasswordReset(request.id, approved = false)
@@ -479,6 +485,7 @@ internal fun AdminContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean = true,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
@@ -526,6 +533,7 @@ internal fun AdminContent(
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
+            serverSettingsLoaded = serverSettingsLoaded,
             onRemoteUrlChange = onRemoteUrlChange,
             holdNewBooksForReview = holdNewBooksForReview,
             onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -556,6 +564,7 @@ internal fun AdminContent(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -640,6 +649,7 @@ private fun AdminTwoPaneContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
@@ -669,6 +679,7 @@ private fun AdminTwoPaneContent(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -742,12 +753,20 @@ private fun ServerSettingsSection(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
 ) {
+    // The settings load on their own clock, so the fields may be on screen before the text exists.
+    // Re-seeding when they land is a fresh state, not an edit: the ViewModel is not told, so loading
+    // never marks the form dirty.
+    val serverNameState = remember(serverSettingsLoaded) { TextFieldState(serverName) }
+    val remoteUrlState = remember(serverSettingsLoaded) { TextFieldState(remoteUrl) }
+    serverNameState.ForwardEdits(onServerNameChange)
+    remoteUrlState.ForwardEdits(onRemoteUrlChange)
     SectionGroup(
         label = stringResource(Res.string.admin_server_settings),
     ) {
@@ -757,16 +776,14 @@ private fun ServerSettingsSection(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 ListenUpTextField(
-                    value = serverName,
-                    onValueChange = onServerNameChange,
+                    state = serverNameState,
                     label = stringResource(Res.string.admin_server_name),
                     placeholder = stringResource(Res.string.connect_listenup_server),
                     leadingIcon = Icons.Outlined.Badge,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
                 ListenUpTextField(
-                    value = remoteUrl,
-                    onValueChange = onRemoteUrlChange,
+                    state = remoteUrlState,
                     label = stringResource(Res.string.admin_remote_url),
                     placeholder = stringResource(Res.string.admin_remote_url_placeholder),
                     leadingIcon = Icons.Outlined.CloudDownload,

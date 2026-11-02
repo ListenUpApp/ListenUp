@@ -48,7 +48,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param contentPadding The shell's insets, applied inside the scroll.
  * @param modifier Modifier from parent
  * @param viewModel HomeViewModel injected via Koin
- * @param multiSelect Multi-select state shared with Library
+ * @param multiSelect Multi-select state of this tab (the shell gives each tab its own)
  * @param statsViewModel HomeStatsViewModel injected via Koin
  */
 @OptIn(ExperimentalMaterial3Api::class)

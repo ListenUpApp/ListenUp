@@ -59,6 +59,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_index_jump
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
+import listenup.composeapp.generated.resources.common_alphabet_scrollbar
 
 /**
  * The scrollbar's letters, in the order shown, and the list position each one jumps to. Built from the
@@ -260,6 +261,7 @@ fun AlphabetScrollbar(
         }
     }
 
+    val scrollbarDescription = stringResource(Res.string.common_alphabet_scrollbar)
     Box(
         modifier =
             modifier
@@ -267,7 +269,7 @@ fun AlphabetScrollbar(
                 .offset(x = slideOffset)
                 .alpha(alpha)
                 .semantics {
-                    contentDescription = "Alphabet scrollbar"
+                    contentDescription = scrollbarDescription
                     selectedLetter?.let { letter ->
                         stateDescription = "Letter $letter"
                     }

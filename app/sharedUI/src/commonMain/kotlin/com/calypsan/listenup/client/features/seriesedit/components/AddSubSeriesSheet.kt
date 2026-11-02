@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesedit.components
 
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -125,6 +126,8 @@ internal fun AddSubSeriesSheetContent(
     onEvent: (AddSubSeriesEvent) -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    // The sheet opens blank (Dismissed resets the query) and owns the text while it is open.
+    val query = rememberForwardingTextFieldState(state.query) { onEvent(AddSubSeriesEvent.QueryChanged(it)) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.series_add_subseries_to, state.parentName),
@@ -133,11 +136,10 @@ internal fun AddSubSeriesSheetContent(
             modifier = Modifier.padding(horizontal = Spacing.screenMargin).semantics { heading() },
         )
         ListenUpSearchField(
-            value = state.query,
-            onValueChange = { onEvent(AddSubSeriesEvent.QueryChanged(it)) },
+            state = query,
             onSubmit = {},
             placeholder = stringResource(Res.string.series_merge_search_placeholder),
-            onClear = { onEvent(AddSubSeriesEvent.QueryChanged("")) },
+            clearable = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 12.dp),
         )
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {

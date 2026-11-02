@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.runtime.key
+import com.calypsan.listenup.client.design.components.transformedBy
+import androidx.compose.foundation.text.input.clearText
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,6 +36,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
+import listenup.composeapp.generated.resources.book_edit_add_series
 
 /**
  * Series editing section with search and sequence editing.
@@ -50,14 +55,26 @@ fun SeriesSection(
     onSequenceChange: (EditableSeries, String) -> Unit,
     onRemoveSeries: (EditableSeries) -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onSearchQueryChange)
+    val selectSeries: (SeriesSearchResult) -> Unit = { picked ->
+        onSeriesSelected(picked)
+        queryState.clearText()
+    }
+    val enterSeries: (String) -> Unit = { picked ->
+        onSeriesEntered(picked)
+        queryState.clearText()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Existing series with sequence editing
         series.forEach { s ->
-            SeriesChipWithSequence(
-                series = s,
-                onSequenceChange = { sequence -> onSequenceChange(s, sequence) },
-                onRemove = { onRemoveSeries(s) },
-            )
+            // Keyed so each series keeps its own sequence field when another is removed.
+            key(s.id ?: s.name) {
+                SeriesChipWithSequence(
+                    series = s,
+                    onSequenceChange = { sequence -> onSequenceChange(s, sequence) },
+                    onRemove = { onRemoveSeries(s) },
+                )
+            }
         }
 
         // Offline indicator
@@ -71,18 +88,17 @@ fun SeriesSection(
 
         // Search field
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = { result -> onSeriesSelected(result) },
+            onResultSelected = { result -> selectSeries(result) },
             onSubmit = { query ->
                 val trimmed = query.trim()
                 if (trimmed.isNotEmpty()) {
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
-                        onSeriesSelected(topResult)
+                        selectSeries(topResult)
                     } else if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
-                        onSeriesEntered(trimmed)
+                        enterSeries(trimmed)
                     }
                 }
             },
@@ -91,10 +107,10 @@ fun SeriesSection(
                     name = result.name,
                     // Where it sits and how big it is: "in Cosmere › Mistborn · 8 books".
                     subtitle = seriesPlacementLine(result.parentPath, result.bookCount),
-                    onClick = { onSeriesSelected(result) },
+                    onClick = { selectSeries(result) },
                 )
             },
-            placeholder = "Add series...",
+            placeholder = stringResource(Res.string.book_edit_add_series),
             isLoading = isLoading,
             emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )
@@ -107,7 +123,7 @@ fun SeriesSection(
             }
         if (trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH && !isLoading && !hasExactMatch) {
             AssistChip(
-                onClick = { onSeriesEntered(trimmedQuery) },
+                onClick = { enterSeries(trimmedQuery) },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -123,6 +139,7 @@ private fun SeriesChipWithSequence(
     onSequenceChange: (String) -> Unit,
     onRemove: () -> Unit,
 ) {
+    val sequenceState = rememberForwardingTextFieldState(series.sequence.orEmpty(), onEdited = onSequenceChange)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -145,8 +162,7 @@ private fun SeriesChipWithSequence(
         )
 
         ListenUpTextField(
-            value = series.sequence.orEmpty(),
-            onValueChange = onSequenceChange,
+            state = sequenceState,
             label = "#",
             // Decimal, not Number: half-numbered entries ("1.5") are ordinary in book series, and a
             // plain number pad hides the separator they need. Number is right for the publish year
@@ -154,10 +170,10 @@ private fun SeriesChipWithSequence(
             // never given a type, so it opened the full alphabetic keyboard for a number.
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             // The keyboard is a hint, not a constraint — a hardware keyboard, a paste, or a
-            // switched IME can still deliver letters. The transform is what actually holds the
-            // shape, and it runs inside the field's own text ledger so a rejected character never
-            // reaches the caller and never moves the caret.
-            transform = ::keepDecimalCharacters,
+            // switched IME can still deliver letters. The transformation is what actually holds the
+            // shape, and it runs inside the field so a rejected character never reaches the
+            // caller and never moves the caret.
+            inputTransformation = decimalTransformation,
             modifier = Modifier.weight(1f),
         )
     }
@@ -189,3 +205,5 @@ internal fun keepDecimalCharacters(raw: String): String {
     }
     return builder.toString()
 }
+
+private val decimalTransformation = transformedBy(::keepDecimalCharacters)

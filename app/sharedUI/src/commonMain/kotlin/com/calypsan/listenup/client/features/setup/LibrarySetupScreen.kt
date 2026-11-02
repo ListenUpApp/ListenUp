@@ -78,6 +78,9 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.common_continue
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.library_setup_select_this_folder
 
 /**
  * Library-setup wizard — choose audiobook folders, then confirm.
@@ -262,7 +265,7 @@ private fun DockedSelectionBar(
                 )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.common_continue),
                 onClick = onContinue,
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
@@ -416,10 +419,15 @@ private fun DesktopPickerPanel(
                 )
             }
             if (!state.isRoot) {
-                ListenUpButton(text = "Back", onClick = onBack, filled = false, fillMaxWidth = false)
+                ListenUpButton(
+                    text = stringResource(Res.string.common_back),
+                    onClick = onBack,
+                    filled = false,
+                    fillMaxWidth = false,
+                )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.common_continue),
                 onClick = onContinue,
                 enabled = state.selectedPaths.isNotEmpty(),
                 isLoading = state.isCreatingLibrary,
@@ -545,6 +553,10 @@ private fun EmptyFolder(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(Spacing.xl))
-        ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
+        ListenUpButton(
+            text = stringResource(Res.string.library_setup_select_this_folder),
+            onClick = onSelectCurrent,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

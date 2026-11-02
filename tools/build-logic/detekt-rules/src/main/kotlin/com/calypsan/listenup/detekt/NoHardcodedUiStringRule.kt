@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtIfExpression
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtNamedFunction
@@ -19,8 +20,10 @@ import org.jetbrains.kotlin.psi.KtWhenExpression
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 
 /**
- * Forbids hardcoded user-facing string literals in Compose UI: `Text("literal")`,
- * `Text(text = "literal")`, and `contentDescription = "literal"`. Use
+ * Forbids hardcoded user-facing string literals in Compose UI: a literal passed as the named
+ * argument `text`, `title`, `message`, `label`, `placeholder` or `contentDescription` to any call
+ * (`ListenUpButton(text = "Retry")`, `AlertDialog(title = "…")`), and as the first positional
+ * argument of `Text(...)`, `showSnackbar(...)` and `shareText(...)`. Use
  * `stringResource(Res.string.…)` (backed by the shared `en.json`) instead.
  *
  * Literals nested in a **conditional** are flagged too — `Text(if (x) "A" else "B")`,
@@ -32,6 +35,10 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  * The descent is deliberately limited to conditionals rather than every nested expression: a
  * blanket descent would flag data arguments such as `stringResource(Res.string.greeting, "Bob")`,
  * where the literal is a format value, not UI copy.
+ *
+ * `label` on an animation API (`animate*AsState`, `AnimatedContent`, `Crossfade`, …) is a tooling name,
+ * not copy, and files named `*Preview.kt` / `*Previews.kt` / `*PreviewGallery.kt` are dev-only. Which
+ * modules the rule applies to is configured in `detekt.yml` (`excludes`).
  *
  * Not flagged: `stringResource(...)` / identifier / call-expression arguments;
  * `testTag`/semantics keys; punctuation-only literals (`Text("•")`); and literals
@@ -49,17 +56,27 @@ class NoHardcodedUiStringRule(
         super.visitCallExpression(expression)
         val callee = expression.calleeExpression?.text
 
-        // contentDescription = "..." in ANY call (Icon, Image, IconButton, …)
+        // contentDescription / text / title / message / label / placeholder = "..." in ANY call
+        // (Icon, Image, ListenUpButton, dialogs, …)
         expression.valueArguments
-            .firstOrNull { it.getArgumentName()?.asName?.asString() == "contentDescription" }
-            ?.let { flagIfHardcoded(it, "contentDescription") }
+            .filter { it.getArgumentName()?.asName?.asString() in COPY_ARGUMENT_NAMES }
+            .filterNot { it.getArgumentName()?.asName?.asString() == "label" && callee.isAnimationApi() }
+            .forEach {
+                flagIfHardcoded(
+                    it,
+                    it
+                        .getArgumentName()
+                        ?.asName
+                        ?.asString()
+                        .orEmpty(),
+                )
+            }
 
-        // Text("...") positional or Text(text = "...")
-        if (callee == "Text") {
-            val textArg =
-                expression.valueArguments.firstOrNull { it.getArgumentName()?.asName?.asString() == "text" }
-                    ?: expression.valueArguments.firstOrNull { it.getArgumentName() == null }
-            textArg?.let { flagIfHardcoded(it, "Text") }
+        // Text("...") / showSnackbar("...") / shareText("...", url): the first positional argument is copy.
+        if (callee in FIRST_ARGUMENT_COPY_CALLEES) {
+            expression.valueArguments
+                .firstOrNull { it.getArgumentName() == null }
+                ?.let { flagIfHardcoded(it, callee.orEmpty()) }
         }
     }
 
@@ -68,6 +85,7 @@ class NoHardcodedUiStringRule(
         context: String,
     ) {
         // Dev-only demo code.
+        if (argument.containingKtFile.isPreviewFile()) return
         if (argument.getParentOfType<KtNamedFunction>(strict = true)?.isInsidePreview() == true) return
         userFacingLiterals(argument.getArgumentExpression())
             // Decorative: no letters in the *literal* parts (pure punctuation/symbols).
@@ -134,6 +152,27 @@ class NoHardcodedUiStringRule(
                 emptyList()
             }
         }
+
+    /** Animation APIs take a `label` that is a debugging name for tooling, never shown to a user. */
+    private fun String?.isAnimationApi(): Boolean = this != null && (startsWith("animate") || this in ANIMATION_CALLEES)
+
+    private fun KtFile.isPreviewFile(): Boolean = PREVIEW_FILE_SUFFIXES.any { name.endsWith(it) }
+
+    private companion object {
+        val ANIMATION_CALLEES =
+            setOf(
+                "AnimatedContent",
+                "AnimatedVisibility",
+                "Crossfade",
+                "updateTransition",
+                "rememberInfiniteTransition",
+                "rememberTransition",
+                "rememberAmbientLoop",
+            )
+        val PREVIEW_FILE_SUFFIXES = listOf("Preview.kt", "Previews.kt", "PreviewGallery.kt")
+        val COPY_ARGUMENT_NAMES = setOf("contentDescription", "text", "title", "message", "label", "placeholder")
+        val FIRST_ARGUMENT_COPY_CALLEES = setOf("Text", "showSnackbar", "shareText")
+    }
 
     private fun KtNamedFunction.isInsidePreview(): Boolean =
         annotationEntries.any { it.shortName?.asString() == "Preview" } ||

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.components.switchRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,8 @@ import listenup.composeapp.generated.resources.book_edit_shortened_version_of_th
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import listenup.composeapp.generated.resources.book_edit_isbn
+import listenup.composeapp.generated.resources.book_edit_asin
 
 /**
  * Identifiers section: ISBN, ASIN, and Abridged toggle.
@@ -36,23 +39,23 @@ fun IdentifiersSection(
     onAbridgedChange: (Boolean) -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    val isbnState = rememberForwardingTextFieldState(isbn, onEdited = onIsbnChange)
+    val asinState = rememberForwardingTextFieldState(asin, onEdited = onAsinChange)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             ListenUpTextField(
-                value = isbn,
-                onValueChange = onIsbnChange,
-                label = "ISBN",
+                state = isbnState,
+                label = stringResource(Res.string.book_edit_isbn),
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             )
 
             ListenUpTextField(
-                value = asin,
-                onValueChange = onAsinChange,
-                label = "ASIN",
+                state = asinState,
+                label = stringResource(Res.string.book_edit_asin),
                 modifier = Modifier.weight(1f),
                 keyboardOptions =
                     KeyboardOptions(

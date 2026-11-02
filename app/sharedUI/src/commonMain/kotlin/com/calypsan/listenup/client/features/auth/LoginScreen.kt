@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.auth
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Login
@@ -30,12 +35,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,8 +45,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.result.AppResult
@@ -77,6 +77,7 @@ import listenup.composeapp.generated.resources.auth_sign_in_to_access_your
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_continue
 import listenup.composeapp.generated.resources.common_done
+import listenup.composeapp.generated.resources.common_email
 
 /**
  * Sign-in screen — the entry point when a server is configured but the app holds no valid session.
@@ -165,8 +166,9 @@ internal fun LoginFields(
     onSubmit: (String, String) -> Unit,
     onForgotPassword: () -> Unit = {},
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val email = rememberTextFieldState()
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val password = remember { TextFieldState() }
     var passwordVisible by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
@@ -175,33 +177,31 @@ internal fun LoginFields(
 
     fun submit() {
         focusManager.clearFocus()
-        if (!isLoading) onSubmit(email, password)
+        if (!isLoading) onSubmit(email.text.toString(), password.text.toString())
     }
 
     ListenUpTextField(
-        value = email,
-        onValueChange = { email = it },
-        label = "Email",
+        state = email,
+        label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == LoginField.EMAIL,
         leadingIcon = Icons.Outlined.MailOutline,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+        onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
     )
 
     ListenUpTextField(
-        value = password,
-        onValueChange = { password = it },
-        label = "Password",
+        state = password,
+        label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == LoginField.PASSWORD,
         leadingIcon = Icons.Outlined.Lock,
         trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
         trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { submit() }),
+        onKeyboardAction = { submit() },
     )
 
     val haptics = LocalHaptics.current
@@ -306,18 +306,28 @@ private fun RootResetDialog(
     onDismissRequest: () -> Unit,
     repository: PasswordResetRepository = koinInject(),
 ) {
-    var token by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val token = remember { TextFieldState() }
+    val newPassword = remember { TextFieldState() }
     var passwordVisible by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var succeeded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    // Typing in either field dismisses the last failure.
+    token.ForwardEdits { errorMessage = null }
+    newPassword.ForwardEdits { errorMessage = null }
 
     fun submit() {
         isSubmitting = true
         scope.launch {
-            when (val result = repository.resetRootPassword(token.trim(), newPassword)) {
+            when (
+                val result =
+                    repository.resetRootPassword(
+                        token.text.toString().trim(),
+                        newPassword.text.toString(),
+                    )
+            ) {
                 is AppResult.Success -> succeeded = true
                 is AppResult.Failure -> errorMessage = result.error.message
             }
@@ -344,7 +354,7 @@ private fun RootResetDialog(
         onConfirm = ::submit,
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismissRequest,
-        confirmEnabled = !isSubmitting && token.isNotBlank() && newPassword.isNotBlank(),
+        confirmEnabled = !isSubmitting && token.text.isNotBlank() && newPassword.text.isNotBlank(),
         dismissEnabled = !isSubmitting,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -354,21 +364,13 @@ private fun RootResetDialog(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             ListenUpTextField(
-                value = token,
-                onValueChange = { enteredToken ->
-                    token = enteredToken
-                    errorMessage = null
-                },
+                state = token,
                 label = stringResource(Res.string.auth_reset_root_token_label),
                 enabled = !isSubmitting,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
             )
             ListenUpTextField(
-                value = newPassword,
-                onValueChange = { enteredPassword ->
-                    newPassword = enteredPassword
-                    errorMessage = null
-                },
+                state = newPassword,
                 label = stringResource(Res.string.auth_password_label),
                 enabled = !isSubmitting,
                 isError = errorMessage != null,
@@ -376,14 +378,13 @@ private fun RootResetDialog(
                 trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                 onTrailingClick = { passwordVisible = !passwordVisible },
                 trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-                visualTransformation =
-                    if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                 keyboardOptions =
                     KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done,
                     ),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
+                onKeyboardAction = { submit() },
             )
         }
     }

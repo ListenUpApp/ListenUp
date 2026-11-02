@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import listenup.composeapp.generated.resources.common_remove_name
@@ -52,10 +56,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -530,6 +532,9 @@ private fun NameSection(
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Seeded once from the loaded collection; the ViewModel only hears edits.
+    val name = rememberTextFieldState(state.editedName)
+    name.ForwardEdits(onNameChange)
     SectionGroup(
         label = stringResource(Res.string.admin_collection_name),
         modifier = modifier,
@@ -537,8 +542,7 @@ private fun NameSection(
         SectionSegment {
             Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ListenUpTextField(
-                    value = state.editedName,
-                    onValueChange = onNameChange,
+                    state = name,
                     label = stringResource(Res.string.admin_collection_name),
                     enabled = !state.isSaving && !state.collection.isSystem,
                     supportingText =
@@ -788,8 +792,7 @@ private fun MemberRow(
     // does — the member model carries only the userId. Fall back to the userId so the row is
     // never stranded before the profile has synced.
     val profileRepository: UserProfileRepository = koinInject()
-    val profile by profileRepository
-        .observeProfile(share.userId)
+    val profile by remember(share.userId) { profileRepository.observeProfile(share.userId) }
         .collectAsStateWithLifecycle(initialValue = null)
 
     val memberName = profile?.run { displayName.ifBlank { null } } ?: share.userId
@@ -939,6 +942,9 @@ private fun AddBooksToCollectionSheet(
     onBookSelected: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // The sheet opens on a blank query (closeAddBooks resets it) and owns the text while it is open.
+    val queryState = rememberTextFieldState(query)
+    queryState.ForwardEdits(onQueryChange)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState =
@@ -961,12 +967,11 @@ private fun AddBooksToCollectionSheet(
                 modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
             ListenUpSearchField(
-                value = query,
-                onValueChange = onQueryChange,
+                state = queryState,
                 onSubmit = {},
                 placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
                 isLoading = isSearching,
-                onClear = { onQueryChange("") },
+                clearable = true,
                 modifier = Modifier.padding(horizontal = Spacing.lg),
             )
             if (query.isNotBlank() && results.isEmpty() && !isSearching) {

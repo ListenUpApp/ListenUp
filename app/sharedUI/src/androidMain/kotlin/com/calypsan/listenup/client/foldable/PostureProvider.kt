@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.foldable
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntRect
 import androidx.lifecycle.Lifecycle
@@ -26,10 +27,15 @@ fun PostureProvider(content: @Composable () -> Unit) {
     val activity = context as? ComponentActivity
     val fold =
         if (activity != null) {
-            WindowInfoTracker
-                .getOrCreate(context)
-                .windowLayoutInfo(activity)
-                .map { info -> fold(info.displayFeatures) }
+            // Remembered: built inline, a fresh flow on every recomposition would resubscribe at the app root.
+            val folds =
+                remember(context, activity) {
+                    WindowInfoTracker
+                        .getOrCreate(context)
+                        .windowLayoutInfo(activity)
+                        .map { info -> fold(info.displayFeatures) }
+                }
+            folds
                 .collectAsStateWithLifecycle(
                     initialValue = Fold.None,
                     lifecycle = activity.lifecycle,

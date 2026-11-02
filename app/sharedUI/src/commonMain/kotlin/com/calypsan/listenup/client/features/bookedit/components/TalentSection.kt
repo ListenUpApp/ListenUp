@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.clearText
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
@@ -24,10 +28,8 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +53,8 @@ import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_from_this_book
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.book_edit_this_will_remove_contributorstoremovecount
+import listenup.composeapp.generated.resources.book_edit_add_role_placeholder
+import listenup.composeapp.generated.resources.book_edit_remove_role_title
 
 /**
  * Talent section for managing contributors by role.
@@ -114,7 +118,7 @@ fun TalentSection(
     roleToRemove?.let { role ->
         ListenUpDestructiveDialog(
             onDismissRequest = { roleToRemove = null },
-            title = "Remove ${role.displayName}s?",
+            title = stringResource(Res.string.book_edit_remove_role_title, role.displayName),
             text =
                 stringResource(
                     Res.string.book_edit_this_will_remove_contributorstoremovecount,
@@ -147,6 +151,15 @@ private fun RoleContributorSection(
     onRemoveContributor: (EditableContributor) -> Unit,
     onRemoveSection: () -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onQueryChange)
+    val pickResult: (ContributorSearchResult) -> Unit = { picked ->
+        onResultSelected(picked)
+        queryState.clearText()
+    }
+    val pickEntered: (String) -> Unit = { entered ->
+        onNameEntered(entered)
+        queryState.clearText()
+    }
     val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Role header with remove button
@@ -202,18 +215,17 @@ private fun RoleContributorSection(
 
         // Search field
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = onResultSelected,
+            onResultSelected = pickResult,
             onSubmit = { query ->
                 val trimmed = query.trim()
                 if (trimmed.isNotEmpty()) {
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
-                        onResultSelected(topResult)
+                        pickResult(topResult)
                     } else if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
-                        onNameEntered(trimmed)
+                        pickEntered(trimmed)
                     }
                 }
             },
@@ -227,10 +239,10 @@ private fun RoleContributorSection(
                             null
                         },
                     // No haptic here: AutocompleteResultItem already ticks for the pick.
-                    onClick = { onResultSelected(result) },
+                    onClick = { pickResult(result) },
                 )
             },
-            placeholder = "Add ${role.displayName.lowercase()}...",
+            placeholder = stringResource(Res.string.book_edit_add_role_placeholder, role.displayName.lowercase()),
             isLoading = isSearching,
             emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )
@@ -242,7 +254,7 @@ private fun RoleContributorSection(
             AssistChip(
                 onClick = {
                     haptics.press()
-                    onNameEntered(trimmedQuery)
+                    pickEntered(trimmedQuery)
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {

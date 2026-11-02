@@ -1,10 +1,14 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -16,10 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -29,8 +31,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import com.calypsan.listenup.api.dto.admin.HardcoverApiTokenStatus
 import com.calypsan.listenup.api.dto.admin.HardcoverSourceStatus
 import com.calypsan.listenup.client.design.components.ListenUpButton
@@ -201,10 +201,13 @@ private fun TokenEntry(
     tokenSave: HardcoverTokenSave,
     actions: HardcoverSourceActions,
 ) {
-    var draft by remember { mutableStateOf("") }
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val draft = remember { TextFieldState() }
     var visible by remember { mutableStateOf(false) }
     val busy = tokenSave == HardcoverTokenSave.Busy
     val refusal = (tokenSave as? HardcoverTokenSave.Refused)?.run { error.localized() }
+    // Typing a corrected token retires the refusal; seeding the field does not.
+    draft.ForwardEdits { if (refusal != null) actions.onClearTokenError() }
     SectionSegment {
         Column(modifier = Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             if (rejected) {
@@ -216,11 +219,7 @@ private fun TokenEntry(
                 )
             }
             ListenUpTextField(
-                value = draft,
-                onValueChange = { text ->
-                    draft = text
-                    if (refusal != null) actions.onClearTokenError()
-                },
+                state = draft,
                 label = stringResource(Res.string.admin_hardcover_token_label),
                 placeholder = stringResource(Res.string.admin_hardcover_token_placeholder),
                 enabled = !busy,
@@ -230,21 +229,16 @@ private fun TokenEntry(
                 trailingIcon = if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                 onTrailingClick = { visible = !visible },
                 trailingIconContentDescription = passwordVisibilityDescription(visible),
-                visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+                obfuscation = if (visible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                 keyboardOptions =
                     KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         autoCorrectEnabled = false,
                         imeAction = ImeAction.Done,
                     ),
-                keyboardActions =
-                    KeyboardActions(onDone = {
-                        if (draft.isNotBlank() &&
-                            !busy
-                        ) {
-                            actions.onSaveToken(draft)
-                        }
-                    }),
+                onKeyboardAction = {
+                    if (draft.text.isNotBlank() && !busy) actions.onSaveToken(draft.text.toString())
+                },
                 modifier = Modifier.testTag("hardcoverTokenField"),
             )
             if (busy) {
@@ -257,8 +251,8 @@ private fun TokenEntry(
             }
             ListenUpButton(
                 text = stringResource(Res.string.admin_hardcover_token_save),
-                onClick = { actions.onSaveToken(draft) },
-                enabled = draft.isNotBlank(),
+                onClick = { actions.onSaveToken(draft.text.toString()) },
+                enabled = draft.text.isNotBlank(),
                 isLoading = busy,
                 modifier = Modifier.testTag("hardcoverTokenSave"),
             )

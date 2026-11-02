@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.invite
 
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Login
@@ -21,18 +24,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.invite.InvitePreview
@@ -53,6 +51,19 @@ import listenup.composeapp.generated.resources.invite_confirm_server_cancel
 import listenup.composeapp.generated.resources.invite_confirm_server_continue
 import listenup.composeapp.generated.resources.invite_confirm_server_signed_out_warning
 import listenup.composeapp.generated.resources.invite_confirm_server_title
+import listenup.composeapp.generated.resources.common_continue
+import listenup.composeapp.generated.resources.invite_get_started
+import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.invite_invited_by
+import listenup.composeapp.generated.resources.auth_last_name
+import listenup.composeapp.generated.resources.invite_join_title
+import listenup.composeapp.generated.resources.invite_no_longer_valid
+import listenup.composeapp.generated.resources.auth_first_name
+import listenup.composeapp.generated.resources.invite_invited_title
+import listenup.composeapp.generated.resources.auth_password_label
+import listenup.composeapp.generated.resources.invite_code_placeholder
+import listenup.composeapp.generated.resources.invite_problem_title
+import listenup.composeapp.generated.resources.common_server
 
 /**
  * Public invite-claim landing screen — the redeem half of the invite vertical.
@@ -151,33 +162,29 @@ private fun CodeEntryStep(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var code by remember { mutableStateOf("") }
+    val code = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
-        title = "Join a library",
+        title = stringResource(Res.string.invite_join_title),
         subtitle = "Enter your invite code to get started.",
         onBack = onCancel,
         modifier = modifier,
     ) {
         ListenUpTextField(
-            value = code,
-            onValueChange = { code = it },
-            label = "Invite code",
+            state = code,
+            label = stringResource(Res.string.invite_code_placeholder),
             leadingIcon = Icons.Outlined.Badge,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        if (code.isNotBlank()) onCodeEntered(code.trim())
-                    },
-                ),
+            onKeyboardAction = {
+                focusManager.clearFocus()
+                if (code.text.isNotBlank()) onCodeEntered(code.text.toString().trim())
+            },
         )
         ListenUpButton(
-            onClick = { onCodeEntered(code.trim()) },
-            text = "Continue",
-            enabled = code.isNotBlank(),
+            onClick = { onCodeEntered(code.text.toString().trim()) },
+            text = stringResource(Res.string.common_continue),
+            enabled = code.text.isNotBlank(),
         )
     }
 }
@@ -252,20 +259,21 @@ internal fun ClaimStep(
         ErrorStep(
             message =
                 preview.invalidReason
-                    ?: "This invite is no longer valid. It may have already been used or expired.",
+                    ?: stringResource(Res.string.invite_no_longer_valid),
             onCancel = onCancel,
             modifier = modifier,
         )
         return
     }
 
-    var password by remember { mutableStateOf("") }
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val password = remember { TextFieldState() }
+    val firstName = rememberTextFieldState()
+    val lastName = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
-        title = "You're invited",
+        title = stringResource(Res.string.invite_invited_title),
         subtitle = "${preview.invitedByName} invited you to ${preview.serverName}. Set a password to finish.",
         badge = AuthBadge(icon = Icons.Outlined.Storage, label = preview.serverName),
         onBack = onCancel,
@@ -274,45 +282,39 @@ internal fun ClaimStep(
         InvitePreviewCard(preview)
 
         ListenUpTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
-            label = "First name",
+            state = firstName,
+            label = stringResource(Res.string.auth_first_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
 
         ListenUpTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
-            label = "Last name",
+            state = lastName,
+            label = stringResource(Res.string.auth_last_name),
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
         )
 
         ListenUpTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = "Password",
+            state = password,
+            label = stringResource(Res.string.auth_password_label),
             supportingText = "At least 8 characters",
             leadingIcon = Icons.Outlined.Lock,
-            visualTransformation = PasswordVisualTransformation(),
+            obfuscation = TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions =
-                KeyboardActions(
-                    onDone = {
-                        focusManager.clearFocus()
-                        onClaim(password, firstName, lastName)
-                    },
-                ),
+            onKeyboardAction = {
+                focusManager.clearFocus()
+                onClaim(password.text.toString(), firstName.text.toString(), lastName.text.toString())
+            },
         )
 
         ListenUpButton(
-            onClick = { onClaim(password, firstName, lastName) },
-            text = "Get started",
+            onClick = { onClaim(password.text.toString(), firstName.text.toString(), lastName.text.toString()) },
+            text = stringResource(Res.string.invite_get_started),
             leadingIcon = Icons.AutoMirrored.Outlined.Login,
-            enabled = firstName.isNotBlank() && lastName.isNotBlank() && password.isNotBlank(),
+            enabled = firstName.text.isNotBlank() && lastName.text.isNotBlank() && password.text.isNotBlank(),
         )
     }
 }
@@ -331,8 +333,16 @@ private fun InvitePreviewCard(
             modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PreviewRow(label = "Server", value = preview.serverName, icon = Icons.Outlined.Storage)
-            PreviewRow(label = "Invited by", value = preview.invitedByName, icon = Icons.Outlined.Person)
+            PreviewRow(
+                label = stringResource(Res.string.common_server),
+                value = preview.serverName,
+                icon = Icons.Outlined.Storage,
+            )
+            PreviewRow(
+                label = stringResource(Res.string.invite_invited_by),
+                value = preview.invitedByName,
+                icon = Icons.Outlined.Person,
+            )
             Text(
                 text = stringResource(Res.string.auth_your_email, preview.email),
                 style = MaterialTheme.typography.bodySmall,
@@ -376,11 +386,11 @@ private fun ErrorStep(
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         AuthScaffold(
-            title = "Invite problem",
+            title = stringResource(Res.string.invite_problem_title),
             subtitle = message,
             onBack = onCancel,
         ) {
-            ListenUpButton(onClick = onCancel, text = "Dismiss")
+            ListenUpButton(onClick = onCancel, text = stringResource(Res.string.common_dismiss))
         }
     }
 }

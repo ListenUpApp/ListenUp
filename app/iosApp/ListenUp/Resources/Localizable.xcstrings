@@ -81,6 +81,16 @@
         }
       }
     },
+    "admin.add_root_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add root genre"
+          }
+        }
+      }
+    },
     "admin.add_subgenre": {
       "localizations": {
         "en": {
@@ -371,6 +381,16 @@
         }
       }
     },
+    "admin.collection_created": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collection created"
+          }
+        }
+      }
+    },
     "admin.collection_details": {
       "localizations": {
         "en": {
@@ -461,12 +481,32 @@
         }
       }
     },
+    "admin.confirm_delete_user": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to delete %1$@? This action cannot be undone."
+          }
+        }
+      }
+    },
     "admin.confirm_deny_registration": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Are you sure you want to deny the registration request from "
+          }
+        }
+      }
+    },
+    "admin.confirm_deny_reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to deny the password reset for %1$@?"
           }
         }
       }
@@ -3477,6 +3517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Upload new import"
+          }
+        }
+      }
+    },
+    "admin.user_details_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User Details"
           }
         }
       }
@@ -6701,6 +6751,16 @@
         }
       }
     },
+    "book.edit_add_role_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$@…"
+          }
+        }
+      }
+    },
     "book.edit_add_series": {
       "localizations": {
         "en": {
@@ -7067,6 +7127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove %1$@ section"
+          }
+        }
+      }
+    },
+    "book.edit_remove_role_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove %1$@s?"
           }
         }
       }
@@ -9121,6 +9191,16 @@
         }
       }
     },
+    "common.alphabet_scrollbar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alphabet scrollbar"
+          }
+        }
+      }
+    },
     "common.approve": {
       "localizations": {
         "en": {
@@ -10777,6 +10857,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Website"
+          }
+        }
+      }
+    },
+    "contributor.edit_website_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://…"
           }
         }
       }
@@ -16191,12 +16281,62 @@
         }
       }
     },
+    "invite.invited_by": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited by"
+          }
+        }
+      }
+    },
+    "invite.invited_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're invited"
+          }
+        }
+      }
+    },
+    "invite.join_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join a library"
+          }
+        }
+      }
+    },
+    "invite.no_longer_valid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This invite is no longer valid. It may have already been used or expired."
+          }
+        }
+      }
+    },
     "invite.preview_title": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ invited you"
+          }
+        }
+      }
+    },
+    "invite.problem_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite problem"
           }
         }
       }
@@ -23131,6 +23271,16 @@
         }
       }
     },
+    "profile.stat_streak": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Streak"
+          }
+        }
+      }
+    },
     "profile.tagline": {
       "localizations": {
         "en": {
@@ -24901,6 +25051,16 @@
         }
       }
     },
+    "settings.dynamic_colors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic colors"
+          }
+        }
+      }
+    },
     "settings.haptic_feedback": {
       "localizations": {
         "en": {
@@ -25541,6 +25701,36 @@
         }
       }
     },
+    "shelf.stat_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        }
+      }
+    },
+    "shelf.stat_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "shelf.stat_total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        }
+      }
+    },
     "shelf.this_will_permanently_delete_this": {
       "localizations": {
         "en": {
@@ -25737,6 +25927,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Signed out"
+          }
+        }
+      }
+    },
+    "shell.shortcut_play_pause": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play or pause"
+          }
+        }
+      }
+    },
+    "shell.shortcut_search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "shell.shortcut_skip_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip back"
+          }
+        }
+      }
+    },
+    "shell.shortcut_skip_forward": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip forward"
           }
         }
       }
