@@ -7,11 +7,14 @@ import java.io.File
 
 private const val BASELINE_PATH = "app/sharedLogic/src/jvmTest/resources/code-citation-baseline.txt"
 
-/** A comment line that points at a plan or spec code: `spec §3.2`, `Decision 11`, `Task 14`, `PT8`, `H24`, `PR 3/6`. */
+/**
+ * A comment line that points at a plan or spec code: `spec §3.2`, `Decision 11`, `Task 14`, `PT8`, `H24`, `PR 3/6`.
+ * `H1`..`H6` are HTML heading levels, not codes.
+ */
 private val CITATION_LINE =
     Regex(
         """(//|\*).*(spec §|§ ?\d|\bDecision \d+\b|\bTask \d+\b|\bPT\d+\b|\bPR \d+/\d+\b|\bgap \d+\b""" +
-            """|\bopen question \d+\b|\b[HCLDQ]\d{1,2}\b|\bP-R\d+\b)""",
+            """|\bopen question \d+\b|\b(?!H[1-6]\b)[HCLDQ]\d{1,2}\b|\bP-R\d+\b)""",
     )
 
 /** A `§` that belongs to a public standard a reader can open: `RFC 1951 §3.2.7`, `ISO/IEC 14496-1 §7.2`. */

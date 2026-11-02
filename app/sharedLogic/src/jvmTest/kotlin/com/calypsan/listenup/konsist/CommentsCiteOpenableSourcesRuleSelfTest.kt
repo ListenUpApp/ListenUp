@@ -13,6 +13,10 @@ class CommentsCiteOpenableSourcesRuleSelfTest :
             citationLineCount("// Stored blocks, RFC 1951 §3.2.7.") shouldBe 0
         }
 
+        test("an HTML heading level is not a code") {
+            citationLineCount("// the page title is an H1; sections are H2") shouldBe 0
+        }
+
         test("a plain comment does not count") {
             citationLineCount("// Retries 3 times") shouldBe 0
         }
