@@ -541,6 +541,7 @@ private fun PagePickerDialogs(
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
         onKeepListening = actions.onCancelSleepTimer,
+        defaultMinutes = settings.defaultSleepMinutes,
         placement = pickers.sleep ?: PanelPlacement.Sheet,
         onDismiss = { pickers.sleep = null },
     )

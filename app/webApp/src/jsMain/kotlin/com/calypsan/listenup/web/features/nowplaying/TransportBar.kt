@@ -124,6 +124,7 @@ fun TransportBar(
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
         onKeepListening = onCancelSleepTimer,
+        defaultMinutes = settings.defaultSleepMinutes,
         placement = panels.sleep ?: PanelPlacement.Sheet,
         onDismiss = { panels.sleep = null },
     )

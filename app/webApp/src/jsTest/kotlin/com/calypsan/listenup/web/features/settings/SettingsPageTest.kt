@@ -40,6 +40,12 @@ private const val SKIP_BACK_SELECT = 3
 
 private const val SKIP_FORWARD_SELECT = 4
 
+private const val SLEEP_SELECT = 5
+
+private const val CHOSEN_SLEEP_MIN = 45
+
+private const val OFF_LADDER_SLEEP_MIN = 20
+
 @Composable
 private fun page(
     state: SettingsUiState = SettingsUiState(isLoading = false),
@@ -48,6 +54,7 @@ private fun page(
     onDefaultBoost: (Float) -> Unit = {},
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
+    onDefaultSleep: (Int?) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     onOpenDevices: () -> Unit = {},
@@ -65,6 +72,7 @@ private fun page(
         onDefaultBoost = onDefaultBoost,
         onSkipForward = onSkipForward,
         onSkipBackward = onSkipBackward,
+        onDefaultSleep = onDefaultSleep,
         onAutoRewind = onAutoRewind,
         onHideSingleBookSeries = onHideSingleBookSeries,
         onOpenDevices = onOpenDevices,
@@ -132,7 +140,6 @@ class SettingsPageTest :
             text shouldNotContain "Dynamic"
             text shouldNotContain "Wi-Fi"
             text shouldNotContain "Haptic"
-            text shouldNotContain "Sleep"
         }
 
         test("Ignore articles lives in the Library's sort menu now, not in Settings") {
@@ -189,6 +196,33 @@ class SettingsPageTest :
             select(host, index = BOOST_SELECT, value = boostKey(CHOSEN_BOOST_DB))
 
             boost shouldBe CHOSEN_BOOST_DB
+        }
+
+        test("the default sleep timer reports minutes, and Off reports none") {
+            val chosen = mutableListOf<Int?>()
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSleepTimerMin = CHOSEN_SLEEP_MIN), onDefaultSleep = {
+                        chosen +=
+                            it
+                    })
+                }
+
+            host.textContent.orEmpty() shouldContain "Default sleep timer"
+            select(host, index = SLEEP_SELECT, value = "30")
+            select(host, index = SLEEP_SELECT, value = "")
+
+            chosen shouldBe listOf(30, null)
+        }
+
+        test("a default sleep timer set on another device is a chosen row, not a blank select") {
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSleepTimerMin = OFF_LADDER_SLEEP_MIN))
+                }
+
+            val sleep = host.querySelectorAll("select").item(SLEEP_SELECT) as HTMLSelectElement
+            sleep.value shouldBe OFF_LADDER_SLEEP_MIN.toString()
         }
 
         test("skip intervals report seconds, not labels") {

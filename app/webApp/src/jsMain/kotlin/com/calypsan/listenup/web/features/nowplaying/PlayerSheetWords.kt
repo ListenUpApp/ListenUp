@@ -23,6 +23,7 @@ internal object PlayerSheetWords {
     const val DURATIONS = "Durations"
     const val CUSTOM_MINUTES = "Custom (minutes)"
     const val START = "Start"
+    const val YOUR_DEFAULT = "Your default"
     const val FADES_OUT = "Audio fades out over a few seconds before it pauses."
     const val ADD_TIME = "Add time"
     const val CANCEL_TIMER = "Cancel timer"

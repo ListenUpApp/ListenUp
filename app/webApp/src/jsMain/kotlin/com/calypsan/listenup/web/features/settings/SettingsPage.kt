@@ -5,6 +5,8 @@ import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.playback.PlaybackPresets
+import com.calypsan.listenup.client.playback.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -23,14 +25,14 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * Settings — the preferences a browser can actually keep.
  *
- * Seven controls, not twelve. Ignore “A”, “An”, “The” lives in the Library's own Sort menu, beside
+ * Eight controls, not twelve. Ignore “A”, “An”, “The” lives in the Library's own Sort menu, beside
  * the sort it changes (spec L5/L6), rather than here. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
- * need machinery web does not have, haptics need hardware, and the sleep-timer default is a stored
- * preference that no client reads yet — web has the sleep timer itself (see
- * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]), but nothing anywhere starts
- * one from this number, so a control here would change nothing. Each is omitted rather than shown
+ * need machinery web does not have, and haptics need hardware. Each is omitted rather than shown
  * disabled: a control that cannot keep its promise is the same lie as a screen that reports success
  * it did not have, and this app has spent a lot of effort not telling that one.
+ *
+ * The default sleep timer is offered because the sleep sheet starts from it (see
+ * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]).
  *
  * Volume boost is no longer among them: `WebGainStage` amplifies through a Web Audio gain node, so
  * the number set here reaches this browser's own speakers rather than only the listener's phone.
@@ -47,6 +49,7 @@ fun SettingsPage(
     onDefaultBoost: (Float) -> Unit,
     onSkipForward: (Int) -> Unit,
     onSkipBackward: (Int) -> Unit,
+    onDefaultSleep: (Int?) -> Unit,
     onAutoRewind: (Boolean) -> Unit,
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
@@ -102,6 +105,14 @@ fun SettingsPage(
                 value = state.defaultSkipForwardSec.toString(),
                 options = skipOptions(PlaybackPresets.skipForwardChoicesIncluding(state.defaultSkipForwardSec)),
                 onSelect = { raw -> raw?.toIntOrNull()?.let(onSkipForward) },
+            )
+            // Off is the empty choice; the rest is the shared ladder, plus a value set on another device.
+            SelectField(
+                label = "Default sleep timer",
+                value = state.defaultSleepTimerMin?.toString(),
+                options = sleepOptions(state.defaultSleepTimerMin),
+                emptyLabel = "Off",
+                onSelect = { raw -> onDefaultSleep(raw?.toIntOrNull()) },
             )
             CheckboxField(
                 label = "Rewind a little when you come back to a book",
@@ -253,6 +264,12 @@ internal fun themeModeOf(raw: String): ThemeMode = ThemeMode.entries.firstOrNull
 private fun speedOptions(current: Float): List<SelectOption> =
     PlaybackPresets.speedChoicesIncluding(current).map { speed ->
         SelectOption(speedKey(speed), PlaybackPresets.speedLabel(speed))
+    }
+
+/** The shared sleep-timer ladder, plus a value set on another device, so the select always has a chosen row. */
+private fun sleepOptions(current: Int?): List<SelectOption> =
+    SleepTimerChoices.defaultChoicesIncluding(current).filterNotNull().map { minutes ->
+        SelectOption(minutes.toString(), SleepTimerMode.Duration(minutes).label)
     }
 
 /** One direction's shared choices, plus a length set on another device, so the select always has a chosen row. */

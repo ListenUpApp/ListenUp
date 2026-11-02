@@ -57,6 +57,7 @@ private fun SettingsRoute(
         onDefaultBoost = session.onDefaultBoost,
         onSkipForward = session.onSkipForward,
         onSkipBackward = session.onSkipBackward,
+        onDefaultSleep = session.onDefaultSleep,
         onAutoRewind = session.onAutoRewind,
         onHideSingleBookSeries = session.onHideSingleBookSeries,
         onOpenDevices = { router.navigate(Routes.settingsDevices) },

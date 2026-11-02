@@ -52,6 +52,8 @@ internal fun SleepTimerPicker(
     meterFraction: Float,
     /** Now, by the browser's clock, for "Pauses at". */
     nowMs: Long,
+    /** The user's default sleep timer in minutes (null is Off): the custom field opens at it and its option is marked. */
+    defaultMinutes: Int?,
     placement: PanelPlacement,
     onSet: (SleepTimerMode) -> Unit,
     onCancel: () -> Unit,
@@ -68,7 +70,12 @@ internal fun SleepTimerPicker(
     ) {
         when (state) {
             is SleepTimerState.Inactive -> {
-                IdleOptions(chapter = chapter, chapterRemainingMs = chapterRemainingMs, onSet = onSet)
+                IdleOptions(
+                    chapter = chapter,
+                    chapterRemainingMs = chapterRemainingMs,
+                    defaultMinutes = defaultMinutes,
+                    onSet = onSet,
+                )
             }
 
             is SleepTimerState.Active -> {
@@ -99,6 +106,7 @@ internal fun SleepTimerPicker(
 private fun IdleOptions(
     chapter: PlayerChapter,
     chapterRemainingMs: Long,
+    defaultMinutes: Int?,
     onSet: (SleepTimerMode) -> Unit,
 ) {
     // Only when the book has marks. End-of-chapter waits to be told a chapter turned over, and a whole-book
@@ -129,11 +137,17 @@ private fun IdleOptions(
                 onClick { onSet(mode) }
             }) {
                 Text(mode.label)
+                if (minutes == defaultMinutes) {
+                    Span(attrs = { classes("sleep-opt-default") }) { Text(PlayerSheetWords.YOUR_DEFAULT) }
+                }
             }
         }
     }
 
-    CustomMinutes(onStart = { minutes -> onSet(SleepTimerMode.Duration(minutes)) })
+    CustomMinutes(
+        defaultMinutes = defaultMinutes,
+        onStart = { minutes -> onSet(SleepTimerMode.Duration(minutes)) },
+    )
 
     P(attrs = { classes("panel-note") }) { Text(PlayerSheetWords.FADES_OUT) }
 }
@@ -143,8 +157,13 @@ private fun IdleOptions(
  * Start is disabled while the field holds nothing it can read.
  */
 @Composable
-private fun CustomMinutes(onStart: (Int) -> Unit) {
-    var raw by remember { mutableStateOf(DEFAULT_CUSTOM) }
+private fun CustomMinutes(
+    defaultMinutes: Int?,
+    onStart: (Int) -> Unit,
+) {
+    var raw by remember(defaultMinutes) {
+        mutableStateOf(SleepTimerChoices.startingCustomMinutes(defaultMinutes).toString())
+    }
     val minutes = SleepTimerChoices.parseCustom(raw)
     Div(attrs = { classes("sleep-custom") }) {
         Label(forId = CUSTOM_FIELD_ID, attrs = { classes("sleep-custom-l") }) {
@@ -259,9 +278,6 @@ private fun chapterName(chapter: PlayerChapter): String = NowPlayingWords.chapte
 private const val VALUE_BUTTON = "button"
 
 private const val CUSTOM_FIELD_ID = "sleep-custom-minutes"
-
-/** Where the custom field starts: the shared stepper's default (the boards). */
-private val DEFAULT_CUSTOM = SleepTimerChoices.CUSTOM_DEFAULT_MINUTES.toString()
 
 /**
  * The custom field's ceiling: the shared bound, 720 minutes, which overrules the
