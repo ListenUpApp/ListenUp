@@ -12,6 +12,9 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownPadding
 
+/** The space the renderer puts before every block, the first included: what a height clamp has to allow for. */
+internal val MarkdownBlockSpacing = 8.dp
+
 /**
  * Renders Markdown text with Material 3 theming, as prose: each paragraph aligned to its own start ([forProse]).
  *
@@ -54,7 +57,7 @@ fun MarkdownText(
             ),
         padding =
             markdownPadding(
-                block = 8.dp,
+                block = MarkdownBlockSpacing,
             ),
     )
 }

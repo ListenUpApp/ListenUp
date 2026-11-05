@@ -89,7 +89,7 @@ struct BookReadingState: Equatable {
     /// The sections the page shows, in the visit's stage order: the shared `shownSections`, held-book rule included.
     var shownSections: [BookDetailSectionKind] = []
     /// Description lines on a phone before "Read more" (the shared `aboutLineLimit`).
-    var aboutLineLimit = 2
+    var aboutLineLimit = 4
     var primaryAction: BookPrimaryActionKind = .play
     var currentChapter: BookCurrentChapter?
     var chapterPreview: [BookChapterRow] = []

@@ -25,9 +25,9 @@ class BookDetailShownSectionsTest :
                 listOf(BookDetailSection.Chapters, BookDetailSection.About, BookDetailSection.Details)
         }
 
-        test("the About clamp on a phone is four lines while deciding, two otherwise") {
+        test("the About clamp on a phone is four lines at every reading stage") {
             ready.copy(readingStage = ReadingStage.NotStarted).aboutLineLimit shouldBe 4
-            ready.copy(readingStage = ReadingStage.InProgress).aboutLineLimit shouldBe 2
-            ready.copy(readingStage = ReadingStage.Finished).aboutLineLimit shouldBe 2
+            ready.copy(readingStage = ReadingStage.InProgress).aboutLineLimit shouldBe 4
+            ready.copy(readingStage = ReadingStage.Finished).aboutLineLimit shouldBe 4
         }
     })

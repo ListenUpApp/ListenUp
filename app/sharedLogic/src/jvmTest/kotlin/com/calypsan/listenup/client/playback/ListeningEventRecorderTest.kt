@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -522,6 +523,7 @@ internal suspend fun withFixture(
     nowMillisProvider: () -> Long,
     failEnqueue: Boolean = false,
     processId: String = "process-fixture-default",
+    wrapTentativeSpanDao: (TentativeSpanDao) -> TentativeSpanDao = { it },
     block: suspend (
         ListeningEventRecorder,
         com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
@@ -544,7 +546,7 @@ internal suspend fun withFixture(
         val recorder =
             ListeningEventRecorder(
                 listeningEventDao = db.listeningEventDao(),
-                tentativeSpanDao = db.tentativeSpanDao(),
+                tentativeSpanDao = wrapTentativeSpanDao(db.tentativeSpanDao()),
                 transactionRunner = RoomTransactionRunner(db),
                 enqueue = { entityId, payload, ownerUserId ->
                     if (failEnqueue) error("Simulated outbox enqueue failure")

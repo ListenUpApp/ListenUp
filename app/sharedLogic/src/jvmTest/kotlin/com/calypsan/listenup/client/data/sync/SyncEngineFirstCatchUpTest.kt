@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -10,7 +11,6 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -39,8 +39,7 @@ class SyncEngineFirstCatchUpTest :
                     started.join()
                     state.value.isFirstCatchUp shouldBe false
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -63,8 +62,7 @@ class SyncEngineFirstCatchUpTest :
                     gate.complete(Unit)
                     started.join()
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -81,8 +79,7 @@ class SyncEngineFirstCatchUpTest :
                     engine.start(currentUserId = "user-a")
                     state.value.isFirstCatchUp shouldBe false
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -98,8 +95,7 @@ class SyncEngineFirstCatchUpTest :
                     engine.start(currentUserId = "user-a")
                     state.value.isFirstCatchUp shouldBe false
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

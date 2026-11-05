@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -15,7 +16,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -96,8 +96,7 @@ class CatchUpSingleFlightTest :
                         lifecycle.join()
                     }
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -162,8 +161,7 @@ class CatchUpSingleFlightTest :
                         access.join()
                     }
                 } finally {
-                    scope.cancel()
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

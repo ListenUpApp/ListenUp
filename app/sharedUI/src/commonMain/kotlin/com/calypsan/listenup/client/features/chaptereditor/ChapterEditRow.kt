@@ -49,6 +49,8 @@ import listenup.composeapp.generated.resources.chapter_editor_nudge_forward
 import listenup.composeapp.generated.resources.chapter_editor_play_from_here
 import listenup.composeapp.generated.resources.chapter_editor_rename_title
 import listenup.composeapp.generated.resources.chapter_editor_snap_to_playhead
+import listenup.composeapp.generated.resources.chapter_editor_start_book
+import listenup.composeapp.generated.resources.chapter_editor_start_part
 import listenup.composeapp.generated.resources.chapter_editor_unlock
 import org.jetbrains.compose.resources.stringResource
 
@@ -244,6 +246,8 @@ data class ChapterRowEdits(
  * @property onPlayFromHere start playback at this chapter; null while another book (or nothing) is
  *   loaded, because playing from here then would replace what the listener has going, unasked.
  * @property onDelete remove the boundary (the caller confirms first).
+ * @property onStartPart start a Part at this chapter (the caller asks for its name).
+ * @property onStartBook start a Book at this chapter (the caller asks for its name).
  */
 @Immutable
 data class ChapterRowMenuActions(
@@ -251,6 +255,8 @@ data class ChapterRowMenuActions(
     val onInsertBelow: (String) -> Unit,
     val onPlayFromHere: ((String) -> Unit)?,
     val onDelete: (String) -> Unit,
+    val onStartPart: (String) -> Unit = {},
+    val onStartBook: (String) -> Unit = {},
 )
 
 /**
@@ -282,6 +288,22 @@ private fun ChapterOverflowMenu(
                 leadingIcon = { Icon(ListenUpIcons.Edit, contentDescription = null) },
                 onClick = { choose { menu.onRename(chapter.id) } },
             )
+            // Absent once the chapter opens that tier: a second marker has nowhere to go, and the
+            // header row above it is how the one it has is edited.
+            if (chapter.partTitle == null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.chapter_editor_start_part)) },
+                    leadingIcon = { Icon(ListenUpIcons.Label, contentDescription = null) },
+                    onClick = { choose { menu.onStartPart(chapter.id) } },
+                )
+            }
+            if (chapter.bookTitle == null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.chapter_editor_start_book)) },
+                    leadingIcon = { Icon(ListenUpIcons.MenuBook, contentDescription = null) },
+                    onClick = { choose { menu.onStartBook(chapter.id) } },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.chapter_editor_insert_below)) },
                 leadingIcon = { Icon(ListenUpIcons.PlaylistAdd, contentDescription = null) },

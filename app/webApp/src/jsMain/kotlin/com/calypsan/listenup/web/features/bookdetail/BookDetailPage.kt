@@ -691,7 +691,7 @@ private fun BookSection(
 }
 
 /**
- * The synopsis and its facets. On a phone it clamps — four lines while deciding, two otherwise —
+ * The synopsis and its facets. On a phone it clamps to four lines,
  * with "Read more" only when the clamp actually hides something; a desktop shows it whole.
  */
 @Composable

@@ -28,6 +28,7 @@ fun fixedChapterEditor(
     onUndo: () -> Unit = {},
     onResetToSource: () -> Unit = {},
     onSave: () -> Unit = {},
+    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
 ): OpenChapterEditor =
     {
         ChapterEditorSession(
@@ -50,6 +51,7 @@ fun fixedChapterEditor(
             onUndo = onUndo,
             onResetToSource = onResetToSource,
             onSave = onSave,
+            markers = markers,
             close = {},
         )
     }

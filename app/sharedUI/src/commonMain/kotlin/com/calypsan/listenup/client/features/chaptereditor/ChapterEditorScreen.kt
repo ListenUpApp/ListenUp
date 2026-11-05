@@ -38,11 +38,14 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorViewModel
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.core.BookId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_done
 import listenup.composeapp.generated.resources.chapter_editor_drift_title
+import listenup.composeapp.generated.resources.chapter_editor_marker_book_word
+import listenup.composeapp.generated.resources.chapter_editor_marker_part_word
 import listenup.composeapp.generated.resources.chapter_editor_new_chapter_title
 import listenup.composeapp.generated.resources.chapter_editor_saving
 import listenup.composeapp.generated.resources.chapter_editor_subtitle
@@ -194,6 +197,9 @@ fun ChapterEditorScreen(
             viewModel = viewModel,
             rowMenu = rowMenu,
             onEditTime = { rowAction = RowAction.EditingTime(it) },
+            onEditMarker = { id, tier ->
+                rowAction = RowAction.EditingMarker(ChapterMarkerEdit(id, tier, isNew = false))
+            },
         )
     }
 
@@ -204,6 +210,60 @@ fun ChapterEditorScreen(
         onRename = viewModel::retitle,
         onRetime = viewModel::retime,
         onDelete = viewModel::remove,
+        markerSheet = { edit ->
+            editing?.let { current ->
+                ChapterMarkerEditor(
+                    edit = edit,
+                    editing = current,
+                    viewModel = viewModel,
+                    onDone = { rowAction = null },
+                )
+            }
+        },
+    )
+}
+
+/**
+ * The marker sheet, bound to the ViewModel. A new marker is only written on Save, so dismissing it
+ * leaves the book exactly as it was rather than leaving a default-named marker behind.
+ */
+@Composable
+private fun ChapterMarkerEditor(
+    edit: ChapterMarkerEdit,
+    editing: ChapterEditorUiState.Editing,
+    viewModel: ChapterEditorViewModel,
+    onDone: () -> Unit,
+) {
+    val tierWord =
+        stringResource(
+            when (edit.tier) {
+                ChapterMarkerTier.Part -> Res.string.chapter_editor_marker_part_word
+                ChapterMarkerTier.Book -> Res.string.chapter_editor_marker_book_word
+            },
+        )
+    val existing = editing.chapters.firstOrNull { it.id == edit.chapterId }?.let(edit.tier::titleOn)
+    ChapterMarkerSheet(
+        edit = edit,
+        initialName = existing ?: editing.defaultMarkerTitle(edit.chapterId, edit.tier, tierWord),
+        chapters = editing.chapters,
+        onSave = { title, startsAt ->
+            if (edit.isNew) {
+                viewModel.startMarker(edit.chapterId, edit.tier, title)
+            } else {
+                viewModel.saveMarker(
+                    chapterId = edit.chapterId,
+                    tier = edit.tier,
+                    title = title,
+                    toChapterId = startsAt,
+                )
+            }
+            onDone()
+        },
+        onRemove = {
+            viewModel.removeMarker(edit.chapterId, edit.tier)
+            onDone()
+        },
+        onDismiss = onDone,
     )
 }
 
@@ -224,6 +284,12 @@ private fun rememberRowMenu(
             onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
             onPlayFromHere = viewModel::playFrom.takeIf { canPlayFromHere },
             onDelete = { onAction(RowAction.Deleting(it)) },
+            onStartPart = { id ->
+                onAction(RowAction.EditingMarker(ChapterMarkerEdit(id, ChapterMarkerTier.Part, isNew = true)))
+            },
+            onStartBook = { id ->
+                onAction(RowAction.EditingMarker(ChapterMarkerEdit(id, ChapterMarkerTier.Book, isNew = true)))
+            },
         )
     }
 
@@ -245,6 +311,13 @@ private sealed interface RowAction {
     data class EditingTime(
         override val chapterId: String,
     ) : RowAction
+
+    /** Naming a new marker, or editing one. */
+    data class EditingMarker(
+        val edit: ChapterMarkerEdit,
+    ) : RowAction {
+        override val chapterId: String get() = edit.chapterId
+    }
 }
 
 /**
@@ -261,9 +334,14 @@ private fun RowActionDialogs(
     onRename: (String, String) -> Unit,
     onRetime: (String, Long) -> Unit,
     onDelete: (String) -> Unit,
+    markerSheet: @Composable (ChapterMarkerEdit) -> Unit,
 ) {
     when (action) {
         null -> {}
+
+        is RowAction.EditingMarker -> {
+            markerSheet(action.edit)
+        }
 
         is RowAction.EditingTime -> {
             ChapterTimeDialog(
@@ -318,6 +396,7 @@ private fun ChapterEditorBody(
     viewModel: ChapterEditorViewModel,
     rowMenu: ChapterRowMenuActions,
     onEditTime: (String) -> Unit,
+    onEditMarker: (String, ChapterMarkerTier) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     when (state) {
@@ -391,6 +470,13 @@ private fun ChapterEditorBody(
                         // Clamped between neighbours by the ViewModel, so a drag can never push a
                         // boundary past the one beside it however far the finger travels.
                         onRetime = viewModel::retime,
+                        partSuggestion = state.partSuggestion,
+                        markers =
+                            ChapterMarkerActions(
+                                onEdit = onEditMarker,
+                                onAcceptSuggestion = viewModel::acceptPartSuggestion,
+                                onDismissSuggestion = viewModel::dismissPartSuggestion,
+                            ),
                     )
                 }
             }

@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.test.db.closeAfterCancelling
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -21,9 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -119,10 +118,7 @@ class PendingQueueDrainSchedulingTest :
                     // the DB. Closing the DB while a runDrain is mid-transaction
                     // crashes the native SQLite driver (SIGSEGV inside
                     // sqlite3Close).
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -169,10 +165,7 @@ class PendingQueueDrainSchedulingTest :
                     // the DB. Closing the DB while a runDrain is mid-transaction
                     // crashes the native SQLite driver (SIGSEGV inside
                     // sqlite3Close).
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -227,10 +220,7 @@ class PendingQueueDrainSchedulingTest :
                     // the DB. Closing the DB while a runDrain is mid-transaction
                     // crashes the native SQLite driver (SIGSEGV inside
                     // sqlite3Close).
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -289,10 +279,7 @@ class PendingQueueDrainSchedulingTest :
                     // the DB. Closing the DB while a runDrain is mid-transaction
                     // crashes the native SQLite driver (SIGSEGV inside
                     // sqlite3Close).
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -363,11 +350,8 @@ class PendingQueueDrainSchedulingTest :
                     }
                     db.pendingOperationV2Dao().get(opId) shouldBe null
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
+                    db.closeAfterCancelling(scope)
                     engineThread.close()
-                    db.close()
                 }
             }
         }
@@ -407,10 +391,7 @@ class PendingQueueDrainSchedulingTest :
                     }
                     db.pendingOperationV2Dao().get(opId) shouldBe null
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -447,10 +428,7 @@ class PendingQueueDrainSchedulingTest :
                     // The op is still queued, its retry budget untouched, ready for the next online edge.
                     db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }
@@ -485,10 +463,7 @@ class PendingQueueDrainSchedulingTest :
                     db.pendingOperationV2Dao().get(b) shouldBe null
                     db.pendingOperationV2Dao().get(c) shouldBe null
                 } finally {
-                    scope.cancel()
-                    scope.coroutineContext.job.children
-                        .forEach { it.join() }
-                    db.close()
+                    db.closeAfterCancelling(scope)
                 }
             }
         }

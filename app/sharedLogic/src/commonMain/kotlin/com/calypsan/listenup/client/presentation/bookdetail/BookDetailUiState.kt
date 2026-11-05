@@ -153,11 +153,11 @@ sealed interface BookDetailUiState {
                 }
 
         /**
-         * How many description lines a phone shows before "Read more": four while deciding, two otherwise.
+         * How many description lines a phone shows before "Read more": four, whatever the reading stage.
          * Wide layouts show the synopsis whole; that is their layout's decision.
          */
         val aboutLineLimit: Int
-            get() = if (readingStage == ReadingStage.NotStarted) ABOUT_LINES_NOT_STARTED else ABOUT_LINES
+            get() = ABOUT_LINES
     }
 
     /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
@@ -222,8 +222,5 @@ sealed interface BookDetailNavAction {
     data object BookDeleted : BookDetailNavAction
 }
 
-/** Description lines on a phone before "Read more", while the reader is still deciding. */
-private const val ABOUT_LINES_NOT_STARTED = 4
-
-/** Description lines on a phone before "Read more", once the reader has started. */
-private const val ABOUT_LINES = 2
+/** Description lines on a phone before "Read more". */
+private const val ABOUT_LINES = 4

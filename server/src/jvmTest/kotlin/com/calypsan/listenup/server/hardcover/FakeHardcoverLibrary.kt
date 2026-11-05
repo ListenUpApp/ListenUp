@@ -47,6 +47,9 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
     override suspend fun await() = Unit
 }
 
+/** Hardcover's `reading_formats` id for audiobooks. */
+private const val AUDIOBOOK_FORMAT = 2
+
 /**
  * A small in-memory Hardcover: one user's shelf (`user_books` with their reads) and a catalog of
  * editions, answering exactly the GraphQL ListenUp sends. [failNext] queues answers served INSTEAD
@@ -63,8 +66,13 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * default), `update_user_book` to Read finishes every unfinished read itself, on [FAKE_TODAY], filling
  * its position — and leaves a read already finished alone: the real Hardcover did exactly that (seen live,
  * 2026-10-01, ListenUp #1540's history backfill). With [opensReadOnStatusChange], `update_user_book`
- * first opens a read dated [FAKE_TODAY] when the entry has no open read. That is unverified on the real
- * Hardcover, so push is tested against both.
+ * first opens a read dated [FAKE_TODAY] at the shelf's edition when the entry has no open read. The real
+ * Hardcover did that moving a Read entry to Reading (seen live, 2026-11-03: reads 7515956 and 7515957);
+ * whether it always does is unverified, so push is tested against both.
+ *
+ * Like the real Hardcover (seen live, 2026-11-04, on a Kindle edition), a read on a catalog [Edition] that
+ * isn't an audiobook and has no `audio_seconds` keeps no `progress_seconds`: the write is accepted and the
+ * value dropped. An audiobook edition with no length is unverified, so it keeps them.
  *
  * Every shelf carries an `updated_at` ([Shelf.updatedAt]), stamped from a counter so it only ever
  * grows, and the changed-since query the pull sends pages by `(updated_at, id)`. Stamps are written
@@ -102,6 +110,7 @@ class FakeHardcoverLibrary(
         var finishedAt: String?,
         var progressSeconds: Long?,
         var editionId: Long? = null,
+        var progressPages: Long? = null,
     )
 
     /** One `user_books` row. */
@@ -130,6 +139,8 @@ class FakeHardcoverLibrary(
         val ratingsCount: Int = 0,
         val releaseYear: Int? = null,
         val usersReadCount: Int = 0,
+        val audioSeconds: Long? = null,
+        val pages: Int? = null,
     )
 
     private val lock = Any()
@@ -197,7 +208,7 @@ class FakeHardcoverLibrary(
             reads =
                 reads.mapTo(
                     mutableListOf(),
-                ) { Read(it.id, it.startedAt, it.finishedAt, it.progressSeconds, it.editionId) },
+                ) { Read(it.id, it.startedAt, it.finishedAt, it.progressSeconds, it.editionId, it.progressPages) },
             updatedAt = updatedAt,
         )
 
@@ -496,6 +507,7 @@ class FakeHardcoverLibrary(
                 if ("finished_at" in input) read.finishedAt = input.stringOrNull("finished_at")
                 if ("progress_seconds" in input) read.progressSeconds = input.longOrNull("progress_seconds")
                 if ("edition_id" in input) read.editionId = input.longOrNull("edition_id")
+                if ("progress_pages" in input) read.progressPages = input.longOrNull("progress_pages")
             }
 
             ReadUpdates.REPLACE -> {
@@ -503,7 +515,12 @@ class FakeHardcoverLibrary(
                 read.finishedAt = input.stringOrNull("finished_at")
                 read.progressSeconds = input.longOrNull("progress_seconds")
                 read.editionId = input.longOrNull("edition_id")
+                read.progressPages = input.longOrNull("progress_pages")
             }
+        }
+        val edition = editions.firstOrNull { it.id == read.editionId }
+        if (edition != null && edition.readingFormatId != AUDIOBOOK_FORMAT && edition.audioSeconds == null) {
+            read.progressSeconds = null
         }
     }
 
@@ -527,7 +544,15 @@ class FakeHardcoverLibrary(
                                                 put("started_at", read.startedAt)
                                                 put("finished_at", read.finishedAt)
                                                 put("progress_seconds", read.progressSeconds)
+                                                put("progress_pages", read.progressPages)
                                                 put("edition_id", read.editionId)
+                                                editions.firstOrNull { it.id == read.editionId }?.let { edition ->
+                                                    putJsonObject("edition") {
+                                                        put("id", edition.id)
+                                                        put("audio_seconds", edition.audioSeconds)
+                                                        put("pages", edition.pages)
+                                                    }
+                                                }
                                             }
                                         }
                                     }

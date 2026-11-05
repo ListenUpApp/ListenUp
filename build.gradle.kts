@@ -61,11 +61,18 @@ plugins {
 // lane; mocha calls only createPatch and diffWordsWithSpace, which diff 8.x still exports.
 //
 // Remove when the Kotlin Gradle plugin moves its mocha to a release that declares diff >= 8.0.3.
+//
+// karma's http-proxy resolves follow-redirects ^1.0.0 to 1.16.1, which carries
+// GHSA-mrwp-f3q8-3g9p (1.16.0–1.16.1: custom credential headers survive a cross-realm redirect). 1.16.2
+// is the patch release; same build-only lane.
+//
+// Remove when the lockfile resolves follow-redirects >= 1.16.2 on its own.
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
         resolution("serialize-javascript", "7.1.4")
         resolution("ws", "8.22.0")
         resolution("diff", "8.0.4")
+        resolution("follow-redirects", "1.16.2")
         // The default drops kotlin-js-store/ at the repo root, which the five-directory root
         // layout has no slot for. It is build machinery (KGP's yarn lockfile, which still pins
         // karma, mocha and webpack because the `js { browser() }` targets declare them), so it

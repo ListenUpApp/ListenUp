@@ -9329,6 +9329,16 @@
         }
       }
     },
+    "chapter_editor.delete_chapter_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Chapter"
+          }
+        }
+      }
+    },
     "chapter_editor.delete_title": {
       "extractionState": "manual",
       "localizations": {
@@ -9670,6 +9680,16 @@
         }
       }
     },
+    "chapter_editor.insert_below_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert Below"
+          }
+        }
+      }
+    },
     "chapter_editor.jump_to_title": {
       "extractionState": "manual",
       "localizations": {
@@ -9699,6 +9719,216 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lock chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_book_word": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit book"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit_book_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Book"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit_named": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit %1$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit_part": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit part"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_edit_part_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Part"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_move": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_move_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_move_title_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a Chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_new_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New book"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_new_book_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Book"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_new_part": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New part"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_new_part_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Part"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_part_word": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove marker"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_remove_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Marker"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_starts_at": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts at"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_starts_at_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts At"
+          }
+        }
+      }
+    },
+    "chapter_editor.marker_starts_at_value": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter %1$d, %2$@ · %3$@"
           }
         }
       }
@@ -9868,6 +10098,16 @@
         }
       }
     },
+    "chapter_editor.rename_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename"
+          }
+        }
+      }
+    },
     "chapter_editor.rename_label": {
       "extractionState": "manual",
       "localizations": {
@@ -9934,6 +10174,46 @@
         }
       }
     },
+    "chapter_editor.start_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a book here"
+          }
+        }
+      }
+    },
+    "chapter_editor.start_book_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a Book Here"
+          }
+        }
+      }
+    },
+    "chapter_editor.start_part": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a part here"
+          }
+        }
+      }
+    },
+    "chapter_editor.start_part_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a Part Here"
+          }
+        }
+      }
+    },
     "chapter_editor.subtitle": {
       "extractionState": "manual",
       "localizations": {
@@ -9941,6 +10221,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$d chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_accept": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use as parts"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_accept_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use as Parts"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@. They stay as chapters and open each part."
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_dismiss_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Now"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_list_end": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.suggestion_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d chapters look like parts"
           }
         }
       }
