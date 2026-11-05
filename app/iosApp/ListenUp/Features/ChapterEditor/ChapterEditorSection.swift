@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 import Shared
 
 /// The two levels a marker can open, as the views speak of them. The observer is the only place that
