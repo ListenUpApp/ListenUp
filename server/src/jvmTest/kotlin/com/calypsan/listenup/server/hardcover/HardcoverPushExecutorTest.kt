@@ -24,6 +24,7 @@ private const val USER = "u1"
 private const val BOOK = "book-1"
 private const val HC_BOOK = 427_578L
 private const val HC_EDITION = 9_001L
+private const val KINDLE_EDITION = 9_002L
 private const val T0 = 1_779_451_200_000L // 2026-05-22 12:00:00 UTC
 private const val DAY = 86_400_000L
 private const val MINUTE = 60_000L
@@ -34,9 +35,10 @@ private const val PAST_LAG = 11 * MINUTE
 private class ExecutorRig(
     val sql: ListenUpDatabase,
     readUpdates: FakeHardcoverLibrary.ReadUpdates,
+    opensReadOnStatusChange: Boolean,
 ) {
     val clock = MutableClock(Instant.fromEpochMilliseconds(T0))
-    val hardcover = FakeHardcoverLibrary(readUpdates)
+    val hardcover = FakeHardcoverLibrary(readUpdates, opensReadOnStatusChange = opensReadOnStatusChange)
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
     val executor = HardcoverPushExecutor(HardcoverUserBooks(hardcover.client()), links, outbox, sql, clock)
@@ -59,6 +61,26 @@ private class ExecutorRig(
 
     fun shelf() = hardcover.shelfFor(HC_BOOK)
 
+    fun openReads() = shelf()!!.reads.filter { it.finishedAt == null }
+
+    fun addEdition(
+        id: Long,
+        audioSeconds: Long? = null,
+        pages: Int? = null,
+    ) = hardcover.addEdition(
+        FakeHardcoverLibrary.Edition(
+            id = id,
+            bookId = HC_BOOK,
+            title = "Book",
+            authors = emptyList(),
+            audioSeconds = audioSeconds,
+            pages = pages,
+        ),
+    )
+
+    /** Makes the local book [seconds] long, the length a position is a share of. */
+    fun setBookLength(seconds: Long) = sql.booksQueries.updateTotalDuration(seconds * 1_000L, BOOK)
+
     fun advance(millis: Long) {
         clock.instant = Instant.fromEpochMilliseconds(clock.instant.toEpochMilliseconds() + millis)
     }
@@ -72,8 +94,9 @@ private class ExecutorRig(
 
 private fun executorTest(
     readUpdates: FakeHardcoverLibrary.ReadUpdates = FakeHardcoverLibrary.ReadUpdates.PATCH,
+    opensReadOnStatusChange: Boolean = false,
     block: suspend ExecutorRig.() -> Unit,
-) = withSqlDatabase { runTest { ExecutorRig(sql, readUpdates).apply { linkBook() }.block() } }
+) = withSqlDatabase { runTest { ExecutorRig(sql, readUpdates, opensReadOnStatusChange).apply { linkBook() }.block() } }
 
 /** Spec B2's read targeting and deletion rule, one Hardcover operation at a time. */
 class HardcoverPushExecutorTest :
@@ -465,6 +488,124 @@ class HardcoverPushExecutorTest :
                 read.editionId shouldBe HC_EDITION
                 hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
                 link().openHcReadId shouldBe read.id
+            }
+        }
+
+        test("START on a book already shelved as Read adopts the read Hardcover opens for Reading: one open read, at the matched edition") {
+            executorTest(opensReadOnStatusChange = true) {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-02-03", editionId = KINDLE_EDITION)
+                outbox.enqueueStart(USER, BOOK, T0, T0, isReread = false)
+                runHead() shouldBe PushOutcome.Done
+
+                val read = openReads().single()
+                read.startedAt shouldBe "2026-05-22"
+                read.editionId shouldBe HC_EDITION
+                shelf()!!.statusId shouldBe HardcoverStatus.READING
+                link().openHcReadId shouldBe read.id
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                hardcover.operations.count { it == "update_user_book" } shouldBe 1
+            }
+        }
+
+        test("START on a Want to Read book adopts the read Hardcover opens for Reading") {
+            executorTest(opensReadOnStatusChange = true) {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ, editionId = KINDLE_EDITION)
+                outbox.enqueueStart(USER, BOOK, T0, T0, isReread = false)
+                runHead() shouldBe PushOutcome.Done
+
+                openReads().single().editionId shouldBe HC_EDITION
+            }
+        }
+
+        test("PROGRESS with no START on a book shelved as Read lands on one read") {
+            executorTest(opensReadOnStatusChange = true) {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-02-03", editionId = KINDLE_EDITION)
+                outbox.enqueueProgress(USER, BOOK, listenThrough = T0, positionSeconds = 390L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                openReads().single().progressSeconds shouldBe 390L
+            }
+        }
+
+        test("a shelf query lagging behind the move to Reading opens no second read: the row retries and finds Hardcover's") {
+            executorTest(opensReadOnStatusChange = true) {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-02-03", editionId = KINDLE_EDITION)
+                val beforeTheMove = hardcover.snapshot()
+                outbox.enqueueStart(USER, BOOK, T0, T0, isReread = false)
+                hardcover.serveShelfFrom(beforeTheMove, queries = 2)
+                runHead().shouldBeInstanceOf<PushOutcome.Failed>()
+
+                advance(MINUTE)
+                runHead() shouldBe PushOutcome.Done
+
+                openReads().size shouldBe 1
+                hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+            }
+        }
+
+        test("FINISH on a book shelved as Read with no listen before it still opens its own read: Reading is never set") {
+            executorTest(opensReadOnStatusChange = true) {
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READ, "2017-01-02" to "2017-02-03")
+                outbox.enqueueFinish(USER, BOOK, T0, finishedAt = T0 + DAY)
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.reads.map { it.finishedAt } shouldBe listOf("2017-02-03", "2026-05-23")
+                hardcover.operations.count { it == "update_user_book" } shouldBe 0
+            }
+        }
+
+        test("PROGRESS sends the share of the book as that share of the edition's audio, however long our copy is") {
+            executorTest {
+                addEdition(HC_EDITION, audioSeconds = 20_000L)
+                setBookLength(10_000L)
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                runHead()
+                outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 2_500L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.reads.single().progressSeconds shouldBe 5_000L
+            }
+        }
+
+        test("PROGRESS on an edition with no audio sends the same share as pages, which Hardcover keeps") {
+            executorTest {
+                addEdition(KINDLE_EDITION, pages = 400)
+                setBookLength(10_000L)
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READING, editionId = KINDLE_EDITION)
+                val readId = hardcover.seedRead(HC_BOOK, "2026-05-01", null)
+                shelf()!!.reads.single { it.id == readId }.editionId = KINDLE_EDITION
+                outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 2_500L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                val read = shelf()!!.reads.single()
+                read.progressPages shouldBe 100L
+                readUpdatesSent().last()["progress_seconds"].shouldBeNull()
+            }
+        }
+
+        test("a position past the book's length never sends more than the whole edition") {
+            executorTest {
+                addEdition(KINDLE_EDITION, pages = 400)
+                setBookLength(10_000L)
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.READING, editionId = KINDLE_EDITION)
+                val readId = hardcover.seedRead(HC_BOOK, "2026-05-01", null)
+                shelf()!!.reads.single { it.id == readId }.editionId = KINDLE_EDITION
+                outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 12_000L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.reads.single().progressPages shouldBe 400L
+            }
+        }
+
+        test("an edition of unknown length, or a book of no length, still gets the position in seconds") {
+            executorTest {
+                setBookLength(0L)
+                outbox.enqueueStart(USER, BOOK, T0, T0, false)
+                runHead()
+                outbox.enqueueProgress(USER, BOOK, T0, positionSeconds = 2_500L, notBefore = T0)
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.reads.single().progressSeconds shouldBe 2_500L
             }
         }
     })

@@ -150,7 +150,16 @@ internal data class UserBookReadWire(
     @SerialName("started_at") val startedAt: String? = null,
     @SerialName("finished_at") val finishedAt: String? = null,
     @SerialName("progress_seconds") val progressSeconds: Long? = null,
+    @SerialName("progress_pages") val progressPages: Long? = null,
     @SerialName("edition_id") val editionId: Long? = null,
+    @SerialName("edition") val edition: ReadEditionWire? = null,
+)
+
+@Serializable
+internal data class ReadEditionWire(
+    @SerialName("id") val id: Long,
+    @SerialName("audio_seconds") val audioSeconds: Long? = null,
+    @SerialName("pages") val pages: Long? = null,
 )
 
 /** What Hardcover's own mutations (`insert_user_book` and friends) answer: an id, or an error. */

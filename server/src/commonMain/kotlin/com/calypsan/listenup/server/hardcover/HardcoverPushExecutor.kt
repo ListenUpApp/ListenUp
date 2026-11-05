@@ -1,11 +1,13 @@
 package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.services.homeTimeZone
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -22,6 +24,8 @@ private val log = loggerFor<HardcoverPushExecutor>()
 private val HARDCOVER_LAG_GRACE: Duration = 10.minutes
 
 private val NOT_VISIBLE_YET = HardcoverCall.Failed("Hardcover doesn't show ListenUp's latest change yet")
+
+private const val MILLIS_PER_SECOND = 1_000L
 
 /** What running one outbox row came to. */
 sealed interface PushOutcome {
@@ -40,13 +44,36 @@ sealed interface PushOutcome {
 /**
  * The Hardcover shelf entry and read one listen-through writes to, with the read as Hardcover now
  * holds it — every update sends a copy of [read], never a lone field. [opened] is true when this call
- * found or opened it.
+ * found or opened it; [movedToReading] when opening it already moved the shelf entry to Reading.
  */
 private data class OpenRead(
     val userBookId: Long,
     val read: HardcoverRead,
     val opened: Boolean,
+    val movedToReading: Boolean = false,
 )
+
+/**
+ * This read at [positionSeconds] of a book [bookSeconds] long. Hardcover takes no percentage: it works one
+ * out from `progress_seconds` or `progress_pages` against the read's edition, and keeps no seconds on an
+ * edition with no audio length (seen live, 2026-11-04). So the share of the book listened to is sent in
+ * whatever the edition measures. With no length to scale by on either side, it is the position as it stands.
+ */
+internal fun HardcoverRead.atPosition(
+    positionSeconds: Long,
+    bookSeconds: Long?,
+): HardcoverRead {
+    val length = editionLength?.takeIf { it.id == editionId }
+    val share = bookSeconds?.takeIf { it > 0 }?.let { (positionSeconds.toDouble() / it).coerceIn(0.0, 1.0) }
+    val audioSeconds = length?.audioSeconds?.takeIf { it > 0 }
+    val pages = length?.pages?.takeIf { it > 0 }
+    return when {
+        share == null -> copy(progressSeconds = positionSeconds)
+        audioSeconds != null -> copy(progressSeconds = (share * audioSeconds).roundToLong())
+        pages != null -> copy(progressSeconds = null, progressPages = (share * pages).roundToLong())
+        else -> copy(progressSeconds = positionSeconds)
+    }
+}
 
 /**
  * Runs one outbox row against Hardcover (spec B2, "Which read an operation targets" and "The deletion
@@ -131,7 +158,7 @@ class HardcoverPushExecutor(
 
         suspend fun start(payload: HardcoverPushPayload.Start): PushOutcome {
             val open = openRead(startedAt = payload.startedAt).valueOr { return PushOutcome.Failed(it) }
-            if (shelf != null && shelf.statusId != HardcoverStatus.READING) {
+            if (!open.movedToReading && shelf != null && shelf.statusId != HardcoverStatus.READING) {
                 userBooks
                     .setStatus(
                         token,
@@ -144,7 +171,7 @@ class HardcoverPushExecutor(
 
         suspend fun progress(payload: HardcoverPushPayload.Progress): PushOutcome {
             val open = openRead(startedAt = listenThroughStart).valueOr { return PushOutcome.Failed(it) }
-            if (open.opened && shelf != null && shelf.statusId != HardcoverStatus.READING) {
+            if (open.opened && !open.movedToReading && shelf != null && shelf.statusId != HardcoverStatus.READING) {
                 userBooks
                     .setStatus(
                         token,
@@ -153,7 +180,7 @@ class HardcoverPushExecutor(
                     ).valueOr { return PushOutcome.Failed(it) }
             }
             userBooks
-                .updateRead(token, open.read.copy(progressSeconds = payload.positionSeconds))
+                .updateRead(token, open.read.atPosition(payload.positionSeconds, bookSeconds()))
                 .valueOr { return PushOutcome.Failed(it) }
             links.markProgressPushed(row.userId, row.bookId, clock.now().toEpochMilliseconds())
             return PushOutcome.Done
@@ -166,7 +193,8 @@ class HardcoverPushExecutor(
          */
         suspend fun finish(payload: HardcoverPushPayload.Finish): PushOutcome {
             val open =
-                openRead(startedAt = payload.startedAt ?: listenThroughStart).valueOr { return PushOutcome.Failed(it) }
+                openRead(startedAt = payload.startedAt ?: listenThroughStart, towardReading = false)
+                    .valueOr { return PushOutcome.Failed(it) }
             val finished =
                 open.read.copy(
                     startedAt = payload.startedAt?.let { dateOf(it).toString() } ?: open.read.startedAt,
@@ -200,10 +228,16 @@ class HardcoverPushExecutor(
          * matched edition as Reading and the read Hardcover opens for that is adopted; else a new one
          * dated [startedAt]. A shelf entry this listen-through created but never heard back about
          * ([HardcoverBookLink.isShelvingFor]) is treated as just shelved, so its read is redated too.
+         * A book already shelved as something else moves to Reading [towardReading] the same way, before
+         * any read is opened: Hardcover opens one of its own at the shelf's edition for that move, and
+         * opening ours first left two open reads, its empty one the one shown (seen live, 2026-11-03).
          * Recorded on the link and in the pushed-read ledger. A recorded read is always on [shelf]:
          * [deletedOnHardcover] suppressed the row otherwise.
          */
-        private suspend fun openRead(startedAt: Long?): HardcoverCall<OpenRead> {
+        private suspend fun openRead(
+            startedAt: Long?,
+            towardReading: Boolean = true,
+        ): HardcoverCall<OpenRead> {
             val recordedShelf = link.hcUserBookId
             if (link.openReadListenThrough == row.listenThrough && recordedShelf != null) {
                 shelf?.reads?.firstOrNull { it.id == link.openHcReadId }?.let { recorded ->
@@ -224,8 +258,25 @@ class HardcoverPushExecutor(
                             ).valueOr { return it }
                     }
             val shelvedJustNow = shelf == null || link.isShelvingFor(row.listenThrough)
+            val moveToReading =
+                towardReading &&
+                    !shelvedJustNow &&
+                    shelf != null &&
+                    shelf.openRead == null &&
+                    shelf.statusId != HardcoverStatus.READING
+            if (moveToReading) {
+                userBooks.setStatus(token, userBookId, HardcoverStatus.READING).valueOr { return it }
+            }
             val read =
-                (if (shelvedJustNow) adoptReadHardcoverOpened(startedAt).valueOr { return it } else null)
+                (
+                    if (shelvedJustNow ||
+                        moveToReading
+                    ) {
+                        adoptReadHardcoverOpened(startedAt).valueOr { return it }
+                    } else {
+                        null
+                    }
+                )
                     ?: shelf?.openRead
                     ?: openNewRead(userBookId, startedAt).valueOr { return it }
             links.recordOpenRead(
@@ -236,7 +287,9 @@ class HardcoverPushExecutor(
                 listenThrough = row.listenThrough,
             )
             links.recordPushedRead(row.userId, read.id, row.bookId)
-            return HardcoverCall.Ok(OpenRead(userBookId, read, opened = true))
+            return HardcoverCall.Ok(
+                OpenRead(userBookId = userBookId, read = read, opened = true, movedToReading = moveToReading),
+            )
         }
 
         /** Opens a new read on shelf entry [userBookId], dated [startedAt] when it is known. */
@@ -273,6 +326,7 @@ class HardcoverPushExecutor(
          */
         private suspend fun adoptReadHardcoverOpened(startedAt: Long?): HardcoverCall<HardcoverRead?> {
             val shelved = userBooks.userBookFor(token, hcBookId).valueOr { return it } ?: return NOT_VISIBLE_YET
+            if (shelved.statusId != HardcoverStatus.READING) return NOT_VISIBLE_YET
             val opened = shelved.openRead ?: return HardcoverCall.Ok(null)
             val dated =
                 opened.copy(
@@ -282,6 +336,11 @@ class HardcoverPushExecutor(
             if (dated != opened) userBooks.updateRead(token, dated).valueOr { return it }
             return HardcoverCall.Ok(dated)
         }
+
+        /** The local book's length, what a position is a share of; null when it has none to give. */
+        private suspend fun bookSeconds(): Long? =
+            suspendTransaction(sql) { sql.booksQueries.durationForBook(row.bookId).executeAsOneOrNull() }
+                ?.let { it / MILLIS_PER_SECOND }
 
         private fun dateOf(epochMs: Long): LocalDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(zone).date
     }
