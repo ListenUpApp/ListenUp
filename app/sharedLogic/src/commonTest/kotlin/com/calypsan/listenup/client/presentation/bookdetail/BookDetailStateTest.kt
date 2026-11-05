@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -10,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 
@@ -58,6 +60,76 @@ class BookDetailStateTest :
                 ready.canPlay shouldBe false
                 ready.canDownload shouldBe false
                 ready.showServerWarning shouldBe false
+            }
+
+            test("a flat book has no grouped chapters, so every platform draws today's list") {
+                snapshot().toReady(BookDetailAmbient()).groupedChapters shouldBe null
+            }
+
+            test("a book with a marker has grouped chapters, built from the outline") {
+                val chapters = TestData.chapters(count = 4, chapterDuration = 900_000L)
+                val marked = chapters.mapIndexed { i, c -> if (i == 1) c.copy(partTitle = "Part I") else c }
+
+                val grouped = snapshot(chapters = marked).toReady(BookDetailAmbient()).groupedChapters
+
+                grouped.shouldNotBeNull().rows.first().shouldBeInstanceOf<ChapterOutlineRow.ChapterRow>()
+                grouped.rows[1].shouldBeInstanceOf<ChapterOutlineRow.PartHeader>().title shouldBe "Part I"
+            }
+
+            test("the current chapter names its part, for the resume line") {
+                val chapters = TestData.chapters(count = 4, chapterDuration = 900_000L)
+                val marked = chapters.mapIndexed { i, c -> if (i == 1) c.copy(partTitle = "Part I") else c }
+
+                val ready = snapshot(chapters = marked, position = position(2_000_000L)).toReady(BookDetailAmbient())
+
+                ready.currentChapter.shouldNotBeNull().partTitle shouldBe "Part I"
+            }
+
+            test("a current chapter in a flat book names no part") {
+                val ready = snapshot(position = position(2_000_000L)).toReady(BookDetailAmbient())
+
+                ready.currentChapter.shouldNotBeNull().partTitle shouldBe null
+            }
+
+            test("a current chapter that only announces its part does not name it twice") {
+                val chapters =
+                    TestData.chapters(count = 4, chapterDuration = 900_000L).mapIndexed { i, c ->
+                        if (i == 1) c.copy(title = "Part I", partTitle = "Part I") else c
+                    }
+
+                val ready = snapshot(chapters = chapters, position = position(1_000_000L)).toReady(BookDetailAmbient())
+
+                ready.currentChapter.shouldNotBeNull().partTitle shouldBe null
+            }
+
+            test("the folded current chapter lights its header in the Book Detail outline") {
+                val chapters =
+                    TestData.chapters(count = 4, chapterDuration = 900_000L).mapIndexed { i, c ->
+                        if (i == 1) c.copy(title = "Part I", partTitle = "Part I") else c
+                    }
+
+                val grouped =
+                    snapshot(chapters = chapters, position = position(1_000_000L))
+                        .toReady(BookDetailAmbient())
+                        .groupedChapters
+                        .shouldNotBeNull()
+
+                grouped.rows
+                    .filterIsInstance<ChapterOutlineRow.PartHeader>()
+                    .single()
+                    .isCurrentChapter shouldBe true
+            }
+
+            test("a held book keeps its parts, and cannot play them") {
+                val chapters =
+                    TestData.chapters(count = 4, chapterDuration = 900_000L).mapIndexed { i, c ->
+                        if (i == 0) c.copy(partTitle = "Part I") else c
+                    }
+
+                val ready = snapshot(chapters = chapters, isHeld = true).toReady(BookDetailAmbient())
+
+                ready.groupedChapters.shouldNotBeNull()
+                ready.canPlay shouldBe false
             }
 
             test("an ordinary book keeps every availability answer") {

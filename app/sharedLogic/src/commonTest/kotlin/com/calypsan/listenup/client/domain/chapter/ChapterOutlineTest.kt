@@ -153,6 +153,101 @@ class ChapterOutlineTest :
             chapters.toChapterOutline().filterIsInstance<ChapterRow>().map { it.chapter.id } shouldBe listOf("a", "b")
         }
 
+        test("a folded chapter being current says so on its header, and no other part's does") {
+            val chapters =
+                book(chapter("a", title = "Part I", part = "Part I"), chapter("b"), chapter("c", part = "Part II"))
+
+            val parts = chapters.toChapterOutline(currentChapterId = "a").filterIsInstance<PartHeader>()
+
+            parts.map { it.isCurrentChapter } shouldBe listOf(true, false)
+        }
+
+        test("a current chapter with its own row leaves the header out of it") {
+            val chapters = book(chapter("a", title = "Part I", part = "Part I"), chapter("b"))
+
+            val header = chapters.toChapterOutline(currentChapterId = "b").first().shouldBeInstanceOf<PartHeader>()
+
+            header.containsCurrent shouldBe true
+            header.isCurrentChapter shouldBe false
+        }
+
+        test("an opener that did not fold has a row to light, so its header claims nothing") {
+            val chapters = book(chapter("a", title = "Dawn", part = "Part I"), chapter("b"))
+
+            val header = chapters.toChapterOutline(currentChapterId = "a").first().shouldBeInstanceOf<PartHeader>()
+
+            header.isCurrentChapter shouldBe false
+        }
+
+        test("Keep shows the chapter, so the header claims nothing there either") {
+            val chapters = book(chapter("a", title = "Part I", part = "Part I"), chapter("b"))
+
+            val header =
+                chapters
+                    .toChapterOutline(currentChapterId = "a", announcements = AnnouncementChapters.Keep)
+                    .first()
+                    .shouldBeInstanceOf<PartHeader>()
+
+            header.isCurrentChapter shouldBe false
+        }
+
+        test("every chapter row names the part it sits in, and those outside any part name none") {
+            val chapters =
+                book(chapter("intro"), chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"))
+
+            val rows = chapters.toChapterOutline().filterIsInstance<ChapterRow>()
+
+            rows.map { it.partId } shouldBe listOf(null, "a", "a", "c")
+        }
+
+        // ── opening and closing parts ─────────────────────────────────────────────
+
+        test("the part holding the current chapter opens by default and the others do not") {
+            val chapters =
+                book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
+
+            val parts = chapters.toChapterOutline(currentChapterId = "b").filterIsInstance<PartHeader>()
+
+            parts.map { it.isOpen(emptySet()) } shouldBe listOf(true, false)
+        }
+
+        test("a reader's toggle flips a part either way") {
+            val chapters =
+                book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
+
+            val parts = chapters.toChapterOutline(currentChapterId = "b").filterIsInstance<PartHeader>()
+
+            parts.map { it.isOpen(setOf("a", "c")) } shouldBe listOf(false, true)
+        }
+
+        test("a closed part hides its chapters and keeps its header, and chapters in no part always show") {
+            val chapters =
+                book(
+                    chapter("intro"),
+                    chapter("a", part = "One"),
+                    chapter("b"),
+                    chapter("c", part = "Two"),
+                    chapter("d"),
+                )
+
+            val rows = chapters.toChapterOutline(currentChapterId = "d").withOpenParts(emptySet())
+
+            rows.map { row ->
+                when (row) {
+                    is ChapterRow -> row.chapter.id
+                    is PartHeader -> "part:${row.chapterId}"
+                    is BookHeader -> "book:${row.chapterId}"
+                }
+            } shouldBe listOf("intro", "part:a", "part:c", "c", "d")
+        }
+
+        test("a book header is never hidden by the parts inside it") {
+            val chapters = book(chapter("a", bookTitle = "Book One", part = "One"), chapter("b"))
+
+            chapters.toChapterOutline().withOpenParts(emptySet()).map { it::class } shouldBe
+                listOf(BookHeader::class, PartHeader::class)
+        }
+
         test("the editor keeps every chapter: Keep shows what Fold would hide, with the same header") {
             val chapters = book(chapter("a", title = "Part I", part = "Part I"), chapter("b"))
 

@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
+import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.A
@@ -38,6 +39,7 @@ internal fun BookChaptersSection(
     wide: Boolean,
     onPlayFromChapter: (Long) -> Unit,
     onOpenChapterMap: () -> Unit,
+    grouped: GroupedChapters? = null,
 ) {
     var expanded by remember(bookId) { mutableStateOf(false) }
     val shown = if (expanded) chapters else preview

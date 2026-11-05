@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.util.formatDate
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_chapter_label
+import listenup.composeapp.generated.resources.book_detail_chapter_label_in_part
 import listenup.composeapp.generated.resources.book_detail_finished
 import listenup.composeapp.generated.resources.book_detail_finished_on
 import listenup.composeapp.generated.resources.book_detail_finished_span
@@ -78,7 +79,14 @@ private fun InProgressUnit(
                 text =
                     currentChapter
                         ?.let { chapter ->
-                            stringResource(Res.string.book_detail_chapter_label, chapter.number, chapter.title)
+                            chapter.partTitle?.let { part ->
+                                stringResource(
+                                    Res.string.book_detail_chapter_label_in_part,
+                                    part,
+                                    chapter.number,
+                                    chapter.title,
+                                )
+                            } ?: stringResource(Res.string.book_detail_chapter_label, chapter.number, chapter.title)
                         }.orEmpty(),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,

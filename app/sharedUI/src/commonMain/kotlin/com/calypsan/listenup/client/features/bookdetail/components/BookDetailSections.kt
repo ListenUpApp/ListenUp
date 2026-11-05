@@ -77,6 +77,7 @@ internal fun BookDetailSectionContent(
                 canPlay = state.canPlay,
                 onPlayFromChapter = actions.onPlayFromChapter,
                 modifier = modifier,
+                grouped = state.groupedChapters,
             )
         }
 

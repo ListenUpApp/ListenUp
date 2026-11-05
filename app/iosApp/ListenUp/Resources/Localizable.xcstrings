@@ -4491,6 +4491,16 @@
         }
       }
     },
+    "book.detail_chapter_label_in_part": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Ch. %2$d · %3$@"
+          }
+        }
+      }
+    },
     "book.detail_chapters": {
       "localizations": {
         "en": {
@@ -5547,6 +5557,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@, %2$d other narrators"
+          }
+        }
+      }
+    },
+    "book.detail_part_play_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play %1$@"
+          }
+        }
+      }
+    },
+    "book.detail_part_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
           }
         }
       }

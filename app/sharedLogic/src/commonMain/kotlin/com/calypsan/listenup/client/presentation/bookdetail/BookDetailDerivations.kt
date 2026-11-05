@@ -118,10 +118,10 @@ internal fun currentChapterOf(
  * The collapsed chapter list: five rows around [currentIndex] (two either side, clamped at the ends), or the first
  * five when there is no current chapter (not started, finished). Pure.
  */
-internal fun chapterWindow(
-    rows: List<ChapterUiModel>,
+internal fun <T> chapterWindow(
+    rows: List<T>,
     currentIndex: Int?,
-): List<ChapterUiModel> {
+): List<T> {
     if (rows.size <= CHAPTER_WINDOW_SIZE) return rows
     val start =
         if (currentIndex == null) {

@@ -34,6 +34,8 @@ sealed interface ChapterOutlineRow {
      * @property durationMs the whole part's length, folded chapter included: that audio still plays.
      * @property startMs where the part begins.
      * @property containsCurrent whether the current chapter is in this part, folded or not.
+     * @property isCurrentChapter whether the current chapter is the one folded into this header. It
+     *   has no row of its own to light, so this header shows as current in its place.
      */
     data class PartHeader(
         val title: String,
@@ -42,7 +44,11 @@ sealed interface ChapterOutlineRow {
         val durationMs: Long,
         val startMs: Long,
         val containsCurrent: Boolean,
-    ) : ChapterOutlineRow
+        val isCurrentChapter: Boolean = false,
+    ) : ChapterOutlineRow {
+        /** Open by default when it holds the current chapter; [toggledPartIds] are those the reader flipped. */
+        fun isOpen(toggledPartIds: Set<String>): Boolean = containsCurrent != (chapterId in toggledPartIds)
+    }
 
     /**
      * A chapter.
@@ -50,10 +56,13 @@ sealed interface ChapterOutlineRow {
      * @property chapter the chapter itself.
      * @property number its 1-based position in the whole book. A fold never changes it: the rows
      *   after a folded chapter keep the numbers they have everywhere else.
+     * @property partId the [PartHeader.chapterId] of the part this row sits in; null outside any part.
+     *   It is how a surface knows what a closed part hides without walking the list itself.
      */
     data class ChapterRow(
         val chapter: Chapter,
         val number: Int,
+        val partId: String? = null,
     ) : ChapterOutlineRow
 }
 
@@ -96,15 +105,25 @@ fun List<Chapter>.toChapterOutline(
     }
 }
 
+/** These rows with the chapters of closed parts taken out; see [ChapterOutlineRow.PartHeader.isOpen]. */
+fun List<ChapterOutlineRow>.withOpenParts(toggledPartIds: Set<String>): List<ChapterOutlineRow> {
+    val closed =
+        filterIsInstance<ChapterOutlineRow.PartHeader>()
+            .filterNot { it.isOpen(toggledPartIds) }
+            .mapTo(mutableSetOf()) { it.chapterId }
+    return filterNot { it is ChapterOutlineRow.ChapterRow && it.partId in closed }
+}
+
 private fun PartGroup.outlineRows(
     numbers: Map<String, Int>,
     currentChapterId: String?,
     announcements: AnnouncementChapters,
 ): List<ChapterOutlineRow> {
     val listed = if (announcements == AnnouncementChapters.Fold) withoutAnnouncement() else chapters
-    val rows = listed.map { ChapterOutlineRow.ChapterRow(it, numbers.getValue(it.id)) }
-    val partTitle = title ?: return rows
     val opener = chapters.first()
+    val partId = opener.id.takeIf { title != null }
+    val rows = listed.map { ChapterOutlineRow.ChapterRow(it, numbers.getValue(it.id), partId) }
+    val partTitle = title ?: return rows
     val header =
         ChapterOutlineRow.PartHeader(
             title = partTitle,
@@ -113,6 +132,7 @@ private fun PartGroup.outlineRows(
             durationMs = chapters.sumOf { it.duration },
             startMs = opener.startTime,
             containsCurrent = chapters.any { it.id == currentChapterId },
+            isCurrentChapter = opener.id == currentChapterId && listed.none { it.id == opener.id },
         )
     return listOf(header) + rows
 }
