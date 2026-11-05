@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.client.presentation.chaptereditor.PartSuggestion
@@ -141,7 +142,7 @@ internal fun PartSuggestionCard(
             .fillMaxWidth()
             .clip(ContentShapes.card)
             .background(colors.surfaceContainerHigh)
-            .padding(16.dp),
+            .padding(Spacing.lg),
     ) {
         Text(
             text = stringResource(Res.string.chapter_editor_suggestion_title, suggestion.titles.size),

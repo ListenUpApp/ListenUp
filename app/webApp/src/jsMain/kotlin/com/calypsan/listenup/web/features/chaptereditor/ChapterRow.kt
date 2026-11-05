@@ -13,6 +13,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.Element
 
 /**
  * One boundary, and everything that can be done to it without leaving the list.
@@ -50,7 +51,8 @@ internal fun ChapterRow(
         // a mouse convenience — and the title below is the same selection as a real button, which
         // is the keyboard's way to it.
         attr("aria-current", isSelected.toString())
-        onClick { onSelect() }
+        // Not from the row's menu, whose items live inside the row: choosing one is not selecting it.
+        onClick { event -> if ((event.target as? Element)?.closest(".menu-anchor") == null) onSelect() }
     }) {
         Span(attrs = { classes("chr-n") }) { Text(numbered.number.toString()) }
         Div(attrs = { classes("chr-main") }) {
@@ -106,9 +108,6 @@ internal fun ChapterRow(
 /**
  * The row's rarer actions. A tier is absent once the chapter opens it: its marker row edits the one
  * it has.
- *
- * ⛔ The wrapper stops the press: the menu's items are inside the row, and every one of them would
- * otherwise also select it.
  */
 @Composable
 private fun ChapterRowMenu(
@@ -118,25 +117,23 @@ private fun ChapterRowMenu(
     onInsertBelow: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Div(attrs = { onClick { event -> event.stopPropagation() } }) {
-        PopupMenu(
-            items =
-                buildList {
-                    add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
-                    if (chapter.partTitle == null) {
-                        add(MenuAction("Start a part here", WebIcon.Bookmark, { onStartMarker(ChapterMarkerTier.Part) }))
-                    }
-                    if (chapter.bookTitle == null) {
-                        add(MenuAction("Start a book here", WebIcon.Book, { onStartMarker(ChapterMarkerTier.Book) }))
-                    }
-                    add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
-                    add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
-                },
-            label = "More actions for ${chapter.title}",
-            icon = WebIcon.More,
-            triggerClasses = arrayOf("chr-a"),
-        )
-    }
+    PopupMenu(
+        items =
+            buildList {
+                add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
+                if (chapter.partTitle == null) {
+                    add(MenuAction("Start a part here", WebIcon.Bookmark, { onStartMarker(ChapterMarkerTier.Part) }))
+                }
+                if (chapter.bookTitle == null) {
+                    add(MenuAction("Start a book here", WebIcon.Book, { onStartMarker(ChapterMarkerTier.Book) }))
+                }
+                add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
+                add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
+            },
+        label = "More actions for ${chapter.title}",
+        icon = WebIcon.More,
+        triggerClasses = arrayOf("chr-a"),
+    )
 }
 
 /**

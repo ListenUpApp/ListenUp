@@ -899,6 +899,16 @@ class ChapterEditorPageTest :
             rowMenuItem(host, 2, "Start a part here").shouldNotBeNull()
         }
 
+        test("choosing from a row's menu does not also select the row") {
+            val selections = mutableListOf<String?>()
+            val host = page(editingChapters(), onSelect = { selections += it })
+
+            rowMenuItem(host, 1, "Rename chapter").shouldNotBeNull().click()
+            awaitFrame()
+
+            selections shouldContainExactly emptyList()
+        }
+
         test("the offer names what it would mark, and takes its answer in place") {
             val answers = mutableListOf<String>()
             val host =
