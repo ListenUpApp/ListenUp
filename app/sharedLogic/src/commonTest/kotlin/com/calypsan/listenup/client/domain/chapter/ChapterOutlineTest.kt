@@ -214,8 +214,8 @@ class ChapterOutlineTest :
         test("a part the reader opened stays open when playback moves into it and on past it") {
             val chapters =
                 book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"), chapter("e", part = "Three"))
-            fun partTwoAt(current: String) =
-                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
+
+            fun partTwoAt(current: String) = chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
 
             val overrides = partTwoAt("a").toggled(emptyMap())
 
@@ -228,8 +228,8 @@ class ChapterOutlineTest :
         test("a part the reader closed stays closed however playback moves") {
             val chapters =
                 book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
-            fun partOneAt(current: String) =
-                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[0]
+
+            fun partOneAt(current: String) = chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[0]
 
             val overrides = partOneAt("b").toggled(emptyMap())
 
@@ -254,8 +254,8 @@ class ChapterOutlineTest :
 
         test("toggling twice lands where the reader last left it, not back on the default") {
             val chapters = book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
-            fun partTwoAt(current: String) =
-                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
+
+            fun partTwoAt(current: String) = chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
 
             val overrides = partTwoAt("a").toggled(partTwoAt("a").toggled(emptyMap()))
 
