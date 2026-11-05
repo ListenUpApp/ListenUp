@@ -1,10 +1,14 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.client.domain.chapter.ChapterAnchor
+import com.calypsan.listenup.client.domain.chapter.DriftResult
+import com.calypsan.listenup.client.domain.chapter.correctDrift
 import com.calypsan.listenup.client.domain.model.Chapter
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 private const val BOOK_MS = 1_200_000L
 
@@ -279,10 +283,67 @@ class ChapterEditsTest :
             c.movedPartMarker("c0", "gone") shouldBe c
         }
 
-        test("a marker travels with its chapter through a retime and a drift-style replace") {
+        test("a marker travels with its chapter through a retime") {
             val c = chapters(0L, 300_000L, 600_000L).withPartMarker("c1", "Part One")
 
             c.retimed("c1", 350_000L, BOOK_MS)[1].partTitle shouldBe "Part One"
-            c.withDerivedDurations(BOOK_MS)[1].partTitle shouldBe "Part One"
+        }
+
+        test("markers survive drift correction, on the chapters that carried them") {
+            val c =
+                chapters(0L, 300_000L, 600_000L)
+                    .withPartMarker("c1", "Part One")
+                    .withBookMarker("c2", "Book One")
+
+            val corrected =
+                correctDrift(c, listOf(ChapterAnchor("c0", trueStartMs = 5_000L)), BOOK_MS)
+                    .shouldBeInstanceOf<DriftResult.Corrected>()
+                    .chapters
+
+            corrected.map { it.startTime } shouldBe listOf(5_000L, 305_000L, 605_000L)
+            corrected.map { it.partTitle } shouldBe listOf(null, "Part One", null)
+            corrected.map { it.bookTitle } shouldBe listOf(null, null, "Book One")
+        }
+
+        // ── deleting a chapter that carries a marker ───────────────────────────────
+
+        test("deleting a marked chapter hands its markers to the next chapter") {
+            val c =
+                chapters(0L, 300_000L, 600_000L)
+                    .withPartMarker("c1", "Part One")
+                    .withBookMarker("c1", "Book One")
+
+            val left = c.removed("c1", BOOK_MS)
+
+            left.map { it.id } shouldBe listOf("c0", "c2")
+            left[1].partTitle shouldBe "Part One"
+            left[1].bookTitle shouldBe "Book One"
+        }
+
+        test("deleting the first chapter hands its marker on too") {
+            val left = chapters(0L, 300_000L).withPartMarker("c0", "Part One").removed("c0", BOOK_MS)
+
+            left.single().partTitle shouldBe "Part One"
+        }
+
+        test("a tier the next chapter already opens is not overwritten, and the deleted marker goes") {
+            val c =
+                chapters(0L, 300_000L, 600_000L)
+                    .withPartMarker("c1", "Part One")
+                    .withBookMarker("c1", "Book One")
+                    .withPartMarker("c2", "Part Two")
+
+            val left = c.removed("c1", BOOK_MS)
+
+            withClue("each tier is decided on its own") {
+                left[1].partTitle shouldBe "Part Two"
+                left[1].bookTitle shouldBe "Book One"
+            }
+        }
+
+        test("deleting the last chapter takes its marker with it: there is nothing after it to open") {
+            val left = chapters(0L, 300_000L).withPartMarker("c1", "Part One").removed("c1", BOOK_MS)
+
+            left.single().partTitle shouldBe null
         }
     })

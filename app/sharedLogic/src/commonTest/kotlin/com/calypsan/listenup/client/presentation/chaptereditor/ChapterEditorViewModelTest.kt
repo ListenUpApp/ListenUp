@@ -688,23 +688,77 @@ class ChapterEditorViewModelTest :
                     awaitItem()
 
                     vm.saveMarker("c1", ChapterMarkerTier.Part, "   ", toChapterId = "c1")
+                    vm.undo()
 
-                    expectNoEvents()
+                    withClue("the refused save pushed no frame, so one undo reaches the start marker") {
+                        awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[1].partTitle shouldBe null
+                    }
                     cancelAndIgnoreRemainingEvents()
                 }
             }
         }
 
-        test("renaming a chapter that opens no such marker does not invent one") {
-            val (vm, _, _) = rig()
+        test("a save on a chapter with no such marker invents none, and forks no draft") {
+            val (vm, mirror, _) = rig()
             runTest {
                 vm.state.test {
                     awaitItem()
                     awaitItem()
 
                     vm.saveMarker("c1", ChapterMarkerTier.Part, "Part One", toChapterId = "c1")
+                    mirror.value = chapters(0L, 400_000L, 900_000L)
 
-                    expectNoEvents()
+                    val after = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    after.chapters[1].partTitle shouldBe null
+                    after.chapters[1].startTime shouldBe 400_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("AN EDIT THAT CHANGES NOTHING FORKS NO DRAFT — the editor keeps following the mirror") {
+            val (vm, mirror, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.retitle("c1", "Chapter 1")
+                    mirror.value = chapters(0L, 400_000L, 900_000L)
+
+                    val after = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    withClue("nothing was edited, so an incoming change is simply the new truth") {
+                        after.chapters[1].startTime shouldBe 400_000L
+                    }
+                    withClue("and nothing is claimed to have changed behind the reader's back") {
+                        after.changedElsewhere shouldBe false
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("undoing a delete brings back the marker on its own chapter, and off the next one") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
+                    awaitItem()
+
+                    vm.remove("c1")
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.partTitle } shouldBe listOf(null, "Part One")
+
+                    vm.undo()
+
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.partTitle } shouldBe listOf(null, "Part One", null)
                     cancelAndIgnoreRemainingEvents()
                 }
             }

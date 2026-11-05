@@ -39,7 +39,7 @@ struct ChapterMarkerSheet: View {
         EditSheetScaffold(
             title: title,
             hasChanges: hasChanges && !edit.isNew,
-            canSave: !trimmedName.isEmpty && hasChanges,
+            canSave: MarkerEdit.accepts(trimmedName) && hasChanges,
             isSaving: false,
             saveLabel: String(localized: "common.save"),
             onCancel: { dismiss() },
@@ -56,6 +56,13 @@ struct ChapterMarkerSheet: View {
                         label: String(localized: "chapter_editor.marker_name"),
                         submitLabel: .done
                     )
+                    // Capped as it is typed, as Android's field is. `canSave` still decides, because
+                    // a character can be longer than one of the units the wire counts.
+                    .onChange(of: name) { _, typed in
+                        if typed.count > MarkerEdit.maxNameLength {
+                            name = String(typed.prefix(MarkerEdit.maxNameLength))
+                        }
+                    }
                     startsAtRow
                 }
                 if !edit.isNew {

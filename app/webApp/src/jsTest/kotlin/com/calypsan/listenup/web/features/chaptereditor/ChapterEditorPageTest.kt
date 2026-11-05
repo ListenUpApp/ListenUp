@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.client.presentation.chaptereditor.PartSuggestion
+import com.calypsan.listenup.client.presentation.chaptereditor.partSuggestion
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
@@ -897,6 +898,41 @@ class ChapterEditorPageTest :
 
             rowMenuItem(host, 1, "Start a part here").shouldBeNull()
             rowMenuItem(host, 2, "Start a part here").shouldNotBeNull()
+        }
+
+        // ⛔ In the browser, not only on the JVM: Kotlin/JS `Regex.matches` takes the first alternative
+        // that matches and then checks the end, so an alternative that can match nothing hides every
+        // one after it. No sharedLogic lane runs on JS, which is why this lives here.
+        listOf(
+            listOf("Part One", "Part Two"),
+            listOf("Part Ten", "Part Twenty-One"),
+            listOf("Part I", "Part II"),
+            listOf("Part 1", "Part 2"),
+        ).forEach { titles ->
+            test("a book with $titles earns the offer in the browser") {
+                val chapters = titles.mapIndexed { i, title -> chapter("c$i", title, i * 60_000L) }
+
+                val host = page(editingChapters(chapters = chapters).copy(partSuggestion = chapters.partSuggestion()))
+
+                host
+                    .querySelector(".ched-suggest")
+                    .shouldNotBeNull()
+                    .textContent
+                    .orEmpty() shouldContain
+                    "2 chapters look like parts"
+            }
+        }
+
+        test("the offer steps aside during search, as it does on Android and iOS") {
+            val host =
+                page(editingChapters().copy(partSuggestion = PartSuggestion(listOf("Part I", "Part II"))))
+
+            val search = host.querySelector("#ched-search") as HTMLInputElement
+            search.value = "Glass"
+            search.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            host.querySelector(".ched-suggest").shouldBeNull()
         }
 
         test("choosing from a row's menu does not also select the row") {

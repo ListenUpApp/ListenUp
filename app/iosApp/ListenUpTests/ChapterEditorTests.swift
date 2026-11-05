@@ -159,6 +159,31 @@ struct ChapterEditorTests {
         #expect(!opener.opens(.book))
     }
 
+    /// ⛔ Every surface reads this, VoiceOver's actions included: an action listed for a tier the
+    /// chapter already opens would do nothing when chosen.
+    @Test func aChapterIsOfferedOnlyTheTiersItDoesNotOpen() {
+        var chapter = row(1, "Dawn")
+        #expect(chapter.startableTiers == [.part, .book])
+        chapter.partTitle = "Part One"
+        #expect(chapter.startableTiers == [.book])
+        chapter.bookTitle = "Book One"
+        #expect(chapter.startableTiers.isEmpty)
+    }
+
+    // MARK: - Naming a marker
+
+    /// ⛔ The ViewModel refuses these silently, so a sheet that saved one would close and lose it.
+    @Test func aNameTheWireWouldRefuseCannotBeSaved() {
+        #expect(!MarkerEdit.accepts(""))
+        #expect(MarkerEdit.accepts(String(repeating: "x", count: MarkerEdit.maxNameLength)))
+        #expect(!MarkerEdit.accepts(String(repeating: "x", count: MarkerEdit.maxNameLength + 1)))
+    }
+
+    /// Counted as Kotlin counts: an emoji is one character here and two units on the wire.
+    @Test func aNameIsMeasuredInTheUnitsTheWireCounts() {
+        #expect(!MarkerEdit.accepts(String(repeating: "🙂", count: MarkerEdit.maxNameLength / 2 + 1)))
+    }
+
     // MARK: - A refused save
 
     /// ⛔ The row's own number, not its index in the problem list. A refused save is only useful if

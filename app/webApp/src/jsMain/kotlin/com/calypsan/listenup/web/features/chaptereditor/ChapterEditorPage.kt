@@ -175,7 +175,7 @@ private fun EditingContent(
         return
     }
 
-    state.partSuggestion?.let { PartSuggestionStrip(it, markers) }
+    state.partSuggestion?.takeIf { query.isBlank() }?.let { PartSuggestionStrip(it, markers) }
 
     // Numbered against the FULL set, then filtered — see [numbered].
     val all = state.chapters.numbered()

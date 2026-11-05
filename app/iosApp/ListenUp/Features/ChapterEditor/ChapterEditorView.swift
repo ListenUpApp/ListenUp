@@ -338,8 +338,7 @@ struct ChapterEditorView: View {
                 renaming = row
             },
             onDelete: { deleting = row },
-            onStartPart: row.opens(.part) ? nil : { startMarker(observer, row: row, tier: .part) },
-            onStartBook: row.opens(.book) ? nil : { startMarker(observer, row: row, tier: .book) }
+            onStartMarker: { startMarker(observer, row: row, tier: $0) }
         )
     }
 

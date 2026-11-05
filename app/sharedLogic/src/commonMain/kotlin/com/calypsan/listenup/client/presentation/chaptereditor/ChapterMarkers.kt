@@ -35,9 +35,18 @@ data class PartSuggestion(
 private const val UNITS = "one|two|three|four|five|six|seven|eight|nine"
 private const val TEENS = "ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen"
 private const val TENS = "twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety"
-private const val ROMAN = "m{0,3}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})"
 
-/** `Part <n>`, where n is digits, a Roman numeral or an English number word, and nothing more. */
+/**
+ * I to XXXIX. Parts run to a handful, and a wider alphabet makes "Part C" read as 100 rather than as
+ * the third of A, B, C.
+ *
+ * ⛔ The lookahead keeps it from matching nothing. Kotlin/JS `Regex.matches` takes the first
+ * alternative that matches and only then checks the end, so an empty match here would end the
+ * attempt before the number words were ever tried, in the browser alone.
+ */
+private const val ROMAN = "(?=[ivx])x{0,3}(?:ix|iv|v?i{0,3})"
+
+/** `Part <n>`, where n is digits, a Roman numeral to XXXIX or an English number word, and nothing more. */
 private val PART_TITLE =
     Regex("""part\s+(?:\d+|$ROMAN|(?:$TENS)(?:[- ](?:$UNITS))?|$TEENS|$UNITS)""", RegexOption.IGNORE_CASE)
 
@@ -52,7 +61,7 @@ internal fun String.looksLikePartTitle(): Boolean = PART_TITLE.matches(trim())
  * A book with any marker has none: its structure is the reader's now, and second-guessing it would
  * be noise. One match has none either, because one is a coincidence rather than a structure.
  */
-internal fun List<Chapter>.partSuggestion(): PartSuggestion? {
+fun List<Chapter>.partSuggestion(): PartSuggestion? {
     if (any { it.partTitle != null || it.bookTitle != null }) return null
     val titles = map { it.title.trim() }.filter { it.looksLikePartTitle() }
     return if (titles.size < MIN_SUGGESTED_PARTS) null else PartSuggestion(titles)

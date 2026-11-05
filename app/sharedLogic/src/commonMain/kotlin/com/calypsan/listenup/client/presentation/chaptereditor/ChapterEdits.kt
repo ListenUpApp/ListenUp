@@ -74,6 +74,10 @@ internal fun List<Chapter>.added(
  * book cannot begin partway through — every millisecond of audio belongs to some chapter.
  * Refused on the last remaining chapter: a book with no chapters at all is the empty state, which
  * is a different screen and a deliberate act, not the tail of a delete.
+ *
+ * Deleting a boundary is not removing a part, so the markers it carried pass to the next chapter,
+ * which is where that group now opens. A tier the next chapter already opens keeps its own marker,
+ * and with no next chapter there is nothing left for the marker to open.
  */
 internal fun List<Chapter>.removed(
     chapterId: String,
@@ -85,8 +89,13 @@ internal fun List<Chapter>.removed(
 
     val remaining = filterIndexed { i, _ -> i != index }.toMutableList()
     if (index == 0) remaining[0] = remaining[0].copy(startTime = 0L)
+    if (index < remaining.size) remaining[index] = remaining[index].inheritingMarkersOf(this[index])
     return remaining.withDerivedDurations(bookDurationMs)
 }
+
+/** This chapter, also opening whichever tiers [deleted] opened and it does not. */
+private fun Chapter.inheritingMarkersOf(deleted: Chapter): Chapter =
+    copy(partTitle = partTitle ?: deleted.partTitle, bookTitle = bookTitle ?: deleted.bookTitle)
 
 /** Retitles [chapterId]. A blank title is refused — an untitled boundary is unnavigable. */
 internal fun List<Chapter>.retitled(

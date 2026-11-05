@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 
 /// The two levels a marker can open, as the views speak of them. The observer is the only place that
 /// turns this into Kotlin's `ChapterMarkerTier`.
@@ -66,9 +67,39 @@ struct MarkerEdit: Identifiable, Equatable {
     let isNew: Bool
 
     var id: String { "\(chapterId)-\(tier)" }
+
+    /// The wire's ceiling for a marker's name, in the UTF-16 units Kotlin counts.
+    nonisolated static var maxNameLength: Int { Int(ChapterInput.Companion.shared.MAX_SECTION_TITLE) }
+
+    /// Whether `name`, already trimmed, is one the ViewModel will take. It refuses anything else
+    /// without a word, so a sheet that closed on one would drop the name silently.
+    nonisolated static func accepts(_ name: String) -> Bool {
+        !name.isEmpty && name.utf16.count <= maxNameLength
+    }
+}
+
+extension MarkerTier {
+    /// The action that starts this tier, wherever a row offers it.
+    var startLabel: String {
+        switch self {
+        case .part: String(localized: "chapter_editor.start_part_ios")
+        case .book: String(localized: "chapter_editor.start_book_ios")
+        }
+    }
+
+    var startSymbol: String {
+        switch self {
+        case .part: "bookmark"
+        case .book: "books.vertical"
+        }
+    }
 }
 
 extension EditableChapterRow {
+    /// The tiers this chapter can still start: every surface offering the action reads this, so
+    /// VoiceOver cannot list one the menu has dropped.
+    var startableTiers: [MarkerTier] { [.part, .book].filter { !opens($0) } }
+
     /// Whether this chapter already opens `tier`, which is what rules it out as a place to move to.
     func opens(_ tier: MarkerTier) -> Bool {
         switch tier {

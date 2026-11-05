@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -89,8 +90,12 @@ class ChapterMarkerListTest {
     fun `a marker is a header row above the chapter that carries it`() {
         render()
 
-        text("The First Part").assertIsDisplayed()
-        text("Omnibus One").assertIsDisplayed()
+        val tops =
+            listOf("Credits", "The First Part", "Dawn", "Omnibus One", "Dusk").map {
+                text(it).assertIsDisplayed().getUnclippedBoundsInRoot().top
+            }
+
+        tops shouldBe tops.sorted()
     }
 
     @Test

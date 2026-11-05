@@ -413,10 +413,14 @@ class ChapterEditorViewModel(
      * Reads the current chapters out of [state] rather than keeping a second copy, so there is
      * exactly one answer to "what is being edited". Edits only ever arrive from a screen that is
      * collecting [state], so it is `Editing` whenever this is reachable.
+     *
+     * A transform that changes nothing forks nothing. An empty draft would stop the editor following
+     * the mirror, and report the next sync frame as a conflict with an edit nobody made.
      */
     private fun edit(transform: (List<Chapter>, Long) -> List<Chapter>) {
         val editing = state.value as? ChapterEditorUiState.Editing ?: return
         val next = transform(editing.chapters, editing.bookDurationMs)
+        if (next == editing.chapters) return
         draft.update { current ->
             (current ?: ChapterDraft(chapters = editing.chapters, forkedFrom = editing.chapters)).mutate(next)
         }

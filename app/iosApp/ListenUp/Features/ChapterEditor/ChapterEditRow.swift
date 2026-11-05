@@ -23,10 +23,9 @@ struct ChapterEditRow: View {
     let onPlayFrom: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
-    /// Nil once this chapter opens a Part: its section header edits the one it has.
-    let onStartPart: (() -> Void)?
-    /// Nil once this chapter opens a Book, for the same reason.
-    let onStartBook: (() -> Void)?
+    /// Asks for a new marker. Offered only for `row.startableTiers`: once a chapter opens a tier, its
+    /// section header edits the one it has.
+    let onStartMarker: (MarkerTier) -> Void
 
     /// Coarse ± step, the same one every other client's rows use.
     private static let nudgeMs: Int64 = 1_000
@@ -85,8 +84,11 @@ struct ChapterEditRow: View {
         // The row's children combine into one element, so its controls are named as actions too.
         .accessibilityAction(named: Text(String(localized: "chapter_editor.edit_time")), onEditTime)
         .accessibilityAction(named: Text(String(localized: "chapter_editor.insert_below")), onInsertBelow)
-        .accessibilityAction(named: Text(String(localized: "chapter_editor.start_part_ios"))) { onStartPart?() }
-        .accessibilityAction(named: Text(String(localized: "chapter_editor.start_book_ios"))) { onStartBook?() }
+        .accessibilityActions {
+            ForEach(row.startableTiers, id: \.self) { tier in
+                Button(tier.startLabel) { onStartMarker(tier) }
+            }
+        }
         .contextMenu { rowMenu }
         // swipe-actions-host: ChapterEditorView.swift (its `chapterList` is the `List`).
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -101,9 +103,9 @@ struct ChapterEditRow: View {
                 Label(String(localized: "chapter_editor.insert_below"), systemImage: "scissors")
             }
             .tint(.teal)
-            if let onStartPart {
-                Button(action: onStartPart) {
-                    Label(String(localized: "chapter_editor.start_part_ios"), systemImage: "bookmark")
+            if row.startableTiers.contains(.part) {
+                Button { onStartMarker(.part) } label: {
+                    Label(MarkerTier.part.startLabel, systemImage: MarkerTier.part.startSymbol)
                 }
                 .tint(.orange)
             }
@@ -140,14 +142,9 @@ struct ChapterEditRow: View {
         Button(action: onRename) {
             Label(String(localized: "chapter_editor.rename_ios"), systemImage: "pencil")
         }
-        if let onStartPart {
-            Button(action: onStartPart) {
-                Label(String(localized: "chapter_editor.start_part_ios"), systemImage: "bookmark")
-            }
-        }
-        if let onStartBook {
-            Button(action: onStartBook) {
-                Label(String(localized: "chapter_editor.start_book_ios"), systemImage: "books.vertical")
+        ForEach(row.startableTiers, id: \.self) { tier in
+            Button { onStartMarker(tier) } label: {
+                Label(tier.startLabel, systemImage: tier.startSymbol)
             }
         }
         Button(action: onInsertBelow) {
