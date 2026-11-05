@@ -47,6 +47,9 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
     override suspend fun await() = Unit
 }
 
+/** Hardcover's `reading_formats` id for audiobooks. */
+private const val AUDIOBOOK_FORMAT = 2
+
 /**
  * A small in-memory Hardcover: one user's shelf (`user_books` with their reads) and a catalog of
  * editions, answering exactly the GraphQL ListenUp sends. [failNext] queues answers served INSTEAD
@@ -67,8 +70,9 @@ class NoWaitRateLimiter : HardcoverRateLimiter() {
  * Hardcover did that moving a Read entry to Reading (seen live, 2026-11-03: reads 7515956 and 7515957);
  * whether it always does is unverified, so push is tested against both.
  *
- * Like the real Hardcover (seen live, 2026-11-04), a read on a catalog [Edition] with no `audio_seconds`
- * keeps no `progress_seconds`: the write is accepted and the value dropped.
+ * Like the real Hardcover (seen live, 2026-11-04, on a Kindle edition), a read on a catalog [Edition] that
+ * isn't an audiobook and has no `audio_seconds` keeps no `progress_seconds`: the write is accepted and the
+ * value dropped. An audiobook edition with no length is unverified, so it keeps them.
  *
  * Every shelf carries an `updated_at` ([Shelf.updatedAt]), stamped from a counter so it only ever
  * grows, and the changed-since query the pull sends pages by `(updated_at, id)`. Stamps are written
@@ -515,7 +519,9 @@ class FakeHardcoverLibrary(
             }
         }
         val edition = editions.firstOrNull { it.id == read.editionId }
-        if (edition != null && edition.audioSeconds == null) read.progressSeconds = null
+        if (edition != null && edition.readingFormatId != AUDIOBOOK_FORMAT && edition.audioSeconds == null) {
+            read.progressSeconds = null
+        }
     }
 
     private fun userBooksJson(
