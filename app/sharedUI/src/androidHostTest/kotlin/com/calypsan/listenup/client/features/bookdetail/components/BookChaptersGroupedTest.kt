@@ -1,6 +1,10 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -71,25 +75,35 @@ class BookChaptersGroupedTest {
 
     private val plays = mutableListOf<Long>()
 
+    /** Where playback is, as state: a test moves it the way the player would. */
+    private var playhead by mutableStateOf<Int?>(null)
+
     private fun render(
         currentIndex: Int? = 6,
         canPlay: Boolean = true,
         chapters: List<Chapter> = book,
     ) {
-        val rows = rowsOf(chapters, currentIndex)
-        val window = currentIndex?.let { rows.subList((it - 2).coerceAtLeast(0), (it + 3).coerceAtMost(rows.size)) }
+        playhead = currentIndex
         composeRule.setContent {
+            val index = playhead
+            val rows = rowsOf(chapters, index)
+            val window = index?.let { rows.subList((it - 2).coerceAtLeast(0), (it + 3).coerceAtMost(rows.size)) }
             MaterialTheme {
                 BookChaptersSection(
                     chapters = rows,
                     preview = window ?: rows.take(5),
-                    currentChapter = currentIndex?.let(::current),
+                    currentChapter = index?.let(::current),
                     canPlay = canPlay,
                     onPlayFromChapter = { plays += it },
-                    grouped = chapters.groupedChapters(currentIndex),
+                    grouped = chapters.groupedChapters(index),
                 )
             }
         }
+        composeRule.waitForIdle()
+    }
+
+    private fun movePlaybackTo(index: Int) {
+        playhead = index
         composeRule.waitForIdle()
     }
 
@@ -197,12 +211,58 @@ class BookChaptersGroupedTest {
     }
 
     @Test
+    fun `a part the reader opened stays open when playback moves into it`() {
+        render(currentIndex = 6)
+        openAll()
+        part("Part II,").performClick()
+        composeRule.waitForIdle()
+
+        // What tapping a chapter inside the part does: the playhead lands in it.
+        movePlaybackTo(9)
+
+        part("Part II,").assert(expandedState("Expanded"))
+        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a part the reader closed stays closed when playback moves on`() {
+        render(currentIndex = 6)
+        openAll()
+        part("Part I,").performClick()
+        composeRule.waitForIdle()
+
+        movePlaybackTo(9)
+
+        part("Part I,").assert(expandedState("Collapsed"))
+        composeRule.onNodeWithContentDescription("Play from chapter 3: 1").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a part nobody touched follows the playhead`() {
+        render(currentIndex = 6)
+        openAll()
+
+        movePlaybackTo(9)
+
+        part("Part I,").assert(expandedState("Collapsed"))
+        part("Part II,").assert(expandedState("Expanded"))
+    }
+
+    @Test
     fun `a book header is an outer tier that closes nothing`() {
         val omnibus = book.mapIndexed { i, chapter -> if (i == 1) chapter.copy(bookTitle = "Book One") else chapter }
 
-        render(currentIndex = null, chapters = omnibus)
+        render(currentIndex = 6, chapters = omnibus)
         openAll()
 
-        composeRule.onNodeWithText("Book One").assertIsDisplayed()
+        composeRule
+            .onNodeWithText("Book One")
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
+        // Everything inside it is still drawn: its parts, and the open one's chapters.
+        part("Part I,").assert(expandedState("Expanded"))
+        part("Part II,").assert(expandedState("Collapsed"))
+        composeRule.onNodeWithContentDescription("Play from chapter 3: 1").assertIsDisplayed()
     }
 }

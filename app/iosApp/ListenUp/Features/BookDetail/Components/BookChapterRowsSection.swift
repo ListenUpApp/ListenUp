@@ -14,8 +14,8 @@ struct BookChapterRowsSection: View {
     let onPlayFromChapter: (Int64) -> Void
 
     @State private var expanded: Bool
-    /// The parts the reader flipped from their default, for as long as this screen is up.
-    @State private var toggledParts: Set<String> = []
+    /// How the reader left each part, for as long as this screen is up.
+    @State private var partOverrides: [String: Bool] = [:]
 
     init(chapters: [BookChapterRow], preview: [BookChapterRow], grouped: BookGroupedChapters? = nil, canPlay: Bool,
          initiallyExpanded: Bool = false, onPlayFromChapter: @escaping (Int64) -> Void) {
@@ -91,8 +91,13 @@ struct BookChapterRowsSection: View {
         if !expanded, let label = grouped.previewLabel {
             groupLabel(label)
         }
-        let rows = expanded ? grouped.visibleRows(toggled: toggledParts) : grouped.previewRows
-        ForEach(rows) { outlineRow($0) }
+        let rows = expanded ? grouped.visibleRows(overrides: partOverrides) : grouped.previewRows
+        ForEach(rows) { row in
+            outlineRow(row)
+            if BookGroupedChapters.hasDivider(after: row, in: rows) {
+                Divider().padding(.leading, 52)
+            }
+        }
     }
 
     @ViewBuilder
@@ -103,10 +108,10 @@ struct BookChapterRowsSection: View {
         case .part(let part):
             BookPartRow(
                 part: part,
-                isOpen: expanded && part.chapterCount > 0 ? part.isOpen(toggled: toggledParts) : nil,
+                isOpen: expanded && part.chapterCount > 0 ? part.isOpen(overrides: partOverrides) : nil,
                 canPlay: canPlay,
                 onToggle: {
-                    withAnimation(.easeInOut(duration: 0.2)) { toggledParts.formSymmetricDifference([part.chapterId]) }
+                    withAnimation(.easeInOut(duration: 0.2)) { partOverrides = part.toggled(partOverrides) }
                 },
                 onPlay: { onPlayFromChapter(part.startMs) }
             )
@@ -114,7 +119,6 @@ struct BookChapterRowsSection: View {
             // The outline's number is the chapter's place in the whole book, which indexes `chapters`.
             if chapters.indices.contains(number - 1) {
                 self.row(chapters[number - 1], number: number)
-                Divider().padding(.leading, 52)
             }
         }
     }

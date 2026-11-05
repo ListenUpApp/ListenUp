@@ -46,8 +46,15 @@ sealed interface ChapterOutlineRow {
         val containsCurrent: Boolean,
         val isCurrentChapter: Boolean = false,
     ) : ChapterOutlineRow {
-        /** Open by default when it holds the current chapter; [toggledPartIds] are those the reader flipped. */
-        fun isOpen(toggledPartIds: Set<String>): Boolean = containsCurrent != chapterId in toggledPartIds
+        /**
+         * Whether this part is open: as the reader left it, per [overrides], or with no override
+         * following the current chapter.
+         */
+        fun isOpen(overrides: Map<String, Boolean>): Boolean = overrides[chapterId] ?: containsCurrent
+
+        /** [overrides] with this part flipped, so it stays that way wherever playback goes next. */
+        fun toggled(overrides: Map<String, Boolean>): Map<String, Boolean> =
+            overrides + (chapterId to !isOpen(overrides))
     }
 
     /**
@@ -106,10 +113,10 @@ fun List<Chapter>.toChapterOutline(
 }
 
 /** These rows with the chapters of closed parts taken out; see [ChapterOutlineRow.PartHeader.isOpen]. */
-fun List<ChapterOutlineRow>.withOpenParts(toggledPartIds: Set<String>): List<ChapterOutlineRow> {
+fun List<ChapterOutlineRow>.withOpenParts(overrides: Map<String, Boolean>): List<ChapterOutlineRow> {
     val closed =
         filterIsInstance<ChapterOutlineRow.PartHeader>()
-            .filterNot { it.isOpen(toggledPartIds) }
+            .filterNot { it.isOpen(overrides) }
             .mapTo(mutableSetOf()) { it.chapterId }
     return filterNot { it is ChapterOutlineRow.ChapterRow && it.partId in closed }
 }

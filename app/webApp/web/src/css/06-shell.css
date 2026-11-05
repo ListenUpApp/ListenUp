@@ -539,7 +539,7 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-part { display:flex; align-items:center; gap:var(--sp-4); margin-top:var(--sp-4); border-radius:var(--r-sm); background:var(--surface-2); }
 .bd-part.is-current { background:var(--coral-soft); }
 .bd-part-open, .bd-part-name { flex:1; min-width:0; min-height:52px; display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-4) var(--sp-8); padding:var(--sp-4) var(--sp-12); }
-.bd-part-open { text-align:left; background:none; border:0; border-radius:var(--r-sm); color:var(--ink); cursor:pointer; }
+.bd-part-open { font:inherit; text-align:left; background:none; border:0; border-radius:var(--r-sm); color:var(--ink); cursor:pointer; }
 @media (hover: hover) { .bd-part-open:hover { background:var(--surface-3); } }
 .bd-part-open:active { background:var(--surface-3); }
 .bd-part-open:focus { outline:none; }

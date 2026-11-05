@@ -13,8 +13,14 @@ struct BookPartHeader: Equatable {
     /// The current chapter is the one folded into this header, so this row shows as current.
     let isCurrentChapter: Bool
 
-    /// Open by default when it holds the current chapter; `toggled` are the parts the reader flipped.
-    func isOpen(toggled: Set<String>) -> Bool { containsCurrent != toggled.contains(chapterId) }
+    /// As the reader left it, per `overrides`, or with no override following the current chapter.
+    /// The shared `ChapterOutlineRow.PartHeader.isOpen`, on the native value the view holds.
+    func isOpen(overrides: [String: Bool]) -> Bool { overrides[chapterId] ?? containsCurrent }
+
+    /// `overrides` with this part flipped, so it stays that way wherever playback goes next.
+    func toggled(_ overrides: [String: Bool]) -> [String: Bool] {
+        overrides.merging([chapterId: !isOpen(overrides: overrides)]) { _, flipped in flipped }
+    }
 
     /// "13 chapters · 45 hr, 30 min", or just the length of a part that is only its announcement.
     var summary: String {
@@ -65,15 +71,22 @@ struct BookGroupedChapters: Equatable {
     }
 
     /// Every header, and the chapters of parts that are open.
-    func visibleRows(toggled: Set<String>) -> [BookOutlineRow] {
+    func visibleRows(overrides: [String: Bool]) -> [BookOutlineRow] {
         let closed = Set(rows.compactMap { row -> String? in
-            guard case .part(let part) = row, !part.isOpen(toggled: toggled) else { return nil }
+            guard case .part(let part) = row, !part.isOpen(overrides: overrides) else { return nil }
             return part.chapterId
         })
         return rows.filter { row in
             guard case .chapter(_, let partId?) = row else { return true }
             return !closed.contains(partId)
         }
+    }
+
+    /// Whether a hairline follows `row` in `shown`: under a chapter, as the flat list has it, and
+    /// never after the last row, where the card's edge or the "All" button's own line already is.
+    static func hasDivider(after row: BookOutlineRow, in shown: [BookOutlineRow]) -> Bool {
+        guard case .chapter = row else { return false }
+        return row != shown.last
     }
 
     private static func row(_ row: ChapterOutlineRow) -> BookOutlineRow {

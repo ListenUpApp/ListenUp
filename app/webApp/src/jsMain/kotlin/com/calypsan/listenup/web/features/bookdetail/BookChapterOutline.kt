@@ -35,8 +35,8 @@ internal fun BookChapterOutline(
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
 ) {
-    var toggled by remember(bookId) { mutableStateOf(emptySet<String>()) }
-    val rows = if (expanded) grouped.rows.withOpenParts(toggled) else grouped.previewRows
+    var overrides by remember(bookId) { mutableStateOf(emptyMap<String, Boolean>()) }
+    val rows = if (expanded) grouped.rows.withOpenParts(overrides) else grouped.previewRows
 
     if (!expanded) grouped.previewLabel?.let { label -> P(attrs = { classes("bd-part-label") }) { Text(label) } }
 
@@ -55,13 +55,10 @@ internal fun BookChapterOutline(
                     key("part-${row.chapterId}") {
                         PartRow(
                             part = row,
-                            isOpen = row.isOpen(toggled).takeIf { expanded && row.chapterCount > 0 },
+                            isOpen = row.isOpen(overrides).takeIf { expanded && row.chapterCount > 0 },
                             tier = tier,
                             canPlay = canPlay,
-                            onToggle = {
-                                toggled =
-                                    if (row.chapterId in toggled) toggled - row.chapterId else toggled + row.chapterId
-                            },
+                            onToggle = { overrides = row.toggled(overrides) },
                             onPlay = { onPlayFromChapter(row.startMs) },
                         )
                     }

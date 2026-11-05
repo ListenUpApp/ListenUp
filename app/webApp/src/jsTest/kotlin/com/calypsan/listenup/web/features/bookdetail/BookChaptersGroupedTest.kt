@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.groupedChapters
@@ -10,6 +13,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.browser.window
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 
@@ -52,6 +56,9 @@ class BookChaptersGroupedTest :
             )
         }
 
+        /** Where playback is, as state: a spec moves it the way the player would. */
+        var playhead by mutableStateOf<Int?>(null)
+
         fun mount(
             currentIndex: Int? = 6,
             canPlay: Boolean = true,
@@ -59,8 +66,10 @@ class BookChaptersGroupedTest :
             chapters: List<Chapter> = book,
             onPlay: (Long) -> Unit = {},
         ): HTMLElement {
-            val rows = rowsOf(chapters, currentIndex)
+            playhead = currentIndex
             return mounts.mount {
+                val index = playhead
+                val rows = rowsOf(chapters, index)
                 BookChaptersSection(
                     bookId = "42",
                     chapters = rows,
@@ -69,7 +78,7 @@ class BookChaptersGroupedTest :
                     wide = wide,
                     onPlayFromChapter = onPlay,
                     onOpenChapterMap = {},
-                    grouped = chapters.groupedChapters(currentIndex),
+                    grouped = chapters.groupedChapters(index),
                 )
             }
         }
@@ -187,12 +196,66 @@ class BookChaptersGroupedTest :
             chapterRow(root, "10: 7").shouldNotBeNull().hasAttribute("disabled") shouldBe true
         }
 
-        test("a book header is an outer tier that closes nothing") {
-            val omnibus = book.mapIndexed { i, chapter -> if (i == 1) chapter.copy(bookTitle = "Book One") else chapter }
-            val root = mount(currentIndex = null, chapters = omnibus)
+        test("a part the reader opened stays open when playback moves into it") {
+            val root = mount(currentIndex = 6)
+            showAll(root)
+            toggle(root, "Part II").shouldNotBeNull().click()
+            awaitFrame()
+
+            // What pressing a chapter inside the part does: the playhead lands in it.
+            playhead = 9
+            awaitFrame()
+
+            toggle(root, "Part II").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "true"
+            chapterRow(root, "10: 7").shouldNotBeNull()
+        }
+
+        test("a part the reader closed stays closed when playback moves on") {
+            val root = mount(currentIndex = 6)
+            showAll(root)
+            toggle(root, "Part I").shouldNotBeNull().click()
+            awaitFrame()
+
+            playhead = 9
+            awaitFrame()
+
+            toggle(root, "Part I").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "false"
+            chapterRow(root, "3: 1").shouldBeNull()
+        }
+
+        test("a part nobody touched follows the playhead") {
+            val root = mount(currentIndex = 6)
             showAll(root)
 
-            root.querySelector(".bd-book")?.textContent shouldBe "Book One"
+            playhead = 9
+            awaitFrame()
+
+            toggle(root, "Part I").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "false"
+            toggle(root, "Part II").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "true"
+        }
+
+        test("a part's name uses the app's type, not the browser's button font") {
+            val root = mount(currentIndex = 6)
+            showAll(root)
+
+            val part = toggle(root, "Part I").shouldNotBeNull()
+
+            window.getComputedStyle(part).fontFamily shouldBe
+                window.getComputedStyle(part.parentElement.shouldNotBeNull()).fontFamily
+        }
+
+        test("a book header is an outer tier that closes nothing") {
+            val omnibus = book.mapIndexed { i, chapter -> if (i == 1) chapter.copy(bookTitle = "Book One") else chapter }
+            val root = mount(currentIndex = 6, chapters = omnibus)
+            showAll(root)
+
+            val header = root.querySelector(".bd-book").shouldNotBeNull()
+            header.textContent shouldBe "Book One"
+            header.querySelector("button").shouldBeNull()
+            // Everything inside it is still drawn: its parts, and the open one's chapters.
+            toggle(root, "Part I").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "true"
+            toggle(root, "Part II").shouldNotBeNull().getAttribute("aria-expanded") shouldBe "false"
+            chapterRow(root, "3: 1").shouldNotBeNull()
         }
 
         test("a wide page draws the outline too, rather than its flat table") {

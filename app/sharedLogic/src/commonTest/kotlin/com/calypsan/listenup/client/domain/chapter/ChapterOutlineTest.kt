@@ -208,16 +208,59 @@ class ChapterOutlineTest :
 
             val parts = chapters.toChapterOutline(currentChapterId = "b").filterIsInstance<PartHeader>()
 
-            parts.map { it.isOpen(emptySet()) } shouldBe listOf(true, false)
+            parts.map { it.isOpen(emptyMap()) } shouldBe listOf(true, false)
         }
 
-        test("a reader's toggle flips a part either way") {
+        test("a part the reader opened stays open when playback moves into it and on past it") {
+            val chapters =
+                book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"), chapter("e", part = "Three"))
+            fun partTwoAt(current: String) =
+                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
+
+            val overrides = partTwoAt("a").toggled(emptyMap())
+
+            withClue("tapping a chapter inside the part must not close the part it was tapped in") {
+                partTwoAt("d").isOpen(overrides) shouldBe true
+            }
+            partTwoAt("e").isOpen(overrides) shouldBe true
+        }
+
+        test("a part the reader closed stays closed however playback moves") {
             val chapters =
                 book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
+            fun partOneAt(current: String) =
+                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[0]
 
-            val parts = chapters.toChapterOutline(currentChapterId = "b").filterIsInstance<PartHeader>()
+            val overrides = partOneAt("b").toggled(emptyMap())
 
-            parts.map { it.isOpen(setOf("a", "c")) } shouldBe listOf(false, true)
+            partOneAt("b").isOpen(overrides) shouldBe false
+            withClue("playback leaving the part must not reopen it") {
+                partOneAt("d").isOpen(overrides) shouldBe false
+            }
+            partOneAt("a").isOpen(overrides) shouldBe false
+        }
+
+        test("a part nobody touched follows the current chapter") {
+            val chapters = book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
+
+            fun openAt(current: String) =
+                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>().map {
+                    it.isOpen(emptyMap())
+                }
+
+            openAt("b") shouldBe listOf(true, false)
+            openAt("d") shouldBe listOf(false, true)
+        }
+
+        test("toggling twice lands where the reader last left it, not back on the default") {
+            val chapters = book(chapter("a", part = "One"), chapter("b"), chapter("c", part = "Two"), chapter("d"))
+            fun partTwoAt(current: String) =
+                chapters.toChapterOutline(currentChapterId = current).filterIsInstance<PartHeader>()[1]
+
+            val overrides = partTwoAt("a").toggled(partTwoAt("a").toggled(emptyMap()))
+
+            partTwoAt("a").isOpen(overrides) shouldBe false
+            partTwoAt("d").isOpen(overrides) shouldBe false
         }
 
         test("a closed part hides its chapters and keeps its header, and chapters in no part always show") {
@@ -230,7 +273,7 @@ class ChapterOutlineTest :
                     chapter("d"),
                 )
 
-            val rows = chapters.toChapterOutline(currentChapterId = "d").withOpenParts(emptySet())
+            val rows = chapters.toChapterOutline(currentChapterId = "d").withOpenParts(emptyMap())
 
             rows.map { row ->
                 when (row) {
@@ -244,7 +287,7 @@ class ChapterOutlineTest :
         test("a book header is never hidden by the parts inside it") {
             val chapters = book(chapter("a", bookTitle = "Book One", part = "One"), chapter("b"))
 
-            chapters.toChapterOutline().withOpenParts(emptySet()).map { it::class } shouldBe
+            chapters.toChapterOutline().withOpenParts(emptyMap()).map { it::class } shouldBe
                 listOf(BookHeader::class, PartHeader::class)
         }
 

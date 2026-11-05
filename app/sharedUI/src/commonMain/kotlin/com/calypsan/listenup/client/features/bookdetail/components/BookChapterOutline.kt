@@ -21,7 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,7 +70,7 @@ internal data class ChapterPlayback(
  * [expanded] the whole outline, parts opening and closing. Which rows exist is the outline's answer,
  * so this only draws: a chapter row's number indexes [chapters].
  *
- * Which parts the reader flipped lives here, on the screen, as nothing about it is worth keeping.
+ * How the reader left each part lives here, on the screen, as nothing about it is worth keeping.
  */
 @Composable
 internal fun BookChapterOutline(
@@ -79,8 +79,8 @@ internal fun BookChapterOutline(
     expanded: Boolean,
     playback: ChapterPlayback,
 ) {
-    var toggled by rememberSaveable(stateSaver = toggledPartsSaver) { mutableStateOf(emptySet<String>()) }
-    val rows = if (expanded) grouped.rows.withOpenParts(toggled) else grouped.previewRows
+    var overrides by rememberSaveable(stateSaver = partOverridesSaver) { mutableStateOf(emptyMap<String, Boolean>()) }
+    val rows = if (expanded) grouped.rows.withOpenParts(overrides) else grouped.previewRows
 
     if (!expanded) grouped.previewLabel?.let { PartLabel(it) }
 
@@ -99,8 +99,8 @@ internal fun BookChapterOutline(
                     if (expanded && row.chapterCount > 0) {
                         CollapsiblePartRow(
                             part = row,
-                            isOpen = row.isOpen(toggled),
-                            onToggle = { toggled = if (row.chapterId in toggled) toggled - row.chapterId else toggled + row.chapterId },
+                            isOpen = row.isOpen(overrides),
+                            onToggle = { overrides = row.toggled(overrides) },
                             playback = playback,
                             modifier = inset,
                         )
@@ -128,9 +128,12 @@ internal fun BookChapterOutline(
     }
 }
 
-/** The flipped parts survive a rotation as a list, the shape a saved state can hold. */
-private val toggledPartsSaver =
-    listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
+/** How the reader left each part, kept across a rotation. */
+private val partOverridesSaver =
+    mapSaver<Map<String, Boolean>>(
+        save = { it },
+        restore = { saved -> saved.mapValues { (_, isOpen) -> isOpen == true } },
+    )
 
 /** The part the window starts inside, whose own header is out of view. */
 @Composable
