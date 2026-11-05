@@ -9330,6 +9330,7 @@
       }
     },
     "chapter_editor.delete_chapter_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9681,6 +9682,7 @@
       }
     },
     "chapter_editor.insert_below_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9724,6 +9726,7 @@
       }
     },
     "chapter_editor.marker_book_word": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9734,6 +9737,7 @@
       }
     },
     "chapter_editor.marker_edit": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9744,6 +9748,7 @@
       }
     },
     "chapter_editor.marker_edit_book": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9754,6 +9759,7 @@
       }
     },
     "chapter_editor.marker_edit_book_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9764,6 +9770,7 @@
       }
     },
     "chapter_editor.marker_edit_named": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9774,6 +9781,7 @@
       }
     },
     "chapter_editor.marker_edit_part": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9784,6 +9792,7 @@
       }
     },
     "chapter_editor.marker_edit_part_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9794,6 +9803,7 @@
       }
     },
     "chapter_editor.marker_move": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9804,6 +9814,7 @@
       }
     },
     "chapter_editor.marker_move_title": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9814,6 +9825,7 @@
       }
     },
     "chapter_editor.marker_move_title_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9824,6 +9836,7 @@
       }
     },
     "chapter_editor.marker_name": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9834,6 +9847,7 @@
       }
     },
     "chapter_editor.marker_new_book": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9844,6 +9858,7 @@
       }
     },
     "chapter_editor.marker_new_book_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9854,6 +9869,7 @@
       }
     },
     "chapter_editor.marker_new_part": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9864,6 +9880,7 @@
       }
     },
     "chapter_editor.marker_new_part_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9874,6 +9891,7 @@
       }
     },
     "chapter_editor.marker_part_word": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9884,6 +9902,7 @@
       }
     },
     "chapter_editor.marker_remove": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9894,6 +9913,7 @@
       }
     },
     "chapter_editor.marker_remove_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9904,6 +9924,7 @@
       }
     },
     "chapter_editor.marker_starts_at": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9914,6 +9935,7 @@
       }
     },
     "chapter_editor.marker_starts_at_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9924,6 +9946,7 @@
       }
     },
     "chapter_editor.marker_starts_at_value": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10099,6 +10122,7 @@
       }
     },
     "chapter_editor.rename_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10175,6 +10199,7 @@
       }
     },
     "chapter_editor.start_book": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10185,6 +10210,7 @@
       }
     },
     "chapter_editor.start_book_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10195,6 +10221,7 @@
       }
     },
     "chapter_editor.start_part": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10205,6 +10232,7 @@
       }
     },
     "chapter_editor.start_part_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10226,6 +10254,7 @@
       }
     },
     "chapter_editor.suggestion_accept": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10236,6 +10265,7 @@
       }
     },
     "chapter_editor.suggestion_accept_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10246,6 +10276,7 @@
       }
     },
     "chapter_editor.suggestion_body": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10256,6 +10287,7 @@
       }
     },
     "chapter_editor.suggestion_dismiss": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10266,6 +10298,7 @@
       }
     },
     "chapter_editor.suggestion_dismiss_ios": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10276,6 +10309,7 @@
       }
     },
     "chapter_editor.suggestion_list_end": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10286,6 +10320,7 @@
       }
     },
     "chapter_editor.suggestion_title": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
