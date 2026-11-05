@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -31,6 +34,9 @@ class ChapterMarkerListTest {
     val composeRule = createComposeRule()
 
     private val calls = mutableListOf<String>()
+
+    /** An offer that arrives after the list has settled, as it does once a rename makes the second match. */
+    private var lateSuggestion by mutableStateOf<PartSuggestion?>(null)
 
     private val marked =
         listOf(
@@ -64,7 +70,7 @@ class ChapterMarkerListTest {
                         ),
                     rowMenu = ChapterRowMenuActions({}, {}, null, {}),
                     query = query,
-                    partSuggestion = suggestion,
+                    partSuggestion = suggestion ?: lateSuggestion,
                     markers =
                         ChapterMarkerActions(
                             onEdit = { id, tier -> calls += "edit:$id:$tier" },
@@ -124,6 +130,18 @@ class ChapterMarkerListTest {
         text("Not now").performClick()
 
         calls shouldBe listOf("accept", "dismiss")
+    }
+
+    @Test
+    fun `an offer arriving while the list sits at its top comes into view`() {
+        // Long enough to scroll: a list that fits has no place to hold.
+        render(chapters = List(80) { Chapter(id = "c$it", title = "Chapter $it", duration = 500L, startTime = it * 500L) })
+        composeRule.onNodeWithText("Chapter 0").assertIsDisplayed()
+
+        lateSuggestion = PartSuggestion(listOf("Part I", "Part II"))
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Use as parts").assertIsDisplayed()
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +26,7 @@ import listenup.composeapp.generated.resources.chapter_editor_add_at_playhead
 import listenup.composeapp.generated.resources.chapter_editor_clear_search
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
 import listenup.composeapp.generated.resources.chapter_editor_no_matches
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
@@ -216,6 +218,13 @@ private fun ChapterListPane(
         derivedStateOf { playingChapterIds(currentChapters, playheadMs()) }
     }
     val hasPlayhead by remember(playheadMs) { derivedStateOf { playheadMs() != null } }
+    val listState = rememberLazyListState()
+    val hasSuggestion = partSuggestion != null
+    // A keyed list holds its place on the first chapter, so an offer arriving above it would land just
+    // out of view. Brought in only from the top: a reader further down keeps their place.
+    LaunchedEffect(hasSuggestion) {
+        if (hasSuggestion && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
 
     Column(
         modifier
@@ -249,7 +258,7 @@ private fun ChapterListPane(
         // the rows around it filtered out it would be saying so about the wrong ones.
         val isBrowsing = query.isBlank()
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             // In the list rather than above it, so the offer scrolls away instead of taking height
             // from a phone's already-stacked panes.
             if (isBrowsing && partSuggestion != null) {
