@@ -8,15 +8,20 @@ import SwiftUI
 struct BookChapterRowsSection: View {
     let chapters: [BookChapterRow]
     let preview: [BookChapterRow]
+    /// A marked book's outline. Nil for a flat book, which draws exactly what it always has.
+    let grouped: BookGroupedChapters?
     let canPlay: Bool
     let onPlayFromChapter: (Int64) -> Void
 
     @State private var expanded: Bool
+    /// The parts the reader flipped from their default, for as long as this screen is up.
+    @State private var toggledParts: Set<String> = []
 
-    init(chapters: [BookChapterRow], preview: [BookChapterRow], canPlay: Bool, initiallyExpanded: Bool = false,
-         onPlayFromChapter: @escaping (Int64) -> Void) {
+    init(chapters: [BookChapterRow], preview: [BookChapterRow], grouped: BookGroupedChapters? = nil, canPlay: Bool,
+         initiallyExpanded: Bool = false, onPlayFromChapter: @escaping (Int64) -> Void) {
         self.chapters = chapters
         self.preview = preview
+        self.grouped = grouped
         self.canPlay = canPlay
         self.onPlayFromChapter = onPlayFromChapter
         _expanded = State(initialValue: initiallyExpanded)
@@ -45,10 +50,14 @@ struct BookChapterRowsSection: View {
             .padding(.horizontal, Spacing.xxs)
 
             VStack(spacing: 0) {
-                ForEach(shown) { chapter in
-                    row(chapter, number: numbers[chapter.id] ?? 0)
-                    if chapter.id != shown.last?.id {
-                        Divider().padding(.leading, 52)
+                if let grouped {
+                    outline(grouped)
+                } else {
+                    ForEach(shown) { chapter in
+                        row(chapter, number: numbers[chapter.id] ?? 0)
+                        if chapter.id != shown.last?.id {
+                            Divider().padding(.leading, 52)
+                        }
                     }
                 }
                 // Expands in place, and collapses again.
@@ -74,6 +83,52 @@ struct BookChapterRowsSection: View {
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The window with the part it sits in named above it, or with `expanded` the whole outline.
+    @ViewBuilder
+    private func outline(_ grouped: BookGroupedChapters) -> some View {
+        if !expanded, let label = grouped.previewLabel {
+            groupLabel(label)
+        }
+        let rows = expanded ? grouped.visibleRows(toggled: toggledParts) : grouped.previewRows
+        ForEach(rows) { outlineRow($0) }
+    }
+
+    @ViewBuilder
+    private func outlineRow(_ row: BookOutlineRow) -> some View {
+        switch row {
+        case .book(let title, _):
+            groupLabel(title)
+        case .part(let part):
+            BookPartRow(
+                part: part,
+                isOpen: expanded && part.chapterCount > 0 ? part.isOpen(toggled: toggledParts) : nil,
+                canPlay: canPlay,
+                onToggle: {
+                    withAnimation(.easeInOut(duration: 0.2)) { toggledParts.formSymmetricDifference([part.chapterId]) }
+                },
+                onPlay: { onPlayFromChapter(part.startMs) }
+            )
+        case .chapter(let number, _):
+            // The outline's number is the chapter's place in the whole book, which indexes `chapters`.
+            if chapters.indices.contains(number - 1) {
+                self.row(chapters[number - 1], number: number)
+                Divider().padding(.leading, 52)
+            }
+        }
+    }
+
+    /// The part or book a window starts inside, or a book's own header: a heading, not a control.
+    private func groupLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.m)
+            .padding(.top, Spacing.s)
+            .padding(.bottom, Spacing.xxs)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func row(_ chapter: BookChapterRow, number: Int) -> some View {

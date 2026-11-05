@@ -654,6 +654,7 @@ private fun BookSection(
                 wide = wide,
                 onPlayFromChapter = panes.onPlayFromChapter,
                 onOpenChapterMap = panes.onOpenChapterMap,
+                grouped = state.groupedChapters,
             )
         }
 

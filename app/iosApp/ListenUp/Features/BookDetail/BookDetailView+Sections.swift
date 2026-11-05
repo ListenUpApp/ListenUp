@@ -32,6 +32,7 @@ extension BookDetailView {
                 BookChapterRowsSection(
                     chapters: observer.chapters,
                     preview: observer.reading.chapterPreview,
+                    grouped: observer.reading.groupedChapters,
                     canPlay: observer.canPlay,
                     onPlayFromChapter: { observer.play(fromChapterStartMs: $0) }
                 )

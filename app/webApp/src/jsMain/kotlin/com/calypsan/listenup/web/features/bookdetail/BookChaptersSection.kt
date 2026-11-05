@@ -64,7 +64,9 @@ internal fun BookChaptersSection(
             }) { Text("Chapter map") }
         }
         Div(attrs = { classes("bd-ch-body") }) {
-            if (wide) {
+            if (grouped != null) {
+                BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter)
+            } else if (wide) {
                 Table(attrs = { classes("bd-ch-table") }) {
                     Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
                     Tbody {
@@ -112,7 +114,7 @@ internal fun BookChaptersSection(
 }
 
 @Composable
-private fun ChapterButton(
+internal fun ChapterButton(
     chapter: ChapterUiModel,
     number: Int,
     canPlay: Boolean,
@@ -151,4 +153,4 @@ private val CHAPTER_TABLE_HEADINGS = listOf("#", "Title", "Starts", "Length")
 
 private const val MILLIS_PER_SECOND = 1000
 
-private const val PLAY_MARK_SIZE = 14
+internal const val PLAY_MARK_SIZE = 14
