@@ -427,6 +427,7 @@ GenreShareBar
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
+GroupedChapters
 HandEdit
 HardcoverApiTokenStatus
 HardcoverApiTokenStatus_SealedType
