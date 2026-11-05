@@ -538,8 +538,24 @@ class HardcoverPushExecutorTest :
                 advance(MINUTE)
                 runHead() shouldBe PushOutcome.Done
 
-                openReads().size shouldBe 1
+                val read = openReads().single()
+                read.startedAt shouldBe "2026-05-22"
+                read.editionId shouldBe HC_EDITION
                 hardcover.operations.count { it == "insert_user_book_read" } shouldBe 0
+                hardcover.operations.count { it == "update_user_book" } shouldBe 1
+            }
+        }
+
+        test("a shelf entry the user left at Want to Read past the lag no longer holds the row back") {
+            executorTest {
+                links.markShelving(USER, BOOK, T0)
+                hardcover.seedShelf(HC_BOOK, HardcoverStatus.WANT_TO_READ)
+                advance(PAST_LAG)
+                outbox.enqueueStart(USER, BOOK, T0, T0, isReread = false)
+                runHead() shouldBe PushOutcome.Done
+
+                shelf()!!.statusId shouldBe HardcoverStatus.READING
+                openReads().size shouldBe 1
             }
         }
 

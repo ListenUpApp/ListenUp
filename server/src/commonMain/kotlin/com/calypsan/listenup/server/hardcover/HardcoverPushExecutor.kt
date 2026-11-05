@@ -69,7 +69,7 @@ internal fun HardcoverRead.atPosition(
     val pages = length?.pages?.takeIf { it > 0 }
     return when {
         share == null -> copy(progressSeconds = positionSeconds)
-        audioSeconds != null -> copy(progressSeconds = (share * audioSeconds).roundToLong())
+        audioSeconds != null -> copy(progressSeconds = (share * audioSeconds).roundToLong(), progressPages = null)
         pages != null -> copy(progressSeconds = null, progressPages = (share * pages).roundToLong())
         else -> copy(progressSeconds = positionSeconds)
     }
@@ -265,18 +265,18 @@ class HardcoverPushExecutor(
                     shelf.openRead == null &&
                     shelf.statusId != HardcoverStatus.READING
             if (moveToReading) {
+                // Marked first, so a retry after a failure past this point redates the read as this try would.
+                links.markShelving(row.userId, row.bookId, row.listenThrough)
                 userBooks.setStatus(token, userBookId, HardcoverStatus.READING).valueOr { return it }
             }
+            val adopted =
+                if (shelvedJustNow || moveToReading) {
+                    adoptReadHardcoverOpened(startedAt, movedJustNow = moveToReading).valueOr { return it }
+                } else {
+                    null
+                }
             val read =
-                (
-                    if (shelvedJustNow ||
-                        moveToReading
-                    ) {
-                        adoptReadHardcoverOpened(startedAt).valueOr { return it }
-                    } else {
-                        null
-                    }
-                )
+                adopted
                     ?: shelf?.openRead
                     ?: openNewRead(userBookId, startedAt).valueOr { return it }
             links.recordOpenRead(
@@ -322,11 +322,17 @@ class HardcoverPushExecutor(
          * (seen live, 2026-09-30). Opening another would leave a stray open read beside ListenUp's, so
          * the one it opened is adopted and moved to [startedAt] — kept at Hardcover's date when unknown.
          * `Ok(null)` when Hardcover opened none. A shelf entry ListenUp just made that Hardcover doesn't
-         * show yet fails the row: opening a read now would sit beside the one Hardcover opened.
+         * show yet fails the row: opening a read now would sit beside the one Hardcover opened. So does a
+         * shelf entry not showing Reading yet, while that can still be lag: [movedJustNow], or within
+         * [HARDCOVER_LAG_GRACE] of the move. Past that, the entry is what the user made it.
          */
-        private suspend fun adoptReadHardcoverOpened(startedAt: Long?): HardcoverCall<HardcoverRead?> {
+        private suspend fun adoptReadHardcoverOpened(
+            startedAt: Long?,
+            movedJustNow: Boolean,
+        ): HardcoverCall<HardcoverRead?> {
             val shelved = userBooks.userBookFor(token, hcBookId).valueOr { return it } ?: return NOT_VISIBLE_YET
-            if (shelved.statusId != HardcoverStatus.READING) return NOT_VISIBLE_YET
+            val mayStillLag = movedJustNow || writtenWithinLag(link)
+            if (shelved.statusId != HardcoverStatus.READING && mayStillLag) return NOT_VISIBLE_YET
             val opened = shelved.openRead ?: return HardcoverCall.Ok(null)
             val dated =
                 opened.copy(
