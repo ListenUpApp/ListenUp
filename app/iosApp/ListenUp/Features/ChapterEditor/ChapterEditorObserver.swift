@@ -91,6 +91,10 @@ final class ChapterEditorObserver {
     private let viewModel: ChapterEditorViewModel
     private let bridge = FlowBridge()
 
+    /// The state last applied, for the one question asked of it on demand: a new marker's default
+    /// name. Not observed, because every value a view draws is flattened out of it in `apply`.
+    @ObservationIgnored private var editing: ChapterEditorUiStateEditing?
+
     init(viewModel: ChapterEditorViewModel) {
         self.viewModel = viewModel
         bridge.own(viewModel)
@@ -120,10 +124,7 @@ final class ChapterEditorObserver {
     func insertBelow(_ chapterId: String, title: String) { viewModel.insertBelow(chapterId: chapterId, title: title) }
     func playFrom(_ chapterId: String) { viewModel.playFrom(chapterId: chapterId) }
     func startMarker(_ chapterId: String, tier: MarkerTier, title: String) {
-        switch tier {
-        case .part: viewModel.startPart(chapterId: chapterId, title: title)
-        case .book: viewModel.startBook(chapterId: chapterId, title: title)
-        }
+        viewModel.startMarker(chapterId: chapterId, tier: tier.shared, title: title)
     }
     func saveMarker(_ chapterId: String, tier: MarkerTier, title: String, toChapterId: String) {
         viewModel.saveMarker(chapterId: chapterId, tier: tier.shared, title: title, toChapterId: toChapterId)
@@ -132,7 +133,7 @@ final class ChapterEditorObserver {
         viewModel.removeMarker(chapterId: chapterId, tier: tier.shared)
     }
     func defaultMarkerTitle(_ chapterId: String, tier: MarkerTier, tierWord: String) -> String {
-        viewModel.defaultMarkerTitle(chapterId: chapterId, tier: tier.shared, tierWord: tierWord)
+        editing?.defaultMarkerTitle(chapterId: chapterId, tier: tier.shared, tierWord: tierWord) ?? tierWord
     }
     func acceptPartSuggestion() { viewModel.acceptPartSuggestion() }
     func dismissPartSuggestion() { viewModel.dismissPartSuggestion() }
@@ -160,6 +161,7 @@ final class ChapterEditorObserver {
 
         case .editing(let type):
             let editing = type.value
+            self.editing = editing
             phase = .editing
             bookTitle = editing.bookTitle
             bookDurationMs = editing.bookDurationMs

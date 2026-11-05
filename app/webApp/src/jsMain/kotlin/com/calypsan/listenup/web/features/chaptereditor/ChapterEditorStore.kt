@@ -81,14 +81,11 @@ fun graphChapterEditor(koin: Koin): OpenChapterEditor =
             onSave = viewModel::save,
             markers =
                 ChapterMarkerCalls(
-                    onStartPart = viewModel::startPart,
-                    onStartBook = viewModel::startBook,
-                    onRename = viewModel::renameMarker,
-                    onMove = viewModel::moveMarker,
+                    onStart = viewModel::startMarker,
+                    onSave = viewModel::saveMarker,
                     onRemove = viewModel::removeMarker,
                     onAcceptSuggestion = viewModel::acceptPartSuggestion,
                     onDismissSuggestion = viewModel::dismissPartSuggestion,
-                    defaultTitle = viewModel::defaultMarkerTitle,
                 ),
             close = store::clear,
         )

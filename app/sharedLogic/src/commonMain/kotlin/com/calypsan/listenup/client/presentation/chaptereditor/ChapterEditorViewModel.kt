@@ -44,7 +44,6 @@ import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
  * `ViewModelStore`, iOS through its bridge, web when its session closes. Without that the
  * `viewModelScope` outlives the screen and the save coroutine orphans.
  */
-@Suppress("TooManyFunctions") // Its methods are the editor's vocabulary, one per verb; see the note above.
 class ChapterEditorViewModel(
     private val bookId: String,
     bookRepository: BookRepository,
@@ -253,43 +252,24 @@ class ChapterEditorViewModel(
         edit { chapters, duration -> chapters.removed(chapterId, duration) }
     }
 
-    /** Starts a Part at [chapterId], named [title]. */
-    fun startPart(
-        chapterId: String,
-        title: String,
-    ) {
-        edit { chapters, _ -> chapters.withPartMarker(chapterId, title) }
-    }
-
-    /** Starts a Book at [chapterId], named [title]. */
-    fun startBook(
-        chapterId: String,
-        title: String,
-    ) {
-        edit { chapters, _ -> chapters.withBookMarker(chapterId, title) }
-    }
-
-    /** Renames the [tier] marker [chapterId] carries. Blank is refused: removing is its own act. */
-    fun renameMarker(
+    /** Starts a [tier] marker at [chapterId], named [title]. */
+    fun startMarker(
         chapterId: String,
         tier: ChapterMarkerTier,
         title: String,
     ) {
-        edit { chapters, _ -> chapters.withRenamedMarker(chapterId, tier, title) }
-    }
-
-    /** Moves the [tier] marker from [chapterId] to [toChapterId], keeping its name. */
-    fun moveMarker(
-        chapterId: String,
-        tier: ChapterMarkerTier,
-        toChapterId: String,
-    ) {
-        edit { chapters, _ -> chapters.withMovedMarker(chapterId, tier, toChapterId) }
+        edit { chapters, _ ->
+            when (tier) {
+                ChapterMarkerTier.Part -> chapters.withPartMarker(chapterId, title)
+                ChapterMarkerTier.Book -> chapters.withBookMarker(chapterId, title)
+            }
+        }
     }
 
     /**
-     * The edit sheet's Save: the new name and the new start land as one undo step, because the
-     * reader pressed one button. [toChapterId] equal to [chapterId] means it stays where it is.
+     * Sets the [tier] marker on [chapterId] to be named [title] and start at [toChapterId], as one
+     * undo step: one Save, one edit. Pass the current name to only move it, and [chapterId] as
+     * [toChapterId] to only rename it. A blank name is refused, because removing is its own act.
      */
     fun saveMarker(
         chapterId: String,
@@ -313,20 +293,6 @@ class ChapterEditorViewModel(
                 ChapterMarkerTier.Book -> chapters.withoutBookMarker(chapterId)
             }
         }
-    }
-
-    /**
-     * What a new [tier] marker on [chapterId] should be called, for the screen to offer as editable.
-     *
-     * @param tierWord the tier's name in the reader's language; the ViewModel holds no copy.
-     */
-    fun defaultMarkerTitle(
-        chapterId: String,
-        tier: ChapterMarkerTier,
-        tierWord: String,
-    ): String {
-        val chapters = (state.value as? ChapterEditorUiState.Editing)?.chapters.orEmpty()
-        return chapters.defaultMarkerTitle(chapterId, tier, tierWord)
     }
 
     /** "Use as parts": marks every suggested chapter, as one undo step. */

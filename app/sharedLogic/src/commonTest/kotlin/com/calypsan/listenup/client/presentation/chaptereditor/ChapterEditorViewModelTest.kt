@@ -594,7 +594,7 @@ class ChapterEditorViewModelTest :
                     awaitItem()
                     awaitItem()
 
-                    vm.startPart("c1", "Part One")
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
 
                     val edited = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
                     edited.chapters[1].partTitle shouldBe "Part One"
@@ -608,22 +608,22 @@ class ChapterEditorViewModelTest :
             }
         }
 
-        test("startBook, renameMarker, moveMarker and removeMarker each act on their tier") {
+        test("startMarker, saveMarker and removeMarker each act on their tier") {
             val (vm, _, _) = rig()
             runTest {
                 vm.state.test {
                     awaitItem()
                     awaitItem()
 
-                    vm.startBook("c0", "Book One")
+                    vm.startMarker("c0", ChapterMarkerTier.Book, "Book One")
                     awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[0].bookTitle shouldBe
                         "Book One"
 
-                    vm.renameMarker("c0", ChapterMarkerTier.Book, "Book Two")
+                    vm.saveMarker("c0", ChapterMarkerTier.Book, "Book Two", toChapterId = "c0")
                     awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[0].bookTitle shouldBe
                         "Book Two"
 
-                    vm.moveMarker("c0", ChapterMarkerTier.Book, "c2")
+                    vm.saveMarker("c0", ChapterMarkerTier.Book, "Book Two", toChapterId = "c2")
                     awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[2].bookTitle shouldBe
                         "Book Two"
 
@@ -640,12 +640,12 @@ class ChapterEditorViewModelTest :
                 vm.state.test {
                     awaitItem()
                     awaitItem()
-                    vm.startBook("c1", "Book One")
+                    vm.startMarker("c1", ChapterMarkerTier.Book, "Book One")
                     awaitItem()
-                    vm.startPart("c1", "Part One")
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
                     awaitItem()
 
-                    vm.renameMarker("c1", ChapterMarkerTier.Part, "Part Two")
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "Part Two", toChapterId = "c1")
 
                     val chapter = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[1]
                     chapter.partTitle shouldBe "Part Two"
@@ -661,7 +661,7 @@ class ChapterEditorViewModelTest :
                 vm.state.test {
                     awaitItem()
                     awaitItem()
-                    vm.startPart("c0", "Part One")
+                    vm.startMarker("c0", ChapterMarkerTier.Part, "Part One")
                     awaitItem()
 
                     vm.saveMarker("c0", ChapterMarkerTier.Part, "Part Two", "c1")
@@ -684,10 +684,10 @@ class ChapterEditorViewModelTest :
                 vm.state.test {
                     awaitItem()
                     awaitItem()
-                    vm.startPart("c1", "Part One")
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
                     awaitItem()
 
-                    vm.renameMarker("c1", ChapterMarkerTier.Part, "   ")
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "   ", toChapterId = "c1")
 
                     expectNoEvents()
                     cancelAndIgnoreRemainingEvents()
@@ -702,7 +702,7 @@ class ChapterEditorViewModelTest :
                     awaitItem()
                     awaitItem()
 
-                    vm.renameMarker("c1", ChapterMarkerTier.Part, "Part One")
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "Part One", toChapterId = "c1")
 
                     expectNoEvents()
                     cancelAndIgnoreRemainingEvents()
@@ -802,11 +802,11 @@ class ChapterEditorViewModelTest :
             runTest {
                 vm.state.test {
                     awaitItem()
-                    awaitItem()
+                    val editing = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
 
-                    vm.defaultMarkerTitle("c0", ChapterMarkerTier.Part, "Part") shouldBe "Part I"
-                    vm.defaultMarkerTitle("c1", ChapterMarkerTier.Part, "Part") shouldBe "Part 1"
-                    vm.defaultMarkerTitle("c1", ChapterMarkerTier.Book, "Book") shouldBe "Book 1"
+                    editing.defaultMarkerTitle("c0", ChapterMarkerTier.Part, "Part") shouldBe "Part I"
+                    editing.defaultMarkerTitle("c1", ChapterMarkerTier.Part, "Part") shouldBe "Part 1"
+                    editing.defaultMarkerTitle("c1", ChapterMarkerTier.Book, "Book") shouldBe "Book 1"
                     cancelAndIgnoreRemainingEvents()
                 }
             }
@@ -818,7 +818,7 @@ class ChapterEditorViewModelTest :
                 vm.state.test {
                     awaitItem()
                     awaitItem()
-                    vm.startPart("c0", "Part I")
+                    vm.startMarker("c0", ChapterMarkerTier.Part, "Part I")
 
                     awaitItem()
                         .shouldBeInstanceOf<ChapterEditorUiState.Editing>()

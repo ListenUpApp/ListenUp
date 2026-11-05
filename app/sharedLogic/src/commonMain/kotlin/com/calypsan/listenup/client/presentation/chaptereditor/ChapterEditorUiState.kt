@@ -62,6 +62,17 @@ sealed interface ChapterEditorUiState {
         /** [chapters] with their markers, keeping every chapter: the editor folds nothing away. */
         val outline: List<ChapterOutlineRow>
             get() = chapters.toChapterOutline(announcements = AnnouncementChapters.Keep)
+
+        /**
+         * What a new [tier] marker on [chapterId] should be called, for a screen to offer as editable.
+         *
+         * @param tierWord the tier's name in the reader's language; shared code holds no copy.
+         */
+        fun defaultMarkerTitle(
+            chapterId: String,
+            tier: ChapterMarkerTier,
+            tierWord: String,
+        ): String = chapters.defaultMarkerTitle(chapterId, tier, tierWord)
     }
 
     /**

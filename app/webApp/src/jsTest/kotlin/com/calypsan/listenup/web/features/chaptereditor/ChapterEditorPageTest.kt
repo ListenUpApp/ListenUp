@@ -753,11 +753,11 @@ class ChapterEditorPageTest :
         }
 
         test("Rename opens on the marker's name and reports the new one at its tier") {
-            val renames = mutableListOf<Triple<String, ChapterMarkerTier, String>>()
+            val saves = mutableListOf<List<Any>>()
             val host =
                 page(
                     editingChapters(chapters = markedChapters()),
-                    markers = ChapterMarkerCalls(onRename = { id, tier, title -> renames += Triple(id, tier, title) }),
+                    markers = ChapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
                 )
 
             markerRows(host)[1]
@@ -776,7 +776,9 @@ class ChapterEditorPageTest :
             dialogButton(host, "Rename").shouldNotBeNull().click()
             awaitFrame()
 
-            renames shouldContainExactly listOf(Triple("c3", ChapterMarkerTier.Book, "Omnibus Two"))
+            withClue("renamed where it stands") {
+                saves shouldContainExactly listOf(listOf("c3", ChapterMarkerTier.Book, "Omnibus Two", "c3"))
+            }
         }
 
         test("a marker cannot be renamed to nothing") {
@@ -798,11 +800,11 @@ class ChapterEditorPageTest :
         }
 
         test("Move offers only chapters not already opening that tier, and reports the choice") {
-            val moves = mutableListOf<Triple<String, ChapterMarkerTier, String>>()
+            val saves = mutableListOf<List<Any>>()
             val host =
                 page(
                     editingChapters(chapters = markedChapters()),
-                    markers = ChapterMarkerCalls(onMove = { id, tier, to -> moves += Triple(id, tier, to) }),
+                    markers = ChapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
                 )
 
             markerRows(host)[0]
@@ -830,7 +832,9 @@ class ChapterEditorPageTest :
                 .click()
             awaitFrame()
 
-            moves shouldContainExactly listOf(Triple("c2", ChapterMarkerTier.Part, "c3"))
+            withClue("moved under the name it has") {
+                saves shouldContainExactly listOf(listOf("c2", ChapterMarkerTier.Part, "The First Part", "c3"))
+            }
             host.querySelector("dialog").shouldBeNull()
         }
 
@@ -853,21 +857,16 @@ class ChapterEditorPageTest :
         }
 
         test("a chapter's menu starts a part or a book, opening on the default name") {
-            val started = mutableListOf<Pair<String, String>>()
+            val started = mutableListOf<List<Any>>()
             val host =
                 page(
                     editingChapters(),
-                    markers =
-                        ChapterMarkerCalls(
-                            onStartPart = { id, title -> started += id to "part:$title" },
-                            onStartBook = { id, title -> started += id to "book:$title" },
-                            defaultTitle = { id, _, word -> "$word for $id" },
-                        ),
+                    markers = ChapterMarkerCalls(onStart = { id, tier, title -> started += listOf(id, tier, title) }),
                 )
 
             rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
             awaitFrame()
-            (host.querySelector("#ced-marker-name") as HTMLInputElement).value shouldBe "Part for c2"
+            (host.querySelector("#ced-marker-name") as HTMLInputElement).value shouldBe "Part 1"
             dialogButton(host, "Start part").shouldNotBeNull().click()
             awaitFrame()
 
@@ -876,13 +875,14 @@ class ChapterEditorPageTest :
             dialogButton(host, "Start book").shouldNotBeNull().click()
             awaitFrame()
 
-            started shouldContainExactly listOf("c2" to "part:Part for c2", "c3" to "book:Book for c3")
+            started shouldContainExactly
+                listOf(listOf("c2", ChapterMarkerTier.Part, "Part 1"), listOf("c3", ChapterMarkerTier.Book, "Book 1"))
         }
 
         test("cancelling a new marker writes nothing") {
             val started = mutableListOf<String>()
             val host =
-                page(editingChapters(), markers = ChapterMarkerCalls(onStartPart = { id, _ -> started += id }))
+                page(editingChapters(), markers = ChapterMarkerCalls(onStart = { id, _, _ -> started += id }))
 
             rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
             awaitFrame()

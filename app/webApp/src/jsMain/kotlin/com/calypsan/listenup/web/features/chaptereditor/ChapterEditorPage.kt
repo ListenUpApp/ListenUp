@@ -259,7 +259,7 @@ private fun EditingContent(
 
     RowActionDialogs(
         action = rowAction,
-        chapters = state.chapters,
+        state = state,
         onAction = { rowAction = it },
         onRetitle = onRetitle,
         onRetime = onRetime,
@@ -303,26 +303,30 @@ private fun EditorNotices(
 @Composable
 private fun RowActionDialogs(
     action: RowAction?,
-    chapters: List<Chapter>,
+    state: ChapterEditorUiState.Editing,
     onAction: (RowAction?) -> Unit,
     onRetitle: (String, String) -> Unit,
     onRetime: (String, Long) -> Unit,
     onRemove: (String) -> Unit,
     markers: ChapterMarkerCalls,
 ) {
+    val chapters = state.chapters
     when (action) {
         null -> {}
 
         is RowAction.NamingMarker -> {
-            MarkerNaming(action, chapters, markers, onDone = { onAction(null) })
+            MarkerNaming(action, state, markers, onDone = { onAction(null) })
         }
 
         is RowAction.MovingMarker -> {
             MarkerMoveDialog(
                 tier = action.tier,
                 chapters = chapters,
-                onPick = {
-                    markers.onMove(action.chapterId, action.tier, it)
+                onPick = { target ->
+                    // Moved under the name it has: the one verb sets both.
+                    chapters.firstOrNull { it.id == action.chapterId }?.let(action.tier::titleOn)?.let { title ->
+                        markers.onSave(action.chapterId, action.tier, title, target)
+                    }
                     onAction(null)
                 },
                 onDismiss = { onAction(null) },
@@ -371,20 +375,21 @@ private fun RowActionDialogs(
 @Composable
 private fun MarkerNaming(
     action: RowAction.NamingMarker,
-    chapters: List<Chapter>,
+    state: ChapterEditorUiState.Editing,
     markers: ChapterMarkerCalls,
     onDone: () -> Unit,
 ) {
-    val current = chapters.firstOrNull { it.id == action.chapterId }?.let(action.tier::titleOn)
+    val current = state.chapters.firstOrNull { it.id == action.chapterId }?.let(action.tier::titleOn)
     MarkerNameDialog(
         tier = action.tier,
         isNew = action.isNew,
-        initialName = current ?: markers.defaultTitle(action.chapterId, action.tier, action.tier.word),
+        initialName = current ?: state.defaultMarkerTitle(action.chapterId, action.tier, action.tier.word),
         onConfirm = { name ->
-            when {
-                !action.isNew -> markers.onRename(action.chapterId, action.tier, name)
-                action.tier == ChapterMarkerTier.Part -> markers.onStartPart(action.chapterId, name)
-                else -> markers.onStartBook(action.chapterId, name)
+            if (action.isNew) {
+                markers.onStart(action.chapterId, action.tier, name)
+            } else {
+                // Renamed where it stands: the one verb sets both.
+                markers.onSave(action.chapterId, action.tier, name, action.chapterId)
             }
             onDone()
         },

@@ -258,9 +258,6 @@ private val EXCUSED =
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
-        // A convenience over renameMarker + moveMarker, which web wires: its marker row has a Rename and a Move, not
-        // the single Save of the native sheets this exists for.
-        "ChapterEditorViewModel.saveMarker",
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.
         "BookMatchViewModel.close",

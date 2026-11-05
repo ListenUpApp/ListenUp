@@ -213,12 +213,14 @@ fun ChapterEditorScreen(
         onRetime = viewModel::retime,
         onDelete = viewModel::remove,
         markerSheet = { edit ->
-            ChapterMarkerEditor(
-                edit = edit,
-                chapters = editing?.chapters.orEmpty(),
-                viewModel = viewModel,
-                onDone = { rowAction = null },
-            )
+            editing?.let { current ->
+                ChapterMarkerEditor(
+                    edit = edit,
+                    editing = current,
+                    viewModel = viewModel,
+                    onDone = { rowAction = null },
+                )
+            }
         },
     )
 }
@@ -230,7 +232,7 @@ fun ChapterEditorScreen(
 @Composable
 private fun ChapterMarkerEditor(
     edit: ChapterMarkerEdit,
-    chapters: List<Chapter>,
+    editing: ChapterEditorUiState.Editing,
     viewModel: ChapterEditorViewModel,
     onDone: () -> Unit,
 ) {
@@ -241,29 +243,21 @@ private fun ChapterMarkerEditor(
                 ChapterMarkerTier.Book -> Res.string.chapter_editor_marker_book_word
             },
         )
-    val existing = chapters.firstOrNull { it.id == edit.chapterId }?.let(edit.tier::titleOn)
+    val existing = editing.chapters.firstOrNull { it.id == edit.chapterId }?.let(edit.tier::titleOn)
     ChapterMarkerSheet(
         edit = edit,
-        initialName = existing ?: viewModel.defaultMarkerTitle(edit.chapterId, edit.tier, tierWord),
-        chapters = chapters,
+        initialName = existing ?: editing.defaultMarkerTitle(edit.chapterId, edit.tier, tierWord),
+        chapters = editing.chapters,
         onSave = { title, startsAt ->
-            when {
-                !edit.isNew -> {
-                    viewModel.saveMarker(
-                        chapterId = edit.chapterId,
-                        tier = edit.tier,
-                        title = title,
-                        toChapterId = startsAt,
-                    )
-                }
-
-                edit.tier == ChapterMarkerTier.Part -> {
-                    viewModel.startPart(edit.chapterId, title)
-                }
-
-                else -> {
-                    viewModel.startBook(edit.chapterId, title)
-                }
+            if (edit.isNew) {
+                viewModel.startMarker(edit.chapterId, edit.tier, title)
+            } else {
+                viewModel.saveMarker(
+                    chapterId = edit.chapterId,
+                    tier = edit.tier,
+                    title = title,
+                    toChapterId = startsAt,
+                )
             }
             onDone()
         },
