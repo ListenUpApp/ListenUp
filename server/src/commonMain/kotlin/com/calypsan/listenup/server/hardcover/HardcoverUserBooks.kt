@@ -26,6 +26,13 @@ object HardcoverStatus {
     const val READ: Int = 3
 }
 
+/** How long edition [id] is: its audio, its pages, or neither when Hardcover doesn't say. */
+data class HardcoverEditionLength(
+    val id: Long,
+    val audioSeconds: Long?,
+    val pages: Long?,
+)
+
 /**
  * One read of a book on Hardcover (`user_book_reads`), as far as ListenUp knows it. Dates are
  * Hardcover's `YYYY-MM-DD` strings, passed through untouched. [HardcoverUserBooks.updateRead] sends
@@ -37,6 +44,8 @@ data class HardcoverRead(
     val finishedAt: String?,
     val progressSeconds: Long?,
     val editionId: Long? = null,
+    val progressPages: Long? = null,
+    val editionLength: HardcoverEditionLength? = null,
 )
 
 /** The user's shelf entry for one Hardcover book (`user_books`), with its reads oldest first. */
@@ -131,6 +140,8 @@ class HardcoverUserBooks(
                                     finishedAt = read.finishedAt,
                                     progressSeconds = read.progressSeconds,
                                     editionId = read.editionId,
+                                    progressPages = read.progressPages,
+                                    editionLength = read.edition?.toLength(),
                                 )
                             },
                     )
@@ -255,6 +266,7 @@ class HardcoverUserBooks(
                         read.startedAt?.let { put("started_at", it) }
                         read.finishedAt?.let { put("finished_at", it) }
                         read.progressSeconds?.let { put("progress_seconds", it) }
+                        read.progressPages?.let { put("progress_pages", it) }
                         read.editionId?.let { put("edition_id", it) }
                     }
                 },
@@ -311,10 +323,13 @@ class HardcoverUserBooks(
             null
         }
 
+    private fun ReadEditionWire.toLength() = HardcoverEditionLength(id = id, audioSeconds = audioSeconds, pages = pages)
+
     private companion object {
         const val USER_BOOK_QUERY =
             $$"query($bookId:Int!){ me { user_books(where:{book_id:{_eq:$bookId}}, limit:1){ " +
-                "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds edition_id } } } }"
+                "id status_id user_book_reads(order_by:{id:asc}){ id started_at finished_at progress_seconds progress_pages " +
+                "edition_id edition { id audio_seconds pages } } } } }"
         const val CHANGED_SINCE_QUERY =
             $$"query($after:timestamptz!,$afterId:Int!,$limit:Int!){ me { user_books(" +
                 $$"where:{_or:[{updated_at:{_gt:$after}},{updated_at:{_eq:$after},id:{_gt:$afterId}}]}, " +
