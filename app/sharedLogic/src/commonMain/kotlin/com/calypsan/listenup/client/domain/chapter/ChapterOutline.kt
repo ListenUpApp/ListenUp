@@ -84,7 +84,11 @@ fun List<Chapter>.toChapterOutline(
     return groupChapters().flatMap { book ->
         buildList {
             book.title?.let { title ->
-                val opener = book.parts.first().chapters.first()
+                val opener =
+                    book.parts
+                        .first()
+                        .chapters
+                        .first()
                 add(ChapterOutlineRow.BookHeader(title, opener.id, opener.startTime))
             }
             book.parts.forEach { part -> addAll(part.outlineRows(numbers, currentChapterId, announcements)) }
@@ -116,5 +120,14 @@ private fun PartGroup.outlineRows(
 /** This part's chapters, less the opening one when it only announces the part's name. */
 private fun PartGroup.withoutAnnouncement(): List<Chapter> {
     val partTitle = title?.trim() ?: return chapters
-    return if (chapters.first().title.trim().equals(partTitle, ignoreCase = true)) chapters.drop(1) else chapters
+    return if (chapters
+            .first()
+            .title
+            .trim()
+            .equals(partTitle, ignoreCase = true)
+    ) {
+        chapters.drop(1)
+    } else {
+        chapters
+    }
 }

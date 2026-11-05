@@ -107,15 +107,13 @@ internal fun List<Chapter>.retitled(
 internal fun List<Chapter>.withPartMarker(
     chapterId: String,
     title: String,
-): List<Chapter> =
-    title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(partTitle = name) } } ?: this
+): List<Chapter> = title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(partTitle = name) } } ?: this
 
 /** Sets the Book marker [chapterId] carries. A name the wire would refuse is refused here. */
 internal fun List<Chapter>.withBookMarker(
     chapterId: String,
     title: String,
-): List<Chapter> =
-    title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(bookTitle = name) } } ?: this
+): List<Chapter> = title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(bookTitle = name) } } ?: this
 
 /** Clears [chapterId]'s Part marker. Its chapters join the group before them. */
 internal fun List<Chapter>.withoutPartMarker(chapterId: String): List<Chapter> =
@@ -151,7 +149,8 @@ internal fun List<Chapter>.movedBookMarker(
 }
 
 /** This text as a marker's name, or null when `ChapterInput` would throw on it at save. */
-private fun String.asMarkerName(): String? = trim().takeIf { it.isNotEmpty() && it.length <= ChapterInput.MAX_SECTION_TITLE }
+private fun String.asMarkerName(): String? =
+    trim().takeIf { name -> name.isNotEmpty() && name.length <= ChapterInput.MAX_SECTION_TITLE }
 
 /** [chapterId] replaced by [change]; the same list when there is no such chapter or nothing changed. */
 private fun List<Chapter>.updated(

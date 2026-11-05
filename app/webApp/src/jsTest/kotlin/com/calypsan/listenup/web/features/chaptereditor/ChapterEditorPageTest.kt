@@ -720,7 +720,12 @@ class ChapterEditorPageTest :
 
             markerRows(host).map { it.querySelector(".chm-t")?.textContent } shouldContainExactly
                 listOf("The First Part", "Omnibus One")
-            val list = host.querySelector(".ched-list").shouldNotBeNull().textContent.orEmpty()
+            val list =
+                host
+                    .querySelector(".ched-list")
+                    .shouldNotBeNull()
+                    .textContent
+                    .orEmpty()
             withClue("it sits directly above the chapter it opens") {
                 list.indexOf("The First Part") shouldBeLessThan list.indexOf("Dawn")
                 list.indexOf("Credits") shouldBeLessThan list.indexOf("The First Part")
@@ -755,7 +760,12 @@ class ChapterEditorPageTest :
                     markers = ChapterMarkerCalls(onRename = { id, tier, title -> renames += Triple(id, tier, title) }),
                 )
 
-            markerRows(host)[1].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>().first().click()
+            markerRows(host)[1]
+                .querySelectorAll("button")
+                .asList()
+                .filterIsInstance<HTMLButtonElement>()
+                .first()
+                .click()
             awaitFrame()
 
             val field = host.querySelector("#ced-marker-name") as HTMLInputElement
@@ -772,7 +782,12 @@ class ChapterEditorPageTest :
         test("a marker cannot be renamed to nothing") {
             val host = page(editingChapters(chapters = markedChapters()))
 
-            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>().first().click()
+            markerRows(host)[0]
+                .querySelectorAll("button")
+                .asList()
+                .filterIsInstance<HTMLButtonElement>()
+                .first()
+                .click()
             awaitFrame()
             val field = host.querySelector("#ced-marker-name") as HTMLInputElement
             field.value = "   "
@@ -790,10 +805,19 @@ class ChapterEditorPageTest :
                     markers = ChapterMarkerCalls(onMove = { id, tier, to -> moves += Triple(id, tier, to) }),
                 )
 
-            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>()[1].click()
+            markerRows(host)[0]
+                .querySelectorAll("button")
+                .asList()
+                .filterIsInstance<HTMLButtonElement>()[1]
+                .click()
             awaitFrame()
 
-            val dialog = host.querySelector("dialog").shouldNotBeNull().textContent.orEmpty()
+            val dialog =
+                host
+                    .querySelector("dialog")
+                    .shouldNotBeNull()
+                    .textContent
+                    .orEmpty()
             dialog shouldContain "Credits"
             dialog shouldContain "Dusk"
             dialog shouldNotContain "Dawn"
@@ -818,7 +842,11 @@ class ChapterEditorPageTest :
                     markers = ChapterMarkerCalls(onRemove = { id, tier -> removed += id to tier }),
                 )
 
-            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>()[2].click()
+            markerRows(host)[0]
+                .querySelectorAll("button")
+                .asList()
+                .filterIsInstance<HTMLButtonElement>()[2]
+                .click()
             awaitFrame()
 
             removed shouldContainExactly listOf("c2" to ChapterMarkerTier.Part)
@@ -883,7 +911,12 @@ class ChapterEditorPageTest :
                         ),
                 )
 
-            val strip = host.querySelector(".ched-suggest").shouldNotBeNull().textContent.orEmpty()
+            val strip =
+                host
+                    .querySelector(".ched-suggest")
+                    .shouldNotBeNull()
+                    .textContent
+                    .orEmpty()
             strip shouldContain "3 chapters look like parts"
             strip shouldContain "Part I, Part II and Part III. They stay as chapters and open each part."
 

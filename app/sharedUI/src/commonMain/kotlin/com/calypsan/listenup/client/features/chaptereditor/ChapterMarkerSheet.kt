@@ -113,8 +113,8 @@ internal fun ChapterMarkerSheetContent(
         MarkerStartPicker(
             chapters = chapters,
             tier = edit.tier,
-            onPick = {
-                startsAt = it
+            onPick = { chapterId ->
+                startsAt = chapterId
                 isPicking = false
             },
             modifier = modifier,

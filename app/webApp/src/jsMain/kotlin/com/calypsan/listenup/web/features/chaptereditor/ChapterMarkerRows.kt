@@ -33,8 +33,8 @@ class ChapterMarkerCalls(
 @Composable
 internal fun ChapterMarkerRows(
     chapter: Chapter,
-    onAction: (RowAction) -> Unit,
     onRemove: (String, ChapterMarkerTier) -> Unit,
+    onAction: (RowAction) -> Unit,
 ) {
     ChapterMarkerTier.entries.reversed().forEach { tier ->
         tier.titleOn(chapter)?.let { title ->
@@ -80,8 +80,7 @@ private fun ChapterMarkerRow(
 @Composable
 internal fun PartSuggestionStrip(
     suggestion: PartSuggestion,
-    onAccept: () -> Unit,
-    onDismiss: () -> Unit,
+    markers: ChapterMarkerCalls,
 ) {
     Div(attrs = {
         classes("ched-suggest")
@@ -93,8 +92,8 @@ internal fun PartSuggestionStrip(
                 Text("${spokenList(suggestion.titles)}. They stay as chapters and open each part.")
             }
         }
-        Button(kind = ButtonKind.Ghost, onClick = onDismiss) { Text("Not now") }
-        Button(kind = ButtonKind.Primary, onClick = onAccept) { Text("Use as parts") }
+        Button(kind = ButtonKind.Ghost, onClick = markers.onDismissSuggestion) { Text("Not now") }
+        Button(kind = ButtonKind.Primary, onClick = markers.onAcceptSuggestion) { Text("Use as parts") }
     }
 }
 

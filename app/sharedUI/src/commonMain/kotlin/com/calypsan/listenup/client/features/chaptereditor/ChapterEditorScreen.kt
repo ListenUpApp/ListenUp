@@ -248,9 +248,22 @@ private fun ChapterMarkerEditor(
         chapters = chapters,
         onSave = { title, startsAt ->
             when {
-                !edit.isNew -> viewModel.saveMarker(edit.chapterId, edit.tier, title, startsAt)
-                edit.tier == ChapterMarkerTier.Part -> viewModel.startPart(edit.chapterId, title)
-                else -> viewModel.startBook(edit.chapterId, title)
+                !edit.isNew -> {
+                    viewModel.saveMarker(
+                        chapterId = edit.chapterId,
+                        tier = edit.tier,
+                        title = title,
+                        toChapterId = startsAt,
+                    )
+                }
+
+                edit.tier == ChapterMarkerTier.Part -> {
+                    viewModel.startPart(edit.chapterId, title)
+                }
+
+                else -> {
+                    viewModel.startBook(edit.chapterId, title)
+                }
             }
             onDone()
         },
@@ -279,8 +292,12 @@ private fun rememberRowMenu(
             onInsertBelow = { id -> viewModel.insertBelow(id, newChapterTitle) },
             onPlayFromHere = viewModel::playFrom.takeIf { canPlayFromHere },
             onDelete = { onAction(RowAction.Deleting(it)) },
-            onStartPart = { onAction(RowAction.EditingMarker(ChapterMarkerEdit(it, ChapterMarkerTier.Part, isNew = true))) },
-            onStartBook = { onAction(RowAction.EditingMarker(ChapterMarkerEdit(it, ChapterMarkerTier.Book, isNew = true))) },
+            onStartPart = { id ->
+                onAction(RowAction.EditingMarker(ChapterMarkerEdit(id, ChapterMarkerTier.Part, isNew = true)))
+            },
+            onStartBook = { id ->
+                onAction(RowAction.EditingMarker(ChapterMarkerEdit(id, ChapterMarkerTier.Book, isNew = true)))
+            },
         )
     }
 

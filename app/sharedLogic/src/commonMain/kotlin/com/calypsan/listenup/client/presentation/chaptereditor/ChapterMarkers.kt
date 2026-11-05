@@ -81,7 +81,7 @@ internal fun List<Chapter>.defaultMarkerTitle(
     tier: ChapterMarkerTier,
     tierWord: String,
 ): String {
-    val chapterTitle = firstOrNull { it.id == chapterId }?.title?.trim()
+    val chapterTitle = firstOrNull { it.id == chapterId }?.run { title.trim() }
     if (tier == ChapterMarkerTier.Part && chapterTitle?.looksLikePartTitle() == true) return chapterTitle
 
     val taken = mapNotNullTo(mutableSetOf()) { tier.titleOn(it)?.lowercase() }

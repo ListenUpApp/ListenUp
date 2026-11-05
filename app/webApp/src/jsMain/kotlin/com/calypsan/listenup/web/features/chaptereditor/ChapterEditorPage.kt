@@ -175,9 +175,7 @@ private fun EditingContent(
         return
     }
 
-    state.partSuggestion?.let {
-        PartSuggestionStrip(it, onAccept = markers.onAcceptSuggestion, onDismiss = markers.onDismissSuggestion)
-    }
+    state.partSuggestion?.let { PartSuggestionStrip(it, markers) }
 
     // Numbered against the FULL set, then filtered — see [numbered].
     val all = state.chapters.numbered()
@@ -228,7 +226,10 @@ private fun EditingContent(
                             // A search result is a flat set: a marker says where a chapter sits in
                             // the book, and the rows around it have been filtered away.
                             if (query.isBlank()) {
-                                ChapterMarkerRows(numbered.chapter, { rowAction = it }, markers.onRemove)
+                                ChapterMarkerRows(
+                                    numbered.chapter,
+                                    markers.onRemove,
+                                ) { rowAction = it }
                             }
                             ChapterRow(
                                 numbered = numbered,
@@ -245,11 +246,8 @@ private fun EditingContent(
                                 onPlayFrom = { onPlayFrom(numbered.chapter.id) },
                                 onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
                                 onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
-                                onStartPart = {
-                                    rowAction = RowAction.NamingMarker(numbered.chapter.id, ChapterMarkerTier.Part, isNew = true)
-                                },
-                                onStartBook = {
-                                    rowAction = RowAction.NamingMarker(numbered.chapter.id, ChapterMarkerTier.Book, isNew = true)
+                                onStartMarker = { tier ->
+                                    rowAction = RowAction.NamingMarker(numbered.chapter.id, tier, isNew = true)
                                 },
                             )
                         }

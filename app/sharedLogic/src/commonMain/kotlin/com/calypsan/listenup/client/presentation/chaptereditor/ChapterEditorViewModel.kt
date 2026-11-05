@@ -44,6 +44,7 @@ import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
  * `ViewModelStore`, iOS through its bridge, web when its session closes. Without that the
  * `viewModelScope` outlives the screen and the save coroutine orphans.
  */
+@Suppress("TooManyFunctions") // Its methods are the editor's vocabulary, one per verb; see the note above.
 class ChapterEditorViewModel(
     private val bookId: String,
     bookRepository: BookRepository,
@@ -461,12 +462,14 @@ private fun List<Chapter>.withRenamedMarker(
     chapterId: String,
     tier: ChapterMarkerTier,
     title: String,
-): List<Chapter> =
-    when {
-        none { it.id == chapterId && tier.titleOn(it) != null } -> this
+): List<Chapter> {
+    val isMarked = any { it.id == chapterId && tier.titleOn(it) != null }
+    return when {
+        !isMarked -> this
         tier == ChapterMarkerTier.Part -> withPartMarker(chapterId, title)
         else -> withBookMarker(chapterId, title)
     }
+}
 
 private fun List<Chapter>.withMovedMarker(
     chapterId: String,

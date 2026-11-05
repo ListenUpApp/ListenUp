@@ -2,6 +2,8 @@ package com.calypsan.listenup.web.features.chaptereditor
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.ChapterTimeFormat
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MenuAction
 import com.calypsan.listenup.web.design.PopupMenu
@@ -38,8 +40,7 @@ internal fun ChapterRow(
     onPlayFrom: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
-    onStartPart: () -> Unit,
-    onStartBook: () -> Unit,
+    onStartMarker: (ChapterMarkerTier) -> Unit,
 ) {
     val chapter = numbered.chapter
     Div(attrs = {
@@ -97,25 +98,44 @@ internal fun ChapterRow(
                 pressed = isLocked,
                 onClick = onToggleLock,
             )
-            // The wrapper stops the press here: the menu's items are inside the row, and every one
-            // of them would otherwise also select it.
-            Div(attrs = { onClick { event -> event.stopPropagation() } }) {
-                PopupMenu(
-                    items =
-                        buildList {
-                            add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
-                            // Absent once the chapter opens that tier: its marker row edits the one it has.
-                            if (chapter.partTitle == null) add(MenuAction("Start a part here", WebIcon.Bookmark, onStartPart))
-                            if (chapter.bookTitle == null) add(MenuAction("Start a book here", WebIcon.Book, onStartBook))
-                            add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
-                            add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
-                        },
-                    label = "More actions for ${chapter.title}",
-                    icon = WebIcon.More,
-                    triggerClasses = arrayOf("chr-a"),
-                )
-            }
+            ChapterRowMenu(chapter, onRename, onStartMarker, onInsertBelow, onDelete)
         }
+    }
+}
+
+/**
+ * The row's rarer actions. A tier is absent once the chapter opens it: its marker row edits the one
+ * it has.
+ *
+ * ⛔ The wrapper stops the press: the menu's items are inside the row, and every one of them would
+ * otherwise also select it.
+ */
+@Composable
+private fun ChapterRowMenu(
+    chapter: Chapter,
+    onRename: () -> Unit,
+    onStartMarker: (ChapterMarkerTier) -> Unit,
+    onInsertBelow: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Div(attrs = { onClick { event -> event.stopPropagation() } }) {
+        PopupMenu(
+            items =
+                buildList {
+                    add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
+                    if (chapter.partTitle == null) {
+                        add(MenuAction("Start a part here", WebIcon.Bookmark, { onStartMarker(ChapterMarkerTier.Part) }))
+                    }
+                    if (chapter.bookTitle == null) {
+                        add(MenuAction("Start a book here", WebIcon.Book, { onStartMarker(ChapterMarkerTier.Book) }))
+                    }
+                    add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
+                    add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
+                },
+            label = "More actions for ${chapter.title}",
+            icon = WebIcon.More,
+            triggerClasses = arrayOf("chr-a"),
+        )
     }
 }
 
