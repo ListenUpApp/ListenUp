@@ -93,7 +93,8 @@ class ListeningEventRecorder internal constructor(
      * Holds each call for its whole read-then-write. The players report play, pause and ticks from separate
      * coroutines that suspend on every DAO call, so a quick pause-and-resume otherwise interleaves: the pause's
      * delete took the span the resume had just opened, and everything played after it went unrecorded. Waiters
-     * run in arrival order, so a pause always closes before the resume behind it opens.
+     * run in the order they reach the lock, so a caller must reach it in event order: see
+     * [PlaybackProgressReporter]'s `record`.
      */
     private val spanLock = Mutex()
 

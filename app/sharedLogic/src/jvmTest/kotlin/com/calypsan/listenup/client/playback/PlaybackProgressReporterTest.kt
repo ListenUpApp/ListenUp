@@ -2,6 +2,10 @@
 
 package com.calypsan.listenup.client.playback
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Runnable
+import kotlin.coroutines.CoroutineContext
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -35,6 +39,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
+private const val SETTLE_ROUNDS = 50
 private const val BOOK_ID = "book-test-1"
 private const val USER_ID = "user-test-1"
 private const val SPEED = 1.0f
@@ -74,6 +79,44 @@ class PlaybackProgressReporterTest :
 
                     enqueued.size shouldBe 1
                     enqueued[0].ownerUserId shouldBe USER_ID
+                }
+            }
+        }
+
+        test("a pause and the resume behind it keep their order even when the dispatcher reverses them") {
+            runTest {
+                val reversing = ReversingDispatcher(StandardTestDispatcher(testScheduler))
+                withReporterFixture(
+                    scope = this,
+                    recorderEnabled = true,
+                    reporterScope = CoroutineScope(reversing),
+                ) { reporter, db, _, _, setNow ->
+                    fun settle() =
+                        repeat(SETTLE_ROUNDS) {
+                            reversing.release()
+                            testScheduler.advanceUntilIdle()
+                        }
+
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    settle()
+
+                    setNow(61_000L)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    settle()
+
+                    db.tentativeSpanDao().countRows() shouldBe 1
+                    db
+                        .tentativeSpanDao()
+                        .get()
+                        .shouldNotBeNull()
+                        .startPositionMs shouldBe 60_000L
+                    db
+                        .listeningEventDao()
+                        .getByBookForUser(USER_ID, BOOK_ID)
+                        .single()
+                        .endPositionMs shouldBe 60_000L
                 }
             }
         }
@@ -153,6 +196,7 @@ class PlaybackProgressReporterTest :
 private suspend fun withReporterFixture(
     scope: TestScope,
     recorderEnabled: Boolean,
+    reporterScope: CoroutineScope = scope,
     block: suspend (
         PlaybackProgressReporter,
         ListenUpDatabase,
@@ -210,7 +254,7 @@ private suspend fun withReporterFixture(
             PlaybackProgressReporter(
                 tracker,
                 recorder,
-                scope,
+                reporterScope,
                 localPreferences = localPreferences,
                 nowMillis = { now },
             )
@@ -218,6 +262,30 @@ private suspend fun withReporterFixture(
         block(reporter, db, captured, tracker) { now = it }
     } finally {
         db.close()
+    }
+}
+
+/**
+ * Runs what it is handed newest first, the worst a multi-threaded dispatcher (iOS's playback scope) can do: a pause
+ * and the resume right behind it reach their coroutines the wrong way round.
+ */
+private class ReversingDispatcher(
+    private val next: CoroutineDispatcher,
+) : CoroutineDispatcher() {
+    private val held = ArrayDeque<Pair<CoroutineContext, Runnable>>()
+
+    override fun dispatch(
+        context: CoroutineContext,
+        block: Runnable,
+    ) {
+        held.addFirst(context to block)
+    }
+
+    fun release() {
+        while (held.isNotEmpty()) {
+            val (context, block) = held.removeFirst()
+            next.dispatch(context, block)
+        }
     }
 }
 
