@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.BookFacet
 import com.calypsan.listenup.client.design.components.FacetChipRow
+import com.calypsan.listenup.client.design.components.MarkdownBlockSpacing
 import com.calypsan.listenup.client.design.components.MarkdownText
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -76,8 +78,8 @@ import androidx.compose.ui.semantics.semantics
  * @param isLoadingTags True while tags are being fetched; the Tags block stays visible meanwhile.
  * @param isCard        When true, wraps content in a [surfaceContainerLow] card; otherwise
  *                      renders frameless.
- * @param collapsedLines How many lines the description shows before "Read more" (spec §3.2.1 D29: four while
- *                      deciding, two otherwise, on phones); null shows the whole text with no toggle (wide layouts).
+ * @param collapsedLines How many lines the description shows before "Read more" on phones; null shows the whole
+ *                      text with no toggle (wide layouts).
  * @param isDescriptionExpanded   Whether the description is currently fully expanded.
  * @param onToggleDescriptionExpanded   Called when the user taps "Read more" / "Read less".
  * @param onGenreClick  Optional callback when a genre chip is tapped.
@@ -200,6 +202,9 @@ private fun AboutDescriptionBlock(
     }
 }
 
+/** Tags the clamped description, whose height is what the clamp promises. */
+internal const val ABOUT_CLAMP_TAG = "aboutClamp"
+
 /**
  * Renders [markdown] clamped to [maxLines] of [style] height, the bottom edge alpha-fading to transparent when it is
  * cut — the styled-markdown analogue of a `maxLines` text clamp. The content is measured at its full height and
@@ -215,7 +220,7 @@ private fun ClampedMarkdownPreview(
     onOverflowChange: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
-    val maxHeight = with(density) { (style.lineHeight * maxLines.toFloat()).toDp() }
+    val maxHeight = with(density) { (style.lineHeight * maxLines.toFloat()).toDp() } + MarkdownBlockSpacing
     val lineHeightPx = with(density) { style.lineHeight.roundToPx() }
     var isCut by remember(markdown, maxLines) { mutableStateOf(false) }
     val currentOnOverflowChange by rememberUpdatedState(onOverflowChange)
@@ -224,6 +229,7 @@ private fun ClampedMarkdownPreview(
         content = { MarkdownText(markdown = markdown, style = style, color = color) },
         modifier =
             Modifier
+                .testTag(ABOUT_CLAMP_TAG)
                 .fillMaxWidth()
                 .clipToBounds()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }

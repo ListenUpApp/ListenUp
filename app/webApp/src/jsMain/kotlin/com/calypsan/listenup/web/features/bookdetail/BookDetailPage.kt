@@ -701,7 +701,7 @@ private fun BookSection(
 }
 
 /**
- * The synopsis and its facets. On a phone it clamps — four lines while deciding, two otherwise (spec §3.2.1 D29) —
+ * The synopsis and its facets. On a phone it clamps to four lines,
  * with "Read more" only when the clamp actually hides something; a desktop shows it whole.
  */
 @Composable
@@ -710,12 +710,7 @@ private fun AboutPanel(
     wide: Boolean,
     panes: SectionPanes,
 ) {
-    val clampLines =
-        when {
-            wide -> null
-            state.readingStage == ReadingStage.NotStarted -> ABOUT_LINES_NOT_STARTED
-            else -> ABOUT_LINES
-        }
+    val clampLines = if (wide) null else ABOUT_LINES
     // Bare, under the board's large heading: About is reading, not a card of reference facts (as Chapters).
     Section(attrs = { classes("bd-about") }) {
         H2(attrs = { classes("bd-sec-title") }) { Text("About") }
@@ -775,9 +770,7 @@ private fun ClampedDescription(
 }
 
 /** Synopsis lines on a phone before "Read more". */
-private const val ABOUT_LINES_NOT_STARTED = 4
-
-private const val ABOUT_LINES = 2
+private const val ABOUT_LINES = 4
 
 private const val ABOUT_HEADING_LEVEL = 2
 

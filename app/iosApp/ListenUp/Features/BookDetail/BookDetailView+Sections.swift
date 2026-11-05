@@ -42,7 +42,7 @@ extension BookDetailView {
                 genres: observer.genres,
                 tags: observer.tags,
                 moods: observer.moods,
-                lineLimit: isWide ? nil : (observer.reading.stage == .notStarted ? 4 : 2)
+                lineLimit: isWide ? nil : 4
             )
         case .readers:
             readersSection

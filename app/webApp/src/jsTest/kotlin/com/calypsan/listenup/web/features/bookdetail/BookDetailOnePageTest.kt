@@ -70,11 +70,11 @@ class BookDetailOnePageTest :
             social.getAttribute("href") shouldBe "#readers"
         }
 
-        test("a phone clamps the synopsis to two lines while listening; a desktop shows it whole") {
+        test("a phone clamps the synopsis to four lines while listening; a desktop shows it whole") {
             val phone = page(PHONE, ReadingStage.InProgress)
             awaitPresent(phone.host, ".bd-flow")
             phone.find(".bd-desc").classList.contains("is-clamped") shouldBe true
-            phone.find(".bd-desc").style.getPropertyValue("--clamp") shouldBe "2"
+            phone.find(".bd-desc").style.getPropertyValue("--clamp") shouldBe "4"
             frames.disposeAll()
             val desktop = page(DESKTOP, ReadingStage.InProgress)
             awaitPresent(desktop.host, ".bd-cols")
