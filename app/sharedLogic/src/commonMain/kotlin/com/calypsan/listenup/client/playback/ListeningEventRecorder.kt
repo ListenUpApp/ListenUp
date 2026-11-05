@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.datetime.TimeZone
@@ -88,6 +90,14 @@ class ListeningEventRecorder internal constructor(
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
 ) {
     /**
+     * Holds each call for its whole read-then-write. The players report play, pause and ticks from separate
+     * coroutines that suspend on every DAO call, so a quick pause-and-resume otherwise interleaves: the pause's
+     * delete took the span the resume had just opened, and everything played after it went unrecorded. Waiters
+     * run in arrival order, so a pause always closes before the resume behind it opens.
+     */
+    private val spanLock = Mutex()
+
+    /**
      * Opens a new tentative span at [positionMs] with [playbackSpeed], stamped with this
      * process's [processId].
      *
@@ -103,6 +113,15 @@ class ListeningEventRecorder internal constructor(
      * single-row invariant.
      */
     suspend fun onPlay(
+        bookId: String,
+        positionMs: Long,
+        playbackSpeed: Float,
+    ) {
+        spanLock.withLock { openSpan(bookId, positionMs, playbackSpeed) }
+    }
+
+    /** [onPlay]'s body, for the calls that split a span and already hold [spanLock]. */
+    private suspend fun openSpan(
         bookId: String,
         positionMs: Long,
         playbackSpeed: Float,
@@ -152,22 +171,26 @@ class ListeningEventRecorder internal constructor(
      * to the current time. No-op if no span is open.
      */
     suspend fun onPeriodicTick(positionMs: Long) {
-        val existing = tentativeSpanDao.get() ?: return
-        val nowMs = clock.now().toEpochMilliseconds()
-        tentativeSpanDao.upsertSingleton(
-            existing.copy(
-                currentPositionMs = positionMs,
-                lastHeartbeatAt = nowMs,
-            ),
-        )
+        spanLock.withLock {
+            val existing = tentativeSpanDao.get() ?: return
+            val nowMs = clock.now().toEpochMilliseconds()
+            tentativeSpanDao.upsertSingleton(
+                existing.copy(
+                    currentPositionMs = positionMs,
+                    lastHeartbeatAt = nowMs,
+                ),
+            )
+        }
     }
 
     /**
      * Closes the current span at [positionMs] and finalizes it. No-op if no span is open.
      */
     suspend fun onPause(positionMs: Long) {
-        val nowMs = clock.now().toEpochMilliseconds()
-        finalizeCurrentSpan(endPositionMs = positionMs, endedAt = nowMs)
+        spanLock.withLock {
+            val nowMs = clock.now().toEpochMilliseconds()
+            finalizeCurrentSpan(endPositionMs = positionMs, endedAt = nowMs)
+        }
     }
 
     /**
@@ -187,17 +210,19 @@ class ListeningEventRecorder internal constructor(
         positionMs: Long,
         newSpeed: Float,
     ) {
-        val existing = tentativeSpanDao.get() ?: return
-        val nowMs = clock.now().toEpochMilliseconds()
-        val cleared =
-            finalizeThenCheckCleared(
-                endPositionMs = positionMs,
-                endedAt = nowMs,
-                bookId = existing.bookId,
-                caller = "onSpeedChange",
-            )
-        if (!cleared) return
-        onPlay(existing.bookId, positionMs, newSpeed)
+        spanLock.withLock {
+            val existing = tentativeSpanDao.get() ?: return
+            val nowMs = clock.now().toEpochMilliseconds()
+            val cleared =
+                finalizeThenCheckCleared(
+                    endPositionMs = positionMs,
+                    endedAt = nowMs,
+                    bookId = existing.bookId,
+                    caller = "onSpeedChange",
+                )
+            if (!cleared) return
+            openSpan(existing.bookId, positionMs, newSpeed)
+        }
     }
 
     /**
@@ -222,18 +247,20 @@ class ListeningEventRecorder internal constructor(
         positionBeforeSeek: Long,
         positionAfterSeek: Long,
     ) {
-        val existing = tentativeSpanDao.get() ?: return
-        val nowMs = clock.now().toEpochMilliseconds()
-        val endPositionMs = maxOf(positionBeforeSeek, existing.startPositionMs)
-        val cleared =
-            finalizeThenCheckCleared(
-                endPositionMs = endPositionMs,
-                endedAt = nowMs,
-                bookId = existing.bookId,
-                caller = "onSeek",
-            )
-        if (!cleared) return
-        onPlay(existing.bookId, positionAfterSeek, existing.playbackSpeed)
+        spanLock.withLock {
+            val existing = tentativeSpanDao.get() ?: return
+            val nowMs = clock.now().toEpochMilliseconds()
+            val endPositionMs = maxOf(positionBeforeSeek, existing.startPositionMs)
+            val cleared =
+                finalizeThenCheckCleared(
+                    endPositionMs = endPositionMs,
+                    endedAt = nowMs,
+                    bookId = existing.bookId,
+                    caller = "onSeek",
+                )
+            if (!cleared) return
+            openSpan(existing.bookId, positionAfterSeek, existing.playbackSpeed)
+        }
     }
 
     /**
@@ -251,17 +278,19 @@ class ListeningEventRecorder internal constructor(
         newBookId: String,
         newStartPositionMs: Long,
     ) {
-        val existing = tentativeSpanDao.get() ?: return
-        val nowMs = clock.now().toEpochMilliseconds()
-        val cleared =
-            finalizeThenCheckCleared(
-                endPositionMs = existing.currentPositionMs,
-                endedAt = nowMs,
-                bookId = existing.bookId,
-                caller = "onMediaItemTransition",
-            )
-        if (!cleared) return
-        onPlay(newBookId, newStartPositionMs, existing.playbackSpeed)
+        spanLock.withLock {
+            val existing = tentativeSpanDao.get() ?: return
+            val nowMs = clock.now().toEpochMilliseconds()
+            val cleared =
+                finalizeThenCheckCleared(
+                    endPositionMs = existing.currentPositionMs,
+                    endedAt = nowMs,
+                    bookId = existing.bookId,
+                    caller = "onMediaItemTransition",
+                )
+            if (!cleared) return
+            openSpan(newBookId, newStartPositionMs, existing.playbackSpeed)
+        }
     }
 
     /**
@@ -277,19 +306,21 @@ class ListeningEventRecorder internal constructor(
      * Call once at startup after the database is open and before playback resumes.
      */
     suspend fun recoverOrphan() {
-        val orphan = tentativeSpanDao.get() ?: return
-        if (orphan.processId == processId) {
-            logger.debug {
-                "[ListeningEventRecorder] Skipping recovery — span for book=${orphan.bookId} belongs to " +
-                    "the current process (it is live, not an orphan)"
+        spanLock.withLock {
+            val orphan = tentativeSpanDao.get() ?: return
+            if (orphan.processId == processId) {
+                logger.debug {
+                    "[ListeningEventRecorder] Skipping recovery — span for book=${orphan.bookId} belongs to " +
+                        "the current process (it is live, not an orphan)"
+                }
+                return
             }
-            return
+            logger.info {
+                "[ListeningEventRecorder] Recovering orphan span for book=${orphan.bookId}, " +
+                    "startPos=${orphan.startPositionMs}, lastHeartbeat=${orphan.lastHeartbeatAt}"
+            }
+            finalizeCurrentSpan(endPositionMs = orphan.currentPositionMs, endedAt = orphan.lastHeartbeatAt)
         }
-        logger.info {
-            "[ListeningEventRecorder] Recovering orphan span for book=${orphan.bookId}, " +
-                "startPos=${orphan.startPositionMs}, lastHeartbeat=${orphan.lastHeartbeatAt}"
-        }
-        finalizeCurrentSpan(endPositionMs = orphan.currentPositionMs, endedAt = orphan.lastHeartbeatAt)
     }
 
     // ── Private finalization ────────────────────────────────────────────────────
