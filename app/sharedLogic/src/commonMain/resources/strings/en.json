@@ -2615,7 +2615,10 @@
     "marker_move_title": "Choose a chapter",
     "marker_move_title_ios": "Choose a Chapter",
     "marker_remove": "Remove marker",
-    "marker_remove_ios": "Remove Marker"
+    "marker_remove_ios": "Remove Marker",
+    "rename_ios": "Rename",
+    "insert_below_ios": "Insert Below",
+    "delete_chapter_ios": "Delete Chapter"
   },
   "bulk_edit": {
     "title_one": "Edit 1 book",

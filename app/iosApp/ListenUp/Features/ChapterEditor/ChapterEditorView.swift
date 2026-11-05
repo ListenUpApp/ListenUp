@@ -28,6 +28,7 @@ struct ChapterEditorView: View {
     @State private var renameText: String = ""
     @State private var retiming: EditableChapterRow?
     @State private var timeText: String = ""
+    @State private var editingMarker: MarkerEdit?
     /// Bumped on every snap-to-playhead, so the snap lands with a tap under the thumb (spec §7.8).
     @State private var snaps = 0
 
@@ -106,6 +107,21 @@ struct ChapterEditorView: View {
             Button(String(localized: "common.cancel"), role: .cancel) { deleting = nil }
         } message: {
             Text(String(localized: "chapter_editor.delete_body"))
+        }
+        .sheet(item: $editingMarker) { edit in
+            ChapterMarkerSheet(
+                edit: edit,
+                chapters: observer?.chapters ?? [],
+                onSave: { name, startsAt in
+                    if edit.isNew {
+                        observer?.startMarker(edit.chapterId, tier: edit.tier, title: name)
+                    } else {
+                        observer?.saveMarker(edit.chapterId, tier: edit.tier, title: name, toChapterId: startsAt)
+                    }
+                },
+                onRemove: { observer?.removeMarker(edit.chapterId, tier: edit.tier) }
+            )
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -204,17 +220,98 @@ struct ChapterEditorView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-        } else {
+        } else if isSearching {
+            // A search result is a flat set: a section says where a chapter sits in the book, and
+            // the rows around it have been filtered away.
             Section {
                 ForEach(rows) { row in chapterRow(observer, row: row) }
             } header: {
-                Text(String(
-                    format: String(localized: "chapter_editor.subtitle"),
-                    observer.bookTitle,
-                    observer.chapters.count
-                ))
+                bookSubtitle(observer)
+            }
+        } else {
+            if let titles = observer.partSuggestionTitles { partSuggestion(observer, titles: titles) }
+            ForEach(observer.sections) { section in
+                Section {
+                    ForEach(section.rows) { row in chapterRow(observer, row: row) }
+                } header: {
+                    sectionHeader(observer, section: section)
+                }
             }
         }
+    }
+
+    private var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    private func bookSubtitle(_ observer: ChapterEditorObserver) -> some View {
+        Text(String(
+            format: String(localized: "chapter_editor.subtitle"),
+            observer.bookTitle,
+            observer.chapters.count
+        ))
+    }
+
+    /// The book's subtitle above chapters no marker opens, which is every chapter of a flat book;
+    /// otherwise the markers that open this section.
+    @ViewBuilder
+    private func sectionHeader(_ observer: ChapterEditorObserver, section: ChapterEditorSection) -> some View {
+        if section.markers.isEmpty {
+            bookSubtitle(observer)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(section.markers, id: \.tier) { marker in markerHeader(marker) }
+            }
+        }
+    }
+
+    private func markerHeader(_ marker: EditorMarker) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(marker.title)
+            Spacer()
+            Button(String(localized: "chapter_editor.marker_edit")) {
+                editingMarker = MarkerEdit(
+                    chapterId: marker.chapterId,
+                    tier: marker.tier,
+                    name: marker.title,
+                    isNew: false
+                )
+            }
+            .buttonStyle(.borderless)
+            .textCase(nil)
+            .accessibilityLabel(String(format: String(localized: "chapter_editor.marker_edit_named"), marker.title))
+        }
+    }
+
+    /// The offer to mark chapters that look like parts: its own section, its answers as rows, the
+    /// shape a grouped list gives any choice that belongs to the list itself.
+    private func partSuggestion(_ observer: ChapterEditorObserver, titles: [String]) -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(format: String(localized: "chapter_editor.suggestion_title"), titles.count))
+                    .font(.headline)
+                Text(String(
+                    format: String(localized: "chapter_editor.suggestion_body"),
+                    titles.formatted(.list(type: .and))
+                ))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            Button(String(localized: "chapter_editor.suggestion_accept_ios")) { observer.acceptPartSuggestion() }
+            Button(String(localized: "chapter_editor.suggestion_dismiss_ios")) { observer.dismissPartSuggestion() }
+        }
+    }
+
+    /// A new marker opens on its default name, editable, and is only written if the sheet saves.
+    private func startMarker(_ observer: ChapterEditorObserver, row: EditableChapterRow, tier: MarkerTier) {
+        let word = switch tier {
+        case .part: String(localized: "chapter_editor.marker_part_word")
+        case .book: String(localized: "chapter_editor.marker_book_word")
+        }
+        editingMarker = MarkerEdit(
+            chapterId: row.id,
+            tier: tier,
+            name: observer.defaultMarkerTitle(row.id, tier: tier, tierWord: word),
+            isNew: true
+        )
     }
 
     private func chapterRow(_ observer: ChapterEditorObserver, row: EditableChapterRow) -> some View {
@@ -240,7 +337,9 @@ struct ChapterEditorView: View {
                 renameText = row.title
                 renaming = row
             },
-            onDelete: { deleting = row }
+            onDelete: { deleting = row },
+            onStartPart: row.opens(.part) ? nil : { startMarker(observer, row: row, tier: .part) },
+            onStartBook: row.opens(.book) ? nil : { startMarker(observer, row: row, tier: .book) }
         )
     }
 

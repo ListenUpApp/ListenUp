@@ -92,6 +92,7 @@ internal fun ChapterEditorRoute(
         },
         onLeave = { guard.leave { router.navigate(book, force = true) } },
         problem = problem,
+        markers = session.markers,
     )
 
     guard.Dialog()

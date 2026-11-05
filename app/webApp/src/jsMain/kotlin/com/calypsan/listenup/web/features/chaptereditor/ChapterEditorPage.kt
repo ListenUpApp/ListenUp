@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.Field
@@ -68,6 +69,7 @@ fun ChapterEditorPage(
     onSave: () -> Unit,
     onLeave: () -> Unit,
     problem: String? = null,
+    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
 ) {
     Div(attrs = { classes("ched") }) {
         when (state) {
@@ -105,6 +107,7 @@ fun ChapterEditorPage(
                     onSave = onSave,
                     onLeave = onLeave,
                     problem = problem,
+                    markers = markers,
                 )
             }
         }
@@ -133,6 +136,7 @@ private fun EditingContent(
     onSave: () -> Unit,
     onLeave: () -> Unit,
     problem: String?,
+    markers: ChapterMarkerCalls,
 ) {
     var query by remember { mutableStateOf("") }
     var rowAction by remember { mutableStateOf<RowAction?>(null) }
@@ -169,6 +173,10 @@ private fun EditingContent(
     if (state.isEmpty) {
         NoChapters(playheadMs, onAddAt)
         return
+    }
+
+    state.partSuggestion?.let {
+        PartSuggestionStrip(it, onAccept = markers.onAcceptSuggestion, onDismiss = markers.onDismissSuggestion)
     }
 
     // Numbered against the FULL set, then filtered — see [numbered].
@@ -217,6 +225,11 @@ private fun EditingContent(
                 }) {
                     shown.forEach { numbered ->
                         key(numbered.chapter.id) {
+                            // A search result is a flat set: a marker says where a chapter sits in
+                            // the book, and the rows around it have been filtered away.
+                            if (query.isBlank()) {
+                                ChapterMarkerRows(numbered.chapter, { rowAction = it }, markers.onRemove)
+                            }
                             ChapterRow(
                                 numbered = numbered,
                                 isSelected = numbered.chapter.id == state.selectedChapterId,
@@ -232,6 +245,12 @@ private fun EditingContent(
                                 onPlayFrom = { onPlayFrom(numbered.chapter.id) },
                                 onRename = { rowAction = RowAction.Renaming(numbered.chapter.id) },
                                 onDelete = { rowAction = RowAction.Deleting(numbered.chapter.id) },
+                                onStartPart = {
+                                    rowAction = RowAction.NamingMarker(numbered.chapter.id, ChapterMarkerTier.Part, isNew = true)
+                                },
+                                onStartBook = {
+                                    rowAction = RowAction.NamingMarker(numbered.chapter.id, ChapterMarkerTier.Book, isNew = true)
+                                },
                             )
                         }
                     }
@@ -247,6 +266,7 @@ private fun EditingContent(
         onRetitle = onRetitle,
         onRetime = onRetime,
         onRemove = onRemove,
+        markers = markers,
     )
 }
 
@@ -290,9 +310,26 @@ private fun RowActionDialogs(
     onRetitle: (String, String) -> Unit,
     onRetime: (String, Long) -> Unit,
     onRemove: (String) -> Unit,
+    markers: ChapterMarkerCalls,
 ) {
     when (action) {
         null -> {}
+
+        is RowAction.NamingMarker -> {
+            MarkerNaming(action, chapters, markers, onDone = { onAction(null) })
+        }
+
+        is RowAction.MovingMarker -> {
+            MarkerMoveDialog(
+                tier = action.tier,
+                chapters = chapters,
+                onPick = {
+                    markers.onMove(action.chapterId, action.tier, it)
+                    onAction(null)
+                },
+                onDismiss = { onAction(null) },
+            )
+        }
 
         is RowAction.Renaming -> {
             RenameChapterDialog(
@@ -330,6 +367,31 @@ private fun RowActionDialogs(
             )
         }
     }
+}
+
+/** The name dialog, bound: a new marker opens on its default and is only written on confirm. */
+@Composable
+private fun MarkerNaming(
+    action: RowAction.NamingMarker,
+    chapters: List<Chapter>,
+    markers: ChapterMarkerCalls,
+    onDone: () -> Unit,
+) {
+    val current = chapters.firstOrNull { it.id == action.chapterId }?.let(action.tier::titleOn)
+    MarkerNameDialog(
+        tier = action.tier,
+        isNew = action.isNew,
+        initialName = current ?: markers.defaultTitle(action.chapterId, action.tier, action.tier.word),
+        onConfirm = { name ->
+            when {
+                !action.isNew -> markers.onRename(action.chapterId, action.tier, name)
+                action.tier == ChapterMarkerTier.Part -> markers.onStartPart(action.chapterId, name)
+                else -> markers.onStartBook(action.chapterId, name)
+            }
+            onDone()
+        },
+        onDismiss = onDone,
+    )
 }
 
 /** The book, what state the draft is in, and the four things that act on the whole set. */

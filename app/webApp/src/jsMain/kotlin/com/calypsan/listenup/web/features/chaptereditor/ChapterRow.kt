@@ -3,6 +3,8 @@ package com.calypsan.listenup.web.features.chaptereditor
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
@@ -36,6 +38,8 @@ internal fun ChapterRow(
     onPlayFrom: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onStartPart: () -> Unit,
+    onStartBook: () -> Unit,
 ) {
     val chapter = numbered.chapter
     Div(attrs = {
@@ -87,15 +91,30 @@ internal fun ChapterRow(
                 // Same rule: playing from here while another book is loaded would replace it unasked.
                 RowAction(WebIcon.Play, "Play from here", onClick = onPlayFrom)
             }
-            RowAction(WebIcon.Scissors, "Insert chapter below", onClick = onInsertBelow)
             RowAction(
                 icon = if (isLocked) WebIcon.Lock else WebIcon.Unlock,
                 label = if (isLocked) "Unlock chapter" else "Lock chapter",
                 pressed = isLocked,
                 onClick = onToggleLock,
             )
-            RowAction(WebIcon.Pencil, "Rename chapter", onClick = onRename)
-            RowAction(WebIcon.Trash, "Delete chapter", onClick = onDelete)
+            // The wrapper stops the press here: the menu's items are inside the row, and every one
+            // of them would otherwise also select it.
+            Div(attrs = { onClick { event -> event.stopPropagation() } }) {
+                PopupMenu(
+                    items =
+                        buildList {
+                            add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
+                            // Absent once the chapter opens that tier: its marker row edits the one it has.
+                            if (chapter.partTitle == null) add(MenuAction("Start a part here", WebIcon.Bookmark, onStartPart))
+                            if (chapter.bookTitle == null) add(MenuAction("Start a book here", WebIcon.Book, onStartBook))
+                            add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
+                            add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
+                        },
+                    label = "More actions for ${chapter.title}",
+                    icon = WebIcon.More,
+                    triggerClasses = arrayOf("chr-a"),
+                )
+            }
         }
     }
 }

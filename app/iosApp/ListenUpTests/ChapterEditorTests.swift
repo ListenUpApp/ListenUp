@@ -103,6 +103,62 @@ struct ChapterEditorTests {
         #expect(holders.map(\.id) == ["c2"])
     }
 
+    // MARK: - Sections
+
+    private func marker(_ chapterId: String, _ tier: MarkerTier, _ title: String) -> ChapterOutlineEntry {
+        .marker(EditorMarker(chapterId: chapterId, tier: tier, title: title))
+    }
+
+    /// ⛔ A flat book must look exactly as it did: one section, no markers, every row.
+    @Test func aFlatBookIsOneUnmarkedSection() {
+        let sections = ChapterEditorSection.sections(from: threeRows.map { .chapter($0) })
+        #expect(sections.count == 1)
+        #expect(sections[0].markers.isEmpty)
+        #expect(sections[0].rows.map(\.id) == ["c1", "c2", "c3"])
+    }
+
+    @Test func aMarkerStartsASectionAndChaptersBeforeItStandAlone() {
+        let rows = threeRows
+        let sections = ChapterEditorSection.sections(from: [
+            .chapter(rows[0]),
+            marker("c2", .part, "Part One"),
+            .chapter(rows[1]),
+            .chapter(rows[2])
+        ])
+        #expect(sections.map(\.markers.count) == [0, 1])
+        #expect(sections[1].rows.map(\.id) == ["c2", "c3"])
+    }
+
+    /// A chapter opening both tiers is one section, not an empty book section above a part.
+    @Test func aChapterOpeningBothTiersIsOneSection() {
+        let sections = ChapterEditorSection.sections(from: [
+            marker("c1", .book, "Book One"),
+            marker("c1", .part, "Part One"),
+            .chapter(threeRows[0])
+        ])
+        #expect(sections.count == 1)
+        #expect(sections[0].markers.map(\.tier) == [.book, .part])
+    }
+
+    /// A book may hold chapters before its first part; the part still starts its own section.
+    @Test func aPartInsideABookStartsANewSectionAfterTheBooksOwnChapters() {
+        let rows = threeRows
+        let sections = ChapterEditorSection.sections(from: [
+            marker("c1", .book, "Book One"),
+            .chapter(rows[0]),
+            marker("c2", .part, "Part One"),
+            .chapter(rows[1])
+        ])
+        #expect(sections.map(\.rows.count) == [1, 1])
+    }
+
+    @Test func aChapterOpeningATierIsNoPlaceToMoveThatTierTo() {
+        var opener = row(1, "Part One")
+        opener.partTitle = "Part One"
+        #expect(opener.opens(.part))
+        #expect(!opener.opens(.book))
+    }
+
     // MARK: - A refused save
 
     /// ⛔ The row's own number, not its index in the problem list. A refused save is only useful if

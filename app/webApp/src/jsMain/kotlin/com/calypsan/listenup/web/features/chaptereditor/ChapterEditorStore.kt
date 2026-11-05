@@ -42,6 +42,7 @@ class ChapterEditorSession(
     val onResetToSource: () -> Unit,
     val onSave: () -> Unit,
     override val close: () -> Unit,
+    val markers: ChapterMarkerCalls = ChapterMarkerCalls(),
 ) : RouteSession
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
@@ -78,6 +79,17 @@ fun graphChapterEditor(koin: Koin): OpenChapterEditor =
             onUndo = viewModel::undo,
             onResetToSource = viewModel::resetToSource,
             onSave = viewModel::save,
+            markers =
+                ChapterMarkerCalls(
+                    onStartPart = viewModel::startPart,
+                    onStartBook = viewModel::startBook,
+                    onRename = viewModel::renameMarker,
+                    onMove = viewModel::moveMarker,
+                    onRemove = viewModel::removeMarker,
+                    onAcceptSuggestion = viewModel::acceptPartSuggestion,
+                    onDismissSuggestion = viewModel::dismissPartSuggestion,
+                    defaultTitle = viewModel::defaultMarkerTitle,
+                ),
             close = store::clear,
         )
     }
@@ -104,6 +116,7 @@ fun fixedChapterEditor(
     onUndo: () -> Unit = {},
     onResetToSource: () -> Unit = {},
     onSave: () -> Unit = {},
+    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
 ): OpenChapterEditor =
     {
         ChapterEditorSession(
@@ -126,6 +139,7 @@ fun fixedChapterEditor(
             onUndo = onUndo,
             onResetToSource = onResetToSource,
             onSave = onSave,
+            markers = markers,
             close = {},
         )
     }

@@ -8411,6 +8411,16 @@
         }
       }
     },
+    "chapter_editor.delete_chapter_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Chapter"
+          }
+        }
+      }
+    },
     "chapter_editor.delete_title": {
       "localizations": {
         "en": {
@@ -8717,6 +8727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Insert chapter below"
+          }
+        }
+      }
+    },
+    "chapter_editor.insert_below_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insert Below"
           }
         }
       }
@@ -9107,6 +9127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Redo"
+          }
+        }
+      }
+    },
+    "chapter_editor.rename_ios": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename"
           }
         }
       }

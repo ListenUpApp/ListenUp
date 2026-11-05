@@ -842,6 +842,7 @@ One beautiful library.</string>
     <string name="chapter_editor_clear_search">Clear search</string>
     <string name="chapter_editor_delete_body">Its span joins the chapter before it. The audio is untouched.</string>
     <string name="chapter_editor_delete_chapter">Delete chapter</string>
+    <string name="chapter_editor_delete_chapter_ios">Delete Chapter</string>
     <string name="chapter_editor_delete_title">Delete this chapter?</string>
     <string name="chapter_editor_detail_lane">Detail lane</string>
     <string name="chapter_editor_discard_body">The changes you made here will be lost.</string>
@@ -873,6 +874,7 @@ One beautiful library.</string>
     <string name="chapter_editor_empty_title">No chapters yet</string>
     <string name="chapter_editor_fix_drift">Fix drift</string>
     <string name="chapter_editor_insert_below">Insert chapter below</string>
+    <string name="chapter_editor_insert_below_ios">Insert Below</string>
     <string name="chapter_editor_jump_to_title">Jump to title…</string>
     <string name="chapter_editor_lane_description">Chapter timeline showing %1$d chapters</string>
     <string name="chapter_editor_lock">Lock chapter</string>
@@ -912,6 +914,7 @@ One beautiful library.</string>
     <string name="chapter_editor_problem_title_too_long">Chapter %1$d’s title is too long.</string>
     <string name="chapter_editor_problem_unknown_chapter">A chapter that is no longer in the list is invalid.</string>
     <string name="chapter_editor_redo">Redo</string>
+    <string name="chapter_editor_rename_ios">Rename</string>
     <string name="chapter_editor_rename_label">Chapter title</string>
     <string name="chapter_editor_rename_title">Rename chapter</string>
     <string name="chapter_editor_review_changes">Review changes</string>

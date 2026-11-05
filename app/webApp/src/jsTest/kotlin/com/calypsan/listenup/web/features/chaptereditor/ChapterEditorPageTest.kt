@@ -7,6 +7,8 @@ import org.w3c.dom.pointerevents.PointerEvent
 import com.calypsan.listenup.client.domain.chapter.ChapterAnchor
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
+import com.calypsan.listenup.client.presentation.chaptereditor.PartSuggestion
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftPreview
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftProposal
 import com.calypsan.listenup.client.presentation.chaptereditor.DriftRefusal
@@ -14,12 +16,15 @@ import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.shell.KeyPriority
 import com.calypsan.listenup.web.shell.LocalWindowKeys
 import com.calypsan.listenup.web.shell.WindowKeys
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
@@ -101,6 +106,7 @@ private fun page(
     onSave: () -> Unit = {},
     onLeave: () -> Unit = {},
     problem: String? = null,
+    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -128,6 +134,7 @@ private fun page(
                 onSave = onSave,
                 onLeave = onLeave,
                 problem = problem,
+                markers = markers,
             )
         }
     return host
@@ -162,6 +169,32 @@ private fun rowAction(
         ?.asList()
         ?.filterIsInstance<HTMLButtonElement>()
         ?.firstOrNull { it.getAttribute("aria-label") == label }
+
+/** Opens row [index]'s menu and returns its [label] item, or null when the menu does not offer one. */
+private suspend fun rowMenuItem(
+    host: HTMLElement,
+    index: Int,
+    label: String,
+): HTMLButtonElement? {
+    val chapterTitle = rows(host)[index].querySelector(".chr-t")?.textContent.orEmpty()
+    rowAction(host, index, "More actions for $chapterTitle").shouldNotBeNull().click()
+    awaitFrame()
+    return rows(host)[index]
+        .querySelectorAll("[role=menuitem]")
+        .asList()
+        .filterIsInstance<HTMLButtonElement>()
+        .firstOrNull { it.textContent?.trim() == label }
+}
+
+private fun markerRows(host: HTMLElement) = host.querySelectorAll(".chm").asList().filterIsInstance<HTMLElement>()
+
+/** Three chapters, the middle opening a part and the last opening a book. */
+private fun markedChapters() =
+    listOf(
+        chapter("c1", "Credits", 0L),
+        chapter("c2", "Dawn", 60_000L).copy(partTitle = "The First Part"),
+        chapter("c3", "Dusk", 120_000L).copy(bookTitle = "Omnibus One"),
+    )
 
 private fun button(
     host: HTMLElement,
@@ -425,7 +458,7 @@ class ChapterEditorPageTest :
             val inserts = mutableListOf<Pair<String, String>>()
             val host = page(editingChapters(), onInsertBelow = { id, title -> inserts += id to title })
 
-            rowAction(host, 0, "Insert chapter below").shouldNotBeNull().click()
+            rowMenuItem(host, 0, "Insert chapter below").shouldNotBeNull().click()
             awaitFrame()
 
             inserts shouldContainExactly listOf("c1" to "New chapter")
@@ -612,7 +645,7 @@ class ChapterEditorPageTest :
             val renames = mutableListOf<Pair<String, String>>()
             val host = page(editingChapters(), onRetitle = { id, title -> renames += id to title })
 
-            rowAction(host, 1, "Rename chapter").shouldNotBeNull().click()
+            rowMenuItem(host, 1, "Rename chapter").shouldNotBeNull().click()
             awaitFrame()
 
             val field = host.querySelector("#ced-chapter-title") as HTMLInputElement
@@ -632,7 +665,7 @@ class ChapterEditorPageTest :
         test("a blank title cannot be confirmed") {
             val host = page(editingChapters())
 
-            rowAction(host, 0, "Rename chapter").shouldNotBeNull().click()
+            rowMenuItem(host, 0, "Rename chapter").shouldNotBeNull().click()
             awaitFrame()
 
             val field = host.querySelector("#ced-chapter-title") as HTMLInputElement
@@ -648,7 +681,7 @@ class ChapterEditorPageTest :
             val removed = mutableListOf<String>()
             val host = page(editingChapters(), onRemove = { removed += it })
 
-            rowAction(host, 2, "Delete chapter").shouldNotBeNull().click()
+            rowMenuItem(host, 2, "Delete chapter").shouldNotBeNull().click()
             awaitFrame()
 
             host.querySelector("dialog")?.textContent.shouldNotBeNull() shouldContain
@@ -665,12 +698,199 @@ class ChapterEditorPageTest :
             val removed = mutableListOf<String>()
             val host = page(editingChapters(), onRemove = { removed += it })
 
-            rowAction(host, 0, "Delete chapter").shouldNotBeNull().click()
+            rowMenuItem(host, 0, "Delete chapter").shouldNotBeNull().click()
             awaitFrame()
             dialogButton(host, "Cancel").shouldNotBeNull().click()
             awaitFrame()
 
             removed shouldContainExactly emptyList()
+        }
+
+        // ── markers ───────────────────────────────────────────────────────────────
+
+        test("a book with no markers draws no marker rows and no offer") {
+            val host = page(editingChapters())
+
+            markerRows(host).size shouldBe 0
+            host.querySelector(".ched-suggest").shouldBeNull()
+        }
+
+        test("a marker is a row above the chapter carrying it, with its three actions") {
+            val host = page(editingChapters(chapters = markedChapters()))
+
+            markerRows(host).map { it.querySelector(".chm-t")?.textContent } shouldContainExactly
+                listOf("The First Part", "Omnibus One")
+            val list = host.querySelector(".ched-list").shouldNotBeNull().textContent.orEmpty()
+            withClue("it sits directly above the chapter it opens") {
+                list.indexOf("The First Part") shouldBeLessThan list.indexOf("Dawn")
+                list.indexOf("Credits") shouldBeLessThan list.indexOf("The First Part")
+            }
+            markerRows(host)[0].querySelectorAll("button").asList().map { it.textContent?.trim() } shouldContainExactly
+                listOf("Rename", "Move", "Remove marker")
+        }
+
+        test("a chapter opening both tiers draws the book above the part") {
+            val both = listOf(chapter("c1", "Dawn").copy(partTitle = "Part", bookTitle = "Book"))
+
+            markerRows(page(editingChapters(chapters = both))).map { it.querySelector(".chm-t")?.textContent } shouldContainExactly
+                listOf("Book", "Part")
+        }
+
+        test("search is a flat result set, so marker rows step aside") {
+            val host = page(editingChapters(chapters = markedChapters()))
+
+            val search = host.querySelector("#ched-search") as HTMLInputElement
+            search.value = "Dawn"
+            search.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            markerRows(host).size shouldBe 0
+        }
+
+        test("Rename opens on the marker's name and reports the new one at its tier") {
+            val renames = mutableListOf<Triple<String, ChapterMarkerTier, String>>()
+            val host =
+                page(
+                    editingChapters(chapters = markedChapters()),
+                    markers = ChapterMarkerCalls(onRename = { id, tier, title -> renames += Triple(id, tier, title) }),
+                )
+
+            markerRows(host)[1].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>().first().click()
+            awaitFrame()
+
+            val field = host.querySelector("#ced-marker-name") as HTMLInputElement
+            field.value shouldBe "Omnibus One"
+            field.value = "Omnibus Two"
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+            dialogButton(host, "Rename").shouldNotBeNull().click()
+            awaitFrame()
+
+            renames shouldContainExactly listOf(Triple("c3", ChapterMarkerTier.Book, "Omnibus Two"))
+        }
+
+        test("a marker cannot be renamed to nothing") {
+            val host = page(editingChapters(chapters = markedChapters()))
+
+            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>().first().click()
+            awaitFrame()
+            val field = host.querySelector("#ced-marker-name") as HTMLInputElement
+            field.value = "   "
+            field.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            dialogButton(host, "Rename").shouldNotBeNull().hasAttribute("disabled") shouldBe true
+        }
+
+        test("Move offers only chapters not already opening that tier, and reports the choice") {
+            val moves = mutableListOf<Triple<String, ChapterMarkerTier, String>>()
+            val host =
+                page(
+                    editingChapters(chapters = markedChapters()),
+                    markers = ChapterMarkerCalls(onMove = { id, tier, to -> moves += Triple(id, tier, to) }),
+                )
+
+            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>()[1].click()
+            awaitFrame()
+
+            val dialog = host.querySelector("dialog").shouldNotBeNull().textContent.orEmpty()
+            dialog shouldContain "Credits"
+            dialog shouldContain "Dusk"
+            dialog shouldNotContain "Dawn"
+
+            host
+                .querySelectorAll("dialog .ched-pick-i")
+                .asList()
+                .filterIsInstance<HTMLButtonElement>()
+                .first { it.textContent.orEmpty().contains("Dusk") }
+                .click()
+            awaitFrame()
+
+            moves shouldContainExactly listOf(Triple("c2", ChapterMarkerTier.Part, "c3"))
+            host.querySelector("dialog").shouldBeNull()
+        }
+
+        test("Remove marker removes at once: Undo is the way back, not a confirmation") {
+            val removed = mutableListOf<Pair<String, ChapterMarkerTier>>()
+            val host =
+                page(
+                    editingChapters(chapters = markedChapters()),
+                    markers = ChapterMarkerCalls(onRemove = { id, tier -> removed += id to tier }),
+                )
+
+            markerRows(host)[0].querySelectorAll("button").asList().filterIsInstance<HTMLButtonElement>()[2].click()
+            awaitFrame()
+
+            removed shouldContainExactly listOf("c2" to ChapterMarkerTier.Part)
+        }
+
+        test("a chapter's menu starts a part or a book, opening on the default name") {
+            val started = mutableListOf<Pair<String, String>>()
+            val host =
+                page(
+                    editingChapters(),
+                    markers =
+                        ChapterMarkerCalls(
+                            onStartPart = { id, title -> started += id to "part:$title" },
+                            onStartBook = { id, title -> started += id to "book:$title" },
+                            defaultTitle = { id, _, word -> "$word for $id" },
+                        ),
+                )
+
+            rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
+            awaitFrame()
+            (host.querySelector("#ced-marker-name") as HTMLInputElement).value shouldBe "Part for c2"
+            dialogButton(host, "Start part").shouldNotBeNull().click()
+            awaitFrame()
+
+            rowMenuItem(host, 2, "Start a book here").shouldNotBeNull().click()
+            awaitFrame()
+            dialogButton(host, "Start book").shouldNotBeNull().click()
+            awaitFrame()
+
+            started shouldContainExactly listOf("c2" to "part:Part for c2", "c3" to "book:Book for c3")
+        }
+
+        test("cancelling a new marker writes nothing") {
+            val started = mutableListOf<String>()
+            val host =
+                page(editingChapters(), markers = ChapterMarkerCalls(onStartPart = { id, _ -> started += id }))
+
+            rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
+            awaitFrame()
+            dialogButton(host, "Cancel").shouldNotBeNull().click()
+            awaitFrame()
+
+            started shouldContainExactly emptyList()
+        }
+
+        test("a chapter already opening a tier is not offered that tier again") {
+            val host = page(editingChapters(chapters = markedChapters()))
+
+            rowMenuItem(host, 1, "Start a part here").shouldBeNull()
+            rowMenuItem(host, 2, "Start a part here").shouldNotBeNull()
+        }
+
+        test("the offer names what it would mark, and takes its answer in place") {
+            val answers = mutableListOf<String>()
+            val host =
+                page(
+                    editingChapters().copy(partSuggestion = PartSuggestion(listOf("Part I", "Part II", "Part III"))),
+                    markers =
+                        ChapterMarkerCalls(
+                            onAcceptSuggestion = { answers += "accept" },
+                            onDismissSuggestion = { answers += "dismiss" },
+                        ),
+                )
+
+            val strip = host.querySelector(".ched-suggest").shouldNotBeNull().textContent.orEmpty()
+            strip shouldContain "3 chapters look like parts"
+            strip shouldContain "Part I, Part II and Part III. They stay as chapters and open each part."
+
+            button(host, "Use as parts").shouldNotBeNull().click()
+            button(host, "Not now").shouldNotBeNull().click()
+
+            answers shouldContainExactly listOf("accept", "dismiss")
         }
 
         test("Save is disabled until something changes, and says so while it is in flight") {

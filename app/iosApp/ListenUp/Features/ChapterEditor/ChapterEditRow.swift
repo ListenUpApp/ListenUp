@@ -23,6 +23,10 @@ struct ChapterEditRow: View {
     let onPlayFrom: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    /// Nil once this chapter opens a Part: its section header edits the one it has.
+    let onStartPart: (() -> Void)?
+    /// Nil once this chapter opens a Book, for the same reason.
+    let onStartBook: (() -> Void)?
 
     /// Coarse ± step, the same one every other client's rows use.
     private static let nudgeMs: Int64 = 1_000
@@ -81,6 +85,9 @@ struct ChapterEditRow: View {
         // The row's children combine into one element, so its controls are named as actions too.
         .accessibilityAction(named: Text(String(localized: "chapter_editor.edit_time")), onEditTime)
         .accessibilityAction(named: Text(String(localized: "chapter_editor.insert_below")), onInsertBelow)
+        .accessibilityAction(named: Text(String(localized: "chapter_editor.start_part_ios"))) { onStartPart?() }
+        .accessibilityAction(named: Text(String(localized: "chapter_editor.start_book_ios"))) { onStartBook?() }
+        .contextMenu { rowMenu }
         // swipe-actions-host: ChapterEditorView.swift (its `chapterList` is the `List`).
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
@@ -94,6 +101,12 @@ struct ChapterEditRow: View {
                 Label(String(localized: "chapter_editor.insert_below"), systemImage: "scissors")
             }
             .tint(.teal)
+            if let onStartPart {
+                Button(action: onStartPart) {
+                    Label(String(localized: "chapter_editor.start_part_ios"), systemImage: "bookmark")
+                }
+                .tint(.orange)
+            }
         }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button(action: onToggleLock) {
@@ -118,6 +131,30 @@ struct ChapterEditRow: View {
                 }
                 .tint(.green)
             }
+        }
+    }
+
+    /// The long-press menu: the row's rarer actions, in one place a reader can browse.
+    @ViewBuilder
+    private var rowMenu: some View {
+        Button(action: onRename) {
+            Label(String(localized: "chapter_editor.rename_ios"), systemImage: "pencil")
+        }
+        if let onStartPart {
+            Button(action: onStartPart) {
+                Label(String(localized: "chapter_editor.start_part_ios"), systemImage: "bookmark")
+            }
+        }
+        if let onStartBook {
+            Button(action: onStartBook) {
+                Label(String(localized: "chapter_editor.start_book_ios"), systemImage: "books.vertical")
+            }
+        }
+        Button(action: onInsertBelow) {
+            Label(String(localized: "chapter_editor.insert_below_ios"), systemImage: "scissors")
+        }
+        Button(role: .destructive, action: onDelete) {
+            Label(String(localized: "chapter_editor.delete_chapter_ios"), systemImage: "trash")
         }
     }
 

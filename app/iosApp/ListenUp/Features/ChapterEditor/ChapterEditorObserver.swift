@@ -22,6 +22,10 @@ struct EditableChapterRow: Identifiable, Equatable {
     let startMs: Int64
     let endMs: Int64
     let isLocked: Bool
+    /// The Part this chapter opens, if any.
+    var partTitle: String?
+    /// The Book this chapter opens, if any.
+    var bookTitle: String?
 
     /// Whether `positionMs` falls inside this chapter — which boundary the listener is inside.
     func holds(_ positionMs: Int64) -> Bool { positionMs >= startMs && positionMs < endMs }
@@ -62,6 +66,10 @@ final class ChapterEditorObserver {
     private(set) var bookTitle: String = ""
     private(set) var bookDurationMs: Int64 = 0
     private(set) var chapters: [EditableChapterRow] = []
+    /// `chapters` cut at their markers, for the list. One unmarked section for a book with none.
+    private(set) var sections: [ChapterEditorSection] = []
+    /// What the offer to mark chapters would mark; nil when there is nothing to offer.
+    private(set) var partSuggestionTitles: [String]?
     private(set) var selectedChapterId: String?
     private(set) var isDirty: Bool = false
     private(set) var canUndo: Bool = false
@@ -111,6 +119,23 @@ final class ChapterEditorObserver {
     }
     func insertBelow(_ chapterId: String, title: String) { viewModel.insertBelow(chapterId: chapterId, title: title) }
     func playFrom(_ chapterId: String) { viewModel.playFrom(chapterId: chapterId) }
+    func startMarker(_ chapterId: String, tier: MarkerTier, title: String) {
+        switch tier {
+        case .part: viewModel.startPart(chapterId: chapterId, title: title)
+        case .book: viewModel.startBook(chapterId: chapterId, title: title)
+        }
+    }
+    func saveMarker(_ chapterId: String, tier: MarkerTier, title: String, toChapterId: String) {
+        viewModel.saveMarker(chapterId: chapterId, tier: tier.shared, title: title, toChapterId: toChapterId)
+    }
+    func removeMarker(_ chapterId: String, tier: MarkerTier) {
+        viewModel.removeMarker(chapterId: chapterId, tier: tier.shared)
+    }
+    func defaultMarkerTitle(_ chapterId: String, tier: MarkerTier, tierWord: String) -> String {
+        viewModel.defaultMarkerTitle(chapterId: chapterId, tier: tier.shared, tierWord: tierWord)
+    }
+    func acceptPartSuggestion() { viewModel.acceptPartSuggestion() }
+    func dismissPartSuggestion() { viewModel.dismissPartSuggestion() }
     func beginDrift() { viewModel.beginDrift() }
     func pinAnchor(_ chapterId: String, atMs trueStartMs: Int64) {
         viewModel.pinAnchor(chapterId: chapterId, trueStartMs: trueStartMs)
@@ -144,6 +169,8 @@ final class ChapterEditorObserver {
             isSaving = editing.isSaving
             changedElsewhere = editing.changedElsewhere
             chapters = rowModels(editing)
+            sections = ChapterEditorSection.sections(from: outlineEntries(editing, rows: chapters))
+            partSuggestionTitles = editing.partSuggestion?.titles
             drift = driftModel(editing)
             timeline.update(TimelineInput(
                 chapters: editing.chapters,
@@ -165,8 +192,28 @@ final class ChapterEditorObserver {
                 title: chapter.title,
                 startMs: chapter.startTime,
                 endMs: chapter.startTime + chapter.duration,
-                isLocked: locked.contains(chapter.id)
+                isLocked: locked.contains(chapter.id),
+                partTitle: chapter.partTitle,
+                bookTitle: chapter.bookTitle
             )
+        }
+    }
+
+    /// The shared outline as native values. `number` is 1-based, so it indexes `rows` directly: the
+    /// editor's outline folds nothing, and both are built from the same `chapters`.
+    private func outlineEntries(
+        _ editing: ChapterEditorUiStateEditing,
+        rows: [EditableChapterRow]
+    ) -> [ChapterOutlineEntry] {
+        editing.outline.map { row in
+            switch row.sealedType() {
+            case .bookHeader(let type):
+                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .book, title: type.value.title))
+            case .partHeader(let type):
+                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .part, title: type.value.title))
+            case .chapterRow(let type):
+                .chapter(rows[Int(type.value.number) - 1])
+            }
         }
     }
 
@@ -247,6 +294,16 @@ final class ChapterEditorObserver {
 
         case .invalid(let type):
             problem = ChapterProblemText.message(for: type.value.problems, chapters: chapters)
+        }
+    }
+}
+
+private extension MarkerTier {
+    /// The one place the views' tier becomes Kotlin's.
+    var shared: ChapterMarkerTier {
+        switch self {
+        case .part: .Part
+        case .book: .Book
         }
     }
 }
