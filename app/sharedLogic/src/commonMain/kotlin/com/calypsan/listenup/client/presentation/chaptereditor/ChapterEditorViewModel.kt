@@ -75,6 +75,12 @@ class ChapterEditorViewModel(
      */
     private val driftAnchors = MutableStateFlow<DriftAnchors?>(null)
 
+    /**
+     * "Not now", for this editing session only. Outside [ChapterDraft] for the same reason a lock is:
+     * declining an offer is a decision, not an edit, so it is neither dirty nor undoable.
+     */
+    private val partSuggestionDismissed = MutableStateFlow(false)
+
     /** The parts of the editor the user drives directly, combined once to stay inside `combine`'s arity. */
     private val session =
         combine(
@@ -97,7 +103,8 @@ class ChapterEditorViewModel(
             flow2 = bookRepository.observeBookDetail(bookId),
             flow3 = session,
             flow4 = playbackManager.currentTimeline,
-        ) { mirrored, book, current, loaded ->
+            flow5 = partSuggestionDismissed,
+        ) { mirrored, book, current, loaded, suggestionDismissed ->
             if (book == null) {
                 ChapterEditorUiState.Loading
             } else {
@@ -129,6 +136,7 @@ class ChapterEditorViewModel(
                             )
                         },
                     fileBoundaries = fileBoundariesOf(loaded),
+                    partSuggestion = if (suggestionDismissed) null else chapters.partSuggestion(),
                 )
             }
         }.stateIn(
@@ -244,6 +252,59 @@ class ChapterEditorViewModel(
         edit { chapters, duration -> chapters.removed(chapterId, duration) }
     }
 
+    /** Starts a [tier] marker at [chapterId], named [title]. */
+    fun startMarker(
+        chapterId: String,
+        tier: ChapterMarkerTier,
+        title: String,
+    ) {
+        edit { chapters, _ ->
+            when (tier) {
+                ChapterMarkerTier.Part -> chapters.withPartMarker(chapterId, title)
+                ChapterMarkerTier.Book -> chapters.withBookMarker(chapterId, title)
+            }
+        }
+    }
+
+    /**
+     * Sets the [tier] marker on [chapterId] to be named [title] and start at [toChapterId], as one
+     * undo step: one Save, one edit. Pass the current name to only move it, and [chapterId] as
+     * [toChapterId] to only rename it. A blank name is refused, because removing is its own act.
+     */
+    fun saveMarker(
+        chapterId: String,
+        tier: ChapterMarkerTier,
+        title: String,
+        toChapterId: String,
+    ) {
+        edit { chapters, _ ->
+            chapters.withRenamedMarker(chapterId, tier, title).withMovedMarker(chapterId, tier, toChapterId)
+        }
+    }
+
+    /** Removes the [tier] marker from [chapterId]. The chapter itself stays. */
+    fun removeMarker(
+        chapterId: String,
+        tier: ChapterMarkerTier,
+    ) {
+        edit { chapters, _ ->
+            when (tier) {
+                ChapterMarkerTier.Part -> chapters.withoutPartMarker(chapterId)
+                ChapterMarkerTier.Book -> chapters.withoutBookMarker(chapterId)
+            }
+        }
+    }
+
+    /** "Use as parts": marks every suggested chapter, as one undo step. */
+    fun acceptPartSuggestion() {
+        edit { chapters, _ -> chapters.withSuggestedParts() }
+    }
+
+    /** "Not now": hides the suggestion until the editor is next opened. */
+    fun dismissPartSuggestion() {
+        partSuggestionDismissed.value = true
+    }
+
     /**
      * Replaces the whole set — the commit step of drift correction.
      *
@@ -352,15 +413,43 @@ class ChapterEditorViewModel(
      * Reads the current chapters out of [state] rather than keeping a second copy, so there is
      * exactly one answer to "what is being edited". Edits only ever arrive from a screen that is
      * collecting [state], so it is `Editing` whenever this is reachable.
+     *
+     * A transform that changes nothing forks nothing. An empty draft would stop the editor following
+     * the mirror, and report the next sync frame as a conflict with an edit nobody made.
      */
     private fun edit(transform: (List<Chapter>, Long) -> List<Chapter>) {
         val editing = state.value as? ChapterEditorUiState.Editing ?: return
         val next = transform(editing.chapters, editing.bookDurationMs)
+        if (next == editing.chapters) return
         draft.update { current ->
             (current ?: ChapterDraft(chapters = editing.chapters, forkedFrom = editing.chapters)).mutate(next)
         }
     }
 }
+
+/** Renames in place. Renaming a marker that is not there is no edit: it must not invent one. */
+private fun List<Chapter>.withRenamedMarker(
+    chapterId: String,
+    tier: ChapterMarkerTier,
+    title: String,
+): List<Chapter> {
+    val isMarked = any { it.id == chapterId && tier.titleOn(it) != null }
+    return when {
+        !isMarked -> this
+        tier == ChapterMarkerTier.Part -> withPartMarker(chapterId, title)
+        else -> withBookMarker(chapterId, title)
+    }
+}
+
+private fun List<Chapter>.withMovedMarker(
+    chapterId: String,
+    tier: ChapterMarkerTier,
+    toChapterId: String,
+): List<Chapter> =
+    when (tier) {
+        ChapterMarkerTier.Part -> movedPartMarker(chapterId, toChapterId)
+        ChapterMarkerTier.Book -> movedBookMarker(chapterId, toChapterId)
+    }
 
 /** What the user is driving right now, as one value — see [ChapterEditorViewModel.session]. */
 private data class EditorSession(

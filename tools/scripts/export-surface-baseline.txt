@@ -50,6 +50,7 @@ AdminUserInfo
 AdminViewModel
 AdoptServerUseCase
 AlsoFinished
+AnnouncementChapters
 AppError
 AppError_SealedType
 AppNotification
@@ -201,12 +202,15 @@ ChapterInput
 ChapterListFollow
 ChapterListMove
 ChapterListMove_SealedType
+ChapterMarkerTier
 ChapterName
 ChapterName_SealedType
 ChapterNamesUi
 ChapterNamesUi_SealedType
 ChapterNaming
 ChapterNavigation
+ChapterOutlineRow
+ChapterOutlineRow_SealedType
 ChapterRowUi
 ChapterSetProblem
 ChapterSetProblem_SealedType
@@ -682,6 +686,7 @@ OutsideShare
 ParentPickerDisabledReason
 ParentPickerRow
 PartGroup
+PartSuggestion
 PartialFailure
 PasswordChange
 PasswordResetRepository

@@ -23,6 +23,9 @@ struct ChapterEditRow: View {
     let onPlayFrom: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    /// Asks for a new marker. Offered only for `row.startableTiers`: once a chapter opens a tier, its
+    /// section header edits the one it has.
+    let onStartMarker: (MarkerTier) -> Void
 
     /// Coarse ± step, the same one every other client's rows use.
     private static let nudgeMs: Int64 = 1_000
@@ -81,6 +84,12 @@ struct ChapterEditRow: View {
         // The row's children combine into one element, so its controls are named as actions too.
         .accessibilityAction(named: Text(String(localized: "chapter_editor.edit_time")), onEditTime)
         .accessibilityAction(named: Text(String(localized: "chapter_editor.insert_below")), onInsertBelow)
+        .accessibilityActions {
+            ForEach(row.startableTiers, id: \.self) { tier in
+                Button(tier.startLabel) { onStartMarker(tier) }
+            }
+        }
+        .contextMenu { rowMenu }
         // swipe-actions-host: ChapterEditorView.swift (its `chapterList` is the `List`).
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
@@ -94,6 +103,12 @@ struct ChapterEditRow: View {
                 Label(String(localized: "chapter_editor.insert_below"), systemImage: "scissors")
             }
             .tint(.teal)
+            if row.startableTiers.contains(.part) {
+                Button { onStartMarker(.part) } label: {
+                    Label(MarkerTier.part.startLabel, systemImage: MarkerTier.part.startSymbol)
+                }
+                .tint(.orange)
+            }
         }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button(action: onToggleLock) {
@@ -118,6 +133,25 @@ struct ChapterEditRow: View {
                 }
                 .tint(.green)
             }
+        }
+    }
+
+    /// The long-press menu: the row's rarer actions, in one place a reader can browse.
+    @ViewBuilder
+    private var rowMenu: some View {
+        Button(action: onRename) {
+            Label(String(localized: "chapter_editor.rename_ios"), systemImage: "pencil")
+        }
+        ForEach(row.startableTiers, id: \.self) { tier in
+            Button { onStartMarker(tier) } label: {
+                Label(tier.startLabel, systemImage: tier.startSymbol)
+            }
+        }
+        Button(action: onInsertBelow) {
+            Label(String(localized: "chapter_editor.insert_below_ios"), systemImage: "scissors")
+        }
+        Button(role: .destructive, action: onDelete) {
+            Label(String(localized: "chapter_editor.delete_chapter_ios"), systemImage: "trash")
         }
     }
 

@@ -9,6 +9,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -573,6 +574,311 @@ class ChapterEditorViewModelTest :
 
                     vm.remove("c2")
                     awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().lockedChapterIds.shouldBeEmpty()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        // ── markers ───────────────────────────────────────────────────────────────
+
+        fun titled(vararg titles: String): List<Chapter> =
+            titles
+                .mapIndexed { i, title ->
+                    Chapter(id = "c$i", title = title, duration = 0L, startTime = i * 100_000L)
+                }.withDerivedDurations(BOOK_MS)
+
+        test("starting a part is an undoable edit that reaches the wire on save") {
+            val (vm, _, saved) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
+
+                    val edited = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    edited.chapters[1].partTitle shouldBe "Part One"
+                    edited.isDirty shouldBe true
+
+                    vm.save()
+                    testDispatcher.scheduler.advanceUntilIdle()
+                    saved.single()[1].partTitle shouldBe "Part One"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("startMarker, saveMarker and removeMarker each act on their tier") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.startMarker("c0", ChapterMarkerTier.Book, "Book One")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[0].bookTitle shouldBe
+                        "Book One"
+
+                    vm.saveMarker("c0", ChapterMarkerTier.Book, "Book Two", toChapterId = "c0")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[0].bookTitle shouldBe
+                        "Book Two"
+
+                    vm.saveMarker("c0", ChapterMarkerTier.Book, "Book Two", toChapterId = "c2")
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[2].bookTitle shouldBe
+                        "Book Two"
+
+                    vm.removeMarker("c2", ChapterMarkerTier.Book)
+                    awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[2].bookTitle shouldBe null
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("renaming a part leaves a book marker on the same chapter alone") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c1", ChapterMarkerTier.Book, "Book One")
+                    awaitItem()
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
+                    awaitItem()
+
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "Part Two", toChapterId = "c1")
+
+                    val chapter = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[1]
+                    chapter.partTitle shouldBe "Part Two"
+                    chapter.bookTitle shouldBe "Book One"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the sheet's Save renames and moves as ONE undo step") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c0", ChapterMarkerTier.Part, "Part One")
+                    awaitItem()
+
+                    vm.saveMarker("c0", ChapterMarkerTier.Part, "Part Two", "c1")
+
+                    val saved = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    saved.chapters.map { it.partTitle } shouldBe listOf(null, "Part Two", null)
+
+                    vm.undo()
+
+                    val undone = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    undone.chapters.map { it.partTitle } shouldBe listOf("Part One", null, null)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("renaming a marker to blank is refused, not treated as removing it") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
+                    awaitItem()
+
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "   ", toChapterId = "c1")
+                    vm.undo()
+
+                    withClue("the refused save pushed no frame, so one undo reaches the start marker") {
+                        awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().chapters[1].partTitle shouldBe null
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a save on a chapter with no such marker invents none, and forks no draft") {
+            val (vm, mirror, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.saveMarker("c1", ChapterMarkerTier.Part, "Part One", toChapterId = "c1")
+                    mirror.value = chapters(0L, 400_000L, 900_000L)
+
+                    val after = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    after.chapters[1].partTitle shouldBe null
+                    after.chapters[1].startTime shouldBe 400_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("AN EDIT THAT CHANGES NOTHING FORKS NO DRAFT — the editor keeps following the mirror") {
+            val (vm, mirror, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.retitle("c1", "Chapter 1")
+                    mirror.value = chapters(0L, 400_000L, 900_000L)
+
+                    val after = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    withClue("nothing was edited, so an incoming change is simply the new truth") {
+                        after.chapters[1].startTime shouldBe 400_000L
+                    }
+                    withClue("and nothing is claimed to have changed behind the reader's back") {
+                        after.changedElsewhere shouldBe false
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("undoing a delete brings back the marker on its own chapter, and off the next one") {
+            val (vm, _, _) = rig()
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c1", ChapterMarkerTier.Part, "Part One")
+                    awaitItem()
+
+                    vm.remove("c1")
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.partTitle } shouldBe listOf(null, "Part One")
+
+                    vm.undo()
+
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .chapters
+                        .map { it.partTitle } shouldBe listOf(null, "Part One", null)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("a book with two Part chapters is offered the suggestion, naming them") {
+            val (vm, _, _) = rig(initial = titled("Credits", "Part I", "One", "Part II"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .partSuggestion
+                        .shouldNotBeNull()
+                        .titles shouldBe listOf("Part I", "Part II")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the suggestion is never applied on its own — nothing changes until it is accepted") {
+            val (vm, _, _) = rig(initial = titled("Part I", "Part II"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    val offered = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    offered.isDirty shouldBe false
+                    offered.chapters.map { it.partTitle } shouldBe listOf(null, null)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Use as parts marks every match as ONE undo step, and undoing brings the offer back") {
+            val (vm, _, _) = rig(initial = titled("Credits", "Part I", "One", "Part II"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.acceptPartSuggestion()
+
+                    val accepted = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    accepted.chapters.map { it.partTitle } shouldBe listOf(null, "Part I", null, "Part II")
+                    withClue("the book now has markers, so there is nothing left to offer") {
+                        accepted.partSuggestion shouldBe null
+                    }
+
+                    vm.undo()
+
+                    val undone = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    undone.chapters.map { it.partTitle } shouldBe listOf(null, null, null, null)
+                    undone.canUndo shouldBe false
+                    undone.partSuggestion.shouldNotBeNull()
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("Not now hides the suggestion for this session, and is not an edit") {
+            val (vm, _, _) = rig(initial = titled("Part I", "Part II"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+
+                    vm.dismissPartSuggestion()
+
+                    val dismissed = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                    dismissed.partSuggestion shouldBe null
+                    dismissed.isDirty shouldBe false
+                    dismissed.canUndo shouldBe false
+
+                    vm.retitle("c0", "Credits")
+                    withClue("an edit does not bring back what was dismissed") {
+                        awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().partSuggestion shouldBe null
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+            withClue("a new session starts with the offer open: Not now was never stored") {
+                val (fresh, _, _) = rig(initial = titled("Part I", "Part II"))
+                runTest {
+                    fresh.state.test {
+                        awaitItem()
+                        awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>().partSuggestion.shouldNotBeNull()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            }
+        }
+
+        test("the default marker name reads the book being edited") {
+            val (vm, _, _) = rig(initial = titled("Part I", "One"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    val editing = awaitItem().shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+
+                    editing.defaultMarkerTitle("c0", ChapterMarkerTier.Part, "Part") shouldBe "Part I"
+                    editing.defaultMarkerTitle("c1", ChapterMarkerTier.Part, "Part") shouldBe "Part 1"
+                    editing.defaultMarkerTitle("c1", ChapterMarkerTier.Book, "Book") shouldBe "Book 1"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("the outline keeps every chapter for the editor, folded or not") {
+            val (vm, _, _) = rig(initial = titled("Part I", "One"))
+            runTest {
+                vm.state.test {
+                    awaitItem()
+                    awaitItem()
+                    vm.startMarker("c0", ChapterMarkerTier.Part, "Part I")
+
+                    awaitItem()
+                        .shouldBeInstanceOf<ChapterEditorUiState.Editing>()
+                        .outline
+                        .filterIsInstance<ChapterOutlineRow.ChapterRow>()
+                        .map { it.chapter.id } shouldBe listOf("c0", "c1")
                     cancelAndIgnoreRemainingEvents()
                 }
             }

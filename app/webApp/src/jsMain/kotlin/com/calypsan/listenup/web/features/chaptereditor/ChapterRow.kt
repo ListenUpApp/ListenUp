@@ -2,13 +2,18 @@ package com.calypsan.listenup.web.features.chaptereditor
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.core.ChapterTimeFormat
+import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.MenuAction
+import com.calypsan.listenup.web.design.PopupMenu
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.disabledWhen
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.Element
 
 /**
  * One boundary, and everything that can be done to it without leaving the list.
@@ -36,6 +41,7 @@ internal fun ChapterRow(
     onPlayFrom: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onStartMarker: (ChapterMarkerTier) -> Unit,
 ) {
     val chapter = numbered.chapter
     Div(attrs = {
@@ -45,7 +51,8 @@ internal fun ChapterRow(
         // a mouse convenience — and the title below is the same selection as a real button, which
         // is the keyboard's way to it.
         attr("aria-current", isSelected.toString())
-        onClick { onSelect() }
+        // Not from the row's menu, whose items live inside the row: choosing one is not selecting it.
+        onClick { event -> if ((event.target as? Element)?.closest(".menu-anchor") == null) onSelect() }
     }) {
         Span(attrs = { classes("chr-n") }) { Text(numbered.number.toString()) }
         Div(attrs = { classes("chr-main") }) {
@@ -87,17 +94,46 @@ internal fun ChapterRow(
                 // Same rule: playing from here while another book is loaded would replace it unasked.
                 RowAction(WebIcon.Play, "Play from here", onClick = onPlayFrom)
             }
-            RowAction(WebIcon.Scissors, "Insert chapter below", onClick = onInsertBelow)
             RowAction(
                 icon = if (isLocked) WebIcon.Lock else WebIcon.Unlock,
                 label = if (isLocked) "Unlock chapter" else "Lock chapter",
                 pressed = isLocked,
                 onClick = onToggleLock,
             )
-            RowAction(WebIcon.Pencil, "Rename chapter", onClick = onRename)
-            RowAction(WebIcon.Trash, "Delete chapter", onClick = onDelete)
+            ChapterRowMenu(chapter, onRename, onStartMarker, onInsertBelow, onDelete)
         }
     }
+}
+
+/**
+ * The row's rarer actions. A tier is absent once the chapter opens it: its marker row edits the one
+ * it has.
+ */
+@Composable
+private fun ChapterRowMenu(
+    chapter: Chapter,
+    onRename: () -> Unit,
+    onStartMarker: (ChapterMarkerTier) -> Unit,
+    onInsertBelow: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    PopupMenu(
+        items =
+            buildList {
+                add(MenuAction("Rename chapter", WebIcon.Pencil, onRename))
+                if (chapter.partTitle == null) {
+                    add(MenuAction("Start a part here", WebIcon.Bookmark, { onStartMarker(ChapterMarkerTier.Part) }))
+                }
+                if (chapter.bookTitle == null) {
+                    add(MenuAction("Start a book here", WebIcon.Book, { onStartMarker(ChapterMarkerTier.Book) }))
+                }
+                add(MenuAction("Insert chapter below", WebIcon.Scissors, onInsertBelow))
+                add(MenuAction("Delete chapter", WebIcon.Trash, onDelete, destructive = true))
+            },
+        label = "More actions for ${chapter.title}",
+        icon = WebIcon.More,
+        triggerClasses = arrayOf("chr-a"),
+    )
 }
 
 /**

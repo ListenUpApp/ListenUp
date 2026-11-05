@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +26,7 @@ import listenup.composeapp.generated.resources.chapter_editor_add_at_playhead
 import listenup.composeapp.generated.resources.chapter_editor_clear_search
 import listenup.composeapp.generated.resources.chapter_editor_jump_to_title
 import listenup.composeapp.generated.resources.chapter_editor_no_matches
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.presentation.chaptereditor.PartSuggestion
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineChapter
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineLane
@@ -101,6 +103,8 @@ fun List<Chapter>.numbered(): List<NumberedChapter> = mapIndexed { i, c -> Numbe
  * @param contentPadding insets from the scaffold.
  * @param fileBoundaries read-only audio-file dividers.
  * @param ghosts drift preview positions, drawn alongside the current ones.
+ * @param partSuggestion the offer to mark chapters that look like parts, drawn above the list.
+ * @param markers what the header rows and the offer do.
  */
 @Composable
 fun ChapterEditorContent(
@@ -123,6 +127,8 @@ fun ChapterEditorContent(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     fileBoundaries: List<TimelineFileBoundary> = emptyList(),
     ghosts: List<TimelineChapter> = emptyList(),
+    partSuggestion: PartSuggestion? = null,
+    markers: ChapterMarkerActions = ChapterMarkerActions(),
 ) {
     val timeline: @Composable (Modifier) -> Unit = { paneModifier ->
         ChapterTimelinePane(
@@ -151,6 +157,8 @@ fun ChapterEditorContent(
             lockedChapterIds = lockedChapterIds,
             query = query,
             onQueryChange = onQueryChange,
+            partSuggestion = partSuggestion,
+            markers = markers,
             modifier = paneModifier,
         )
     }
@@ -195,6 +203,8 @@ private fun ChapterListPane(
     lockedChapterIds: Set<String>,
     query: String,
     onQueryChange: (String) -> Unit,
+    partSuggestion: PartSuggestion?,
+    markers: ChapterMarkerActions,
     modifier: Modifier = Modifier,
     onAddAtPlayhead: (() -> Unit)? = null,
 ) {
@@ -208,6 +218,13 @@ private fun ChapterListPane(
         derivedStateOf { playingChapterIds(currentChapters, playheadMs()) }
     }
     val hasPlayhead by remember(playheadMs) { derivedStateOf { playheadMs() != null } }
+    val listState = rememberLazyListState()
+    val hasSuggestion = partSuggestion != null
+    // A keyed list holds its place on the first chapter, so an offer arriving above it would land just
+    // out of view. Brought in only from the top: a reader further down keeps their place.
+    LaunchedEffect(hasSuggestion) {
+        if (hasSuggestion && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
+    }
 
     Column(
         modifier
@@ -237,24 +254,43 @@ private fun ChapterListPane(
             )
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // A search result is a flat set: a header says where a chapter sits in the book, and with
+        // the rows around it filtered out it would be saying so about the wrong ones.
+        val isBrowsing = query.isBlank()
+
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // In the list rather than above it, so the offer scrolls away instead of taking height
+            // from a phone's already-stacked panes.
+            if (isBrowsing && partSuggestion != null) {
+                item(key = "part-suggestion") {
+                    PartSuggestionCard(
+                        suggestion = partSuggestion,
+                        onAccept = markers.onAcceptSuggestion,
+                        onDismiss = markers.onDismissSuggestion,
+                        modifier = Modifier.padding(bottom = 10.dp),
+                    )
+                }
+            }
             // Keyed by chapter id, not index: retiming re-sorts the list, and an index key would
             // make Compose reuse the wrong row's state — the selected row's highlight would jump
             // to whatever now occupies its old position.
-            items(visible, key = { it.chapter.id }) { numbered ->
-                ChapterEditRow(
-                    chapter = numbered.chapter,
-                    number = numbered.number,
-                    isSelected = numbered.chapter.id == selectedChapterId,
-                    isPlaying = numbered.chapter.id in playingIds,
-                    onSelect = { onSelect(numbered.chapter.id) },
-                    onNudge = { step -> rowEdits.onNudge(numbered.chapter.id, step) },
-                    onSnapToPlayhead = { rowEdits.onSnapToPlayhead(numbered.chapter.id) },
-                    onToggleLock = { rowEdits.onToggleLock(numbered.chapter.id) },
-                    menu = rowMenu,
-                    onEditTime = { rowEdits.onEditTime(numbered.chapter.id) },
-                    isLocked = numbered.chapter.id in lockedChapterIds,
-                )
+            visible.forEach { numbered ->
+                if (isBrowsing) chapterMarkerHeaders(numbered.chapter, markers)
+                item(key = numbered.chapter.id) {
+                    ChapterEditRow(
+                        chapter = numbered.chapter,
+                        number = numbered.number,
+                        isSelected = numbered.chapter.id == selectedChapterId,
+                        isPlaying = numbered.chapter.id in playingIds,
+                        onSelect = { onSelect(numbered.chapter.id) },
+                        onNudge = { step -> rowEdits.onNudge(numbered.chapter.id, step) },
+                        onSnapToPlayhead = { rowEdits.onSnapToPlayhead(numbered.chapter.id) },
+                        onToggleLock = { rowEdits.onToggleLock(numbered.chapter.id) },
+                        menu = rowMenu,
+                        onEditTime = { rowEdits.onEditTime(numbered.chapter.id) },
+                        isLocked = numbered.chapter.id in lockedChapterIds,
+                    )
+                }
             }
             // The list's last row is the way to add a chapter to a book that already has some —
             // the spec draws it here, and iOS and web offer the same control. Only the empty

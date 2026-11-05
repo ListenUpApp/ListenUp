@@ -973,6 +973,29 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .chr-a.on { background: var(--coral-soft); color: var(--coral-text); }
 .luw .chr-a[disabled] { opacity: .4; cursor: default; }
 
+/* A marker: the header a Part or Book opens with. Tinted so the eye finds structure in a long list,
+   and it wraps on a phone, the name above its three actions. */
+.luw .chm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4) var(--sp-12); min-height: 48px; margin-top: var(--sp-8); padding: var(--sp-4) var(--sp-12); border-radius: var(--r-md); background: var(--coral-soft); }
+.luw .chm.is-book { background: var(--surface-3); }
+.luw .chm-t { flex: 1 1 10rem; min-width: 0; font-size: var(--fs-ui); font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.luw .chm-acts { flex: none; display: flex; align-items: center; gap: 2px; }
+.luw .chm-remove { color: var(--danger); }
+
+/* The offer to mark chapters that look like parts. */
+.luw .ched-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-12) var(--sp-16); padding: var(--sp-16) 20px; border-radius: var(--r-lg); background: var(--surface-3); }
+.luw .ched-suggest-tx { flex: 1 1 20rem; min-width: 0; }
+.luw .ched-suggest-t { margin: 0; font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+.luw .ched-suggest-b { margin: 2px 0 0; font-size: var(--fs-ui); color: var(--ink-3); }
+
+/* Where a marker can move to: every chapter that does not already open that tier. */
+.luw .ched-pick { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow-y: auto; }
+.luw .ched-pick-i { display: flex; align-items: center; gap: var(--sp-12); min-height: 44px; padding: var(--sp-4) var(--sp-8); border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+@media (hover: hover) { .luw .ched-pick-i:hover { background: var(--surface-3); } }
+.luw .ched-pick-i:active { background: var(--surface-3); }
+.luw .ched-pick-i:focus-visible { outline: 2px solid var(--coral); outline-offset: -2px; }
+.luw .ched-pick-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.luw .ched-pick-at { flex: none; font-size: var(--fs-small); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
 /* The chapter timeline (spec 7.3): the whole-book minimap over the draggable detail lane. Two
    columns when there is room for both — timeline left, list right (spec 7.1) — stacked otherwise. */
 .luw .ched-body { display: flex; flex-direction: column; gap: 14px; }
