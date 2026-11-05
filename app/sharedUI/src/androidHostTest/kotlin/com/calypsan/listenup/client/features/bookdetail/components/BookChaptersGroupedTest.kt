@@ -98,8 +98,7 @@ class BookChaptersGroupedTest {
         composeRule.waitForIdle()
     }
 
-    private fun expandedState(value: String) =
-        SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
+    private fun expandedState(value: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
 
     private fun part(title: String) = composeRule.onNodeWithContentDescription(title, substring = true)
 

@@ -72,7 +72,7 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         }
     val grouped = chapters.groupedChapters(located?.index)
     val current =
-        located?.copy(partTitle = grouped?.rows?.partTitleOf(chapters[located.index].id))
+        located?.copy(partTitle = grouped?.run { rows.partTitleOf(chapters[located.index].id) })
 
     val chapterRows =
         chapters.mapIndexed { index, domainChapter ->

@@ -72,7 +72,11 @@ class BookDetailStateTest :
 
                 val grouped = snapshot(chapters = marked).toReady(BookDetailAmbient()).groupedChapters
 
-                grouped.shouldNotBeNull().rows.first().shouldBeInstanceOf<ChapterOutlineRow.ChapterRow>()
+                grouped
+                    .shouldNotBeNull()
+                    .rows
+                    .first()
+                    .shouldBeInstanceOf<ChapterOutlineRow.ChapterRow>()
                 grouped.rows[1].shouldBeInstanceOf<ChapterOutlineRow.PartHeader>().title shouldBe "Part I"
             }
 

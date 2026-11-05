@@ -116,7 +116,8 @@ class BookChaptersGroupedTest :
         test("the announcement is folded, in the browser: no row repeats its part") {
             val root = mount(currentIndex = 7)
 
-            chapterRow(root, "9: Part II").shouldBeNull()
+            playPart(root, "Part II").shouldNotBeNull()
+            root.querySelector("button[aria-label\$=': Part II']").shouldBeNull()
         }
 
         test("a row keeps the number it has in the whole book") {

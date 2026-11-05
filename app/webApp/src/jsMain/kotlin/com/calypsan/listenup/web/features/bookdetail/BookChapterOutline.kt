@@ -59,7 +59,8 @@ internal fun BookChapterOutline(
                             tier = tier,
                             canPlay = canPlay,
                             onToggle = {
-                                toggled = if (row.chapterId in toggled) toggled - row.chapterId else toggled + row.chapterId
+                                toggled =
+                                    if (row.chapterId in toggled) toggled - row.chapterId else toggled + row.chapterId
                             },
                             onPlay = { onPlayFromChapter(row.startMs) },
                         )

@@ -55,7 +55,11 @@ private fun List<ChapterOutlineRow>.labelFor(index: Int): String? {
     val row = getOrNull(index) as? ChapterOutlineRow.ChapterRow ?: return null
     val before = take(index)
     return before.filterIsInstance<ChapterOutlineRow.PartHeader>().lastOrNull { it.chapterId == row.partId }?.title
-        ?: before.filterIsInstance<ChapterOutlineRow.BookHeader>().lastOrNull()?.title.takeIf { row.partId == null }
+        ?: before
+            .filterIsInstance<ChapterOutlineRow.BookHeader>()
+            .lastOrNull()
+            ?.title
+            .takeIf { row.partId == null }
 }
 
 /** The part [chapterId] sits in, for the resume line: null for a chapter folded away, whose title is the part's. */

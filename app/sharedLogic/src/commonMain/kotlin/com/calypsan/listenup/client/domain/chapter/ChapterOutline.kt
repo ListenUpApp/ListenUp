@@ -47,7 +47,7 @@ sealed interface ChapterOutlineRow {
         val isCurrentChapter: Boolean = false,
     ) : ChapterOutlineRow {
         /** Open by default when it holds the current chapter; [toggledPartIds] are those the reader flipped. */
-        fun isOpen(toggledPartIds: Set<String>): Boolean = containsCurrent != (chapterId in toggledPartIds)
+        fun isOpen(toggledPartIds: Set<String>): Boolean = containsCurrent != chapterId in toggledPartIds
     }
 
     /**

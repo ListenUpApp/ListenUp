@@ -42,7 +42,12 @@ internal fun ResumeUnit(ready: BookDetailUiState.Ready) {
                 Div(attrs = { classes("bd-unit-row") }) {
                     Span(attrs = { classes("bd-unit-ch") }) {
                         ready.currentChapter?.let { chapter ->
-                            Text(listOfNotNull(chapter.partTitle, "Ch. ${chapter.number} · ${chapter.title}").joinToString(" · "))
+                            Text(
+                                listOfNotNull(
+                                    chapter.partTitle,
+                                    "Ch. ${chapter.number} · ${chapter.title}",
+                                ).joinToString(" · "),
+                            )
                         }
                     }
                     Span(attrs = { classes("bd-unit-left") }) {

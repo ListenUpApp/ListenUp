@@ -76,18 +76,7 @@ private fun InProgressUnit(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text =
-                    currentChapter
-                        ?.let { chapter ->
-                            chapter.partTitle?.let { part ->
-                                stringResource(
-                                    Res.string.book_detail_chapter_label_in_part,
-                                    part,
-                                    chapter.number,
-                                    chapter.title,
-                                )
-                            } ?: stringResource(Res.string.book_detail_chapter_label, chapter.number, chapter.title)
-                        }.orEmpty(),
+                text = currentChapter?.let { chapterLine(it) }.orEmpty(),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -156,3 +145,11 @@ internal fun formatBookDay(
 ): String = formatDate(epochMs, if (withYear) "d MMM yyyy" else "d MMM")
 
 private const val PERCENT = 100
+
+/** "Ch. 6 · Bridge Four", led by the part in a book that has them: "Part I · Ch. 7 · 5". */
+@Composable
+private fun chapterLine(chapter: CurrentChapter): String {
+    val part =
+        chapter.partTitle ?: return stringResource(Res.string.book_detail_chapter_label, chapter.number, chapter.title)
+    return stringResource(Res.string.book_detail_chapter_label_in_part, part, chapter.number, chapter.title)
+}
