@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
@@ -271,11 +272,13 @@ class PlaybackProgressReporter(
     /**
      * Launch a recorder action on [scope] when a [recorder] is bound; skip silently otherwise
      * (Android). Mirrors [ProgressTracker]'s fire-and-forget style so a slow or failing write
-     * never blocks the playback signal that triggered it.
+     * never blocks the playback signal that triggered it. Started undispatched, so each action reaches the
+     * recorder's lock on the caller's thread, in event order: a multi-threaded [scope] could otherwise run a
+     * resume ahead of the pause before it.
      */
     private inline fun record(crossinline action: suspend (ListeningEventRecorder) -> Unit) {
         val recorder = recorder ?: return
-        scope.launch {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 action(recorder)
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
