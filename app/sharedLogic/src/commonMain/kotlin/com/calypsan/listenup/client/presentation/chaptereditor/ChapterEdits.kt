@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.client.domain.model.Chapter
 
 /** Smallest gap the editor will leave between two boundaries, so a chapter is never zero-length. */
@@ -97,6 +98,70 @@ internal fun List<Chapter>.retitled(
     val index = indexOfFirst { it.id == chapterId }
     if (index < 0 || this[index].title == trimmed) return this
     return toMutableList().also { it[index] = it[index].copy(title = trimmed) }
+}
+
+// Markers are attributes of the chapter that opens the group, so these only touch those fields: a
+// boundary never moves, and retime, drift and undo carry a marker along without knowing it exists.
+
+/** Sets the Part marker [chapterId] carries. A name the wire would refuse is refused here. */
+internal fun List<Chapter>.withPartMarker(
+    chapterId: String,
+    title: String,
+): List<Chapter> =
+    title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(partTitle = name) } } ?: this
+
+/** Sets the Book marker [chapterId] carries. A name the wire would refuse is refused here. */
+internal fun List<Chapter>.withBookMarker(
+    chapterId: String,
+    title: String,
+): List<Chapter> =
+    title.asMarkerName()?.let { name -> updated(chapterId) { it.copy(bookTitle = name) } } ?: this
+
+/** Clears [chapterId]'s Part marker. Its chapters join the group before them. */
+internal fun List<Chapter>.withoutPartMarker(chapterId: String): List<Chapter> =
+    updated(chapterId) { it.copy(partTitle = null) }
+
+/** Clears [chapterId]'s Book marker. Its chapters join the group before them. */
+internal fun List<Chapter>.withoutBookMarker(chapterId: String): List<Chapter> =
+    updated(chapterId) { it.copy(bookTitle = null) }
+
+/**
+ * Moves the Part marker from [chapterId] to [toChapterId], keeping its name: this is "move where the
+ * part begins", the honest form of dragging a chapter under one.
+ *
+ * Refused onto a chapter already opening a part, which would silently swallow that part.
+ */
+internal fun List<Chapter>.movedPartMarker(
+    chapterId: String,
+    toChapterId: String,
+): List<Chapter> {
+    val title = firstOrNull { it.id == chapterId }?.partTitle ?: return this
+    if (moveTargets(ChapterMarkerTier.Part).none { it.id == toChapterId }) return this
+    return withoutPartMarker(chapterId).withPartMarker(toChapterId, title)
+}
+
+/** Moves the Book marker from [chapterId] to [toChapterId]; see [movedPartMarker]. */
+internal fun List<Chapter>.movedBookMarker(
+    chapterId: String,
+    toChapterId: String,
+): List<Chapter> {
+    val title = firstOrNull { it.id == chapterId }?.bookTitle ?: return this
+    if (moveTargets(ChapterMarkerTier.Book).none { it.id == toChapterId }) return this
+    return withoutBookMarker(chapterId).withBookMarker(toChapterId, title)
+}
+
+/** This text as a marker's name, or null when `ChapterInput` would throw on it at save. */
+private fun String.asMarkerName(): String? = trim().takeIf { it.isNotEmpty() && it.length <= ChapterInput.MAX_SECTION_TITLE }
+
+/** [chapterId] replaced by [change]; the same list when there is no such chapter or nothing changed. */
+private fun List<Chapter>.updated(
+    chapterId: String,
+    change: (Chapter) -> Chapter,
+): List<Chapter> {
+    val index = indexOfFirst { it.id == chapterId }
+    if (index < 0) return this
+    val next = change(this[index])
+    return if (next == this[index]) this else toMutableList().also { it[index] = next }
 }
 
 /**

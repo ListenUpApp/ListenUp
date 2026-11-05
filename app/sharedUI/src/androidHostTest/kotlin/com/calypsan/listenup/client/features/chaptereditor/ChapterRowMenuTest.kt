@@ -34,7 +34,10 @@ class ChapterRowMenuTest {
     private val calls = mutableListOf<String>()
     private val haptics = CountingHaptics()
 
-    private fun render(canPlayFromHere: Boolean = true) {
+    private fun render(
+        canPlayFromHere: Boolean = true,
+        chapter: Chapter = this.chapter,
+    ) {
         val playFromHere: (String) -> Unit = { calls += "play:$it" }
         val menu =
             ChapterRowMenuActions(
@@ -42,6 +45,8 @@ class ChapterRowMenuTest {
                 onInsertBelow = { calls += "insert:$it" },
                 onPlayFromHere = playFromHere.takeIf { canPlayFromHere },
                 onDelete = { calls += "delete:$it" },
+                onStartPart = { calls += "part:$it" },
+                onStartBook = { calls += "book:$it" },
             )
         composeRule.setContent {
             CompositionLocalProvider(LocalHaptics provides haptics) {
@@ -104,6 +109,28 @@ class ChapterRowMenuTest {
         composeRule.onNodeWithContentDescription("More actions for The Long Road").performClick()
 
         composeRule.onNodeWithText("Play from here").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a chapter can start a part or a book`() {
+        render()
+
+        composeRule.onNodeWithContentDescription("More actions for The Long Road").performClick()
+        composeRule.onNodeWithText("Start a part here").performClick()
+        composeRule.onNodeWithContentDescription("More actions for The Long Road").performClick()
+        composeRule.onNodeWithText("Start a book here").performClick()
+
+        calls shouldBe listOf("part:c7", "book:c7")
+    }
+
+    @Test
+    fun `a chapter already opening a tier is not offered that tier again`() {
+        render(chapter = chapter.copy(partTitle = "Part One"))
+
+        composeRule.onNodeWithContentDescription("More actions for The Long Road").performClick()
+
+        composeRule.onNodeWithText("Start a part here").assertDoesNotExist()
+        composeRule.onNodeWithText("Start a book here").assertIsDisplayed()
     }
 
     private class CountingHaptics : Haptics {

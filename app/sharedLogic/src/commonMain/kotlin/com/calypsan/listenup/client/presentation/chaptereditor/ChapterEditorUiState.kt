@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.domain.chapter.AnnouncementChapters
+import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
+import com.calypsan.listenup.client.domain.chapter.toChapterOutline
 import com.calypsan.listenup.client.domain.model.Chapter
 
 /**
@@ -36,6 +39,8 @@ sealed interface ChapterEditorUiState {
      *   from [chapters], so it cannot describe a set the user is no longer looking at.
      * @property fileBoundaries where one audio file ends and the next begins, drawn as faint dividers
      *   on the lane; empty unless this book is the one loaded in the player.
+     * @property partSuggestion chapters that look like parts, offered until the reader accepts or
+     *   dismisses it; null when there is nothing to offer.
      */
     data class Editing(
         val bookTitle: String,
@@ -49,9 +54,14 @@ sealed interface ChapterEditorUiState {
         val lockedChapterIds: Set<String> = emptySet(),
         val drift: DriftState? = null,
         val fileBoundaries: List<TimelineFileBoundary> = emptyList(),
+        val partSuggestion: PartSuggestion? = null,
     ) : ChapterEditorUiState {
         /** True when the book has no chapters at all — the "never stranded" empty state. */
         val isEmpty: Boolean get() = chapters.isEmpty()
+
+        /** [chapters] with their markers, keeping every chapter: the editor folds nothing away. */
+        val outline: List<ChapterOutlineRow>
+            get() = chapters.toChapterOutline(announcements = AnnouncementChapters.Keep)
     }
 
     /**
