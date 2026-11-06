@@ -11,12 +11,16 @@ import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
+import com.calypsan.listenup.web.InShell
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import com.calypsan.listenup.web.playback.awaitState
 import com.calypsan.listenup.web.playback.silentSegment
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.doubles.shouldBeLessThanOrEqual
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -30,6 +34,9 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.asList
 import org.w3c.dom.events.Event
 import org.w3c.dom.url.URL
+import org.jetbrains.compose.web.css.height
+import org.jetbrains.compose.web.css.px
+import org.jetbrains.compose.web.dom.Div
 
 /** A book long enough that the elapsed label crosses into hours. */
 private const val LONG_BOOK_MS = 9_000_000L
@@ -515,5 +522,40 @@ class TransportBarTest :
         test("the status region is empty in every other state, so it speaks only when reconnecting starts") {
             val host = bar(chaptered(), CHAPTER_PROGRESS)
             host.querySelector(".tport [role=status]")!!.textContent shouldBe ""
+        }
+
+        test("on a page taller than the window the whole bar shows, scrubber and all, at desktop and narrow widths") {
+            // ⛔ The bar is a flex item of the scrolling content column; allowed to shrink, it was squeezed to its
+            // min-height while the page grew, and the scrubber and its times hung off the bottom of the window.
+            val frames = ViewportFrames()
+            try {
+                listOf(1440, 800).forEach { width ->
+                    val frame =
+                        frames.mount(width, height = 900) {
+                            InShell {
+                                Div(attrs = { classes("page-body") }) { Div(attrs = { style { height(3_000.px) } }) }
+                                TransportBar(
+                                    state = chaptered(),
+                                    progress = CHAPTER_PROGRESS,
+                                    onPrimary = {},
+                                    onSeek = {},
+                                    onSkipBack = {},
+                                    onSkipForward = {},
+                                    onSetSpeed = {},
+                                )
+                            }
+                        }
+                    awaitFrame()
+                    val bar = frame.rect(frame.find(".tport"))
+                    withClue("$width px") {
+                        listOf(".tport-head", ".tport-body", ".tport-settings", ".tport-expand").forEach { part ->
+                            withClue(part) { frame.rect(frame.find(part)).bottom shouldBeLessThanOrEqual bar.bottom }
+                        }
+                        bar.bottom shouldBeLessThanOrEqual frame.height.toDouble()
+                    }
+                }
+            } finally {
+                frames.disposeAll()
+            }
         }
     })
