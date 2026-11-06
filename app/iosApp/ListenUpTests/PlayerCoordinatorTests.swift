@@ -302,9 +302,10 @@ struct SkipIntervalTests {
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 90000)
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 90000 })
 
+        // The forward skip moved the playhead, so the backward one starts from 90 s, not the stale 60 s.
         harness.coordinator.remoteSkipBackward()
-        await harness.progress.waitForSeek(bookId: "book1", afterMs: 50000)
-        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 80000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 80000 })
     }
 
     /// §3.3: a lock-screen, AirPods or CarPlay skip moves what the app's does — the interval × speed.

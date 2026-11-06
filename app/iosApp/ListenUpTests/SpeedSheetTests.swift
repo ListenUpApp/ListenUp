@@ -99,7 +99,7 @@ struct SpeedSheetAccessibilityTests {
     }
 
     @Test func resetAppearsAwayFromTheDefault() async throws {
-        let reset = String(format: String(localized: "player.sheet_reset_speed_ios"), "1×")
+        let reset = String(localized: .playerSheetResetSpeedIos(PlaybackPresets.shared.speedLabel(speed: 1.0)))
         let calls = Calls()
         let away = await host(speed: 1.25, calls: calls)
         #expect(away.stop(labelled: reset) != nil, "\(away.tree)")
