@@ -2,17 +2,17 @@
 android-compileSdk = "37"
 android-minSdk = "33"
 android-targetSdk = "37"
-agp = "9.4.1"
+agp = "9.5.1"
 androidx-benchmark = "1.5.0"
 androidx-baselineprofile = "1.5.0"
 androidx-profileinstaller = "1.4.1"
 androidx-test-ext-junit = "1.3.0"
-androidx-test-uiautomator = "2.4.0"
+androidx-test-uiautomator = "2.4.1"
 androidx-activity = "1.13.0"
 androidx-lifecycle = "2.11.0"
 androidx-window = "1.5.1"
 androidx-lifecycle-viewmodel-navigation3 = "2.11.0"
-androidx-navigation3 = "1.2.0"
+androidx-navigation3 = "1.2.1"
 androidx-graphics-shapes = "1.1.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.1"
@@ -34,10 +34,10 @@ compose-material3 = "1.12.0-alpha03"
 # Gradle plugin selects it from the Kotlin version. So a Kotlin bump silently needs a matching
 # artifact to EXIST on the dev channel — check before bumping, because a miss surfaces as an
 # unresolved dependency, not as a version conflict.
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 ksp = "2.3.12"
-mokkery = "3.5.1"
-ktor = "3.6.0"
+mokkery = "3.6.0"
+ktor = "3.6.1"
 # Ahead of Ktor 3.6.0's own OkHttp 5.5.0: 5.5.1 blocks the eight compromised eMudhra intermediate
 # certificates on JVMs and AOSP devices without the Play Services trust update. Drop the pin when
 # a Ktor release depends on okhttp >= 5.5.1.
@@ -48,7 +48,7 @@ auth0-java-jwt = "4.6.2"
 # Test-only (:app:baselineprofile), ahead of androidx.benchmark 1.5.0's wire-runtime 6.4.0
 # (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5). The only benchmark release on a fixed Wire is
 # 1.6.0-alpha01, which is not stable; 6.4.7 is the version that release uses.
-wire = "6.4.7"
+wire = "7.1.2"
 # DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Decision
 # 2026-10-10: stay. Stable 0.10.3+ carries the KRPC-560 fix too (2.4.20-0.10.4 plugin is on Maven
 # Central), but that is a downgrade of the transport that only the native CI lanes can vet. Revisit
@@ -60,7 +60,7 @@ junit-vintage = "6.1.3" # JUnit Platform vintage engine — runs JUnit4 tests un
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.12.0"
 kotlinx-datetime = "0.8.0"
-kotlinx-io = "0.9.1"
+kotlinx-io = "0.9.2"
 materialkolor = "6.0.0"
 koin = "4.2.2"
 turbine = "1.2.1"
@@ -85,8 +85,8 @@ google-services = "4.5.0"
 firebase-messaging = "26.0.1"
 
 # Desktop
-logback = "1.6.5"
-jmdns = "3.6.4"
+logback = "1.6.6"
+jmdns = "3.6.5"
 javacpp = "1.5.14"
 ffmpeg-javacpp = "8.1.2-1.5.14"
 jnativehook = "2.2.2"
@@ -97,13 +97,13 @@ material3-adaptive-multiplatform = "1.3.0"
 
 # Quality Tool
 detekt = "2.0.0-alpha.6"
-spotless = "8.10.4"
+spotless = "8.11.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.11"
 atomicfu = "0.33.0"
 
 # Server persistence + password hashing
-sqlite-jdbc = "3.53.4.0"
+sqlite-jdbc = "3.54.1.0"
 password4j = "1.8.4"
 konsist = "0.18.1"
 ksp-symbol-processing-api = "2.3.12" # matches project ksp version — bump in lockstep with `ksp`
