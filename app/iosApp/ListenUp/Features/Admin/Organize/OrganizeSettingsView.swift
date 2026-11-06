@@ -183,7 +183,7 @@ private struct OrganizePreviewSheet: View {
                         }
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(
-                            String(format: String(localized: "admin.organize_confirm_row"), row.before, row.after)
+                            String(localized: .adminOrganizeConfirmRow(row.before, row.after))
                         )
                     }
                 } footer: {

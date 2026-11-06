@@ -24,7 +24,7 @@ struct ResetCodeSheet: View {
                 .accessibilityHidden(true)
                 .padding(.top, Spacing.xxl)
 
-            Text(String(format: String(localized: "admin.reset_code_title"), recipient))
+            Text(String(localized: .adminResetCodeTitle(recipient)))
                 .font(.title3.weight(.semibold))
                 .multilineTextAlignment(.center)
 
@@ -36,7 +36,7 @@ struct ResetCodeSheet: View {
                 .background(RoundedRectangle(cornerRadius: Radius.l).fill(Color.luFill))
                 .textSelection(.enabled)
 
-            Text(String(format: String(localized: "admin.reset_code_instruction"), recipient))
+            Text(String(localized: .adminResetCodeInstruction(recipient)))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

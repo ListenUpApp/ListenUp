@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.features.genredestination
 
-import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
@@ -10,9 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.presentation.genredestination.GenreCrumb
 import com.calypsan.listenup.client.presentation.genredestination.GenreIdentity
@@ -65,12 +60,12 @@ internal fun GenreDestinationHero(
         trailingActions = {
             // Search and overflow are chrome-only for now — no destination is wired yet.
             HeroIconButton(
-                icon = Icons.Outlined.Search,
+                icon = ListenUpIcons.Search,
                 contentDescription = stringResource(Res.string.common_search),
                 onClick = {},
             )
             HeroIconButton(
-                icon = Icons.Outlined.MoreVert,
+                icon = ListenUpIcons.MoreVert,
                 contentDescription = stringResource(Res.string.genre_destination_more_options),
                 onClick = {},
             )
@@ -119,12 +114,12 @@ internal fun GenreDestinationHero(
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             HeroStatChip(
-                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                icon = ListenUpIcons.MenuBook,
                 value = stats.bookCount.toString(),
                 label = stringResource(Res.string.browse_facet_books_label),
             )
             HeroStatChip(
-                icon = Icons.Outlined.Schedule,
+                icon = ListenUpIcons.Schedule,
                 value = DurationFormatter.hoursMinutesCompact(stats.totalDurationMs.milliseconds),
                 label = stringResource(Res.string.browse_facet_total_label),
             )
@@ -144,7 +139,7 @@ private fun BreadcrumbRow(
         breadcrumb.forEachIndexed { index, crumb ->
             if (index > 0) {
                 Icon(
-                    imageVector = Icons.Outlined.ChevronRight,
+                    imageVector = ListenUpIcons.ChevronRight,
                     contentDescription = null,
                     tint = FacetHeroInk.copy(alpha = 0.6f),
                     modifier = Modifier.size(16.dp),

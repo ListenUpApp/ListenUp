@@ -28,7 +28,7 @@ import org.jetbrains.compose.resources.stringResource
 
 private val NextCover = 44.dp
 
-/** "Next in the series" (§2.3, the finish card's): an opaque list row on `surfaceContainerLowest`, no chevron, that opens that book. */
+/** "Next in the series" (the finish card's): an opaque list row on `surfaceContainerLowest`, no chevron, that opens that book. */
 @Composable
 internal fun NextInSeriesRow(
     next: NextInSeries,

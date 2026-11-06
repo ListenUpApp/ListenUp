@@ -7,7 +7,7 @@ import com.calypsan.listenup.core.BookId
 /** A book's coarse reading state. Internal: the coarse snapshot exists to gate the content revision. */
 internal enum class ReadingState { NOT_STARTED, IN_PROGRESS, FINISHED }
 
-/** Finished wins; otherwise any progress above zero is in progress (spec §3.1.1 L3). */
+/** Finished wins; otherwise any progress above zero is in progress. */
 internal fun readingStateOf(position: PlaybackPosition?): ReadingState =
     when {
         position == null -> ReadingState.NOT_STARTED

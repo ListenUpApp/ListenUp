@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.landingMs
-import com.calypsan.listenup.client.playback.PlaybackManager.ChapterInfo
+import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow

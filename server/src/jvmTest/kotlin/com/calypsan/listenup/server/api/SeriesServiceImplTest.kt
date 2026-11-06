@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.error.SeriesError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -125,6 +126,44 @@ class SeriesServiceImplTest :
                     val reread = seriesRepo.findById(id.value)
                     reread.shouldNotBeNull()
                     reread.name shouldBe "Stormlight"
+                }
+            }
+        }
+
+        for (refused in listOf("decoy.txt", "contributors/$MANAGED_HEX.jpg", "series/$MANAGED_HEX.txt")) {
+            test("updateSeries refuses the cover path '$refused' with a ValidationError naming coverPath") {
+                withSqlDatabase {
+                    sql.seedTestLibraryAndFolder()
+                    val deps = makeSeriesServiceAndDeps(this)
+                    runTest {
+                        val id = deps.seriesRepo.resolveOrCreate("The Stormlight Archive")
+
+                        val result = deps.service.updateSeries(id, SeriesUpdate(coverPath = refused))
+
+                        result
+                            .shouldBeInstanceOf<AppResult.Failure>()
+                            .error
+                            .shouldBeInstanceOf<ValidationError>()
+                            .field shouldBe "coverPath"
+                        deps.seriesRepo.findById(id.value)!!.coverPath shouldBe null
+                    }
+                }
+            }
+        }
+
+        test("updateSeries accepts a cover path the upload route minted") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeSeriesServiceAndDeps(this)
+                runTest {
+                    val id = deps.seriesRepo.resolveOrCreate("The Stormlight Archive")
+                    val minted = "series/$MANAGED_HEX.webp"
+
+                    deps.service
+                        .updateSeries(id, SeriesUpdate(coverPath = minted))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    deps.seriesRepo.findById(id.value)!!.coverPath shouldBe minted
                 }
             }
         }
@@ -416,3 +455,5 @@ private fun bookFixtureWithTwoSeries(
                 ),
             ),
     )
+
+private const val MANAGED_HEX = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

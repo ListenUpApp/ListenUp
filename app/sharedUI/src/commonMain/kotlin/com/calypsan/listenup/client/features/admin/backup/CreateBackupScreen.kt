@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -39,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
@@ -55,7 +53,6 @@ import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_creating_backup
 import listenup.composeapp.generated.resources.admin_significantly_increases_backup_size
 import listenup.composeapp.generated.resources.admin_what_to_include
-import androidx.compose.material.icons.outlined.Info
 import com.calypsan.listenup.client.design.components.TonalIconTile
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -224,7 +221,7 @@ private fun IncludeOptionsCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(
-                            Icons.Outlined.Image,
+                            ListenUpIcons.Image,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.secondary,
                         )
@@ -244,7 +241,7 @@ private fun IncludeOptionsCard(
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Warning,
+                            imageVector = ListenUpIcons.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.height(16.dp),
@@ -276,7 +273,7 @@ private fun BackupSummaryCard(includeImages: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TonalIconTile(
-                icon = Icons.Outlined.Info,
+                icon = ListenUpIcons.Info,
                 accent = MaterialTheme.colorScheme.onSecondaryContainer,
                 size = 40.dp,
             )

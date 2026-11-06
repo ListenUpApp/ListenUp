@@ -163,7 +163,7 @@ struct RatingStarsView: View {
 
     /// "3.5 out of 5 stars".
     nonisolated static func starsA11y(halfStars: Int) -> String {
-        String(format: String(localized: "rating.stars_a11y"), starsLabel(Double(halfStars)))
+        String(localized: .ratingStarsA11Y(starsLabel(Double(halfStars))))
     }
 
     /// The input's VoiceOver value: the stars, or "Not rated" before one is chosen.

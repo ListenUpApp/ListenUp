@@ -203,7 +203,6 @@ kotlin {
             implementation(libs.androidx.graphics.shapes)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
-            implementation(libs.androidx.material.icons.extended)
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.compose.components.ui.tooling.preview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)

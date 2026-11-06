@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.HowToReg
-import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +38,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.notifications.notificationTypeNameRes
 import com.calypsan.listenup.client.presentation.error.localized
@@ -298,8 +294,8 @@ private fun LabeledSwitch(
 /** The leading tile glyph for a registry type key; mirrors the inbox's per-event icons. */
 private fun notificationTypeIcon(type: String): ImageVector =
     when (type) {
-        "campfire_invite" -> Icons.Outlined.LocalFireDepartment
-        "registration_decision" -> Icons.Outlined.HowToReg
-        "registration_approval" -> Icons.Outlined.PersonAdd
-        else -> Icons.Outlined.Notifications
+        "campfire_invite" -> ListenUpIcons.LocalFireDepartment
+        "registration_decision" -> ListenUpIcons.HowToReg
+        "registration_approval" -> ListenUpIcons.PersonAdd
+        else -> ListenUpIcons.Notifications
     }

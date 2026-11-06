@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
@@ -36,6 +33,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.DailyListeningChart
 import com.calypsan.listenup.client.features.home.components.GenreBreakdownBars
@@ -73,9 +71,9 @@ private const val GAP = 4f
 internal const val HOME_STATS_SKELETON_TAG = "home-stats-skeleton"
 
 /**
- * "Your last 7 days" (spec §2.6). Stateless: the screen hands it [stats] from `HomeStatsViewModel` (C12). Loading is a
- * skeleton the size of the data; a new listener sees a one-line dashed invitation, never a zero chart (gap 6); an
- * error says so quietly with **Try again** (gap 17), which [onRetry] answers with `refresh()`.
+ * "Your last 7 days". Stateless: the screen hands it [stats] from `HomeStatsViewModel`. Loading is a
+ * skeleton the size of the data; a new listener sees a one-line dashed invitation, never a zero chart; an
+ * error says so quietly with **Try again**, which [onRetry] answers with `refresh()`.
  */
 @Composable
 internal fun HomeStatsCard(
@@ -113,7 +111,7 @@ internal fun HomeStatsCard(
 
                 is HomeStatsUiState.Error -> {
                     StatsHeading()
-                    // A quiet failure: onSurfaceVariant, not the error role (spec §2.6).
+                    // A quiet failure: onSurfaceVariant, not the error role.
                     Text(
                         text = stringResource(Res.string.home_couldnt_load_stats),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -213,7 +211,7 @@ private fun StatsData(
     StatsFooter(bestDays = streak.bestDays, onOpenLeaderboard = onOpenLeaderboard)
 }
 
-/** "Best streak 12 days" when there has been one, and the Leaderboard link to Discover's board on Week (spec §6.4). */
+/** "Best streak 12 days" when there has been one, and the Leaderboard link to Discover's board on Week. */
 @Composable
 private fun StatsFooter(
     bestDays: Int?,
@@ -233,7 +231,7 @@ private fun StatsFooter(
         )
         TextButton(onClick = onOpenLeaderboard, modifier = Modifier.heightIn(min = MinTouchTarget)) {
             Text(stringResource(Res.string.home_leaderboard))
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+            Icon(ListenUpIcons.KeyboardArrowRightFilled, contentDescription = null)
         }
     }
 }
@@ -250,7 +248,7 @@ private fun weekTotal(totalSeconds: Long): String {
     }
 }
 
-/** The gold chip (§2.6): `tertiaryContainer`, read as its words ("5-day streak"). */
+/** The gold chip: `tertiaryContainer`, read as its words ("5-day streak"). */
 @Composable
 private fun StreakChip(days: Int) {
     Surface(
@@ -263,13 +261,13 @@ private fun StreakChip(days: Int) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null)
+            Icon(ListenUpIcons.LocalFireDepartment, contentDescription = null)
             Text(stringResource(Res.string.home_streak_chip, days), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
 
-/** "Listening per day, oldest to today: 1h 10m, …, today 1h 20m" (C15), from the same columns the chart draws. */
+/** "Listening per day, oldest to today: 1h 10m, …, today 1h 20m", from the same columns the chart draws. */
 @Composable
 private fun chartDescription(stats: HomeStatsUiState.Data): String {
     val parts =

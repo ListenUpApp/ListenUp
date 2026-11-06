@@ -32,6 +32,7 @@ struct MiniPlayerBar: View {
         let model = MiniPlayerAccessoryModel.make(
             snapshot: observer.snapshot,
             chapterRemainingMs: max(0, observer.chapterDurationMs - observer.displayChapterPositionMs),
+            sleepRemainingMs: observer.sleepRemainingMs,
             chapterFraction: chapterFraction,
             isInline: isInline,
             isWide: sizeClass == .regular)
@@ -140,13 +141,13 @@ struct MiniPlayerAccessoryContent: View {
 
             if model.showsSkipBack {
                 skip(symbol: PlayerGlyphs.skipBackward(seconds: model.skipBackSec),
-                     label: String(format: String(localized: "player.skip_backward"), "\(model.skipBackSec)"),
+                     label: String(localized: .playerSkipBackward("\(model.skipBackSec)")),
                      action: onSkipBack)
             }
             MiniPlayerPrimaryButton(model: model, action: onPrimary)
             if model.showsSkipForward {
                 skip(symbol: PlayerGlyphs.skipForward(seconds: model.skipForwardSec),
-                     label: String(format: String(localized: "player.skip_forward"), "\(model.skipForwardSec)"),
+                     label: String(localized: .playerSkipForward("\(model.skipForwardSec)")),
                      action: onSkipForward)
                     .disabled(!model.canSkipForward)
             }

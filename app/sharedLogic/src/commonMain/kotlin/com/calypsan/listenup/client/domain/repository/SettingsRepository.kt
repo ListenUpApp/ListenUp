@@ -335,6 +335,13 @@ interface PlaybackPreferences {
 
     /** Get the default skip-backward interval in seconds. [DEFAULT_SKIP_BACKWARD_SEC] when uncached. */
     suspend fun getDefaultSkipBackwardSec(): Int
+
+    /**
+     * Reactively observe the default sleep timer, in minutes; `null` means Off. The sleep sheet starts from it.
+     *
+     * Emits the currently synced value on first collect, then re-emits on every change.
+     */
+    fun observeDefaultSleepTimerMin(): Flow<Int?>
 }
 
 /**

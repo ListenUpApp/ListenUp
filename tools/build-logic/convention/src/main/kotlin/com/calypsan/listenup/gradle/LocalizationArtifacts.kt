@@ -12,6 +12,23 @@ import java.io.File
  */
 object LocalizationArtifacts {
     /**
+     * A SHA-256 of the compiled renderer ([LocalizationGenerator] and this object), for declaring as a
+     * task input: Gradle's up-to-date check only sees the JSON sources, so without it a change to the
+     * generator itself leaves `generateStrings` UP-TO-DATE and the committed artifacts stale.
+     */
+    fun implementationFingerprint(): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        for (type in listOf(LocalizationGenerator::class.java, LocalizationArtifacts::class.java)) {
+            val bytes =
+                checkNotNull(type.getResourceAsStream("/" + type.name.replace('.', '/') + ".class")) {
+                    "no class file for ${type.name}"
+                }.use { it.readBytes() }
+            digest.update(bytes)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
      * Renders the full set of localization artifacts for the current source state.
      *
      * @param stringsDir the directory holding the per-locale `<code>.json` source files.

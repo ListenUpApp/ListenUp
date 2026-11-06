@@ -3,9 +3,9 @@ import SwiftUI
 /// How Discover lays out a section's cards: a horizontal rail at compact width, and at regular width
 /// a grid of the board's column count that shows **every** item, wrapping as it needs to (iOS rule 12).
 ///
-/// Showing everything rather than one row of as many as fit is the plan's Q2 default: nothing is
-/// hidden and no width needs measuring. A different answer to Q2 is a change to this one view. The
-/// count is fixed per section (spec §3.7: five for people and picks, six for recently added), so the
+/// Showing everything rather than one row of as many as fit hides nothing and needs no width
+/// measuring. A different answer is a change to this one view. The
+/// count is fixed per section (five for people and picks, six for recently added), so the
 /// cards share the width rather than leaving a card's worth of it empty.
 struct DiscoverCardGrid<Item: Identifiable, Card: View>: View {
     let items: [Item]

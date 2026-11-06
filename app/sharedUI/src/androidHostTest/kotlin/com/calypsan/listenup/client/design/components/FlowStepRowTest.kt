@@ -1,14 +1,13 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,9 +27,9 @@ class FlowStepRowTest {
         composeRule.setContent {
             MaterialTheme {
                 Column {
-                    FlowStepRow(FlowStepState.DONE, Icons.Outlined.Info, "Upload", "Files are on the server")
-                    FlowStepRow(FlowStepState.ACTIVE, Icons.Outlined.Info, "Review", "Check what was found")
-                    FlowStepRow(FlowStepState.TODO, Icons.Outlined.Info, "Apply", "Add the books")
+                    FlowStepRow(FlowStepState.DONE, ListenUpIcons.Info, "Upload", "Files are on the server")
+                    FlowStepRow(FlowStepState.ACTIVE, ListenUpIcons.Info, "Review", "Check what was found")
+                    FlowStepRow(FlowStepState.TODO, ListenUpIcons.Info, "Apply", "Add the books")
                 }
             }
         }
@@ -44,7 +43,7 @@ class FlowStepRowTest {
     fun `the in-progress pill is not read twice`() {
         composeRule.setContent {
             MaterialTheme {
-                FlowStepRow(FlowStepState.ACTIVE, Icons.Outlined.Info, "Review", "Check what was found")
+                FlowStepRow(FlowStepState.ACTIVE, ListenUpIcons.Info, "Review", "Check what was found")
             }
         }
 

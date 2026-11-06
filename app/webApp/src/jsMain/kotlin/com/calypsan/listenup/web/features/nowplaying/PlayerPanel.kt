@@ -9,6 +9,7 @@ import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.MenuAnchor
 import com.calypsan.listenup.web.design.ModalDialog
+import com.calypsan.listenup.web.dom.ResizeObserver
 import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.design.focusIsLost
 import com.calypsan.listenup.web.design.focusWithoutScrolling
@@ -23,7 +24,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
 
-/** Where a player panel opens (spec §3.8): a bottom dialog on the phone page, a popover against its opener on wide. */
+/** Where a player panel opens: a bottom dialog on the phone page, a popover against its opener on wide. */
 internal sealed interface PanelPlacement {
     /** The phone page: a modal bottom `<dialog>` with Close. */
     data object Sheet : PanelPlacement
@@ -35,9 +36,8 @@ internal sealed interface PanelPlacement {
 }
 
 /**
- * The width from which a player panel opens as a popover from its opener rather than as a bottom sheet (open question 4,
- * C9's default): the page's own breakpoint, where the bar becomes the transport. Between 760 and 1023px the bar is the
- * only transport (PR 3 C8), so its panels hang from it there too.
+ * The width from which a player panel opens as a popover from its opener rather than as a bottom sheet: the page's own breakpoint, where the bar becomes the transport. Between 760 and 1023px the bar is the
+ * only transport, so its panels hang from it there too.
  */
 internal const val PANEL_POPOVER_MIN_WIDTH_PX = 760
 
@@ -53,7 +53,7 @@ internal fun panelPlacementFor(opener: HTMLElement?): PanelPlacement {
 }
 
 /**
- * The shell every player panel wears (§3.8, drift row 30), in one of two placements.
+ * The shell every player panel wears, in one of two placements.
  *
  * - [PanelPlacement.Sheet]: the app's one [ModalDialog] — focus trap, inert page, Escape — docked to the bottom and
  *   rounded on top (`.panel-sheet`), with Close beside the heading (`Sheets-WebPhone`).
@@ -61,7 +61,7 @@ internal fun panelPlacementFor(opener: HTMLElement?): PanelPlacement {
  *   same [placeAgainst] every menu uses. Focus moves to its heading as it opens; Escape, Close or a press outside closes
  *   it; Tab out of it closes it too, since a popover traps nothing. Escape and Close hand focus back to the opener.
  *
- * Web's answer to `PlayerPanelScaffold`. Every player panel is a place you visit and leave, so both placements carry
+ * Web's answer to `AdaptiveSheet`. Every player panel is a place you visit and leave, so both placements carry
  * Close.
  */
 @Composable
@@ -156,6 +156,10 @@ private fun AnchoredPanel(
                     dismiss()
                 }
             }
+            // The panel's own box changing size (Sleep's choices give way to its countdown) is the one thing besides
+            // the window moving that needs it placed again.
+            val resizes = ResizeObserver { _, _ -> place() }
+            resizes.observe(panel)
             val view = panel.ownerDocument?.defaultView
             val document = panel.ownerDocument
             // Capture, so a scroll inside any box moves the panel with its opener, as a menu does.
@@ -165,6 +169,7 @@ private fun AnchoredPanel(
             val heading = opener.closest("section")?.querySelector("h1, h2, h3") as? HTMLElement
             onDispose {
                 node.element = null
+                resizes.disconnect()
                 view?.removeEventListener("scroll", onMove, true)
                 view?.removeEventListener("resize", onMove)
                 document?.removeEventListener("pointerdown", onPointerDown)
@@ -182,13 +187,11 @@ private fun AnchoredPanel(
         }
         content()
     }
-    // Compose re-applies every attribute when any changes, and taking `popover` off closes it; and the content can
-    // change size (Sleep's choices give way to its countdown), so it is shown and placed again after every pass.
+    // Compose re-applies every attribute when any changes, and taking `popover` off closes it, so the panel is shown
+    // again after every pass. It is not placed again: the bar recomposes on every playback tick, and placing is
+    // measuring. Placement happens on open, when the window scrolls or resizes, and when the panel's own box resizes.
     SideEffect {
-        node.element?.let { panel ->
-            panel.reopenInTopLayer()
-            placeAgainst(panel, MenuAnchor.of(opener))
-        }
+        node.element?.reopenInTopLayer()
     }
 }
 

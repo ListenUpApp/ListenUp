@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** One row of Now Playing's More menu (spec §5.5.7). Each platform supplies its words, its glyph and the action. */
+/** One row of Now Playing's More menu. Each platform supplies its words, its glyph and the action. */
 sealed interface PlayerMenuItem {
     /** The loaded book's detail. */
     data object GoToBook : PlayerMenuItem
@@ -29,8 +29,8 @@ sealed interface PlayerMenuItem {
     ) : PlayerMenuItem
 
     /**
-     * The keyboard shortcuts sheet. Only the web asks for it: Android has no app shortcuts, and the iPad lists its
-     * keys in the system's own ⌘-hold overlay.
+     * The keyboard shortcuts sheet. Only the web shows it in-app: Android lists its keys in the system's keyboard
+     * shortcuts helper (Meta+/), and the iPad in its ⌘-hold overlay.
      */
     data object KeyboardShortcuts : PlayerMenuItem
 
@@ -52,12 +52,13 @@ data class PlayerMenuGroup(
 /** Builds the More menu. An object, so Swift Export exposes it as `PlayerMenus.shared.moreMenu(...)`. */
 object PlayerMenus {
     /**
-     * The More menu for [state] (§5.5.7): Go to book; Go to series when [includesSeries] and the book has one; Go to
+     * The More menu for [state]: Go to book; Go to series when [includesSeries] and the book has one; Go to
      * author when [includesAuthor] and the book has one ([PlayerMenuItem.ChooseAuthor] when it has several); Open PDF
      * when it has one; Volume boost; Keyboard shortcuts when [includesShortcuts]; then Close book apart.
      * [includesSeries] is false where the screen already shows the series as a link (the native wide layouts).
      * [includesAuthor] is false where the screen already shows the authors as links (the tall wide layouts, as
-     * [includesSeries]). [includesShortcuts] is true only where the platform has app keyboard shortcuts (the web). Pure.
+     * [includesSeries]). [includesShortcuts] is true only where the app shows its own shortcuts sheet (the web; Android and the iPad
+     * list theirs in the system's helper). Pure.
      */
     fun moreMenu(
         state: PlayerUiState.Loaded,

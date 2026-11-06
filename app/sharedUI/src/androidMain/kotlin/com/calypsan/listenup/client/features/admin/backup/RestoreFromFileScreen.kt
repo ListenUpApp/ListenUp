@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
@@ -17,9 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
@@ -167,7 +164,7 @@ private fun IdleUploadContent(
         ListenUpButton(
             onClick = onChooseFile,
             text = stringResource(Res.string.admin_restore_from_file_choose),
-            leadingIcon = Icons.Outlined.FolderOpen,
+            leadingIcon = ListenUpIcons.FolderOpen,
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )
@@ -190,7 +187,7 @@ private fun UploadingContent(
     ) {
         ScallopBadge(size = 120.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
-                imageVector = Icons.Outlined.CloudUpload,
+                imageVector = ListenUpIcons.CloudUpload,
                 contentDescription = null,
                 modifier = Modifier.size(54.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -224,7 +221,7 @@ private fun ErrorUploadContent(
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Outlined.Close,
+                imageVector = ListenUpIcons.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,
@@ -257,7 +254,7 @@ private fun ErrorUploadContent(
         ListenUpButton(
             onClick = onTryAgain,
             text = stringResource(Res.string.admin_restore_from_file_choose),
-            leadingIcon = Icons.Outlined.FolderOpen,
+            leadingIcon = ListenUpIcons.FolderOpen,
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )

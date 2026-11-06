@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +37,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.NotificationBell
 import com.calypsan.listenup.client.design.components.UserAvatarMenu
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.model.User
@@ -160,7 +157,7 @@ fun AppHeader(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = ListenUpIcons.ArrowBackFilled,
                         contentDescription = stringResource(Res.string.shell_close_search),
                     )
                 }
@@ -197,7 +194,7 @@ fun AppHeader(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Search,
+                            imageVector = ListenUpIcons.SearchFilled,
                             contentDescription = stringResource(Res.string.common_search),
                         )
                     }
@@ -317,7 +314,7 @@ private fun HeaderSearchField(
         placeholder = { Text(stringResource(Res.string.common_search)) },
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = ListenUpIcons.SearchFilled,
                 contentDescription = stringResource(Res.string.common_search),
             )
         },
@@ -375,27 +372,16 @@ private fun SyncIndicator(
             }
 
             is SyncState.Error -> {
-                Icon(
-                    imageVector = Icons.Default.CloudOff,
-                    contentDescription = stringResource(Res.string.shell_sync_error),
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier =
-                        Modifier
-                            .clickable(
-                                onClickLabel = stringResource(Res.string.shell_sync_details_action),
-                                role = Role.Button,
-                            ) {
-                                haptics.press()
-                                onClick()
-                            }.padding(horizontal = 12.dp, vertical = 12.dp),
-                )
+                SyncErrorGlyph(onClick = onClick)
             }
 
             SyncState.Idle,
             is SyncState.Success,
             is SyncState.LibraryMismatch,
             -> {
-                // Idle, Success, LibraryMismatch - show nothing
+                // Nothing to say unless the last "sync now" failed: then the glyph stays until the next one, so a
+                // pull-to-refresh that did not land is never silent.
+                if (syncIndicatorUiState?.refreshFailed == true) SyncErrorGlyph(onClick = onClick)
             }
         }
 
@@ -412,4 +398,24 @@ private fun SyncIndicator(
             )
         }
     }
+}
+
+/** The cloud-off glyph: sync failed. Tapping opens the sync details. */
+@Composable
+private fun SyncErrorGlyph(onClick: () -> Unit) {
+    val haptics = LocalHaptics.current
+    Icon(
+        imageVector = ListenUpIcons.CloudOffFilled,
+        contentDescription = stringResource(Res.string.shell_sync_error),
+        tint = MaterialTheme.colorScheme.error,
+        modifier =
+            Modifier
+                .clickable(
+                    onClickLabel = stringResource(Res.string.shell_sync_details_action),
+                    role = Role.Button,
+                ) {
+                    haptics.press()
+                    onClick()
+                }.padding(horizontal = 12.dp, vertical = 12.dp),
+    )
 }

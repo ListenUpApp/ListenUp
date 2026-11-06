@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -78,7 +77,7 @@ class DiscoverSession(
 
 /**
  * How the page gets its session. Production resolves all three real ViewModels out of the client
- * graph ([graphDiscover]); specs hand over fixed states ([fixedDiscover]), so every section's
+ * graph ([graphDiscover]); specs hand over fixed states, so every section's
  * loading, empty, error and populated shapes can be driven without a database behind them.
  */
 typealias OpenDiscover = () -> DiscoverSession
@@ -120,51 +119,6 @@ fun graphDiscover(koin: Koin): OpenDiscover =
             onRefreshLeaderboard = leaderboard::refresh,
             onRefreshActivity = activity::refresh,
             close = store::clear,
-        )
-    }
-
-/** A session over states that never change — the shape specs use in place of the graph. */
-fun fixedDiscover(
-    books: DiscoverBooksUiState = DiscoverBooksUiState.Loading,
-    recentlyAdded: RecentlyAddedUiState = RecentlyAddedUiState.Loading,
-    currentlyListening: CurrentlyListeningUiState = CurrentlyListeningUiState.Loading,
-    shelves: DiscoverShelvesUiState = DiscoverShelvesUiState.Loading,
-    leaderboard: LeaderboardUiState = LeaderboardUiState.Loading,
-    leaderboardSelection: LeaderboardSelection = LeaderboardSelection(LeaderboardPeriod.Week, LeaderboardCategory.Time),
-    activity: ActivityFeedUiState = ActivityFeedUiState.Loading,
-    communitySize: CommunitySize = CommunitySize.Unknown,
-    viewer: DiscoverViewer? = DiscoverViewer("me", "Simon", canInvite = true),
-    onSelectPeriod: (LeaderboardPeriod) -> Unit = {},
-    onSelectCategory: (LeaderboardCategory) -> Unit = {},
-    onShuffle: () -> Unit = {},
-    onRefresh: () -> Unit = {},
-    onRetryListening: () -> Unit = {},
-    onRetryRecent: () -> Unit = {},
-    onRetryShelves: () -> Unit = {},
-    onRefreshLeaderboard: () -> Unit = {},
-    onRefreshActivity: () -> Unit = {},
-): OpenDiscover =
-    {
-        DiscoverSession(
-            books = MutableStateFlow(books),
-            recentlyAdded = MutableStateFlow(recentlyAdded),
-            currentlyListening = MutableStateFlow(currentlyListening),
-            shelves = MutableStateFlow(shelves),
-            leaderboard = MutableStateFlow(leaderboard),
-            leaderboardSelection = MutableStateFlow(leaderboardSelection),
-            activity = MutableStateFlow(activity),
-            communitySize = MutableStateFlow(communitySize),
-            viewer = MutableStateFlow(viewer),
-            onSelectPeriod = onSelectPeriod,
-            onSelectCategory = onSelectCategory,
-            onShuffle = onShuffle,
-            onRefresh = onRefresh,
-            onRetryListening = onRetryListening,
-            onRetryRecent = onRetryRecent,
-            onRetryShelves = onRetryShelves,
-            onRefreshLeaderboard = onRefreshLeaderboard,
-            onRefreshActivity = onRefreshActivity,
-            close = {},
         )
     }
 

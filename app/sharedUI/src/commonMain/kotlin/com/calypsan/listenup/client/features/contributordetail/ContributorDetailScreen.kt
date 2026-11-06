@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.contributordetail
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.text.forProse
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.api.dto.image.ImageFrame
@@ -28,16 +29,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PersonOff
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.foundation.layout.WindowInsets
@@ -208,7 +199,7 @@ fun ContributorDetailScreen(
                 EmptyState(
                     title = stringResource(Res.string.contributor_no_longer_here),
                     subtitle = stringResource(Res.string.contributor_no_longer_here_detail),
-                    icon = Icons.Default.PersonOff,
+                    icon = ListenUpIcons.PersonOffFilled,
                 )
                 HeroNavRow(
                     onBack = onBackClick,
@@ -525,7 +516,7 @@ private fun ColumnScope.WideHeroInfoColumn(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         HeroStatChip(label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}", onColor = true)
         if (totalDuration != null) {
-            HeroStatChip(label = totalDuration, onColor = true, icon = Icons.Filled.Schedule)
+            HeroStatChip(label = totalDuration, onColor = true, icon = ListenUpIcons.ScheduleFilled)
         }
     }
 
@@ -597,7 +588,7 @@ private fun WorkSectionHeader(
                 Text(stringResource(Res.string.common_view_all))
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    imageVector = ListenUpIcons.ArrowForwardFilled,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                 )
@@ -658,7 +649,7 @@ private fun NarrowContributorPortfolio(
                         HeroStatChip(
                             label = state.formatTotalDuration(),
                             onColor = false,
-                            icon = Icons.Filled.Schedule,
+                            icon = ListenUpIcons.ScheduleFilled,
                         )
                     }
                 }
@@ -888,7 +879,7 @@ private fun OverflowMenu(
                     ),
         ) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = ListenUpIcons.MoreVertFilled,
                 contentDescription = stringResource(Res.string.book_detail_more_options),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
@@ -901,7 +892,7 @@ private fun OverflowMenu(
             if (canEditMetadata) {
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.common_edit)) },
-                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                    leadingIcon = { Icon(ListenUpIcons.EditFilled, null) },
                     onClick = {
                         haptics.press()
                         showMenu = false
@@ -911,7 +902,7 @@ private fun OverflowMenu(
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(Res.string.match_menu_item)) },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    leadingIcon = { Icon(ListenUpIcons.SearchFilled, null) },
                     onClick = {
                         haptics.press()
                         showMenu = false
@@ -922,7 +913,7 @@ private fun OverflowMenu(
                 if (onAdjustPhoto != null) {
                     DropdownMenuItem(
                         text = { Text(stringResource(Res.string.edit_adjust_photo)) },
-                        leadingIcon = { Icon(Icons.Default.Crop, null) },
+                        leadingIcon = { Icon(ListenUpIcons.CropFilled, null) },
                         onClick = {
                             haptics.press()
                             showMenu = false
@@ -943,7 +934,7 @@ private fun OverflowMenu(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Delete,
+                            ListenUpIcons.DeleteFilled,
                             null,
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -1283,7 +1274,7 @@ private fun RoleChip(label: String) {
 private fun HeroStatChip(
     label: String,
     onColor: Boolean,
-    icon: ImageVector = Icons.AutoMirrored.Filled.MenuBook,
+    icon: ImageVector = ListenUpIcons.MenuBookFilled,
 ) {
     val bg =
         if (onColor) {

@@ -15,11 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Devices
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -51,6 +46,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.error.localized
@@ -421,7 +417,7 @@ private fun DevicesWideHero(
                         ),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    imageVector = ListenUpIcons.ArrowBack,
                     contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -457,7 +453,7 @@ private fun DevicesWideHero(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Logout,
+                    imageVector = ListenUpIcons.Logout,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                 )
@@ -617,7 +613,7 @@ private fun SignedInCountPill(count: Int) {
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Devices,
+                imageVector = ListenUpIcons.Devices,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
@@ -733,7 +729,7 @@ private fun DeviceRowItem(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Logout,
+                    imageVector = ListenUpIcons.Logout,
                     contentDescription = stringResource(Res.string.devices_sign_out_device),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -752,7 +748,7 @@ private fun DevicesNoteRow(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Info,
+            imageVector = ListenUpIcons.Info,
             contentDescription = null,
             modifier = Modifier.size(17.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -781,7 +777,7 @@ private fun SignOutAllOthersButton(
         contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 10.dp),
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.Logout,
+            imageVector = ListenUpIcons.Logout,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
         )

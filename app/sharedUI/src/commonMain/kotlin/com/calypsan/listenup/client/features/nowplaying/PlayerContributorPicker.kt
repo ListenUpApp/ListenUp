@@ -14,9 +14,9 @@ import listenup.composeapp.generated.resources.player_sheet_narrators
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The player's people (spec §5.5.5, PK1; `Sheets-Android`): the book's authors or narrators in the shared full-cast
+ * The player's people: the book's authors or narrators in the shared full-cast
  * sheet (a bottom sheet; a dialog at expanded width), titled "Authors" / "Narrators", each with how many of their books
- * are in the library ("14 books in your library"). A count of zero shows no line (C12). Book Detail's own sheet is
+ * are in the library ("14 books in your library"). A count of zero shows no line. Book Detail's own sheet is
  * unchanged.
  *
  * @param type Which people to list.

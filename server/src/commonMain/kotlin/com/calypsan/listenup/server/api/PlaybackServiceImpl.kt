@@ -212,6 +212,7 @@ internal class PlaybackServiceImpl(
         }
         val userId = p.userId.value
         val now = clock.now().toEpochMilliseconds()
+        request.boundsViolation(now)?.let { return AppResult.Failure(it) }
         val payload =
             ListeningEventSyncPayload(
                 id = request.id,

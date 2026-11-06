@@ -112,6 +112,6 @@ struct KeptOffBookRowView: View {
         Button(String(localized: "hardcover.sync_again").titleStyled, action: onSyncAgain)
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .accessibilityLabel(String(format: String(localized: "hardcover.sync_again_label"), book.title))
+            .accessibilityLabel(String(localized: .hardcoverSyncAgainLabel(book.title)))
     }
 }

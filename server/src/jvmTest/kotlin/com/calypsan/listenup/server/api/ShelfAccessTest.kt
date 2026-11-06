@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -31,6 +32,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
@@ -301,6 +303,24 @@ class ShelfAccessTest :
             }
         }
 
+        test("a deleted user's public shelf is not discovered") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+                    sql.usersQueries.markDeletedAt(deleted_at = 1_700_000_000_000L, id = "a")
+
+                    val discovered = service(this@withSqlDatabase).actAs("b").discoverShelves().value()
+
+                    discovered.filter { it.ownerId == "a" } shouldHaveSize 0
+                }
+            }
+        }
+
         // ── 7: limit counts visible shelves, applied after access exclusion ────
 
         test("discoverShelves(limit) returns exactly limit visible shelves") {
@@ -325,6 +345,78 @@ class ShelfAccessTest :
                         .discoverShelves(limit = 50)
                         .value()
                         .map { it.shelf.name } shouldContainExactlyInAnyOrder listOf("Shared Picks", "More")
+                }
+            }
+        }
+
+        test("discoverShelves(limit) returns the first limit qualifying shelves in candidate order, skipping hidden ones") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+                    // Four more public shelves; the 2nd in discovery order (created_at) shows only a hidden book.
+                    val ids =
+                        listOf(
+                            seedShelf(f, "a", name = "One", isPrivate = false, bookIds = listOf("pub")),
+                            seedShelf(f, "a", name = "Two", isPrivate = false, bookIds = listOf("priv")),
+                            seedShelf(f, "a", name = "Three", isPrivate = false, bookIds = listOf("glob")),
+                            seedShelf(f, "a", name = "Four", isPrivate = false, bookIds = listOf("pub", "glob")),
+                        )
+                    // "Shared Picks" (from the base fixture) goes last so only the four above lead.
+                    driver.execute(null, "UPDATE shelves SET created_at = 9999 WHERE name = 'Shared Picks'", 0)
+                    ids.forEachIndexed { index, id ->
+                        driver.execute(null, "UPDATE shelves SET created_at = ? WHERE id = ?", 2) {
+                            bindLong(0, index + 1L)
+                            bindString(1, id.value)
+                        }
+                    }
+
+                    service(this@withSqlDatabase)
+                        .actAs("b")
+                        .discoverShelves(limit = 2)
+                        .value()
+                        .map { it.shelf.name } shouldContainExactly listOf("One", "Three")
+                    service(this@withSqlDatabase)
+                        .actAs("b")
+                        .discoverShelves(limit = 50)
+                        .value()
+                        .map { it.shelf.name } shouldContainExactly listOf("One", "Three", "Four", "Shared Picks")
+                }
+            }
+        }
+
+        test("discoverShelves cost does not grow with the number of shelves") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("a")
+                sql.seedTestUser("b")
+                listOf("pub", "priv", "glob").forEach { sql.seedTestBook(it) }
+                val f = fixtures(this)
+                runTest {
+                    seedBaseFixture(f)
+                    repeat(12) { seedShelf(f, "a", name = "Extra $it", isPrivate = false, bookIds = listOf("pub", "glob")) }
+
+                    val counting = CountingDriver(driver)
+                    val countedSql = ListenUpDatabase(counting)
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val counted =
+                        ShelfServiceImpl(
+                            shelfRepo = ShelfRepository(db = countedSql, bus = bus, registry = registry),
+                            shelfBookRepo = ShelfBookRepository(db = countedSql, bus = bus, registry = registry),
+                            bookAccessPolicy = BookAccessPolicy(countedSql, counting),
+                            readAssembler = ShelfReadAssembler(countedSql),
+                            clock = fixedClock,
+                            principal = principalFor("b"),
+                        )
+
+                    counted.discoverShelves(limit = 50).value() shouldHaveSize 13
+                    // candidates, access set, batched membership, owner names: independent of shelf count (was 40 at 13 shelves).
+                    counting.transactions shouldBeLessThanOrEqual 4
                 }
             }
         }
@@ -454,3 +546,29 @@ private fun share(
         revision = 0L,
         updatedAt = 0L,
     )
+
+/** Delegating driver that counts transactions opened and queries run, for cost assertions. */
+private class CountingDriver(
+    private val delegate: app.cash.sqldelight.db.SqlDriver,
+) : app.cash.sqldelight.db.SqlDriver by delegate {
+    var transactions = 0
+        private set
+    var queries = 0
+        private set
+
+    override fun newTransaction(): app.cash.sqldelight.db.QueryResult<app.cash.sqldelight.Transacter.Transaction> {
+        transactions++
+        return delegate.newTransaction()
+    }
+
+    override fun <R> executeQuery(
+        identifier: Int?,
+        sql: String,
+        mapper: (app.cash.sqldelight.db.SqlCursor) -> app.cash.sqldelight.db.QueryResult<R>,
+        parameters: Int,
+        binders: (app.cash.sqldelight.db.SqlPreparedStatement.() -> Unit)?,
+    ): app.cash.sqldelight.db.QueryResult<R> {
+        queries++
+        return delegate.executeQuery(identifier, sql, mapper, parameters, binders)
+    }
+}

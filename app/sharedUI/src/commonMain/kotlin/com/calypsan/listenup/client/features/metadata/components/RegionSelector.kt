@@ -5,13 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * Region selector — a horizontally scrolling row of [PillChip]s for choosing which Audible
@@ -31,7 +30,7 @@ fun RegionSelector(
                 label = region.displayName,
                 onClick = { onRegionSelected(region) },
                 selected = region == selectedRegion,
-                leadingIcon = if (region == selectedRegion) Icons.Outlined.Check else null,
+                leadingIcon = if (region == selectedRegion) ListenUpIcons.Check else null,
             )
         }
     }

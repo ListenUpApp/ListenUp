@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Book Detail's triage card for a book held for review (spec §3.2.3 Held; the iPhone Variants board): "Held for
+/// Book Detail's triage card for a book held for review: "Held for
 /// Review", one sentence of why ("Hidden from every member, and it can’t be played until you release it."), then the
 /// only things a held book allows, as rows of an inset card (HIG, Lists and tables): **Release to Members** in amber
 /// (`luWarning`: "waiting for you", never the coral of Play; nothing is deleted, so not destructive red, HIG Buttons),

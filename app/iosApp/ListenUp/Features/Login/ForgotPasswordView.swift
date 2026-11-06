@@ -144,7 +144,7 @@ struct ForgotPasswordView: View {
             }
             // The raw ticket id is `<uuid>.<issuedAtMs>.<sig>` — an internal blob. Show only the
             // first UUID segment as the human-scale reference; enough to quote to an admin.
-            Text(String(format: String(localized: "auth.forgot_password_ticket"), ticketReference(ticketId)))
+            Text(String(localized: .authForgotPasswordTicket(ticketReference(ticketId))))
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)

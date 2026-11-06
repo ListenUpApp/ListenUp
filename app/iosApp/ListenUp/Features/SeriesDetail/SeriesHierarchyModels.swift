@@ -176,9 +176,9 @@ struct SubSeriesCandidateItem: Identifiable, Hashable {
         case .topLevel:
             "\(String(localized: "series.top_level")) · \(SeriesHierarchyText.books(bookCount))"
         case .inOtherParent(let parent):
-            String(format: String(localized: "series.picker_moves_here"), parent)
+            String(localized: .seriesPickerMovesHere(parent))
         case .alreadyHere(let parent):
-            String(format: String(localized: "series.picker_already_in"), parent)
+            String(localized: .seriesPickerAlreadyIn(parent))
         }
     }
 }

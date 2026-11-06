@@ -11,7 +11,7 @@ import org.jetbrains.compose.web.dom.Button as DomButton
 
 private const val NEXT_COVER = 40
 
-/** "Next in the series" (§2.3, the finish card's): a quiet row that opens that book. */
+/** "Next in the series" (the finish card's): a quiet row that opens that book. */
 @Composable
 internal fun NextInSeriesButton(
     next: NextInSeries,

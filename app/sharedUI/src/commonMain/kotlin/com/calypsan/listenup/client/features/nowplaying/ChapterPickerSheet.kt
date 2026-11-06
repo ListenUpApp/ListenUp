@@ -16,10 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerChapterRow
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.features.nowplaying.components.centreOn
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow as ChapterRowState
 import kotlin.time.Duration
@@ -37,10 +36,10 @@ internal const val CHAPTER_LIST_TAG = "player-chapter-list"
 internal fun chapterRowTag(index: Int): String = "player-chapter-$index"
 
 /**
- * The Chapters sheet (spec §5.5.4, PC1–PC4; `Sheets-Android`): "Chapters" over "75 chapters · 45h 30m", then every
- * chapter as a [PlayerChapterRow], opening centred on the one playing (§3.11's opening rule) once the sheet has laid
- * out (§9.2). A tap plays from that chapter and closes the sheet (PC4; the view model closes it). Adaptive sheet/dialog
- * via [PlayerPanelScaffold]; the list scrolls itself, so the scaffold does not.
+ * The Chapters sheet: "Chapters" over "75 chapters · 45h 30m", then every
+ * chapter as a [PlayerChapterRow], opening centred on the one playing once the sheet has laid
+ * out. A tap plays from that chapter and closes the sheet (the view model closes it). Adaptive sheet/dialog
+ * via [AdaptiveSheet]; the list scrolls itself, so the scaffold does not.
  *
  * @param chapters Every chapter of the loaded book; the current one carries [ChapterRowState.isCurrent].
  * @param playingLeft The current chapter's remainder, floored to the minute, read by the current row alone.
@@ -62,12 +61,12 @@ fun ChapterPickerSheet(
         listState.centreOn(currentPosition)
     }
 
-    PlayerPanelScaffold(
+    AdaptiveSheet(
         title = stringResource(Res.string.player_chapters),
         onDismiss = onDismiss,
         dialogWidth = 560.dp,
         scrollable = false,
-    ) {
+    ) { _ ->
         Text(
             text =
                 stringResource(
@@ -93,7 +92,7 @@ fun ChapterPickerSheet(
                 PlayerChapterRow(
                     number = chapter.number,
                     title = chapter.title,
-                    durationLabel = chapter.durationMs.milliseconds.formatPlaybackTime(),
+                    durationLabel = DurationFormatter.playbackClock(chapter.durationMs.milliseconds),
                     isCurrent = chapter.isCurrent,
                     playingLeft = playingLeft.takeIf { chapter.isCurrent },
                     onClick = { onChapterSelected(chapter.index) },

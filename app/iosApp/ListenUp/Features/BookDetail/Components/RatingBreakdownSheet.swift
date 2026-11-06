@@ -33,11 +33,7 @@ struct RatingBreakdownSheet: View {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\u{2605} \(RatingLabels.shared.averageLabel(average: score.average))")
                                 .font(.largeTitle.weight(.bold))
-                            Text(String(
-                                format: String(localized: "book.detail_rating_score_detail"),
-                                String(localized: "book.detail_rating_score"),
-                                BookRatingSection.countLabel(score.count)
-                            ))
+                            Text(String(localized: .bookDetailRatingScoreDetail(String(localized: "book.detail_rating_score"), BookRatingSection.countLabel(score.count))))
                             .foregroundStyle(.secondary)
                         }
                         .accessibilityElement(children: .combine)
@@ -147,7 +143,7 @@ struct RatingBreakdownSheet: View {
     /// "Combined from 3 sources" — only when the score draws on more than one.
     nonisolated static func combinedFrom(_ score: ExternalScore?) -> String? {
         guard let score, score.sourceCount >= 2 else { return nil }
-        return String(format: String(localized: "book.detail_rating_combined_from"), "\(score.sourceCount)")
+        return String(localized: .bookDetailRatingCombinedFrom("\(score.sourceCount)"))
     }
 
     /// "Updated today", "Updated yesterday", "Updated 3 days ago"; nil when the server never said.
@@ -174,7 +170,7 @@ struct RatingBreakdownSheet: View {
             count: BookRatingSection.countLabel(count),
             share: share,
             shareLabel: share.map {
-                String(format: String(localized: "book.detail_rating_share"), "\(Int(($0 * 100).rounded()))")
+                String(localized: .bookDetailRatingShare("\(Int(($0 * 100).rounded()))"))
             },
             updated: updated
         )

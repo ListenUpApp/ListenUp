@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfBookCoverHash
 import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfCoverRow
+import com.calypsan.listenup.client.data.local.db.ShelfBookFactRow
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
@@ -124,9 +125,12 @@ class ShelfRepositoryImplTest :
                             flowOf(
                                 listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha", isPrivate = true), bookCount = 5)),
                             )
-                        everySuspend { coverRowsForShelf("s1") } returns
-                            listOf(ShelfCoverRow(bookId = "b1", coverHash = "hash1", coverDownloadedAt = Timestamp(10L)))
-                        everySuspend { totalDurationMsFor("s1") } returns 7_200_000L
+                        every { observeShelfBookFacts() } returns
+                            flowOf(
+                                listOf(
+                                    ShelfBookFactRow("s1", "b1", 0, "hash1", Timestamp(10L), totalDuration = 7_200_000L),
+                                ),
+                            )
                     }
                 val shelf =
                     repo(shelfDao = dao)
@@ -150,9 +154,8 @@ class ShelfRepositoryImplTest :
                     mock<ShelfDao> {
                         every { observeMyShelvesWithBookCount() } returns
                             flowOf(listOf(ShelfWithBookCount(shelfEntity("s1", "Alpha"), bookCount = 1)))
-                        everySuspend { coverRowsForShelf("s1") } returns
-                            listOf(ShelfCoverRow(bookId = "b1", coverHash = "hash1", coverDownloadedAt = null))
-                        everySuspend { totalDurationMsFor("s1") } returns 0L
+                        every { observeShelfBookFacts() } returns
+                            flowOf(listOf(ShelfBookFactRow("s1", "b1", 0, "hash1", null, totalDuration = 0L)))
                     }
 
                 val cover =
@@ -262,9 +265,9 @@ class ShelfRepositoryImplTest :
                 val dao =
                     mock<ShelfDao> {
                         every { observeById("s1") } returns flowOf(shelfEntity("s1", "Crowded"))
-                        everySuspend { coverRowsForShelf("s1") } returns (1..4).map { ShelfCoverRow("b$it", "h$it", null) }
+                        every { observeShelfBookFactsFor("s1") } returns
+                            flowOf((1..4).map { ShelfBookFactRow("s1", "b$it", it, "h$it", null, totalDuration = 0L) })
                         everySuspend { bookCountFor("s1") } returns 7
-                        everySuspend { totalDurationMsFor("s1") } returns 0L
                     }
                 val shelf = repo(shelfDao = dao).observeById(ShelfId("s1")).first()
                 shelf!!.bookCount shouldBe 7

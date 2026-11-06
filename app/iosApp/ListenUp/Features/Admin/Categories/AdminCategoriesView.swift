@@ -80,7 +80,7 @@ struct AdminCategoriesView: View {
             }
             Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
         } message: { row in
-            Text(String(format: String(localized: "admin.confirm_delete_item"), row.name))
+            Text(String(localized: .adminConfirmDeleteItem(row.name)))
         }
     }
 

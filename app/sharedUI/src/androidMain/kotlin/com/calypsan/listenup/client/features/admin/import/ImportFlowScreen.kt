@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.features.admin.import
 
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,17 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -46,10 +34,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +56,7 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.StatTile
 import com.calypsan.listenup.client.design.components.StatTileTone
 import com.calypsan.listenup.client.design.components.WizardStepTracker
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -280,7 +267,7 @@ private fun FlowHero(
         )
     ColorBlockHero(
         title = title,
-        badgeIcon = Icons.Outlined.CloudUpload,
+        badgeIcon = ListenUpIcons.CloudUpload,
         onBack = onBack,
         modifier = Modifier.fillMaxWidth(),
         overline = stringResource(Res.string.import_flow_eyebrow),
@@ -351,16 +338,16 @@ private fun IdleContent(onChooseFile: () -> Unit) {
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 HowItWorksStep(
-                    icon = Icons.Outlined.FolderOpen,
+                    icon = ListenUpIcons.FolderOpen,
                     text = stringResource(Res.string.import_choose_backup_file),
                 )
                 Spacer(Modifier.height(16.dp))
                 HowItWorksStep(
-                    icon = Icons.Outlined.Group,
+                    icon = ListenUpIcons.Group,
                     text = stringResource(Res.string.import_review_users_section),
                 )
                 Spacer(Modifier.height(16.dp))
-                HowItWorksStep(icon = Icons.Outlined.AutoAwesome, text = stringResource(Res.string.import_apply_import))
+                HowItWorksStep(icon = ListenUpIcons.AutoAwesome, text = stringResource(Res.string.import_apply_import))
             }
         }
         Spacer(Modifier.weight(1f))
@@ -370,7 +357,7 @@ private fun IdleContent(onChooseFile: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Lock,
+                imageVector = ListenUpIcons.Lock,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -385,7 +372,7 @@ private fun IdleContent(onChooseFile: () -> Unit) {
         ListenUpButton(
             text = stringResource(Res.string.import_choose_backup_file),
             onClick = onChooseFile,
-            leadingIcon = Icons.Outlined.FolderOpen,
+            leadingIcon = ListenUpIcons.FolderOpen,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -427,7 +414,7 @@ private fun HowItWorksStep(
 @Composable
 private fun UploadingContent(state: ImportFlowUiState.Uploading) {
     ProgressMedallionContent(
-        icon = Icons.Outlined.CloudUpload,
+        icon = ListenUpIcons.CloudUpload,
         subtitle = stringResource(Res.string.import_uploading_subtitle, state.filename),
     ) {
         LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -441,7 +428,7 @@ private fun UploadingContent(state: ImportFlowUiState.Uploading) {
 private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ScallopMedallion(icon = Icons.Outlined.AutoAwesome, size = 64.dp, iconSize = 30.dp)
+            ScallopMedallion(icon = ListenUpIcons.AutoAwesome, size = 64.dp, iconSize = 30.dp)
             Spacer(Modifier.width(14.dp))
             Text(
                 text = stringResource(Res.string.import_analyzing_subtitle),
@@ -469,14 +456,14 @@ private fun AnalyzingContent(state: ImportFlowUiState.Analyzing) {
             StatTile(
                 value = state.usersMatched.toString(),
                 label = stringResource(Res.string.import_stat_users_merged),
-                icon = Icons.Outlined.Group,
+                icon = ListenUpIcons.Group,
                 colors = StatTileTone.primary(),
                 modifier = Modifier.weight(1f),
             )
             StatTile(
                 value = state.booksMatched.toString(),
                 label = stringResource(Res.string.import_review_books_section),
-                icon = Icons.AutoMirrored.Outlined.LibraryBooks,
+                icon = ListenUpIcons.LibraryBooks,
                 colors = StatTileTone.tertiary(),
                 modifier = Modifier.weight(1f),
             )
@@ -596,7 +583,7 @@ private fun ReviewContent(
             ListenUpButton(
                 text = stringResource(Res.string.import_apply_import),
                 onClick = onConfirm,
-                trailingIcon = Icons.Outlined.AutoAwesome,
+                trailingIcon = ListenUpIcons.AutoAwesome,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
@@ -750,7 +737,7 @@ private fun AssignedToRow(label: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Link,
+            imageVector = ListenUpIcons.Link,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -775,7 +762,7 @@ private fun UnresolvedUserActions(
         ListenUpButton(
             text = stringResource(Res.string.import_user_skip),
             onClick = onSkip,
-            leadingIcon = Icons.Outlined.Block,
+            leadingIcon = ListenUpIcons.Block,
             filled = false,
             modifier = Modifier.weight(1f),
         )
@@ -793,7 +780,7 @@ private fun UserAssignDropdown(
         ListenUpButton(
             text = stringResource(Res.string.import_user_assign),
             onClick = { dropdownExpanded = true },
-            leadingIcon = Icons.Outlined.PersonAdd,
+            leadingIcon = ListenUpIcons.PersonAdd,
             filled = false,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -897,13 +884,13 @@ private fun BookReviewCard(
                     ListenUpButton(
                         text = stringResource(Res.string.import_search_and_assign),
                         onClick = onOpenSearch,
-                        leadingIcon = Icons.Outlined.AutoAwesome,
+                        leadingIcon = ListenUpIcons.AutoAwesome,
                         modifier = Modifier.weight(1f),
                     )
                     ListenUpButton(
                         text = stringResource(Res.string.import_book_skip),
                         onClick = onSkip,
-                        leadingIcon = Icons.Outlined.Block,
+                        leadingIcon = ListenUpIcons.Block,
                         filled = false,
                         modifier = Modifier.weight(1f),
                     )
@@ -948,11 +935,13 @@ private fun BookSearchPanel(
     onSelectBook: (BookId) -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    // openBookSearch starts every item's search blank, so the panel owns the text from there.
+    val query = remember(bookSearch.absItemId) { TextFieldState(bookSearch.query) }
+    query.ForwardEdits(onSearchQueryChange)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ListenUpTextField(
-                value = bookSearch.query,
-                onValueChange = onSearchQueryChange,
+                state = query,
                 placeholder = stringResource(Res.string.import_book_search_hint),
                 placeholderStyle = MaterialTheme.typography.bodySmall,
                 shape = MaterialTheme.shapes.large,
@@ -971,7 +960,7 @@ private fun BookSearchPanel(
                     onCloseSearch()
                 },
             ) {
-                Icon(Icons.Outlined.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
+                Icon(ListenUpIcons.Close, contentDescription = stringResource(Res.string.import_book_search_cancel))
             }
         }
         if (bookSearch.query.isNotBlank() && !bookSearch.isSearching && bookSearch.results.isEmpty()) {
@@ -1006,7 +995,7 @@ private fun BookSearchPanel(
 private fun ApplyingContent(state: ImportFlowUiState.Applying) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ScallopMedallion(icon = Icons.Outlined.Storage, size = 64.dp, iconSize = 30.dp)
+            ScallopMedallion(icon = ListenUpIcons.Storage, size = 64.dp, iconSize = 30.dp)
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
@@ -1058,7 +1047,7 @@ private fun ApplyingContent(state: ImportFlowUiState.Applying) {
         StatTile(
             value = state.sessionsWritten.toString(),
             label = stringResource(Res.string.import_stat_sessions_written),
-            icon = Icons.Outlined.GraphicEq,
+            icon = ListenUpIcons.GraphicEq,
             colors = StatTileTone.primary(),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -1078,7 +1067,7 @@ private fun DoneContent(
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.primary) {
             Icon(
-                imageVector = Icons.Outlined.Check,
+                imageVector = ListenUpIcons.Check,
                 contentDescription = null,
                 modifier = Modifier.size(52.dp),
                 tint = MaterialTheme.colorScheme.onPrimary,
@@ -1101,14 +1090,14 @@ private fun DoneContent(
             StatTile(
                 value = result.importedCount.toString(),
                 label = stringResource(Res.string.import_stat_records_imported),
-                icon = Icons.Outlined.Inventory2,
+                icon = ListenUpIcons.Inventory2,
                 colors = StatTileTone.primary(),
                 modifier = Modifier.weight(1f),
             )
             StatTile(
                 value = result.sessionsImported.toString(),
                 label = stringResource(Res.string.import_stat_sessions_imported),
-                icon = Icons.Outlined.GraphicEq,
+                icon = ListenUpIcons.GraphicEq,
                 colors = StatTileTone.tertiary(),
                 modifier = Modifier.weight(1f),
             )
@@ -1124,7 +1113,7 @@ private fun DoneContent(
             ) {
                 Row(modifier = Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Outlined.SkipNext,
+                        imageVector = ListenUpIcons.SkipNext,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1153,7 +1142,7 @@ private fun DoneContent(
         ListenUpButton(
             text = stringResource(Res.string.import_finish),
             onClick = onFinish,
-            leadingIcon = Icons.Outlined.Check,
+            leadingIcon = ListenUpIcons.Check,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -1173,7 +1162,7 @@ private fun ErrorContent(
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Outlined.Close,
+                imageVector = ListenUpIcons.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,
@@ -1302,7 +1291,7 @@ private fun FooterNote(text: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Lock,
+            imageVector = ListenUpIcons.Lock,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

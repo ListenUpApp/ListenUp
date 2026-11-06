@@ -25,7 +25,7 @@ import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.scheduler.MatchReceiptSweepTask
 import com.calypsan.listenup.server.scheduler.PhotoPins
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
 import com.calypsan.listenup.server.hardcover.HardcoverMetadataSource
@@ -101,7 +101,7 @@ private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
  *    join the same registry — the extensibility seam, and the only per-book character source.
  *  - [EnrichmentRoutes] / [EnrichmentCoordinator] — the operator-configured provider precedence
  *    and the composer that walks it per domain to build a book's metadata for the lookup service.
- *  - [ImageStorage] — downloads cover/photo images to disk.
+ *  - [RemoteImageFetcher] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
  *  - [BookFinder] / [PeopleFinder] / [MatchingServiceImpl] — Match details' Find for books and people, bound
  *    as [MatchingService].
@@ -170,7 +170,7 @@ fun metadataModule(imageHome: Path): Module =
         }
 
         single {
-            ImageStorage(httpClient = get(named(METADATA_HTTP_CLIENT)))
+            RemoteImageFetcher(httpClient = get(named(METADATA_HTTP_CLIENT)))
         }
 
         single { ImageDimensionProbe(httpClient = get(named(METADATA_HTTP_CLIENT))) }
@@ -236,7 +236,7 @@ fun metadataModule(imageHome: Path): Module =
                 seriesRepository = get(),
                 imageDeps =
                     MetadataImageDeps(
-                        imageStorage = get(),
+                        remoteImageFetcher = get(),
                         coverImageStore = get<CoverImageStore>(),
                         imageHome = imageHome,
                     ),

@@ -64,7 +64,7 @@ private const val OWNERS_PER_ROW = 2
 /**
  * "Shelves by others": other people's public shelves, grouped under whoever made them: the heading, then
  * one block per owner, a header naming them and their shelves as cover-mosaic cards. The heading stays in
- * every state (spec §3.8): a skeleton while loading, "need a connection" (offline) or "Couldn't load" with
+ * every state: a skeleton while loading, "need a connection" (offline) or "Couldn't load" with
  * Try again on failure, and one line when nobody has made a shelf public.
  */
 @Composable

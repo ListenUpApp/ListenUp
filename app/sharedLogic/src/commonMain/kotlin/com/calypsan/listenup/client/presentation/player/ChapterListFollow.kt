@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** What an always-visible chapter list does when the current chapter changes (spec §3.11, S9). */
+/** What an always-visible chapter list does when the current chapter changes. */
 sealed interface ChapterListMove {
     /** Centre the new current row. */
     data object Recentre : ChapterListMove
@@ -10,7 +10,7 @@ sealed interface ChapterListMove {
 }
 
 /**
- * The §3.11 rule for an always-visible chapter list (the web page now; the Android tablet and iPad panels in PR 5): it
+ * The rule for an always-visible chapter list (the web page, and the Android tablet and iPad panels): it
  * opens centred on the current chapter and follows the playhead, but never yanks the list out from under a reader who
  * scrolled away. An object, so Swift Export exposes it as `ChapterListFollow.shared`.
  */

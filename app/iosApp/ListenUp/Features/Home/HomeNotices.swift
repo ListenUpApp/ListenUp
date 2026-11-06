@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The quiet offline pill under the greeting (spec §3.1): the device or the server is out of reach, and downloaded
+/// The quiet offline pill under the greeting: the device or the server is out of reach, and downloaded
 /// books still play. It explains the dimmed cards below, so it is point-of-need, not an ambient offline state.
 struct OfflinePill: View {
     var body: some View {
@@ -15,7 +15,7 @@ struct OfflinePill: View {
     }
 }
 
-/// Continue Listening could not load (spec §3.3): one line with **Try again**, in the slot's position. Replaces the
+/// Continue Listening could not load: one line with **Try again**, in the slot's position. Replaces the
 /// banner; the wrapper's inline error still posts the VoiceOver announcement.
 struct ContinueListeningFailedLine: View {
     let onRetry: () -> Void
@@ -37,7 +37,7 @@ struct ContinueListeningFailedLine: View {
     }
 }
 
-/// Home could not load at all (spec §3.3): the greeting stays in the subtitle, and the slot's place says so with
+/// Home could not load at all: the greeting stays in the subtitle, and the slot's place says so with
 /// **Try again**.
 struct HomeErrorCard: View {
     let onRetry: () -> Void

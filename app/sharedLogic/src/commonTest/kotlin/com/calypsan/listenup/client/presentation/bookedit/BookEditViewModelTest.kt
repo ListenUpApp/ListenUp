@@ -430,11 +430,9 @@ class BookEditViewModelTest :
             }
         }
 
-        // The caret-owning text fields require callers to echo the propagated string VERBATIM
-        // (see OwnedTextFieldState): a VM-side transform makes every echo read as an external
-        // replacement, which drops in-flight keystrokes under latency. Digit filtering therefore
-        // moved from the change handler to the save boundary.
-        test("publish year is stored verbatim so the field's echo matches what was typed") {
+        // The field owns the typed text and restricts input itself, so the change handler stores
+        // what it hears. Digit filtering therefore lives at the save boundary.
+        test("publish year is stored verbatim as the field delivered it") {
             runTest {
                 // Given
                 val fixture = createFixture()

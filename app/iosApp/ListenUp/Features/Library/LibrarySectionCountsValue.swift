@@ -1,7 +1,7 @@
 import SwiftUI
 import Shared
 
-/// How many entries each Library section holds — the iPad sidebar's counts (spec §3.1.5) — as native values. Books is
+/// How many entries each Library section holds — the iPad sidebar's counts — as native values. Books is
 /// the whole library whatever the status filter; the others are what each list shows.
 struct LibrarySectionCountsValue: Equatable {
     let books: Int

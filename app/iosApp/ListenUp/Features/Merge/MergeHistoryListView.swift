@@ -55,7 +55,7 @@ struct MergeHistoryListView: View {
             Button(String(localized: "merge_history.confirm_action")) { onUndo(row.id) }
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: { row in
-            Text(String(format: String(localized: "merge_history.confirm_body"), row.sourceName))
+            Text(String(localized: .mergeHistoryConfirmBody(row.sourceName)))
         }
     }
 

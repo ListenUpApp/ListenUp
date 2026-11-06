@@ -8,12 +8,14 @@ import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.auth.OpenRead
+import com.calypsan.listenup.server.media.isManagedImagePath
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -151,6 +153,10 @@ internal class SeriesServiceImpl(
         patch: SeriesUpdate,
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
+        val coverPath = patch.coverPath
+        if (coverPath != null && !isManagedImagePath("series", coverPath)) {
+            return AppResult.Failure(ValidationError(message = "Choose a cover to upload.", field = "coverPath"))
+        }
         return when (val patched = seriesRepo.patchLive(id) { it.applyPatch(patch) }) {
             is AppResult.Failure -> AppResult.Failure(patched.error)
             is AppResult.Success -> if (patched.data == null) seriesNotFound(id) else AppResult.Success(Unit)

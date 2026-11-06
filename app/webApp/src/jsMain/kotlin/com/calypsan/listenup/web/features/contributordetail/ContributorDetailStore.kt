@@ -7,8 +7,6 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -50,7 +48,7 @@ class ContributorDetailSession(
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph
- * ([graphContributorDetail]); specs hand over a fixed state instead ([fixedContributorDetail]), so
+ * ([graphContributorDetail]); specs hand over a fixed state instead, so
  * the hero, panel and series contracts can be driven without a database behind them.
  */
 typealias OpenContributorDetail = (contributorId: String) -> ContributorDetailSession
@@ -76,24 +74,5 @@ fun graphContributorDetail(koin: Koin): OpenContributorDetail =
             onAdjustPhoto = viewModel::adjustPhoto,
             navActions = viewModel.navActions,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedContributorDetail(
-    state: ContributorDetailUiState,
-    onConfirmDelete: () -> Unit = {},
-    onDismissDeleteError: () -> Unit = {},
-    onAdjustPhoto: (ImageFrame) -> Unit = {},
-    navActions: Flow<ContributorDetailNavAction> = emptyFlow(),
-): OpenContributorDetail =
-    {
-        ContributorDetailSession(
-            state = MutableStateFlow(state),
-            onConfirmDelete = onConfirmDelete,
-            onDismissDeleteError = onDismissDeleteError,
-            onAdjustPhoto = onAdjustPhoto,
-            navActions = navActions,
-            close = {},
         )
     }

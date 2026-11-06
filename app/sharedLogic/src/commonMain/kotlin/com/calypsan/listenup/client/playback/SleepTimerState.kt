@@ -20,18 +20,6 @@ sealed interface SleepTimerState {
     ) : SleepTimerState {
         val progress: Float
             get() = if (totalMs > 0) 1f - (remainingMs.toFloat() / totalMs) else 0f
-
-        fun formatRemaining(): String {
-            val totalSeconds = remainingMs / 1000
-            val minutes = totalSeconds / 60
-            val seconds = totalSeconds % 60
-
-            return if (minutes > 0) {
-                "$minutes:${seconds.toString().padStart(2, '0')}"
-            } else {
-                "0:${seconds.toString().padStart(2, '0')}"
-            }
-        }
     }
 
     /**

@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.features.library
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.shell.LandingEffect
 import com.calypsan.listenup.client.features.shell.ShellLanding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
+import com.calypsan.listenup.client.features.library.components.libraryCountLine
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuActions
 import com.calypsan.listenup.client.features.library.components.LibraryBookMenuHost
 import com.calypsan.listenup.client.features.library.components.LibraryInboxStrip
@@ -48,12 +48,17 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectAllOffer
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.books.selectAllOffer
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_retry
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Library screen displaying the user's audiobook collection.
@@ -174,7 +179,7 @@ private fun LibraryErrorContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
-                imageVector = Icons.Filled.ErrorOutline,
+                imageVector = ListenUpIcons.ErrorOutlineFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
             )
@@ -185,7 +190,7 @@ private fun LibraryErrorContent(
                 modifier = Modifier.padding(top = 8.dp),
             )
             ListenUpButton(
-                text = "Retry",
+                text = stringResource(Res.string.common_retry),
                 onClick = onRetry,
                 modifier = Modifier.padding(top = 16.dp),
             )
@@ -239,13 +244,13 @@ internal fun LibraryLoadedContent(
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
         )
-    // The tablet layout (spec §3.1.3, ≥ 840dp): two header bands. Medium widths keep the phone header.
+    // The tablet layout (≥ 840dp): two header bands. Medium widths keep the phone header.
     val isExpanded =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
         )
 
-    // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only, open question 1:
+    // Long press or right-click on a Library cover opens its menu (Simon's M3E call; Library only:
     // Home, Discover and shelves keep long press = Select). Select is one tap inside it.
     val bookMenu =
         LibraryBookMenuHost(
@@ -328,12 +333,23 @@ internal fun LibraryLoadedContent(
                 )
             } else {
                 appHeader {
-                    Text(
-                        text = ShellDestination.Library.title,
-                        style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Column {
+                        Text(
+                            text = ShellDestination.Library.title,
+                            style = if (isWide) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        // As on the tablet and the web: nothing until the library has books to count.
+                        if (state.statusCounts.all > 0) {
+                            Text(
+                                text = libraryCountLine(all = state.statusCounts.all, totalMs = state.totalDurationMs),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
 
                 // The four sections as one connected group. Wider chrome gets more air below the big header.
@@ -398,16 +414,18 @@ internal fun LibraryLoadedContent(
             multiSelect = multiSelect,
             onEditSelected = onEditSelected,
             state = selectionState,
-            // Every book the Books grid shows, as filtered (open question 8). The other sections pick no books.
+            // Every book the Books grid shows, as filtered. The other sections pick no books.
             selectAll =
-                if (selectedSection == LibrarySection.Books && state.books.isNotEmpty()) {
-                    SelectAllAction(
-                        count = state.books.size,
-                        isAllSelected = state.books.all { it.id.value in selectedBookIds },
-                        onSelectAll = { multiSelect.selectAll(state.books.map { it.id.value }) },
-                        // Clears the picks and stays in selection (enterSelectionMode with none picked).
-                        onDeselectAll = { multiSelect.enterSelectionMode() },
-                    )
+                if (selectedSection == LibrarySection.Books) {
+                    val onScreen = state.books.map { it.id.value }
+                    selectAllOffer(onScreen, selectedBookIds)?.let { offer ->
+                        SelectAllAction(
+                            count = onScreen.size,
+                            isAllSelected = offer is SelectAllOffer.DeselectAll,
+                            onSelectAll = { multiSelect.selectAll(onScreen) },
+                            onDeselectAll = multiSelect::deselectAll,
+                        )
+                    }
                 } else {
                     null
                 },

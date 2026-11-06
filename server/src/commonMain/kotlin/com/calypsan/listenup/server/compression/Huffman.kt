@@ -15,7 +15,7 @@ internal fun canonicalCodes(lengths: IntArray): Pair<IntArray, IntArray> {
     val blCount = IntArray(maxLen + 1)
     for (len in lengths) if (len > 0) blCount[len]++
 
-    // Step 2: find the numerical value of the smallest code for each length (RFC §3.2.2).
+    // Step 2: find the numerical value of the smallest code for each length (RFC 1951 §3.2.2).
     val nextCode = IntArray(maxLen + 1)
     var code = 0
     blCount[0] = 0
@@ -224,7 +224,7 @@ internal fun buildLengthLimitedLengths(
     return limited
 }
 
-/** Fixed literal/length code lengths (RFC §3.2.6): 0..143 = 8, 144..255 = 9, 256..279 = 7, 280..287 = 8. */
+/** Fixed literal/length code lengths (RFC 1951 §3.2.6): 0..143 = 8, 144..255 = 9, 256..279 = 7, 280..287 = 8. */
 internal val FIXED_LITLEN_LENGTHS: IntArray =
     IntArray(288) { symbol ->
         when {
@@ -235,5 +235,5 @@ internal val FIXED_LITLEN_LENGTHS: IntArray =
         }
     }
 
-/** Fixed distance code lengths (RFC §3.2.6): all 5 bits. */
+/** Fixed distance code lengths (RFC 1951 §3.2.6): all 5 bits. */
 internal val FIXED_DIST_LENGTHS: IntArray = IntArray(30) { 5 }

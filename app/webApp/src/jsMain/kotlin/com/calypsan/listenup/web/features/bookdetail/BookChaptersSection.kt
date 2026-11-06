@@ -6,10 +6,12 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
+import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
@@ -25,10 +27,10 @@ import org.jetbrains.compose.web.dom.Thead
 import org.jetbrains.compose.web.dom.Tr
 
 /**
- * Chapters that play from the chapter they name (spec §2.5): a table with start times on a desktop, button rows on a
+ * Chapters that play from the chapter they name: a table with start times on a desktop, button rows on a
  * phone, both collapsed to [preview] (the 5-row window around the current chapter, or the first five) with "Show all N
  * chapters" expanding in place and "Show fewer chapters" collapsing it. Every row's title is a button named "Play from chapter N: title"; the current row
- * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map (D35).
+ * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map.
  */
 @Composable
 internal fun BookChaptersSection(
@@ -77,7 +79,11 @@ internal fun BookChaptersSection(
                                     Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
                                     Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) {
-                                        Text(formatClock((chapter.startMs / MILLIS_PER_SECOND).toInt()))
+                                        Text(
+                                            DurationFormatter.playbackClock(
+                                                (chapter.startMs / MILLIS_PER_SECOND).toInt().seconds,
+                                            ),
+                                        )
                                     }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
                                 }
@@ -100,7 +106,7 @@ internal fun BookChaptersSection(
                     }
                 }
             }
-            // Expands in place and collapses again; aria-expanded says which (spec §2.5).
+            // Expands in place and collapses again; aria-expanded says which.
             if (chapters.size > preview.size) {
                 Button(attrs = {
                     classes("bd-ch-all")
@@ -148,7 +154,7 @@ internal fun ChapterButton(
 /** The Chapters section's element id. */
 internal const val CHAPTERS_SECTION_ID = "bd-chapters"
 
-/** The desktop table's columns (spec §2.5: the start time is what a desktop reader scans for). */
+/** The desktop table's columns (the start time is what a desktop reader scans for). */
 private val CHAPTER_TABLE_HEADINGS = listOf("#", "Title", "Starts", "Length")
 
 private const val MILLIS_PER_SECOND = 1000

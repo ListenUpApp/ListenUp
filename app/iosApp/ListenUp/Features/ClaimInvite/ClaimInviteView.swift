@@ -126,7 +126,7 @@ struct ClaimInviteView: View {
         AuthScaffold {
             AuthIntro(
                 title: String(localized: "invite.confirm_server_title"),
-                subtitle: String(format: String(localized: "invite.confirm_server_body"), host)
+                subtitle: String(localized: .inviteConfirmServerBody(host))
             )
             AuthFieldGroup {
                 Label(host, systemImage: "server.rack")
@@ -164,10 +164,7 @@ struct ClaimInviteView: View {
                 AuthFieldGroup {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(
-                            String(
-                                format: String(localized: "invite.preview_title"),
-                                preview.invitedByName
-                            )
+                            String(localized: .invitePreviewTitle(preview.invitedByName))
                         )
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)

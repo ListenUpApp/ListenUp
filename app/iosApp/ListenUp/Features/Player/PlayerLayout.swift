@@ -108,7 +108,7 @@ enum PlayerLayoutMode: Equatable {
     static let besideGap: CGFloat = 32
     /// The narrowest controls column worth putting a cover beside: the transport and the settings row fit at 340.
     static let besideControlsMinimumWidth: CGFloat = 340
-    /// The cover beside the controls: never under 240 (spec §5.3), never over the board's 330.
+    /// The cover beside the controls: never under 240, never over the board's 330.
     static let coverBesideRange: ClosedRange<CGFloat> = 240...330
     /// The narrowest player area that holds a 240pt cover beside a usable controls column.
     static var coverBesideMinimumPlayerWidth: CGFloat {

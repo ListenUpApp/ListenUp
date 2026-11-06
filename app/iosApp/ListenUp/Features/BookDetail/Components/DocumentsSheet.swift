@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Maps & Illustrations (spec §3.2.1 D36), when the book has more than one document: a sheet of document rows (format
+/// Maps & Illustrations, when the book has more than one document: a sheet of document rows (format
 /// glyph · name · "<FORMAT> · <size>"). A row shows a spinner while its bytes download (`openingDocIds`). PDFs open the
 /// reader; other formats route to a "coming soon" path in the view model. One document opens straight from Details.
 struct DocumentsSheet: View {

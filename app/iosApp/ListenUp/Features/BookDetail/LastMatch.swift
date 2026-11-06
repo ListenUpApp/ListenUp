@@ -56,11 +56,11 @@ extension MatchCopy {
         case (nil, true):
             return String(localized: "match.details_matched_just_now")
         case (nil, false):
-            return String(format: String(localized: "match.details_matched"), relative)
+            return String(localized: .matchDetailsMatched(relative))
         case (let name?, true):
-            return String(format: String(localized: "match.details_matched_by_just_now"), name)
+            return String(localized: .matchDetailsMatchedByJustNow(name))
         case (let name?, false):
-            return String(format: String(localized: "match.details_matched_by"), relative, name)
+            return String(localized: .matchDetailsMatchedBy(relative, name))
         }
     }
 

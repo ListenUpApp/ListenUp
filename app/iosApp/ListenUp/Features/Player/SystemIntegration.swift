@@ -9,7 +9,7 @@ import os
 /// Every position field here is WINDOW-relative — scoped to the current chapter (or the whole
 /// book when chapterless). Nothing on this type carries a book-relative value.
 struct NowPlayingInfo: Equatable, Sendable {
-    /// The book (spec §5.7): the Lock Screen and CarPlay's headline.
+    /// The book: the Lock Screen and CarPlay's headline.
     let title: String
     /// The chapter, as the book names it (`ChapterNaming`): the track line under the book.
     let artist: String
@@ -34,9 +34,9 @@ struct NowPlayingInfo: Equatable, Sendable {
     /// The listener's chosen speed — what `rate` becomes when playing. Published separately because
     /// `rate` is 0 while paused, and the lock screen and CarPlay's rate button show this one.
     var defaultRate: Double = 1.0
-    /// The author, in the album slot (spec §5.7: title = book, artist = chapter, album = author).
+    /// The author, in the album slot (title = book, artist = chapter, album = author).
     var album: String = ""
-    /// Whether next track goes anywhere: false at the last chapter, where the system greys it out (§3.3).
+    /// Whether next track goes anywhere: false at the last chapter, where the system greys it out.
     var hasNextChapter: Bool = true
     /// Whether previous track goes anywhere: false only in a chapterless book, where it would jump to 0:00.
     var hasPreviousChapter: Bool = true
@@ -51,7 +51,7 @@ protocol RemoteCommandHandler: AnyObject {
     func remotePause()
     func remoteSkipForward()
     func remoteSkipBackward()
-    /// Previous track: the previous chapter by the shared rule (§3.3: restart after 3 s; chapter 1 restarts) — AirPods,
+    /// Previous track: the previous chapter by the shared rule (restart after 3 s; chapter 1 restarts) — AirPods,
     /// CarPlay and headsets. False in a chapterless book, where there is none, so the system is told nothing moved.
     func remotePreviousTrack() -> Bool
     /// Next track: the next chapter. False when there is none (the last chapter), so the system is told nothing moved.
@@ -108,7 +108,7 @@ final class SystemIntegration {
     /// Push a fresh lock-screen snapshot.
     func update(_ info: NowPlayingInfo) {
         infoCenter.nowPlayingInfo = Self.dictionary(from: info)
-        // Next track greys out at the last chapter (§3.3). Previous greys out only in a chapterless book: in a chaptered
+        // Next track greys out at the last chapter. Previous greys out only in a chapterless book: in a chaptered
         // one it can always restart the chapter.
         commandCenter.nextTrackCommand.isEnabled = info.hasNextChapter
         commandCenter.previousTrackCommand.isEnabled = info.hasPreviousChapter
@@ -188,7 +188,7 @@ final class SystemIntegration {
             self?.handler?.remoteSkipBackward()
             return .success
         }
-        // Chapter as the track (§3.3, §5.7), for AirPods, CarPlay and headsets. Registering these may change what the
+        // Chapter as the track, for AirPods, CarPlay and headsets. Registering these may change what the
         // Lock Screen draws beside play (track arrows instead of the interval skips); that is checked on a device.
         center.previousTrackCommand.isEnabled = true
         center.previousTrackCommand.addTarget { [weak self] _ in

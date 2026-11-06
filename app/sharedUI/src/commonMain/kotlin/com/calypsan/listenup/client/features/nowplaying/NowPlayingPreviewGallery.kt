@@ -155,6 +155,7 @@ private val mockActiveState =
                 defaultBoostDb = 0f,
                 skipBackSec = 10,
                 skipForwardSec = 30,
+                defaultSleepMinutes = 45,
             ),
         sleepTimer = SleepTimerState.Inactive,
         primary = PrimaryControl.Pause,
@@ -345,7 +346,7 @@ private fun CompactCase(
     }
 }
 
-/** The wide previews' window sizes (spec §5.3): three columns, an upright tablet's column and panel, and no panel. */
+/** The wide previews' window sizes: three columns, an upright tablet's column and panel, and no panel. */
 private val wideWindows =
     listOf(
         "1280×800 — three columns" to (1280.dp to 800.dp),
@@ -665,6 +666,7 @@ private fun mockSleepSheetState(timer: SleepTimerState): SleepSheetState =
         countdownMs = { if (timer is SleepTimerState.Active && timer.remainingMs > 0) timer.remainingMs else 480_000 },
         meterFraction = { 0.79f },
         nowMs = { MOCK_NOW_MS },
+        defaultMinutes = 45,
     )
 
 /** The gallery's own switch between the light and dark schemes for the panels; gallery chrome, not app copy. */

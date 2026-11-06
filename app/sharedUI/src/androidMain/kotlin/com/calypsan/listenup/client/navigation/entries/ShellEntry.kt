@@ -19,7 +19,11 @@ import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.domain.model.FacetKind
+import androidx.compose.foundation.layout.PaddingValues
+import com.calypsan.listenup.client.features.discover.DiscoverScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
+import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
 import com.calypsan.listenup.client.features.shell.AppShell
@@ -48,6 +52,7 @@ import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.core.BookId
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.features.share.shareBookText
 
 /** Shell (root) navigation entry — the main app scaffold with bottom nav. */
 internal fun EntryProviderScope<NavKey>.shellEntry(
@@ -86,11 +91,14 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
         @Suppress("UNUSED_VARIABLE")
         val libraryViewModel: LibraryViewModel = koinViewModel()
 
+        val selectionModels = rememberTabSelectionModels()
+        val leaveTab = selectionModels.endingSelectionOnLeave(currentShellDestination, onDestinationChange)
+
         // Get search state for overlay
         HeroEntry {
             AppShell(
                 currentDestination = currentShellDestination(),
-                onDestinationChange = onDestinationChange,
+                onDestinationChange = leaveTab,
                 searchRequests = LocalShellSearchRequests.current,
                 nowPlayingContent = {
                     val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
@@ -156,6 +164,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
                         },
+                        multiSelect = selectionModels.home,
                         contentPadding = padding,
                     )
                 },
@@ -166,6 +175,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                         onAuthorClick = { authorId -> backStack.add(ContributorDetail(authorId)) },
                         onNarratorClick = { narratorId -> backStack.add(ContributorDetail(narratorId)) },
                         appHeader = appHeader,
+                        multiSelect = selectionModels.library,
                         onEditSelected = { bookIds, endSelection ->
                             pendingSelectionExit.arm(endSelection)
                             backStack.add(BulkEdit(bookIds))
@@ -179,25 +189,46 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     )
                 },
                 discoverContent = { padding, appHeader ->
-                    com.calypsan.listenup.client.features.discover.DiscoverScreen(
+                    DiscoverTab(
+                        backStack = backStack,
                         appHeader = appHeader,
-                        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
-                        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
-                        onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
-                        onEditSelected = { bookIds, endSelection ->
-                            pendingSelectionExit.arm(endSelection)
-                            backStack.add(BulkEdit(bookIds))
-                        },
-                        // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
-                        onInvite = { backStack.add(CreateInvite) },
-                        onBrowseLibrary = { onDestinationChange(ShellDestination.Library) },
-                        onOpenAllActivity = { backStack.add(DiscoverActivity) },
                         contentPadding = padding,
+                        multiSelect = selectionModels.discover,
+                        pendingSelectionExit = pendingSelectionExit,
+                        onBrowseLibrary = { leaveTab(ShellDestination.Library) },
                     )
                 },
             )
         }
     }
+}
+
+/** The Discover tab, wired to the shell's navigation and to its own selection model. */
+@Composable
+private fun DiscoverTab(
+    backStack: NavBackStack<NavKey>,
+    appHeader: AppHeaderSlot,
+    contentPadding: PaddingValues,
+    multiSelect: BookMultiSelectViewModel,
+    pendingSelectionExit: PendingSelectionExit,
+    onBrowseLibrary: () -> Unit,
+) {
+    DiscoverScreen(
+        appHeader = appHeader,
+        onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
+        onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
+        onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
+        multiSelect = multiSelect,
+        onEditSelected = { bookIds, endSelection ->
+            pendingSelectionExit.arm(endSelection)
+            backStack.add(BulkEdit(bookIds))
+        },
+        // Shown only to an admin (DiscoverViewer.canInvite); the route is admin-gated too.
+        onInvite = { backStack.add(CreateInvite) },
+        onBrowseLibrary = onBrowseLibrary,
+        onOpenAllActivity = { backStack.add(DiscoverActivity) },
+        contentPadding = contentPadding,
+    )
 }
 
 /**
@@ -212,7 +243,7 @@ private fun rememberBookSharer(): (bookId: String, title: String) -> Unit {
     return { bookId, title ->
         scope.launch {
             bookShareUrl(instanceRepository, BookId(bookId))?.let { url ->
-                shareActions.shareText("Check out $title on ListenUp!\n$url", url)
+                shareActions.shareText(shareBookText(title, url), url)
             }
         }
     }

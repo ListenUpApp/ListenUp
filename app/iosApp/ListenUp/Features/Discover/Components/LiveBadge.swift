@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "LIVE" on a listener's art: an uppercase badge with a coral dot (HIG badge treatment; spec §3.5).
+/// "LIVE" on a listener's art: an uppercase badge with a coral dot (HIG badge treatment).
 /// Its text is what VoiceOver reads, so it carries no separate label.
 struct LiveBadge: View {
     var body: some View {

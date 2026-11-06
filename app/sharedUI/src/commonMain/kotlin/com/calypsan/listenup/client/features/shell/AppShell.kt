@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.features.shell.components.AppHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
@@ -135,7 +134,6 @@ fun AppShell(
     val userRepository: UserRepository = koinInject()
     val syncStatusRepository: SyncStatusRepository = koinInject()
     val authSession: AuthSession = koinInject()
-    val downloadService: DownloadService = koinInject()
     val searchViewModel: SearchViewModel = koinViewModel()
     val syncIndicatorViewModel: SyncIndicatorViewModel = koinViewModel()
     val notificationBellViewModel: NotificationBellViewModel = koinViewModel()
@@ -157,11 +155,6 @@ fun AppShell(
         } else if (isAuthenticated) {
             // Already synced before — just reconnect the firehose and delta sync
             syncRepository.connectRealtime()
-        }
-
-        // Resume any stalled/interrupted downloads after (re-)authentication
-        if (isAuthenticated) {
-            downloadService.resumeIncompleteDownloads()
         }
     }
 

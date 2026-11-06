@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.HeroInk
 import com.calypsan.listenup.client.domain.model.BookListItem
 import listenup.composeapp.generated.resources.Res
@@ -102,7 +98,7 @@ internal fun SeriesBookRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = ListenUpIcons.CheckFilled,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.size(15.dp),
@@ -167,9 +163,9 @@ private fun BookRowAction(
     val tint = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val icon =
         when {
-            highlighted -> Icons.Default.GraphicEq
-            finished -> Icons.Default.Replay
-            else -> Icons.Default.PlayArrow
+            highlighted -> ListenUpIcons.GraphicEqFilled
+            finished -> ListenUpIcons.ReplayFilled
+            else -> ListenUpIcons.PlayArrowFilled
         }
     Box(
         modifier = Modifier.size(44.dp).clip(CircleShape).background(bg),
@@ -273,7 +269,7 @@ private fun SeriesBookCardCover(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (finished) Icons.Default.Check else Icons.Default.GraphicEq,
+                    imageVector = if (finished) ListenUpIcons.CheckFilled else ListenUpIcons.GraphicEqFilled,
                     contentDescription = null,
                     tint = badgeTint,
                     modifier = Modifier.size(17.dp),

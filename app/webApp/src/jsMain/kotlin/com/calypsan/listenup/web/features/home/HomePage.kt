@@ -2,9 +2,11 @@ package com.calypsan.listenup.web.features.home
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.client.presentation.home.HomeBlock
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.homeBlocks
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyState
@@ -27,7 +29,7 @@ import kotlin.time.Clock
  * [homeBlocks] decides the sections and their order from the slot and [isWide]; the page draws them in that order.
  *
  * Pure, like every other page here: no routing decisions, no session lifetime. Every gesture leaves through
- * [actions]; My shelves' See all leaves for the `/shelves` list (H24).
+ * [actions]; My shelves' See all leaves for the `/shelves` list.
  */
 @Composable
 fun HomePage(
@@ -51,7 +53,7 @@ fun HomePage(
             }
 
             is HomeUiState.Error -> {
-                // The greeting stays (spec §3.3); the error carries no name.
+                // The greeting stays; the error carries no name.
                 PageHeader(
                     title = homeGreeting(state.timeOfDay, firstName = null),
                     documentTitle = null,
@@ -89,7 +91,7 @@ fun HomePage(
 }
 
 /**
- * The library-still-arriving strip in Home's words (spec H5, open question 1): Library's strip, titled "Building your
+ * The library-still-arriving strip in Home's words: Library's strip, titled "Building your
  * library" with " · 412 of 1,280 books" while a scan knows both numbers, and Home's line about where your place is.
  */
 @Composable
@@ -164,7 +166,7 @@ private fun HomeBlockContent(
     }
 }
 
-/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+/** Whichever slot applies, drawn: every kind takes the same position. */
 @Composable
 private fun SlotContent(
     state: HomeUiState.Ready,

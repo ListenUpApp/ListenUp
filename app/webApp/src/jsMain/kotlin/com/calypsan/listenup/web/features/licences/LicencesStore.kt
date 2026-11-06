@@ -53,7 +53,7 @@ class LicencesSession(
 
 /**
  * How the page gets its manifest. Production fetches the static file ([graphLicences]); specs hand
- * over a fixed state instead ([fixedLicences]).
+ * over a fixed state instead.
  */
 typealias OpenLicences = () -> LicencesSession
 
@@ -85,10 +85,6 @@ fun graphLicences(): OpenLicences =
         }
         LicencesSession(state = state, close = { scope.cancel() })
     }
-
-/** A session over a state that never changes — the shape specs use in place of the fetch. */
-fun fixedLicences(state: LicencesUiState): OpenLicences =
-    { LicencesSession(state = MutableStateFlow(state), close = {}) }
 
 private const val MANIFEST_PATH = "/licences.json"
 

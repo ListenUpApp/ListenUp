@@ -120,7 +120,7 @@ struct GenreMoveSheet: View {
                 }
             }
             .listStyle(.plain)
-            .navigationTitle(String(format: String(localized: "admin.move_to_named"), source.name))
+            .navigationTitle(String(localized: .adminMoveToNamed(source.name)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -156,8 +156,8 @@ struct GenreMergeSheet: View {
             }
             .background(Color.luSurface)
             .navigationTitle(
-                target.map { String(format: String(localized: "admin.merge_genre_confirm_title"), $0.name) }
-                    ?? String(format: String(localized: "admin.merge_into_named"), source.name)
+                target.map { String(localized: .adminMergeGenreConfirmTitle($0.name)) }
+                    ?? String(localized: .adminMergeIntoNamed(source.name))
             )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -247,7 +247,7 @@ struct GenreMergeHistorySheet: View {
                 MergeHistoryListView(model: open.history, onUndo: onUndo, onRetry: onRetry)
                     .padding()
             }
-            .navigationTitle(String(format: String(localized: "merge_history.genre_title"), open.genreName))
+            .navigationTitle(String(localized: .mergeHistoryGenreTitle(open.genreName)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

@@ -120,6 +120,45 @@ class ShortcutActionHandlingTest :
             }
         }
 
+        test("a navigating shortcut closes Now Playing before landing") {
+            listOf(
+                ShortcutAction.NavigateToBook(bookId = "b1") to listOf<NavKey>(Shell, BookDetail("b1")),
+                ShortcutAction.NavigateToPendingApprovals(userId = "u1") to null,
+                ShortcutAction.NavigateToUserProfile(userId = "u1") to null,
+            ).forEach { (action, expectedStack) ->
+                runTest {
+                    val harness = Harness(recentBooks = emptyList())
+
+                    harness.handle(action)
+
+                    harness.playback.events shouldBe listOf("collapse")
+                    if (expectedStack != null) harness.stack shouldBe expectedStack
+                }
+            }
+        }
+
+        test("Search closes Now Playing") {
+            runTest {
+                val harness = Harness(recentBooks = emptyList())
+
+                harness.handle(ShortcutAction.Search)
+
+                harness.playback.events shouldBe listOf("collapse")
+                harness.searchRequests shouldBe 1
+            }
+        }
+
+        test("Resume and PlayBook still open Now Playing without closing it") {
+            runTest {
+                val harness = Harness(recentBooks = listOf(book("b1")))
+
+                harness.handle(ShortcutAction.Resume)
+                harness.handle(ShortcutAction.PlayBook(bookId = "b2"))
+
+                harness.playback.events shouldBe listOf("play:b1", "expand", "play:b2", "expand")
+            }
+        }
+
         test("SleepTimer with no recent book sets no timer and lands on the Library") {
             runTest {
                 val harness = Harness(recentBooks = emptyList())
@@ -173,6 +212,10 @@ private class RecordingPlayback(
 
     override fun expand() {
         events += "expand"
+    }
+
+    override fun collapse() {
+        events += "collapse"
     }
 
     override fun setSleepTimer(mode: SleepTimerMode) {

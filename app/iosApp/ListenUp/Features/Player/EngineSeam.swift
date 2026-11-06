@@ -20,7 +20,7 @@ enum EngineInstruction: Sendable {
 /// What the engine is doing, as the coordinator reports it to the shared player.
 enum EnginePhaseFact: Sendable, Equatable { case idle, buffering, playing, paused, ended }
 
-/// A typed engine failure (spec §4.6): mapped once, here at the engine edge, never from message text.
+/// A typed engine failure: mapped once, here at the engine edge, never from message text.
 enum EngineFailure: Sendable, Equatable {
     case connectionLost(detail: String?)
     case unsupportedFormat(detail: String?)

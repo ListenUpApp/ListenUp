@@ -1,17 +1,17 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// The Speed sheet's rules, each the shared one (player spec §5.5.1, PS1–PS5), so iOS can't disagree with Android or the
+/// The Speed sheet's rules, each the shared one, so iOS can't disagree with Android or the
 /// web about where a step lands or which preset is on.
 enum SpeedSheetModel {
     /// One 0.05× step, counted in the shared whole hundredths: thirty presses never drift off a rung.
     static func step(_ speed: Float, up: Bool) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed(speed: speed, up: up)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.stepPlaybackSpeed(speed: speed, up: up)
     }
 
     /// A dragged value, snapped to the nearest 0.05×.
     static func snapped(_ speed: Float) -> Float {
-        ExportedKotlinPackages.com.calypsan.listenup.client.presentation.player.snapPlaybackSpeed(speed: speed)
+        ExportedKotlinPackages.com.calypsan.listenup.client.playback.snapPlaybackSpeed(speed: speed)
     }
 
     /// Whether `preset` is the speed playing, within the shared tolerance (a stored 1.5 comes back as 1.4999999).
@@ -26,13 +26,13 @@ enum SpeedSheetModel {
 
     /// "1.25 times": the slider's value as VoiceOver speaks it.
     static func spokenValue(_ speed: Float) -> String {
-        String(format: String(localized: "player.sheet_speed_times_ios"), PlaybackRates.number(speed))
+        String(localized: .playerSheetSpeedTimesIos(PlaybackPresets.shared.speedNumber(speed: speed)))
     }
 
     /// "32 hr, 25 min left at this speed": the book's remainder in wall time, the sheet's one exception to content
     /// time (S10).
     static func leftLine(ms: Int64) -> String {
-        String(format: String(localized: "player.sheet_left_at_speed"), DurationFormatting.abbreviated(ms: ms))
+        String(localized: .playerSheetLeftAtSpeed(DurationFormatting.abbreviated(ms: ms)))
     }
 }
 
@@ -43,7 +43,7 @@ struct SpeedSheetActions {
     var reset: () -> Void
 }
 
-/// The Speed sheet's content (§5.5.1, iOS column; the `Sheets-iPhone` board): the readout and its wall-time line, a fine
+/// The Speed sheet's content: the readout and its wall-time line, a fine
 /// `Slider` between − and +, the nine presets, Reset and the note. It stays open while the reader tries speeds (HIG,
 /// Sheets: values here are adjusted, not picked once).
 struct SpeedSheetContent: View {
@@ -60,13 +60,13 @@ struct SpeedSheetContent: View {
 
     /// "Reset to 1× (Your Default)".
     static func resetTitle(_ defaultSpeed: Float) -> String {
-        String(format: String(localized: "player.sheet_reset_speed_ios"), PlaybackRates.format(defaultSpeed))
+        String(localized: .playerSheetResetSpeedIos(PlaybackPresets.shared.speedLabel(speed: defaultSpeed)))
     }
 
     var body: some View {
         VStack(spacing: Spacing.l) {
             VStack(spacing: Spacing.xxs) {
-                Text(PlaybackRates.format(speed))
+                Text(PlaybackPresets.shared.speedLabel(speed: speed))
                     .font(.largeTitle.weight(.bold))
                     .monospacedDigit()
                     // The slider speaks the same value; the readout would say it twice.
@@ -168,7 +168,7 @@ struct SpeedSheetContent: View {
     private func presetButton(_ preset: Float) -> some View {
         let isSelected = SpeedSheetModel.isSelected(preset, speed: speed)
         return Button { actions.setSpeed(preset) } label: {
-            Text(PlaybackRates.format(preset))
+            Text(PlaybackPresets.shared.speedLabel(speed: preset))
                 .font(.subheadline.weight(isSelected ? .semibold : .medium))
                 .monospacedDigit()
                 .foregroundStyle(isSelected ? Color.luOnTint : Color.primary)
@@ -193,7 +193,7 @@ struct SpeedSheet: View {
                 leftAtSpeedMs: observer.bookRemainingAtSpeedMs,
                 actions: SpeedSheetActions(
                     setSpeed: { observer.setSpeed($0) },
-                    step: { observer.stepSpeed(up: $0) },
+                    step: { observer.stepSpeed($0 ? .Faster : .Slower) },
                     reset: { observer.resetSpeed() }
                 )
             )

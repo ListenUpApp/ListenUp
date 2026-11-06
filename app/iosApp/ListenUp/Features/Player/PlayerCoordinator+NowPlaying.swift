@@ -44,7 +44,7 @@ extension NowPlayingInfo {
         return info
     }
 
-    /// What the Lock Screen calls the chapter (spec §5.7): the shared `ChapterNaming` rule, in the mini player's
+    /// What the Lock Screen calls the chapter: the shared `ChapterNaming` rule, in the mini player's
     /// words — the book's own title, "Chapter N" when it has none, "Whole book" for a chapterless book.
     static func chapterName(title: String?, number: Int, isWholeBook: Bool) -> String {
         switch ChapterNaming.shared.of(title: title, number: Int32(number), isWholeBook: isWholeBook).sealedType() {
@@ -65,7 +65,7 @@ extension PlayerCoordinator {
             system.clear()
             return
         }
-        // Title = the book, artist = the chapter, album = the author (§5.7), as Android's card and the browser say it.
+        // Title = the book, artist = the chapter, album = the author, as Android's card and the browser say it.
         system.update(.chapterScoped(
             title: bookTitle,
             artist: NowPlayingInfo.chapterName(

@@ -70,8 +70,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * this layer. That keeps the URL and layout specs able to drive any state deterministically, and
  * it is why the store wiring lives one level up in `WebAppRoot`.
  *
- * One page (spec §3.2.1 D47): below the hero, the sections in the visit's stage order (spec §2.4) — one column on a
- * phone, two on a desktop (§3.2.4), decided in Kotlin by [rememberBookDetailWide] so a section never changes column
+ * One page: below the hero, the sections in the visit's stage order — one column on a
+ * phone, two on a desktop, decided in Kotlin by [rememberBookDetailWide] so a section never changes column
  * and the narrow order is the stage order. The chapter map and the files are pages of their own
  * (`/book/{id}/map`, `/book/{id}/files`), reached from the Chapters header and the Details panel.
  *
@@ -158,13 +158,13 @@ fun BookDetailPage(
     onClearDeleteError: () -> Unit = {},
     /** Release this held book (the triage layout's primary action; the page confirms first). */
     onReleaseFromInbox: () -> Unit = {},
-    /** Put a stranded book back in All Books ("Show to all members"; no confirmation, spec §7). */
+    /** Put a stranded book back in All Books ("Show to all members"; no confirmation). */
     onRestoreToAllBooks: () -> Unit = {},
     /** Open an admin collection from the Visibility panel. */
     onOpenCollection: (String) -> Unit = {},
     /** The last-match row ("Details matched … · See what changed · Undo last match"), above the sections. */
     lastMatchRow: @Composable () -> Unit = {},
-    /** Arrive with the Readers panel in view and its heading focused: Home's finishers line (spec §6.4). */
+    /** Arrive with the Readers panel in view and its heading focused: Home's finishers line. */
     landOnReaders: Boolean = false,
     /** Called once that landing has happened, so the route can drop it from the URL. */
     onLandedOnReaders: () -> Unit = {},
@@ -224,7 +224,7 @@ fun BookDetailPage(
 
             is BookDetailUiState.Error -> {
                 PageHeader(title = ERROR_TITLE)
-                // Spec §3.2.3 Error: what happened (the typed error's own message, said once under the page heading),
+                // The error state: what happened (the typed error's own message, said once under the page heading),
                 // Retry only when asking again could help (`isRetryable`: a reconnect runs catch-up, and the page turns
                 // Ready when the book arrives), and always the way back.
                 EmptyState(title = state.error.message, icon = WebIcon.Book) {
@@ -241,8 +241,8 @@ fun BookDetailPage(
             is BookDetailUiState.Ready -> {
                 FocusHeadingWhenBlocksLeave(state, root)
 
-                // A held book is triage-only (spec §8). The panel stands above the sections; Release asks
-                // first (§7).
+                // A held book is triage-only. The panel stands above the sections; Release asks
+                // first.
                 if (state.isHeld) {
                     HeldTriage(state, onEdit, onMatchMetadata, onEditChapters, onReleaseFromInbox)
                 }
@@ -341,7 +341,7 @@ private fun SharedHeader(
     val ready = state as? BookDetailUiState.Ready
     val id = ready?.book?.id?.value ?: bookId ?: return
 
-    // The hero takes its colour from the cover (spec §2.3): fetched only once the book's cover hash is known, and
+    // The hero takes its colour from the cover: fetched only once the book's cover hash is known, and
     // painted from memory in the first frame on a revisit, even while the book is still loading.
     val coverTheme = rememberCoverThemes(id, ready?.book?.coverHash, isKnown = ready != null)
     Div(attrs = {
@@ -350,7 +350,7 @@ private fun SharedHeader(
     }) {
         // Fluid inside a box CSS sizes (260px on a desktop, 210px on a phone): the size is the stylesheet's, so the
         // image rung requested, and the hero flight's destination node, stay the same at every width.
-        // The scanner's flag, for an admin (spec §3.2.3), at the top of the hero; Review opens the Files view.
+        // The scanner's flag, for an admin, at the top of the hero; Review opens the Files view.
         if (ready?.showScanWarning == true) ScanWarning(onReview = onOpenFiles)
         Div(attrs = { classes("bd-cover") }) {
             Cover(
@@ -384,7 +384,7 @@ private fun SharedHeader(
                 // the absence of Play. It is gated on `isHeld`: a held book's hero has no Play, no
                 // actions menu and no icon buttons — its only actions are the held panel's.
                 if (!ready.isHeld) {
-                    // Why the primary below is disabled, directly above the actions (spec §2.9).
+                    // Why the primary below is disabled, directly above the actions.
                     if (ready.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetryConnection)
                     HeroActions(
                         ready = ready,
@@ -402,7 +402,7 @@ private fun SharedHeader(
                         onDeleteBook = onDeleteBook,
                         onClearDeleteError = onClearDeleteError,
                     )
-                    // Who else is reading, under the actions: one link to the Readers panel (spec §2.10).
+                    // Who else is reading, under the actions: one link to the Readers panel.
                     (readers as? BookReadersUiState.Data)?.let { HeroSocialLine(it.summary) }
                 }
             }
@@ -411,7 +411,7 @@ private fun SharedHeader(
 }
 
 /**
- * The hero's action row for a book that is not held: Play, Add to shelf, and "More ▾" (spec §2.7) — Share, the
+ * The hero's action row for a book that is not held: Play, Add to shelf, and "More ▾" — Share, the
  * progress actions, Edit details, Match details and Edit chapters, Add to collection, and Delete from server.
  */
 @Composable
@@ -451,7 +451,7 @@ private fun HeroActions(
             Icon(if (isPreparing) WebIcon.Clock else WebIcon.Play, size = PLAY_ICON_SIZE)
             Text(primaryLabel(ready.primaryAction, isPreparing))
         }
-        // Visible, not in the menu (spec §2.7): two Add to shelf controls would be one too many.
+        // Visible, not in the menu: two Add to shelf controls would be one too many.
         Button(
             kind = ButtonKind.Secondary,
             size = ButtonSize.Lg,
@@ -550,7 +550,7 @@ internal class SectionPanes(
     val nowMs: Long,
     val onOpenProfile: (String) -> Unit,
     val onSeeAllReaders: () -> Unit,
-    /** Arrive on the Readers panel (Home's finishers line, spec §6.4), once; [onLandedOnReaders] says it happened. */
+    /** Arrive on the Readers panel (Home's finishers line), once; [onLandedOnReaders] says it happened. */
     val landOnReaders: Boolean,
     val onLandedOnReaders: () -> Unit,
     val hardcover: BookHardcoverUiState,
@@ -571,9 +571,9 @@ internal class SectionPanes(
 )
 
 /**
- * The sections, in the visit's stage order (spec §2.4). [wide]: the two columns of [bookDetailColumns], with the
- * admins' Visibility panel atop the side column (§3.2.4 rule 4); narrow: one column in the whole order, the Visibility
- * panel first. A held book keeps About, Chapters and Details (§3.2.3).
+ * The sections, in the visit's stage order. [wide]: the two columns of [bookDetailColumns], with the
+ * admins' Visibility panel atop the side column; narrow: one column in the whole order, the Visibility
+ * panel first. A held book keeps About, Chapters and Details.
  */
 @Composable
 private fun BookSections(
@@ -581,7 +581,7 @@ private fun BookSections(
     wide: Boolean,
     panes: SectionPanes,
 ) {
-    val order = state.shownSections()
+    val order = state.shownSections
     if (wide) {
         val columns = bookDetailColumns(order)
         Div(attrs = { classes("bd-cols") }) {
@@ -608,16 +608,6 @@ private fun BookSections(
     }
 }
 
-/** The sections a page shows: a held book is triage-only, so its social sections and Series stay hidden. */
-internal fun BookDetailUiState.Ready.shownSections(): List<BookDetailSection> =
-    if (isHeld) {
-        sectionOrder.filter {
-            it == BookDetailSection.About || it == BookDetailSection.Chapters || it == BookDetailSection.Details
-        }
-    } else {
-        sectionOrder
-    }
-
 /** Who can't see this book. Admins only — a member's visibility is null — and never for a held book. */
 @Composable
 private fun Visibility(
@@ -636,7 +626,7 @@ private fun Visibility(
     )
 }
 
-/** One section. Readers, Ratings and Hardcover draw nothing when they have nothing (spec §2.4: skipped, no gap). */
+/** One section. Readers, Ratings and Hardcover draw nothing when they have nothing (skipped, no gap). */
 @Composable
 private fun BookSection(
     section: BookDetailSection,
@@ -711,7 +701,7 @@ private fun AboutPanel(
     wide: Boolean,
     panes: SectionPanes,
 ) {
-    val clampLines = if (wide) null else ABOUT_LINES
+    val clampLines = if (wide) null else state.aboutLineLimit
     // Bare, under the board's large heading: About is reading, not a card of reference facts (as Chapters).
     Section(attrs = { classes("bd-about") }) {
         H2(attrs = { classes("bd-sec-title") }) { Text("About") }
@@ -770,13 +760,10 @@ private fun ClampedDescription(
     }
 }
 
-/** Synopsis lines on a phone before "Read more". */
-private const val ABOUT_LINES = 4
-
 private const val ABOUT_HEADING_LEVEL = 2
 
 /**
- * The Details panel (spec §3.2.1 D31): the shared rule's rows ([bookDetailRows]) as a description list — Publisher,
+ * The Details panel: the shared rule's rows ([bookDetailRows]) as a description list — Publisher,
  * Released, Genre, Language, Length, Added, ISBN, ASIN — then three links: **All credits** (the credits dialog, by
  * role), **Files & audio** (the Files view) and **Maps & illustrations** (one document opens in a new tab; more go to
  * the Files view). A row whose datum is absent is not drawn, never "Unknown".
@@ -1077,7 +1064,7 @@ private const val COVER_RUNG = 360
 private const val COVER_RADIUS = 16
 
 /**
- * What the primary button says (spec §2.9): Play, Resume, Listen again, or Unavailable offline.
+ * What the primary button says: Play, Resume, Listen again, or Unavailable offline.
  *
  * ⛔ "Loading…" rather than keeping "Play"/"Resume" under a changed icon: the label is what a screen
  * reader gets, and a disabled button still called "Play" says nothing about why it stopped working.
@@ -1094,7 +1081,7 @@ internal fun primaryLabel(
         else -> "Play"
     }
 
-/** The hero's quick stats: "45h 30m · 2010 · Unabridged · 75 chapters", skipping a missing year (spec D9/D10). */
+/** The hero's quick stats: "45h 30m · 2010 · Unabridged · 75 chapters", skipping a missing year. */
 internal fun statsLine(ready: BookDetailUiState.Ready): String {
     val chapters = ready.chapters.size
     return listOfNotNull(
@@ -1149,7 +1136,7 @@ private fun BookDetailUiState.Ready.hasFacets(): Boolean =
     genres.isNotEmpty() || tags.isNotEmpty() || moods.isNotEmpty()
 
 /**
- * Why the primary is disabled (spec §2.9, §3.2.3 Offline): the server is unreachable and this book cannot stream. It
+ * Why the primary is disabled: the server is unreachable and this book cannot stream. It
  * sits in the hero directly above the actions, with Retry.
  *
  * **Not the shared copy verbatim.** Android's says the book "isn’t downloaded"; this client has no downloads at all,
@@ -1227,7 +1214,7 @@ private fun FocusHeadingWhenBlocksLeave(
 }
 
 /**
- * Book Detail goes to two columns at the shell's desktop breakpoint (spec §3.2.4; the `BreakpointsTest` contract).
+ * Book Detail goes to two columns at the shell's desktop breakpoint (the `BreakpointsTest` contract).
  * Kotlin reads it, not CSS: wide splits the stage order into two columns, narrow keeps it as one list, and a CSS fold
  * of the two columns would put the side column after the main one instead of in stage order.
  */

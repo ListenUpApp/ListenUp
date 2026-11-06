@@ -74,36 +74,39 @@ class AdminBackupViewModel(
     }
 
     fun loadBackups() {
-        viewModelScope.launch {
-            when (val result = backupRepository.listBackups()) {
-                is AppResult.Success -> {
-                    val sorted =
-                        result.data
-                            .map { summary -> summary.toDomain() }
-                            .sortedByDescending { backup -> backup.createdAt }
-                    state.update { current ->
-                        if (current is AdminBackupUiState.Ready) {
-                            current.copy(backups = sorted, error = null)
-                        } else {
-                            // First emission (from Loading) or recovering from Error:
-                            // transition to Ready with fresh data and default UI fields.
-                            AdminBackupUiState.Ready(backups = sorted)
-                        }
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /** [loadBackups], but suspending until the fetch has finished (success or failure), so a pull spinner can wait for it. */
+    suspend fun refreshNow() {
+        when (val result = backupRepository.listBackups()) {
+            is AppResult.Success -> {
+                val sorted =
+                    result.data
+                        .map { summary -> summary.toDomain() }
+                        .sortedByDescending { backup -> backup.createdAt }
+                state.update { current ->
+                    if (current is AdminBackupUiState.Ready) {
+                        current.copy(backups = sorted, error = null)
+                    } else {
+                        // First emission (from Loading) or recovering from Error:
+                        // transition to Ready with fresh data and default UI fields.
+                        AdminBackupUiState.Ready(backups = sorted)
                     }
                 }
+            }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to load backups: ${result.error.message}" }
-                    state.update { current ->
-                        if (current is AdminBackupUiState.Ready) {
-                            // Transient refresh failure once already loaded: keep
-                            // backups and surface error to the snackbar.
-                            current.copy(error = result.error)
-                        } else {
-                            // Initial load (or post-Error retry) failed: terminal Error state.
-                            AdminBackupUiState.Error(result.error)
-                        }
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                logger.error { "Failed to load backups: ${result.error.message}" }
+                state.update { current ->
+                    if (current is AdminBackupUiState.Ready) {
+                        // Transient refresh failure once already loaded: keep
+                        // backups and surface error to the snackbar.
+                        current.copy(error = result.error)
+                    } else {
+                        // Initial load (or post-Error retry) failed: terminal Error state.
+                        AdminBackupUiState.Error(result.error)
                     }
                 }
             }

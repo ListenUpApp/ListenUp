@@ -118,9 +118,11 @@ failBelowDiscoveredTestCount(
     anchorSpecs = listOf("com.calypsan.listenup.api.RpcSurfaceSerializersTest"),
 )
 // The same commonTest specs on Kotlin/Native. Until the Kotest plugin was applied above, this lane ran
-// none of them and reported green. The floor is DERIVED, not measured (it cannot run on a Mac);
-// correct it from the first green CI run.
-failBelowDiscoveredTestCount("linuxX64Test", floor = 600)
+// none of them and reported green. The floor is DERIVED, not measured (it cannot run on a Mac): 1,055
+// of the 1,067 tests in the jvmTest run of 2026-10-31 live in commonTest, and 90 % of that rounds down to
+// 940. CI is the first real run of this lane — correct the number from it. No lane-only source set
+// exists (there is no src/linuxX64Test), so there is no anchor to name.
+failBelowDiscoveredTestCount("linuxX64Test", floor = 940)
 
 dependencies {
     // :tools:rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and

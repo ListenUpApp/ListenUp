@@ -78,7 +78,7 @@ struct AdminBackupsView: View {
             }
         } message: {
             if let pendingDelete {
-                Text(String(format: String(localized: "admin.confirm_delete_backup"), pendingDelete.id))
+                Text(String(localized: .adminConfirmDeleteBackup(pendingDelete.id)))
             }
         }
         .messageAlert(errorAlertBinding) { observer?.clearError() }
@@ -162,7 +162,7 @@ struct AdminBackupsView: View {
         }
         .listStyle(.insetGrouped)
         .readableListWidth()
-        .refreshable { observer.reload() }
+        .refreshable { await observer.reloadNow() }
         .overlay {
             if case .uploading(let filename) = restoreFromFile?.phase {
                 uploadingOverlay(filename: filename)
@@ -187,7 +187,7 @@ struct AdminBackupsView: View {
             VStack(spacing: 20) {
                 ProgressView()
                     .controlSize(.large)
-                Text(String(format: String(localized: "admin.restore_from_file_uploading"), filename))
+                Text(String(localized: .adminRestoreFromFileUploading(filename)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -323,22 +323,20 @@ struct AdminBackupsView: View {
         switch result {
         case .success(let url):
             Task {
-                do {
-                    // Read the (multi-MB) archive OFF the main thread; only the `Sendable` `Data`
-                    // crosses back — the non-`Sendable` Kotlin `FileSource` is built on the main actor.
-                    let data = try await Task.detached {
-                        try ImportFileSourceBridge.readData(from: url)
-                    }.value
-                    let fileSource = ImportFileSourceBridge.makeFileSource(
-                        data: data,
-                        filename: url.lastPathComponent
-                    )
-                    restoreFromFile?.onFilePicked(fileSource: fileSource)
-                } catch let error as ImportFilePickError {
-                    pickError = error.message
+                // Read the (multi-MB) archive OFF the main thread; only the `Sendable` `Data`
+                // crosses back — the non-`Sendable` Kotlin `FileSource` is built on the main actor.
+                let data: Data
+                do throws(ImportFilePickError) {
+                    data = try await ImportFileSourceBridge.readData(from: url)
                 } catch {
-                    pickError = String(localized: "admin.restore_from_file_upload_failed")
+                    pickError = error.message
+                    return
                 }
+                let fileSource = ImportFileSourceBridge.makeFileSource(
+                    data: data,
+                    filename: url.lastPathComponent
+                )
+                restoreFromFile?.onFilePicked(fileSource: fileSource)
             }
         case .failure:
             // User cancelled the picker, or it failed — stay put silently.
@@ -373,7 +371,7 @@ private struct BackupRow: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Text(String(format: String(localized: "admin.backup_size"), backup.sizeFormatted))
+                    Text(String(localized: .adminBackupSize(backup.sizeFormatted)))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)

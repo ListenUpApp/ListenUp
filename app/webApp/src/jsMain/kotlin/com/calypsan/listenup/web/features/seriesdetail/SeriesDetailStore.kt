@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiStat
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -30,7 +29,7 @@ class SeriesDetailSession(
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph
- * ([graphSeriesDetail]); specs hand over a fixed state instead ([fixedSeriesDetail]), so the hero,
+ * ([graphSeriesDetail]); specs hand over a fixed state instead, so the hero,
  * the reading order and the resume target can be driven without a database behind them.
  */
 typealias OpenSeriesDetail = (seriesId: String) -> SeriesDetailSession
@@ -55,22 +54,5 @@ fun graphSeriesDetail(koin: Koin): OpenSeriesDetail =
             onToggleSection = viewModel::toggleSection,
             onAddSubSeriesEvent = viewModel::onAddSubSeriesEvent,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedSeriesDetail(
-    state: SeriesDetailUiState,
-    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
-    onToggleSection: (String) -> Unit = {},
-    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
-): OpenSeriesDetail =
-    {
-        SeriesDetailSession(
-            state = MutableStateFlow(state),
-            addSubSeries = MutableStateFlow(addSubSeries),
-            onToggleSection = onToggleSection,
-            onAddSubSeriesEvent = onAddSubSeriesEvent,
-            close = {},
         )
     }

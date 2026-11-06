@@ -168,7 +168,7 @@ struct BookCoverCard: View {
     /// "{Xh Ym} left" — remaining time derived from the book's total duration and listen progress.
     private func timeLeftLabel(progress: Float) -> String {
         let remaining = Int64(Double(book.duration) * Double(1 - progress))
-        return String(format: String(localized: "book.time_left"), DurationFormatting.hoursMinutes(ms: remaining))
+        return String(localized: .bookTimeLeft(DurationFormatting.hoursMinutes(ms: remaining)))
     }
 
     // MARK: - Book Info
@@ -188,7 +188,7 @@ struct BookCoverCard: View {
                 .foregroundStyle(.secondary)
 
             if showsNarrator, isWideEnoughForNarrator, !book.narratorNames.isEmpty {
-                Text(String(format: String(localized: "library.card_read_by"), book.narratorNames))
+                Text(String(localized: .libraryCardReadBy(book.narratorNames)))
                     .font(.caption)
                     .lineLimit(1)
                     .truncationMode(.tail)

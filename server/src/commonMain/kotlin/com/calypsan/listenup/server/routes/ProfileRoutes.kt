@@ -1,14 +1,11 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.dto.image.ImageFraming
-import com.calypsan.listenup.api.dto.image.invalidImageFrame
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.io.MultipartFieldTooLargeException
-import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.readBytes
-import com.calypsan.listenup.server.io.receiveImageUploadParts
+import com.calypsan.listenup.server.media.AvatarWriteLock
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -32,6 +29,19 @@ private const val AVATAR_TYPE_IMAGE = "image"
 /** Maximum accepted avatar size. Shared with [com.calypsan.listenup.server.di.profileModule]. */
 const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
 
+/** What storing an uploaded avatar came to: the row now points at the new bytes, or the bytes were not an image. */
+private sealed interface AvatarStored {
+    /** Stored and written; [response] is the version the client records. */
+    data class Written(
+        val response: AvatarUploadResponse,
+    ) : AvatarStored
+
+    /** The bytes failed validation; nothing was written. Answer 422 with [message]. */
+    data class Invalid(
+        val message: String,
+    ) : AvatarStored
+}
+
 /**
  * Avatar upload (the JSON profile lives on ProfileService RPC):
  *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image,
@@ -41,10 +51,11 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
  * mounted under the DOM-fetch provider instead — an `<img src>` displays an avatar, nothing but the
  * app itself uploads one.
  */
-fun Route.profileRoutes(
+internal fun Route.profileRoutes(
     sql: ListenUpDatabase,
     imageStore: ImageStore,
     publicProfileMaintainer: PublicProfileMaintainer,
+    avatarWriteLock: AvatarWriteLock,
     clock: Clock = Clock.System,
 ) {
     post("/api/v1/profile/avatar") {
@@ -52,48 +63,52 @@ fun Route.profileRoutes(
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         val userId = principal.userId.value
 
-        val parts =
-            try {
-                receiveImageUploadParts(call, AVATAR_MAX_BYTES)
-            } catch (e: MultipartPartTooLargeException) {
-                return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
-            } catch (e: MultipartFieldTooLargeException) {
-                return@post respondAppError(call, invalidImageFrame(e.message))
+        val received =
+            when (val upload = receiveFramedImage(call, AVATAR_MAX_BYTES, "image")) {
+                is FramedUpload.Received -> upload
+                is ImageUploadOutcome.Rejected -> return@post call.respond(upload.status, upload.message)
+                is ImageUploadOutcome.InvalidFrame -> return@post respondAppError(call, upload.error)
             }
-        val data = parts.file ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
-        val frame =
-            when (val part = framePartOf(parts.frameField)) {
-                FramePart.Absent -> null
-                is FramePart.Valid -> part.frame
-                is FramePart.Invalid -> return@post respondAppError(call, part.error)
-            }
+        val data = received.bytes
+        val frame = received.frame
 
-        // ImageStore validates by magic number, not the declared content type — the octet-stream
-        // default only surfaces in its invalid-image error text, so no per-part content type is read.
-        try {
-            imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
-        } catch (e: ImageStore.InvalidImageException) {
-            return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
-        }
-        val now = clock.now().toEpochMilliseconds()
-        // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
-        val framing = frame?.let { ImageFraming(now.toString(), it) }
-        suspendTransaction(sql) {
-            sql.usersQueries.updateAvatarTypeAndFrame(
-                avatar_type = AVATAR_TYPE_IMAGE,
-                avatar_updated_at = now,
-                avatar_frame = framing?.toImageFrameColumn(),
-                updated_at = now,
-                id = userId,
-            )
-        }
+        // Held around the store and the row write together, so a concurrent revert-to-auto cannot delete these
+        // bytes before the row points at them.
+        val stored =
+            avatarWriteLock.withLock(userId) {
+                // ImageStore validates by magic number, not the declared content type — the octet-stream
+                // default only surfaces in its invalid-image error text, so no per-part content type is read.
+                try {
+                    imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
+                } catch (e: ImageStore.InvalidImageException) {
+                    return@withLock AvatarStored.Invalid(e.message ?: "invalid image")
+                }
+                val now = clock.now().toEpochMilliseconds()
+                // The new bytes' version is `now`, so a frame that came with them is stamped with it; none means none.
+                val framing = frame?.let { ImageFraming(now.toString(), it) }
+                suspendTransaction(sql) {
+                    sql.usersQueries.updateAvatarTypeAndFrame(
+                        avatar_type = AVATAR_TYPE_IMAGE,
+                        avatar_updated_at = now,
+                        avatar_frame = framing?.toImageFrameColumn(),
+                        updated_at = now,
+                        id = userId,
+                    )
+                }
+                AvatarStored.Written(AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing))
+            }
+        val response =
+            when (stored) {
+                is AvatarStored.Invalid -> return@post call.respond(HttpStatusCode.UnprocessableEntity, stored.message)
+                is AvatarStored.Written -> stored.response
+            }
         // Rebuild the public_profiles projection so the new avatar propagates through the sync
         // stream — both back to the uploader (its own UserAvatar reads the synced projection, not
         // the users row) and out to other clients. Mirrors ProfileServiceImpl.updateMyProfile.
         publicProfileMaintainer.refreshBestEffort(userId)
         // Return the server's avatar version so the client writes exact server truth into its
         // observed public_profiles row (no client-clock guess, no redundant re-download).
-        call.respond(AvatarUploadResponse(avatarUpdatedAt = now, avatarFrame = framing))
+        call.respond(response)
     }
 }
 

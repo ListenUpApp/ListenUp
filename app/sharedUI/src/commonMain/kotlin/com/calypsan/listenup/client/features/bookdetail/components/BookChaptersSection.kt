@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -40,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
@@ -59,11 +58,11 @@ import kotlin.time.Duration.Companion.milliseconds
 private val ChapterRowMinHeight = 56.dp
 
 /**
- * Chapters that play from the chapter they name (spec §2.5). Collapsed, [preview] (the 5-row window around the current
+ * Chapters that play from the chapter they name. Collapsed, [preview] (the 5-row window around the current
  * chapter, or the first five); "All N chapters" expands in place to [chapters], "Fewer chapters" collapses it. Every row is a button; the current row
  * sits on the primary container and says how far in it is. Rows are disabled with the primary when the book can't play.
  *
- * Not lazy, on purpose (plan Decision 13): the section is one item of the page, so the social line's scroll target has
+ * Not lazy, on purpose: the section is one item of the page, so the social line's scroll target has
  * a fixed index, and a long book composes its rows once, on "All".
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -202,7 +201,7 @@ internal fun ChapterRow(
             }
             Text(text = chapter.duration, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
             Icon(
-                imageVector = Icons.Filled.PlayArrow,
+                imageVector = ListenUpIcons.PlayArrowFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(18.dp),

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.navigation
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
 import com.calypsan.listenup.client.features.nowplaying.morph.rememberPlayerMorph
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -15,8 +16,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -27,6 +26,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -310,7 +310,7 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.ErrorOutline,
+                imageVector = ListenUpIcons.ErrorOutlineFilled,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.error,
@@ -576,6 +576,7 @@ internal suspend fun handleShortcutAction(
         }
 
         is ShortcutAction.Search -> {
+            playback.collapse()
             if (showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork())) onOpenSearch()
         }
 
@@ -585,6 +586,7 @@ internal suspend fun handleShortcutAction(
         is ShortcutAction.NavigateToUserProfile,
         -> {
             logger.info { "Navigating for shortcut: $action" }
+            playback.collapse()
             backStack.openFromOutside(Shell, action.screensAboveShell(), holdsUnsavedWork())
         }
 
@@ -698,7 +700,6 @@ private fun AuthenticatedNavigation(
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
     serverConfig: ServerConfig = koinInject(),
-    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
 
@@ -766,7 +767,7 @@ private fun AuthenticatedNavigation(
     }
 
     // Track profile refresh - incremented when profile is updated to trigger refresh
-    var profileRefreshKey by rememberSaveable { mutableStateOf(0) }
+    var profileRefreshKey by rememberSaveable { mutableIntStateOf(0) }
 
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
@@ -782,11 +783,11 @@ private fun AuthenticatedNavigation(
     val onSignOut: () -> Unit = { scope.launch { logoutUseCase() } }
 
     ShareLinkEffect(
-        deepLinkManager = deepLinkManager,
         serverConfig = serverConfig,
         backStack = backStack,
         snackbarHostState = snackbarHostState,
         holdsUnsavedWork = { unsavedWork.isHeld },
+        collapseNowPlaying = nowPlayingViewModel::collapse,
     )
 
     ShortcutActionEffect(
@@ -890,11 +891,12 @@ private fun AuthenticatedNavigation(
  */
 @Composable
 private fun ShareLinkEffect(
-    deepLinkManager: DeepLinkManager,
     serverConfig: ServerConfig,
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
     holdsUnsavedWork: () -> Boolean,
+    collapseNowPlaying: () -> Unit,
+    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
     val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
@@ -903,6 +905,7 @@ private fun ShareLinkEffect(
         val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
         when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
             is ShareResolution.OpenBook -> {
+                collapseNowPlaying()
                 backStack.openFromOutside(Shell, listOf(BookDetail(resolution.bookId.value)), holdsUnsavedWork())
             }
 
@@ -1159,10 +1162,11 @@ private fun BoxScope.AuthenticatedNavOverlays(
 ) {
     // A reader opened from Now Playing returns to it when it is left, as iOS's reader over Now Playing does.
     val top = backStack.lastOrNull()
-    var previousTop by remember { mutableStateOf(top) }
+    var previousStack by remember { mutableStateOf(backStack.toList()) }
     LaunchedEffect(top) {
-        if (reexpandsNowPlaying(leftTop = previousTop, stack = backStack)) nowPlayingViewModel.expand()
-        previousTop = top
+        val currentStack = backStack.toList()
+        if (reexpandsNowPlaying(previous = previousStack, current = currentStack)) nowPlayingViewModel.expand()
+        previousStack = currentStack
     }
 
     // Now Playing overlay - persistent across all navigation
@@ -1201,7 +1205,10 @@ private fun BoxScope.AuthenticatedNavOverlays(
         connectionHealthViewModel.events.collect { event ->
             when (event) {
                 ConnectionHealthViewModel.Event.NavigateToSignIn -> {
-                    if (backStack.lastOrNull() != Login) backStack.add(Login)
+                    if (backStack.lastOrNull() != Login) {
+                        nowPlayingViewModel.collapse()
+                        backStack.add(Login)
+                    }
                 }
             }
         }

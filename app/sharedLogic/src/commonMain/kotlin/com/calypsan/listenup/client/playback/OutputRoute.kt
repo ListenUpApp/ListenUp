@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.playback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** Where audio goes when it does not play on this device: the Cast device's name, or null (spec §4.7). */
+/** Where audio goes when it does not play on this device: the Cast device's name, or null. */
 interface OutputRoute {
     val deviceName: StateFlow<String?>
 }

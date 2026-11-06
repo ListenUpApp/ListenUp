@@ -6,14 +6,13 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.calypsan.listenup.web.logging.RecentLogBuffer
 import com.calypsan.listenup.web.logging.downloadRecentLogs
 import org.koin.core.Koin
 
 /**
- * An open Settings session: the state, the seven things web can actually change, and the teardown.
+ * An open Settings session: the state, the eight things web can actually change, and the teardown.
  *
  * [canCurateLibrary] offers Categories in the Library section, to those who may curate the library.
  *
@@ -23,11 +22,12 @@ import org.koin.core.Koin
  * [downloadLogs] saves the browser's recent log (see
  * [com.calypsan.listenup.web.logging.RecentLogBuffer]) — null when this page has none to offer.
  *
- * Seven of the twelve `SettingsViewModel` offers; Ignore articles is the Library Sort menu's. The
- * other four — dynamic colours, Wi-Fi-only downloads, haptics, the sleep-timer default — are omitted deliberately rather than disabled,
- * because a control that silently does nothing is worse than one that was never offered. Three a
- * browser cannot honour at all; the fourth no client honours yet. Each omission is named at its
- * section in [SettingsPage].
+ * Eight of the twelve `SettingsViewModel` offers; Ignore articles is the Library Sort menu's. The
+ * other three — dynamic colours, Wi-Fi-only downloads, haptics — are omitted deliberately rather than disabled,
+ * because a control that silently does nothing is worse than one that was never offered. A
+ * browser cannot honour any of the three. Each omission is named at its section in [SettingsPage].
+ *
+ * The default sleep timer joined once the sleep sheet started from it.
  *
  * Default boost joined the list once the browser could act on it — see
  * [com.calypsan.listenup.web.playback.WebGainStage]. It was omitted while web had no gain stage,
@@ -42,6 +42,7 @@ class SettingsSession(
     val onDefaultBoost: (Float) -> Unit,
     val onSkipForward: (Int) -> Unit,
     val onSkipBackward: (Int) -> Unit,
+    val onDefaultSleep: (Int?) -> Unit,
     val onAutoRewind: (Boolean) -> Unit,
     val onHideSingleBookSeries: (Boolean) -> Unit,
     override val close: () -> Unit,
@@ -65,39 +66,11 @@ fun graphSettings(koin: Koin): OpenSettings =
             onDefaultBoost = viewModel::setDefaultVolumeBoostDb,
             onSkipForward = viewModel::setDefaultSkipForwardSec,
             onSkipBackward = viewModel::setDefaultSkipBackwardSec,
+            onDefaultSleep = viewModel::setDefaultSleepTimerMin,
             onAutoRewind = viewModel::setAutoRewindEnabled,
             onHideSingleBookSeries = viewModel::setHideSingleBookSeries,
             close = store::clear,
             downloadLogs = koin.getOrNull<RecentLogBuffer>()?.let { buffer -> { downloadRecentLogs(buffer) } },
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSettings(
-    state: SettingsUiState = SettingsUiState(),
-    onThemeMode: (ThemeMode) -> Unit = {},
-    onDefaultSpeed: (Float) -> Unit = {},
-    onDefaultBoost: (Float) -> Unit = {},
-    onSkipForward: (Int) -> Unit = {},
-    onSkipBackward: (Int) -> Unit = {},
-    onAutoRewind: (Boolean) -> Unit = {},
-    onHideSingleBookSeries: (Boolean) -> Unit = {},
-    hardcoverRow: HardcoverRowState? = null,
-    canCurateLibrary: Boolean = false,
-): OpenSettings =
-    {
-        SettingsSession(
-            state = MutableStateFlow(state),
-            hardcoverRow = MutableStateFlow(hardcoverRow),
-            canCurateLibrary = MutableStateFlow(canCurateLibrary),
-            onThemeMode = onThemeMode,
-            onDefaultSpeed = onDefaultSpeed,
-            onDefaultBoost = onDefaultBoost,
-            onSkipForward = onSkipForward,
-            onSkipBackward = onSkipBackward,
-            onAutoRewind = onAutoRewind,
-            onHideSingleBookSeries = onHideSingleBookSeries,
-            close = {},
         )
     }
 

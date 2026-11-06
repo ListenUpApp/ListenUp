@@ -50,13 +50,13 @@ private val RailCardWidth = 156.dp
 /** The narrowest column a wide row gives a card before it drops to fewer columns. */
 private val RowCardMinWidth = 140.dp
 
-/** A wide row shows one line of at most this many cards (spec §2.5: Android tablet 6). */
+/** A wide row shows one line of at most this many cards (Android tablet 6). */
 private const val ROW_CARD_CAP = 6
 
 /**
  * "Everything in progress": every book in progress, the loaded one first (Simon, 2026-10-27; Home has no Resume hero).
  * Absent entirely when there are none (the caller drops the block). The header ends with In
- * Library, which opens the Library filtered to In progress (spec §6.4).
+ * Library, which opens the Library filtered to In progress.
  */
 @Composable
 internal fun EverythingInProgressSection(
@@ -131,8 +131,8 @@ private fun AdaptiveCardRow(
 }
 
 /**
- * A Home card: Library's card (C4) with Home's one label (§8.2). A `Loading` item is a same-size skeleton. Out of reach
- * ([connectivity]), a book that is not downloaded dims and reads "Needs a connection"; it stays tappable (§2.5).
+ * A Home card: Library's card with Home's one label. A `Loading` item is a same-size skeleton. Out of reach
+ * ([connectivity]), a book that is not downloaded dims and reads "Needs a connection"; it stays tappable.
  */
 @Composable
 internal fun HomeBookCard(
@@ -174,8 +174,8 @@ internal fun HomeBookCard(
 }
 
 /**
- * "Babel, by R. F. Kuang, 11 percent listened, 18h 40m left" (spec §2.5); wide windows add "Read by …". The time left
- * is Library's wording on every card, whatever its length (open question 6: no "Almost done"). A card that
+ * "Babel, by R. F. Kuang, 11 percent listened, 18h 40m left"; wide windows add "Read by …". The time left
+ * is Library's wording on every card, whatever its length (no "Almost done"). A card that
  * [needsConnection] ends "not downloaded, needs a connection" instead.
  */
 @Composable

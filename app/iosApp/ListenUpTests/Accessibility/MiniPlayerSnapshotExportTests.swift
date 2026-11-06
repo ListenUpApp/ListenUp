@@ -68,7 +68,8 @@ struct MiniPlayerSnapshotExportTests {
         let dir = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"]))
         let isPad = UIDevice.current.userInterfaceIdiom == .pad
         let model = MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(state(shot)), chapterRemainingMs: 511_000, chapterFraction: 0.59,
+            snapshot: PlayerSnapshot.from(state(shot)), chapterRemainingMs: 511_000,
+            sleepRemainingMs: PlayerSnapshot.sleepRemainingMs(of: state(shot)), chapterFraction: 0.59,
             isInline: false, isWide: isPad)
         let size = isPad ? CGSize(width: 1180, height: 820) : CGSize(width: 393, height: 852)
         let hosted = await HostedView(TabHarness(model: model), size: size)

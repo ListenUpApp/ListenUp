@@ -1,6 +1,6 @@
 import Foundation
 
-/// Discover's sentences that take numbers or dates, pure so they are tested off the view (spec §2.8).
+/// Discover's sentences that take numbers or dates, pure so they are tested off the view.
 /// Every string comes from the shared catalog, so iOS says what Android and web say.
 enum DiscoverCopy {
     /// "2 listening now · 3 more in the last two weeks"; nil when nobody is shown.
@@ -17,7 +17,7 @@ enum DiscoverCopy {
     static func seriesLine(series: String?, sequence: String?) -> String {
         guard let series, !series.isEmpty else { return String(localized: "discover.pick_standalone") }
         guard let sequence, !sequence.isEmpty else { return series }
-        return String(format: String(localized: "discover.pick_series_line"), sequence, series)
+        return String(localized: .discoverPickSeriesLine(sequence, series))
     }
 
     /// A book's length in the platform's own abbreviated units ("24 hr, 39 min").
@@ -36,18 +36,12 @@ enum DiscoverCopy {
 
     /// "Added 2 days ago", never phrased in the future.
     static func added(_ date: Date, relativeTo now: Date) -> String {
-        String(
-            format: String(localized: "discover.recently_added_when"),
-            relative.localizedString(for: min(date, now), relativeTo: now)
-        )
+        String(localized: .discoverRecentlyAddedWhen(relative.localizedString(for: min(date, now), relativeTo: now)))
     }
 
     /// "As of 2 hours ago": how old a roster is while the server cannot be reached; never in the future.
     static func asOf(_ date: Date, relativeTo now: Date) -> String {
-        String(
-            format: String(localized: "discover.listening_as_of"),
-            relative.localizedString(for: min(date, now), relativeTo: now)
-        )
+        String(localized: .discoverListeningAsOf(relative.localizedString(for: min(date, now), relativeTo: now)))
     }
 
     private static var abbreviated: RelativeDateTimeFormatter {
@@ -64,7 +58,7 @@ enum DiscoverCopy {
     /// A listener card's VoiceOver name: the book first, then who is on it and when.
     static func listenerLabel(book: String, name: String, isLive: Bool, when: String) -> String {
         isLive
-            ? String(format: String(localized: "discover.listener_live_a11y"), book, name)
-            : String(format: String(localized: "discover.listener_recent_a11y"), book, name, when)
+            ? String(localized: .discoverListenerLiveA11Y(book, name))
+            : String(localized: .discoverListenerRecentA11Y(book, name, when))
     }
 }

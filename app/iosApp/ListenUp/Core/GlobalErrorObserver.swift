@@ -42,8 +42,15 @@ final class GlobalErrorObserver {
             // whoever has to find out why. `debugInfo` carries the per-instance technical detail that
             // `message` deliberately does not.
             Log.error("AppError [\(error.code)] \(error.message)", detail: error.debugInfo)
+            guard Self.postsToSharedAlert(code: error.code) else { return }
             center?.post(Self.alertText(code: error.code, message: error.message, correlationId: error.correlationId))
         }
+    }
+
+    /// Whether the shared alert presents this error. A refused delete because another book shares the folder is
+    /// presented by Book Detail's own alert, which names that book; posting it here too would stack two alerts.
+    nonisolated static func postsToSharedAlert(code: String) -> Bool {
+        code != "BOOK_FOLDER_NOT_EXCLUSIVE"
     }
 
     /// What the alert says: the error's own words, except that a genuine server fault (`INTERNAL_ERROR` with a
@@ -53,6 +60,6 @@ final class GlobalErrorObserver {
         guard code == "INTERNAL_ERROR",
               let id = correlationId?.trimmingCharacters(in: .whitespaces), !id.isEmpty
         else { return message }
-        return String(format: String(localized: "error.server_reference"), String(id.prefix(8)))
+        return String(localized: .errorServerReference(String(id.prefix(8))))
     }
 }

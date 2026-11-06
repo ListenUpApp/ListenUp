@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.bulkedit
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,16 +13,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Mood
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.AssistChip
@@ -28,10 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +36,7 @@ import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.Genre
@@ -132,8 +127,7 @@ internal data class RelationChip(
  * @param label what this field collects, e.g. "Add genres".
  * @param placeholder what the search box says while it is empty, e.g. "Search genres" — a different
  *   sentence from [label], because a box repeating the heading above it tells the reader nothing.
- * @param query what has been typed into the picker.
- * @param onQueryChange the picker's text changed.
+ * @param query the picker's text; the caller owns it, reads edits, and clears it on a pick.
  * @param matches what the library offers for that text, already filtered by the caller.
  * @param matchLabel how one match reads in the dropdown.
  * @param matchSupporting a second line for a match, when there is something worth saying.
@@ -153,8 +147,7 @@ internal data class RelationChip(
 internal fun <T> BulkRelationField(
     label: String,
     placeholder: String,
-    query: String,
-    onQueryChange: (String) -> Unit,
+    query: TextFieldState,
     matches: List<T>,
     matchLabel: (T) -> String,
     matchSupporting: @Composable (T) -> String?,
@@ -167,7 +160,7 @@ internal fun <T> BulkRelationField(
     modifier: Modifier = Modifier,
     onCreate: ((String) -> Unit)? = null,
 ) {
-    val trimmed = query.trim()
+    val trimmed = query.text.toString().trim()
     val creatable =
         onCreate != null &&
             trimmed.length >= MIN_CREATE_QUERY_LENGTH &&
@@ -200,7 +193,7 @@ internal fun <T> BulkRelationField(
                         label = { Text(chip.label) },
                         trailingIcon = {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = stringResource(Res.string.bulk_edit_remove_from_edit, chip.label),
                                 modifier = Modifier.size(ChipIconSize),
                             )
@@ -212,8 +205,7 @@ internal fun <T> BulkRelationField(
             }
         }
         ListenUpAutocompleteField(
-            value = query,
-            onValueChange = onQueryChange,
+            state = query,
             results = matches,
             onResultSelected = onPick,
             // Enter does not create: there is nothing to create here, and a field that swallowed a
@@ -252,7 +244,7 @@ internal fun <T> BulkRelationField(
                 label = { Text(stringResource(Res.string.bulk_edit_add_trimmed, trimmed)) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Outlined.Add,
+                        imageVector = ListenUpIcons.Add,
                         contentDescription = null,
                         modifier = Modifier.size(ChipIconSize),
                     )
@@ -269,7 +261,7 @@ internal fun <T> BulkRelationField(
 internal fun untouchedRelationConsequence(): FieldConsequence =
     FieldConsequence(
         text = stringResource(Res.string.bulk_edit_relation_untouched),
-        icon = Icons.Outlined.LockOpen,
+        icon = ListenUpIcons.LockOpen,
         writes = false,
     )
 
@@ -321,8 +313,8 @@ internal fun BulkEditCredits(
     modifier: Modifier = Modifier,
 ) {
     val enabled = !state.isApplying
-    var seriesQuery by remember { mutableStateOf("") }
-    var contributorQuery by remember { mutableStateOf("") }
+    val seriesQuery = rememberForwardingTextFieldState("", onEdited = actions.onSeriesQueryChange)
+    val contributorQuery = rememberForwardingTextFieldState("", onEdited = actions.onContributorQueryChange)
     var role by remember { mutableStateOf(ContributorRole.AUTHOR) }
     val credited = state.contributorInput
 
@@ -331,19 +323,14 @@ internal fun BulkEditCredits(
             label = stringResource(Res.string.bulk_edit_series),
             placeholder = stringResource(Res.string.bulk_edit_search_series),
             query = seriesQuery,
-            onQueryChange = { query ->
-                seriesQuery = query
-                actions.onSeriesQueryChange(query)
-            },
             matches = offers.seriesMatches,
             matchLabel = { it.name },
             // Where it sits and how big it is: "in Cosmere › Mistborn · 8 books".
             matchSupporting = { seriesPlacementLine(it.parentPath, it.bookCount) },
-            matchIcon = Icons.AutoMirrored.Outlined.MenuBook,
+            matchIcon = ListenUpIcons.MenuBook,
             onPick = { match ->
                 actions.onSeriesChange(BookSeriesInput(id = SeriesId(match.id), name = match.name))
-                seriesQuery = ""
-                actions.onSeriesQueryChange("")
+                seriesQuery.clearText()
             },
             chosen = state.seriesInput?.let { listOf(RelationChip(key = it.name, label = it.name)) }.orEmpty(),
             onRemove = { actions.onSeriesChange(null) },
@@ -351,8 +338,7 @@ internal fun BulkEditCredits(
                 // No id: the server resolves-or-creates by name, exactly as the single-book editor's
                 // "Add" does. A series the library has never held is a normal thing to start.
                 actions.onSeriesChange(BookSeriesInput(name = name))
-                seriesQuery = ""
-                actions.onSeriesQueryChange("")
+                seriesQuery.clearText()
             },
             consequence =
                 state.armedConsequenceOf<BulkEdit.AddToSeries>() ?: untouchedRelationConsequence(),
@@ -364,14 +350,10 @@ internal fun BulkEditCredits(
                 label = stringResource(Res.string.bulk_edit_contributors),
                 placeholder = stringResource(Res.string.bulk_edit_search_contributors),
                 query = contributorQuery,
-                onQueryChange = { query ->
-                    contributorQuery = query
-                    actions.onContributorQueryChange(query)
-                },
                 matches = offers.contributorMatches,
                 matchLabel = { it.name },
                 matchSupporting = { null },
-                matchIcon = Icons.Outlined.Person,
+                matchIcon = ListenUpIcons.Person,
                 onPick = { match ->
                     // Position is a per-book ordinal the planner renumbers, so any value here is
                     // arbitrary; zero says "let the planner decide" without pretending otherwise.
@@ -384,8 +366,7 @@ internal fun BulkEditCredits(
                         )
                     val already = credited.any { it.name == match.name && it.role == role.apiValue }
                     if (!already) actions.onContributorsChange(credited + addition)
-                    contributorQuery = ""
-                    actions.onContributorQueryChange("")
+                    contributorQuery.clearText()
                 },
                 chosen =
                     credited.map { RelationChip(key = "${it.name}/${it.role}", label = "${it.name} · ${it.role}") },
@@ -400,8 +381,7 @@ internal fun BulkEditCredits(
                     if (credited.none { it.name.equals(name, ignoreCase = true) && it.role == role.apiValue }) {
                         actions.onContributorsChange(credited + addition)
                     }
-                    contributorQuery = ""
-                    actions.onContributorQueryChange("")
+                    contributorQuery.clearText()
                 },
             )
         }
@@ -422,9 +402,9 @@ internal fun BulkEditClassification(
     modifier: Modifier = Modifier,
 ) {
     val enabled = !state.isApplying
-    var genreQuery by remember { mutableStateOf("") }
-    var tagQuery by remember { mutableStateOf("") }
-    var moodQuery by remember { mutableStateOf("") }
+    val genreQuery = rememberTextFieldState()
+    val tagQuery = rememberTextFieldState()
+    val moodQuery = rememberTextFieldState()
 
     val chosenGenreIds = state.genreInput.map { it.genreId.value }.toSet()
 
@@ -433,14 +413,18 @@ internal fun BulkEditClassification(
             label = stringResource(Res.string.bulk_edit_genres),
             placeholder = stringResource(Res.string.bulk_edit_search_genres),
             query = genreQuery,
-            onQueryChange = { genreQuery = it },
-            matches = offers.genres.matching(genreQuery) { it.name }.filterNot { it.id in chosenGenreIds },
+            matches =
+                offers.genres
+                    .matching(
+                        genreQuery.text.toString(),
+                    ) { it.name }
+                    .filterNot { it.id in chosenGenreIds },
             matchLabel = { it.name },
             matchSupporting = { it.parentPath },
-            matchIcon = Icons.Outlined.Category,
+            matchIcon = ListenUpIcons.Category,
             onPick = { genre ->
                 actions.onGenresChange(state.genreInput + BookGenreInput(genreId = GenreId(genre.id)))
-                genreQuery = ""
+                genreQuery.clearText()
             },
             chosen =
                 state.genreInput.map { input ->
@@ -457,26 +441,24 @@ internal fun BulkEditClassification(
             label = stringResource(Res.string.bulk_edit_tags),
             placeholder = stringResource(Res.string.bulk_edit_search_tags),
             query = tagQuery,
-            onQueryChange = { tagQuery = it },
             offered = offers.tags.map { it.name },
             chosen = state.tagInput,
             onChange = actions.onTagsChange,
-            onQueryConsumed = { tagQuery = "" },
+            onQueryConsumed = tagQuery::clearText,
             consequence = state.armedConsequenceOf<BulkEdit.AddTags>() ?: untouchedRelationConsequence(),
-            matchIcon = Icons.AutoMirrored.Outlined.Label,
+            matchIcon = ListenUpIcons.Label,
             enabled = enabled,
         )
         NameRelationField(
             label = stringResource(Res.string.bulk_edit_moods),
             placeholder = stringResource(Res.string.bulk_edit_search_moods),
             query = moodQuery,
-            onQueryChange = { moodQuery = it },
             offered = offers.moods.map { it.name },
             chosen = state.moodInput,
             onChange = actions.onMoodsChange,
-            onQueryConsumed = { moodQuery = "" },
+            onQueryConsumed = moodQuery::clearText,
             consequence = state.armedConsequenceOf<BulkEdit.AddMoods>() ?: untouchedRelationConsequence(),
-            matchIcon = Icons.Outlined.Mood,
+            matchIcon = ListenUpIcons.Mood,
             enabled = enabled,
         )
     }
@@ -493,8 +475,7 @@ internal fun BulkEditClassification(
 private fun NameRelationField(
     label: String,
     placeholder: String,
-    query: String,
-    onQueryChange: (String) -> Unit,
+    query: TextFieldState,
     offered: List<String>,
     chosen: List<String>,
     onChange: (List<String>) -> Unit,
@@ -507,8 +488,7 @@ private fun NameRelationField(
         label = label,
         placeholder = placeholder,
         query = query,
-        onQueryChange = onQueryChange,
-        matches = offered.matching(query) { it }.filterNot { it in chosen },
+        matches = offered.matching(query.text.toString()) { it }.filterNot { it in chosen },
         matchLabel = { it },
         matchSupporting = { null },
         matchIcon = matchIcon,
@@ -540,7 +520,7 @@ private fun RolePicker(
     Box {
         TextButton(onClick = { expanded = true }, enabled = enabled) {
             Text("${stringResource(Res.string.bulk_edit_role)}: ${roleLabel(role)}")
-            Icon(imageVector = Icons.Outlined.ArrowDropDown, contentDescription = null)
+            Icon(imageVector = ListenUpIcons.ArrowDropDown, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             ContributorRole.entries.filter { it.isAssignable }.forEach { option ->

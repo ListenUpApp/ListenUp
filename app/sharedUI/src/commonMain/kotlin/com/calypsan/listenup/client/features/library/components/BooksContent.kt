@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.aspectRatio
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.presentation.library.LibraryStatusStrip
 import listenup.composeapp.generated.resources.library_arriving_placeholder_a11y
@@ -31,9 +32,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -143,7 +141,7 @@ internal fun SectionHeader(
  * @param sortState Current sort state (category + direction)
  * @param ignoreTitleArticles Whether to ignore articles (A, An, The) when sorting by title
  * @param bookLetters The shared letter sections over [books]; empty for a sort with no letters
- * @param bookStatus What each book's card says about where the reader is with it (spec §2.6)
+ * @param bookStatus What each book's card says about where the reader is with it
  * @param progressUnderTitle Compact grid: the progress mark sits under the title, not on the art
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
@@ -151,7 +149,7 @@ internal fun SectionHeader(
  * @param onDirectionToggle Called when the user toggles sort direction
  * @param onToggleIgnoreArticles Called when the "Ignore articles" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
- * @param bookMenu A book's menu, opened by a long press or right-click on its cover (spec §3.1.2); Select is one tap
+ * @param bookMenu A book's menu, opened by a long press or right-click on its cover; Select is one tap
  *   inside it. Null = no menu. While selecting there is none: a tap already toggles.
  * @param onRetry Callback when retry is clicked in error state
  * @param isFilteredEmpty The library has books but [statusFilter] matches none of them
@@ -632,7 +630,7 @@ private fun BooksEmptyState() {
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
+                imageVector = ListenUpIcons.LibraryBooksFilled,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -670,7 +668,7 @@ private fun BooksErrorState(
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.Default.ErrorOutline,
+                imageVector = ListenUpIcons.ErrorOutlineFilled,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.error,

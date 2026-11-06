@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_clear_search
@@ -27,12 +28,10 @@ import listenup.composeapp.generated.resources.common_clear_search
  * Uses [MaterialTheme.shapes.medium] for consistent corner radius.
  * Handles Enter key for search submission.
  *
- * Owns its caret locally (see [rememberOwnedTextFieldState]): [value] round-trips asynchronously
- * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
+ * The caller owns the [state]; the field owns the text and the caret, so nothing round-trips
+ * through a ViewModel while the person is typing.
  *
- * @param value Current search text
- * @param onValueChange Callback when text changes. Callers must echo the propagated string back
- *   through [value] verbatim or not at all — never transformed (see [OwnedTextFieldState])
+ * @param state The search text and selection; read edits with [ForwardEdits]
  * @param onSubmit Callback when Enter key is pressed
  * @param placeholder Hint text shown when empty
  * @param label What the field searches ("Search Hardcover"), when the screen doesn't already say. Unlike
@@ -41,35 +40,30 @@ import listenup.composeapp.generated.resources.common_clear_search
  * @param modifier Optional modifier
  * @param enabled Whether the field is enabled for input
  * @param isLoading Whether to show loading indicator instead of clear button
- * @param onClear Callback when clear button is clicked (if null, no clear button shown)
+ * @param clearable Whether a clear button is offered while the field holds text; it empties [state]
  */
 @Composable
 fun ListenUpSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     onSubmit: () -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
-    onClear: (() -> Unit)? = null,
+    clearable: Boolean = false,
     label: String? = null,
 ) {
     val haptics = LocalHaptics.current
-    val ownedText = rememberOwnedTextFieldState(value)
     OutlinedTextField(
-        value = ownedText.fieldValue,
-        onValueChange = { newValue ->
-            if (ownedText.edit(newValue)) onValueChange(newValue.text)
-        },
+        state = state,
         placeholder = { Text(placeholder) },
         label = label?.let { { Text(it) } },
         enabled = enabled,
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
         shape = MaterialTheme.shapes.medium,
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Search,
+                imageVector = ListenUpIcons.SearchFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -80,17 +74,15 @@ fun ListenUpSearchField(
                     ListenUpLoadingIndicator(size = 20.dp)
                 }
 
-                // Gate on the local text — it is what the field renders, so the clear affordance
-                // never disagrees with what the user sees while an echo is in flight.
-                ownedText.fieldValue.text.isNotEmpty() && onClear != null -> {
+                state.text.isNotEmpty() && clearable -> {
                     IconButton(
                         onClick = {
                             haptics.press()
-                            onClear()
+                            state.clearText()
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Clear,
+                            imageVector = ListenUpIcons.ClearFilled,
                             contentDescription = stringResource(Res.string.common_clear_search),
                         )
                     }
@@ -98,7 +90,7 @@ fun ListenUpSearchField(
             }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+        onKeyboardAction = KeyboardActionHandler { onSubmit() },
         modifier = modifier.fillMaxWidth(),
     )
 }

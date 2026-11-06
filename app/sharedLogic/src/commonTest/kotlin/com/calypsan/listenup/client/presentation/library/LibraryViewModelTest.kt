@@ -31,7 +31,11 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
+import app.cash.turbine.test
 import app.cash.turbine.turbineScope
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.client.presentation.sync.ManualSyncRefresh
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -178,6 +182,8 @@ class LibraryViewModelTest :
             val syncStatusRepository: SyncStatusRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val bookRatingRepository: BookRatingRepository = mock()
+            val errorBus = ErrorBus()
+            val manualSyncRefresh = ManualSyncRefresh(syncRepository, errorBus)
 
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
 
@@ -192,6 +198,7 @@ class LibraryViewModelTest :
                     libraryPreferences = libraryPreferences,
                     syncStatusRepository = syncStatusRepository,
                     bookRatingRepository = bookRatingRepository,
+                    manualSyncRefresh = manualSyncRefresh,
                     backgroundDispatcher = testDispatcher,
                 )
         }
@@ -1263,7 +1270,7 @@ class LibraryViewModelTest :
                 // The scan flag is one of the upstreams with no per-source fallback, so a throw here
                 // reaches the pipeline-level catch. Fails on its first collection, healthy after.
                 every { fixture.syncRepository.serverScanning } returns FailsOnFirstCollect(false)
-                everySuspend { fixture.bookRepository.refreshBooks() } returns AppResult.Success(Unit)
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.uiState.collect { } }
                 advanceUntilIdle()
@@ -1273,7 +1280,26 @@ class LibraryViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
-                verifySuspend { fixture.bookRepository.refreshBooks() }
+                verifySuspend { fixture.syncRepository.sync() }
+            }
+        }
+
+        test("pull-to-refresh runs the same sync as the indicator, and a failure reaches the error bus") {
+            runTest {
+                val fixture = createFixture()
+                val failure = TransportError.NetworkUnavailable(debugInfo = "socket closed")
+                everySuspend { fixture.syncRepository.sync() } returns AppResult.Failure(failure)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.onEvent(LibraryUiEvent.RefreshRequested)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe failure
+                    cancelAndIgnoreRemainingEvents()
+                }
+                fixture.manualSyncRefresh.state.value.failed shouldBe true
             }
         }
 

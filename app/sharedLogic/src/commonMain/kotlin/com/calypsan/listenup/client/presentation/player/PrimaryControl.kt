@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** The one main button, decided once in shared code so every platform agrees (§4.6). */
+/** The one main button, decided once in shared code so every platform agrees. */
 sealed interface PrimaryControl {
     /** Audio is advancing. */
     data object Pause : PrimaryControl

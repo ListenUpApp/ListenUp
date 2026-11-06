@@ -28,9 +28,9 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The card that takes the transport's place on Now Playing (P32, §5.6's web column): a problem with the ways out the
+ * The card that takes the transport's place on Now Playing: a problem with the ways out the
  * shared [com.calypsan.listenup.client.presentation.player.PlayerCards] decided, the finished book, or the sleep
- * timer's fade. A problem is `role=alert`, so its arrival is announced; the fade is a polite `role=status`. The finished card reuses Home's finished words and rating (C22).
+ * timer's fade. A problem is `role=alert`, so its arrival is announced; the fade is a polite `role=status`. The finished card reuses Home's finished words and rating.
  */
 @Composable
 internal fun PlayerStateCard(
@@ -49,7 +49,7 @@ internal fun PlayerStateCard(
 }
 
 /**
- * The sleep timer's fade (§5.6 "Sleep fading", `States-WebPhone`): the sleep gold with the moon, "Fading out…", what
+ * The sleep timer's fade: the sleep gold with the moon, "Fading out…", what
  * is happening, and one button, Keep listening. `role=status`, polite: nothing failed.
  */
 @Composable

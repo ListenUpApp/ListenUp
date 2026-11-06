@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// The iPad main column's rows (spec §3.2.4): the stage order, one section a row — except that while in progress on a
+/// The iPad main column's rows: the stage order, one section a row — except that while in progress on a
 /// main column of 720 pt or more, Ratings sits beside Chapters, as the iPad board draws it.
 enum BookDetailIPadRows {
     static let pairingMinWidth: CGFloat = 720

@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -47,33 +46,6 @@ fun graphAdminInbox(koin: Koin): OpenAdminInbox =
             onClearReleaseResult = viewModel::clearReleaseResult,
             onRetry = viewModel::loadInboxBooks,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedAdminInbox(
-    state: AdminInboxUiState = AdminInboxUiState.Loading,
-    onToggleBook: (String) -> Unit = {},
-    onSelectAll: () -> Unit = {},
-    onClearSelection: () -> Unit = {},
-    onRelease: () -> Unit = {},
-    onDismissIssue: (String) -> Unit = {},
-    onClearError: () -> Unit = {},
-    onClearReleaseResult: () -> Unit = {},
-    onRetry: () -> Unit = {},
-): OpenAdminInbox =
-    {
-        AdminInboxSession(
-            state = MutableStateFlow(state),
-            onToggleBook = onToggleBook,
-            onSelectAll = onSelectAll,
-            onClearSelection = onClearSelection,
-            onRelease = onRelease,
-            onDismissIssue = onDismissIssue,
-            onClearError = onClearError,
-            onClearReleaseResult = onClearReleaseResult,
-            onRetry = onRetry,
-            close = {},
         )
     }
 

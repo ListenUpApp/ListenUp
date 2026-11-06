@@ -30,6 +30,12 @@ internal class FakeBookRepository(
 ) : BookRepository {
     override fun observeBookDetail(id: String): Flow<BookDetail?> = flowOf(details[id])
 
+    override fun observeBookExists(id: String): Flow<Boolean> = flowOf(id in details)
+
+    override fun observeBookDurationMs(id: String): Flow<Long?> = flowOf(details[id]?.duration)
+
+    override fun observeFirstSeriesId(id: String): Flow<String?> = flowOf(details[id]?.series?.firstOrNull()?.seriesId)
+
     override suspend fun getBookDetail(id: String): BookDetail? = details[id]
 
     override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)

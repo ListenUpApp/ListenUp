@@ -10,6 +10,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.components.rememberPullRefreshGate
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
@@ -74,6 +77,7 @@ fun DiscoverScreen(
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
     val selectionState = rememberBookSelectionScaffoldState()
+    val pullGate = rememberPullRefreshGate()
 
     // Handle back press to exit selection mode.
     PlatformBackHandler(enabled = isInSelectionMode) {
@@ -87,13 +91,18 @@ fun DiscoverScreen(
                 .background(MaterialTheme.colorScheme.surface),
     ) {
         PullToRefreshBox(
-            isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
+            isRefreshing = pullGate.isPulling || shelvesState is DiscoverShelvesUiState.Loading,
             onRefresh = {
                 haptics.thresholdActivate()
-                // One pull reaches every section: each ViewModel restarts only what failed.
-                viewModel.refresh()
-                leaderboardViewModel.refresh()
-                activityFeedViewModel.refresh()
+                // One pull reaches every section: each ViewModel restarts only what failed, and the spinner
+                // stays up until the shelves fetch and the activity reconcile have finished.
+                pullGate.pull {
+                    leaderboardViewModel.refresh()
+                    coroutineScope {
+                        launch { viewModel.refreshNow() }
+                        launch { activityFeedViewModel.refreshNow() }
+                    }
+                }
             },
             modifier = Modifier.fillMaxSize(),
         ) {

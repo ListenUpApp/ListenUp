@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.library
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
@@ -19,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Folder
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,11 +32,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Collection
 import org.jetbrains.compose.resources.stringResource
@@ -238,7 +237,7 @@ private fun CollectionPickerEmptyState(showCreateHint: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
-            imageVector = Icons.Default.Folder,
+            imageVector = ListenUpIcons.FolderFilled,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -290,7 +289,7 @@ private fun CreateNewCollectionRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
+                    imageVector = ListenUpIcons.AddFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp),
@@ -336,7 +335,7 @@ private fun CollectionRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Default.Folder,
+                imageVector = ListenUpIcons.FolderFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
@@ -380,8 +379,8 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String) -> Unit,
 ) {
-    var collectionName by rememberSaveable { mutableStateOf("") }
-    val isValid = collectionName.isNotBlank()
+    val collectionName = rememberTextFieldState()
+    val isValid = collectionName.text.isNotBlank()
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -394,14 +393,13 @@ private fun CreateCollectionDialog(
         onDismissRequest = onDismiss,
         title = stringResource(Res.string.library_create_new_collection),
         confirmText = stringResource(Res.string.library_create_add),
-        onConfirm = { onCreate(collectionName.trim()) },
+        onConfirm = { onCreate(collectionName.text.toString().trim()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
         confirmEnabled = isValid,
     ) {
         ListenUpTextField(
-            value = collectionName,
-            onValueChange = { collectionName = it },
+            state = collectionName,
             label = stringResource(Res.string.library_collection_name),
             placeholder = stringResource(Res.string.common_collection_name_hint),
             modifier = Modifier.focusRequester(focusRequester),

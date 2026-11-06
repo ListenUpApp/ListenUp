@@ -101,6 +101,7 @@ class SleepTimerPickerTest :
             onExtend: (Int) -> Unit = {},
             onKeepListening: () -> Unit = {},
             onDismiss: () -> Unit = {},
+            defaultMinutes: Int? = null,
         ): HTMLElement =
             mounts.mount {
                 WebAppSurface {
@@ -112,6 +113,7 @@ class SleepTimerPickerTest :
                         countdownMs = countdownMs,
                         meterFraction = meterFraction,
                         nowMs = 1_761_000_000_000,
+                        defaultMinutes = defaultMinutes,
                         placement = PanelPlacement.Sheet,
                         onSet = onSet,
                         onCancel = onCancel,
@@ -163,6 +165,27 @@ class SleepTimerPickerTest :
             val host = picker(chapter = WHOLE_BOOK)
 
             host.querySelectorAll(".sleep-eoc").length shouldBe 0
+
+            host.closeDialogs()
+        }
+
+        test("with a default of 45 the custom field opens at 45 and the 45 min option says Your default") {
+            val host = picker(defaultMinutes = A_LONGER_OPTION_MIN)
+
+            (host.querySelector("input[type=number]") as HTMLInputElement).value shouldBe A_LONGER_OPTION_MIN.toString()
+            val marked = host.querySelectorAll(".sleep-opt-default").asList().map { it as HTMLElement }
+            marked.size shouldBe 1
+            marked.single().textContent shouldBe "Your default"
+            (marked.single().parentElement as HTMLElement).textContent.orEmpty() shouldContain "$A_LONGER_OPTION_MIN min"
+
+            host.closeDialogs()
+        }
+
+        test("with no default the custom field opens at 20 and no option says Your default") {
+            val host = picker(defaultMinutes = null)
+
+            (host.querySelector("input[type=number]") as HTMLInputElement).value shouldBe "20"
+            host.querySelectorAll(".sleep-opt-default").length shouldBe 0
 
             host.closeDialogs()
         }

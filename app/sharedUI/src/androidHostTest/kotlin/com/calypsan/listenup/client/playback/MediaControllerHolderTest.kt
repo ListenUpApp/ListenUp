@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.session.MediaController
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.google.common.util.concurrent.SettableFuture
@@ -28,6 +29,26 @@ class MediaControllerHolderTest :
         // ---------------------------------------------------------------------------
         // Tests
         // ---------------------------------------------------------------------------
+
+        test("the service's idle-released command clears the engine's book once") {
+            val writer = FakePlaybackStateWriter()
+            val holder = MediaControllerHolder(context = stubContext, playbackManager = writer)
+
+            holder.onServiceCustomCommand(COMMAND_IDLE_RELEASED) shouldBe true
+
+            writer.clearPlaybackCalls shouldBe 1
+        }
+
+        test("a plain STATE_IDLE and an unknown command never clear the engine's book") {
+            val writer = FakePlaybackStateWriter()
+            val holder = MediaControllerHolder(context = stubContext, playbackManager = writer)
+
+            holder.playerListener.onPlaybackStateChanged(Player.STATE_IDLE)
+            holder.onServiceCustomCommand("com.calypsan.listenup.SOMETHING_ELSE") shouldBe false
+
+            writer.clearPlaybackCalls shouldBe 0
+            writer.playbackStateHistory shouldBe listOf<PlaybackState>(PlaybackState.Idle)
+        }
 
         test("onIsPlayingChanged forwards to playbackManager setPlaying") {
             runTest {
@@ -253,6 +274,33 @@ class MediaControllerHolderTest :
                 connectAttempts shouldBe 1
             }
         }
+
+        test("a failed connection is retried by the next awaitController") {
+            runTest {
+                val writer = FakePlaybackStateWriter()
+                var connectAttempts = 0
+                val holder =
+                    MediaControllerHolder(
+                        context = stubContext,
+                        playbackManager = writer,
+                        connectionFactory = {
+                            connectAttempts++
+                            SettableFuture.create<MediaController>().also { future ->
+                                if (connectAttempts == 1) future.setException(IllegalStateException("service not ready"))
+                            }
+                        },
+                    )
+
+                holder.acquire()
+                connectAttempts shouldBe 1
+
+                // The second attempt never completes either, so this times out in virtual time;
+                // what matters is that it was made at all rather than latched behind the failure.
+                holder.awaitController() shouldBe null
+
+                connectAttempts shouldBe 2
+            }
+        }
     })
 
 // ---------------------------------------------------------------------------
@@ -268,6 +316,12 @@ private class FakePlaybackStateWriter : PlaybackStateWriter {
     val positionHistory = mutableListOf<Long>()
 
     val errorHistory = mutableListOf<AppError>()
+
+    var clearPlaybackCalls = 0
+
+    override fun clearPlayback() {
+        clearPlaybackCalls++
+    }
 
     override fun setPlaying(playing: Boolean) {
         playingHistory += playing

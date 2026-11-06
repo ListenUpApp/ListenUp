@@ -28,10 +28,10 @@ struct BookDetailCell: Equatable {
     let link: BookDetailRowLink?
 
     /// A link row's words, label first as the spec writes them: "All Credits (6)".
-    var linkTitle: String { String(format: String(localized: "book.detail_link_row"), label, value) }
+    var linkTitle: String { String(localized: .bookDetailLinkRow(label, value)) }
 }
 
-/// One Details row (spec §3.2.1 D31). Native projection of the shared `BookDetailRow`; values only, so the words and
+/// One Details row. Native projection of the shared `BookDetailRow`; values only, so the words and
 /// units are this platform's.
 enum BookDetailRowValue: Equatable {
     case publisher(String)
@@ -77,11 +77,7 @@ enum BookDetailRowValue: Equatable {
         case .genre(let name, let abridged):
             BookDetailCell(
                 label: String(localized: "book.detail_genre"),
-                value: String(
-                    format: String(localized: "book.detail_genre_line"),
-                    name,
-                    abridged ? String(localized: "book.detail_abridged") : String(localized: "book.detail_unabridged")
-                ),
+                value: String(localized: .bookDetailGenreLine(name, abridged ? String(localized: "book.detail_abridged") : String(localized: "book.detail_unabridged"))),
                 link: nil
             )
         case .language(let name):

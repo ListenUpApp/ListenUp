@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.chapter_editor_empty_add_first
 import listenup.composeapp.generated.resources.chapter_editor_empty_body
@@ -77,7 +73,7 @@ fun ChapterEditorEmptyState(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.FormatListNumbered,
+                    imageVector = ListenUpIcons.FormatListNumbered,
                     contentDescription = null,
                     tint = colors.onSurfaceVariant,
                     modifier = Modifier.size(48.dp),
@@ -103,13 +99,13 @@ fun ChapterEditorEmptyState(
             ListenUpButton(
                 onClick = onAddFirst,
                 text = stringResource(Res.string.chapter_editor_empty_add_first),
-                leadingIcon = Icons.Outlined.Add,
+                leadingIcon = ListenUpIcons.Add,
                 modifier = Modifier.fillMaxWidth(),
             )
             ListenUpButton(
                 onClick = onLookUp,
                 text = stringResource(Res.string.chapter_editor_empty_lookup),
-                leadingIcon = Icons.Outlined.CloudDownload,
+                leadingIcon = ListenUpIcons.CloudDownload,
                 filled = false,
                 enabled = canLookUp,
                 modifier = Modifier.fillMaxWidth(),
@@ -127,7 +123,7 @@ fun ChapterEditorEmptyState(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.GraphicEq,
+                    imageVector = ListenUpIcons.GraphicEq,
                     contentDescription = null,
                     tint = colors.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),

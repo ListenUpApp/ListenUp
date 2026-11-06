@@ -2,7 +2,8 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.PlaybackManager
-import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.playback.PlayerSessionRig
+import kotlinx.coroutines.test.TestScope
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
@@ -98,7 +99,7 @@ class ChapterEditorDriftTest :
                     mock<PlaybackManager>(MockMode.autoUnit) {
                         every { currentTimeline } returns MutableStateFlow<PlaybackTimeline?>(null)
                     },
-                playbackController = FakePlaybackController(),
+                playerSession = PlayerSessionRig(TestScope()).session,
             ) to saved
         }
 

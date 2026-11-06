@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.io
 
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.contentType
+import io.ktor.server.request.receiveChannel
 import kotlinx.io.files.Path
 
 /**
@@ -27,13 +29,20 @@ internal expect suspend fun streamFirstFilePartTo(
  * [com.calypsan.listenup.api.dto.image.IMAGE_UPLOAD_FRAME_PART] form field, capped at [FRAME_FIELD_MAX_BYTES]. Every
  * other part is released. For small uploads (photos, avatars) that must be buffered for magic-number validation.
  *
- * Platform note: the JVM runtime delegates to Ktor's `receiveMultipart`; Kotlin/Native's Ktor CIO server cannot parse
- * multipart through that transform (KTOR-7361), so the native actual decodes the raw body with [readImageUploadParts].
+ * Reads the raw body channel and decodes it with [readImageUploadParts] on every runtime, so both caps fire while
+ * the body is read: an oversize field is never buffered first. (Ktor's `receiveMultipart` is unavailable on
+ * Kotlin/Native, KTOR-7361, and its `formFieldLimit` would apply to file parts too.)
  *
+ * @throws MalformedMultipartException if the request has no multipart boundary or the body is truncated.
  * @throws MultipartPartTooLargeException if the file part exceeds [fileLimit].
  * @throws MultipartFieldTooLargeException if the frame field exceeds its cap.
  */
-internal expect suspend fun receiveImageUploadParts(
+internal suspend fun receiveImageUploadParts(
     call: ApplicationCall,
     fileLimit: Long,
-): ImageUploadParts
+): ImageUploadParts {
+    val boundary =
+        call.request.contentType().parameter("boundary")
+            ?: throw MalformedMultipartException("multipart/form-data request is missing a boundary parameter.")
+    return readImageUploadParts(call.receiveChannel(), boundary, fileLimit)
+}

@@ -15,7 +15,7 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
@@ -191,7 +191,10 @@ internal fun lookupRig(
             seriesRepository = series,
             imageDeps =
                 MetadataImageDeps(
-                    imageStorage = ImageStorage(HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) })),
+                    remoteImageFetcher =
+                        RemoteImageFetcher(
+                            HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }),
+                        ),
                     coverImageStore =
                         CoverImageStore(
                             ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES),

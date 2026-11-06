@@ -289,9 +289,9 @@ class PlayerSessionTransportTest :
                     playing(rig)
                     rig.engine.speed.value = 2.95f
                     runCurrent()
-                    rig.session.stepSpeed(up = true)
+                    rig.session.stepSpeed(SpeedStep.Faster)
                     runCurrent()
-                    rig.session.stepSpeed(up = true)
+                    rig.session.stepSpeed(SpeedStep.Faster)
                     rig.engine.speed.value shouldBe 3.0f
                     rig.preferences.defaultSpeed.value = 1.25f
                     rig.session.resetSpeed()

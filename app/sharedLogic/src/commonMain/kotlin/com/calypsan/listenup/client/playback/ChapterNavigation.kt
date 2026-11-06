@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.client.domain.model.Chapter
 
 /**
- * Where "previous chapter" and "next chapter" land (spec §3.3, S8): the one rule for the app, the notification and
+ * Where "previous chapter" and "next chapter" land: the one rule for the app, the notification and
  * lock screen, headsets, Android Auto, CarPlay, AirPods, keyboard media keys and the browser's Media Session.
  * Positions are book-relative milliseconds. Pure. An object, so Swift Export exposes it as `ChapterNavigation.shared`.
  */
@@ -51,5 +51,5 @@ object ChapterNavigation {
     private fun currentIndex(
         positionMs: Long,
         chapters: List<Chapter>,
-    ): Int = chapters.indexOfLast { it.startTime <= positionMs }.coerceAtLeast(0)
+    ): Int = chapterWindowAt(positionMs, chapters, totalDurationMs = null).index.coerceAtLeast(0)
 }

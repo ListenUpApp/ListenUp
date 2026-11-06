@@ -9,7 +9,7 @@ import listenup.composeapp.generated.resources.player_np_status_server_unreachab
 import listenup.composeapp.generated.resources.player_np_status_streaming_transcoded
 import org.jetbrains.compose.resources.stringResource
 
-/** The status slot's words for this news (§3.1); a source with no news has no status to word. */
+/** The status slot's words for this news; a source with no news has no status to word. */
 @Composable
 internal fun SourceStatus.statusText(): String =
     when (this) {

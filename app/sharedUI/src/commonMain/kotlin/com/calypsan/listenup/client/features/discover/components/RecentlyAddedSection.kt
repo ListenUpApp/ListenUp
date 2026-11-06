@@ -43,10 +43,10 @@ private val RECENT_MIN_CELL = 120.dp
  * "Recently added", Discover's last section: the newest books on the server, each saying when it was
  * added ("Added 2 days ago"), and an "In Library" link that opens the Library sorted newest first.
  *
- * Every state keeps the heading (spec §3.8): a skeleton while loading, a line and Try again on failure, and a
+ * Every state keeps the heading: a skeleton while loading, a line and Try again on failure, and a
  * plain line when nothing was added recently.
  *
- * @param wide A wide window: every book in a wrapping grid (plan Q2). Otherwise a horizontal rail.
+ * @param wide A wide window: every book in a wrapping grid. Otherwise a horizontal rail.
  */
 @Composable
 internal fun RecentlyAddedSection(

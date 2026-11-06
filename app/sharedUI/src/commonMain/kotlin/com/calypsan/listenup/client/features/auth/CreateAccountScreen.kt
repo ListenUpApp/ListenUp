@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.auth
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -7,15 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AdminPanelSettings
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -23,11 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +30,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -67,6 +60,8 @@ import listenup.composeapp.generated.resources.auth_request_account
 import listenup.composeapp.generated.resources.auth_server_administrator
 import listenup.composeapp.generated.resources.auth_set_up_your_listenup_server
 import listenup.composeapp.generated.resources.auth_sign_in
+import listenup.composeapp.generated.resources.auth_password_label
+import listenup.composeapp.generated.resources.common_email
 
 /**
  * The two faces of "create an account" share one form — name, email, password, confirm — and differ
@@ -191,7 +186,7 @@ private fun CreateAccountScreen(
     val badge =
         if (mode == CreateAccountMode.Setup) {
             AuthBadge(
-                icon = Icons.Outlined.AdminPanelSettings,
+                icon = ListenUpIcons.AdminPanelSettings,
                 label = stringResource(Res.string.auth_server_administrator),
             )
         } else {
@@ -236,21 +231,32 @@ internal fun CreateAccountFields(
     requirePasswordMatch: Boolean,
     onSubmit: (firstName: String, lastName: String, email: String, password: String, confirm: String) -> Unit,
 ) {
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf("") }
+    val firstName = rememberTextFieldState()
+    val lastName = rememberTextFieldState()
+    val email = rememberTextFieldState()
+    // Never saved: a secret must not reach the saved-instance Bundle.
+    val password = remember { TextFieldState() }
+    val confirm = remember { TextFieldState() }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
-    val confirmMismatch = confirm.isNotEmpty() && password != confirm
-    val canSubmit = !isLoading && (!requirePasswordMatch || (password.isNotEmpty() && password == confirm))
+    val passwordText = password.text.toString()
+    val confirmText = confirm.text.toString()
+    val confirmMismatch = confirmText.isNotEmpty() && passwordText != confirmText
+    val canSubmit = !isLoading && (!requirePasswordMatch || (passwordText.isNotEmpty() && passwordText == confirmText))
 
     fun submit() {
         focusManager.clearFocus()
-        if (canSubmit) onSubmit(firstName, lastName, email, password, confirm)
+        if (canSubmit) {
+            onSubmit(
+                firstName.text.toString(),
+                lastName.text.toString(),
+                email.text.toString(),
+                passwordText,
+                confirmText,
+            )
+        }
     }
 
     Row(
@@ -258,8 +264,7 @@ internal fun CreateAccountFields(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ListenUpTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
+            state = firstName,
             label = stringResource(Res.string.auth_first_name),
             enabled = !isLoading,
             isError = validationField == SetupField.FIRST_NAME,
@@ -268,12 +273,11 @@ internal fun CreateAccountFields(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next,
                 ),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Next) },
             modifier = Modifier.weight(1f),
         )
         ListenUpTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
+            state = lastName,
             label = stringResource(Res.string.auth_last_name),
             enabled = !isLoading,
             isError = validationField == SetupField.LAST_NAME,
@@ -282,57 +286,54 @@ internal fun CreateAccountFields(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next,
                 ),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }),
+            onKeyboardAction = { focusManager.moveFocus(FocusDirection.Next) },
             modifier = Modifier.weight(1f),
         )
     }
 
     ListenUpTextField(
-        value = email,
-        onValueChange = { email = it },
-        label = "Email",
+        state = email,
+        label = stringResource(Res.string.common_email),
         enabled = !isLoading,
         isError = validationField == SetupField.EMAIL,
-        leadingIcon = Icons.Outlined.MailOutline,
+        leadingIcon = ListenUpIcons.MailOutline,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+        onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
     )
 
     ListenUpTextField(
-        value = password,
-        onValueChange = { password = it },
-        label = "Password",
+        state = password,
+        label = stringResource(Res.string.auth_password_label),
         enabled = !isLoading,
         isError = validationField == SetupField.PASSWORD,
-        leadingIcon = Icons.Outlined.Lock,
-        trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+        leadingIcon = ListenUpIcons.Lock,
+        trailingIcon = if (passwordVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
         onTrailingClick = { passwordVisible = !passwordVisible },
         trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
-        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+        onKeyboardAction = { focusManager.moveFocus(FocusDirection.Down) },
     )
 
     ListenUpTextField(
-        value = confirm,
-        onValueChange = { confirm = it },
+        state = confirm,
         label = stringResource(Res.string.auth_confirm_password),
         enabled = !isLoading,
         isError = validationField == SetupField.PASSWORD_CONFIRM || confirmMismatch,
         supportingText = if (confirmMismatch) stringResource(Res.string.auth_passwords_dont_match) else null,
-        leadingIcon = Icons.Outlined.Lock,
-        trailingIcon = if (confirmVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+        leadingIcon = ListenUpIcons.Lock,
+        trailingIcon = if (confirmVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
         onTrailingClick = { confirmVisible = !confirmVisible },
         trailingIconContentDescription = passwordVisibilityDescription(confirmVisible),
-        visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        obfuscation = if (confirmVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { submit() }),
+        onKeyboardAction = { submit() },
     )
 
     ListenUpButton(
         onClick = { submit() },
         text = submitLabel,
-        leadingIcon = Icons.Outlined.PersonAdd,
+        leadingIcon = ListenUpIcons.PersonAdd,
         enabled = canSubmit,
         isLoading = isLoading,
     )

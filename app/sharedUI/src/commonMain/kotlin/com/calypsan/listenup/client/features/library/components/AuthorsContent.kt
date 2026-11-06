@@ -23,9 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.calypsan.listenup.client.design.components.BookCoverImage
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetRailWidth
@@ -106,7 +104,7 @@ fun AuthorsContent(
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
-                // The same sort control as Books and Series, at the top of the list (spec §5.1 c5).
+                // The same sort control as Books and Series, at the top of the list.
                 LibrarySortCard(
                     state = sortState,
                     categories = SortCategory.contributorCategories,
@@ -165,7 +163,7 @@ fun AuthorsContent(
 }
 
 /**
- * An Authors or Narrators list's rows: a header before each letter on a name sort (spec L25), from
+ * An Authors or Narrators list's rows: a header before each letter on a name sort, from
  * the shared sections, and a card per person.
  */
 internal fun LazyListScope.contributorRows(
@@ -201,7 +199,7 @@ internal fun LazyListScope.contributorRows(
  * Shows contributor image if available, otherwise displays initials.
  *
  * On a wide Library ([showCovers]) the row ends in the contributor's two newest covers (spec c7). They are decoration:
- * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie (open question 6). Beside the letter index
+ * the row's name for TalkBack is unchanged. The avatar stays the M3E cookie. Beside the letter index
  * ([reserveRail]) they stop short of it, so the index never sits over a cover.
  */
 @Composable
@@ -342,7 +340,7 @@ private fun PreviewCovers(
                         .testTag(PREVIEW_COVER_TAG),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Book,
+                    imageVector = ListenUpIcons.Book,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(PREVIEW_GLYPH_SIZE),
@@ -382,7 +380,7 @@ private fun AuthorsEmptyState() {
             modifier = Modifier.padding(32.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Person,
+                imageVector = ListenUpIcons.Person,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.outline,

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.library
 
-/** What a book's menu leads with (spec §3.1.2 "Resume/Play · 6h 2m left"). The words are each platform's. */
+/** What a book's menu leads with. The words are each platform's. */
 sealed interface BookMenuPrimary {
     /** Never started: "Play". */
     data object Play : BookMenuPrimary

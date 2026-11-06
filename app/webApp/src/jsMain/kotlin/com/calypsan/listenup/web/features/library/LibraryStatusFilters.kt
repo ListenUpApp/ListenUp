@@ -37,7 +37,7 @@ internal fun filteredEmptyCopy(filter: BookStatusFilter): String =
         BookStatusFilter.FINISHED, BookStatusFilter.ALL -> "No finished books yet."
     }
 
-/** A Library card's last line (spec §2.6): time left, "Finished · 12h 4m", or the length. */
+/** A Library card's last line: time left, "Finished · 12h 4m", or the length. */
 internal fun cardLastLine(
     status: BookCardStatus?,
     durationMs: Long,
@@ -49,7 +49,7 @@ internal fun cardLastLine(
         null -> DurationFormatter.hoursMinutes(durationMs.milliseconds)
     }
 
-/** The dense grid's hover/focus tooltip (spec §2.6 line 3): title · author · read by … · length. */
+/** The dense grid's hover/focus tooltip: title · author · read by … · length. */
 internal fun cardTooltip(book: BookListItem): String =
     buildList {
         add(book.title)
@@ -67,7 +67,7 @@ internal fun BookStatusFilter.webLabel(): String =
     }
 
 /**
- * "1,286 books · 41 days of listening" (spec §3.1.1 L4). Whole days; whole hours under a day; whole
+ * "1,286 books · 41 days of listening". Whole days; whole hours under a day; whole
  * minutes under an hour; and no span at all under a minute, rather than "0 hours of listening".
  */
 internal fun libraryCountLine(
@@ -100,7 +100,7 @@ internal fun groupedCount(n: Int): String =
         .reversed()
 
 /**
- * Keeps the status filter across Library visits in this tab (spec §3.1.1: session-scoped).
+ * Keeps the status filter across Library visits in this tab (session-scoped).
  *
  * The web resolves a FRESH [com.calypsan.listenup.client.presentation.library.LibraryViewModel] per
  * visit, so without this, opening a book and coming back would drop "Finished" back to All. Natives

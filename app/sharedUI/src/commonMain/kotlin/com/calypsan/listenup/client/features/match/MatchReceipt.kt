@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -43,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.match.AppliedChange
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
@@ -186,7 +185,7 @@ fun MatchReceiptBanner(
             },
         dismissAction = {
             IconButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(Res.string.match_dismiss))
+                Icon(ListenUpIcons.CloseFilled, contentDescription = stringResource(Res.string.match_dismiss))
             }
         },
         actionOnNewLine = state is MatchReceiptUiState.Shown && subject == MatchReceiptSubject.Book,

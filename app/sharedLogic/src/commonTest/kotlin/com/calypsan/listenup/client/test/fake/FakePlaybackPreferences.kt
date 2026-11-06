@@ -10,11 +10,13 @@ class FakePlaybackPreferences(
     boostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
     forwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
     backwardSec: Int = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+    sleepMinutes: Int? = null,
 ) : PlaybackPreferences {
     val defaultSpeed = MutableStateFlow(speed)
     val defaultBoostDb = MutableStateFlow(boostDb)
     val skipForwardSec = MutableStateFlow(forwardSec)
     val skipBackwardSec = MutableStateFlow(backwardSec)
+    val defaultSleepMinutes = MutableStateFlow(sleepMinutes)
 
     override fun observeDefaultPlaybackSpeed(): Flow<Float> = defaultSpeed
 
@@ -31,4 +33,6 @@ class FakePlaybackPreferences(
     override suspend fun getDefaultSkipForwardSec(): Int = skipForwardSec.value
 
     override suspend fun getDefaultSkipBackwardSec(): Int = skipBackwardSec.value
+
+    override fun observeDefaultSleepTimerMin(): Flow<Int?> = defaultSleepMinutes
 }

@@ -105,7 +105,7 @@ private fun Stranded(
             }
         }
         Div(attrs = { classes("bd-vis-fixes") }) {
-            // No confirmation (spec §7): it restores what was meant to be public, and can be undone.
+            // No confirmation: it restores what was meant to be public, and can be undone.
             Button(kind = ButtonKind.Primary, onClick = { onRestoreToAllBooks() }, enabled = !isRestoring) {
                 Text(if (isRestoring) "Showing to all members…" else "Show to all members")
             }

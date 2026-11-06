@@ -9,8 +9,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +23,7 @@ import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.ShelfTile
 import com.calypsan.listenup.client.presentation.shelf.MyShelvesUiState
@@ -83,7 +82,7 @@ internal fun MyShelvesContent(
                 onBack = onBack,
                 actions = {
                     IconButton(onClick = onCreateShelf) {
-                        Icon(Icons.Filled.Add, contentDescription = stringResource(Res.string.home_new_shelf))
+                        Icon(ListenUpIcons.AddFilled, contentDescription = stringResource(Res.string.home_new_shelf))
                     }
                 },
             )

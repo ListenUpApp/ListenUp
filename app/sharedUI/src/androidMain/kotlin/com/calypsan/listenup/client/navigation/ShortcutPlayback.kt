@@ -27,6 +27,9 @@ internal interface ShortcutPlayback {
     /** Opens the full player. */
     fun expand()
 
+    /** Closes the full player back to the bar. */
+    fun collapse()
+
     /** Starts a sleep timer on the current book. */
     fun setSleepTimer(mode: SleepTimerMode)
 }
@@ -40,6 +43,8 @@ internal fun PlayerViewModel.asShortcutPlayback(): ShortcutPlayback =
         override fun playBook(bookId: BookId) = this@asShortcutPlayback.playBook(bookId)
 
         override fun expand() = this@asShortcutPlayback.expand()
+
+        override fun collapse() = this@asShortcutPlayback.collapse()
 
         override fun setSleepTimer(mode: SleepTimerMode) = this@asShortcutPlayback.setSleepTimer(mode)
     }

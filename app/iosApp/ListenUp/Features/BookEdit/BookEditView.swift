@@ -154,7 +154,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: contributor.label,
                             roleKind: Self.roleChipKind(section.id),
-                            removeLabel: String(format: String(localized: "common.remove_name"), contributor.label),
+                            removeLabel: String(localized: .commonRemoveName(contributor.label)),
                             onRemove: { observer.removeContributor(contributor, roleApiValue: section.id) }
                         )
                     }
@@ -175,7 +175,7 @@ struct BookEditView: View {
                     observer.removeRole(roleApiValue: section.id)
                 } label: {
                     Label(
-                        String(format: String(localized: "common.remove_name"), section.title),
+                        String(localized: .commonRemoveName(section.title)),
                         systemImage: "minus.circle"
                     )
                     .font(.caption)
@@ -223,7 +223,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: entry.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), entry.label),
+                            removeLabel: String(localized: .commonRemoveName(entry.label)),
                             onRemove: { observer.removeSeries(entry) }
                         )
                     }
@@ -253,7 +253,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: genre.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), genre.label),
+                            removeLabel: String(localized: .commonRemoveName(genre.label)),
                             onRemove: { observer.removeGenre(genre) }
                         )
                     }
@@ -283,7 +283,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: tag.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), tag.label),
+                            removeLabel: String(localized: .commonRemoveName(tag.label)),
                             onRemove: { observer.removeTag(tag) }
                         )
                     }
@@ -313,7 +313,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: mood.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), mood.label),
+                            removeLabel: String(localized: .commonRemoveName(mood.label)),
                             onRemove: { observer.removeMood(mood) }
                         )
                     }
@@ -357,7 +357,7 @@ struct BookEditView: View {
                         RemovableChip(
                             label: collection.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), collection.label),
+                            removeLabel: String(localized: .commonRemoveName(collection.label)),
                             onRemove: { observer.removeCollection(collection) }
                         )
                     }

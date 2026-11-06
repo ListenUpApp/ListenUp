@@ -1,4 +1,5 @@
 import CoreGraphics
+import Shared
 import Testing
 @testable import ListenUp
 
@@ -30,105 +31,54 @@ struct HomeLayoutTests {
         #expect(HomeLayout.forWidth(1032).margin == 32)
     }
 
-    @Test func aLoadedBookOnAPhoneHasNoSlot() {
-        let phone = HomeLayout.forWidth(390)
-        #expect(
-            phone.blocks(slot: .empty, everythingInProgress: true)
-                == [.everythingInProgress, .stats, .shelves]
-        )
-        #expect(
-            phone.blocks(slot: .empty, everythingInProgress: false)
-                == [.stats, .shelves]
-        )
-    }
+    // MARK: - Section order: the shared rule, mapped (built from real Kotlin slots, never Swift ones)
 
-    @Test func booksInProgressWithNothingLoadedLeadWithEverythingInProgressNotAHero() {
-        // Home has no Resume hero (Simon, 2026-10-27): the slot is empty and the list leads.
-        #expect(
-            HomeLayout.forWidth(390).blocks(slot: .empty, everythingInProgress: true)
-                == [.everythingInProgress, .stats, .shelves]
-        )
-        #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .finished, everythingInProgress: true)
-                == [.slotBesideStats, .everythingInProgress, .shelves]
-        )
-    }
-
-    @Test func aLoadedBookOnAnIPadPutsStatsBesideShelves() {
-        #expect(
-            HomeLayout.forWidth(1032).blocks(slot: .empty, everythingInProgress: true)
-                == [.everythingInProgress, .statsBesideShelves]
-        )
-    }
-
-    @Test func everySlotLeadsAndGoesBesideTheStatsWhenWide() {
-        let narrow = HomeLayout.forWidth(390)
-        let wide = HomeLayout.forWidth(1024)
-        #expect(
-            narrow.blocks(slot: .finished, everythingInProgress: true)
-                == [.finished, .everythingInProgress, .stats, .shelves]
-        )
-        #expect(
-            narrow.blocks(slot: .nothingInProgress, everythingInProgress: false)
-                == [.nothingInProgress, .stats, .shelves]
-        )
-        #expect(
-            narrow.blocks(slot: .welcome, everythingInProgress: false)
-                == [.welcome, .stats, .shelves]
-        )
-        #expect(
-            narrow.blocks(slot: .firstSync, everythingInProgress: false, strip: true)
-                == [.firstSyncStrip, .firstSync, .stats, .shelves]
-        )
-        #expect(
-            narrow.blocks(slot: .empty, everythingInProgress: true, offline: true)
-                == [.offline, .everythingInProgress, .stats, .shelves]
-        )
-        #expect(
-            narrow.blocks(slot: .empty, everythingInProgress: false, failed: true)
-                == [.continueListeningFailed, .stats, .shelves]
-        )
-        for slot in [HomeSlotShape.finished, .nothingInProgress, .welcome, .firstSync] {
-            let first = wide.blocks(slot: slot, everythingInProgress: true).first
-            #expect(first == .slotBesideStats)
-        }
-    }
-
-    @Test func theSlotKindsMapToTheirShapes() {
-        #expect(HomeSlotItem.absent.shape == .empty)
-        #expect(HomeSlotItem.firstSync.shape == .firstSync)
-        #expect(HomeSlotItem.nothingInProgress(nil).shape == .nothingInProgress)
-        #expect(HomeSlotItem.newListener(covers: []).shape == .welcome)
-    }
-
-    @Test func offlineAndAFailedRowShowTogetherAndTheStripSitsAboveAnySlot() {
-        let phone = HomeLayout.forWidth(390)
-        #expect(
-            phone.blocks(slot: .empty, everythingInProgress: false, offline: true, failed: true)
-                == [.offline, .continueListeningFailed, .stats, .shelves]
-        )
-        #expect(
-            phone.blocks(slot: .finished, everythingInProgress: false, offline: true, strip: true)
-                == [.offline, .firstSyncStrip, .finished, .stats, .shelves]
-        )
-    }
-}
-
-private extension HomeLayout {
-    /// The block order with every signal off unless a test turns it on.
-    func blocks(
-        slot: HomeSlotShape,
+    private func order(
+        _ slot: HomeSlot,
         everythingInProgress: Bool,
+        isWide: Bool = false,
         offline: Bool = false,
         failed: Bool = false,
         strip: Bool = false
-    ) -> [HomeBlock] {
-        blocks(
+    ) -> [ListenUp.HomeBlock] {
+        ListenUp.HomeBlock.order(
             slot: slot,
             isOffline: offline,
             continueListeningFailed: failed,
             showsStrip: strip,
-            hasEverythingInProgress: everythingInProgress
+            hasEverythingInProgress: everythingInProgress,
+            isWide: isWide
         )
+    }
+
+    @Test func theSharedOrderMapsToTheNativeBlocks() {
+        #expect(order(HomeSlotAbsent.shared, everythingInProgress: true) == [.everythingInProgress, .stats, .shelves])
+        #expect(order(HomeSlotAbsent.shared, everythingInProgress: false) == [.stats, .shelves])
+        #expect(
+            order(HomeSlotAbsent.shared, everythingInProgress: true, isWide: true)
+                == [.everythingInProgress, .statsBesideShelves]
+        )
+        #expect(
+            order(HomeSlotFirstSync.shared, everythingInProgress: false, strip: true)
+                == [.firstSyncStrip, .firstSync, .stats, .shelves]
+        )
+        #expect(
+            order(HomeSlotNothingInProgress(candidate: nil), everythingInProgress: false)
+                == [.nothingInProgress, .stats, .shelves]
+        )
+        #expect(
+            order(HomeSlotNewListener(covers: []), everythingInProgress: false)
+                == [.welcome, .stats, .shelves]
+        )
+        #expect(
+            order(HomeSlotAbsent.shared, everythingInProgress: false, offline: true, failed: true)
+                == [.offline, .continueListeningFailed, .stats, .shelves]
+        )
+    }
+
+    @Test func aWideWindowPutsEverySlotBesideTheStats() {
+        for slot in [HomeSlotFirstSync.shared as HomeSlot, HomeSlotNothingInProgress(candidate: nil)] {
+            #expect(order(slot, everythingInProgress: true, isWide: true).first == .slotBesideStats)
+        }
     }
 }

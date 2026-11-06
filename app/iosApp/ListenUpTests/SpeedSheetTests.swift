@@ -1,6 +1,7 @@
 import SwiftUI
 import Testing
 import UIKit
+@preconcurrency import Shared
 @testable import ListenUp
 
 @Suite("The Speed sheet's rules")
@@ -98,7 +99,7 @@ struct SpeedSheetAccessibilityTests {
     }
 
     @Test func resetAppearsAwayFromTheDefault() async throws {
-        let reset = String(format: String(localized: "player.sheet_reset_speed_ios"), "1×")
+        let reset = String(localized: .playerSheetResetSpeedIos(PlaybackPresets.shared.speedLabel(speed: 1.0)))
         let calls = Calls()
         let away = await host(speed: 1.25, calls: calls)
         #expect(away.stop(labelled: reset) != nil, "\(away.tree)")
@@ -115,7 +116,7 @@ struct SpeedSheetAccessibilityTests {
             speed: 1.25, size: CGSize(width: 393, height: 430), dynamicTypeSize: .accessibility3)
         defer { hosted.close() }
         #expect(hosted.scrollsVertically)
-        for label in PlaybackRates.catalogue.map(PlaybackRates.format) {
+        for label in PlaybackRates.catalogue.map { PlaybackPresets.shared.speedLabel(speed: $0) } {
             // Below the fold a preset is still in the tree; its frame is what matters.
             let stop = try #require(hosted.stop(labelled: label), "\(label) missing:\n\(hosted.tree)")
             #expect(stop.frame.height >= 43.9, "\(label): \(stop.frame)")

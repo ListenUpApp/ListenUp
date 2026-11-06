@@ -4,7 +4,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * How wide Now Playing divides its space (spec §5.3): the chapter panel shows only beside a cover of at least 240dp.
+ * How wide Now Playing divides its space: the chapter panel shows only beside a cover of at least 240dp.
  * Decided from the space [WideNowPlaying] actually gets ([widePanes]), never from the device (sharedUI rule 11).
  */
 internal enum class WidePanes {
@@ -24,10 +24,10 @@ internal const val PANEL_WIDTH_DP = 340
 /** The gap between the panes (the board). */
 internal const val PANE_GAP_DP = 40
 
-/** The smallest cover the panel may sit beside (§5.3). */
+/** The smallest cover the panel may sit beside. */
 internal const val MIN_COVER_DP = 240
 
-/** The widest the wide cover grows (§5.3, the board). */
+/** The widest the wide cover grows. */
 internal const val MAX_COVER_DP = 380
 
 /**

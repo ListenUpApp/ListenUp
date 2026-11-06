@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Top-genres breakdown: one row per genre, each a name, a coral bar whose width is proportional to
-/// that genre's listening time relative to the heaviest genre, and its share as a percent (spec §2.6).
+/// that genre's listening time relative to the heaviest genre, and its share as a percent.
 ///
 /// Shown only when there is genre data. Each row is a single VoiceOver element reading the
 /// genre name and its percent.

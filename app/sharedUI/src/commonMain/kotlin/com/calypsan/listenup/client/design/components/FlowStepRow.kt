@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
@@ -87,7 +86,7 @@ internal fun FlowStepRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (state == FlowStepState.DONE) Icons.Outlined.Check else icon,
+                imageVector = if (state == FlowStepState.DONE) ListenUpIcons.Check else icon,
                 contentDescription = null,
                 tint = iconColor,
                 modifier = Modifier.size(STEP_ICON_SIZE),

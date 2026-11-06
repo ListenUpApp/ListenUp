@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.navigation.entries
 
+import androidx.compose.runtime.getValue
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.HardcoverSourceActions
@@ -93,6 +93,7 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             serverName = readySettings?.serverName.orEmpty(),
             onServerNameChange = { name -> settingsViewModel.setServerName(name) },
             remoteUrl = readySettings?.remoteUrl.orEmpty(),
+            serverSettingsLoaded = readySettings != null,
             onRemoteUrlChange = { url -> settingsViewModel.setRemoteUrl(url) },
             holdNewBooksForReview = readySettings?.holdNewBooksForReview == true,
             onHoldNewBooksForReviewChange = { hold -> settingsViewModel.setHoldNewBooksForReview(hold) },

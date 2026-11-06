@@ -54,8 +54,10 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
+import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
 import com.calypsan.listenup.client.presentation.discover.activityParts
+import com.calypsan.listenup.client.presentation.discover.activityRowActions
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.discover_activity_profile_a11y
@@ -64,7 +66,7 @@ import listenup.composeapp.generated.resources.discover_activity_your_profile_a1
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * One activity row, shared by the Discover section and the See all activity screen (plan C6): the
+ * One activity row, shared by the Discover section and the See all activity screen: the
  * avatar (its own profile link), then one link holding the sentence, when it happened and, for a
  * book, its cover.
  *
@@ -85,7 +87,7 @@ internal fun ActivityRow(
 ) {
     val actions =
         remember(activity, onAddToShelf != null) {
-            activityRowActions(activity).filter { it !is ActivityRowAction.AddToShelf || onAddToShelf != null }
+            activityRowActions(activity, canShelve = onAddToShelf != null)
         }
     val perform: (ActivityRowAction) -> Unit = { action ->
         when (action) {

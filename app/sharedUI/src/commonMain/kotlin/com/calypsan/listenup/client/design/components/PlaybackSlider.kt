@@ -32,11 +32,11 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_scrubber_a11y
 import listenup.composeapp.generated.resources.player_scrubber_value_a11y
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 private val HandleSize = DpSize(width = ScrubberHandleWidth, height = 44.dp)
@@ -76,9 +76,9 @@ fun PlaybackSlider(
     val interaction = remember { MutableInteractionSource() }
     val shownFraction = drag ?: fraction
     val shownElapsed = drag?.let { (it * durationMs).toLong() } ?: elapsedMs
-    val elapsed = shownElapsed.milliseconds.formatPlaybackTime()
-    val total = durationMs.milliseconds.formatPlaybackTime()
-    val remaining = "-" + (durationMs - shownElapsed).coerceAtLeast(0).milliseconds.formatPlaybackTime()
+    val elapsed = DurationFormatter.playbackClock(shownElapsed.milliseconds)
+    val total = DurationFormatter.playbackClock(durationMs.milliseconds)
+    val remaining = "-" + DurationFormatter.playbackClock((durationMs - shownElapsed).coerceAtLeast(0).milliseconds)
     val label = stringResource(Res.string.player_scrubber_a11y)
     val value = stringResource(Res.string.player_scrubber_value_a11y, elapsed, total)
     val colors =
@@ -186,23 +186,5 @@ fun PlaybackSlider(
             Text(elapsed, style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(remaining, style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }
-}
-
-/** A playback position or length as a clock: "12:04", or "1:02:03" past an hour. */
-fun Duration.formatPlaybackTime(): String {
-    val hours = inWholeHours
-    val minutes = inWholeMinutes % 60
-    val seconds = inWholeSeconds % 60
-
-    // ASCII digits in every locale, like DurationFormatter, so one screen never mixes two numeral
-    // systems; and plain padding rather than String.format, which commonMain cannot reach.
-    val clock = "$minutes:${seconds.toString().padStart(2, '0')}"
-    return if (hours >
-        0
-    ) {
-        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        clock
     }
 }

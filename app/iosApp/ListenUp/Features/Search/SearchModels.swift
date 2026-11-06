@@ -164,7 +164,7 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         var parts: [String] = []
         if let lead = lead?.nilIfEmpty { parts.append(lead) }
         if let count {
-            parts.append(String(format: String(localized: "search.count_books"), String(count)))
+            parts.append(String(localized: .searchCountBooks(String(count))))
         }
         return parts.joined(separator: " · ").nilIfEmpty
     }

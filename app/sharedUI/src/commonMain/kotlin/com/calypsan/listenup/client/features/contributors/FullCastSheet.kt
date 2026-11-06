@@ -5,28 +5,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,11 +30,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
+import com.calypsan.listenup.client.design.components.SheetPresentation
 import com.calypsan.listenup.client.design.components.ContributorPhotoCircle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
-import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookContributor
 import listenup.composeapp.generated.resources.Res
@@ -51,10 +42,8 @@ import listenup.composeapp.generated.resources.book_detail_credits
 import listenup.composeapp.generated.resources.book_detail_cast_count_all
 import listenup.composeapp.generated.resources.book_detail_cast_count_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_narrators
-import listenup.composeapp.generated.resources.book_detail_done
 import listenup.composeapp.generated.resources.book_detail_full_cast
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.material3.BottomSheetDefaults
 
 /** Which contributor role a [FullCastSheet] is showing — selected by a folded hero line. */
 enum class CastRole { Authors, Narrators, All }
@@ -134,8 +123,8 @@ private fun castSections(
  * tappable to its detail page. No contributor is singled out as a "lead" — co-narrated books and
  * anthologies have no canonical primary, so every row reads equally.
  *
- * Adapts to width: a bottom sheet on compact/medium screens, a centred dialog at expanded width —
- * mirroring the Book Detail screen's own layout split.
+ * Adapts to width through [AdaptiveSheet]: a bottom sheet with a single column on compact/medium screens, a
+ * centred dialog with a two-column roster at expanded width — mirroring the Book Detail screen's own layout split.
  *
  * @param title         Overlay heading (e.g. "Full cast", "Authors").
  * @param countText     Supporting line under the title (e.g. "14 narrators").
@@ -147,7 +136,6 @@ private fun castSections(
  * @param supporting    An optional line under a person's name — the player's "14 books in your library" (spec
  *   §5.5.5, PK1); null shows no line. Book Detail shows none.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullCastSheet(
     title: String,
@@ -159,140 +147,73 @@ fun FullCastSheet(
     supporting: (BookContributor) -> String? = { null },
 ) {
     val sections = castSections(contributors, byRole)
-    val expanded =
-        currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
-        )
-
     val onSelect: (String) -> Unit = { id ->
         onContributorClick(id)
         onDismiss()
     }
 
-    if (expanded) {
-        FullCastDialog(
-            title = title,
-            countText = countText,
-            sections = sections,
-            supporting = supporting,
-            onSelect = onSelect,
-            onDismiss = onDismiss,
-        )
-    } else {
-        FullCastBottomSheet(
-            title = title,
-            countText = countText,
-            sections = sections,
-            supporting = supporting,
-            onSelect = onSelect,
-            onDismiss = onDismiss,
-        )
+    // The roster scrolls itself in both placements, so the sheet's own scroll stays off.
+    AdaptiveSheet(
+        title = title,
+        subtitle = countText,
+        onDismiss = onDismiss,
+        dialogWidth = 560.dp,
+        scrollable = false,
+    ) { presentation ->
+        when (presentation) {
+            SheetPresentation.BottomSheet -> CastList(sections, supporting, onSelect)
+            SheetPresentation.Dialog -> CastGrid(sections, supporting, onSelect)
+        }
     }
 }
 
-/** Compact / medium: a Material bottom sheet with a drag handle and a scrollable roster. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Compact / medium: a single scrollable column of rows. */
 @Composable
-private fun FullCastBottomSheet(
-    title: String,
-    countText: String,
+private fun CastList(
     sections: List<CastSection>,
     supporting: (BookContributor) -> String?,
     onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-        shape = BottomSheetDefaults.ExpandedShape,
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
     ) {
-        CastHeader(
-            title = title,
-            countText = countText,
-            modifier = Modifier.padding(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.sm),
-        )
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            sections.forEach { section ->
-                section.heading?.let { heading ->
-                    item(key = "role:$heading") { RoleHeading(heading, Modifier.padding(horizontal = 8.dp)) }
-                }
-                itemsIndexed(
-                    items = section.contributors,
-                    key = { _, c -> "${section.heading.orEmpty()}:${c.id}" },
-                ) { index, contributor ->
-                    CastRow(
-                        contributor = contributor,
-                        index = index,
-                        onClick = { onSelect(contributor.id) },
-                        supporting = supporting(contributor),
-                    )
-                }
+        sections.forEach { section ->
+            section.heading?.let { heading ->
+                item(key = "role:$heading") { RoleHeading(heading, Modifier.padding(horizontal = 8.dp)) }
+            }
+            itemsIndexed(
+                items = section.contributors,
+                key = { _, c -> "${section.heading.orEmpty()}:${c.id}" },
+            ) { index, contributor ->
+                CastRow(
+                    contributor = contributor,
+                    index = index,
+                    onClick = { onSelect(contributor.id) },
+                    supporting = supporting(contributor),
+                )
             }
         }
     }
 }
 
-/** Expanded: a centred dialog with a scrollable two-column roster and a Done action. */
+/** Expanded: a scrollable two-column roster. */
 @Composable
-private fun FullCastDialog(
-    title: String,
-    countText: String,
+private fun ColumnScope.CastGrid(
     sections: List<CastSection>,
     supporting: (BookContributor) -> String?,
     onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(),
-        ) {
-            Column(modifier = Modifier.padding(top = 26.dp, bottom = 12.dp)) {
-                CastHeader(
-                    title = title,
-                    countText = countText,
-                    modifier = Modifier.padding(horizontal = 28.dp),
-                )
-                Column(
-                    modifier =
-                        Modifier
-                            .heightIn(max = 440.dp)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = Spacing.lg, vertical = Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    sections.forEach { section ->
-                        section.heading?.let { RoleHeading(it, Modifier.padding(horizontal = 8.dp)) }
-                        CastPairs(section.contributors, supporting, onSelect)
-                    }
-                }
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth().padding(
-                            horizontal = Spacing.screenMargin,
-                            vertical = Spacing.xs,
-                        ),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        onClick = {
-                            haptics.press()
-                            onDismiss()
-                        },
-                    ) {
-                        Text(text = stringResource(Res.string.book_detail_done))
-                    }
-                }
-            }
+    Column(
+        modifier =
+            Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        sections.forEach { section ->
+            section.heading?.let { RoleHeading(it, Modifier.padding(horizontal = 8.dp)) }
+            CastPairs(section.contributors, supporting, onSelect)
         }
     }
 }
@@ -332,31 +253,6 @@ private fun RoleHeading(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.padding(top = Spacing.md, bottom = Spacing.xs).semantics { heading() },
     )
-}
-
-/** Shared title + supporting count line for both overlay variants. */
-@Composable
-private fun CastHeader(
-    title: String,
-    countText: String,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = title,
-            style =
-                MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = countText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
 }
 
 /**

@@ -3,7 +3,6 @@ package com.calypsan.listenup.web.features.admin
 import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.visibility.RestrictedBooksViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -26,7 +25,3 @@ fun graphRestrictedBooks(koin: Koin): OpenRestrictedBooks =
         val store = ViewModelStore().apply { put("restricted-books", viewModel) }
         RestrictedBooksSession(restrictedBookIds = viewModel.restrictedBookIds, close = store::clear)
     }
-
-/** A set that never changes — the shape specs use in place of the graph. */
-fun fixedRestrictedBooks(ids: Set<String> = emptySet()): OpenRestrictedBooks =
-    { RestrictedBooksSession(MutableStateFlow(ids), close = {}) }

@@ -3,8 +3,10 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.READERS_SECTION
+import com.calypsan.listenup.web.nav.bulkEditIds
 import com.calypsan.listenup.web.nav.isServed
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 
 /**
@@ -98,6 +100,20 @@ class RoutesTest :
             Routes.libraryInProgress.toUrl() shouldBe "/library?status=in-progress"
             Routes.Book.detail("wok", section = READERS_SECTION).toUrl() shouldBe "/book/wok?section=readers"
             Routes.Book.detail("wok").toUrl() shouldBe "/book/wok"
+        }
+
+        // Ktor CIO refuses a request line over 8,192 bytes, so a select-all of a real library must not
+        // ride the URL: a reload or a reopened tab would meet a browser error page instead of the editor.
+        test("a bulk-edit route over many books stays under the server's request-line limit") {
+            val ids = (1..1_500).map { "00000000-0000-4000-8000-${it.toString().padStart(12, '0')}" }
+
+            Routes.bulkEdit(ids).toUrl().length shouldBeLessThan 6_000
+        }
+
+        test("a token route resolves back to the same ids in the same tab, in order") {
+            val ids = (1..1_500).map { "00000000-0000-4000-8000-${it.toString().padStart(12, '0')}" }
+
+            Route.parse(Routes.bulkEdit(ids).toUrl()).bulkEditIds() shouldBe ids
         }
 
         test("/shelves takes nothing after it") {

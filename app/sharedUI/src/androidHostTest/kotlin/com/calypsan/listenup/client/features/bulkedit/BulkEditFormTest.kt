@@ -86,6 +86,8 @@ class BulkEditFormTest {
         render(BulkEditUiState.Editing(bookCount = 40), onPublisher = { typed += it })
 
         composeRule.onNodeWithText("Publisher").performTextInput("Tor")
+        // Edits reach the ViewModel on the next frame: the field owns the text, nothing waits on it.
+        composeRule.waitForIdle()
 
         assertEquals("Tor", typed.last())
     }
@@ -105,6 +107,7 @@ class BulkEditFormTest {
         )
 
         composeRule.onNodeWithContentDescription("Clear Publisher").performClick()
+        composeRule.waitForIdle()
 
         assertEquals("", typed.last())
     }

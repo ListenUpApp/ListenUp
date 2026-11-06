@@ -10,8 +10,10 @@ import Shared
 /// - Loading, empty, and error states
 struct BooksContent: View {
     let books: [BookRow]
-    /// What each book's card says about where the reader is with it (spec §2.6).
+    /// What each book's card says about where the reader is with it.
     var bookStatus: [String: LibraryCardState] = [:]
+    /// What each book's context menu leads with (the shared rule); a book not listed plays.
+    var bookMenuPrimary: [String: BookMenuPrimaryValue] = [:]
     let isLoading: Bool
     /// The library itself has no books.
     let isEmpty: Bool
@@ -204,7 +206,7 @@ struct BooksContent: View {
                 .bookContextMenu(
                     bookId: book.id,
                     selection: selection,
-                    primary: BookMenuPrimaryValue(bookStatus[book.id])
+                    primary: bookMenuPrimary[book.id] ?? .play
                 ) { card }
         }
     }

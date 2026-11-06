@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
@@ -106,7 +104,7 @@ internal fun PlaceInLibrary(
             enabled = canChange,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            Icon(ListenUpIcons.AddFilled, contentDescription = null)
             Text(stringResource(Res.string.series_add_subseries), modifier = Modifier.padding(start = 8.dp))
         }
         Text(
@@ -129,7 +127,7 @@ private fun OfflineBanner() {
             modifier = Modifier.padding(Spacing.lg).semantics(mergeDescendants = true) {},
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Outlined.CloudOff, contentDescription = null)
+            Icon(ListenUpIcons.CloudOff, contentDescription = null)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = stringResource(Res.string.series_offline_title),

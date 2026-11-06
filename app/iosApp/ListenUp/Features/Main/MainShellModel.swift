@@ -61,6 +61,12 @@ final class MainShellModel {
     /// Set by Show Chapters (⇧⌘C); the player shows its chapters (the panel on a wide window, the sheet otherwise) and
     /// clears it.
     var isChapterListRequested = false
+    /// The editor or form sheet the shell presents above the tabs (see ``ShellSheet``).
+    var presentedSheet: ShellSheet?
+    /// The full-screen cover the shell presents above the tabs (see ``ShellCover``).
+    var presentedCover: ShellCover?
+    /// The PDF the full player's reader shows, claimed from the player's requests by this window.
+    var playerDocument: ReaderDocument?
     /// Whether one of the full player's sheets, or its PDF reader, is open: Esc closes that first, so Close Player waits.
     var playerSheetIsOpen = false
     /// The Library section the compact Library tab shows (and the sidebar remembers).
@@ -75,6 +81,18 @@ final class MainShellModel {
     private(set) var libraryInProgressRequest = 0
     /// Whether the window shows the sidebar (one entry per Library section) or the compact tab bar.
     private(set) var usesSidebar = false
+
+    // MARK: - Presentations
+
+    func present(_ sheet: ShellSheet) { presentedSheet = sheet }
+
+    func present(_ cover: ShellCover) { presentedCover = cover }
+
+    /// Closes whatever the shell is presenting.
+    func dismissPresentation() {
+        presentedSheet = nil
+        presentedCover = nil
+    }
 
     // MARK: - Paths
 
@@ -92,6 +110,16 @@ final class MainShellModel {
     func open<Destination: Hashable & Codable>(_ destination: Destination, on tab: ShellTab? = nil) {
         closePlayerToNavigate()
         paths[tab ?? selectedTab, default: NavigationPath()].append(destination)
+    }
+
+    /// Replaces the page on top of the selected tab's stack with `destination`: where a merge sends the person when the
+    /// contributor or series they were editing no longer exists. An empty stack has no page to replace and is left as it
+    /// is.
+    func retarget<Destination: Hashable & Codable>(to destination: Destination) {
+        guard var path = paths[selectedTab], !path.isEmpty else { return }
+        path.removeLast()
+        path.append(destination)
+        paths[selectedTab] = path
     }
 
     /// Opens an activity row's book, shelf or person on the selected tab.

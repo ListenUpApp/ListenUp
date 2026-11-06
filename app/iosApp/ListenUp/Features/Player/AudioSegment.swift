@@ -41,7 +41,7 @@ enum AudioEngineEvent: Sendable, Equatable {
     case statusChanged(AudioEngineStatus)
     /// The final segment played to its end.
     case ended
-    /// Playback failed, typed once at the engine edge (spec §4.6); the shared player picks the copy.
+    /// Playback failed, typed once at the engine edge; the shared player picks the copy.
     case failed(EngineFailure)
 }
 

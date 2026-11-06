@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.search.SearchSession
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.seriesHit
@@ -11,6 +13,8 @@ import io.kotest.matchers.shouldNotBe
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withTimeout
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLDialogElement
@@ -128,6 +132,40 @@ class CommandPaletteTest :
                 awaitFrame()
 
                 host.querySelector(".cmdk-panel") shouldBe null
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
+        test("the palette's search session closes when the shell goes away with the palette open") {
+            var closed = 0
+            val (host, router, composition) =
+                mountAt(
+                    "/",
+                    openSearch = {
+                        SearchSession(
+                            state = MutableStateFlow(SearchUiState.Idle()),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onClearTypes = {},
+                            onOpenHit = {},
+                            retry = {},
+                            navActions = emptyFlow(),
+                            close = { closed++ },
+                        )
+                    },
+                )
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+                host.querySelector(".cmdk-panel") shouldNotBe null
+                closed shouldBe 0
+
+                composition.dispose()
+
+                closed shouldBe 1
             } finally {
                 composition.dispose()
                 router.dispose()

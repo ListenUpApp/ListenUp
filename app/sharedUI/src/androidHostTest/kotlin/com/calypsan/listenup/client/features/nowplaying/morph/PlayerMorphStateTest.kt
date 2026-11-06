@@ -61,6 +61,14 @@ class PlayerMorphStateTest {
     }
 
     @Test
+    fun `a morph created while Now Playing is expanded starts at Now Playing, with nothing in flight`() {
+        sheet.expand()
+        host()
+        morph.progress shouldBe 1f
+        morph.isInFlight shouldBe false
+    }
+
+    @Test
     fun `a drag owns progress, so an external change during a drag waits for the release`() {
         host()
         morph.snapDrag(0.3f)

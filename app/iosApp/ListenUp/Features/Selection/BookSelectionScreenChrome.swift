@@ -123,6 +123,7 @@ struct BookSelectionSheets: ViewModifier {
     let selection: BookSelectionObserver
     /// Bumped once per landed bulk action, to fire the success haptic.
     @State private var confirmations = 0
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     func body(content: Content) -> some View {
         content
@@ -156,13 +157,11 @@ struct BookSelectionSheets: ViewModifier {
                     confirm(BulkEditFormatting.applied(changedCount: changedCount))
                 }
             }
-            .sheet(isPresented: Binding(
-                get: { selection.isAdmin && selection.editingBookId != nil },
-                set: { if !$0 { selection.editingBookId = nil } }
-            )) {
-                if let bookId = selection.editingBookId {
-                    BookEditView(bookId: bookId)
-                }
+            // The single-book editor is presented by the shell, above the tabs, so a fold does not drop it.
+            .onChange(of: selection.editingBookId) { _, bookId in
+                guard let bookId else { return }
+                selection.editingBookId = nil
+                if selection.isAdmin { presentShellSheet(.bookEdit(bookId: bookId)) }
             }
             .onChange(of: selection.confirmation) { _, message in
                 guard let message else { return }

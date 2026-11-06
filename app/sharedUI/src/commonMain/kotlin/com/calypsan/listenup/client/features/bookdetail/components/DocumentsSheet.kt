@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +38,7 @@ import listenup.composeapp.generated.resources.book_detail_documents_sheet_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Maps & illustrations (spec §3.2.1 D36), when the book has more than one document: a sheet of document cards. Tapping
+ * Maps & illustrations, when the book has more than one document: a sheet of document cards. Tapping
  * one calls [onOpen] with its id (the ViewModel dispatches by format). One document opens at once from the Details row
  * and never reaches this sheet.
  */
@@ -101,7 +100,7 @@ internal fun DocumentCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Default.Description,
+                    imageVector = ListenUpIcons.DescriptionFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )

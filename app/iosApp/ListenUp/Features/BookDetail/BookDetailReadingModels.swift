@@ -92,12 +92,15 @@ struct BookFinishedSpan: Equatable {
     }
 }
 
-/// Book Detail's reading state — stage, the visit's section order, the primary action, the current chapter and its
+/// Book Detail's reading state — stage, the sections to show in the visit's order, the About clamp, the primary action, the current chapter and its
 /// window, time left, the finished span, the download size and the admin-only scan flag —
 /// projected to native values once, at the observer, from the shared `Ready`.
 struct BookReadingState: Equatable {
     var stage: BookReadingStage = .notStarted
-    var sectionOrder: [BookDetailSectionKind] = []
+    /// The sections the page shows, in the visit's stage order: the shared `shownSections`, held-book rule included.
+    var shownSections: [BookDetailSectionKind] = []
+    /// Description lines on a phone before "Read more" (the shared `aboutLineLimit`).
+    var aboutLineLimit = 4
     var primaryAction: BookPrimaryActionKind = .play
     var currentChapter: BookCurrentChapter?
     var chapterPreview: [BookChapterRow] = []
@@ -112,7 +115,8 @@ struct BookReadingState: Equatable {
 
     init(_ ready: BookDetailUiStateReady) {
         stage = BookReadingStage(ready.readingStage)
-        sectionOrder = ready.sectionOrder.map(BookDetailSectionKind.init)
+        shownSections = ready.shownSections.map(BookDetailSectionKind.init)
+        aboutLineLimit = Int(ready.aboutLineLimit)
         primaryAction = BookPrimaryActionKind(ready.primaryAction)
         currentChapter = ready.currentChapter.map(BookCurrentChapter.init)
         chapterPreview = ready.chapterPreview.map { BookChapterRow($0) }

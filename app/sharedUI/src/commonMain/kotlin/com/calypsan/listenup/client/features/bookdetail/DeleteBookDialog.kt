@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
@@ -18,7 +17,7 @@ import listenup.composeapp.generated.resources.common_cancel
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Confirmation for **deleting a book from the server** — the folder and everything in it (spec §2.8).
+ * Confirmation for **deleting a book from the server** — the folder and everything in it.
  *
  * The body names everything that goes: how many files ListenUp tracks there, what they weigh, the book, and — said
  * out loud rather than implied — everything else in its folder; then who loses it (every member, and their devices'
@@ -27,7 +26,7 @@ import org.jetbrains.compose.resources.stringResource
  *
  * [error] is the typed refusal from a previous attempt, rendered underneath. A [BookError.FolderNotExclusive] names the
  * book that blocked the delete, because "another book shares this folder" without saying which one leaves the admin
- * nothing to act on. Focus opens on Cancel (spec §5.2). The confirm is the error-coloured text button every other
+ * nothing to act on. Focus opens on Cancel. The confirm is the error-coloured text button every other
  * destructive confirm uses (m3.material.io/components/dialogs/guidelines: dialog actions are text buttons).
  *
  * @param trackedFileCount audio files plus documents ListenUp knows about in this book's folder.
@@ -75,7 +74,7 @@ fun DeleteBookDialog(
         onDismiss = onDismiss,
         // The board's trash: the remove-download confirm wears no icon now, so the two no longer need telling apart
         // by glyph, and this is the one that deletes files.
-        icon = Icons.Outlined.Delete,
+        icon = ListenUpIcons.Delete,
         focusDismissFirst = true,
     )
 }

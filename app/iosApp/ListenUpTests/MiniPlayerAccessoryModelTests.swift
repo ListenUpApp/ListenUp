@@ -22,7 +22,8 @@ struct MiniPlayerAccessoryModelTests {
         wide: Bool = false
     ) -> MiniPlayerAccessoryModel {
         MiniPlayerAccessoryModel.make(
-            snapshot: PlayerSnapshot.from(state), chapterRemainingMs: left, chapterFraction: 0.59,
+            snapshot: PlayerSnapshot.from(state), chapterRemainingMs: left,
+            sleepRemainingMs: PlayerSnapshot.sleepRemainingMs(of: state), chapterFraction: 0.59,
             isInline: inline, isWide: wide)
     }
 

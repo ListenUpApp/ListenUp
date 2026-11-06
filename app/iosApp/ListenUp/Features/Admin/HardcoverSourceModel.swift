@@ -27,7 +27,7 @@ struct HardcoverSourceModel: Equatable {
     /// "Set · belongs to @simon", while a token Hardcover accepted is stored.
     nonisolated var savedLine: String? {
         guard case .saved(let username) = token else { return nil }
-        return String(format: String(localized: "admin.hardcover_token_set"), username)
+        return String(localized: .adminHardcoverTokenSet(username))
     }
 
     /// The metadata switch's subtitle: what it does, or what it needs first.

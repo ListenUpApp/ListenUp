@@ -12,7 +12,7 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.matching.person.ContributorPhotoFiles
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -45,13 +45,13 @@ private val log = loggerFor<ContributorMetadataApplier>()
  */
 internal class ContributorMetadataApplier(
     private val contributorRepository: ContributorRepository,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
     private val coordinator: EnrichmentCoordinator,
     imageHome: Path,
     photoMaxBytes: Long = ContributorPhotoFiles.CONTRIBUTOR_PHOTO_MAX_BYTES,
 ) {
     /** Validated, content-addressed photo storage — shared with Match details' person Apply. */
-    private val photoFiles = ContributorPhotoFiles(imageStorage, imageHome, photoMaxBytes)
+    private val photoFiles = ContributorPhotoFiles(remoteImageFetcher, imageHome, photoMaxBytes)
 
     suspend fun apply(
         contributorId: ContributorId,

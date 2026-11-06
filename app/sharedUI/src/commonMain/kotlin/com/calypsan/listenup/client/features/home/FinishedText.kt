@@ -16,7 +16,7 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
-// The finished book's words, shared by Home's finish card and Now Playing's finished card (one formatter, C22).
+// The finished book's words, shared by Home's finish card and Now Playing's finished card (one formatter).
 
 /** "Finished today", "Finished yesterday" or "Finished N days ago". */
 @Composable
@@ -36,14 +36,14 @@ internal fun finishedMeta(
     zone: TimeZone,
 ): String {
     val length = DurationFormatter.hoursMinutes(durationMs.milliseconds)
-    // Q8: a finish with no known start (imported from history) shows its length alone.
+    // A finish with no known start (imported from history) shows its length alone.
     startedAtMs ?: return length
     val range =
         stringResource(Res.string.home_date_range, shortDayMonth(startedAtMs, zone), shortDayMonth(finishedAtMs, zone))
     return stringResource(Res.string.home_finished_line_no_range, length, range)
 }
 
-/** Local calendar days from [finishedAtMs] to [nowMs] in [zone]: 0 today, 1 yesterday (C10). */
+/** Local calendar days from [finishedAtMs] to [nowMs] in [zone]: 0 today, 1 yesterday. */
 internal fun finishedDaysAgo(
     finishedAtMs: Long,
     nowMs: Long,

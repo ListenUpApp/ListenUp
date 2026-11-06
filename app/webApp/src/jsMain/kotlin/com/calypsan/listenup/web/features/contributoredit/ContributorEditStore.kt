@@ -8,9 +8,7 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
@@ -52,24 +50,5 @@ fun graphContributorEdit(koin: Koin): OpenContributorEdit =
             onEvent = viewModel::onEvent,
             onMergeQuery = viewModel::onMergeQueryChange,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedContributorEdit(
-    state: ContributorEditUiState,
-    mergeCandidates: List<ContributorCandidate> = emptyList(),
-    navActions: Flow<ContributorEditNavAction> = emptyFlow(),
-    onEvent: (ContributorEditUiEvent) -> Unit = {},
-    onMergeQuery: (String) -> Unit = {},
-): OpenContributorEdit =
-    {
-        ContributorEditSession(
-            state = MutableStateFlow(state),
-            mergeCandidates = MutableStateFlow(mergeCandidates),
-            navActions = navActions,
-            onEvent = onEvent,
-            onMergeQuery = onMergeQuery,
-            close = {},
         )
     }

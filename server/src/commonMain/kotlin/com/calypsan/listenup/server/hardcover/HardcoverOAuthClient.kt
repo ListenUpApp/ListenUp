@@ -251,15 +251,27 @@ private data class DeviceAuthorizationWire(
 /** RFC 8628 §3.2: when the server omits `interval`, clients poll every 5 seconds. */
 private const val DEFAULT_POLL_INTERVAL_SECONDS = 5L
 
-private fun DeviceAuthorizationWire.toAuthorization() =
-    DeviceAuthorization(
+/**
+ * The prompt Hardcover returned, with its links held to https: both URLs are relayed to every client, which
+ * opens them, and they come from a third-party response. Hardcover is an https service, so a plain
+ * `verification_uri` of any other scheme is an unusable answer (a [SerializationException], which `attempt` folds
+ * into Unavailable), and a `verification_uri_complete` of one falls back to the plain address.
+ */
+private fun DeviceAuthorizationWire.toAuthorization(): DeviceAuthorization {
+    if (!verificationUri.isHttps()) throw SerializationException("verification_uri is not https")
+    return DeviceAuthorization(
         deviceCode = deviceCode,
         userCode = userCode,
         verificationUri = verificationUri,
-        verificationUriComplete = verificationUriComplete ?: verificationUri,
+        verificationUriComplete = verificationUriComplete?.takeIf { it.isHttps() } ?: verificationUri,
         expiresInSeconds = expiresIn,
         intervalSeconds = interval ?: DEFAULT_POLL_INTERVAL_SECONDS,
     )
+}
+
+private fun String.isHttps(): Boolean = startsWith(HTTPS_SCHEME_PREFIX, ignoreCase = true)
+
+private const val HTTPS_SCHEME_PREFIX = "https://"
 
 @Serializable
 private data class TokenWire(

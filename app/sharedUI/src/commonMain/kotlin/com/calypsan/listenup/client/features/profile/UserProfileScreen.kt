@@ -34,14 +34,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
 import com.calypsan.listenup.client.design.image.withoutCrossfadeWhenFramed
@@ -97,6 +90,10 @@ import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.ui.platform.LocalDensity
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
+import listenup.composeapp.generated.resources.profile_stat_finished
+import listenup.composeapp.generated.resources.profile_stat_best
+import listenup.composeapp.generated.resources.profile_stat_streak
+import listenup.composeapp.generated.resources.profile_stat_listened
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -431,7 +428,7 @@ private fun ProfileEditButton(onEditClick: () -> Unit) {
             ),
     ) {
         Icon(
-            imageVector = Icons.Default.Edit,
+            imageVector = ListenUpIcons.EditFilled,
             contentDescription = stringResource(Res.string.profile_edit_profile),
             tint = MaterialTheme.colorScheme.onSurface,
         )
@@ -564,33 +561,33 @@ private fun StatsRow(
     val tiles =
         listOf(
             StatTileData(
-                icon = Icons.Default.Schedule,
+                icon = ListenUpIcons.ScheduleFilled,
                 value = totalListenTime,
-                label = "Listened",
+                label = stringResource(Res.string.profile_stat_listened),
                 container = scheme.primaryContainer,
                 onContainer = scheme.onPrimaryContainer,
                 iconTint = scheme.primary,
             ),
             StatTileData(
-                icon = Icons.AutoMirrored.Filled.MenuBook,
+                icon = ListenUpIcons.MenuBookFilled,
                 value = booksFinished.toString(),
-                label = "Finished",
+                label = stringResource(Res.string.profile_stat_finished),
                 container = scheme.tertiaryContainer,
                 onContainer = scheme.onTertiaryContainer,
                 iconTint = scheme.tertiary,
             ),
             StatTileData(
-                icon = Icons.Default.LocalFireDepartment,
+                icon = ListenUpIcons.LocalFireDepartmentFilled,
                 value = "${currentStreak}d",
-                label = "Streak",
+                label = stringResource(Res.string.profile_stat_streak),
                 container = scheme.secondaryContainer,
                 onContainer = scheme.onSecondaryContainer,
                 iconTint = scheme.secondary,
             ),
             StatTileData(
-                icon = Icons.Default.EmojiEvents,
+                icon = ListenUpIcons.EmojiEventsFilled,
                 value = "${longestStreak}d",
-                label = "Best",
+                label = stringResource(Res.string.profile_stat_best),
                 container = scheme.surfaceContainerHigh,
                 onContainer = scheme.onSurface,
                 iconTint = scheme.primary,
@@ -754,7 +751,7 @@ private fun ShelfTile(
         )
         Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg), verticalArrangement = Arrangement.SpaceBetween) {
             Icon(
-                imageVector = Icons.Default.Bookmarks,
+                imageVector = ListenUpIcons.BookmarksFilled,
                 contentDescription = null,
                 tint = onContainer,
                 modifier = Modifier.size(24.dp),
@@ -798,7 +795,7 @@ private fun AddShelfTile(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.Add,
+            imageVector = ListenUpIcons.AddFilled,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(26.dp),

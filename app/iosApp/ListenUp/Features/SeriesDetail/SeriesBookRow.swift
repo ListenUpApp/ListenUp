@@ -19,7 +19,7 @@ struct SeriesBookRow: View {
             cover
             VStack(alignment: .leading, spacing: 2) {
                 if let sequence, !sequence.isEmpty {
-                    Text(String(format: String(localized: "series.book_number"), sequence))
+                    Text(String(localized: .seriesBookNumber(sequence)))
                         .font(.caption2.weight(.bold))
                         .kerning(0.4)
                         .textCase(.uppercase)

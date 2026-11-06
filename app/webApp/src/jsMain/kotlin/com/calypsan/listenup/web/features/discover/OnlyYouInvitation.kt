@@ -12,7 +12,7 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * Listening now when you are the only person on the server (spec §3.8): your avatar beside two dashed
+ * Listening now when you are the only person on the server: your avatar beside two dashed
  * circles for the people not here yet, what Discover will show once they are, and — for an admin only —
  * **Invite someone**. A member sees no button and no gap where it was.
  *

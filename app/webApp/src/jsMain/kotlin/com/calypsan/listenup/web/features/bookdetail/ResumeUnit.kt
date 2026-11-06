@@ -15,7 +15,7 @@ import kotlin.js.dateLocaleOptions
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Book Detail's progress unit on the web (spec §2.9): "Ch. 6 · Bridge Four" with "11% · 40h 31m left" over the bar
+ * Book Detail's progress unit on the web: "Ch. 6 · Bridge Four" with "11% · 40h 31m left" over the bar
  * while in progress; "Finished · 12 Feb – 3 Mar 2026" once finished; nothing before it starts. It sits directly
  * above the action row, so where you are reads before what to do next.
  */

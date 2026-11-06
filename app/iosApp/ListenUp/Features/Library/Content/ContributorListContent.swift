@@ -147,10 +147,7 @@ struct ContributorListContent: View {
             ContentUnavailableView(
                 String(localized: "library.contributors_empty"),
                 systemImage: isAuthors ? "person.fill" : "waveform.circle.fill",
-                description: Text(String(
-                    format: String(localized: "library.empty_tab_description"),
-                    String(localized: isAuthors ? "library.authors" : "library.narrators")
-                ))
+                description: Text(String(localized: .libraryEmptyTabDescription(String(localized: isAuthors ? "library.authors" : "library.narrators"))))
             )
         }
         .background(Color.luSurface)

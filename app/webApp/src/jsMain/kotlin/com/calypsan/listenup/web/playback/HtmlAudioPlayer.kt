@@ -182,38 +182,18 @@ internal class HtmlAudioPlayer(
     /**
      * Whether the listener has asked for audio — re-asserted every time the element becomes ready.
      *
-     * Deliberately survives [load]: [primeForPlayback] sets it during the click that asked for a
-     * book, and the segments it asked for do not arrive until an RPC round-trip later.
+     * Set by [play], where the audio is already loaded and normally starts in the same call, and by
+     * [primeForPlayback], whose request outlives the call by the RPC round-trip that supplies the segments.
      *
-     * That makes it a *standing instruction* rather than per-call state — set here, consumed by
-     * some later [load] — and this player cannot tell on its own whether the instruction is still
-     * wanted.
-     *
-     * Two things SET it: [play], where the audio is already loaded and normally starts in the same
-     * call, and [primeForPlayback], where it outlives the call by an RPC round-trip.
-     *
-     * **Both can leave it set with nothing playing**, so neither is safe on its own:
-     *  - [primeForPlayback] strands it whenever the prepare it was betting on never lands.
-     *    The shared `PlayerSession`'s load withdraws it (through `HtmlAudioStartGate`) on every such
-     *    path and is the only caller; `PlayerSessionPlayTest` pins the failure, throw and supersede
-     *    cases, and `LivePlaybackWiringTest` the sign-out mid-prepare.
-     *  - [play] strands it when the element errors: `reportElementError` publishes
-     *    [PlaybackState.Error] without clearing, and the play promise's own [onPlayRejected] then
-     *    returns early on that existing error, before it reaches its clear.
-     *
-     * The second case has no consequence today only because every web [load] arrives via
-     * the shared `PlayerSession`'s load, which primes first — and priming clears through [forgetContent].
-     * That coupling is a convention, not a guarantee, and nothing asserts it.
-     *
-     * Clearing happens in [pause], [forgetContent] (so [releasePlayer], [primeForPlayback] and a
-     * `load(emptyList())` all clear too), [onPlayRejected] when it does not return early, and
-     * [onSegmentEnded] at the end of the last segment.
-     *
-     * This has been documented wrongly four times, each author enumerating a different subset of
-     * five clear paths. The durable fix is to stop carrying the intent as player state and pass it
-     * into [load] instead — see the branch's follow-up notes — rather than to restate this.
+     * An unprimed [load] clears it: priming is a one-shot ([primedForNextLoad]) that the next load consumes, so a
+     * book only starts by itself when the listener asked for that book. Also cleared by [pause], [forgetContent]
+     * (so [releasePlayer], [primeForPlayback] and a `load(emptyList())` clear it too), [onPlayRejected] when it does
+     * not return early, and [onSegmentEnded] at the end of the last segment.
      */
     private var resumeOnReady: Boolean = false
+
+    /** [primeForPlayback] was called and no [load] has spent it yet: the next load keeps [resumeOnReady]. */
+    private var primedForNextLoad: Boolean = false
 
     /**
      * Set by [releasePlayer] to stop late events reporting errors about a book nobody is listening
@@ -269,15 +249,10 @@ internal class HtmlAudioPlayer(
         this.segments = segments
         durationMs.value = segments.sumOf { it.durationMs }
         positionMs.value = 0
-        // `resumeOnReady` is deliberately NOT cleared here: a load that follows a
-        // [primeForPlayback] is the whole point of priming, and clearing the flag would throw away
-        // the tap and leave the book sitting silently on Paused.
-        //
-        // What this does NOT guarantee is that an unprimed load finds the flag false — that holds
-        // only because the one caller of [primeForPlayback] withdraws on every failing path (see
-        // [resumeOnReady]). `WebPlaybackController.setMediaQueue` reaches this method with no prime
-        // at all and would auto-play a stale instruction; it has no web caller today, which is a
-        // convention rather than a guarantee.
+        // Only a load the listener primed for may start by itself; priming is spent either way, so the load after
+        // it, and a play() left over from an earlier book, cannot start this one.
+        if (!primedForNextLoad) resumeOnReady = false
+        primedForNextLoad = false
         attach(index = 0, offsetInSegmentMs = 0)
     }
 
@@ -306,6 +281,7 @@ internal class HtmlAudioPlayer(
         released = false
         forgetContent()
         resumeOnReady = true
+        primedForNextLoad = true
         state.value = PlaybackState.Buffering
         startPlayback()
     }
@@ -460,6 +436,7 @@ internal class HtmlAudioPlayer(
     /** Detach whatever is loaded and zero everything that described it. Leaves [state] to the caller. */
     private fun forgetContent() {
         resumeOnReady = false
+        primedForNextLoad = false
         endListen()
         pendingOffsetMs = null
         releaseHls()

@@ -195,6 +195,8 @@
   min-height: 48px; padding: 0 var(--sp-8); border: 1px solid var(--outline); border-radius: var(--r-pill); cursor: pointer;
   background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-ui); font-weight: 600;
 }
+.sleep-opt { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.sleep-opt-default { font-size: var(--fs-small); font-weight: 500; color: var(--ink-2); }
 @media (hover: hover) { .sleep-opt:hover { background: var(--surface-2); } }
 .sleep-opt:active { transform: translateY(1px); }
 .sleep-custom { display: flex; align-items: flex-end; gap: var(--sp-8); }

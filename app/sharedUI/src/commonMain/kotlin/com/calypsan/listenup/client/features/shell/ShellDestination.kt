@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.features.shell
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * Destinations for the main app shell bottom navigation.
@@ -27,22 +21,22 @@ sealed class ShellDestination(
     data object Home : ShellDestination(
         route = "home",
         title = "Home",
-        icon = Icons.Outlined.Home,
-        selectedIcon = Icons.Filled.Home,
+        icon = ListenUpIcons.Home,
+        selectedIcon = ListenUpIcons.HomeFilled,
     )
 
     data object Library : ShellDestination(
         route = "library",
         title = "Library",
-        icon = Icons.AutoMirrored.Outlined.LibraryBooks,
-        selectedIcon = Icons.AutoMirrored.Filled.LibraryBooks,
+        icon = ListenUpIcons.LibraryBooks,
+        selectedIcon = ListenUpIcons.LibraryBooksFilled,
     )
 
     data object Discover : ShellDestination(
         route = "discover",
         title = "Discover",
-        icon = Icons.Outlined.Explore,
-        selectedIcon = Icons.Filled.Explore,
+        icon = ListenUpIcons.Explore,
+        selectedIcon = ListenUpIcons.ExploreFilled,
     )
 
     companion object {

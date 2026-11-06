@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +24,7 @@ class StatTileTest {
                 StatTile(
                     value = "184",
                     label = "Sessions written",
-                    icon = Icons.Filled.GraphicEq,
+                    icon = ListenUpIcons.GraphicEqFilled,
                     colors = StatTileTone.primary(),
                 )
             }

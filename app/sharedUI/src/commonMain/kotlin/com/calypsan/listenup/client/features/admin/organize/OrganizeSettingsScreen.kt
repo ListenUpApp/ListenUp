@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.admin.organize
 
-import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SectionColumns
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -42,6 +40,7 @@ import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
 import com.calypsan.listenup.client.presentation.admin.OrganizeSettingsEvent
@@ -126,7 +125,7 @@ fun OrganizeSettingsScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.admin_organize),
-                badgeIcon = Icons.AutoMirrored.Outlined.DriveFileMove,
+                badgeIcon = ListenUpIcons.DriveFileMove,
                 onBack = onBackClick,
                 actions =
                     ready?.let {

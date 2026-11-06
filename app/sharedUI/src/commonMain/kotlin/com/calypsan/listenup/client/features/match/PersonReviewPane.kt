@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +25,7 @@ import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.TonalLabel
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.match.PersonCandidateUi
@@ -160,7 +158,7 @@ private fun PersonReviewHeader(candidate: PersonCandidateUi) {
                     if (strong) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor =
                     if (strong) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                icon = if (strong) Icons.Filled.CheckCircle else null,
+                icon = if (strong) ListenUpIcons.CheckCircleFilled else null,
             )
             Text(
                 text = candidate.name,
@@ -225,6 +223,6 @@ internal fun YouEditedFlag() {
         label = stringResource(Res.string.match_you_edited_flag),
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        icon = Icons.Outlined.Edit,
+        icon = ListenUpIcons.Edit,
     )
 }

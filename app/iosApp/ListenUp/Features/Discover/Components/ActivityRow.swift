@@ -2,9 +2,9 @@ import SwiftUI
 
 /// An activity-feed row: the actor's avatar (its own link to their profile), then the shared sentence —
 /// "**who** predicate **highlight** suffix", the highlight in coral — over a relative time, as one link
-/// to the row's subject: its book, its shelf, or for a row about neither, the actor (spec X27–X32).
+/// to the row's subject: its book, its shelf, or for a row about neither, the actor.
 /// A book row shows the book's cover trailing — or, at accessibility text sizes, under the sentence, so
-/// the sentence keeps the row's width (spec §2.8 item 4).
+/// the sentence keeps the row's width.
 ///
 /// Its further actions (`ActivityRowActions`) open from a touch-and-hold context menu with the row as
 /// its preview, and are VoiceOver custom actions, so none needs a touch-and-hold (HIG, Context menus).
@@ -45,7 +45,7 @@ struct ActivityRow: View {
     private var profileLabel: String {
         item.isYou
             ? String(localized: "discover.activity_your_profile_a11y")
-            : String(format: String(localized: "discover.activity_profile_a11y"), item.who)
+            : String(localized: .discoverActivityProfileA11Y(item.who))
     }
 
     var body: some View {
@@ -102,7 +102,7 @@ struct ActivityRow: View {
             : AnyLayout(HStackLayout(spacing: Spacing.s))
         return layout {
             VStack(alignment: .leading, spacing: 2) {
-                // The whole sentence, never clamped: its " by {Author}" ending is the point (D5).
+                // The whole sentence, never clamped: its " by {Author}" ending is the point.
                 phrase
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)

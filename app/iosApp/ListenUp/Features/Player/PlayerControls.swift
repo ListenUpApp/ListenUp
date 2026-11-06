@@ -1,4 +1,5 @@
 import SwiftUI
+@preconcurrency import Shared
 
 // MARK: - Transport
 
@@ -6,7 +7,7 @@ import SwiftUI
 /// least 44pt (HIG, Accessibility: controls need a 44×44pt hit area).
 ///
 /// Previous always works while the transport shows: at a chapter's start it goes to the one before, and in chapter 1
-/// it restarts it (player spec §3.3). Next is off at the last chapter. Back and forward keep their places and are off
+/// it restarts it. Next is off at the last chapter. Back and forward keep their places and are off
 /// while there is no settled position to skip from (a stall re-buffers; spec S12), so the row never re-flows.
 struct PlayerTransportControls: View {
     /// Play and pause's glyph colour.
@@ -48,7 +49,7 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)"),
+                label: String(localized: .playerSkipBackward("\(observer.skipBackwardSec)")),
                 isEnabled: canSkip
             ) {
                 observer.skipBackward()
@@ -63,7 +64,7 @@ struct PlayerTransportControls: View {
             transportButton(
                 systemImage: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec),
                 font: .title2,
-                label: String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)"),
+                label: String(localized: .playerSkipForward("\(observer.skipForwardSec)")),
                 isEnabled: canSkip
             ) {
                 observer.skipForward()
@@ -144,7 +145,7 @@ struct PlayerTransportControls: View {
 
 // MARK: - Secondary controls
 
-/// Speed · Sleep · Chapters · AirPlay, each a 44pt control over a caption (Volume Boost lives in More, §5.5.7). Each control
+/// Speed · Sleep · Chapters · AirPlay, each a 44pt control over a caption (Volume Boost lives in More). Each control
 /// names itself to VoiceOver (label + value), so the visible caption is hidden from it rather than
 /// read twice. At accessibility text sizes the row becomes a list of control-beside-caption rows,
 /// which the player column scrolls (HIG, Typography: "consider using a stacked layout").
@@ -154,7 +155,7 @@ struct PlayerSecondaryControls: View {
     let onShowChapters: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    /// Speed and Sleep are sheets, not menus: their values are adjusted, not picked once (HIG, Sheets; plan C10).
+    /// Speed and Sleep are sheets, not menus: their values are adjusted, not picked once (HIG, Sheets).
     @State private var showsSpeed = false
     @State private var showsSleep = false
 
@@ -167,11 +168,11 @@ struct PlayerSecondaryControls: View {
         layout {
             item(caption: String(localized: "player.speed")) {
                 Button { showsSpeed = true } label: {
-                    pill(PlaybackRates.format(observer.playbackSpeed))
+                    pill(PlaybackPresets.shared.speedLabel(speed: observer.playbackSpeed))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "player.speed"))
-                .accessibilityValue(PlaybackRates.format(observer.playbackSpeed))
+                .accessibilityValue(PlaybackPresets.shared.speedLabel(speed: observer.playbackSpeed))
             }
 
             item(caption: String(localized: "player.sleep")) {
@@ -198,12 +199,12 @@ struct PlayerSecondaryControls: View {
             }
 
             // AirPlay's system route picker voices itself; its caption stays readable beside it. While the audio plays
-            // elsewhere the caption names the device (HIG, AirPlay: keep the system control as it is; plan C13).
+            // elsewhere the caption names the device (HIG, AirPlay: keep the system control as it is).
             item(caption: observer.castDeviceName ?? String(localized: "player.airplay"), captionIsSpoken: true) {
                 RoutePickerView(
                     tint: Color(.label), activeTint: .luTint,
                     playingOn: observer.castDeviceName.map {
-                        String(format: String(localized: "player.np_status_playing_on"), $0)
+                        String(localized: .playerNpStatusPlayingOn($0))
                     })
                     .frame(width: 44, height: 44)
             }
@@ -254,7 +255,7 @@ struct PlayerSecondaryControls: View {
             .contentShape(Rectangle())
     }
 
-    /// An armed timer counts down in the sleep gold (§3.9) instead of showing a filled moon: the time left is the
+    /// An armed timer counts down in the sleep gold instead of showing a filled moon: the time left is the
     /// state, not the glyph's fill. End of chapter counts down to the chapter's end at the listening speed.
     private var sleepCountdown: some View {
         Text(observer.sleepTimerLabel)

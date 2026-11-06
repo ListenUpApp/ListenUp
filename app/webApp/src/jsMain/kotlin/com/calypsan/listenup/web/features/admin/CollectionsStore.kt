@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiSt
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -36,25 +35,6 @@ fun graphCollections(koin: Koin): OpenCollections =
             onClearError = viewModel::clearError,
             onClearCreateSuccess = viewModel::clearCreateSuccess,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedCollections(
-    state: AdminCollectionsUiState = AdminCollectionsUiState.Loading,
-    onCreate: (String) -> Unit = {},
-    onDelete: (String) -> Unit = {},
-    onClearError: () -> Unit = {},
-    onClearCreateSuccess: () -> Unit = {},
-): OpenCollections =
-    {
-        CollectionsSession(
-            state = MutableStateFlow(state),
-            onCreate = onCreate,
-            onDelete = onDelete,
-            onClearError = onClearError,
-            onClearCreateSuccess = onClearCreateSuccess,
-            close = {},
         )
     }
 
@@ -108,44 +88,6 @@ fun graphCollectionDetail(koin: Koin): OpenCollectionDetail =
             onClearError = viewModel::clearError,
             onClearSaveSuccess = viewModel::clearSaveSuccess,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-@Suppress("LongParameterList")
-fun fixedCollectionDetail(
-    state: AdminCollectionDetailUiState = AdminCollectionDetailUiState.Loading,
-    onNameChange: (String) -> Unit = {},
-    onSaveName: () -> Unit = {},
-    onRemoveBook: (String) -> Unit = {},
-    onOpenAddBooks: () -> Unit = {},
-    onCloseAddBooks: () -> Unit = {},
-    onBookQuery: (String) -> Unit = {},
-    onAddBook: (String) -> Unit = {},
-    onShowAddMember: () -> Unit = {},
-    onHideAddMember: () -> Unit = {},
-    onShare: (String) -> Unit = {},
-    onRevokeShare: (String) -> Unit = {},
-    onClearError: () -> Unit = {},
-    onClearSaveSuccess: () -> Unit = {},
-): OpenCollectionDetail =
-    {
-        CollectionDetailSession(
-            state = MutableStateFlow(state),
-            onNameChange = onNameChange,
-            onSaveName = onSaveName,
-            onRemoveBook = onRemoveBook,
-            onOpenAddBooks = onOpenAddBooks,
-            onCloseAddBooks = onCloseAddBooks,
-            onBookQuery = onBookQuery,
-            onAddBook = onAddBook,
-            onShowAddMember = onShowAddMember,
-            onHideAddMember = onHideAddMember,
-            onShare = onShare,
-            onRevokeShare = onRevokeShare,
-            onClearError = onClearError,
-            onClearSaveSuccess = onClearSaveSuccess,
-            close = {},
         )
     }
 

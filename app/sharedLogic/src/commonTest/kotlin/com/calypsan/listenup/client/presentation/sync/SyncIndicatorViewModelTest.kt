@@ -100,7 +100,11 @@ class SyncIndicatorViewModelTest :
                 mock<SyncRepository> {
                     every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
                 }
-            return SyncIndicatorViewModel(pendingOperationRepository = repo, syncRepository = syncRepository, errorBus = ErrorBus())
+            return SyncIndicatorViewModel(
+                pendingOperationRepository = repo,
+                syncRepository = syncRepository,
+                manualSyncRefresh = ManualSyncRefresh(syncRepository, ErrorBus()),
+            )
         }
 
         test("state derives pendingCount from visible PENDING operations") {
@@ -179,7 +183,8 @@ class SyncIndicatorViewModelTest :
             runTest(testDispatcher) {
                 val syncState = MutableStateFlow<SyncState>(SyncState.Idle)
                 val syncRepository = mock<SyncRepository> { every { this@mock.syncState } returns syncState }
-                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+                val vm =
+                    SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ManualSyncRefresh(syncRepository, ErrorBus()))
 
                 vm.state.test {
                     awaitItem().lastSyncedAtMs shouldBe null
@@ -204,7 +209,8 @@ class SyncIndicatorViewModelTest :
                         every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
                         everySuspend { sync() } returns AppResult.Success(Unit)
                     }
-                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+                val vm =
+                    SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ManualSyncRefresh(syncRepository, ErrorBus()))
 
                 vm.onEvent(SyncIndicatorUiEvent.RefreshRequested)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -221,7 +227,8 @@ class SyncIndicatorViewModelTest :
                         every { syncState } returns MutableStateFlow<SyncState>(SyncState.Idle)
                         everySuspend { sync() } calls { landing.await() }
                     }
-                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ErrorBus())
+                val vm =
+                    SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ManualSyncRefresh(syncRepository, ErrorBus()))
                 backgroundScope.launch { vm.state.collect { } }
                 testDispatcher.scheduler.advanceUntilIdle()
 
@@ -244,7 +251,8 @@ class SyncIndicatorViewModelTest :
                         everySuspend { sync() } returns AppResult.Failure(failure)
                     }
                 val errorBus = ErrorBus()
-                val vm = SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, errorBus)
+                val vm =
+                    SyncIndicatorViewModel(FakePendingOperationRepository(), syncRepository, ManualSyncRefresh(syncRepository, errorBus))
                 backgroundScope.launch { vm.state.collect { } }
 
                 errorBus.errors.test {

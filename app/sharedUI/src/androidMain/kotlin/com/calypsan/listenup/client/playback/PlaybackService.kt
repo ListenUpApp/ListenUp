@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Bundle
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -10,6 +11,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
@@ -20,6 +22,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
@@ -441,6 +444,7 @@ class PlaybackService :
         }
 
         mediaLibrarySession = builder.build()
+        serviceScope.launch { skipIntervals.changes.collect { pushMediaButtons() } }
 
         logger.info { "MediaLibrarySession initialized" }
     }
@@ -461,7 +465,7 @@ class PlaybackService :
 
     /** The whole minutes the card's line shows as left in the chapter at [positionMs]. */
     private fun minutesLeftOnCard(positionMs: Long): Long =
-        currentChapterWindow(playbackManager.chapters.value, positionMs, playbackManager.totalDurationMs.value)
+        chapterWindowAt(positionMs, playbackManager.chapters.value, playbackManager.totalDurationMs.value)
             .remainingMs / MS_PER_MINUTE
 
     private fun initializeNotificationProvider() {
@@ -469,6 +473,7 @@ class PlaybackService :
             AudiobookNotificationProvider(
                 context = this,
                 skipIntervals = skipIntervals,
+                scope = serviceScope,
                 strings = systemStrings,
             )
         val provider = notificationProvider ?: return
@@ -512,7 +517,27 @@ class PlaybackService :
      * [SystemStrings.ENGLISH_FALLBACK] rather than a blank label.
      */
     private fun refreshSystemStrings() {
-        serviceScope.launch { systemStrings.refresh() }
+        serviceScope.launch {
+            systemStrings.refresh()
+            pushMediaButtons()
+        }
+    }
+
+    /**
+     * Re-sends the custom media buttons to every connected controller that gets them.
+     *
+     * [ListenUpSessionCallback.onConnect] labels the buttons once, so without this the car, Bluetooth and the system
+     * card keep "Back 30" after the listener sets 15 s, and keep the old language after a locale change. Any new
+     * setting that changes a system-surface label must call this.
+     */
+    private fun pushMediaButtons() {
+        val session = mediaLibrarySession ?: return
+        mediaButtonUpdates(
+            controllers = session.connectedControllers.map { it to session.classifyController(it) },
+            backwardSec = skipIntervals.backwardSec,
+            forwardSec = skipIntervals.forwardSec,
+            words = systemStrings.current,
+        ).forEach { (controller, buttons) -> session.setMediaButtonPreferences(controller, buttons) }
     }
 
     /**
@@ -832,9 +857,18 @@ class PlaybackService :
                 logger.debug { "Idle timer started: $timeout ($reason)" }
                 delay(timeout)
                 logger.info { "Idle timeout reached, stopping service ($reason)" }
-                saveCurrentPosition()
+                // Not casting (guarded above): the local player is the transport. The app's controller keeps the
+                // service bound, so stopSelf() alone would leave the decoder and notification up.
+                player?.let { local ->
+                    releaseIdlePlayer(local, ::saveCurrentPosition, ::announceIdleRelease)
+                } ?: saveCurrentPosition()
                 stopSelf()
             }
+    }
+
+    /** Tells every controller the local player was released, so the app stops treating the engine as holding the book. */
+    private fun announceIdleRelease() {
+        mediaLibrarySession?.broadcastCustomCommand(SessionCommand(COMMAND_IDLE_RELEASED, Bundle.EMPTY), Bundle.EMPTY)
     }
 
     private fun cancelIdleTimer() {
@@ -1125,6 +1159,18 @@ class PlaybackService :
             reason: Int,
         ) {
             logger.debug { "Media item transition: ${mediaItem?.mediaId ?: "none"}, reason: $reason" }
+        }
+
+        /** A new playlist may stream or be downloaded; hold Wi-Fi awake only when it streams. */
+        override fun onTimelineChanged(
+            timeline: Timeline,
+            reason: Int,
+        ) {
+            if (source != TransportSource.LOCAL) return
+            val exoPlayer = this@PlaybackService.player ?: return
+            val uris =
+                (0 until exoPlayer.mediaItemCount).mapNotNull { exoPlayer.getMediaItemAt(it).localConfiguration?.uri }
+            exoPlayer.setWakeMode(wakeModeFor(uris))
         }
 
         /**

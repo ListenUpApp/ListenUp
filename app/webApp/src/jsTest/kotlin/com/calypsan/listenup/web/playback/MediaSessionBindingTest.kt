@@ -535,6 +535,29 @@ class MediaSessionBindingTest :
             }
         }
 
+        test("unbinding clears the book from the OS controls, so a signed-out reader's book is not left in the media hub") {
+            val bridge = RecordingMediaSession()
+            val state = MutableStateFlow<PlayerUiState>(dune())
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            val dispose =
+                bindMediaSession(
+                    session = session(state = state, onPlayPause = {}),
+                    bridge = bridge,
+                    scope = scope,
+                )
+            try {
+                awaitTrue { bridge.metadata.isNotEmpty() }
+                bridge.clears shouldBe 0
+
+                dispose()
+
+                bridge.clears shouldBe 1
+            } finally {
+                dispose()
+                scope.cancel()
+            }
+        }
+
         test("closing the book unregisters every action, so a media key with nothing loaded does nothing") {
             val bridge = RecordingMediaSession()
             val calls = mutableListOf<String>()

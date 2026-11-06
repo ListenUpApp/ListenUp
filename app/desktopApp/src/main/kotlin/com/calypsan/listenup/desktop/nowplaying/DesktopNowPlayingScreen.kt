@@ -69,7 +69,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.PlaybackSlider
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -871,7 +871,7 @@ private fun SecondaryControls(
             FilledTonalButton(onClick = { showPopup = true }) {
                 Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(formatPlaybackSpeed(playbackSpeed), style = MaterialTheme.typography.labelLarge)
+                Text(PlaybackPresets.speedLabel(playbackSpeed), style = MaterialTheme.typography.labelLarge)
             }
 
             if (showPopup) {
@@ -894,7 +894,7 @@ private fun SecondaryControls(
                             Spacer(Modifier.height(16.dp))
 
                             Text(
-                                formatPlaybackSpeed(sliderSpeed),
+                                PlaybackPresets.speedLabel(sliderSpeed),
                                 style = MaterialTheme.typography.displaySmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -939,7 +939,7 @@ private fun SecondaryControls(
                                             sliderSpeed = preset
                                             onSpeedClick(preset)
                                         },
-                                        label = { Text(formatPlaybackSpeed(preset)) },
+                                        label = { Text(PlaybackPresets.speedLabel(preset)) },
                                     )
                                 }
                             }
@@ -952,7 +952,7 @@ private fun SecondaryControls(
                                 }) {
                                     // Desktop is frozen and cannot reach sharedUI's internal Res; this copy was already baselined.
                                     @Suppress("NoHardcodedUiString")
-                                    Text("Reset to ${formatPlaybackSpeed(1.0f)}")
+                                    Text("Reset to ${PlaybackPresets.speedLabel(1.0f)}")
                                 }
                             }
                         }

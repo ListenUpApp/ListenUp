@@ -62,14 +62,14 @@ internal object HomeWords {
             else -> "Finished $daysAgo days ago"
         }
 
-    /** "45h 30m · 6 Sep – 10 Oct", or the length alone when the start is unknown (open question 8). */
+    /** "45h 30m · 6 Sep – 10 Oct", or the length alone when the start is unknown. */
     fun finishedMeta(
         length: String,
         startedOn: String?,
         finishedOn: String,
     ): String = if (startedOn == null) length else "$length · $startedOn – $finishedOn"
 
-    /** "Maya, Tom and 3 more finished it too" (C9), or null when nobody is named (open question 7). */
+    /** "Maya, Tom and 3 more finished it too", or null when nobody is named. */
     fun alsoFinished(
         names: List<String>,
         more: Int,
@@ -91,7 +91,7 @@ internal object HomeWords {
         length: String,
     ): String = if (sequence == null) "$series · $length" else "$series, Book $sequence · $length"
 
-    /** "Building your library · 412 of 1,280 books": the strip's title while a scan knows both numbers (Q1). */
+    /** "Building your library · 412 of 1,280 books": the strip's title while a scan knows both numbers. */
     fun arrivingTitle(
         done: Int,
         total: Int,

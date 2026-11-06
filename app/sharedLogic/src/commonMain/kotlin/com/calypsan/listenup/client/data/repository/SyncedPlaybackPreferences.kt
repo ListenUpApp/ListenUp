@@ -36,6 +36,8 @@ internal class SyncedPlaybackPreferences(
 
     override suspend fun getDefaultSkipBackwardSec(): Int = current().defaultSkipBackwardSec
 
+    override fun observeDefaultSleepTimerMin(): Flow<Int?> = observe { it.defaultSleepTimerMin }
+
     /** One field of the synced preferences, re-emitted only when that field actually moves. */
     private fun <T> observe(select: (UserPreferences) -> T): Flow<T> =
         userPreferences.observePreferences().map(select).distinctUntilChanged()

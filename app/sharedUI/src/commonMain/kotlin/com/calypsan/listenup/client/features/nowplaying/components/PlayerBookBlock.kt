@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.player.MorphElement
 import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
 import com.calypsan.listenup.client.presentation.player.MorphEnd
@@ -21,8 +22,6 @@ import androidx.compose.runtime.Composable
 import listenup.composeapp.generated.resources.book_detail_narrated_by
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -237,7 +236,7 @@ private fun NarratedBy(
         horizontalArrangement = arrangement,
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.RecordVoiceOver,
+                imageVector = ListenUpIcons.RecordVoiceOverFilled,
                 contentDescription = null,
                 tint = ink,
                 modifier = Modifier.size(NarratorIconSize).testTag(NARRATOR_ICON_TAG),
@@ -300,7 +299,7 @@ private fun WideTitleBlock(
 
 /**
  * "The Stormlight Archive · Book 1", or the bare name when the book has no place in the series: a text link to the
- * series page with a 48dp target (§8). TalkBack hears the words, "button", and "double tap to go to series".
+ * series page with a 48dp target. TalkBack hears the words, "button", and "double tap to go to series".
  */
 @Composable
 private fun SeriesLink(

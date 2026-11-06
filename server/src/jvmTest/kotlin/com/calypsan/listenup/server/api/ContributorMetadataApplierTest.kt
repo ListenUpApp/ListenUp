@@ -13,7 +13,7 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorSource
@@ -72,12 +72,12 @@ class ContributorMetadataApplierTest :
         fun applier(
             repo: ContributorRepository,
             profile: ContributorMeta?,
-            storage: ImageStorage = storageServing(ONE_PX_PNG),
+            storage: RemoteImageFetcher = storageServing(ONE_PX_PNG),
             imageHome: Path = Path(Files.createTempDirectory("applier-test-").toString()),
         ): ContributorMetadataApplier =
             ContributorMetadataApplier(
                 contributorRepository = repo,
-                imageStorage = storage,
+                remoteImageFetcher = storage,
                 coordinator = coordinatorWith(profile),
                 imageHome = imageHome,
             )
@@ -228,7 +228,7 @@ class ContributorMetadataApplierTest :
                             description = "New bio.",
                             imageUrl = "https://img.example/p.jpg",
                         )
-                    val failingStorage = ImageStorage(HttpClient(MockEngine { throw IOException("network down") }))
+                    val failingStorage = RemoteImageFetcher(HttpClient(MockEngine { throw IOException("network down") }))
 
                     applier(repo, profile, storage = failingStorage)
                         .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
@@ -255,7 +255,7 @@ class ContributorMetadataApplierTest :
                             imageUrl = "https://img.example/p.jpg",
                         )
                     val htmlStorage =
-                        ImageStorage(
+                        RemoteImageFetcher(
                             HttpClient(
                                 MockEngine {
                                     respond(
@@ -311,7 +311,7 @@ class ContributorMetadataApplierTest :
 
                     ContributorMetadataApplier(
                         contributorRepository = repo,
-                        imageStorage = storageServing(ONE_PX_PNG),
+                        remoteImageFetcher = storageServing(ONE_PX_PNG),
                         coordinator = coordinatorWith(photoProfile()),
                         imageHome = imageHome,
                         photoMaxBytes = TINY_PHOTO_CEILING_BYTES,
@@ -380,9 +380,9 @@ private val ONE_PX_PNG: ByteArray =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
         )
 
-/** An [ImageStorage] whose every request answers with [bytes], declared as a PNG. */
-private fun storageServing(bytes: ByteArray): ImageStorage =
-    ImageStorage(
+/** An [RemoteImageFetcher] whose every request answers with [bytes], declared as a PNG. */
+private fun storageServing(bytes: ByteArray): RemoteImageFetcher =
+    RemoteImageFetcher(
         HttpClient(
             MockEngine {
                 respond(

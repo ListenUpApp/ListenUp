@@ -35,7 +35,7 @@ internal const val ACTIVITY_CAP = 6
  * Six rows show, then "See all activity", which opens the full feed on its own screen (X33). It
  * never expands in place. A host with no such screen (desktop) passes a null [onSeeAll] and shows no link.
  *
- * Loading is a skeleton of rows and a failure a line with its own Try again (spec §3.8).
+ * Loading is a skeleton of rows and a failure a line with its own Try again.
  */
 @Composable
 internal fun ActivityFeedSection(

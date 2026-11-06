@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.player
 
-/** One-shot navigation the platform performs (spec §4.2). Delivered through a buffered channel. */
+/** One-shot navigation the platform performs. Delivered through a buffered channel. */
 sealed interface PlayerEvent {
     /** Open the in-app reader on a downloaded document. */
     data class OpenDocumentViewer(

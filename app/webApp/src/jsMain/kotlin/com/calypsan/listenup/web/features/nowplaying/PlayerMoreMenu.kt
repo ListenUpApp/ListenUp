@@ -23,7 +23,7 @@ import org.w3c.dom.MediaQueryList
 import kotlinx.browser.window
 
 /**
- * Now Playing's "More ▾" (§5.5.7), from the shared [PlayerMenus] so the three platforms list the same rows in the same
+ * Now Playing's "More ▾", from the shared [PlayerMenus] so the three platforms list the same rows in the same
  * order. Below 760px it lists Go to series and Go to author, which the wider page shows as links instead; then Keyboard
  * shortcuts (with its key, ?) before Close book. Open PDF is a real link into a new tab, so no popup blocker stops it.
  * Close book sits apart, in the destructive colour. The trigger is named for the book (WCAG 2.4.6).
@@ -33,7 +33,7 @@ internal fun PlayerMoreMenu(
     state: PlayerUiState.Loaded,
     /** Below 760px: the page shows no series line and no author byline, so More carries Go to series and Go to author. */
     compact: Boolean,
-    /** A chosen row, with the More trigger, which a panel the row opens hangs from (Volume boost, C9). */
+    /** A chosen row, with the More trigger, which a panel the row opens hangs from (Volume boost). */
     onItem: (PlayerMenuItem, opener: HTMLElement?) -> Unit,
 ) {
     val anchor = remember { MoreAnchor() }

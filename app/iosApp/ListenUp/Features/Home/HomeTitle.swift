@@ -1,6 +1,6 @@
 import Foundation
 
-/// Home's navigation subtitle (spec §3.1): the part of the day the shared state chose, worded from the catalog, and
+/// Home's navigation subtitle: the part of the day the shared state chose, worded from the catalog, and
 /// the listener's first name.
 enum HomeTitle {
     nonisolated static func greeting(_ timeOfDay: HomeTimeOfDay) -> String {
@@ -12,10 +12,10 @@ enum HomeTitle {
         }
     }
 
-    /// "Good evening, Simon"; a new listener is greeted "Welcome, Simon" (spec §2.3 NewListener).
+    /// "Good evening, Simon"; a new listener is greeted "Welcome, Simon".
     nonisolated static func subtitle(timeOfDay: HomeTimeOfDay, firstName: String?, isWelcome: Bool = false) -> String {
         let greeting = isWelcome ? String(localized: "home.welcome") : greeting(timeOfDay)
         guard let firstName, !firstName.isEmpty else { return greeting }
-        return String(format: String(localized: "home.greeting_with_name"), greeting, firstName)
+        return String(localized: .homeGreetingWithName(greeting, firstName))
     }
 }

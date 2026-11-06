@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.player
 
 /**
- * The fast-changing position (~4 Hz), split out so a tick never re-emits [PlayerUiState] (§4.2). Only scrubbers,
+ * The fast-changing position (~4 Hz), split out so a tick never re-emits [PlayerUiState]. Only scrubbers,
  * time labels and passive progress lines subscribe. Everything that moves is chapter-scoped.
  */
 data class PlayerProgress(

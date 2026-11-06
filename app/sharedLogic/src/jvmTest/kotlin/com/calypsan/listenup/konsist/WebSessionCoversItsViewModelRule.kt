@@ -228,22 +228,17 @@ private val EXCUSED =
         // Material You sources colours from the Android wallpaper. Web has its own theme switch
         // (ThemeMode), so there is no equivalent knob to wire.
         "SettingsViewModel.setDynamicColorsEnabled",
-        // ⛔ The Settings four. `SettingsPage`/`SettingsSession` already carry the reasoning in
+        // ⛔ The Settings three. `SettingsPage`/`SettingsSession` already carry the reasoning in
         // prose — "seven controls, not twelve" — and this rule strips comments, so a carefully
         // made decision read exactly like an oversight. Recorded here so it reads as a decision:
         //  - wifi-only downloads: web cannot download at all (`supportsDownloads` is false), so the
         //    toggle would govern a capability this device does not have.
         //  - haptics: needs hardware a browser tab does not have.
-        //  - default sleep timer: a stored preference NOTHING anywhere reads yet — web has the
-        //    sleep timer, but nothing starts one from this number, so the control would change
-        //    nothing. Revisit when something honours it, exactly as default boost was revisited
-        //    once `WebGainStage` could act on it.
         //  - sendTestNotification: pushes "back to THIS device", and this tab cannot receive a push
         //    (no service worker). It would report "sent" while nothing ever arrived — destroying
         //    the one diagnostic the button exists for.
         "SettingsViewModel.setWifiOnlyDownloads",
         "SettingsViewModel.setHapticFeedbackEnabled",
-        "SettingsViewModel.setDefaultSleepTimerMin",
         "SettingsViewModel.sendTestNotification",
         // Ignore "A", "An", "The" lives in web's Library Sort dropdown, beside the sort it changes
         // (spec L5/L6), through `LibraryViewModel`'s ToggleIgnoreTitleArticles; Settings no longer
@@ -257,6 +252,15 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
+        // `refreshNow` is the awaitable twin of refresh()/load(), for native pull-to-refresh; web has no
+        // pull-to-refresh and its stores call the fire-and-forget refresh().
+        "HomeViewModel.refreshNow",
+        "DiscoverViewModel.refreshNow",
+        "ActivityFeedViewModel.refreshNow",
+        "AdminViewModel.refreshNow",
+        "AdminSettingsViewModel.refreshNow",
+        "AdminBackupViewModel.refreshNow",
+        "ABSImportHubViewModel.refreshNow",
         // ── FALSE POSITIVE (capability present under another name) ────────────────────────────
         // Reached through the session's `close = store::clear`: clearing the ViewModelStore runs
         // `onCleared`, which calls `close()`. `close` exists for iOS, which has no store to clear.
@@ -293,7 +297,7 @@ private val EXCUSED =
         // ── UNREVIEWED — an offender nobody has triaged yet. NOT a to-do list. ────────────────
         //
         // ⛔ Do not build from this section. Three times now a cluster here has turned out to be a
-        // decision web already made (tags, the Settings four) or a function no client wires at all.
+        // decision web already made (tags, the Settings three) or a function no client wires at all.
         // Before treating an entry as work: check the other clients call it, and check whether
         // web's own KDoc already explains the omission — this rule strips comments, so a documented
         // decision is indistinguishable from an oversight until a human looks. Then move it up to a

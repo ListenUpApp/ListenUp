@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// Listening Now, first on Discover (spec §2.8): who is listening right now and who listened in the
+/// Listening Now, first on Discover: who is listening right now and who listened in the
 /// last two weeks, each as a book and a person. A rail at compact width; at regular width every
 /// listener shows in a grid, so no person is hidden in a row that ran out.
 ///
-/// Every state keeps the heading (spec §3.8): a skeleton while loading (and while an empty roster is
+/// Every state keeps the heading: a skeleton while loading (and while an empty roster is
 /// still syncing), a line and Try Again on failure, the invitation when you are alone, and one line when
 /// others are here but nobody is listening. A stale roster says how old it is ("As of 2 hours ago").
 struct ListeningNowSection: View {
-    /// Cards per row in the regular-width grid: five listeners, as the board lays them (spec §3.7).
+    /// Cards per row in the regular-width grid: five listeners, as the board lays them.
     static let regularColumnCount = 5
 
     let phase: CurrentlyListeningPhase
@@ -33,7 +33,7 @@ struct ListeningNowSection: View {
         case rows
     }
 
-    /// Pure: never claim "nobody" or "just you" before the roster has synced (plan C4).
+    /// Pure: never claim "nobody" or "just you" before the roster has synced.
     static func treatment(
         for phase: CurrentlyListeningPhase,
         community: CommunityPhase,

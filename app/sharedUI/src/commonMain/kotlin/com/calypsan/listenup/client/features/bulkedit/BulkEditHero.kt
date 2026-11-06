@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ColorBlockHero
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.BookListItem
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.bulk_edit_hero_eyebrow
@@ -69,7 +68,7 @@ internal fun BulkEditHero(
 ) {
     ColorBlockHero(
         title = title,
-        badgeIcon = Icons.Outlined.EditNote,
+        badgeIcon = ListenUpIcons.EditNote,
         onBack = onBack,
         modifier = modifier,
         overline = selectedCount?.let { stringResource(Res.string.bulk_edit_hero_eyebrow, it) },

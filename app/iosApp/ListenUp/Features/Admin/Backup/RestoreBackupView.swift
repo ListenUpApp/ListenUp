@@ -142,10 +142,10 @@ struct RestoreBackupView: View {
                     Label(String(localized: "admin.restore_complete"), systemImage: "checkmark.circle.fill")
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.green)
-                    Text(String(format: String(localized: "admin.restored_from"), model.restoredFrom))
+                    Text(String(localized: .adminRestoredFrom(model.restoredFrom)))
                         .font(.subheadline)
                         .foregroundStyle(.primary)
-                    Text(String(format: String(localized: "admin.schema_migrated"), model.schemaMigratedFrom, model.schemaMigratedTo))
+                    Text(String(localized: .adminSchemaMigrated(model.schemaMigratedFrom, model.schemaMigratedTo)))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(model.includedImages

@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -25,20 +23,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.playback.SleepTimerState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_playback_speed
 import org.jetbrains.compose.resources.stringResource
 
-/** At this font scale the row wraps instead of overflowing (§5.2). */
+/** At this font scale the row wraps instead of overflowing. */
 private const val LARGE_FONT_SCALE = 1.5f
 
 /**
- * This book's settings (spec §3.1.5, §5.2): Speed (with the rate) · Sleep · Chapters, one standard button group of
+ * This book's settings: Speed (with the rate) · Sleep · Chapters, one standard button group of
  * tonal buttons (m3.material.io/components/button-groups: standard groups for rows of actions). Each opens a sheet.
- * Cast is not here: it sits in the top bar beside More (Simon, 2026-10-27). At large font scale it wraps (§5.2).
+ * Cast is not here: it sits in the top bar beside More (Simon, 2026-10-27). At large font scale it wraps.
  * [showsChapters] is false where the chapter list is always visible.
  */
 @Suppress("LongParameterList") // one callback per control the board draws
@@ -54,7 +53,7 @@ fun PlayerSettingsRow(
     onChaptersClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val rate = formatPlaybackSpeed(speed)
+    val rate = PlaybackPresets.speedLabel(speed)
     val speedName = stringResource(Res.string.player_playback_speed)
     val chaptersName = stringResource(Res.string.player_chapters)
     val speedButton: @Composable () -> Unit = {
@@ -82,7 +81,7 @@ fun PlayerSettingsRow(
             shapes = IconButtonDefaults.shapes(),
             modifier = Modifier.size(MinTouchTarget),
         ) {
-            Icon(Icons.AutoMirrored.Filled.List, contentDescription = chaptersName)
+            Icon(ListenUpIcons.ListFilled, contentDescription = chaptersName)
         }
     }
     val controls =

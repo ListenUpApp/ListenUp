@@ -12,9 +12,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
@@ -67,32 +65,5 @@ fun graphSeriesEdit(koin: Koin): OpenSeriesEdit =
             addSubSeries = viewModel.addSubSeries,
             onAddSubSeriesEvent = viewModel::onAddSubSeriesEvent,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSeriesEdit(
-    state: SeriesEditUiState,
-    mergeCandidates: List<SeriesCandidate> = emptyList(),
-    mergeHistory: MergeHistoryState = MergeHistoryState.Ready(emptyList()),
-    navActions: Flow<SeriesEditNavAction> = emptyFlow(),
-    onEvent: (SeriesEditUiEvent) -> Unit = {},
-    onMergeQuery: (String) -> Unit = {},
-    parentPickerRows: List<ParentPickerRow> = emptyList(),
-    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
-    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
-): OpenSeriesEdit =
-    {
-        SeriesEditSession(
-            state = MutableStateFlow(state),
-            mergeCandidates = MutableStateFlow(mergeCandidates),
-            mergeHistory = MutableStateFlow(mergeHistory),
-            navActions = navActions,
-            onEvent = onEvent,
-            onMergeQuery = onMergeQuery,
-            parentPickerRows = MutableStateFlow(parentPickerRows),
-            addSubSeries = MutableStateFlow(addSubSeries),
-            onAddSubSeriesEvent = onAddSubSeriesEvent,
-            close = {},
         )
     }

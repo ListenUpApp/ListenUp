@@ -1,12 +1,8 @@
 package com.calypsan.listenup.client.features.admin.backup
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.design.components.FlowStep
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_restore_step_choose
 import listenup.composeapp.generated.resources.admin_restore_step_choose_sub
@@ -41,22 +37,22 @@ internal object RestoreFlowStep {
 internal fun restoreFlowSteps(): List<FlowStep> =
     listOf(
         FlowStep(
-            icon = Icons.Outlined.Inventory2,
+            icon = ListenUpIcons.Inventory2,
             title = stringResource(Res.string.admin_restore_step_choose),
             subtitle = stringResource(Res.string.admin_restore_step_choose_sub),
         ),
         FlowStep(
-            icon = Icons.Outlined.Visibility,
+            icon = ListenUpIcons.Visibility,
             title = stringResource(Res.string.admin_restore_step_review),
             subtitle = stringResource(Res.string.admin_restore_step_review_sub),
         ),
         FlowStep(
-            icon = Icons.Outlined.Restore,
+            icon = ListenUpIcons.Restore,
             title = stringResource(Res.string.admin_restore_step_restore),
             subtitle = stringResource(Res.string.admin_restore_step_restore_sub),
         ),
         FlowStep(
-            icon = Icons.AutoMirrored.Outlined.Login,
+            icon = ListenUpIcons.Login,
             title = stringResource(Res.string.admin_restore_step_sign_in),
             subtitle = stringResource(Res.string.admin_restore_step_sign_in_sub),
         ),

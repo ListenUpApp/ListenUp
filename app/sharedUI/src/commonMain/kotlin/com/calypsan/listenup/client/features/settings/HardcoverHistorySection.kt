@@ -9,10 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,6 +37,7 @@ import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import listenup.composeapp.generated.resources.Res
@@ -127,7 +124,7 @@ internal fun HardcoverEarlierBooksRow(
         subtitle = counted(books, Res.string.hardcover_history_row_detail_one, Res.string.hardcover_history_row_detail),
         leading = {
             TonalIconTile(
-                icon = Icons.Outlined.History,
+                icon = ListenUpIcons.History,
                 size = HistoryTileSize,
                 accent = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -171,7 +168,7 @@ private fun OfferCard(
     val haptics = LocalHaptics.current
     HistoryCardSurface {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            TonalIconTile(icon = Icons.Outlined.History, size = HistoryTileSize)
+            TonalIconTile(icon = ListenUpIcons.History, size = HistoryTileSize)
             Text(
                 text = stringResource(Res.string.hardcover_history_offer_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -246,7 +243,7 @@ private fun SendingCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            TonalIconTile(icon = Icons.Outlined.History, size = HistoryTileSize)
+            TonalIconTile(icon = ListenUpIcons.History, size = HistoryTileSize)
             Text(
                 text =
                     if (total == 1) {
@@ -285,7 +282,7 @@ private fun DoneCard(
     HistoryCardSurface {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             TonalIconTile(
-                icon = Icons.Outlined.TaskAlt,
+                icon = ListenUpIcons.TaskAlt,
                 size = HistoryTileSize,
                 accent = MaterialTheme.extendedColors.success,
             )
@@ -321,7 +318,7 @@ private fun DoneCard(
                     onDismiss()
                 },
             ) {
-                Icon(imageVector = Icons.Outlined.Close, contentDescription = stringResource(Res.string.common_dismiss))
+                Icon(imageVector = ListenUpIcons.Close, contentDescription = stringResource(Res.string.common_dismiss))
             }
         }
     }

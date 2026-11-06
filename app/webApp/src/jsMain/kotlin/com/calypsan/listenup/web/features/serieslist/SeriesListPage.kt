@@ -34,15 +34,6 @@ import com.calypsan.listenup.web.motion.seriesHeroKey
 import org.w3c.dom.Element
 
 /**
- * Categories the Series tab sorts by — the three iOS's `SeriesContent` offers.
- *
- * An explicit list rather than `SortCategory.entries` for the reason the Books tab keeps one: the
- * enum also carries categories that only mean something on another tab, and Title in particular is
- * a book's sort, not a series'.
- */
-private val SERIES_SORT_CATEGORIES = listOf(SortCategory.NAME, SortCategory.BOOK_COUNT, SortCategory.ADDED)
-
-/**
  * The Library's Series tab — every top-level series in the library, in the reader's chosen order. A
  * parent series' card stands for its whole subtree.
  *
@@ -255,7 +246,7 @@ private fun SeriesSortControl(
 ) {
     SortDropdown(
         noun = "series",
-        categories = SERIES_SORT_CATEGORIES,
+        categories = SortCategory.seriesCategories,
         state = state.seriesSortState,
         onCategory = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },

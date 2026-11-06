@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
-import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.material3.LocalContentColor
 import com.calypsan.listenup.client.design.components.CoverScrim
 import androidx.compose.animation.AnimatedVisibility
@@ -24,8 +26,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,10 +34,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -49,6 +47,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -119,7 +118,7 @@ fun IdentityHeader(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        imageVector = ListenUpIcons.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),
                     )
                 }
@@ -173,7 +172,7 @@ fun IdentityHeader(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.CameraAlt,
+                                imageVector = ListenUpIcons.CameraAlt,
                                 contentDescription = stringResource(Res.string.book_edit_change_cover),
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary,
@@ -187,10 +186,12 @@ fun IdentityHeader(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    val titleState = rememberForwardingTextFieldState(title, onEdited = onTitleChange)
+                    val subtitleState = rememberForwardingTextFieldState(subtitle, onEdited = onSubtitleChange)
+                    val sortTitleState = rememberForwardingTextFieldState(sortTitle, onEdited = onSortTitleChange)
                     // Title - Large editorial style
                     ListenUpTextField(
-                        value = title,
-                        onValueChange = onTitleChange,
+                        state = titleState,
                         textStyle =
                             MaterialTheme.typography.headlineSmall.copy(
                                 fontFamily = DisplayFontFamily,
@@ -221,8 +222,7 @@ fun IdentityHeader(
                         exit = shrinkVertically(),
                     ) {
                         ListenUpTextField(
-                            value = subtitle,
-                            onValueChange = onSubtitleChange,
+                            state = subtitleState,
                             textStyle =
                                 MaterialTheme.typography.titleMedium.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -266,8 +266,7 @@ fun IdentityHeader(
                     // Sort Title — the title's alphabetization form, kept with the identity fields
                     // so its order matches the flat iOS form (Cover, Title, Subtitle, Sort Title).
                     ListenUpTextField(
-                        value = sortTitle,
-                        onValueChange = onSortTitleChange,
+                        state = sortTitleState,
                         label = stringResource(Res.string.book_edit_sort_title),
                         textStyle =
                             MaterialTheme.typography.bodyLarge.copy(

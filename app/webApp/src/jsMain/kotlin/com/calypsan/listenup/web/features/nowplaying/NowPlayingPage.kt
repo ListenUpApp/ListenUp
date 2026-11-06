@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
@@ -99,12 +100,12 @@ private fun PageDuties(
     LaunchedEffect(loadedBook) {
         if (loadedBook == LoadedBook.NothingLoaded && !playingReturn.isClosing) router.replace(Routes.home)
     }
-    // A revoked book closes Now Playing (§5.6, C11): the shared rule, this host's way of closing.
+    // A revoked book closes Now Playing: the shared rule, this host's way of closing.
     val closes = PlayerCards.closesNowPlaying(state) && state is PlayerUiState.Loaded
     LaunchedEffect(closes) {
         if (closes) playingReturn.close(router)
     }
-    // Esc closes the page (C16): the player's ClosePlayer key, through the shell's one key dispatcher, which stands down
+    // Esc closes the page: the player's ClosePlayer key, through the shell's one key dispatcher, which stands down
     // in a field and while a dialog (a picker, the palette) has the keyboard (PlayerShortcutKeys).
     // The store has answered that a book is loaded, but the player has not loaded it: give the restore a moment, then
     // go Home rather than wait on a page with nothing to play.
@@ -190,15 +191,15 @@ class NowPlayingActions(
 )
 
 /**
- * Now Playing (spec §5.4, the `NP-WebDesktop` and `NP-WebPhone` boards): one structure that CSS lays out per width.
+ * Now Playing: one structure that CSS lays out per width.
  *
  * - Below 760px it is the whole screen, with its own chapter scrubber, transport and settings (`.np-mob`).
- * - From 760px it sits in the shell, and the bar under it is the transport (C8): the page draws a book card instead
- *   (`.np-desk`) and the chapter list, under the book until 1024px and beside it from there (§3.11).
+ * - From 760px it sits in the shell, and the bar under it is the transport: the page draws a book card instead
+ *   (`.np-desk`) and the chapter list, under the book until 1024px and beside it from there.
  *
  * The cover and the title are one-click Go to book links (the title is the one a keyboard reaches; the cover is out of
  * the tab order and hidden from assistive tech, so there is one stop, not two). The page sits on the cover's wash, or
- * the player's neutral when the cover gives none (C12).
+ * the player's neutral when the cover gives none.
  */
 @Composable
 fun NowPlayingPage(
@@ -238,7 +239,7 @@ fun NowPlayingPage(
                 // The row is the link itself: a new tab opens the document, and nothing else happens here.
                 is PlayerMenuItem.OpenPdf -> Unit
 
-                // From the More trigger: beside it from 760px, a sheet below (C9).
+                // From the More trigger: beside it from 760px, a sheet below.
                 is PlayerMenuItem.VolumeBoost -> pickers.boost = panelPlacementFor(opener)
 
                 PlayerMenuItem.KeyboardShortcuts -> pickers.shortcuts = panelPlacementFor(opener)
@@ -251,7 +252,7 @@ fun NowPlayingPage(
                 BookIdentity(book, state.chapter, actions)
                 BookCard(state, progress)
                 PhoneControls(state, progress, actions, pickers, card)
-                // Wider, the bar is the transport; the card sits at the foot of the book column (§5.6).
+                // Wider, the bar is the transport; the card sits at the foot of the book column.
                 card?.let { Div(attrs = { classes(DESK, "np-cardslot") }) { StateCard(it, book.id, actions) } }
             }
             // A chapterless book has no list; the book column then takes the width.
@@ -271,7 +272,7 @@ fun NowPlayingPage(
                 }
             }
         }
-        // §5.4's foot, from 1024px, where a keyboard is likely.
+        // 's foot, from 1024px, where a keyboard is likely.
         P(attrs = { classes("np-foot") }) { Text(NowPlayingWords.PRESS_FOR_SHORTCUTS) }
     }
 }
@@ -415,8 +416,8 @@ private fun SeriesLine(
 }
 
 /**
- * "by" or "Read by", then each person as a link. More than three fold to the lead and a count (P8/P9, C10), which opens
- * the whole list as a menu of links, each with how many books that person has in this role (PK1, C12; none for zero).
+ * "by" or "Read by", then each person as a link. More than three fold to the lead and a count, which opens
+ * the whole list as a menu of links, each with how many books that person has in this role (none for zero).
  */
 @Composable
 private fun People(
@@ -540,6 +541,7 @@ private fun PagePickerDialogs(
         onCancel = actions.onCancelSleepTimer,
         onExtend = actions.onExtendSleepTimer,
         onKeepListening = actions.onCancelSleepTimer,
+        defaultMinutes = settings.defaultSleepMinutes,
         placement = pickers.sleep ?: PanelPlacement.Sheet,
         onDismiss = { pickers.sleep = null },
     )
@@ -583,8 +585,8 @@ private fun PagePickerDialogs(
 }
 
 /**
- * Below 760px, where the bar is hidden: the chapter's scrubber over its times, the transport, and the settings as pills
- * (§5.2's web phone column). The chapter's own title is in the book's identity, under the title.
+ * Below 760px, where the bar is hidden: the chapter's scrubber over its times, the transport, and the settings as pills.
+ * The chapter's own title is in the book's identity, under the title.
  */
 @Composable
 private fun PhoneControls(
@@ -608,7 +610,7 @@ private fun PhoneControls(
                 enabled = card !is PlayerCard.Problem,
             )
         }
-        // The card takes the transport's place, and only the transport's (C5): the book and the settings stay.
+        // The card takes the transport's place, and only the transport's: the book and the settings stay.
         if (card != null) StateCard(card, state.book.id, actions) else PhoneTransport(state, actions)
         SettingsPills(state, progress, pickers)
     }
@@ -624,8 +626,8 @@ private fun StateCard(
 }
 
 /**
- * Previous · back N · play · forward N · next. Previous is never disabled (§3.3: in chapter one it restarts it, C18);
- * Next is, in the last chapter. The skips keep their slots while a stall disables them (C5), so the play button never
+ * Previous · back N · play · forward N · next. Previous is never disabled (in chapter one it restarts it);
+ * Next is, in the last chapter. The skips keep their slots while a stall disables them, so the play button never
  * moves under the thumb.
  */
 @Composable
@@ -733,21 +735,21 @@ private fun SkipButton(
     }
 }
 
-/** Speed · Sleep · Chapters as outlined pills; an armed timer shows its countdown. Boost lives in More (C15). */
+/** Speed · Sleep · Chapters as outlined pills; an armed timer shows its countdown. Boost lives in More. */
 @Composable
 private fun SettingsPills(
     state: PlayerUiState.Loaded,
     progress: PlayerProgress,
     pickers: PagePickers,
 ) {
-    val speed = formatSpeed(state.settings.speed)
+    val speed = state.settings.speed
     // The wall-clock countdown every surface shares (SleepCountdowns): an end-of-chapter timer's too, never 0:00.
     val countdown =
         SleepCountdowns.remainingMs(state.sleepTimer, progress, state.settings.speed)?.let(PlayerSheetWords::countdown)
     Div(attrs = { classes("np-pills") }) {
         Pill(
-            text = "$speed\u00D7",
-            label = "Playback speed, $speed times",
+            text = PlaybackPresets.speedLabel(speed),
+            label = "Playback speed, ${PlaybackPresets.speedNumber(speed)} times",
             on = false,
             key = PillKey("< >", PlayerKeyAria.SPEED, presses = false),
         ) { opener -> pickers.speed = panelPlacementFor(opener) }

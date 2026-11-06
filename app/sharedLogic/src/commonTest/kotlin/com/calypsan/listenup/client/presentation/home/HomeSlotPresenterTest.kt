@@ -8,8 +8,8 @@ import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.test.fake.FakeBookRatingRepository
 import com.calypsan.listenup.core.BookId
-import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -122,7 +122,7 @@ class HomeSlotPresenterTest :
 
                 presenter.rateFinished("done", halfStars = 6).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                verifySuspend { rig.ratings.rate("done", 6, null) }
+                rig.ratings.rated shouldBe listOf(FakeBookRatingRepository.RatingWrite("done", 6, null))
                 presenter.observe(rig.continueListening, rig.building, rig.runs, rig.dismissedHere).test {
                     awaitSlot<HomeSlot.JustFinished>().card.yourHalfStars.shouldBeNull()
                     rig.ratingsFlow.value = listOf(ListenerRating("done", "me", 6, null, 1L))

@@ -5,7 +5,6 @@ import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 
 private const val CHANGE_BUFFER = 64
 
@@ -25,11 +24,14 @@ class HardcoverSyncActivity {
     private val generations = HashMap<String, Long>()
     private val awaiting = HashMap<String, Long>()
     private val failed = HashSet<String>()
-    private val changed =
-        MutableSharedFlow<String>(extraBufferCapacity = CHANGE_BUFFER, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** The id of each user whose connection state may have changed, as it changes. */
-    val changes: SharedFlow<String> = changed.asSharedFlow()
+    val changes: SharedFlow<String>
+        field =
+        MutableSharedFlow<String>(
+            extraBufferCapacity = CHANGE_BUFFER,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
 
     /** [userId] pressed "Sync now": they are syncing until a pull that begins after this ends. */
     fun syncRequested(userId: String) {
@@ -39,7 +41,7 @@ class HardcoverSyncActivity {
             awaiting[userId] = next
             failed.remove(userId)
         }
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** The request generation a pull beginning now serves. */
@@ -54,7 +56,7 @@ class HardcoverSyncActivity {
             failed.remove(userId)
             if (isServedBy(userId, served)) awaiting.remove(userId)
         }
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** A pull that began at generation [served] failed: a request it served ends, as failed. */
@@ -71,27 +73,27 @@ class HardcoverSyncActivity {
                     }
                 }
             }
-        if (settled) changed.tryEmit(userId)
+        if (settled) changes.tryEmit(userId)
     }
 
     /** [userId]'s stored sync health moved (a push landed, a pull caught up, an error passed its cap). */
     fun healthChanged(userId: String) {
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** One of [userId]'s Hardcover choices changed (the share mode): their Connected is worth republishing. */
     fun preferencesChanged(userId: String) {
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** [userId]'s earlier-books offer (#1540) changed — offered, declined, sent, settled: republish their Connected. */
     fun historyChanged(userId: String) {
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** [userId] kept a book off Hardcover, or synced one again (#1541): republish their Connected, whose count moved. */
     fun keptOffChanged(userId: String) {
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** [userId]'s connection ended or broke: nothing is in flight for them any more. */
@@ -100,7 +102,7 @@ class HardcoverSyncActivity {
             awaiting.remove(userId)
             failed.remove(userId)
         }
-        changed.tryEmit(userId)
+        changes.tryEmit(userId)
     }
 
     /** Whether a "Sync now" [userId] asked for is still running. */

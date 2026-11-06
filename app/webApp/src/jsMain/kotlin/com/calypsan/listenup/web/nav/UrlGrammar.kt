@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.web.features.books.SelectionToken
 import com.calypsan.listenup.web.features.search.label
 import com.calypsan.listenup.web.features.shelf.shelfRouteOf
 import com.calypsan.listenup.web.shell.RouteContent
@@ -111,9 +112,22 @@ internal object Routes {
         query: Map<String, String>,
     ): Route = Route(listOf(SEARCH_KEY, slug), query)
 
-    /** `/books/edit?ids=…`: the bulk editor over [bookIds]. */
-    fun bulkEdit(bookIds: Collection<String>): Route =
-        Route(listOf(BOOKS_KEY, EDIT_KEY), mapOf(IDS_QUERY_KEY to bookIds.joinToString(",")))
+    /**
+     * `/books/edit?ids=…`: the bulk editor over [bookIds]; above [MAX_IDS_IN_URL] books, `?held=…` naming the
+     * selection this tab keeps (see [SelectionToken]).
+     */
+    fun bulkEdit(bookIds: Collection<String>): Route {
+        val held = if (bookIds.size > MAX_IDS_IN_URL) SelectionToken.store(bookIds) else null
+        val query =
+            if (held !=
+                null
+            ) {
+                mapOf(HELD_QUERY_KEY to held)
+            } else {
+                mapOf(IDS_QUERY_KEY to bookIds.joinToString(","))
+            }
+        return Route(listOf(BOOKS_KEY, EDIT_KEY), query)
+    }
 
     /** `/book/{id}` and the pages under it. */
     object Book {
@@ -200,18 +214,27 @@ private val ROUTE_SHAPES: Map<String, (List<String>) -> Boolean> =
     )
 
 /**
- * `/books/edit?ids=…` — the books the bulk editor is open over, or empty when this is not that route.
+ * `/books/edit?ids=…` or `?held=…` — the books the bulk editor is open over, or empty when this is not that
+ * route (or its `held` selection is gone).
  *
- * The ids ride the query rather than the path: a path segment of forty uuids is not a URL anyone
- * can read, and unlike a grid selection this one is worth keeping across a reload.
+ * Up to [MAX_IDS_IN_URL] ids ride the query, so the link survives a reload, a bookmark and a new tab. A larger
+ * selection rides this tab's `sessionStorage` under `held`: it survives a reload of the tab, not a bookmark
+ * or a new tab, because a URL carrying thousands of ids is longer than the server will read.
  */
 internal fun Route.bulkEditIds(): List<String> {
-    if (segments.firstOrNull() != BOOKS_KEY || segments.getOrNull(1) != EDIT_KEY) return emptyList()
+    if (!isBulkEdit()) return emptyList()
+    val held = query[HELD_QUERY_KEY]
+    if (held != null) return SelectionToken.read(held).orEmpty()
     return query[IDS_QUERY_KEY]
         .orEmpty()
         .split(",")
         .filter { it.isNotBlank() }
 }
+
+/** `/books/edit?held=…` — a bulk-edit route whose selection lives in this tab's storage, not in the URL. */
+internal fun Route.isHeldBulkEdit(): Boolean = isBulkEdit() && query.containsKey(HELD_QUERY_KEY)
+
+private fun Route.isBulkEdit(): Boolean = segments.firstOrNull() == BOOKS_KEY && segments.getOrNull(1) == EDIT_KEY
 
 /**
  * `/{key}/{id}` — the thing this route names, or null when the route isn't about one at all.
@@ -326,6 +349,16 @@ internal const val BOOKS_KEY = "books"
 
 /** The selection the bulk editor edits, comma-separated. */
 private const val IDS_QUERY_KEY = "ids"
+
+/** `/books/edit?held=…` — the token of a selection too large for [IDS_QUERY_KEY]. */
+private const val HELD_QUERY_KEY = "held"
+
+/**
+ * The most book ids the bulk editor's URL carries itself: 100 ids of 37 bytes is about 3.7 KB, well inside
+ * Ktor CIO's 8,192-byte request line and common proxy limits. Above it the selection lives in this tab's
+ * `sessionStorage`, which survives a reload of the tab but not a bookmark or a new tab.
+ */
+internal const val MAX_IDS_IN_URL = 100
 
 /** `/book/{id}/match` — Match details over one book; `/contributor/{id}/match`, over one person. */
 internal const val MATCH_KEY = "match"

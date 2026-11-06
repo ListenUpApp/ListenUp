@@ -11,13 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Headphones
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -35,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.permission.rememberPostNotificationsPermission
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
@@ -150,7 +144,7 @@ internal fun PendingApprovalContent(
                 null
             } else {
                 AuthBadge(
-                    Icons.Outlined.Schedule,
+                    ListenUpIcons.Schedule,
                     stringResource(Res.string.auth_pending_review),
                 )
             },
@@ -159,7 +153,7 @@ internal fun PendingApprovalContent(
             ListenUpButton(
                 text = stringResource(Res.string.auth_sign_in),
                 onClick = onSignIn,
-                leadingIcon = Icons.AutoMirrored.Outlined.Login,
+                leadingIcon = ListenUpIcons.Login,
             )
         } else {
             RegistrationTimeline(email)
@@ -180,7 +174,7 @@ internal fun PendingApprovalContent(
             ListenUpButton(
                 text = stringResource(Res.string.auth_check_status),
                 onClick = onCheckStatus,
-                leadingIcon = Icons.Outlined.Refresh,
+                leadingIcon = ListenUpIcons.Refresh,
             )
             TextButton(
                 onClick = onCancel,
@@ -207,19 +201,19 @@ private fun RegistrationTimeline(email: String) {
         Column(modifier = Modifier.padding(vertical = 6.dp)) {
             FlowStepRow(
                 state = FlowStepState.DONE,
-                icon = Icons.Outlined.Person,
+                icon = ListenUpIcons.Person,
                 title = stringResource(Res.string.auth_reg_step_account_created),
                 subtitle = email,
             )
             FlowStepRow(
                 state = FlowStepState.ACTIVE,
-                icon = Icons.Outlined.Shield,
+                icon = ListenUpIcons.Shield,
                 title = stringResource(Res.string.auth_reg_step_admin_approval),
                 subtitle = stringResource(Res.string.auth_reg_step_admin_approval_sub),
             )
             FlowStepRow(
                 state = FlowStepState.TODO,
-                icon = Icons.Outlined.Headphones,
+                icon = ListenUpIcons.Headphones,
                 title = stringResource(Res.string.auth_reg_step_start_listening),
                 subtitle = stringResource(Res.string.auth_reg_step_start_listening_sub),
             )
@@ -236,7 +230,7 @@ private fun AutoCheckRow() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Refresh,
+            imageVector = ListenUpIcons.Refresh,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),

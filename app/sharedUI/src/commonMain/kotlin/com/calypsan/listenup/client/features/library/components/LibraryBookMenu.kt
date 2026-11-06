@@ -1,12 +1,5 @@
 package com.calypsan.listenup.client.features.library.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -20,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.MenuGroupLabel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.library.BookMenuPrimary
 import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
@@ -55,7 +49,7 @@ internal data class LibraryBookMenuHost(
 )
 
 /**
- * A Library book's menu (spec §3.1.2; Simon's M3E call): one M3 menu hung from the cover a long press or right-click
+ * A Library book's menu (Simon's M3E call): one M3 menu hung from the cover a long press or right-click
  * landed on (m3.material.io/components/menus), with no lifted preview. The groups, in the board's order: the primary
  * (Play, Resume with its time left, or Listen again) in the Library coral; Add to shelf… and Share…; Select; then, for
  * an admin, an "Admin" group of Add to collection… and Edit details. Each item closes the menu after it acts.
@@ -70,7 +64,7 @@ internal fun LibraryBookMenu(
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         MenuItem(
             label = primaryLabel(primary),
-            icon = Icons.Filled.PlayArrow,
+            icon = ListenUpIcons.PlayArrowFilled,
             emphasised = true,
             onDismiss = onDismiss,
             onClick = actions.onPrimary,
@@ -80,7 +74,7 @@ internal fun LibraryBookMenu(
         actions.onAddToShelf?.let { action ->
             MenuItem(
                 label = stringResource(Res.string.library_menu_add_to_shelf),
-                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                icon = ListenUpIcons.PlaylistAddFilled,
                 onDismiss = onDismiss,
                 onClick = action,
             )
@@ -88,7 +82,7 @@ internal fun LibraryBookMenu(
         actions.onShare?.let { action ->
             MenuItem(
                 label = stringResource(Res.string.library_menu_share),
-                icon = Icons.Filled.Share,
+                icon = ListenUpIcons.ShareFilled,
                 onDismiss = onDismiss,
                 onClick = action,
             )
@@ -96,7 +90,7 @@ internal fun LibraryBookMenu(
         HorizontalDivider()
         MenuItem(
             label = stringResource(Res.string.common_select),
-            icon = Icons.Outlined.CheckCircle,
+            icon = ListenUpIcons.CheckCircle,
             onDismiss = onDismiss,
             onClick = actions.onSelect,
         )
@@ -106,7 +100,7 @@ internal fun LibraryBookMenu(
             actions.onAddToCollection?.let { action ->
                 MenuItem(
                     label = stringResource(Res.string.library_menu_add_to_collection),
-                    icon = Icons.Outlined.CollectionsBookmark,
+                    icon = ListenUpIcons.CollectionsBookmark,
                     onDismiss = onDismiss,
                     onClick = action,
                 )
@@ -114,7 +108,7 @@ internal fun LibraryBookMenu(
             actions.onEditDetails?.let { action ->
                 MenuItem(
                     label = stringResource(Res.string.library_menu_edit_details),
-                    icon = Icons.Filled.Edit,
+                    icon = ListenUpIcons.EditFilled,
                     onDismiss = onDismiss,
                     onClick = action,
                 )

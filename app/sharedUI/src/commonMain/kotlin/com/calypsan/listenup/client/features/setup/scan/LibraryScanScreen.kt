@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.features.setup.scan
 
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.etaMinutes
@@ -58,6 +55,9 @@ import listenup.composeapp.generated.resources.scan_files_total
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.library_scan_books
+import listenup.composeapp.generated.resources.library_scan_hours
+import listenup.composeapp.generated.resources.library_scan_authors
 
 private const val ETA_TICK_MS = 1_000L
 
@@ -358,21 +358,21 @@ private fun ScanStatsBlock(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatChip(
-            icon = Icons.AutoMirrored.Outlined.MenuBook,
+            icon = ListenUpIcons.MenuBook,
             value = progress.books,
-            label = "Books",
+            label = stringResource(Res.string.library_scan_books),
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Outlined.Person,
+            icon = ListenUpIcons.Person,
             value = progress.authors,
-            label = "Authors",
+            label = stringResource(Res.string.library_scan_authors),
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            icon = Icons.Outlined.Schedule,
+            icon = ListenUpIcons.Schedule,
             value = progress.hours,
-            label = "Hours",
+            label = stringResource(Res.string.library_scan_hours),
             modifier = Modifier.weight(1f),
         )
     }

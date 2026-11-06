@@ -2,7 +2,8 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
-import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.playback.PlayerSession
+import com.calypsan.listenup.client.playback.PlayerSessionRig
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import app.cash.turbine.test
@@ -29,6 +30,7 @@ import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -37,6 +39,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -84,13 +88,9 @@ class ChapterEditorViewModelTest :
                     Chapter(id = "c$i", title = "Chapter $i", duration = 0L, startTime = s)
                 }.withDerivedDurations(BOOK_MS)
 
-        var controller = FakePlaybackController()
         val loadedTimeline = MutableStateFlow<PlaybackTimeline?>(null)
 
-        beforeTest {
-            controller = FakePlaybackController()
-            loadedTimeline.value = null
-        }
+        beforeTest { loadedTimeline.value = null }
 
         fun segment(
             name: String,
@@ -115,6 +115,7 @@ class ChapterEditorViewModelTest :
         fun rig(
             initial: List<Chapter> = chapters(0L, 300_000L, 900_000L),
             saveResult: AppResult<Unit> = AppResult.Success(Unit),
+            session: PlayerSession = PlayerSessionRig(TestScope()).session,
         ): Triple<ChapterEditorViewModel, MutableStateFlow<List<Chapter>>, MutableList<List<ChapterInput>>> {
             val mirror = MutableStateFlow(initial)
             val saved = mutableListOf<List<ChapterInput>>()
@@ -139,7 +140,7 @@ class ChapterEditorViewModelTest :
                     bookEditRepository = edits,
                     errorBus = ErrorBus(),
                     playbackManager = playback,
-                    playbackController = controller,
+                    playerSession = session,
                 )
             return Triple(vm, mirror, saved)
         }
@@ -462,36 +463,54 @@ class ChapterEditorViewModelTest :
 
         // "Play from here" (spec §7.4) is how the playhead reaches a boundary so snap-to-playhead
         // can take it — the precision instrument is useless if the listener cannot get there.
-        test("play from here plays this book from the chapter's start") {
-            loadedTimeline.value = timelineFor(BOOK_ID)
-            val (vm, _, _) = rig()
+        test("play from here plays this book from the chapter's start, through the session") {
             runTest {
-                vm.state.test {
-                    awaitItem()
-                    awaitItem()
+                val player = PlayerSessionRig(this)
+                try {
+                    player.withBook(BOOK_ID, durationMs = BOOK_MS)
+                    runCurrent()
+                    player.session.playBook(BookId(BOOK_ID), 0)
+                    runCurrent()
+                    val (vm, _, _) = rig(session = player.session)
+                    vm.state.test {
+                        awaitItem()
+                        awaitItem()
 
-                    vm.playFrom("c1")
+                        vm.playFrom("c1")
+                        runCurrent()
 
-                    controller.seekCalls shouldBe listOf(300_000L)
-                    controller.playCount shouldBe 1
-                    cancelAndIgnoreRemainingEvents()
+                        player.engine.calls.last() shouldBe "play"
+                        player.engine.calls shouldContain "seekTo:300000"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                } finally {
+                    player.close()
                 }
             }
         }
 
         test("play from here never takes over another book that is playing") {
-            loadedTimeline.value = timelineFor("some-other-book")
-            val (vm, _, _) = rig()
             runTest {
-                vm.state.test {
-                    awaitItem()
-                    awaitItem()
+                val player = PlayerSessionRig(this)
+                try {
+                    player.withBook("some-other-book", durationMs = BOOK_MS)
+                    runCurrent()
+                    player.session.playBook(BookId("some-other-book"), 0)
+                    runCurrent()
+                    val callsBefore = player.engine.calls.toList()
+                    val (vm, _, _) = rig(session = player.session)
+                    vm.state.test {
+                        awaitItem()
+                        awaitItem()
 
-                    vm.playFrom("c1")
+                        vm.playFrom("c1")
+                        runCurrent()
 
-                    controller.seekCalls shouldBe emptyList()
-                    controller.playCount shouldBe 0
-                    cancelAndIgnoreRemainingEvents()
+                        player.engine.calls shouldBe callsBefore
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                } finally {
+                    player.close()
                 }
             }
         }

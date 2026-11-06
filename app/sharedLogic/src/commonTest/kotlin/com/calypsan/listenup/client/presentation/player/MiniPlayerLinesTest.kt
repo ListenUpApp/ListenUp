@@ -106,7 +106,7 @@ private fun loaded(
             },
         chapters = emptyList(),
         source = source,
-        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30),
+        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30, null),
         sleepTimer = sleepTimer,
         primary = PrimaryControl.Pause,
         showsSkipBack = true,

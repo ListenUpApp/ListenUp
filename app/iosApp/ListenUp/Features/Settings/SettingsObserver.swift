@@ -130,15 +130,16 @@ enum SettingsFormat {
         return remainder == 0 ? "\(minutes)m" : "\(minutes)m \(remainder)s"
     }
 
-    /// "1.0×" for a playback-speed multiplier, fixed to one decimal place.
-    static func speedLabel(_ speed: Float) -> String {
-        String(format: "%.1f×", speed)
-    }
-
     /// "Off" when nil, otherwise "N min", for the default sleep-timer row.
     static func sleepTimerLabel(minutes: Int?, offLabel: String) -> String {
         guard let minutes else { return offLabel }
         return "\(minutes) min"
+    }
+
+    /// What the default-timer picker offers: nil for Off, then the shared ladder, with [current] added in order when it
+    /// is something else, so a stored value is a checked row (shared `SleepTimerChoices`).
+    static func sleepTimerChoices(including current: Int?) -> [Int?] {
+        SleepTimerChoices.shared.defaultChoicesIncluding(current: current.map { Int32($0) }).map { $0.map { Int($0) } }
     }
 
     /// The localized-string key for a theme mode, used by the picker.

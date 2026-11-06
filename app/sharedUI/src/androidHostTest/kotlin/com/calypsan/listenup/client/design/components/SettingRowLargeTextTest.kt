@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,6 +12,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.testing.AtFontScale
 import com.calypsan.listenup.client.testing.assertNoMidWordBreaks
@@ -46,7 +45,7 @@ class SettingRowLargeTextTest {
                     Box(Modifier.width(PHONE_WIDTH)) {
                         SettingRow(
                             title = SYNCED,
-                            icon = Icons.Outlined.Category,
+                            icon = ListenUpIcons.Category,
                             trailing = { Button(onClick = {}, modifier = Modifier.testTag(ACTION)) { Text(SYNC_NOW) } },
                         )
                     }
@@ -85,7 +84,7 @@ class SettingRowLargeTextTest {
                         SettingToggleRow(
                             title = METADATA,
                             subtitle = METADATA_DETAIL,
-                            icon = Icons.Outlined.Category,
+                            icon = ListenUpIcons.Category,
                             checked = true,
                             onCheckedChange = {},
                         )
@@ -115,7 +114,7 @@ class SettingRowLargeTextTest {
             AtFontScale(fontScale) {
                 MaterialTheme {
                     Box(Modifier.width(ADMIN_ROW_WIDTH)) {
-                        SettingRow(title = METADATA, icon = Icons.Outlined.Category)
+                        SettingRow(title = METADATA, icon = ListenUpIcons.Category)
                     }
                 }
             }

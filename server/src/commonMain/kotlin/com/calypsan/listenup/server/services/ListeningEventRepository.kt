@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -108,14 +109,29 @@ class ListeningEventRepository(
 
         val (alreadyExisted, result) =
             firstInsertLock.withLock(userId) {
-                val existed = suspendTransaction(db) { readPayload(value.id) != null }
-                existed to super.upsert(value, clientOpId, userId)
+                val ownerId =
+                    suspendTransaction(db) {
+                        db.listeningEventsQueries
+                            .selectById(value.id)
+                            .executeAsOneOrNull()
+                            ?.user_id
+                    }
+                // An id that is someone else's event is answered as absent: the substrate would
+                // otherwise hand that user's row back to this caller.
+                if (ownerId != null && ownerId != userId) {
+                    true to notFoundFor(value.id)
+                } else {
+                    (ownerId != null) to super.upsert(value, clientOpId, userId)
+                }
             }
         if (result is AppResult.Success && !alreadyExisted) {
             statsRecorder?.record(StatsEvent.ListeningSessionClosed(userId = userId, span = value))
         }
         return result
     }
+
+    private fun notFoundFor(id: String): AppResult<ListeningEventSyncPayload> =
+        AppResult.Failure(SyncError.NotFound(domain = "listening_event", entityId = id))
 
     /**
      * Batch-upsert [events] for an ABS import — the chunked-transaction counterpart to [upsert]. A

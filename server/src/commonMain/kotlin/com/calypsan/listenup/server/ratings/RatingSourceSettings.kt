@@ -6,7 +6,6 @@ import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 
 /**
  * The admin's per-source on/off switch *and* per-source health for outside ratings, persisted in
@@ -25,14 +24,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 class RatingSourceSettings(
     private val settings: ServerSettingsRepository,
 ) {
-    private val switchedOn =
-        MutableSharedFlow<ExternalRatingSource>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-
     /**
      * Each source the admin switches on, as it happens. Switching on also lifts a pause, so the
      * source may now reach books it has never tried; the ratings backfill listens here.
      */
-    val reenabled: SharedFlow<ExternalRatingSource> = switchedOn.asSharedFlow()
+    val reenabled: SharedFlow<ExternalRatingSource>
+        field =
+        MutableSharedFlow<ExternalRatingSource>(
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
 
     /** Whether [source] is currently enabled — `true` when the admin has never set it either way. */
     suspend fun isEnabled(source: ExternalRatingSource): Boolean =
@@ -47,7 +48,7 @@ class RatingSourceSettings(
         // Turning a source back on is the admin's manual way out of an automatic pause.
         if (enabled) {
             clearPause(source)
-            switchedOn.tryEmit(source)
+            reenabled.tryEmit(source)
         }
     }
 

@@ -8,8 +8,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Duration.Companion.milliseconds
 
 /** The session over the iOS engine: Kotlin prepares, Swift's facts come back tagged with the load they belong to. */
 class PlayerSessionNativeEngineTest :
@@ -108,6 +110,52 @@ class PlayerSessionNativeEngineTest :
                     rig.session.retry()
                     runCurrent()
                     prepared.last() shouldBe (BookId("b") to PlaybackStart.Resume)
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("an offline drop shows Reconnecting through its grace and then the offline reason, never Couldn't play") {
+            runTest {
+                var isOffline = false
+                val engines = mutableListOf<NativePlayerEngine>()
+                val rig =
+                    PlayerSessionRig(this, playerEngine = { scope ->
+                        NativePlayerEngine(
+                            prepare = { id, _ ->
+                                if (isOffline) {
+                                    AppResult.Failure(PlaybackError.ServerUnreachable())
+                                } else {
+                                    AppResult.Success(preparedPlaybackFor(id.value, durationMs = 300_000))
+                                }
+                            },
+                            scope = scope,
+                        ).also(engines::add)
+                    })
+                try {
+                    rig.withBook("a")
+                    runCurrent()
+                    rig.session.playBook(BookId("a"), null)
+                    runCurrent()
+                    engines.single().onPhase(1, EnginePhase.PLAYING)
+                    runCurrent()
+                    // The device goes fully offline: the stream dies, and every fresh prepare after it fails.
+                    isOffline = true
+                    rig.network.onlineFlow.value = false
+                    rig.availability.stateFlow.value =
+                        rig.availability.stateFlow.value
+                            .copy(canPlay = false)
+                    engines.single().reportConnectionLost(1, "NSURLErrorDomain -1009")
+                    engines.single().onPhase(1, EnginePhase.PAUSED)
+                    runCurrent()
+                    advanceTimeBy(PLAYBACK_DROP_GRACE - 1.milliseconds)
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Reconnecting
+                    advanceTimeBy(1.milliseconds)
+                    runCurrent()
+                    val failed = rig.loaded.phase.shouldBeInstanceOf<PlayerPhase.Failed>()
+                    failed.error shouldBe PlaybackError.OfflineNotDownloaded()
                 } finally {
                     rig.close()
                 }

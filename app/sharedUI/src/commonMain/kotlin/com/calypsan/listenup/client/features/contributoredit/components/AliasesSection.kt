@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMerge
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
@@ -22,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.contributor_also_known_as
@@ -81,7 +79,7 @@ fun AliasesSection(
                     onClick = onMergeClick,
                     filled = false,
                     fillMaxWidth = false,
-                    leadingIcon = Icons.AutoMirrored.Filled.CallMerge,
+                    leadingIcon = ListenUpIcons.CallMergeFilled,
                 )
             }
         }
@@ -104,7 +102,7 @@ private fun AliasChip(
             onUnmerge?.let {
                 {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = ListenUpIcons.CloseFilled,
                         contentDescription = stringResource(Res.string.contributor_remove_aliasname, alias),
                         modifier =
                             Modifier

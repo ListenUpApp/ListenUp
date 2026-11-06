@@ -42,6 +42,8 @@ tasks.register("generateStrings") {
     description = "Generate native string resources (Android strings.xml + iOS Localizable.xcstrings) from shared JSON"
 
     inputs.dir(stringsDir)
+    // The renderer's own bytecode: a generator-only change must rerun this task.
+    inputs.property("rendererFingerprint", LocalizationArtifacts.implementationFingerprint())
     outputs.files(androidValueDirs().map { File(it, "strings.xml") })
     outputs.file(xcstringsOut)
 

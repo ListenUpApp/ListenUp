@@ -1,5 +1,11 @@
 package com.calypsan.listenup.web.design
 
+import org.w3c.dom.START
+import org.w3c.dom.ScrollLogicalPosition
+import org.w3c.dom.ScrollIntoViewOptions
+import com.calypsan.listenup.web.dom.ResizeObserver
+import com.calypsan.listenup.web.dom.focusWithoutScrollingOptions
+import com.calypsan.listenup.web.dom.focus
 import kotlin.math.abs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -289,8 +295,8 @@ private fun focusSectionStart(
     when {
         first != null -> {
             // `scroll-margin-top` on the item leaves room for the sticky header above it.
-            if (scroll) first.asDynamic().scrollIntoView(js("({ block: 'start' })"))
-            first.asDynamic().focus(js("({ preventScroll: true })"))
+            if (scroll) first.scrollIntoView(ScrollIntoViewOptions(block = ScrollLogicalPosition.START))
+            first.focus(focusWithoutScrollingOptions())
         }
 
         framesLeft > 0 -> {
@@ -522,19 +528,6 @@ private fun observeScrollport(
         port.removeEventListener("scroll", schedule)
         resizes.disconnect()
     }
-}
-
-/** The browser's `ResizeObserver`, as much of it as the list and the tab ink use. */
-internal external class ResizeObserver(
-    callback: (entries: dynamic, observer: dynamic) -> Unit,
-) {
-    /** [options] as the browser takes them, e.g. `{ box: "border-box" }`; content-box when omitted. */
-    fun observe(
-        target: Element,
-        options: dynamic = definedExternally,
-    )
-
-    fun disconnect()
 }
 
 /** Reads the list's real geometry back out of the DOM, keeping [previous] when nothing is rendered yet. */

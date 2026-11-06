@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.chaptereditor
 
+import com.calypsan.listenup.client.design.components.transformedBy
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_invalid
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_label
 import listenup.composeapp.generated.resources.chapter_editor_edit_time_title
@@ -10,15 +13,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpTextField
@@ -53,7 +50,7 @@ internal fun DeleteChapterDialog(
         confirmText = stringResource(Res.string.common_delete),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
-        icon = Icons.Default.Delete,
+        icon = ListenUpIcons.DeleteFilled,
     )
 }
 
@@ -69,8 +66,8 @@ internal fun RenameChapterDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var title by remember { mutableStateOf(initialTitle) }
-    val trimmed = title.trim()
+    val title = rememberTextFieldState(initialTitle)
+    val trimmed = title.text.toString().trim()
 
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
@@ -82,10 +79,9 @@ internal fun RenameChapterDialog(
         confirmEnabled = trimmed.isNotEmpty(),
     ) {
         ListenUpTextField(
-            value = title,
-            onValueChange = { title = it },
+            state = title,
             label = stringResource(Res.string.chapter_editor_rename_label),
-            transform = { it.take(ChapterInput.MAX_TITLE) },
+            inputTransformation = titleLimit,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
     }
@@ -104,8 +100,8 @@ internal fun ChapterTimeDialog(
     onConfirm: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var text by remember { mutableStateOf(ChapterTimeFormat.precise(initialMs)) }
-    val parsed = ChapterTimeFormat.parsePrecise(text)
+    val text = rememberTextFieldState(ChapterTimeFormat.precise(initialMs))
+    val parsed = ChapterTimeFormat.parsePrecise(text.text.toString())
 
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
@@ -118,8 +114,7 @@ internal fun ChapterTimeDialog(
     ) {
         Column {
             ListenUpTextField(
-                value = text,
-                onValueChange = { text = it },
+                state = text,
                 label = stringResource(Res.string.chapter_editor_edit_time_label),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
@@ -134,3 +129,5 @@ internal fun ChapterTimeDialog(
         }
     }
 }
+
+private val titleLimit = transformedBy { it.take(ChapterInput.MAX_TITLE) }

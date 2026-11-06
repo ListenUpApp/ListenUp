@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,8 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,10 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -43,6 +40,7 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.LicenseChip
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.MeterSegment
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -72,7 +70,8 @@ fun LicensesScreen(
         return
     }
 
-    var query by remember { mutableStateOf("") }
+    val queryState = rememberTextFieldState()
+    val query = queryState.text.toString()
     val filtered =
         remember(rows, query) {
             if (query.isBlank()) rows else rows.filter { it.name.contains(query, ignoreCase = true) }
@@ -104,8 +103,7 @@ fun LicensesScreen(
             rows = rows,
             filtered = filtered,
             segments = segments,
-            query = query,
-            onQueryChange = { query = it },
+            query = queryState,
             onLicenseClick = onLicenseClick,
             onNavigateBack = onNavigateBack,
         )
@@ -114,8 +112,7 @@ fun LicensesScreen(
             rows = rows,
             filtered = filtered,
             segments = segments,
-            query = query,
-            onQueryChange = { query = it },
+            query = queryState,
             onLicenseClick = onLicenseClick,
             onNavigateBack = onNavigateBack,
         )
@@ -127,8 +124,7 @@ private fun LicensesPhoneLayout(
     rows: List<LicenseRow>,
     filtered: List<LicenseRow>,
     segments: List<MeterSegment>,
-    query: String,
-    onQueryChange: (String) -> Unit,
+    query: TextFieldState,
     onLicenseClick: (String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -148,11 +144,10 @@ private fun LicensesPhoneLayout(
         }
         item {
             ListenUpSearchField(
-                value = query,
-                onValueChange = onQueryChange,
+                state = query,
                 onSubmit = {},
                 placeholder = searchPlaceholder,
-                onClear = { onQueryChange("") },
+                clearable = true,
                 modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
         }
@@ -267,8 +262,7 @@ private fun LicensesWideLayout(
     rows: List<LicenseRow>,
     filtered: List<LicenseRow>,
     segments: List<MeterSegment>,
-    query: String,
-    onQueryChange: (String) -> Unit,
+    query: TextFieldState,
     onLicenseClick: (String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -330,11 +324,10 @@ private fun LicensesWideLayout(
             ) {
                 item {
                     ListenUpSearchField(
-                        value = query,
-                        onValueChange = onQueryChange,
+                        state = query,
                         onSubmit = {},
                         placeholder = searchPlaceholder,
-                        onClear = { onQueryChange("") },
+                        clearable = true,
                     )
                 }
                 item {
@@ -372,7 +365,7 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
                 },
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    imageVector = ListenUpIcons.ArrowBack,
                     contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
@@ -477,7 +470,7 @@ private fun LicensesFooter(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Favorite,
+            imageVector = ListenUpIcons.Favorite,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.tertiary,
             modifier = Modifier.size(17.dp).padding(top = 1.dp),

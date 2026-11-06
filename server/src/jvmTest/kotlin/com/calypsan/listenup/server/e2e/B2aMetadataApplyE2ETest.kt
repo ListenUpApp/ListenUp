@@ -22,7 +22,7 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
@@ -88,7 +88,7 @@ private val TINY_JPEG =
  * Exercises the full `MetadataLookupServiceImpl.applyBookMetadata` call
  * chain with:
  *  - A stubbed [AudibleApi] returning a canned [AudibleBook].
- *  - A [MockEngine]-backed [ImageStorage] that records the download URL
+ *  - A [MockEngine]-backed [RemoteImageFetcher] that records the download URL
  *    and returns a tiny valid JPEG.
  *  - A real [CoverImageStore] backed by a temp directory so the cover lands on disk.
  *  - Real [BookRepository], [ContributorRepository], and [SeriesRepository]
@@ -128,7 +128,7 @@ class B2aMetadataApplyE2ETest :
                 val audibleBook = canned_WayOfKings()
                 val audibleApi = SingleBookFakeAudibleApi(audibleBook)
 
-                // ── Stub: MockEngine-backed ImageStorage returns a tiny JPEG ─────
+                // ── Stub: MockEngine-backed RemoteImageFetcher returns a tiny JPEG ─────
                 val mockEngine =
                     MockEngine { _ ->
                         respond(
@@ -136,7 +136,7 @@ class B2aMetadataApplyE2ETest :
                             status = HttpStatusCode.OK,
                         )
                     }
-                val imageStorage = ImageStorage(HttpClient(mockEngine))
+                val remoteImageFetcher = RemoteImageFetcher(HttpClient(mockEngine))
                 val coverImageStore =
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
 
@@ -155,7 +155,7 @@ class B2aMetadataApplyE2ETest :
                         contributorRepo,
                         seriesRepo,
                         genreRepo,
-                        imageStorage,
+                        remoteImageFetcher,
                         coverImageStore,
                         metadataService,
                         tempDir.toString(),
@@ -225,7 +225,7 @@ class B2aMetadataApplyE2ETest :
                     BookRepository(sql, bus, syncRegistry, driver, contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
-                val imageStorage = ImageStorage(HttpClient(mockEngine))
+                val remoteImageFetcher = RemoteImageFetcher(HttpClient(mockEngine))
                 val coverImageStore =
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
 
@@ -243,7 +243,7 @@ class B2aMetadataApplyE2ETest :
                         contributorRepo,
                         seriesRepo,
                         genreRepo,
-                        imageStorage,
+                        remoteImageFetcher,
                         coverImageStore,
                         metadataService,
                         tempDir.toString(),
@@ -293,8 +293,8 @@ class B2aMetadataApplyE2ETest :
                         itunes = NoOpITunesApi(),
                         cache = cacheRepo,
                     )
-                val imageStorage =
-                    ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) }))
+                val remoteImageFetcher =
+                    RemoteImageFetcher(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) }))
                 val coverImageStore =
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
                 val service =
@@ -304,7 +304,7 @@ class B2aMetadataApplyE2ETest :
                         contributorRepo,
                         seriesRepo,
                         genreRepo,
-                        imageStorage,
+                        remoteImageFetcher,
                         coverImageStore,
                         metadataService,
                         tempDir.toString(),
@@ -346,7 +346,7 @@ private fun buildService(
     contributorRepo: ContributorRepository,
     seriesRepo: SeriesRepository,
     genreRepo: GenreRepository,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
     coverImageStore: CoverImageStore,
     metadataService: MetadataService,
     tempDir: String,
@@ -365,7 +365,7 @@ private fun buildService(
         seriesRepository = seriesRepo,
         imageDeps =
             MetadataImageDeps(
-                imageStorage = imageStorage,
+                remoteImageFetcher = remoteImageFetcher,
                 coverImageStore = coverImageStore,
                 imageHome = Path(tempDir),
             ),

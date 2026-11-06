@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The scanner's flag on this book (spec §3.2.3), for an admin: one sentence — the state carries no per-file count
+/// The scanner's flag on this book, for an admin: one sentence — the state carries no per-file count
 /// (spec R8) — and Review, which opens Files & Audio. At the top of the hero band on iPhone and of the rail on iPad.
 struct ScanWarningBanner: View {
     static var message: String { String(localized: "book.detail_scan_flagged") }

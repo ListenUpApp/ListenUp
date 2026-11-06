@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 /**
- * Book Detail's two wide columns (spec §3.2.4: Android tablet ≥ 840 dp, web desktop ≥ 1024 px). Each column keeps the
+ * Book Detail's two wide columns (Android tablet ≥ 840 dp, web desktop ≥ 1024 px). Each column keeps the
  * stage order it was given, and a section never changes column.
  *
  * @property main The reading column: Chapters and About (Story World joins it when it exists).

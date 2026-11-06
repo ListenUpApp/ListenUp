@@ -8,7 +8,8 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Orchestrates playback startup and coordinates between UI, service, and data layers.
+ * Orchestrates playback startup and coordinates between service and data layers. An engine-internal
+ * adapter beneath [ManagedPlayerEngine]: ViewModels command playback through [PlayerSession].
  *
  * Defined as an `interface` so that test fakes (e.g., `FakePlaybackManager` behind
  * `ManagedPlayerEngineTest`) can implement it without inheritance gymnastics, and
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
  * - Build [PlaybackTimeline] for position translation
  * - Prepare authentication for streaming
  * - Track current playback state (position, playing status)
- * - Provide a central control interface for playback
  * - Trigger background downloads for offline availability
  * - Negotiate audio format with server for transcoding support
  *
@@ -156,8 +156,7 @@ interface PlaybackManager :
     // Nested types
     //
     // Kept nested (not promoted to top-level) because consumer code references
-    // them as `PlaybackManager.PrepareResult`,
-    // `PlaybackManager.ChapterInfo` across shared, composeApp/{android,desktop}Main,
+    // them as `PlaybackManager.PrepareResult` across shared, composeApp/{android,desktop}Main,
     // and tests. Promoting to top-level would cause an avoidable churn through every
     // reference site.
     // ====================================================================
@@ -178,16 +177,5 @@ interface PlaybackManager :
         val measuredGainDb: Float?,
         /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
         val normalizationGainDb: Float?,
-    )
-
-    /** Current chapter information for notification and UI. */
-    data class ChapterInfo(
-        val index: Int,
-        val title: String,
-        val startMs: Long,
-        val endMs: Long,
-        val remainingMs: Long,
-        val totalChapters: Int,
-        val isGenericTitle: Boolean,
     )
 }

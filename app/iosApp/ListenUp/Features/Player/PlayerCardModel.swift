@@ -22,7 +22,7 @@ struct PlayerCardModel: Equatable {
     enum Kind: Equatable {
         case problem(title: String, cause: String?, placeSaved: Bool, reference: String?, tone: Tone)
         case finished(FinishedModel)
-        /// The sleep timer is fading the audio out: the gold card, with Keep Listening alone (§5.6).
+        /// The sleep timer is fading the audio out: the gold card, with Keep Listening alone.
         case sleepFading
     }
 
@@ -91,7 +91,7 @@ struct PlayerCardModel: Equatable {
                 title: PlayerSnapshot.title(for: error),
                 cause: PlayerSnapshot.cause(for: error),
                 placeSaved: problem.placeSaved,
-                reference: error.correlationId.map { String(format: String(localized: "player.reference"), $0) },
+                reference: error.correlationId.map { String(localized: .playerReference($0)) },
                 tone: Tone(problem.tone)
             )
             primary = Action(problem.primaryAction)
@@ -109,7 +109,7 @@ struct PlayerCardModel: Equatable {
     }
 }
 
-/// The finished card's facts (§3.7), native.
+/// The finished card's facts, native.
 struct FinishedModel: Equatable {
     let finishedAt: Date?
     let startedAt: Date?

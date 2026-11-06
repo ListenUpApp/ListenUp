@@ -79,7 +79,7 @@ sealed interface BookDetailUiState {
         val deleteError: AppError? = null,
         /**
          * Held for review in the admin inbox — hidden from every member until released. A held book
-         * is **triage-only** (spec §8): when true, every platform renders the triage layout — the
+         * is **triage-only**: when true, every platform renders the triage layout — the
          * held section ("Held for review · Hidden from all members") with **Edit** and **Release**
          * — and no other action. [canPlay], [canDownload] and [showServerWarning] are already forced
          * false for it. Follows Room live; always false on a member's device.
@@ -112,7 +112,7 @@ sealed interface BookDetailUiState {
         val readingStage: ReadingStage = ReadingStage.NotStarted,
         /**
          * The sections below the action unit, in order. Decided once per visit, at the first load, and never changed
-         * while the page is open, even when [readingStage] changes (spec §2.4 rule 2). Platforms skip a section they have
+         * while the page is open, even when [readingStage] changes. Platforms skip a section they have
          * nothing to show for (Readers, Ratings, Hardcover); Series and Chapters are already left out when absent.
          */
         val sectionOrder: List<BookDetailSection> = emptyList(),
@@ -136,6 +136,30 @@ sealed interface BookDetailUiState {
         /** A progress write (mark finished, mark not started, restart) is in flight: the three progress items wait. */
         val isChangingProgress: Boolean
             get() = isMarkingComplete || isDiscardingProgress || isRestarting
+
+        /**
+         * The sections a page shows, in the visit's stage order ([sectionOrder]). A held book is
+         * triage-only: it keeps About, Chapters and Details, and its social sections (Ratings, Readers,
+         * Hardcover) stay hidden. Every platform renders this list, never [sectionOrder] directly.
+         */
+        val shownSections: List<BookDetailSection>
+            get() =
+                if (isHeld) {
+                    sectionOrder.filter { section ->
+                        section == BookDetailSection.About ||
+                            section == BookDetailSection.Chapters ||
+                            section == BookDetailSection.Details
+                    }
+                } else {
+                    sectionOrder
+                }
+
+        /**
+         * How many description lines a phone shows before "Read more": four, whatever the reading stage.
+         * Wide layouts show the synopsis whole; that is their layout's decision.
+         */
+        val aboutLineLimit: Int
+            get() = ABOUT_LINES
     }
 
     /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
@@ -199,3 +223,6 @@ sealed interface BookDetailNavAction {
      */
     data object BookDeleted : BookDetailNavAction
 }
+
+/** Description lines on a phone before "Read more". */
+private const val ABOUT_LINES = 4

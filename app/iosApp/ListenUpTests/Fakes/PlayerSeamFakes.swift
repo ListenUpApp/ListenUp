@@ -47,9 +47,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     private let gate = AsyncGate()
 
     init() {
-        var c: AsyncStream<AudioEngineEvent>.Continuation!
-        events = AsyncStream { c = $0 }
-        continuation = c
+        (events, continuation) = AsyncStream.makeStream(of: AudioEngineEvent.self)
     }
 
     /// Push an event into the coordinator's bound stream from a test.
@@ -270,10 +268,8 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
     /// Seeds each stream with an initial value, mirroring the real provider's first emission.
     init(initialForward: Int, initialBackward: Int) {
-        var fc: AsyncStream<Int>.Continuation!
-        forwardSeconds = AsyncStream { fc = $0 }; forwardContinuation = fc
-        var bc: AsyncStream<Int>.Continuation!
-        backwardSeconds = AsyncStream { bc = $0 }; backwardContinuation = bc
+        (forwardSeconds, forwardContinuation) = AsyncStream.makeStream(of: Int.self)
+        (backwardSeconds, backwardContinuation) = AsyncStream.makeStream(of: Int.self)
         forwardContinuation.yield(initialForward)
         backwardContinuation.yield(initialBackward)
     }
@@ -370,7 +366,8 @@ struct PlayerHarness {
 
     init(
         skipIntervals: SkipIntervalProviding? = nil,
-        notificationCenter: NotificationCenter = NotificationCenter()
+        notificationCenter: NotificationCenter = NotificationCenter(),
+        system: SystemIntegration = SystemIntegration()
     ) {
         engine = FakePlaybackEngine()
         progress = FakeProgressReporting()
@@ -378,7 +375,7 @@ struct PlayerHarness {
         facts = FakeEngineFacts()
         coordinator = PlayerCoordinator(
             instructions: instructions, facts: facts, progress: progress, engine: engine,
-            skipIntervals: skipIntervals, notificationCenter: notificationCenter)
+            system: system, skipIntervals: skipIntervals, notificationCenter: notificationCenter)
     }
 
     /// Execute one instruction now, as the drain task would, and wait for its synchronous part.

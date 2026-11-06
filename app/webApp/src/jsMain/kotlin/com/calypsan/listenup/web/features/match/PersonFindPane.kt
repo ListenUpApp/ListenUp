@@ -250,6 +250,7 @@ internal fun Portrait(
             if (big) classes("is-big")
             attr("loading", "lazy")
             attr("referrerpolicy", "no-referrer")
+            requestWithCors()
         })
     }
 }

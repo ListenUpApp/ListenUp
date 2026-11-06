@@ -68,7 +68,7 @@ enum MergeHistoryText {
             row.bookCount == 1 ? "merge_history.row_books" : "merge_history.row_books_plural"
         let books = String(format: String(localized: booksKey), Int32(row.bookCount))
         let date = row.mergedAt.formatted(date: .long, time: .omitted)
-        let by = row.mergedByName.map { String(format: String(localized: "merge_history.row_by"), $0) }
+        let by = row.mergedByName.map { String(localized: .mergeHistoryRowBy($0)) }
         return [books, date, by].compactMap { $0 }.joined(separator: " · ")
     }
 

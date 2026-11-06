@@ -127,7 +127,7 @@ enum BookMatchMapping {
         case .timedOut(let timedOutType):
             return MatchFailure(
                 systemImage: "clock.badge.exclamationmark",
-                title: String(format: String(localized: "match.timeout_title"), timedOutType.value.source.label),
+                title: String(localized: .matchTimeoutTitle(timedOutType.value.source.label)),
                 message: String(localized: "match.timeout_body"),
                 actions: [retry]
             )
@@ -136,7 +136,7 @@ enum BookMatchMapping {
         case .sourceFailed(let failedType):
             return MatchFailure(
                 systemImage: "exclamationmark.triangle",
-                title: String(format: String(localized: "match.source_failed_title"), failedType.value.source.label),
+                title: String(localized: .matchSourceFailedTitle(failedType.value.source.label)),
                 message: String(localized: "match.source_failed_body"),
                 actions: [retry]
             )
@@ -144,13 +144,13 @@ enum BookMatchMapping {
             let notFound = notFoundType.value
             let stores: [MatchFailureAction] = notFound.suggestions.prefix(2).map { locale in
                 .tryStore(
-                    title: String(format: String(localized: "match.try_store"), locale.displayName),
+                    title: String(localized: .matchTryStore(locale.displayName)),
                     store: MatchStoreChoice(locale)
                 )
             }
             return MatchFailure(
                 systemImage: "magnifyingglass",
-                title: String(format: String(localized: "match.not_found_title"), notFound.region.displayName),
+                title: String(localized: .matchNotFoundTitle(notFound.region.displayName)),
                 message: String(localized: "match.not_found_body"),
                 actions: stores + [.searchByTitle(title: String(localized: "match.search_by_title"))]
             )
@@ -176,13 +176,13 @@ enum BookMatchMapping {
         let remaining = limited.secondsRemaining
         let retry: MatchFailureAction = remaining > 0
             ? .retryCountdown(
-                title: String(format: String(localized: "match.retry_in"), MatchCopy.countdown(seconds: remaining)),
+                title: String(localized: .matchRetryIn(MatchCopy.countdown(seconds: remaining))),
                 isEnabled: false
             )
             : .retryCountdown(title: String(localized: "match.try_again"), isEnabled: true)
         return MatchFailure(
             systemImage: "hourglass",
-            title: String(format: String(localized: "match.rate_limited_title"), limited.source.label),
+            title: String(localized: .matchRateLimitedTitle(limited.source.label)),
             message: String(format: String(localized: "match.rate_limited_body"), Int(max(0, remaining))),
             actions: [retry]
         )
@@ -211,7 +211,7 @@ enum BookMatchMapping {
         let candidate = candidate(ready.candidate)
         return MatchReview(
             candidate: candidate,
-            foundInSentence: String(format: String(localized: "match.found_in"), candidate.foundInList),
+            foundInSentence: String(localized: .matchFoundIn(candidate.foundInList)),
             summary: MatchCopy.summaryItems(ready.summary),
             cover: cover(ready.cover),
             changes: ready.changes.map { field($0, viewerId: viewerId) },
@@ -244,12 +244,12 @@ enum BookMatchMapping {
         let segments = sourceSegments(field)
         let isEdited = field.state == .userEdited || field.handEdit != nil
         let tickLabel = field.state == .fillsGap
-            ? String(format: String(localized: "match.field_fills_gap_a11y"), name, proposedSources)
-            : String(format: String(localized: "match.field_changes_a11y"), name, proposedSources)
+            ? String(localized: .matchFieldFillsGapA11Y(name, proposedSources))
+            : String(localized: .matchFieldChangesA11Y(name, proposedSources))
         return MatchFieldRow(
             field: field.field,
             name: name,
-            proposedFrom: String(format: String(localized: "match.from_source"), proposedSources),
+            proposedFrom: String(localized: .matchFromSource(proposedSources)),
             yours: yours,
             proposed: proposed,
             isLongText: max(proposed.count, yours?.count ?? 0) > longTextThreshold,
@@ -260,11 +260,12 @@ enum BookMatchMapping {
             selectedSegment: selectedSegment(field),
             switchStyle: segments.count < 2 ? .none : (segments.count > maxSegments ? .menu : .segmented),
             tickLabel: tickLabel,
-            valuesLabel: String(
-                format: String(localized: "match.field_full_a11y"),
-                name, MatchCopy.withoutFinalPeriod(yours ?? String(localized: "match.empty_value")), proposedSources,
+            valuesLabel: String(localized: .matchFieldFullA11Y(
+                name,
+                MatchCopy.withoutFinalPeriod(yours ?? String(localized: "match.empty_value")),
+                proposedSources,
                 MatchCopy.withoutFinalPeriod(proposed)
-            )
+            ))
         )
     }
 
@@ -342,9 +343,7 @@ enum BookMatchMapping {
                     label: suggestion.label,
                     sources: sources,
                     selected: suggestion.selected,
-                    accessibilityLabel: String(
-                        format: String(localized: "match.suggestion_a11y"), suggestion.label, sources
-                    )
+                    accessibilityLabel: String(localized: .matchSuggestionA11Y(suggestion.label, sources))
                 )
             }
         )

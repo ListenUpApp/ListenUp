@@ -13,12 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.AdminPanelSettings
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
@@ -137,7 +132,7 @@ private fun UserAvatarPill(
                 )
             }
             Icon(
-                imageVector = Icons.Outlined.ExpandMore,
+                imageVector = ListenUpIcons.ExpandMore,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -220,7 +215,7 @@ private fun UserAvatarMenuContent(
     // My Profile menu item
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.common_my_profile)) },
-        leadingIcon = { Icon(Icons.Outlined.AccountCircle, contentDescription = null) },
+        leadingIcon = { Icon(ListenUpIcons.AccountCircle, contentDescription = null) },
         onClick = {
             haptics.press()
             onExpandedChange(false)
@@ -232,7 +227,7 @@ private fun UserAvatarMenuContent(
     if (user?.isAdmin == true && onAdminClick != null) {
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.common_administration)) },
-            leadingIcon = { Icon(Icons.Outlined.AdminPanelSettings, contentDescription = null) },
+            leadingIcon = { Icon(ListenUpIcons.AdminPanelSettings, contentDescription = null) },
             onClick = {
                 haptics.press()
                 onExpandedChange(false)
@@ -244,7 +239,7 @@ private fun UserAvatarMenuContent(
     if (onSettingsClick != null) {
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.common_settings)) },
-            leadingIcon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+            leadingIcon = { Icon(ListenUpIcons.Settings, contentDescription = null) },
             onClick = {
                 haptics.press()
                 onExpandedChange(false)
@@ -255,7 +250,7 @@ private fun UserAvatarMenuContent(
 
     DropdownMenuItem(
         text = { Text(stringResource(Res.string.common_sign_out)) },
-        leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null) },
+        leadingIcon = { Icon(ListenUpIcons.Logout, contentDescription = null) },
         onClick = {
             haptics.press()
             onExpandedChange(false)

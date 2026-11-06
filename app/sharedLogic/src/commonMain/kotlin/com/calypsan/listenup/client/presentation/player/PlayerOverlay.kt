@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.presentation.player
 
 /**
  * Which picker or sheet is open over the player. Mutually exclusive: at most one at a time. Per view model
- * instance, so each screen owns its own (spec §4.2's ephemera).
+ * instance, so each screen owns its own.
  */
 sealed interface PlayerOverlay {
     /** Nothing open. */

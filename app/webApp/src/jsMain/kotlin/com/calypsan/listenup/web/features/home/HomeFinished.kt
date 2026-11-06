@@ -35,9 +35,9 @@ private const val FINISHED_COVER_RUNG = 240
 private const val ICON_SIZE = 18
 
 /**
- * The just-finished kind (spec §2.3): a region named "You finished a book" on the hero wash (C17). When it was
- * finished, the book as one control, the next in its series with **Play next book** (the leading action, C16), the
- * shared half-star control (Simon's decision, Q2) and who else finished it. ✕ dismisses it on every device. With no
+ * The just-finished kind: a region named "You finished a book" on the hero wash. When it was
+ * finished, the book as one control, the next in its series with **Play next book** (the leading action), the
+ * shared half-star control (Simon's decision) and who else finished it. ✕ dismisses it on every device. With no
  * next book there is no primary button, and the rating is the action.
  */
 @Composable
@@ -48,7 +48,7 @@ internal fun HomeFinishedCard(
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
     val book = card.book
-    // The cover's wash, or Book Detail's neutral tone when the cover gives none (Home spec D3).
+    // The cover's wash, or Book Detail's neutral tone when the cover gives none.
     val coverTheme = rememberCoverThemes(book.bookId, book.coverHash)
     Section(attrs = {
         classes("home-hero")
@@ -122,7 +122,7 @@ internal fun HomeFinishedCard(
 
 /**
  * "How was it?" over the shared half-star control; a drag previews, a settle rates. Home's finished card and Now
- * Playing's share it (C22): both describe the same finished book.
+ * Playing's share it: both describe the same finished book.
  */
 @Composable
 internal fun FinishedRating(
@@ -145,7 +145,7 @@ internal fun FinishedRating(
     }
 }
 
-/** Local calendar days from [finishedAtMs] to [nowMs] in [zone]: 0 today, 1 yesterday (C10). */
+/** Local calendar days from [finishedAtMs] to [nowMs] in [zone]: 0 today, 1 yesterday. */
 internal fun finishedDaysAgo(
     finishedAtMs: Long,
     nowMs: Long,

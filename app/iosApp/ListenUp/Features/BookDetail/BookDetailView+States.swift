@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Book Detail's states (spec §3.2.3): the admin's scan warning, the offline reason in the hero and the error.
+/// Book Detail's states: the admin's scan warning, the offline reason in the hero and the error.
 /// Split out of `BookDetailView.swift`, which sits at SwiftLint's type-body cap.
 @MainActor
 extension BookDetailView {
@@ -37,7 +37,7 @@ extension BookDetailView {
     }
 }
 
-/// Why Book Detail's primary is disabled (spec §2.9, §3.2.3 Offline): the server is unreachable and the book is not
+/// Why Book Detail's primary is disabled: the server is unreachable and the book is not
 /// downloaded. It sits between the Resume unit and the disabled primary, with Retry.
 struct OfflineReasonView: View {
     static var message: String { String(localized: "book.detail_offline_reason") }
@@ -62,7 +62,7 @@ struct OfflineReasonView: View {
     }
 }
 
-/// The sheets the Details rows open (spec D32, D36).
+/// The sheets the Details rows open.
 enum BookDetailsSheet: Identifiable {
     case filesAndAudio, documents
 

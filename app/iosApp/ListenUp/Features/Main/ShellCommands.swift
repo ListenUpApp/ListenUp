@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 
 extension FocusedValues {
@@ -68,12 +69,12 @@ struct ListenUpCommands: Commands {
             .keyboardShortcut(.space, modifiers: [])
             .disabled(!state.canTogglePlayback)
         Divider()
-        Button(String(format: String(localized: "player.skip_backward"), "\(player?.skipBackwardSec ?? 0)")) {
+        Button(String(localized: .playerSkipBackward("\(player?.skipBackwardSec ?? 0)"))) {
             player?.skipBackward()
         }
             .keyboardShortcut(.leftArrow, modifiers: .command)
             .disabled(!state.canSeek)
-        Button(String(format: String(localized: "player.skip_forward"), "\(player?.skipForwardSec ?? 0)")) {
+        Button(String(localized: .playerSkipForward("\(player?.skipForwardSec ?? 0)"))) {
             player?.skipForward()
         }
             .keyboardShortcut(.rightArrow, modifiers: .command)
@@ -103,10 +104,10 @@ struct ListenUpCommands: Commands {
     /// make no sense — ListenUp has neither. Esc is "cancel the current action", which closing the player is.
     @ViewBuilder
     private func speedAndPlayerCommands(_ state: PlaybackCommandState) -> some View {
-        Button(String(localized: "player.menu_slower_ios")) { player?.stepSpeed(up: false) }
+        Button(String(localized: "player.menu_slower_ios")) { player?.stepSpeed(.Slower) }
             .keyboardShortcut("[", modifiers: .command)
             .disabled(!state.canStepSpeedDown)
-        Button(String(localized: "player.menu_faster_ios")) { player?.stepSpeed(up: true) }
+        Button(String(localized: "player.menu_faster_ios")) { player?.stepSpeed(.Faster) }
             .keyboardShortcut("]", modifiers: .command)
             .disabled(!state.canStepSpeedUp)
         Divider()

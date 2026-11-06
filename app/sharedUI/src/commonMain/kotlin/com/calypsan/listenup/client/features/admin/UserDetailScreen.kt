@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.presentation.admin.UserDetailUiState
@@ -57,6 +54,7 @@ import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.admin_user_details_title
 
 /**
  * Screen for viewing a single user's details, and the way into their role and permissions.
@@ -79,7 +77,9 @@ fun UserDetailScreen(
         modifier = modifier,
         topBar = {
             ListenUpTopAppBar(
-                title = (state as? UserDetailUiState.Ready)?.run { user.displayableName } ?: "User Details",
+                title =
+                    (state as? UserDetailUiState.Ready)?.run { user.displayableName }
+                        ?: stringResource(Res.string.admin_user_details_title),
                 onBack = onBackClick,
             )
         },
@@ -226,7 +226,7 @@ private fun AccessRow(
     Column {
         SegmentedGroup {
             SettingRow(
-                icon = Icons.Outlined.Shield,
+                icon = ListenUpIcons.Shield,
                 title = stringResource(Res.string.admin_role_and_permissions),
                 subtitle = state.user.access.title(),
                 onClick = onClick,
@@ -266,7 +266,7 @@ private fun UserInfoCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Person,
+                    imageVector = ListenUpIcons.Person,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -295,7 +295,7 @@ private fun UserInfoCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Email,
+                    imageVector = ListenUpIcons.Email,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -324,7 +324,7 @@ private fun UserInfoCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Shield,
+                    imageVector = ListenUpIcons.Shield,
                     contentDescription = null,
                     tint =
                         if (user.isRoot || user.role.equals("admin", ignoreCase = true)) {
@@ -374,7 +374,7 @@ private fun ProtectedUserNotice(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Shield,
+                imageVector = ListenUpIcons.Shield,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
             )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.home
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.home_loading_shelves_a11y
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -19,9 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -66,7 +64,7 @@ private val RowMosaicGap = 3.dp
 private val LockSize = 14.dp
 
 /**
- * "My shelves" (spec §2.7): always shown, and New shelf always offered. See all opens the My shelves list (H24) once
+ * "My shelves": always shown, and New shelf always offered. See all opens the My shelves list once
  * there is a shelf to see; a host with no list ([onSeeAll] null) offers none.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -99,7 +97,7 @@ internal fun MyShelvesSection(
                     }
                     FilledTonalButton(onClick = onCreateShelf, shapes = ButtonDefaults.shapes()) {
                         Icon(
-                            Icons.Filled.Add,
+                            ListenUpIcons.AddFilled,
                             contentDescription = null,
                             modifier = Modifier.size(ButtonDefaults.IconSize),
                         )
@@ -248,7 +246,7 @@ private fun ShelfText(shelf: Shelf) {
             )
             if (shelf.isPrivate) {
                 Icon(
-                    imageVector = Icons.Outlined.Lock,
+                    imageVector = ListenUpIcons.Lock,
                     contentDescription = stringResource(Res.string.home_private_shelf),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(LockSize),

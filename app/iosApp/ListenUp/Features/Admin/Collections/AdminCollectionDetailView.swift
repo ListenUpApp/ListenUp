@@ -257,7 +257,7 @@ struct AdminCollectionDetailView: View {
                         .foregroundStyle(.white, Color.black.opacity(0.6))
                         .minimumTapTarget(visualSize: 22)
                 }
-                .accessibilityLabel(String(format: String(localized: "common.remove_name"), book.title))
+                .accessibilityLabel(String(localized: .commonRemoveName(book.title)))
                 .padding(2)
             }
         }

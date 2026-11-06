@@ -36,6 +36,7 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.design.focusLanding
+import com.calypsan.listenup.web.design.isSafeHref
 import kotlinx.browser.document
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.dom.B
@@ -299,13 +300,17 @@ private fun Linking(
                 Step(2) { Text("Enter the code and approve ListenUp") }
                 Step(STEP_THREE) { Text("This page updates on its own") }
             }
-            ButtonLink(href = state.verificationUriComplete, kind = ButtonKind.Primary, attrs = {
-                classes("hc-open")
-                attr("target", "_blank")
-                attr("rel", "noopener noreferrer")
-            }) {
-                Text("Open Hardcover in a new tab")
-                Icon(WebIcon.ArrowRight, size = ITEM_ICON)
+            // The link is relayed from Hardcover's response: a scheme that is not http(s) is shown as the address above, never
+            // made clickable.
+            if (isSafeHref(state.verificationUriComplete)) {
+                ButtonLink(href = state.verificationUriComplete, kind = ButtonKind.Primary, attrs = {
+                    classes("hc-open")
+                    attr("target", "_blank")
+                    attr("rel", "noopener noreferrer")
+                }) {
+                    Text("Open Hardcover in a new tab")
+                    Icon(WebIcon.ArrowRight, size = ITEM_ICON)
+                }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.motion
 
+import com.calypsan.listenup.web.dom.WeakMap
 import com.calypsan.listenup.web.nav.RouteChange
 import com.calypsan.listenup.web.nav.lastRouteChange
 import kotlinx.browser.window
@@ -101,16 +102,6 @@ internal fun staggerIn(container: Element) {
 
 /** Each container's latest sweep, held only as long as the container itself is. */
 private val sweeps = WeakMap<Element, List<Motion>>()
-
-/** The browser's `WeakMap`, as much of it as the sweep uses. */
-private external class WeakMap<K : Any, V : Any> {
-    fun get(key: K): V?
-
-    fun set(
-        key: K,
-        value: V,
-    )
-}
 
 /**
  * The element that actually draws [child]: a `VirtualList` item wrapper is `display:contents` (no box

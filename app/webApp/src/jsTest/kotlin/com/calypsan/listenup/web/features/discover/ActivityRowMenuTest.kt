@@ -14,18 +14,6 @@ class ActivityRowMenuTest :
         val mounts = MountRegistry()
         afterTest { mounts.disposeAll() }
 
-        test("a book row offers the book, the person and add to a shelf, in that order") {
-            activityRowActions(act("a1", "finished_book", bookId = "b1")) shouldBe
-                listOf(
-                    ActivityRowAction.OpenBook("b1"),
-                    ActivityRowAction.OpenProfile("u1"),
-                    ActivityRowAction.AddToShelf("b1"),
-                )
-            activityRowActions(act("s1", "shelf_created", bookId = null, shelfId = "sh1", shelfName = "Sci-fi")) shouldBe
-                listOf(ActivityRowAction.OpenShelf("sh1"), ActivityRowAction.OpenProfile("u1"))
-            activityRowActions(act("j1", "user_joined", bookId = null)).shouldBeEmpty()
-        }
-
         test("a book row has a visible ⋯ named for the person, opening the three board actions") {
             val host =
                 mounts.mount {

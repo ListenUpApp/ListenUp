@@ -86,7 +86,7 @@ final class HardcoverKeptOffObserver {
         case .syncingAgain(let syncingType):
             let syncing = syncingType.value
             return .announce(
-                String(format: String(localized: "hardcover.syncing_again"), syncing.title),
+                String(localized: .hardcoverSyncingAgain(syncing.title)),
                 close: syncing.wasLast
             )
         case .showError(let showErrorType):

@@ -53,3 +53,46 @@ struct CarPlayNowPlayingTests {
         #expect(!CarPlayChapterButton.next.isEnabled(hasPreviousChapter: true, hasNextChapter: false))
     }
 }
+
+@Suite("CarPlay now-playing buttons are pushed only when they change")
+@MainActor
+struct CarPlayButtonsPresenterTests {
+    private final class Pushes {
+        var values: [CarPlayNowPlayingButtons] = []
+    }
+
+    private static let both = CarPlayNowPlayingButtons(hasPreviousChapter: true, hasNextChapter: true)
+    private static let last = CarPlayNowPlayingButtons(hasPreviousChapter: true, hasNextChapter: false)
+
+    @Test func identicalValuesPushOnce() {
+        let pushes = Pushes()
+        let presenter = CarPlayButtonsPresenter { pushes.values.append($0) }
+
+        presenter.show(Self.both)
+        presenter.show(Self.both)
+
+        #expect(pushes.values == [Self.both])
+    }
+
+    @Test func aChangedFlagPushesAgain() {
+        let pushes = Pushes()
+        let presenter = CarPlayButtonsPresenter { pushes.values.append($0) }
+
+        presenter.show(Self.both)
+        presenter.show(Self.last)
+        presenter.show(Self.last)
+
+        #expect(pushes.values == [Self.both, Self.last])
+    }
+
+    @Test func aResetForgetsWhatWasPushed() {
+        let pushes = Pushes()
+        let presenter = CarPlayButtonsPresenter { pushes.values.append($0) }
+
+        presenter.show(Self.both)
+        presenter.reset()
+        presenter.show(Self.both)
+
+        #expect(pushes.values == [Self.both, Self.both])
+    }
+}

@@ -24,7 +24,7 @@ internal fun listeningCountLine(
         else -> stringResource(Res.string.discover_listening_count_both, live, recent)
     }
 
-/** "Book 1 of Mistborn", the bare series name when unnumbered, or "Standalone" (plan C10). */
+/** "Book 1 of Mistborn", the bare series name when unnumbered, or "Standalone". */
 @Composable
 internal fun pickSeriesLine(
     series: String?,
@@ -36,7 +36,7 @@ internal fun pickSeriesLine(
         else -> stringResource(Res.string.discover_pick_series_line, sequence, series)
     }
 
-/** "Added 2 days ago", in the relative vocabulary the app already speaks (plan C9). */
+/** "Added 2 days ago", in the relative vocabulary the app already speaks. */
 @Composable
 internal fun addedLine(
     createdAtMs: Long,

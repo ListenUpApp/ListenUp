@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -15,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_restricted_a11y
 import org.jetbrains.compose.resources.stringResource
@@ -56,7 +55,7 @@ fun RestrictedBookMarker(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Lock,
+            imageVector = ListenUpIcons.Lock,
             contentDescription = stringResource(Res.string.library_restricted_a11y),
             tint = MaterialTheme.colorScheme.inverseOnSurface,
             modifier = Modifier.size(if (compact) 12.dp else 15.dp),

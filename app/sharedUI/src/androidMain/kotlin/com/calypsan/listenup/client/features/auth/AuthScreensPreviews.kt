@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.auth
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -54,7 +53,7 @@ private fun CreateAdminPreviewBody(onBack: (() -> Unit)? = null) {
     AuthScaffold(
         title = stringResource(Res.string.auth_create_admin_account),
         subtitle = stringResource(Res.string.auth_set_up_your_listenup_server),
-        badge = AuthBadge(Icons.Outlined.AdminPanelSettings, stringResource(Res.string.auth_server_administrator)),
+        badge = AuthBadge(ListenUpIcons.AdminPanelSettings, stringResource(Res.string.auth_server_administrator)),
         onBack = onBack,
     ) {
         CreateAccountFields(

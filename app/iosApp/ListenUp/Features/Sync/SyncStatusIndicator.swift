@@ -120,6 +120,12 @@ private struct SyncDetailsSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                // When the library last synced; re-read each minute so "2 min ago" keeps up with the clock.
+                TimelineView(.everyMinute) { context in
+                    Text(observer.readoutWords(nowMs: Int64(context.date.timeIntervalSince1970 * 1000)))
+                        .font(.caption)
+                        .foregroundStyle(observer.refreshFailed ? Color.red : Color.secondary)
+                }
             }
         }
     }
@@ -146,14 +152,14 @@ private struct SyncDetailsSheet: View {
     }
 
     private var statusTitle: String {
-        if observer.hasErrors {
+        if observer.hasErrors || observer.refreshFailed {
             return String(localized: "shell.sync_error")
         }
         if observer.isSyncing {
             return String(localized: "shell.syncing")
         }
         if observer.pendingCount > 0 {
-            return String(format: String(localized: "shell.pendingcount_pending"), "\(observer.pendingCount)")
+            return String(localized: .shellPendingcountPending("\(observer.pendingCount)"))
         }
         return String(localized: "shell.all_synced")
     }
@@ -165,7 +171,7 @@ private struct SyncDetailsSheet: View {
         if observer.pendingCount > 0 {
             return String(localized: "shell.changes_waiting_to_sync")
         }
-        if !observer.hasErrors {
+        if !observer.hasErrors && !observer.refreshFailed {
             return String(localized: "shell.no_pending_changes")
         }
         return nil

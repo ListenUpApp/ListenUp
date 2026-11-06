@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.library
 
 /**
- * What a Library card says about where the reader is with a book (spec §2.6).
+ * What a Library card says about where the reader is with a book.
  *
  * Platforms format the numbers themselves (units differ: iOS says "hr"). The subtypes are nested
  * exactly one level, so each gets a flat Swift Export alias (`BookCardStatusInProgress`).

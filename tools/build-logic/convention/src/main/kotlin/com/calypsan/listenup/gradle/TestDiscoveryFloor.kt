@@ -144,6 +144,14 @@ internal fun reportedSpecClasses(reports: List<String>): Set<String> =
     }
 
 /**
+ * Whether this reported `classname` is [anchor]: exactly, or behind a single lane segment with no dots —
+ * Kotlin/Native reports `iosSimulatorArm64Test.<fqn>` where the JVM lanes report `<fqn>`. Deliberately
+ * nothing looser: a general suffix match would let `a.b.<fqn>` or another package's class pass.
+ */
+private fun String.isReportedAs(anchor: String): Boolean =
+    this == anchor || (endsWith(".$anchor") && '.' !in removeSuffix(".$anchor"))
+
+/**
  * The failure message when an anchor spec is absent from an unfiltered run, or null.
  * An anchor is a fully-qualified spec class that lives in a source set the count floor alone cannot
  * vouch for; its absence means that source set did not run.
@@ -154,7 +162,7 @@ internal fun missingAnchorFailure(
     reportedSpecClasses: Set<String>,
     isFiltered: Boolean,
 ): String? {
-    val missing = anchorSpecs.filterNot { it in reportedSpecClasses }
+    val missing = anchorSpecs.filterNot { anchor -> reportedSpecClasses.any { it.isReportedAs(anchor) } }
     return if (missing.isNotEmpty() && !isFiltered) {
         "$taskLabel did not run its anchor spec(s) ${missing.joinToString()}. No test filter was detected, " +
             "so the lane-only source set that holds them most likely stopped compiling into the lane — " +
