@@ -107,6 +107,15 @@ fun seedModule(
         // so we don't bind it here — but the runner still includes it for demo.
         single {
             SeedRunner(
+                seeders = listOf(
+                    com.calypsan.listenup.server.seed.RigSeeder(
+                        get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+                    ),
+                ),
+            )
+        }
+        single(qualifier = org.koin.core.qualifier.named("unused-demo-runner")) {
+            SeedRunner(
                 seeders =
                     assembleSeeders(
                         koin = this,
