@@ -157,6 +157,9 @@ struct PlayerFlight: CustomStringConvertible {
             try await Task.sleep(for: .milliseconds(16))
         }
         try #require(!samples.isEmpty, "the player was never presented")
+        // Sampling stops at 3 s, and a slow simulator can still be presenting then. UIKit drops a dismissal sent
+        // mid-presentation, so the close that follows would wait out its timeout on a cover that never goes.
+        try await waitUntil { presented(in: hosted.window).map { !$0.isBeingPresented } ?? false }
         return PlayerFlight(windowWidth: hosted.window.bounds.width, samples: samples)
     }
 
@@ -167,9 +170,10 @@ struct PlayerFlight: CustomStringConvertible {
         await hosted.settle()
     }
 
+    /// 15 s, not less: CI's simulators run these tests several times slower than a desk machine does.
     static func waitUntil(_ condition: () -> Bool) async throws {
         let started = ContinuousClock.now
-        while !condition(), ContinuousClock.now - started < .seconds(5) {
+        while !condition(), ContinuousClock.now - started < .seconds(15) {
             try await Task.sleep(for: .milliseconds(20))
         }
         try #require(condition(), "timed out")
