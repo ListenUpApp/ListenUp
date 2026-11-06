@@ -66,6 +66,59 @@ struct FrameEditorAccessibilityTests {
         #expect(slider.value.contains("×"))
     }
 
+    @Test("Done is the prominent action: filled with the accent, where Cancel is not")
+    func confirmIsProminent() async throws {
+        let view = await hosted(.ready(Self.photo()))
+        defer { view.close() }
+        let cancel = try #require(view.stop(labelled: "Cancel"), "\(view.tree)")
+        let done = try #require(view.stop(labelled: "Done"), "\(view.tree)")
+        // Composited, so the toolbar's glass is in the capture.
+        let drawn = DrawnContrast(view, composited: true)
+        let doneFill = drawn.background(in: done.frame.insetBy(dx: 2, dy: 2))
+        let cancelFill = drawn.background(in: cancel.frame.insetBy(dx: 2, dy: 2))
+        #expect(doneFill.red - doneFill.blue > 0.3, "Done drew \(doneFill), not the coral accent")
+        #expect(cancelFill.red - cancelFill.blue < 0.1, "Cancel drew \(cancelFill), a second prominent action")
+    }
+
+    @Test("the zoom slider spans the width, with Reset centred on its own row below")
+    func sliderSpansTheWidth() async throws {
+        let view = await hosted(.ready(Self.photo()))
+        defer { view.close() }
+        let width = view.window.bounds.width
+        let slider = try #require(view.stop(labelled: "Zoom"), "\(view.tree)")
+        let reset = try #require(view.stop(labelled: "Reset"), "\(view.tree)")
+        // Inside ~20 pt margins and the two magnifier glyphs, the track keeps the rest of the width.
+        #expect(slider.frame.width >= width - 120, "slider \(slider.frame) in a \(width)-wide window")
+        #expect(reset.frame.minY >= slider.frame.maxY)
+        #expect(abs(reset.frame.midX - width / 2) < 2)
+    }
+
+    @Test("on iPad the zoom slider keeps at least 300 pt")
+    func sliderOnIPad() async throws {
+        let view = await HostedView(
+            FrameEditorView(
+                state: .ready(Self.photo()), initial: nil, confirm: .done,
+                onConfirm: { _ in }, onCancel: {}, onChooseAnother: {}
+            )
+            .environment(\.horizontalSizeClass, .regular),
+            size: CGSize(width: 700, height: 740)
+        )
+        defer { view.close() }
+        let slider = try #require(view.stop(labelled: "Zoom"), "\(view.tree)")
+        #expect(slider.frame.width >= 300, "slider \(slider.frame)")
+    }
+
+    @Test("Choose Another's label reads at 4.5:1 on its fill")
+    func chooseAnotherContrast() async throws {
+        let view = await hosted(.couldNotOpen)
+        defer { view.close() }
+        let another = try #require(view.stop(labelled: "Choose Another"), "\(view.tree)")
+        // Clear of the capsule's rounded ends, where the black page behind it would pass for ink.
+        let label = another.frame.insetBy(dx: another.frame.height / 2, dy: 6)
+        let ink = DrawnContrast(view).strongestInk(in: label)
+        #expect(ink >= 4.5, "Choose Another reads at \(ink):1")
+    }
+
     @Test("a photo that can't be opened says so, offers another, and dims the confirm")
     func couldNotOpen() async throws {
         let view = await hosted(.couldNotOpen)

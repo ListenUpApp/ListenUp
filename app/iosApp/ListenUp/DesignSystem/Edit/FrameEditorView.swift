@@ -4,7 +4,7 @@ import UIKit
 /// Move and Scale: the photo fills a black stage behind a dimmed scrim with a circle cut-out (Q13), modelled
 /// on Contacts. Drag moves, pinch or the slider zooms, Reset returns to the centre crop, and VoiceOver gets an
 /// adjustable zoom plus named moves. A full-screen cover on iPhone and a page sheet on iPad (`frameEditor`),
-/// per the HIG Sheets and Modality pages: Cancel leads the toolbar and the confirm trails it.
+/// per the HIG Sheets and Modality pages: Cancel leads the toolbar and the confirm trails it as the prominent action.
 struct FrameEditorView: View {
     /// What the editor is showing.
     enum Source {
@@ -43,7 +43,7 @@ struct FrameEditorView: View {
                 .background(Color.black)
                 .navigationTitle(String(localized: "edit.frame_title_ios"))
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarColorScheme(.dark, for: .navigationBar, .bottomBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(String(localized: "common.cancel"), action: onCancel)
@@ -71,8 +71,20 @@ struct FrameEditorView: View {
     private var disabledConfirm: some ToolbarContent {
         ToolbarItem(placement: .confirmationAction) {
             Button(confirm.title) {}
+                .frameEditorConfirmStyle()
                 .disabled(true)
         }
+    }
+}
+
+extension View {
+    /// The confirm as the sheet's one prominent action (HIG, Buttons: "use a button that has a prominent visual
+    /// style for the most likely action in a view"): accent-tinted glass, labelled in the on-coral ink so it
+    /// reads at 4.5:1 — not the neutral capsule Cancel wears.
+    fileprivate func frameEditorConfirmStyle() -> some View {
+        buttonStyle(.glassProminent)
+            .tint(.luTint)
+            .onBrandFillLabel()
     }
 }
 
@@ -113,11 +125,10 @@ private struct FrameEditorStage: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(confirmTitle) { onConfirm(model.confirmedFrame()) }
-            }
-            ToolbarItem(placement: .bottomBar) {
-                controls
+                    .frameEditorConfirmStyle()
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { controls }
     }
 
     /// The circle the photo is framed in: the largest that fits with `inset` to spare, centred.
@@ -195,9 +206,10 @@ private struct FrameEditorStage: View {
             .onEnded { _ in lastMagnification = 1 }
     }
 
-    /// The zoom slider and Reset, on the system bottom bar (no hand-rolled glass, iosApp rule 11).
+    /// The zoom slider across the full width, Reset centred on its own row below (HIG, Sliders: a fine control
+    /// for a 4× range wants a long track), on the system bar material (no hand-rolled glass, iosApp rule 11).
     private var controls: some View {
-        HStack(spacing: 16) {
+        VStack(spacing: Spacing.xs) {
             Slider(
                 value: Binding(get: { model.sliderPosition }, set: { model.sliderPosition = $0 }),
                 in: 0...1
@@ -209,12 +221,15 @@ private struct FrameEditorStage: View {
                 Image(systemName: "plus.magnifyingglass").accessibilityHidden(true)
             }
             .accessibilityValue(model.zoomText)
-            // A bottom-bar item sizes to its content, which leaves a bare Slider a short track; this one is the
-            // fine control for a 4× range, so it gets room to move in (fits the narrowest iPhone with Reset).
-            .frame(width: 200)
             Button(String(localized: "edit.frame_reset")) { model.reset() }
                 .disabled(model.isCentered)
+                .frame(minHeight: 44)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+        .padding(.bottom, Spacing.xs)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
     }
 }
 

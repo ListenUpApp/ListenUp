@@ -82,9 +82,12 @@ struct FrameEditorModelTests {
         let model = model(initial: ImageFrameValue(focusX: 0.5, focusY: 0.5, zoom: 1))
         let before = model.edgeTicks
         for _ in 0..<5 { model.pan(by: CGSize(width: 0, height: 500)) }
-        // The tick crosses the Kotlin flow bridge, so it arrives asynchronously: wait for it, then give a
-        // second one the chance to (wrongly) follow.
-        await awaitObservation(timeout: .seconds(10)) { model.edgeTicks > before }
+        // The tick crosses the Kotlin flow bridge — a Swift task, a Kotlin coroutine, then a hop back onto the main
+        // actor — so it arrives asynchronously, and on a saturated CI runner those hops queue behind every other
+        // suite's work for longer than a fixed ceiling allowed (10 s, failed at 16 s). It is never lost (a buffered
+        // channel holds it for a late collector), so the wait is causal, on the default watchdog; then a second
+        // tick gets the chance to (wrongly) follow.
+        await awaitObservation { model.edgeTicks > before }
         await awaitUntil(timeout: .milliseconds(300)) { model.edgeTicks > before + 1 }
         #expect(model.edgeTicks == before + 1)
     }

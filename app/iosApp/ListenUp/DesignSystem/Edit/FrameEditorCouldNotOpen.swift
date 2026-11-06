@@ -18,8 +18,8 @@ struct FrameEditorCouldNotOpen: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button(String(localized: "edit.frame_choose_another_ios"), action: onChooseAnother)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                // The on-coral ink, not the white the stack sets: white on the dark coral is 2.9:1.
+                .prominentAction()
                 .padding(.top, Spacing.xs)
         }
         .foregroundStyle(.white)
