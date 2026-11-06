@@ -297,6 +297,8 @@ struct SkipIntervalTests {
         // `rate: 0` (paused) holds the position exactly; a positive rate starts the display link.
         harness.engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 60000 }
+        // Paused, a seek restarts the clock at rate 0: playing, it would run on between the two skips.
+        await harness.run(.pause)
 
         harness.coordinator.remoteSkipForward()
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 90000)
