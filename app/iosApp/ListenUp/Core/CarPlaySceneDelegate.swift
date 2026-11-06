@@ -48,7 +48,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         return template
     }()
 
-    private let libraryTemplate: CPListTemplate = {
+    let libraryTemplate: CPListTemplate = {
         let template = CPListTemplate(
             title: String(localized: "common.library"),
             sections: []
@@ -61,6 +61,24 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// whole cache lives only for the car session — released with the delegate's other per-session
     /// state on disconnect.
     private var rowArtwork: [String: UIImage] = [:]
+
+    /// The three observations that keep the car current, each cancelled on disconnect. Held as tasks (not re-armed by
+    /// hand) because `Observations` re-arms itself and ends only when its task does.
+    private var homeTask: Task<Void, Never>?
+    private var libraryTask: Task<Void, Never>?
+    /// Fills the Library's covers behind its text rows; replaced on every render and cancelled on disconnect.
+    private var libraryArtworkTask: Task<Void, Never>?
+
+    /// Decodes one cover off the main actor. A seam so a test can hold decodes back and see the list appear first.
+    var decodeArtwork: @Sendable (_ path: String, _ maxPixels: Int) async -> UIImage? = { path, maxPixels in
+        await CarPlayArtwork.decode(path: path, maxPixels: maxPixels)
+    }
+    private var chapterButtonsTask: Task<Void, Never>?
+
+    /// Pushes the now-playing buttons only when they change.
+    private lazy var buttonsPresenter = CarPlayButtonsPresenter { [weak self] in
+        self?.updateNowPlayingButtons($0)
+    }
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
@@ -93,6 +111,14 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
         self.interfaceController = nil
+        homeTask?.cancel()
+        libraryTask?.cancel()
+        chapterButtonsTask?.cancel()
+        libraryArtworkTask?.cancel()
+        libraryArtworkTask = nil
+        homeTask = nil
+        libraryTask = nil
+        chapterButtonsTask = nil
         home = nil
         library = nil
         rowArtwork.removeAll()
@@ -102,55 +128,91 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
     /// Re-render the Home list whenever the books in progress change.
     ///
-    /// `withObservationTracking` fires once per change, so it re-arms itself — the Observation
-    /// equivalent of what SwiftUI does implicitly for a view body. There is no view here to do
-    /// it for us, and without re-arming the car would show whatever the library looked like at
-    /// the moment the driver plugged in.
+    /// `Observations` yields the current content and again after every change to what the closure read, so the car
+    /// never shows whatever the library looked like at the moment the driver plugged in.
     private func observeHome(_ home: CarPlayHomeWrapper) {
-        withObservationTracking {
-            render(home)
-        } onChange: { [weak self, weak home] in
-            Task { @MainActor in
-                guard let self, let home else { return }
-                self.observeHome(home)
+        homeTask = Task { [weak self] in
+            for await content in Observations({ Self.homeContent(of: home) }) {
+                if Task.isCancelled { break }
+                self?.render(content)
             }
         }
     }
 
-    private func render(_ home: CarPlayHomeWrapper) {
+    /// What the Home list shows, read in one place so the observation tracks exactly these two properties.
+    private enum HomeContent: Equatable, Sendable {
+        case failure(String)
+        case rows([CarPlayRow])
+    }
+
+    private static func homeContent(of home: CarPlayHomeWrapper) -> HomeContent {
+        if let message = home.failureMessage { return .failure(message) }
+        return .rows(CarPlayRows.continueListening(from: home.items))
+    }
+
+    private func render(_ content: HomeContent) {
         let items: [CPListItem]
-        if let message = home.failureMessage {
+        switch content {
+        case .failure(let message):
             // Honest over silent: a driver seeing an empty list cannot tell "nothing to resume"
             // from "we failed to load". Untappable, so it cannot lead anywhere.
             let row = CPListItem(text: message, detailText: nil)
             row.handler = { _, completion in completion() }
             items = [row]
-        } else {
-            items = CarPlayRows.continueListening(from: home.items).map(listItem(for:))
+        case .rows(let rows):
+            items = rows.map(listItem(for:))
         }
         homeTemplate.updateSections([CPListSection(items: items)])
     }
 
-    /// Re-render the Library list whenever the sorted book list changes — same re-arming
-    /// `withObservationTracking` shape as `observeHome`.
+    /// Re-render the Library list whenever the sorted book list changes — the same `Observations` shape as
+    /// `observeHome`.
     private func observeLibrary(_ library: CarPlayLibraryWrapper) {
-        withObservationTracking {
-            renderLibrary(library.books)
-        } onChange: { [weak self, weak library] in
-            Task { @MainActor in
-                guard let self, let library else { return }
-                self.observeLibrary(library)
+        libraryTask = Task { [weak self] in
+            for await books in Observations({ library.books }) {
+                if Task.isCancelled { break }
+                self?.renderLibrary(books)
             }
         }
     }
 
-    private func renderLibrary(_ books: [BookRow]) {
+    /// Shows the Library at once with whatever covers are already decoded, then fills the rest in off the main actor:
+    /// the collection is as long as the head unit allows, and decoding it all here held the main actor for the whole
+    /// of it.
+    func renderLibrary(_ books: [BookRow]) {
         let rows = CarPlayRows.library(from: books, limit: CPListTemplate.maximumItemCount)
-        libraryTemplate.updateSections([CPListSection(items: rows.map(listItem(for:)))])
+        let items = rows.map { listItem(for: $0, image: cachedArtwork(for: $0)) }
+        libraryTemplate.updateSections([CPListSection(items: items)])
+        fillArtwork(for: zip(rows, items).compactMap { row, item in
+            guard let path = row.coverPath, rowArtwork[path] == nil else { return nil }
+            return (path, item)
+        })
+    }
+
+    /// Decodes each missing cover in turn and sets it on its row. A re-render or a disconnect cancels what is still
+    /// pending, so a stale list never receives a late image.
+    private func fillArtwork(for pending: [(path: String, item: CPListItem)]) {
+        libraryArtworkTask?.cancel()
+        guard !pending.isEmpty else { return }
+        let maxPixels = coverPixelSize
+        let decode = decodeArtwork
+        libraryArtworkTask = Task { [weak self] in
+            for (path, item) in pending {
+                let image = await decode(path, maxPixels)
+                guard !Task.isCancelled, let self else { return }
+                guard let image else { continue }
+                rowArtwork[path] = image
+                item.setImage(image)
+            }
+        }
     }
 
     private func listItem(for row: CarPlayRow) -> CPListItem {
-        let item = CPListItem(text: row.title, detailText: row.detailText, image: rowImage(for: row))
+        listItem(for: row, image: rowImage(for: row))
+    }
+
+    private func listItem(for row: CarPlayRow, image: UIImage?) -> CPListItem {
+        let item = CPListItem(text: row.title, detailText: row.detailText, image: image)
         item.handler = { [weak self] _, completion in
             Dependencies.shared.playerObserver.play(bookId: row.id)
             // Push now-playing so the driver lands on transport controls rather than staying in
@@ -187,17 +249,25 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         nowPlaying.add(self)
     }
 
-    /// Re-draw the buttons whenever previous or next becomes possible or impossible, re-arming like `observeHome`. Stops
-    /// once the car disconnects.
+    /// Re-draw the buttons whenever previous or next becomes possible or impossible, and only then: the player's other
+    /// changes re-run the observation, and the presenter drops an unchanged set. Ends with the car's session.
     private func observeChapterButtons() {
-        guard interfaceController != nil else { return }
-        withObservationTracking {
+        chapterButtonsTask = Task { [weak self] in
             let player = Dependencies.shared.playerObserver
-            updateNowPlayingButtons(
-                hasPreviousChapter: player.canSkipToPreviousChapter, hasNextChapter: player.canSkipToNextChapter)
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.observeChapterButtons() }
+            let buttons = Observations({
+                CarPlayNowPlayingButtons(
+                    hasPreviousChapter: player.canSkipToPreviousChapter, hasNextChapter: player.canSkipToNextChapter)
+            })
+            for await value in buttons {
+                if Task.isCancelled { break }
+                self?.buttonsPresenter.show(value)
+            }
         }
+    }
+
+    private func updateNowPlayingButtons(_ buttons: CarPlayNowPlayingButtons) {
+        updateNowPlayingButtons(
+            hasPreviousChapter: buttons.hasPreviousChapter, hasNextChapter: buttons.hasNextChapter)
     }
 
     private func updateNowPlayingButtons(hasPreviousChapter: Bool, hasNextChapter: Bool) {
@@ -232,6 +302,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     private func resetNowPlaying() {
         let nowPlaying = CPNowPlayingTemplate.shared
         nowPlaying.updateNowPlayingButtons([])
+        buttonsPresenter.reset()
         nowPlaying.isUpNextButtonEnabled = false
         nowPlaying.remove(self)
     }
@@ -277,19 +348,28 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
     }
 
-    /// Resolve (and memoize) a row's cover at CarPlay's list-image size.
-    ///
-    /// Synchronous on purpose: covers are small local files the phone has already cached, and the
-    /// shelf tops out at eight rows — a placeholder-then-swap pipeline would buy nothing but
-    /// flicker. Sized to `CPListItem.maximumImageSize` at the car screen's own scale, because the
+    /// A row's cover if it is already decoded, else nil.
+    private func cachedArtwork(for row: CarPlayRow) -> UIImage? {
+        row.coverPath.flatMap { rowArtwork[$0] }
+    }
+
+    /// CarPlay's list-image size in pixels: `CPListItem.maximumImageSize` at the car screen's own scale, because the
     /// head unit's display scale is independent of the phone's.
+    private var coverPixelSize: Int {
+        let carScale = interfaceController?.carTraitCollection.displayScale ?? 2
+        let maxSize = CPListItem.maximumImageSize
+        return Int(max(maxSize.width, maxSize.height) * carScale)
+    }
+
+    /// Resolve (and memoize) a Home row's cover at CarPlay's list-image size.
+    ///
+    /// Synchronous on purpose, and only for Home: its shelf tops out at eight rows of small local files the phone has
+    /// already cached, so a placeholder-then-swap would buy nothing but flicker. The Library, which can run to the
+    /// head unit's whole item limit, decodes off the main actor instead (`renderLibrary`).
     private func rowImage(for row: CarPlayRow) -> UIImage? {
         guard let path = row.coverPath else { return nil }
         if let cached = rowArtwork[path] { return cached }
-        let carScale = interfaceController?.carTraitCollection.displayScale ?? 2
-        let maxSize = CPListItem.maximumImageSize
-        let maxPixels = Int(max(maxSize.width, maxSize.height) * carScale)
-        guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxPixels) else {
+        guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: coverPixelSize) else {
             return nil
         }
         rowArtwork[path] = image

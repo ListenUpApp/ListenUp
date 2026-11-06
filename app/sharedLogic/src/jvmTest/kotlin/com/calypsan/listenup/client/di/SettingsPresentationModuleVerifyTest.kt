@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.presentation.sync.ManualSyncRefresh
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,7 @@ import org.koin.test.verify.verify
  *  - [AuthRepository] — owned by `authModule` (the Devices screen's active-session list).
  *  - [PendingOperationRepository] — owned by `clientSyncModule`.
  *  - [SyncRepository] — owned by `clientSyncModule`.
+ *  - [ManualSyncRefresh] — owned by `libraryPresentationModule`.
  *  - [ConnectionHealthStore] — owned by `connectionModule`.
  *  - [DownloadRepository] — owned by `downloadModule`.
  *  - [DownloadService] — owned by `downloadModule`.
@@ -78,6 +80,7 @@ class SettingsPresentationModuleVerifyTest :
                         AuthRepository::class,
                         PendingOperationRepository::class,
                         SyncRepository::class,
+                        ManualSyncRefresh::class,
                         ConnectionHealthStore::class,
                         DownloadRepository::class,
                         DownloadService::class,

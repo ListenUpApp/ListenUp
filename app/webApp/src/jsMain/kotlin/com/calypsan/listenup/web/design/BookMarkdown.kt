@@ -184,17 +184,6 @@ private fun matchLink(
 }
 
 /**
- * Whether a link from a description may become an `href` at all.
- *
- * An allowlist, not a denylist: `javascript:` is the obvious one to keep out, but so is anything
- * else a browser might come to treat as executable, and only http(s) is actually wanted here.
- */
-private fun isSafeHref(href: String): Boolean {
-    val lower = href.lowercase()
-    return lower.startsWith("http://") || lower.startsWith("https://")
-}
-
-/**
  * Converts the HTML that shows up in imported descriptions into Markdown or whitespace, then
  * strips whatever is left so it cannot render as literal angle brackets.
  *

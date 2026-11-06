@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.player.MorphElement
 import com.calypsan.listenup.client.features.nowplaying.morph.morphReveal
 import com.calypsan.listenup.client.presentation.player.MorphEnd
@@ -8,9 +9,6 @@ import com.calypsan.listenup.client.features.nowplaying.morph.MorphPart
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -48,10 +46,10 @@ import org.jetbrains.compose.resources.stringResource
 private val SkipSize = 56.dp
 
 /**
- * Now Playing's transport (spec P14–P18, §3.3): one standard button group of Previous · back N · play · forward N ·
+ * Now Playing's transport: one standard button group of Previous · back N · play · forward N ·
  * Next (m3.material.io/components/button-groups: standard groups for rows of actions). Previous is enabled in every
  * chapter and says it restarts the chapter first, but is off in a chapterless book; Next is off at the last chapter. The skips keep their slots in every state
- * and are disabled while there is no settled position (S12), so the group never re-flows under the thumb (C5).
+ * and are disabled while there is no settled position, so the group never re-flows under the thumb.
  */
 @Suppress("LongParameterList") // one callback per control the board draws
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -93,7 +91,7 @@ fun PlayerTransport(
                                 true
                             }
                         },
-                ) { Icon(Icons.Filled.SkipPrevious, stringResource(Res.string.player_previous_chapter)) }
+                ) { Icon(ListenUpIcons.SkipPreviousFilled, stringResource(Res.string.player_previous_chapter)) }
             },
             menuContent = {},
         )
@@ -164,7 +162,7 @@ fun PlayerTransport(
                     enabled = state.canSkipToNextChapter,
                     shapes = IconButtonDefaults.shapes(),
                     modifier = Modifier.morphReveal(MorphElement.TransportSides),
-                ) { Icon(Icons.Filled.SkipNext, stringResource(Res.string.player_next_chapter)) }
+                ) { Icon(ListenUpIcons.SkipNextFilled, stringResource(Res.string.player_next_chapter)) }
             },
             menuContent = {},
         )

@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -15,6 +13,7 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import org.junit.Rule
 import org.junit.Test
@@ -36,7 +35,7 @@ class FacetHeroScaffoldTest {
         composeRule.setContent {
             MaterialTheme {
                 Box(Modifier.width(SCREEN_WIDTH).padding(horizontal = Spacing.screenMargin)) {
-                    FacetHeroScaffold(hue = "#3A5F8F", icon = Icons.Outlined.Mood, onBackClick = {}) {
+                    FacetHeroScaffold(hue = "#3A5F8F", icon = ListenUpIcons.Mood, onBackClick = {}) {
                         Box(Modifier.fillMaxWidth().height(1.dp).testTag(CONTENT))
                     }
                 }

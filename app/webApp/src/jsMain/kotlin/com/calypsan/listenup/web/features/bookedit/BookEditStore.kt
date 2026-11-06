@@ -7,9 +7,7 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /**
@@ -53,21 +51,5 @@ fun graphBookEdit(koin: Koin): OpenBookEdit =
             navActions = viewModel.navActions,
             onEvent = viewModel::onEvent,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedBookEdit(
-    state: BookEditUiState,
-    onEvent: (BookEditUiEvent) -> Unit = {},
-    onOpen: (String) -> Unit = {},
-): OpenBookEdit =
-    { bookId ->
-        onOpen(bookId)
-        BookEditSession(
-            state = MutableStateFlow(state),
-            navActions = emptyFlow(),
-            onEvent = onEvent,
-            close = {},
         )
     }

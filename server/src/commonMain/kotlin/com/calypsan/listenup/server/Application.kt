@@ -18,7 +18,10 @@ internal val logger = KotlinLogging.logger("com.calypsan.listenup.server.Applica
 
 internal const val SEED_PROFILE_DEMO = "demo"
 
-fun Application.module() {
+// Ktor requires an `Application` receiver on a module, and Application is a CoroutineScope; the module
+// suspends for startup seeding, it does not launch work into that scope.
+@Suppress("SuspendFunWithCoroutineScopeReceiver")
+suspend fun Application.module() {
     installCorePlugins()
 
     val seedProfile = resolveSeedProfile()
@@ -49,9 +52,14 @@ fun Application.module() {
         hardcoverApiBaseUrl = hardcoverApiBaseUrl,
     )
 
-    backfillPublicProfiles()
-    backfillAdminUserRoster()
-    launchSeeders(applicationScope, seedProfile, resolvedLibraryPaths.isNotEmpty())
+    backfillPublicProfiles(this)
+    backfillAdminUserRoster(this)
+    launchSeeders(
+        application = this,
+        scope = applicationScope,
+        seedProfile = seedProfile,
+        libraryConfigured = resolvedLibraryPaths.isNotEmpty(),
+    )
 
     installRequestPipeline()
     installMaintenanceGate(koinGet<MaintenanceState>())

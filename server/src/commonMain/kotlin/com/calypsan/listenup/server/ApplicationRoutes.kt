@@ -44,6 +44,7 @@ import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.document.DocumentFileLocator
+import com.calypsan.listenup.server.media.AvatarWriteLock
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.BLOB_READ_PROVIDER
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
@@ -99,13 +100,14 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val coverUrlSigner by inject<CoverUrlSigner>()
     val contributorRepository by inject<ContributorRepository>()
     val seriesRepository by inject<SeriesRepository>()
-    val imageStorage by inject<com.calypsan.listenup.server.metadata.ImageStorage>()
+    val remoteImageFetcher by inject<com.calypsan.listenup.server.metadata.RemoteImageFetcher>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
     val uploadStaging by inject<com.calypsan.listenup.server.upload.UploadStaging>()
     val uploadFinalizer by inject<com.calypsan.listenup.server.upload.UploadFinalizer>()
     val avatarImageStore by inject<ImageStore>()
+    val avatarWriteLock by inject<AvatarWriteLock>()
     val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
@@ -127,9 +129,14 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             bookBlobWriteRoutes(bookService)
-            contributorRoutes(contributorService, homeDir, imageStorage)
-            seriesRoutes(seriesService, homeDir, imageStorage)
-            profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
+            contributorRoutes(contributorService, homeDir, remoteImageFetcher)
+            seriesRoutes(seriesService, homeDir, remoteImageFetcher)
+            profileRoutes(
+                sql = sql,
+                imageStore = avatarImageStore,
+                publicProfileMaintainer = publicProfileMaintainer,
+                avatarWriteLock = avatarWriteLock,
+            )
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
             uploadRoutes(uploadStaging, uploadFinalizer)

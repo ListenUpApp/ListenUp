@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.dom.toLocaleDateTimeString
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -285,12 +286,7 @@ private fun BackupNotice(
  */
 internal fun formatWhen(epochMillis: Long): String = localeDateTime(epochMillis.toDouble())
 
-/** `Date#toLocaleString`, which Kotlin/JS's own `Date` facade does not expose. */
-private fun localeDateTime(epochMillis: Double): String =
-    kotlin.js
-        .Date(epochMillis)
-        .asDynamic()
-        .toLocaleString() as String
+private fun localeDateTime(epochMillis: Double): String = kotlin.js.Date(epochMillis).toLocaleDateTimeString()
 
 private const val VALUE_BUTTON = "button"
 

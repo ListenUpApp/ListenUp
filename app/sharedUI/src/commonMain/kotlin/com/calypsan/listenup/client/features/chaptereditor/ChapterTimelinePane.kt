@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.chaptereditor
 import com.calypsan.listenup.client.design.haptics.Haptics
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.geometry.Offset
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.runtime.State
@@ -16,9 +17,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -269,10 +267,10 @@ private fun LaneHeader(onZoom: (Float) -> Unit) {
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = { onZoom(ZOOM_OUT_STEP) }) {
-            Icon(Icons.Default.ZoomOut, stringResource(Res.string.chapter_editor_zoom_out))
+            Icon(ListenUpIcons.ZoomOutFilled, stringResource(Res.string.chapter_editor_zoom_out))
         }
         IconButton(onClick = { onZoom(ZOOM_IN_STEP) }) {
-            Icon(Icons.Default.ZoomIn, stringResource(Res.string.chapter_editor_zoom_in))
+            Icon(ListenUpIcons.ZoomInFilled, stringResource(Res.string.chapter_editor_zoom_in))
         }
     }
 }

@@ -21,12 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.HowToReg
-import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +40,7 @@ import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.relativeTime
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AppNotification
@@ -97,7 +92,7 @@ fun NotificationsScreen(
 
             is NotificationsUiState.Empty -> {
                 EmptyState(
-                    icon = Icons.Outlined.NotificationsNone,
+                    icon = ListenUpIcons.NotificationsNone,
                     title = stringResource(Res.string.notifications_empty_title),
                     subtitle = stringResource(Res.string.notifications_empty_subtitle),
                     modifier = Modifier.padding(padding),
@@ -225,8 +220,8 @@ private fun NotificationRow(
 /** The leading tile glyph for a notification [event]; unknown types get the generic bell. */
 private fun notificationIcon(event: NotificationEvent?): ImageVector =
     when (event) {
-        is NotificationEvent.CampfireInvite -> Icons.Outlined.LocalFireDepartment
-        is NotificationEvent.RegistrationDecision -> Icons.Outlined.HowToReg
-        is NotificationEvent.RegistrationApproval -> Icons.Outlined.PersonAdd
-        null -> Icons.Outlined.Notifications
+        is NotificationEvent.CampfireInvite -> ListenUpIcons.LocalFireDepartment
+        is NotificationEvent.RegistrationDecision -> ListenUpIcons.HowToReg
+        is NotificationEvent.RegistrationApproval -> ListenUpIcons.PersonAdd
+        null -> ListenUpIcons.Notifications
     }

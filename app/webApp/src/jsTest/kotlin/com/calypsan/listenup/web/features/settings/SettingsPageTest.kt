@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.settings
 import io.kotest.matchers.nulls.shouldNotBeNull
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.web.MountRegistry
@@ -19,10 +20,11 @@ import org.w3c.dom.events.Event
 /** A speed off the ladder's default rung, so a control that ignores its input cannot pass. */
 private const val CHOSEN_SPEED = 1.5f
 
-private const val QUARTER_SPEED = 1.25f
-
 /** A skip interval that is neither of the two defaults (10 back, 30 forward). */
 private const val CHOSEN_SKIP_SEC = 15
+
+/** A forward skip between two rungs of the shared list (another device may have set any length). */
+private const val OFF_LADDER_FORWARD_SEC = 25
 
 /** A boost off the floor, so a control that ignores its input cannot pass. */
 private const val CHOSEN_BOOST_DB = 6f
@@ -36,6 +38,14 @@ private const val BOOST_SELECT = 2
 
 private const val SKIP_BACK_SELECT = 3
 
+private const val SKIP_FORWARD_SELECT = 4
+
+private const val SLEEP_SELECT = 5
+
+private const val CHOSEN_SLEEP_MIN = 45
+
+private const val OFF_LADDER_SLEEP_MIN = 20
+
 @Composable
 private fun page(
     state: SettingsUiState = SettingsUiState(isLoading = false),
@@ -44,6 +54,7 @@ private fun page(
     onDefaultBoost: (Float) -> Unit = {},
     onSkipForward: (Int) -> Unit = {},
     onSkipBackward: (Int) -> Unit = {},
+    onDefaultSleep: (Int?) -> Unit = {},
     onAutoRewind: (Boolean) -> Unit = {},
     onHideSingleBookSeries: (Boolean) -> Unit = {},
     onOpenDevices: () -> Unit = {},
@@ -61,6 +72,7 @@ private fun page(
         onDefaultBoost = onDefaultBoost,
         onSkipForward = onSkipForward,
         onSkipBackward = onSkipBackward,
+        onDefaultSleep = onDefaultSleep,
         onAutoRewind = onAutoRewind,
         onHideSingleBookSeries = onHideSingleBookSeries,
         onOpenDevices = onOpenDevices,
@@ -128,7 +140,6 @@ class SettingsPageTest :
             text shouldNotContain "Dynamic"
             text shouldNotContain "Wi-Fi"
             text shouldNotContain "Haptic"
-            text shouldNotContain "Sleep"
         }
 
         test("Ignore articles lives in the Library's sort menu now, not in Settings") {
@@ -187,6 +198,33 @@ class SettingsPageTest :
             boost shouldBe CHOSEN_BOOST_DB
         }
 
+        test("the default sleep timer reports minutes, and Off reports none") {
+            val chosen = mutableListOf<Int?>()
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSleepTimerMin = CHOSEN_SLEEP_MIN), onDefaultSleep = {
+                        chosen +=
+                            it
+                    })
+                }
+
+            host.textContent.orEmpty() shouldContain "Default sleep timer"
+            select(host, index = SLEEP_SELECT, value = "30")
+            select(host, index = SLEEP_SELECT, value = "")
+
+            chosen shouldBe listOf(30, null)
+        }
+
+        test("a default sleep timer set on another device is a chosen row, not a blank select") {
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSleepTimerMin = OFF_LADDER_SLEEP_MIN))
+                }
+
+            val sleep = host.querySelectorAll("select").item(SLEEP_SELECT) as HTMLSelectElement
+            sleep.value shouldBe OFF_LADDER_SLEEP_MIN.toString()
+        }
+
         test("skip intervals report seconds, not labels") {
             var back: Int? = null
             val host = mounts.mount { page(onSkipBackward = { back = it }) }
@@ -194,6 +232,31 @@ class SettingsPageTest :
             select(host, index = SKIP_BACK_SELECT, value = CHOSEN_SKIP_SEC.toString())
 
             back shouldBe CHOSEN_SKIP_SEC
+        }
+
+        test("a skip length set on another device is a chosen row, not a blank select") {
+            val host =
+                mounts.mount {
+                    page(state = SettingsUiState(isLoading = false, defaultSkipForwardSec = OFF_LADDER_FORWARD_SEC))
+                }
+
+            val forward = host.querySelectorAll("select").item(SKIP_FORWARD_SELECT) as HTMLSelectElement
+            forward.value shouldBe OFF_LADDER_FORWARD_SEC.toString()
+            forward.selectedIndex shouldBe
+                PlaybackPresets.skipForwardChoicesIncluding(OFF_LADDER_FORWARD_SEC).indexOf(OFF_LADDER_FORWARD_SEC)
+        }
+
+        test("skip forward and skip back offer their own lists") {
+            val host = mounts.mount { page(state = SettingsUiState(isLoading = false)) }
+
+            fun values(index: Int) =
+                (host.querySelectorAll("select").item(index) as HTMLSelectElement)
+                    .options
+                    .asList()
+                    .map { (it as org.w3c.dom.HTMLOptionElement).value.toInt() }
+
+            values(SKIP_FORWARD_SELECT) shouldBe PlaybackPresets.SKIP_FORWARD_SECONDS
+            values(SKIP_BACK_SELECT) shouldBe PlaybackPresets.SKIP_BACKWARD_SECONDS
         }
 
         test("the current values are the ones selected") {
@@ -211,12 +274,6 @@ class SettingsPageTest :
 
             (host.querySelectorAll("select").item(THEME_SELECT) as HTMLSelectElement).value shouldBe "DARK"
             (host.querySelectorAll("select").item(SKIP_BACK_SELECT) as HTMLSelectElement).value shouldBe CHOSEN_SKIP_SEC.toString()
-        }
-
-        test("a speed label drops the noise but never the meaning") {
-            formatSpeedLabel(1f) shouldBe "1"
-            formatSpeedLabel(CHOSEN_SPEED) shouldBe "1.5"
-            formatSpeedLabel(QUARTER_SPEED) shouldBe "1.25"
         }
 
         test("a server with no version reported says nothing rather than saying null") {

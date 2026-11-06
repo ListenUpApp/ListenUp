@@ -30,17 +30,4 @@ internal fun List<ChapterUiModel>.toWebChapters(): List<WebChapter> =
         )
     }
 
-/** `h:mm:ss` once hours exist, `m:ss` below that — the clock format the comps use. */
-internal fun formatClock(totalSeconds: Int): String {
-    val hours = totalSeconds / SECONDS_PER_HOUR
-    val minutes = totalSeconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
-    val seconds = totalSeconds % SECONDS_PER_MINUTE
-    val two = { value: Int -> value.toString().padStart(2, '0') }
-    return if (hours > 0) "$hours:${two(minutes)}:${two(seconds)}" else "$minutes:${two(seconds)}"
-}
-
 private const val MILLIS_PER_SECOND = 1000
-
-private const val SECONDS_PER_HOUR = 3600
-
-private const val SECONDS_PER_MINUTE = 60

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.admin.inbox
 
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.selection_select_name
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
@@ -26,14 +27,6 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.LibraryAddCheck
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -516,7 +509,7 @@ private fun InboxWideHero(
                         ),
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    imageVector = ListenUpIcons.ArrowBack,
                     contentDescription = stringResource(Res.string.common_back),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -610,7 +603,7 @@ private fun SelectAllAction(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Outlined.SelectAll,
+                imageVector = ListenUpIcons.SelectAll,
                 contentDescription = label,
                 modifier = Modifier.size(22.dp),
             )
@@ -643,7 +636,7 @@ private fun SelectAllPillButton(
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.SelectAll,
+                imageVector = ListenUpIcons.SelectAll,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )
@@ -673,7 +666,7 @@ private fun ReleaseButton(
             ListenUpLoadingIndicatorSmall()
         } else {
             Icon(
-                imageVector = Icons.Outlined.LibraryAddCheck,
+                imageVector = ListenUpIcons.LibraryAddCheck,
                 contentDescription = null,
                 modifier = Modifier.size(21.dp),
             )
@@ -841,7 +834,7 @@ private fun InboxRowText(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Schedule,
+                imageVector = ListenUpIcons.Schedule,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
                 tint = if (isSelected) titleColor else MaterialTheme.colorScheme.tertiary,
@@ -877,7 +870,7 @@ private fun MatchOnAudibleButton(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Outlined.AutoAwesome,
+                imageVector = ListenUpIcons.AutoAwesome,
                 contentDescription = stringResource(Res.string.match_menu_item),
                 modifier = Modifier.size(if (size > 46.dp) 23.dp else 21.dp),
             )
@@ -906,7 +899,7 @@ private fun ReviewEditButton(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Outlined.Edit,
+                imageVector = ListenUpIcons.Edit,
                 contentDescription = stringResource(Res.string.admin_inbox_review_edit),
                 modifier = Modifier.size(if (size > 46.dp) 23.dp else 21.dp),
             )
@@ -934,7 +927,7 @@ private fun EmptyInbox(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Inbox,
+                imageVector = ListenUpIcons.Inbox,
                 contentDescription = null,
                 modifier = Modifier.size(if (big) 56.dp else 48.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

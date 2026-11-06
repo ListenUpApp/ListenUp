@@ -5,7 +5,7 @@ import SwiftUI
 struct MyShelvesView: View {
     @Environment(\.dependencies) private var deps
     @State private var observer: MyShelvesObserver?
-    @State private var isCreatingShelf = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     var body: some View {
         MyShelvesContent(phase: observer?.phase ?? .loading, onRetry: { observer?.refresh() })
@@ -15,15 +15,11 @@ struct MyShelvesView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        isCreatingShelf = true
+                        presentShellSheet(.shelfForm(shelfId: nil))
                     } label: {
                         Label(String(localized: "home.new_shelf_ios"), systemImage: "plus")
                     }
                 }
-            }
-            // A new shelf is a small self-contained task, so it is a sheet (HIG, Sheets), as from Home.
-            .sheet(isPresented: $isCreatingShelf) {
-                CreateEditShelfView(shelfId: nil)
             }
             .task {
                 if observer == nil { observer = MyShelvesObserver(viewModel: deps.createMyShelvesViewModel()) }

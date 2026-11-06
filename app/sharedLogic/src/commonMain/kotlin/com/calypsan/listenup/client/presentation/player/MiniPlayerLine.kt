@@ -5,7 +5,7 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
 
 /**
- * What the mini player's second line says (spec §5.1 M6/M7, the mini column of §5.6), decided once so the
+ * What the mini player's second line says, decided once so the
  * Android bars, the iOS accessory and the web bar agree. Each surface chooses the parts its width holds; the time
  * left is the surface's to add from [PlayerProgress], so this value never changes on a position tick.
  *
@@ -41,7 +41,7 @@ sealed interface MiniPlayerLine {
         val title: String?,
     ) : MiniPlayerLine
 
-    /** A book is being prepared: "Starting…" (§3.6). */
+    /** A book is being prepared: "Starting…". */
     data object Starting : MiniPlayerLine
 
     /** Stalled while buffering: "Loading…". */
@@ -52,11 +52,11 @@ sealed interface MiniPlayerLine {
 
     /**
      * The sleep timer's fade is running: "Sleep timer · fading out". The mini player's main button is then
-     * Keep listening, which cancels the timer and restores full volume (PT7, Simon 2026-10-14).
+     * Keep listening, which cancels the timer and restores full volume.
      */
     data object FadingOut : MiniPlayerLine
 
-    /** Played to the end: "Finished" (§3.7). */
+    /** Played to the end: "Finished". */
     data object Finished : MiniPlayerLine
 
     /**

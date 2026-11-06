@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.nowplaying.chapterRowTag
@@ -65,12 +64,12 @@ internal const val CHAPTER_PANEL_TAG = "player-chapter-panel"
 private val BackButtonClearance = 16.dp
 
 /**
- * The tablet's always-visible chapter list (spec §3.11, §5.3, P33; `NP-AndroidTablet`): a supporting pane beside the
+ * The tablet's always-visible chapter list: a supporting pane beside the
  * player (m3.material.io/foundations/layout/canonical-layouts/supporting-pane) on `surfaceContainer` with extra-large
  * corners. "Chapters" over "75 chapters · 45h 30m", then every chapter as a [PlayerChapterRow]; the current one is
  * coral, says "Playing · 8m left" and carries the chapter's progress bar.
  *
- * It opens centred on the current chapter once it has laid out (§9.2). When the chapter changes it follows only if the
+ * It opens centred on the current chapter once it has laid out. When the chapter changes it follows only if the
  * old current row was fully in view, so it never yanks the list from under a reader who scrolled away; the rule is the
  * shared [ChapterListFollow]. While the current row is out of view, "Back to current chapter" (a tonal button: a
  * secondary action, m3.material.io/components/buttons) floats at its foot; the list's last rows scroll clear of it.
@@ -166,7 +165,7 @@ internal fun NowPlayingChapterPanel(
                         PlayerChapterRow(
                             number = row.number,
                             title = row.title,
-                            durationLabel = row.durationMs.milliseconds.formatPlaybackTime(),
+                            durationLabel = DurationFormatter.playbackClock(row.durationMs.milliseconds),
                             isCurrent = isCurrent,
                             playingLeft = { left }.takeIf { isCurrent },
                             chapterFraction = { progress().chapterFraction }.takeIf { isCurrent },

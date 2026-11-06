@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiState
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
+import com.calypsan.listenup.client.presentation.sync.SyncReadout
+import com.calypsan.listenup.client.presentation.sync.syncReadoutOf
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
@@ -18,7 +20,6 @@ import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.RouteSession
 import com.calypsan.listenup.web.shell.nowMs
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
@@ -53,29 +54,20 @@ fun graphSyncIndicator(koin: Koin): OpenSyncIndicator =
         )
     }
 
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSyncIndicator(
-    state: SyncIndicatorUiState = SyncIndicatorUiState(),
-    onRefresh: () -> Unit = {},
-): OpenSyncIndicator = { SyncIndicatorSession(state = MutableStateFlow(state), onRefresh = onRefresh, close = {}) }
-
-/** "Synced 2 min ago", "Syncing…", "Couldn't sync", or "Not synced yet", measured against [now]. */
+/** "Synced 2 min ago", "Syncing…", "Couldn't sync", or "Not synced yet", measured against [now]: the shared rule, in English. */
 internal fun syncedWords(
     state: SyncIndicatorUiState,
     now: Long,
-): String {
-    if (state.isSyncing) return "Syncing…"
-    // A failed "sync now" is said until the next one; the last good sync would otherwise cover for it.
-    if (state.refreshFailed) return "Couldn't sync"
-    val last = state.lastSyncedAtMs ?: return "Not synced yet"
-    val minutes = (now - last).coerceAtLeast(0L) / MS_PER_MINUTE
-    return when {
-        minutes < 1 -> "Synced just now"
-        minutes < MINUTES_PER_HOUR -> "Synced $minutes min ago"
-        minutes < MINUTES_PER_DAY -> "Synced ${minutes / MINUTES_PER_HOUR} h ago"
-        else -> "Synced ${minutes / MINUTES_PER_DAY} d ago"
+): String =
+    when (val readout = syncReadoutOf(state, now)) {
+        SyncReadout.Syncing -> "Syncing…"
+        SyncReadout.CouldNotSync -> "Couldn't sync"
+        SyncReadout.NotSyncedYet -> "Not synced yet"
+        SyncReadout.SyncedJustNow -> "Synced just now"
+        is SyncReadout.SyncedMinutesAgo -> "Synced ${readout.count} min ago"
+        is SyncReadout.SyncedHoursAgo -> "Synced ${readout.count} h ago"
+        is SyncReadout.SyncedDaysAgo -> "Synced ${readout.count} d ago"
     }
-}
 
 /** Now, re-read every half minute, so "2 min ago" keeps up with the clock without a tick per frame. */
 @Composable
@@ -135,8 +127,5 @@ fun SyncStatusLine(
     }
 }
 
-private const val MS_PER_MINUTE = 60_000L
-private const val MINUTES_PER_HOUR = 60L
-private const val MINUTES_PER_DAY = 1_440L
 private const val CLOCK_STEP_MS = 30_000L
 private const val SYNC_ICON_SIZE = 20

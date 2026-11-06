@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesCrumb
 import listenup.composeapp.generated.resources.Res
@@ -83,7 +82,7 @@ private fun SeriesPathLine(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.MenuBook,
+            imageVector = ListenUpIcons.MenuBookFilled,
             contentDescription = null,
             tint = contentColor,
             modifier = Modifier.size(17.dp),

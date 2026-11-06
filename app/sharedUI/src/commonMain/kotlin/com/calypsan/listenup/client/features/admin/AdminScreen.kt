@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin
 
-import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import androidx.compose.foundation.layout.Arrangement
@@ -19,26 +22,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.Badge
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.HowToReg
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PersonAdd
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -57,11 +40,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -97,6 +78,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.design.util.isJustNow
 import com.calypsan.listenup.client.design.util.relativeTime
@@ -194,6 +176,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.calypsan.listenup.client.design.components.rememberHeroScrollBehavior
+import listenup.composeapp.generated.resources.admin_confirm_delete_user
+import listenup.composeapp.generated.resources.admin_confirm_deny_reset
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -220,6 +204,7 @@ fun AdminScreen(
     onServerNameChange: (String) -> Unit = {},
     remoteUrl: String = "",
     onRemoteUrlChange: (String) -> Unit = {},
+    serverSettingsLoaded: Boolean = true,
     holdNewBooksForReview: Boolean = false,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit = {},
     pushNotificationsEnabled: Boolean = true,
@@ -274,7 +259,7 @@ fun AdminScreen(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.common_administration),
-                badgeIcon = Icons.Outlined.Shield,
+                badgeIcon = ListenUpIcons.Shield,
                 onBack = requestLeave,
                 overline = serverName,
                 scrollBehavior = heroScroll,
@@ -318,6 +303,7 @@ fun AdminScreen(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -381,7 +367,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { userToDelete = null },
             title = stringResource(Res.string.common_delete_name, "User"),
-            text = "Are you sure you want to delete ${user.displayName ?: user.email}? This action cannot be undone.",
+            text = stringResource(Res.string.admin_confirm_delete_user, user.displayName ?: user.email),
             confirmText = stringResource(Res.string.common_delete),
             onConfirm = {
                 viewModel.deleteUser(user.id)
@@ -430,7 +416,7 @@ private fun AdminConfirmationDialogs(
         ListenUpDestructiveDialog(
             onDismissRequest = { resetToDeny = null },
             title = stringResource(Res.string.admin_deny_reset),
-            text = "Are you sure you want to deny the password reset for ${request.displayName}?",
+            text = stringResource(Res.string.admin_confirm_deny_reset, request.displayName),
             confirmText = stringResource(Res.string.common_deny),
             onConfirm = {
                 viewModel.decidePasswordReset(request.id, approved = false)
@@ -479,6 +465,7 @@ internal fun AdminContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean = true,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
@@ -526,6 +513,7 @@ internal fun AdminContent(
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
+            serverSettingsLoaded = serverSettingsLoaded,
             onRemoteUrlChange = onRemoteUrlChange,
             holdNewBooksForReview = holdNewBooksForReview,
             onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -556,6 +544,7 @@ internal fun AdminContent(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -640,6 +629,7 @@ private fun AdminTwoPaneContent(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
@@ -669,6 +659,7 @@ private fun AdminTwoPaneContent(
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
+                    serverSettingsLoaded = serverSettingsLoaded,
                     onRemoteUrlChange = onRemoteUrlChange,
                     holdNewBooksForReview = holdNewBooksForReview,
                     onHoldNewBooksForReviewChange = onHoldNewBooksForReviewChange,
@@ -742,12 +733,20 @@ private fun ServerSettingsSection(
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
     onRemoteUrlChange: (String) -> Unit,
+    serverSettingsLoaded: Boolean,
     holdNewBooksForReview: Boolean,
     onHoldNewBooksForReviewChange: (Boolean) -> Unit,
     pushNotificationsEnabled: Boolean,
     onPushNotificationsEnabledChange: (Boolean) -> Unit,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
 ) {
+    // The settings load on their own clock, so the fields may be on screen before the text exists.
+    // Re-seeding when they land is a fresh state, not an edit: the ViewModel is not told, so loading
+    // never marks the form dirty.
+    val serverNameState = remember(serverSettingsLoaded) { TextFieldState(serverName) }
+    val remoteUrlState = remember(serverSettingsLoaded) { TextFieldState(remoteUrl) }
+    serverNameState.ForwardEdits(onServerNameChange)
+    remoteUrlState.ForwardEdits(onRemoteUrlChange)
     SectionGroup(
         label = stringResource(Res.string.admin_server_settings),
     ) {
@@ -757,19 +756,17 @@ private fun ServerSettingsSection(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 ListenUpTextField(
-                    value = serverName,
-                    onValueChange = onServerNameChange,
+                    state = serverNameState,
                     label = stringResource(Res.string.admin_server_name),
                     placeholder = stringResource(Res.string.connect_listenup_server),
-                    leadingIcon = Icons.Outlined.Badge,
+                    leadingIcon = ListenUpIcons.Badge,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
                 ListenUpTextField(
-                    value = remoteUrl,
-                    onValueChange = onRemoteUrlChange,
+                    state = remoteUrlState,
                     label = stringResource(Res.string.admin_remote_url),
                     placeholder = stringResource(Res.string.admin_remote_url_placeholder),
-                    leadingIcon = Icons.Outlined.CloudDownload,
+                    leadingIcon = ListenUpIcons.CloudDownload,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
             }
@@ -782,14 +779,14 @@ private fun ServerSettingsSection(
             )
         }
         SettingToggleRow(
-            icon = Icons.Outlined.Inbox,
+            icon = ListenUpIcons.Inbox,
             title = stringResource(Res.string.admin_inbox_setting_title),
             subtitle = stringResource(Res.string.admin_inbox_setting_subtitle),
             checked = holdNewBooksForReview,
             onCheckedChange = onHoldNewBooksForReviewChange,
         )
         SettingToggleRow(
-            icon = Icons.Outlined.Notifications,
+            icon = ListenUpIcons.Notifications,
             title = stringResource(Res.string.admin_push_setting_title),
             subtitle = stringResource(Res.string.admin_push_setting_subtitle),
             checked = pushNotificationsEnabled,
@@ -822,7 +819,7 @@ private fun RegistrationPolicyControl(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Outlined.HowToReg,
+                imageVector = ListenUpIcons.HowToReg,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -928,7 +925,7 @@ private fun RatingSourceRow(
             ?.takeIf { status.source == ExternalRatingSource.HARDCOVER }
             ?.let { stringResource(Res.string.admin_rating_source_using_connection, it) }
     SettingToggleRow(
-        icon = Icons.Outlined.Star,
+        icon = ListenUpIcons.Star,
         title = ratingSourceLabel(status.source),
         subtitle = listOfNotNull(healthLine, connectionLine).joinToString("\n"),
         checked = status.enabled,
@@ -1100,7 +1097,7 @@ private fun UsersGroup(
             PillChip(
                 label = stringResource(Res.string.common_invite),
                 onClick = onInviteClick,
-                leadingIcon = Icons.Outlined.PersonAdd,
+                leadingIcon = ListenUpIcons.PersonAdd,
             )
         },
     ) {
@@ -1159,7 +1156,7 @@ internal fun UserRow(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Delete,
+                            imageVector = ListenUpIcons.Delete,
                             contentDescription = stringResource(Res.string.common_delete),
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -1247,7 +1244,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = denyLabel,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1259,7 +1256,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Check,
+                                imageVector = ListenUpIcons.Check,
                                 contentDescription = approveLabel,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1277,7 +1274,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1291,7 +1288,7 @@ private fun PendingUserRow(
                             },
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Check,
+                                imageVector = ListenUpIcons.Check,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -1337,7 +1334,7 @@ private fun InviteRow(
 ) {
     val haptics = LocalHaptics.current
     SettingRow(
-        icon = Icons.Outlined.PersonAdd,
+        icon = ListenUpIcons.PersonAdd,
         accent = accent,
         title = invite.name,
         subtitle = invite.email,
@@ -1354,7 +1351,7 @@ private fun InviteRow(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.ContentCopy,
+                    imageVector = ListenUpIcons.ContentCopy,
                     contentDescription = stringResource(Res.string.admin_copy_link),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1369,7 +1366,7 @@ private fun InviteRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Delete,
+                        imageVector = ListenUpIcons.Delete,
                         contentDescription = stringResource(Res.string.common_revoke),
                         tint = MaterialTheme.colorScheme.error,
                     )
@@ -1448,7 +1445,7 @@ private fun PasswordResetRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Close,
+                        imageVector = ListenUpIcons.Close,
                         contentDescription = denyLabel,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1460,7 +1457,7 @@ private fun PasswordResetRow(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Check,
+                        imageVector = ListenUpIcons.Check,
                         contentDescription = approveLabel,
                         modifier = Modifier.size(18.dp),
                     )
@@ -1493,8 +1490,8 @@ private fun PasswordResetCodeDialog(
         onConfirm = onDone,
         dismissText = stringResource(Res.string.common_copy),
         onDismiss = onCopyClick,
-        icon = Icons.Outlined.Key,
-        dismissIcon = Icons.Outlined.ContentCopy,
+        icon = ListenUpIcons.Key,
+        dismissIcon = ListenUpIcons.ContentCopy,
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1546,7 +1543,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_library_settings),
             subtitle = stringResource(Res.string.admin_library_settings_subtitle),
-            icon = Icons.Outlined.FolderOpen,
+            icon = ListenUpIcons.FolderOpen,
             onClick = onLibrarySettingsClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1555,7 +1552,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_upload_books),
             subtitle = stringResource(Res.string.admin_upload_books_subtitle),
-            icon = Icons.Outlined.CloudUpload,
+            icon = ListenUpIcons.CloudUpload,
             onClick = onUploadBooksClick,
             containerColor = colors.primaryContainer,
             badgeColor = colors.primary,
@@ -1564,7 +1561,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_organize),
             subtitle = stringResource(Res.string.admin_organize_subtitle),
-            icon = Icons.AutoMirrored.Outlined.DriveFileMove,
+            icon = ListenUpIcons.DriveFileMove,
             onClick = onOrganizeClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1576,7 +1573,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_inbox),
             subtitle = stringResource(Res.string.admin_inbox_subtitle),
-            icon = Icons.Outlined.Inbox,
+            icon = ListenUpIcons.Inbox,
             onClick = onInboxClick,
             containerColor = colors.tertiaryContainer,
             badgeColor = colors.tertiary,
@@ -1585,7 +1582,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_invite_someone),
             subtitle = stringResource(Res.string.admin_share_your_audiobook_library_with),
-            icon = Icons.Outlined.PersonAdd,
+            icon = ListenUpIcons.PersonAdd,
             onClick = onInviteClick,
             containerColor = colors.primaryContainer,
             badgeColor = colors.primary,
@@ -1594,7 +1591,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.common_collections),
             subtitle = stringResource(Res.string.admin_organize_books_into_collections_for),
-            icon = Icons.Outlined.Folder,
+            icon = ListenUpIcons.Folder,
             onClick = onCollectionsClick,
             containerColor = colors.tertiaryContainer,
             badgeColor = colors.tertiary,
@@ -1603,7 +1600,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.common_categories),
             subtitle = stringResource(Res.string.admin_view_the_genre_hierarchy_tree),
-            icon = Icons.Outlined.Category,
+            icon = ListenUpIcons.Category,
             onClick = onCategoriesClick,
             containerColor = colors.secondaryContainer,
             badgeColor = colors.secondary,
@@ -1612,7 +1609,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.admin_backup_restore),
             subtitle = stringResource(Res.string.admin_create_backups_and_restore_server),
-            icon = Icons.Outlined.Backup,
+            icon = ListenUpIcons.Backup,
             onClick = onBackupClick,
             containerColor = colors.surfaceContainerHigh,
             badgeColor = colors.tertiary,
@@ -1621,7 +1618,7 @@ internal fun ManagementSection(
         ActionTile(
             title = stringResource(Res.string.import_title),
             subtitle = stringResource(Res.string.import_entry_subtitle),
-            icon = Icons.Outlined.CloudDownload,
+            icon = ListenUpIcons.CloudDownload,
             onClick = onImportClick,
             containerColor = colors.surfaceContainerHigh,
             badgeColor = colors.tertiary,

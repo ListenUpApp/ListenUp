@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUs
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -84,7 +85,12 @@ class AdminViewModel(
     }
 
     fun loadData() {
-        viewModelScope.launch {
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /** [loadData], but suspending until the fetch has finished (success or failure), so a pull spinner can wait for it. */
+    suspend fun refreshNow() {
+        coroutineScope {
             // Load all data in parallel — no dependencies between these calls
             val deferredOpenReg = async { getRegistrationPolicyUseCase() }
             val deferredInvites = async { loadInvitesUseCase() }

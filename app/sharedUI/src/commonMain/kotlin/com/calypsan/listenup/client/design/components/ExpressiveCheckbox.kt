@@ -10,8 +10,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -25,6 +23,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 private val CHECKBOX_SIZE = 26.dp
 private const val CHECK_ICON_RATIO = 0.7f
@@ -113,7 +112,7 @@ private fun CheckboxTile(
     ) {
         if (checked) {
             Icon(
-                imageVector = Icons.Filled.Check,
+                imageVector = ListenUpIcons.CheckFilled,
                 contentDescription = null,
                 modifier = Modifier.size(CHECKBOX_SIZE * CHECK_ICON_RATIO),
                 tint = MaterialTheme.colorScheme.onPrimary,

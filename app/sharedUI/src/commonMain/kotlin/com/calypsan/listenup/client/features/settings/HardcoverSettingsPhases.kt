@@ -12,15 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -60,6 +51,7 @@ import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.avatarInitials
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.HeroInk
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -141,7 +133,7 @@ internal fun hardcoverPhase(
                     ListenUpButton(
                         text = stringResource(Res.string.hardcover_open_hardcover),
                         onClick = onOpenHardcover,
-                        trailingIcon = Icons.AutoMirrored.Outlined.OpenInNew,
+                        trailingIcon = ListenUpIcons.OpenInNew,
                     )
                     QuietButton(
                         text = stringResource(Res.string.hardcover_cancel_linking),
@@ -231,7 +223,7 @@ private fun NotConnectedHero(
     bleeds: Boolean,
 ) {
     HeroBand(bleeds = bleeds) {
-        HeroGlyph(icon = Icons.AutoMirrored.Outlined.MenuBook)
+        HeroGlyph(icon = ListenUpIcons.MenuBook)
         Text(
             text = stringResource(Res.string.hardcover_not_connected_title),
             style = MaterialTheme.typography.headlineMediumEmphasized,
@@ -254,8 +246,8 @@ private fun NotConnectedHero(
 @Composable
 private fun WhatConnectingMeans() {
     SegmentedGroup {
-        Statement(icon = Icons.Outlined.Check, text = stringResource(Res.string.hardcover_shares_finished))
-        Statement(icon = Icons.Outlined.Lock, text = stringResource(Res.string.hardcover_shares_no_password))
+        Statement(icon = ListenUpIcons.Check, text = stringResource(Res.string.hardcover_shares_finished))
+        Statement(icon = ListenUpIcons.Lock, text = stringResource(Res.string.hardcover_shares_no_password))
     }
 }
 
@@ -356,7 +348,7 @@ private fun CodeCard(code: String) {
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         ) {
             Icon(
-                imageVector = if (copied) Icons.Outlined.Check else Icons.Outlined.ContentCopy,
+                imageVector = if (copied) ListenUpIcons.Check else ListenUpIcons.ContentCopy,
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.IconSize),
             )
@@ -442,7 +434,7 @@ private fun ConnectedHero(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.CheckCircle,
+                        imageVector = ListenUpIcons.CheckCircle,
                         contentDescription = null,
                         modifier = Modifier.size(ButtonDefaults.IconSize),
                     )
@@ -488,7 +480,7 @@ private fun BrokenExplanation(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.SyncProblem,
+                    imageVector = ListenUpIcons.SyncProblem,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -602,7 +594,7 @@ private fun Notice(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Icon(
-                imageVector = Icons.Outlined.Info,
+                imageVector = ListenUpIcons.Info,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

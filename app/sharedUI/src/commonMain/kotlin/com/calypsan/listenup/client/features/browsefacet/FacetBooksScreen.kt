@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.browsefacet
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +18,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.toCoverModel
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.FacetKind
@@ -229,12 +226,12 @@ private fun FacetHero(
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HeroStatChip(
-                    icon = Icons.AutoMirrored.Outlined.MenuBook,
+                    icon = ListenUpIcons.MenuBook,
                     value = bookCount.toString(),
                     label = stringResource(Res.string.browse_facet_books_label),
                 )
                 HeroStatChip(
-                    icon = Icons.Outlined.Schedule,
+                    icon = ListenUpIcons.Schedule,
                     value = DurationFormatter.hoursMinutesCompact(totalDurationMs.milliseconds),
                     label = stringResource(Res.string.browse_facet_total_label),
                 )
@@ -276,7 +273,7 @@ private fun FloatingBackButton(
                 .padding(8.dp),
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+            imageVector = ListenUpIcons.ArrowBack,
             contentDescription = stringResource(Res.string.common_back),
             tint = MaterialTheme.colorScheme.onSurface,
         )

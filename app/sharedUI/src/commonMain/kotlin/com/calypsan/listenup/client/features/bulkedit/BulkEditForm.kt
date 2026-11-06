@@ -1,5 +1,12 @@
 package com.calypsan.listenup.client.features.bulkedit
 
+import com.calypsan.listenup.api.dto.BookUpdate
+import androidx.compose.foundation.text.input.InputTransformation
+import com.calypsan.listenup.client.design.components.transformedBy
+import com.calypsan.listenup.client.design.components.limitedTo
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,14 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Business
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.bulkedit.BulkEdit
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
 import listenup.composeapp.generated.resources.Res
@@ -90,15 +90,20 @@ fun BulkEditForm(
 ) {
     val mixed = stringResource(Res.string.bulk_edit_multiple_values)
     val enabled = !state.isApplying
+    // The fields own what the person types; the ViewModel hears the parsed instruction. Over-long or
+    // non-numeric input is refused inside the field, so the form never shows text the instruction
+    // list does not hold.
+    val publisherState = rememberForwardingTextFieldState(state.publisherInput, onEdited = onPublisherChange)
+    val yearState = rememberForwardingTextFieldState(state.yearInput) { onYearChange(it.toIntOrNull()) }
+    val languageState = rememberForwardingTextFieldState(state.languageInput, onEdited = onLanguageChange)
 
     val publisher: @Composable (Modifier) -> Unit = { fieldModifier ->
         PublishingField(
-            value = state.publisherInput,
-            onValueChange = onPublisherChange,
-            onClear = { onPublisherChange("") },
+            state = publisherState,
+            inputTransformation = publisherLimit,
             label = stringResource(Res.string.bulk_edit_publisher),
             placeholder = state.sharedPublisher ?: mixed,
-            leadingIcon = Icons.Outlined.Business,
+            leadingIcon = ListenUpIcons.Business,
             consequence = state.consequenceOf<BulkEdit.SetPublisher>(state.sharedPublisher),
             enabled = enabled,
             modifier = fieldModifier,
@@ -106,12 +111,11 @@ fun BulkEditForm(
     }
     val year: @Composable (Modifier) -> Unit = { fieldModifier ->
         PublishingField(
-            value = state.yearInput,
-            onValueChange = { onYearChange(it.toIntOrNull()) },
-            onClear = { onYearChange(null) },
+            state = yearState,
+            inputTransformation = yearDigits,
             label = stringResource(Res.string.bulk_edit_year),
             placeholder = state.sharedPublishYear?.toString() ?: mixed,
-            leadingIcon = Icons.Outlined.CalendarMonth,
+            leadingIcon = ListenUpIcons.CalendarMonth,
             consequence = state.consequenceOf<BulkEdit.SetPublishYear>(state.sharedPublishYear?.toString()),
             enabled = enabled,
             modifier = fieldModifier,
@@ -120,12 +124,11 @@ fun BulkEditForm(
     }
     val language: @Composable (Modifier) -> Unit = { fieldModifier ->
         PublishingField(
-            value = state.languageInput,
-            onValueChange = onLanguageChange,
-            onClear = { onLanguageChange("") },
+            state = languageState,
+            inputTransformation = languageLimit,
             label = stringResource(Res.string.bulk_edit_language),
             placeholder = state.sharedLanguage ?: mixed,
-            leadingIcon = Icons.Outlined.Language,
+            leadingIcon = ListenUpIcons.Language,
             consequence = state.consequenceOf<BulkEdit.SetLanguage>(state.sharedLanguage),
             enabled = enabled,
             modifier = fieldModifier,
@@ -165,9 +168,8 @@ fun BulkEditForm(
  */
 @Composable
 private fun PublishingField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onClear: () -> Unit,
+    state: TextFieldState,
+    inputTransformation: InputTransformation,
     label: String,
     placeholder: String,
     leadingIcon: ImageVector,
@@ -176,11 +178,11 @@ private fun PublishingField(
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
 ) {
-    val armed = value.isNotEmpty()
+    val armed = state.text.isNotEmpty()
     Column(modifier) {
         ListenUpTextField(
-            value = value,
-            onValueChange = onValueChange,
+            state = state,
+            inputTransformation = inputTransformation,
             label = label,
             placeholder = placeholder,
             enabled = enabled,
@@ -192,9 +194,9 @@ private fun PublishingField(
                     null
                 } else {
                     {
-                        IconButton(onClick = onClear, enabled = enabled) {
+                        IconButton(onClick = state::clearText, enabled = enabled) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
+                                imageVector = ListenUpIcons.Close,
                                 contentDescription = stringResource(Res.string.bulk_edit_clear_field, label),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -298,12 +300,12 @@ internal inline fun <reified T : BulkEdit> BulkEditUiState.Editing.armedConseque
     val typed = edits.any { it is T }
     if (typed) {
         val affected = preview.firstOrNull { it.edit is T }?.affectedCount ?: 0
-        val arrow = Icons.AutoMirrored.Outlined.ArrowForward
+        val arrow = ListenUpIcons.ArrowForward
         return when {
             affected == 0 -> {
                 FieldConsequence(
                     text = stringResource(Res.string.bulk_edit_consequence_written_none),
-                    icon = Icons.Outlined.Remove,
+                    icon = ListenUpIcons.Remove,
                     writes = false,
                 )
             }
@@ -357,5 +359,10 @@ private fun BulkEditUiState.Editing.untouchedConsequence(sharedValue: String?): 
                 stringResource(Res.string.bulk_edit_consequence_differs_plural, bookCount)
             }
         }
-    return FieldConsequence(text = text, icon = Icons.Outlined.LockOpen, writes = false)
+    return FieldConsequence(text = text, icon = ListenUpIcons.LockOpen, writes = false)
 }
+
+private val publisherLimit = limitedTo(BookUpdate.MAX_PUBLISHER)
+private val languageLimit = limitedTo(BookUpdate.MAX_LANGUAGE)
+private val yearDigits = transformedBy { it.filter(Char::isDigit).take(YEAR_DIGITS) }
+private const val YEAR_DIGITS = 4

@@ -9,10 +9,6 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.StarHalf
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -39,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.domain.ListenerRatingLimits
 import com.calypsan.listenup.domain.RatingKeyStep
 import listenup.composeapp.generated.resources.Res
@@ -118,7 +115,7 @@ fun RatingStars(
             Icon(
                 imageVector = glyph,
                 contentDescription = null,
-                tint = if (glyph == Icons.Rounded.StarBorder) empty else filled,
+                tint = if (glyph == ListenUpIcons.StarBorderFilled) empty else filled,
                 modifier = Modifier.size(starSize),
             )
         }
@@ -236,9 +233,9 @@ private fun starGlyph(
 ): ImageVector {
     val starEnd = (index + 1) * 2
     return when {
-        halfStars >= starEnd -> Icons.Rounded.Star
-        halfStars == starEnd - 1 -> Icons.AutoMirrored.Rounded.StarHalf
-        else -> Icons.Rounded.StarBorder
+        halfStars >= starEnd -> ListenUpIcons.StarFilled
+        halfStars == starEnd - 1 -> ListenUpIcons.StarHalfFilled
+        else -> ListenUpIcons.StarBorderFilled
     }
 }
 

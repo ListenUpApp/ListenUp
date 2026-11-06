@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -32,8 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerChoices
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_sheet_custom
 import listenup.composeapp.generated.resources.player_sheet_custom_less
@@ -43,7 +41,7 @@ import listenup.composeapp.generated.resources.player_sheet_start
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The sleep sheet's custom time (PT8, `Sheets-Android`): "Custom", then − N min + in [SleepTimerChoices]' steps, and
+ * The sleep sheet's custom time: "Custom", then − N min + in [SleepTimerChoices]' steps, and
  * Start. The minutes are a polite live region, so each press is spoken; − and + stop at the bounds. At a large font
  * Start wraps under the stepper rather than running off the sheet.
  *
@@ -124,7 +122,7 @@ private fun StepButton(
         modifier = Modifier.size(MinTouchTarget),
     ) {
         Icon(
-            imageVector = if (up) Icons.Default.Add else Icons.Default.Remove,
+            imageVector = if (up) ListenUpIcons.AddFilled else ListenUpIcons.RemoveFilled,
             contentDescription =
                 stringResource(if (up) Res.string.player_sheet_custom_more else Res.string.player_sheet_custom_less),
         )

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertCountEquals
@@ -15,6 +13,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import com.calypsan.listenup.client.design.haptics.Haptics
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -68,7 +67,7 @@ class ListenUpTopAppBarTest {
                 ListenUpTopAppBar(
                     title = TITLE,
                     onBack = {},
-                    navigationIcon = Icons.Outlined.Close,
+                    navigationIcon = ListenUpIcons.Close,
                     navigationContentDescription = CLOSE,
                 )
             }

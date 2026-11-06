@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -80,12 +81,16 @@ internal fun CommandPaletteHost(
         session = newSession
         // Computed synchronously from the fresh session's own StateFlow.value, not left for the
         // LaunchedEffect below to fill in — that effect only runs on the composition's next pass,
-        // one recompose later than this. A session opened via [fixedSearch]/[hitNavigatingSearch]
-        // already carries its Results on open, so waiting for the effect meant the very first
+        // one recompose later than this. A session a spec hands over already
+        // carries its Results on open, so waiting for the effect meant the very first
         // frame rendered with no row highlighted at all.
         highlighted = openableSearchHits(newSession.state.value, SEARCH_OPENABLE_TYPES).firstOrNull()
         isOpen = true
     }
+
+    // The palette closes its own session, but a shell torn down with the palette open (sign-out, another tab
+    // signing out) never reaches closePalette: its session's scope would outlive the shell.
+    DisposableEffect(Unit) { onDispose { session?.close() } }
 
     fun moveHighlight(delta: Int) {
         val hits = openableSearchHits(session?.state?.value ?: return, SEARCH_OPENABLE_TYPES)

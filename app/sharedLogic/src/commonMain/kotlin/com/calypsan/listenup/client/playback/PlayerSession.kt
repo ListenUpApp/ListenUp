@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -16,11 +15,6 @@ import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MAX
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_MIN
-import com.calypsan.listenup.client.presentation.player.skipDistanceMs
-import com.calypsan.listenup.client.presentation.player.skipTargetMs
-import com.calypsan.listenup.client.presentation.player.stepPlaybackSpeed
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
@@ -43,7 +37,7 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /**
- * The one owner of this device's loaded book (spec §4; Architecture in the PR 1 plan).
+ * The one owner of this device's loaded book.
  *
  * Owns the lifecycle (restore, load, supersede, close, the revoke/delete teardown), the phase, the reasons
  * a book can't play before Play is pressed, the sleep-timer wiring, and every playback command. A Koin
@@ -80,10 +74,10 @@ class PlayerSession(
     val preparingBookId: StateFlow<BookId?>
         field = MutableStateFlow<BookId?>(null)
 
-    /** [preparingBookId] behind a 250 ms debounce, for buttons that must not flash on a fast prepare (Decision 11). */
+    /** [preparingBookId] behind a 250 ms debounce, for buttons that must not flash on a fast prepare. */
     val preparingBookIdUi: Flow<BookId?> = preparingBookIdUiFlow(preparingBookId)
 
-    /** Where a not-prepared book will start when Play is pressed (Decision 5): picked, moved from, or the saved place. */
+    /** Where a not-prepared book will start when Play is pressed: picked, moved from, or the saved place. */
     private val pendingStart = MutableStateFlow<PlaybackStart>(PlaybackStart.Resume)
 
     private val readout =
@@ -100,7 +94,7 @@ class PlayerSession(
     private val stageBookId: Flow<BookId?> get() = readout.stageBookId
     private val engineBound: StateFlow<Boolean> get() = readout.engineBound
 
-    /** Where a not-prepared book shows it will start (Decision 5), or null for the saved position. */
+    /** Where a not-prepared book shows it will start, or null for the saved position. */
     val pendingStartMs: StateFlow<Long?> get() = readout.pendingStartMs
 
     /** Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position. Ticks. */
@@ -115,7 +109,7 @@ class PlayerSession(
     val durationMs: StateFlow<Long> get() = readout.durationMs
 
     /** The current chapter, from the one derivation ([chapterInfoAt]) whichever side holds the book. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> get() = readout.currentChapter
+    val currentChapter: StateFlow<ChapterInfo?> get() = readout.currentChapter
 
     /** The rate: the engine's, else this book's saved rate, else the default. */
     val speed: StateFlow<Float> get() = readout.speed
@@ -139,8 +133,11 @@ class PlayerSession(
     val sleepTimerState: StateFlow<SleepTimerState> get() = sleepTimer.state
 
     /** The finish and start instants on [bookId]'s position row (the finished state's "6 Sep – 10 Oct"). */
-    fun finishDates(bookId: BookId): Flow<Pair<Long?, Long?>> =
-        positionRepository.observe(bookId).map { it?.finishedAtMs to it?.startedAtMs }.distinctUntilChanged()
+    internal fun finishDates(bookId: BookId): Flow<FinishDates> =
+        positionRepository
+            .observe(bookId)
+            .map { FinishDates(finishedAtMs = it?.finishedAtMs, startedAtMs = it?.startedAtMs) }
+            .distinctUntilChanged()
 
     private val derivation =
         PlayerStateDerivation(
@@ -169,7 +166,7 @@ class PlayerSession(
         sleep.start(loadedBookId = stageBookId)
     }
 
-    // ── Lifecycle (Task 13) ──────────────────────────────────────────────────────────────────────────
+    // ── Lifecycle ────────────────────────────────────────────────────────────────────────────────────
 
     /** Key clears issued by [closeBook] that have not landed yet. Touched only on the player scope. */
     private var closeClearsInFlight = 0
@@ -184,7 +181,7 @@ class PlayerSession(
             persisted == null && current != null && isHeldInMemory(current) -> {
                 // A cleared key that lands under a load in flight or a book the engine plays is stale: the cold
                 // start's first read, or Close's clear arriving after the next Play. Write the book back.
-                scope.launch { loadedBooks.setLoaded(current.bookId) }
+                scope.launch { rememberLoaded(current.bookId) }
             }
 
             persisted == null -> {
@@ -218,7 +215,7 @@ class PlayerSession(
             current == null || current.bookId != held -> {
                 stage.value = SessionStage.Engine(held)
                 pendingStart.value = PlaybackStart.Resume
-                scope.launch { loadedBooks.setLoaded(held) }
+                scope.launch { rememberLoaded(held) }
             }
 
             current is SessionStage.Idle || current is SessionStage.Failed -> {
@@ -240,7 +237,7 @@ class PlayerSession(
         }
     }
 
-    /** Stop a revoked or deleted book but keep it loaded, so the bar can say why (§3.4). */
+    /** Stop a revoked or deleted book but keep it loaded, so the bar can say why. */
     private fun tearDownRevoked() {
         val current = stage.value ?: return
         logger.info { "Loaded book ${current.bookId.value} left the library; stopping it" }
@@ -262,7 +259,7 @@ class PlayerSession(
                     loadedBooks.clear()
                     // A book loaded while the clear was being written (Close, then Play at once) is the loaded
                     // book: the clear must not leave the device thinking nothing is loaded.
-                    stage.value?.let { loadedBooks.setLoaded(it.bookId) }
+                    stage.value?.let { rememberLoaded(it.bookId) }
                 } finally {
                     closeClearsInFlight--
                 }
@@ -285,10 +282,10 @@ class PlayerSession(
         if (wasLoading) engine.abandonLoad()
     }
 
-    // ── Load (Task 14) ───────────────────────────────────────────────────────────────────────────────
+    // ── Load ─────────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Play [bookId] (the play entry for every surface and Home, P-R5). [startAtMs] starts there (book ms);
+     * Play [bookId] (the play entry for every surface and Home). [startAtMs] starts there (book ms);
      * null resumes from the saved position.
      *
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
@@ -317,7 +314,7 @@ class PlayerSession(
                 engine.play()
                 return@onPlayer
             }
-            // A plain Play of the loaded, not-prepared book honours where the listener moved it (Decision 5).
+            // A plain Play of the loaded, not-prepared book honours where the listener moved it.
             val pending = pendingStart.value.takeIf { stage.value?.bookId == bookId }
             startLoad(bookId, startAtMs?.let(PlaybackStart::At) ?: pending ?: PlaybackStart.Resume)
         }
@@ -325,7 +322,7 @@ class PlayerSession(
 
     /**
      * Load [bookId] at [start]. Synchronous up to the engine's first suspension, so the bar names the new book
-     * (§3.6) and a browser's gesture is spent ([PlayerEngine.beginLoad]) inside the tap. Only the newest
+     * and a browser's gesture is spent ([PlayerEngine.beginLoad]) inside the tap. Only the newest
      * generation may finish: a superseded load's `finally` cannot touch its successor's state.
      */
     private fun startLoad(
@@ -346,7 +343,7 @@ class PlayerSession(
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 var handedOver = false
                 try {
-                    loadedBooks.setLoaded(bookId)
+                    rememberLoaded(bookId)
                     val result = engine.load(bookId, start)
                     // A failure while the book still has a proactive reason (offline and not downloaded, server
                     // unreachable, session lapsed) is that reason, not a generic one: back to Idle, which shows it
@@ -387,6 +384,17 @@ class PlayerSession(
             }
     }
 
+    /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
+    private suspend fun rememberLoaded(bookId: BookId) {
+        try {
+            loadedBooks.setLoaded(bookId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Could not remember ${bookId.value} as the loaded book" }
+        }
+    }
+
     /** A scrub made while the book prepared ([seekTo]) lands on the engine now that it holds the book. */
     private fun applySeekQueuedWhilePreparing() {
         val queued = pendingStart.value as? PlaybackStart.At ?: return
@@ -413,10 +421,10 @@ class PlayerSession(
 
     private fun loadedOrNull(): PlayerSessionState.Loaded? = state.value as? PlayerSessionState.Loaded
 
-    // ── Transport (Task 15) ──────────────────────────────────────────────────────────────────────────
+    // ── Transport ────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * The one play/pause intent (§4.3): resume, pause, prepare a restored book, re-listen, or retry. A pause left by
+     * The one play/pause intent: resume, pause, prepare a restored book, re-listen, or retry. A pause left by
      * a dismissed failure prepares the book again: the failure halted the engine, and on the web it tore the element's
      * source down, so resuming it would play nothing.
      */
@@ -492,7 +500,7 @@ class PlayerSession(
         }
     }
 
-    /** Back by the user's interval × speed, clamped (§3.3). */
+    /** Back by the user's interval × speed, clamped. */
     fun skipBack() {
         onPlayer {
             skipBy(skipBackwardSec.value, forward = false)
@@ -530,7 +538,7 @@ class PlayerSession(
         }
     }
 
-    /** §3.3: restart the chapter after 3 s, else the previous one; chapter 1 restarts; a no-op in a chapterless book. */
+    /** Restart the chapter after 3 s, else the previous one; chapter 1 restarts; a no-op in a chapterless book. */
     fun previousChapter() {
         onPlayer {
             if (movesThePlayhead()) {
@@ -541,7 +549,7 @@ class PlayerSession(
         }
     }
 
-    /** §3.3: the next chapter's start; a no-op at the last chapter. */
+    /** The next chapter's start; a no-op at the last chapter. */
     fun nextChapter() {
         onPlayer {
             if (movesThePlayhead()) {
@@ -579,22 +587,14 @@ class PlayerSession(
     /** [fraction] of the current chapter (the whole book when it has no chapters). */
     fun seekWithinChapter(fraction: Float) {
         onPlayer {
-            val clamped = fraction.coerceIn(0f, 1f)
-            val chapter = currentChapter.value
-            val target =
-                if (chapter == null) {
-                    (durationMs.value * clamped).toLong()
-                } else {
-                    chapter.startMs + ((chapter.endMs - chapter.startMs) * clamped).toLong()
-                }
-            seekTo(target)
+            seekTo(chapterWindowAt(positionMs.value, chapters.value, durationMs.value).bookPositionAtFraction(fraction))
         }
     }
 
     /**
-     * Move the playhead. The engine seeks when it holds the book. A not-prepared book moves its pending start
-     * (Decision 5); a book still preparing keeps it and seeks there when the load lands. A finished book plays
-     * again from there, like Listen again (§4.5, Book Detail §2.5).
+     * Move the playhead. The engine seeks when it holds the book. A not-prepared book moves its pending start;
+     * a book still preparing keeps it and seeks there when the load lands. A finished book plays
+     * again from there, like Listen again.
      */
     fun seekTo(positionMs: Long) {
         onPlayer {
@@ -615,10 +615,10 @@ class PlayerSession(
         }
     }
 
-    /** ±0.05 within 0.5–3.0, with no float drift (§4.3, Q3). */
-    fun stepSpeed(up: Boolean) {
+    /** ±0.05 within 0.5–3.0, with no float drift. */
+    fun stepSpeed(direction: SpeedStep) {
         onPlayer {
-            setSpeed(stepPlaybackSpeed(speed.value, up))
+            setSpeed(stepPlaybackSpeed(speed.value, up = direction == SpeedStep.Faster))
         }
     }
 
@@ -645,10 +645,10 @@ class PlayerSession(
         }
     }
 
-    // ── Errors (Task 16) ─────────────────────────────────────────────────────────────────────────────
+    // ── Errors ───────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Retry a failed or unavailable book (§4.3): re-probe the server when the cause is transport, then
+     * Retry a failed or unavailable book: re-probe the server when the cause is transport, then
      * re-prepare and play from where the listener sees the book ([retryStart]). Held, revoked and session-expired
      * books are not retried here: their primary control leads elsewhere (Open Inbox, Close, Sign in).
      */
@@ -664,7 +664,7 @@ class PlayerSession(
             ) {
                 return@onPlayer
             }
-            if (cause.isTransport()) scope.launch { serverReachability.retry() }
+            if (cause.isCurableByNetwork()) scope.launch { serverReachability.retry() }
             val start = retryStart(loaded)
             engine.clearError()
             startLoad(loaded.bookId, start)
@@ -686,7 +686,7 @@ class PlayerSession(
         }
 
     /**
-     * Dismiss the error card (gap 6): the bar never hides. A failed prepare returns to Restored (Decision 6);
+     * Dismiss the error card: the bar never hides. A failed prepare returns to Restored;
      * an engine failure mid-play clears and pauses.
      */
     fun dismissError() {
@@ -738,15 +738,9 @@ class PlayerSession(
             }
     }
 
-    private fun AppError.isTransport(): Boolean =
-        this is PlaybackError.ConnectionLost ||
-            this is PlaybackError.ServerUnreachable ||
-            this is PlaybackError.Stalled ||
-            this is PlaybackError.OfflineNotDownloaded
+    // ── Sleep ────────────────────────────────────────────────────────────────────────────────────────
 
-    // ── Sleep (Task 17) ──────────────────────────────────────────────────────────────────────────────
-
-    /** Start a timer. A duration takes any whole minutes from 1 to 720 (the custom stepper, PT8). */
+    /** Start a timer. A duration takes any whole minutes from 1 to 720 (the custom stepper). */
     fun setSleepTimer(mode: SleepTimerMode) {
         onPlayer { sleep.set(mode) }
     }
@@ -756,8 +750,14 @@ class PlayerSession(
         onPlayer { sleep.extend(minutes) }
     }
 
-    /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns (PT7). */
+    /** Cancel the timer. During the fade this is "Keep listening": the fade stops and full volume returns. */
     fun cancelSleepTimer() {
         onPlayer { sleep.cancel() }
     }
 }
+
+/** When a book was started and when it was finished, either of which may be unknown. */
+internal data class FinishDates(
+    val finishedAtMs: Long?,
+    val startedAtMs: Long?,
+)

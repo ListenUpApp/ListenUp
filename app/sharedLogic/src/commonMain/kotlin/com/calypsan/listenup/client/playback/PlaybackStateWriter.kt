@@ -44,6 +44,12 @@ interface PlaybackStateWriter {
 
     fun updateSpeed(speed: Float)
 
-    /** The engine failed; [error] is typed at the engine's edge (spec §4.6). */
+    /** The engine failed; [error] is typed at the engine's edge. */
     fun reportError(error: AppError)
+
+    /**
+     * The engine let go of its book on its own (Android's service releasing an idle player), so the session
+     * stops treating the engine as holding it. Same effect as [PlaybackStateProvider.clearPlayback].
+     */
+    fun clearPlayback()
 }

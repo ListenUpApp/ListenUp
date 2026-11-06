@@ -6,14 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.CallMerge
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.SegmentedGroup
 import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Genre
 import listenup.composeapp.generated.resources.Res
@@ -99,7 +92,7 @@ internal fun CategoryDetailPanel(
 @Composable
 private fun NoCategorySelected() {
     Icon(
-        imageVector = Icons.Outlined.Category,
+        imageVector = ListenUpIcons.Category,
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = Spacing.sectionGap).size(40.dp),
@@ -162,34 +155,34 @@ internal fun CategoryActions(
         if (canEdit) {
             SettingRow(
                 title = stringResource(Res.string.admin_add_subgenre),
-                icon = Icons.Outlined.Add,
+                icon = ListenUpIcons.Add,
                 onClick = onAddChild,
             )
             SettingRow(
                 title = stringResource(Res.string.common_rename),
-                icon = Icons.Outlined.Edit,
+                icon = ListenUpIcons.Edit,
                 onClick = onRename,
             )
             SettingRow(
                 title = stringResource(Res.string.admin_move_to),
-                icon = Icons.AutoMirrored.Outlined.ArrowForward,
+                icon = ListenUpIcons.ArrowForward,
                 onClick = onMove,
             )
         }
         if (canCurate) {
             SettingRow(
                 title = stringResource(Res.string.admin_merge_into),
-                icon = Icons.AutoMirrored.Outlined.CallMerge,
+                icon = ListenUpIcons.CallMerge,
                 onClick = onMerge,
             )
             SettingRow(
                 title = stringResource(Res.string.merge_history_open),
-                icon = Icons.Outlined.History,
+                icon = ListenUpIcons.History,
                 onClick = onMergeHistory,
             )
             SettingRow(
                 title = stringResource(Res.string.common_delete),
-                icon = Icons.Outlined.Delete,
+                icon = ListenUpIcons.Delete,
                 danger = true,
                 onClick = onDelete,
             )

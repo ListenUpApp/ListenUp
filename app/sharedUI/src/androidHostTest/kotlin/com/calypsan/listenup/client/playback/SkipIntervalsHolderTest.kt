@@ -77,4 +77,28 @@ class SkipIntervalsHolderTest :
                 scope.cancel()
             }
         }
+
+        test("changes emits the new intervals") {
+            val scope = CoroutineScope(Dispatchers.Unconfined)
+            try {
+                val forward = MutableStateFlow(45)
+                val backward = MutableStateFlow(20)
+                val holder = SkipIntervalsHolder(preferences(forward, backward))
+
+                holder.changes.value shouldBe
+                    SkipIntervals(
+                        PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
+                        PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+                    )
+
+                holder.follow(scope)
+                holder.changes.value shouldBe SkipIntervals(forwardSec = 45, backwardSec = 20)
+
+                forward.value = 90
+                backward.value = 5
+                holder.changes.value shouldBe SkipIntervals(forwardSec = 90, backwardSec = 5)
+            } finally {
+                scope.cancel()
+            }
+        }
     })

@@ -1,7 +1,7 @@
 import Foundation
 @preconcurrency import Shared
 
-/// One section of Now Playing's More menu, from the shared `PlayerMenus` (§5.5.7). Close Book's section is destructive.
+/// One section of Now Playing's More menu, from the shared `PlayerMenus`. Close Book's section is destructive.
 struct PlayerMenuSection: Equatable {
     let rows: [PlayerMenuModel.Row]
     let isDestructive: Bool
@@ -44,7 +44,7 @@ enum PlayerMenuModel {
             case .chooseAuthor: String(localized: "player.go_to_author_multiple_ios")
             case .openPdf: String(localized: "player.open_pdf")
             case .volumeBoost(let db):
-                String(format: String(localized: "player.np_volume_boost_row_ios"), BoostPickerSheet.formatBoost(db))
+                String(localized: .playerNpVolumeBoostRowIos(BoostPickerSheet.formatBoost(db)))
             case .closeBook: String(localized: "player.np_close_book_ios")
             }
         }

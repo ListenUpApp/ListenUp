@@ -9,12 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Headphones
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +29,7 @@ import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.hardcover_comes_back_line
@@ -79,25 +74,25 @@ internal fun HardcoverWhatIsShared(
             HardcoverShareMode.AS_I_LISTEN -> {
                 SettingRow(
                     title = stringResource(Res.string.hardcover_shared_started_row),
-                    icon = Icons.Outlined.AutoStories,
+                    icon = ListenUpIcons.AutoStories,
                 )
                 SettingRow(
                     title = stringResource(Res.string.hardcover_shared_progress_row),
-                    icon = Icons.Outlined.Headphones,
+                    icon = ListenUpIcons.Headphones,
                 )
                 SettingRow(
                     title = stringResource(Res.string.hardcover_shared_finished_row),
-                    icon = Icons.Outlined.TaskAlt,
+                    icon = ListenUpIcons.TaskAlt,
                 )
             }
 
             HardcoverShareMode.FINISHED_ONLY -> {
                 SettingRow(
                     title = stringResource(Res.string.hardcover_shared_finished_with_dates_row),
-                    icon = Icons.Outlined.TaskAlt,
+                    icon = ListenUpIcons.TaskAlt,
                 )
                 QuietLine(
-                    icon = Icons.Outlined.Headphones,
+                    icon = ListenUpIcons.Headphones,
                     text = stringResource(Res.string.hardcover_shared_nothing_while_listening),
                 )
             }
@@ -108,7 +103,7 @@ internal fun HardcoverWhatIsShared(
         val line = stringResource(Res.string.hardcover_comes_back_line)
         val never = stringResource(Res.string.hardcover_comes_back_never_listening)
         ComesBackLine(
-            icon = Icons.Outlined.Download,
+            icon = ListenUpIcons.Download,
             text =
                 buildAnnotatedString {
                     append(line)
@@ -117,7 +112,7 @@ internal fun HardcoverWhatIsShared(
                 },
         )
         ComesBackLine(
-            icon = Icons.Outlined.BookmarkAdd,
+            icon = ListenUpIcons.BookmarkAdd,
             text = AnnotatedString(stringResource(Res.string.hardcover_comes_back_want_to_read)),
         )
     }

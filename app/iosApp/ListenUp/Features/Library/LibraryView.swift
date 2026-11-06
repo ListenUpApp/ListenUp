@@ -83,19 +83,10 @@ struct LibraryView: View {
     private var sectionCount: String? {
         guard let observer, !observer.isLoading else { return nil }
         return switch selectedTab {
-        case .books where !chrome.showsSectionPicker:
-            // The sidebar names the section; its subtitle says how many and how they are sorted (board `Library-iPad`).
-            observer.statusCounts.all > 0 || !observer.isLibraryArriving
-                ? LibrarySubtitle.ipadBooks(
-                    count: observer.statusCounts.all,
-                    sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? ""
-                )
-                : nil
         case .books:
             LibrarySubtitle.booksOrNil(
                 count: observer.statusCounts.all,
-                filter: observer.statusFilter,
-                sortLabel: observer.booksSortState.map { SortLabels.category($0.category) } ?? "",
+                totalMs: observer.totalDurationMs,
                 isArriving: observer.isLibraryArriving
             )
         case .series: String(format: String(localized: "library.series_count"), observer.series.count)
@@ -137,11 +128,12 @@ struct LibraryView: View {
             // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
             // principal "N selected" count from sitting under the large "Library" title.
             let onScreen = observer?.books.map(\.id) ?? []
-            BookSelectionToolbar(
-                selection: selection,
-                isAllSelected: !onScreen.isEmpty && selection.selectedBookIds.isSuperset(of: onScreen)
-            ) {
-                // Every book the grid shows, as filtered (open question 8).
+            let readsDeselectAll = BookSelectionObserver.readsDeselectAll(
+                onScreen: onScreen,
+                selected: selection.selectedBookIds
+            )
+            BookSelectionToolbar(selection: selection, isAllSelected: readsDeselectAll) {
+                // Every book the grid shows, as filtered.
                 selection.selectAll(onScreen)
             }
         }
@@ -210,6 +202,7 @@ struct LibraryView: View {
             BooksContent(
                 books: observer.books,
                 bookStatus: observer.bookStatus,
+                bookMenuPrimary: observer.bookMenuPrimary,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,
                 isFilteredEmpty: observer.isFilteredEmpty,

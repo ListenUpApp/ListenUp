@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -23,7 +22,7 @@ class ContributorBooksSession(
 
 /**
  * How the page gets its state. Production resolves the real ViewModel out of the client graph
- * ([graphContributorBooks]); specs hand over a fixed state instead ([fixedContributorBooks]).
+ * ([graphContributorBooks]); specs hand over a fixed state instead.
  */
 typealias OpenContributorBooks = (contributorId: String, role: String) -> ContributorBooksSession
 
@@ -42,7 +41,3 @@ fun graphContributorBooks(koin: Koin): OpenContributorBooks =
         viewModel.loadBooks(contributorId, role)
         ContributorBooksSession(state = viewModel.state, close = store::clear)
     }
-
-/** A session over a state that never changes — the shape specs use in place of the graph. */
-fun fixedContributorBooks(state: ContributorBooksUiState): OpenContributorBooks =
-    { _, _ -> ContributorBooksSession(state = MutableStateFlow(state), close = {}) }

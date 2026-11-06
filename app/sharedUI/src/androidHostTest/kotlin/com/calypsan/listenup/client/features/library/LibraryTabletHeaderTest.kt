@@ -103,12 +103,22 @@ class LibraryTabletHeaderTest {
         render(heldCount = 3)
         awaitText(BOOK_TITLE)
 
-        composeRule.onNodeWithText(COUNT_LINE).assertDoesNotExist()
         composeRule.onNodeWithTag(INBOX_PILL_TAG).assertDoesNotExist()
         composeRule.onNodeWithText("All 248").assertDoesNotExist()
         val sort = composeRule.onNodeWithContentDescription(SORT).getUnclippedBoundsInRoot()
         val count = composeRule.onNodeWithText("248 books").getUnclippedBoundsInRoot()
         (count.right <= sort.left) shouldBe true
+    }
+
+    @Test
+    @Config(qualifiers = Windows.PHONE)
+    fun `on a phone the title carries the books and length line under it`() {
+        render(heldCount = 0)
+        awaitText(BOOK_TITLE)
+
+        val title = composeRule.onNodeWithText("Library").getUnclippedBoundsInRoot()
+        val line = composeRule.onNodeWithText(COUNT_LINE).getUnclippedBoundsInRoot()
+        (line.top >= title.bottom) shouldBe true
     }
 
     @Test

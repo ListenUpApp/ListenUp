@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the mini player accessory draws in one state (spec §5.1; boards `Mini-iPhone`, `Mini-iPad`, `States-iPhone`).
+/// What the mini player accessory draws in one state.
 /// A pure value, so every state is testable without SwiftUI; `MiniPlayerAccessoryContent` only lays it out.
 struct MiniPlayerAccessoryModel: Equatable {
     /// The one main button's look.
@@ -61,6 +61,7 @@ struct MiniPlayerAccessoryModel: Equatable {
     static func make(
         snapshot: PlayerSnapshot,
         chapterRemainingMs: Int64,
+        sleepRemainingMs: Int64 = 0,
         chapterFraction: Float,
         isInline: Bool,
         isWide: Bool
@@ -70,7 +71,8 @@ struct MiniPlayerAccessoryModel: Equatable {
         if case .problem(_, _, let tinted) = snapshot.miniLine { isFailure = tinted }
         let parts = isInline ? nil : lineParts(
             snapshot.miniLine, chapterRemainingMs: chapterRemainingMs,
-            sleepCountdownMs: snapshot.sleepCountdownMs(chapterRemainingMs: chapterRemainingMs))
+            sleepCountdownMs: snapshot.sleepCountdownMs(
+                chapterRemainingMs: chapterRemainingMs, sleepRemainingMs: sleepRemainingMs))
         // On a phone the fade's Keep Listening needs back N's room so the title and the line stay readable; back N
         // stays one tap away in Now Playing.
         let isPhoneFade = snapshot.miniLine == .fadingOut && !isWide
@@ -114,7 +116,7 @@ struct MiniPlayerAccessoryModel: Equatable {
         case .openInbox: return labelled(String(localized: "player.mini_open_inbox"))
         case .listenAgain:
             return (.pill(String(localized: "player.mini_listen_again_ios"), prominent: false),
-                    String(format: String(localized: "player.mini_listen_again_a11y"), snapshot.bookTitle), .shared)
+                    String(localized: .playerMiniListenAgainA11Y(snapshot.bookTitle)), .shared)
         case .close: return (.close, String(localized: "player.close_book"), .shared)
         }
     }
@@ -135,9 +137,9 @@ struct MiniPlayerAccessoryModel: Equatable {
         }
         func trailing(_ sleepArmed: Bool) -> String {
             if sleepArmed, let sleepCountdownMs {
-                return String(format: String(localized: "player.mini_sleep"), shortDuration(ms: sleepCountdownMs))
+                return String(localized: .playerMiniSleep(shortDuration(ms: sleepCountdownMs)))
             }
-            return String(format: String(localized: "book.time_left"), shortDuration(ms: chapterRemainingMs))
+            return String(localized: .bookTimeLeft(shortDuration(ms: chapterRemainingMs)))
         }
         switch line {
         case .chapter(let number, let title, let sleep):
@@ -145,7 +147,7 @@ struct MiniPlayerAccessoryModel: Equatable {
         case .paused(let number, let title, let sleep):
             return ("\(String(localized: "player.mini_paused")) · \(chapter(number, title))", trailing(sleep))
         case .casting(let device, let number, let title):
-            let playingOn = String(format: String(localized: "player.mini_playing_on"), device)
+            let playingOn = String(localized: .playerMiniPlayingOn(device))
             return ("\(playingOn) · \(chapter(number, title))", nil)
         case .starting: return (String(localized: "player.mini_starting"), nil)
         case .loading: return (String(localized: "player.mini_loading"), nil)

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.playback.SpeedStep
 import com.calypsan.listenup.client.presentation.player.ContributorPickerType
 import com.calypsan.listenup.client.presentation.player.PlayerOverlay
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -100,7 +101,7 @@ internal fun NowPlayingHost(
     val skipForwardSec = loaded?.run { settings.skipForwardSec } ?: 0
     val motion = MaterialTheme.motionScheme
 
-    // §5.6: a revoked book closes Now Playing; the mini player then says "No longer in your library" with ✕.
+    // A revoked book closes Now Playing; the mini player then says "No longer in your library" with ✕.
     val closesNowPlaying = PlayerCards.closesNowPlaying(state)
     LaunchedEffect(closesNowPlaying, isExpanded) {
         if (closesNowPlaying && isExpanded) viewModel.collapse()
@@ -355,7 +356,7 @@ internal fun OverlayDispatch(
                     defaultSpeed = loaded.settings.defaultSpeed,
                     bookRemainingAtSpeedMs = { progress().bookRemainingAtSpeedMs(loaded.settings.speed) },
                     onSpeedChange = viewModel::setSpeed,
-                    onStep = viewModel::stepSpeed,
+                    onStep = { up -> viewModel.stepSpeed(if (up) SpeedStep.Faster else SpeedStep.Slower) },
                     onResetToDefault = viewModel::resetSpeed,
                     onDismiss = viewModel::hideOverlay,
                 )
@@ -377,7 +378,7 @@ internal fun OverlayDispatch(
 }
 
 /**
- * The sleep sheet's view of the loaded book: the timer's countdown and meter from [SleepCountdowns] (wall time, C1),
+ * The sleep sheet's view of the loaded book: the timer's countdown and meter from [SleepCountdowns] (wall time),
  * the chapter's content remainder for "in 8m", and the wall clock for "Pauses at". Each is read in the leaf that shows
  * it, so the position tick never recomposes the sheet.
  */
@@ -389,6 +390,7 @@ private fun PlayerUiState.Loaded.sleepSheetState(progress: () -> PlayerProgress)
         countdownMs = { SleepCountdowns.remainingMs(sleepTimer, progress(), settings.speed) },
         meterFraction = { SleepCountdowns.meterFraction(sleepTimer, progress()) },
         nowMs = { Clock.System.now().toEpochMilliseconds() },
+        defaultMinutes = settings.defaultSleepMinutes,
     )
 
 /**
@@ -401,7 +403,7 @@ internal fun closesChapterSheet(
     showsChapterPanel: Boolean,
 ): Boolean = overlay == PlayerOverlay.ChapterPicker && isExpanded && showsChapterPanel
 
-/** Now Playing's More menu: each row forwards to the view-model action it names (spec §5.5.7). */
+/** Now Playing's More menu: each row forwards to the view-model action it names. */
 private fun PlayerViewModel.onMenuItem(
     item: PlayerMenuItem,
     onNavigateToSeries: (String) -> Unit,

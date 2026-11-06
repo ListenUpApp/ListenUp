@@ -16,7 +16,7 @@ private const val HELD_HEADING_ID = "bd-held-h"
 private const val HELD_TILE_ICON_SIZE = 22
 
 /**
- * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be: what it
+ * Book Detail's triage panel for a book held for review, where the action unit would be: what it
  * is, one sentence of why there is no Play, and the only things a held book allows — **Release to members** (amber,
  * the panel's one primary; it asks first), then Edit details, Match details and Edit chapters. Amber, not coral: the
  * sheet's `--warn` family, "waiting for you", so the panel never reads as Play.

@@ -11,7 +11,7 @@ struct SleepSheetActions {
     var keepListening: () -> Void
 }
 
-/// The Sleep sheet's content (§5.5.2, iOS column; the `Sheets-iPhone` board).
+/// The Sleep sheet's content.
 ///
 /// Choosing is a list of plain buttons (HIG, Lists: an inset grouped list of actions), End of Chapter first and largest,
 /// then the durations, then a custom time with − / + and Start. Running is a gold ring around the countdown, the time it
@@ -21,14 +21,21 @@ struct SleepSheetContent: View {
     let model: SleepSheetModel
     let actions: SleepSheetActions
 
-    @State private var customMinutes = Int(SleepTimerChoices.shared.CUSTOM_DEFAULT_MINUTES)
-    /// Starting a timer is a choice that moves you on, so it closes the sheet (§3.8), as Android and web do. Adding time
+    @State private var customMinutes: Int
+    /// Starting a timer is a choice that moves you on, so it closes the sheet, as Android and web do. Adding time
     /// and turning the timer off keep it open (S13).
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .largeTitle) private var ringSide: CGFloat = 200
     @ScaledMetric(relativeTo: .body) private var stepSide: CGFloat = 44
+
+    /// The custom time opens at the user's default sleep timer, or at the shared 20 with none.
+    init(model: SleepSheetModel, actions: SleepSheetActions) {
+        self.model = model
+        self.actions = actions
+        _customMinutes = State(initialValue: model.startingCustomMinutes)
+    }
 
     var body: some View {
         switch model.mode {
@@ -69,8 +76,18 @@ struct SleepSheetContent: View {
                     }
                 }
                 ForEach(SleepTimerOption.durationMinutes, id: \.self) { minutes in
-                    Button(SleepTimerOption.formatDuration(minutes)) { start { actions.minutes(minutes) } }
-                        .frame(minHeight: TapTarget.minimum)
+                    Button { start { actions.minutes(minutes) } } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(SleepTimerOption.formatDuration(minutes))
+                            if model.isDefault(minutes) {
+                                Text(String(localized: "player.sheet_your_default_ios"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: TapTarget.minimum, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
                 }
             }
             Section {
@@ -156,7 +173,7 @@ struct SleepSheetContent: View {
                     .stroke(Color.luSleepGoldMeter, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(reduceMotion ? nil : .linear(duration: 1), value: meter)
-                // A timer, read when asked; never announced as it ticks (spec §8: not a live region).
+                // A timer, read when asked; never announced as it ticks (not a live region).
                 Text(countdown)
                     .font(.largeTitle.weight(.bold))
                     .monospacedDigit()
@@ -223,7 +240,7 @@ struct SheetCapsuleButtonStyle: ButtonStyle {
     }
 }
 
-/// The sleep fade (§5.6, `States-iPhone`'s "Sleep timer, fading out"): the gold card, a moon, "Fading Out…", why, and
+/// The sleep fade ("Sleep timer, fading out"): the gold card, a moon, "Fading Out…", why, and
 /// one button, Keep Listening, which cancels the timer and brings the volume back. Shared by Now Playing's state card
 /// and the Sleep sheet, so the two can't drift.
 struct SleepFadeCard: View {
@@ -267,7 +284,9 @@ struct SleepSheet: View {
     var body: some View {
         PlayerSheetChrome(title: String(localized: "player.sheet_sleep_title_ios"), scrolls: false) {
             SleepSheetContent(
-                model: .make(snapshot: observer.snapshot, progress: observer.progress, now: .now),
+                model: .make(
+                    snapshot: observer.snapshot, sleepRemainingMs: observer.sleepRemainingMs,
+                    progress: observer.progress, now: .now),
                 actions: SleepSheetActions(
                     endOfChapter: { observer.setSleepTimerEndOfChapter() },
                     minutes: { observer.setSleepTimer(minutes: $0) },

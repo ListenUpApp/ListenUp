@@ -81,7 +81,7 @@ internal fun ListeningNowSection(
             is CurrentlyListeningUiState.Ready -> {
                 if (state.isEmpty) {
                     when (community) {
-                        // Never claim "nobody" or "just you" before the roster has synced (plan C4).
+                        // Never claim "nobody" or "just you" before the roster has synced.
                         CommunitySize.Unknown -> {
                             ListenersSkeleton()
                         }
@@ -192,7 +192,7 @@ internal fun SomethingNewSection(
     // Shuffle draws again; with nothing to draw (all started) or a failure (Try again is the action) it steps aside.
     val canShuffle = state is DiscoverBooksUiState.Ready || state is DiscoverBooksUiState.Loading
     // Select starts a selection once there is something to select; while selecting the header says so,
-    // and the selection bar's Cancel ends it (spec §3.5, X35).
+    // and the selection bar's Cancel ends it.
     val canSelect = selection != null && state is DiscoverBooksUiState.Ready && !state.isEmpty
     val actions: @Composable () -> Unit = {
         if (canSelect) SelectControl(selection)
@@ -237,7 +237,7 @@ private fun ShuffleButton(onShuffle: () -> Unit) {
     }
 }
 
-/** Something new under its heading, by state (spec §3.8). */
+/** Something new under its heading, by state. */
 @Composable
 private fun SomethingNewBody(
     state: DiscoverBooksUiState,

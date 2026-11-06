@@ -126,6 +126,61 @@ class HardcoverOAuthClientTest :
             }
         }
 
+        test("a verification_uri_complete that is not https falls back to the plain verification_uri") {
+            runTest {
+                val client =
+                    oauthClient {
+                        respond(
+                            """{"device_code":"d","user_code":"U","verification_uri":"https://hardcover.app/link",""" +
+                                """"verification_uri_complete":"javascript:alert(1)","expires_in":600}""",
+                            HttpStatusCode.OK,
+                            JSON_HEADERS,
+                        )
+                    }
+                val auth =
+                    client
+                        .startDeviceAuthorization()
+                        .shouldBeInstanceOf<DeviceAuthorizationResult.Started>()
+                        .authorization
+                auth.verificationUriComplete shouldBe "https://hardcover.app/link"
+            }
+        }
+
+        test("an https verification_uri_complete is matched case-insensitively and kept") {
+            runTest {
+                val client =
+                    oauthClient {
+                        respond(
+                            """{"device_code":"d","user_code":"U","verification_uri":"https://hardcover.app/link",""" +
+                                """"verification_uri_complete":"HTTPS://hardcover.app/link?code=U","expires_in":600}""",
+                            HttpStatusCode.OK,
+                            JSON_HEADERS,
+                        )
+                    }
+                val auth =
+                    client
+                        .startDeviceAuthorization()
+                        .shouldBeInstanceOf<DeviceAuthorizationResult.Started>()
+                        .authorization
+                auth.verificationUriComplete shouldBe "HTTPS://hardcover.app/link?code=U"
+            }
+        }
+
+        test("a verification_uri that is not https is Unavailable, like any unusable answer") {
+            runTest {
+                val client =
+                    oauthClient {
+                        respond(
+                            """{"device_code":"d","user_code":"U","verification_uri":"javascript:alert(1)","expires_in":600}""",
+                            HttpStatusCode.OK,
+                            JSON_HEADERS,
+                        )
+                    }
+
+                client.startDeviceAuthorization().shouldBeInstanceOf<DeviceAuthorizationResult.Unavailable>()
+            }
+        }
+
         test("every request identifies itself with a ListenUp User-Agent") {
             runTest {
                 val agents = mutableListOf<String?>()

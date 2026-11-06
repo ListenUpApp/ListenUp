@@ -16,9 +16,9 @@ extension BookDetailView {
             ) { action in
                 switch action {
                 case .release: showReleaseConfirmation = true
-                case .edit: showEdit = true
+                case .edit: presentShellSheet(.bookEdit(bookId: bookId))
                 case .match: matchTarget = BookMatchTarget(bookId: bookId)
-                case .editChapters: showChapterEditor = true
+                case .editChapters: presentShellSheet(.chapterEditor(bookId: bookId))
                 }
             }
             .releaseConfirmation(isPresented: $showReleaseConfirmation, count: 1) {

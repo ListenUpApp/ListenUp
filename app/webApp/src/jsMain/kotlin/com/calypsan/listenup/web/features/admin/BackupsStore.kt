@@ -13,9 +13,7 @@ import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.io.RawSink
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -80,42 +78,6 @@ fun graphBackups(koin: Koin): OpenBackups =
         )
     }
 
-/** A session over states that never change — the shape specs pass in place of the graph. */
-@Suppress("LongParameterList")
-fun fixedBackups(
-    state: AdminBackupUiState = AdminBackupUiState.Loading,
-    uploadState: RestoreFromFileUiState = RestoreFromFileUiState.Idle,
-    downloadSaved: Flow<Unit> = emptyFlow(),
-    uploaded: Flow<BackupId> = emptyFlow(),
-    onCreate: (Boolean) -> Unit = {},
-    onDownload: (BackupId, RawSink) -> Unit = { _, _ -> },
-    onAskDelete: (BackupInfo) -> Unit = {},
-    onDismissDelete: () -> Unit = {},
-    onDelete: (BackupInfo) -> Unit = {},
-    onPickFile: (FileSource) -> Unit = {},
-    onResetUpload: () -> Unit = {},
-    onClearError: () -> Unit = {},
-    onRetry: () -> Unit = {},
-): OpenBackups =
-    {
-        BackupsSession(
-            state = MutableStateFlow(state),
-            uploadState = MutableStateFlow(uploadState),
-            downloadSaved = downloadSaved,
-            uploaded = uploaded,
-            onCreate = onCreate,
-            onDownload = onDownload,
-            onAskDelete = onAskDelete,
-            onDismissDelete = onDismissDelete,
-            onDelete = onDelete,
-            onPickFile = onPickFile,
-            onResetUpload = onResetUpload,
-            onClearError = onClearError,
-            onRetry = onRetry,
-            close = {},
-        )
-    }
-
 /** An open restore: the confirmation, the progress, and the teardown. */
 class RestoreSession(
     val state: StateFlow<RestoreBackupUiState>,
@@ -146,25 +108,6 @@ fun graphRestore(koin: Koin): OpenRestore =
             onCancel = viewModel::cancelRestore,
             onConfirm = viewModel::confirmRestore,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedRestore(
-    state: RestoreBackupUiState = RestoreBackupUiState.Idle(),
-    progress: BackupEvent? = null,
-    onRequest: () -> Unit = {},
-    onCancel: () -> Unit = {},
-    onConfirm: () -> Unit = {},
-): OpenRestore =
-    {
-        RestoreSession(
-            state = MutableStateFlow(state),
-            progress = MutableStateFlow(progress),
-            onRequest = onRequest,
-            onCancel = onCancel,
-            onConfirm = onConfirm,
-            close = {},
         )
     }
 

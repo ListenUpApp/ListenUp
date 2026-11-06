@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
 
@@ -16,7 +16,7 @@ private val log = loggerFor<ContributorPhotoFiles>()
  * image cache on the path. Every photo passes the store's magic-number sniff and size cap before it reaches disk.
  */
 internal class ContributorPhotoFiles(
-    private val imageStorage: ImageStorage,
+    private val remoteImageFetcher: RemoteImageFetcher,
     imageHome: Path,
     maxBytes: Long = CONTRIBUTOR_PHOTO_MAX_BYTES,
 ) {
@@ -25,7 +25,7 @@ internal class ContributorPhotoFiles(
     /** The stored photo's relative path (`contributors/<sha>.<ext>`), or null when the fetch or the image check fails. */
     suspend fun store(url: String): String? {
         val bytes =
-            when (val fetched = imageStorage.downloadBytes(url)) {
+            when (val fetched = remoteImageFetcher.downloadBytes(url)) {
                 is AppResult.Success -> {
                     fetched.data
                 }

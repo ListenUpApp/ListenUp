@@ -1,26 +1,29 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.KeyboardActionHandler
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldLabelScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.VisualTransformation
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import listenup.composeapp.generated.resources.Res
@@ -49,21 +52,22 @@ enum class ListenUpTextFieldVariant {
  * Uses [MaterialTheme.shapes.medium] for consistent corner radius across the app.
  * Inherits dynamic color support from the theme.
  *
- * Owns its caret locally (see [rememberOwnedTextFieldState]): [value] round-trips asynchronously
- * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
+ * The caller owns the [state]; the field owns the text and the caret, so nothing round-trips
+ * through a ViewModel while the person is typing. Seed it with `rememberTextFieldState(initial)`,
+ * read edits with [ForwardEdits], and replace its text with `setTextAndPlaceCursorAtEnd`.
  *
- * @param value Current text value
- * @param onValueChange Callback when text changes. Callers must echo the propagated string back
- *   through [value] verbatim or not at all — never transformed (see [OwnedTextFieldState])
+ * @param state The text and selection
  * @param label Floating label text. Null renders no label (the default for [ListenUpTextFieldVariant.Hero]).
  * @param modifier Optional modifier
  * @param placeholder Hint text shown when empty
  * @param enabled Whether the field is enabled for input
  * @param isError Whether to show error styling
  * @param supportingText Helper or error text below field
- * @param visualTransformation Visual transformation applied to text (e.g., password masking)
+ * @param obfuscation Non-null makes this a password field: [TextObfuscationMode.Hidden] masks the
+ *   text, [TextObfuscationMode.Visible] reveals it (drive it from the reveal toggle). Null is an
+ *   ordinary field
  * @param keyboardOptions Keyboard type and IME action configuration
- * @param keyboardActions Keyboard action handlers
+ * @param onKeyboardAction Called when the IME action key is pressed; null keeps the default action
  * @param leadingIcon Optional icon shown at the start of the field
  * @param trailingIcon Optional icon shown at the end of the field
  * @param onTrailingClick When non-null, the trailing icon becomes a clickable button
@@ -81,34 +85,26 @@ enum class ListenUpTextFieldVariant {
  *   [variant]'s default placeholder rendering
  * @param colors Field colors override. Null uses the [variant]'s default colors
  * @param shape Container shape override. Null uses [MaterialTheme.shapes.medium]
- * @param singleLine Whether the field is restricted to a single line of text
+ * @param singleLine Whether the field is restricted to a single line of text (ignored by password
+ *   fields, which are always single-line)
  * @param trailingContent Free-form trailing slot (e.g. a stateful action button). When non-null it
  *   wins over [trailingIcon] and [onTrailingClick]
- * @param transform THE sanctioned way to restrict or normalise input (digit-only fields, code
- *   alphabets, length caps). It runs INSIDE the component, before the echo ledger records
- *   anything, so the string propagated through [onValueChange] is already transformed and the
- *   caller's echo stays verbatim — the [OwnedTextFieldState] contract. Callers must NEVER
- *   transform in their own `onValueChange` lambda or ViewModel handler instead: a transforming
- *   caller makes every echo read as an external replacement and silently drops in-flight
- *   keystrokes under latency (see `CodeBoxes`, the precedent this parameter generalises). Must be
- *   idempotent (`transform(transform(s)) == transform(s)`) so an already-clean value passes
- *   through unchanged. Scope it to SHORTENING or normalising transforms (filters, length caps,
- *   case folds): a lengthening auto-format transform (inserting separators, padding) is not
- *   caret-safe here — the caret clamp only maps positions for text that shrank or stayed put
+ * @param inputTransformation THE sanctioned way to restrict or normalise input (digit-only fields,
+ *   code alphabets, length caps) — see [transformedBy] and [limitedTo]. It runs inside the field, so
+ *   the text the screen forwards is already transformed
  */
 @Composable
 fun ListenUpTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     label: String? = null,
     modifier: Modifier = Modifier,
     placeholder: String? = null,
     enabled: Boolean = true,
     isError: Boolean = false,
     supportingText: String? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
+    obfuscation: TextObfuscationMode? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    onKeyboardAction: (() -> Unit)? = null,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
     onTrailingClick: (() -> Unit)? = null,
@@ -121,7 +117,7 @@ fun ListenUpTextField(
     shape: Shape? = null,
     singleLine: Boolean = true,
     trailingContent: (@Composable () -> Unit)? = null,
-    transform: ((String) -> String)? = null,
+    inputTransformation: InputTransformation? = null,
 ) {
     val haptics = LocalHaptics.current
     val isHero = variant == ListenUpTextFieldVariant.Hero
@@ -130,83 +126,105 @@ fun ListenUpTextField(
             fontFamily = DisplayFontFamily,
             fontWeight = FontWeight.Bold,
         )
-    val ownedText = rememberOwnedTextFieldState(value)
-    OutlinedTextField(
-        value = ownedText.fieldValue,
-        onValueChange = { newValue ->
-            // Transform before the ledger sees anything: local truth, the ledger entry, and the
-            // propagated string are all the transformed text, so the caller's echo is verbatim.
-            // When the transform rejects the whole edit (text unchanged after cleaning), edit()
-            // reports no text change and the caller never hears about it — same net effect as the
-            // old caller-side filter, without the divergent echo.
-            val accepted = transform?.let { newValue.transformedBy(it) } ?: newValue
-            if (ownedText.edit(accepted)) onValueChange(accepted.text)
-        },
-        label = label?.let { { Text(it) } },
-        placeholder =
-            placeholder?.let { placeholderText ->
-                {
-                    when {
-                        placeholderStyle != null -> {
-                            Text(text = placeholderText, style = placeholderStyle)
-                        }
+    val textStyleOrDefault = textStyle ?: if (isHero) heroTextStyle else LocalTextStyle.current
+    val labelSlot: (@Composable TextFieldLabelScope.() -> Unit)? = label?.let { { Text(it) } }
+    val placeholderSlot: (@Composable () -> Unit)? =
+        placeholder?.let { placeholderText ->
+            {
+                when {
+                    placeholderStyle != null -> {
+                        Text(text = placeholderText, style = placeholderStyle)
+                    }
 
-                        isHero -> {
-                            Text(
-                                text = placeholderText,
-                                style = heroTextStyle,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    isHero -> {
+                        Text(
+                            text = placeholderText,
+                            style = heroTextStyle,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-                        else -> {
-                            Text(placeholderText)
-                        }
+                    else -> {
+                        Text(placeholderText)
                     }
                 }
-            },
-        textStyle = textStyle ?: if (isHero) heroTextStyle else LocalTextStyle.current,
-        enabled = enabled,
-        isError = isError,
-        supportingText = supportingText?.let { { Text(it) } },
-        visualTransformation = visualTransformation,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
-        trailingIcon =
-            trailingContent
-                ?: trailingIcon?.let { icon ->
-                    {
-                        if (onTrailingClick != null) {
-                            // The trailing affordance is a button (reveal password, clear, …), not
-                            // text entry — so it answers back even though the field itself must not.
-                            IconButton(
-                                onClick = {
-                                    haptics.press()
-                                    onTrailingClick()
-                                },
-                            ) { Icon(icon, contentDescription = trailingIconContentDescription) }
-                        } else {
-                            Icon(icon, contentDescription = null)
-                        }
+            }
+        }
+    val supportingSlot: (@Composable () -> Unit)? = supportingText?.let { { Text(it) } }
+    val leadingSlot: (@Composable () -> Unit)? = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } }
+    val trailingSlot: (@Composable () -> Unit)? =
+        trailingContent
+            ?: trailingIcon?.let { icon ->
+                {
+                    if (onTrailingClick != null) {
+                        // The trailing affordance is a button (reveal password, clear, …), not
+                        // text entry — so it answers back even though the field itself must not.
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                onTrailingClick()
+                            },
+                        ) { Icon(icon, contentDescription = trailingIconContentDescription) }
+                    } else {
+                        Icon(icon, contentDescription = null)
                     }
-                },
-        colors =
-            colors
-                ?: if (isHero) {
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                        focusedContainerColor = heroContainerColor.copy(alpha = 0.4f),
-                        unfocusedContainerColor = heroContainerColor.copy(alpha = 0.2f),
-                    )
-                } else {
-                    OutlinedTextFieldDefaults.colors()
-                },
-        singleLine = singleLine,
-        shape = shape ?: MaterialTheme.shapes.medium,
-        modifier = modifier.fillMaxWidth(),
-    )
+                }
+            }
+    val fieldColors =
+        colors
+            ?: if (isHero) {
+                OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    focusedContainerColor = heroContainerColor.copy(alpha = 0.4f),
+                    unfocusedContainerColor = heroContainerColor.copy(alpha = 0.2f),
+                )
+            } else {
+                OutlinedTextFieldDefaults.colors()
+            }
+    val actionHandler = onKeyboardAction?.let { action -> KeyboardActionHandler { action() } }
+    val fieldShape = shape ?: MaterialTheme.shapes.medium
+    val fieldModifier = modifier.fillMaxWidth()
+
+    if (obfuscation != null) {
+        OutlinedSecureTextField(
+            state = state,
+            inputTransformation = inputTransformation,
+            textObfuscationMode = obfuscation,
+            label = labelSlot,
+            placeholder = placeholderSlot,
+            textStyle = textStyleOrDefault,
+            enabled = enabled,
+            isError = isError,
+            supportingText = supportingSlot,
+            keyboardOptions = keyboardOptions,
+            onKeyboardAction = actionHandler,
+            leadingIcon = leadingSlot,
+            trailingIcon = trailingSlot,
+            colors = fieldColors,
+            shape = fieldShape,
+            modifier = fieldModifier,
+        )
+    } else {
+        OutlinedTextField(
+            state = state,
+            inputTransformation = inputTransformation,
+            label = labelSlot,
+            placeholder = placeholderSlot,
+            textStyle = textStyleOrDefault,
+            enabled = enabled,
+            isError = isError,
+            supportingText = supportingSlot,
+            keyboardOptions = keyboardOptions,
+            onKeyboardAction = actionHandler,
+            leadingIcon = leadingSlot,
+            trailingIcon = trailingSlot,
+            colors = fieldColors,
+            lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.Default,
+            shape = fieldShape,
+            modifier = fieldModifier,
+        )
+    }
 }
 
 /**
@@ -221,20 +239,3 @@ internal fun passwordVisibilityDescription(visible: Boolean): String =
     } else {
         stringResource(Res.string.common_show_password)
     }
-
-/**
- * Applies [transform] to this value's text. An identity result returns the value untouched —
- * clean input must keep the user's caret exactly where the edit put it. A changed result rebuilds
- * the value with the caret clamped to `min(selection.end, newLength)`: exact when the rejection
- * happens at the end of the field (appended junk, a length cap trimming the tail), but a
- * character rejected MID-text leaves the caret one position past the edit point — the clamp
- * keeps the raw selection index while the text behind it shrank. Exposure is low for the short
- * restricted alphabets this exists for, and the next keystroke lands where the caret shows.
- * Rebuilding discards any IME composition span, which is acceptable for the restricted alphabets
- * [transform] exists to enforce (see `CodeBoxes`).
- */
-private fun TextFieldValue.transformedBy(transform: (String) -> String): TextFieldValue {
-    val transformed = transform(text)
-    if (transformed == text) return this
-    return TextFieldValue(transformed, TextRange(minOf(selection.end, transformed.length)))
-}

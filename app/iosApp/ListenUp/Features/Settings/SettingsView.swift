@@ -134,8 +134,8 @@ struct SettingsView: View {
     private func playbackSection(_ observer: SettingsObserver) -> some View {
         Section(String(localized: "settings.playback")) {
             Picker(selection: speedBinding(observer)) {
-                ForEach(Self.speedOptions, id: \.self) { speed in
-                    Text(SettingsFormat.speedLabel(speed)).tag(speed)
+                ForEach(PlaybackPresets.shared.speedChoicesIncluding(current: observer.defaultPlaybackSpeed), id: \.self) { speed in
+                    Text(PlaybackPresets.shared.speedLabel(speed: speed)).tag(speed)
                 }
             } label: {
                 SettingsLabel(
@@ -147,7 +147,7 @@ struct SettingsView: View {
             .haptic(.selectionTick, trigger: observer.defaultPlaybackSpeed)
 
             Picker(selection: boostBinding(observer)) {
-                ForEach(Self.boostOptions, id: \.self) { boost in
+                ForEach(PlaybackPresets.shared.BOOST_DB, id: \.self) { boost in
                     Text(BoostPickerSheet.formatBoost(boost)).tag(boost)
                 }
             } label: {
@@ -160,7 +160,7 @@ struct SettingsView: View {
             .haptic(.selectionTick, trigger: observer.defaultVolumeBoostDb)
 
             Picker(selection: skipForwardBinding(observer)) {
-                ForEach(Self.skipOptions, id: \.self) { sec in
+                ForEach(Self.skipForwardOptions(including: observer.defaultSkipForwardSec), id: \.self) { sec in
                     Text(SettingsFormat.skipLabel(seconds: sec)).tag(sec)
                 }
             } label: {
@@ -173,7 +173,7 @@ struct SettingsView: View {
             .haptic(.selectionTick, trigger: observer.defaultSkipForwardSec)
 
             Picker(selection: skipBackwardBinding(observer)) {
-                ForEach(Self.skipOptions, id: \.self) { sec in
+                ForEach(Self.skipBackwardOptions(including: observer.defaultSkipBackwardSec), id: \.self) { sec in
                     Text(SettingsFormat.skipLabel(seconds: sec)).tag(sec)
                 }
             } label: {
@@ -201,12 +201,13 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func sleepTimerSection(_ observer: SettingsObserver) -> some View {
-        Section(String(localized: "settings.sleep_timer")) {
+        Section {
             Picker(selection: sleepTimerBinding(observer)) {
-                Text(String(localized: "settings.timer_off")).tag(Int?.none)
-                ForEach(Self.sleepTimerOptions, id: \.self) { minutes in
-                    Text(SettingsFormat.sleepTimerLabel(minutes: minutes, offLabel: ""))
-                        .tag(Int?.some(minutes))
+                let choices = SettingsFormat.sleepTimerChoices(including: observer.defaultSleepTimerMin)
+                ForEach(choices, id: \.self) { minutes in
+                    Text(SettingsFormat.sleepTimerLabel(
+                        minutes: minutes, offLabel: String(localized: "settings.timer_off")))
+                        .tag(minutes)
                 }
             } label: {
                 SettingsLabel(
@@ -216,6 +217,10 @@ struct SettingsView: View {
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSleepTimerMin)
+        } header: {
+            Text(String(localized: "settings.sleep_timer"))
+        } footer: {
+            Text(String(localized: "settings.default_timer_hint"))
         }
     }
 
@@ -410,11 +415,13 @@ struct SettingsView: View {
 
     // MARK: - Picker / toggle option sets
 
-    private static let speedOptions: [Float] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
-    // Mirrors VolumeBoostLimits in :contract (not exported to Swift).
-    private static let boostOptions: [Float] = [0, 3, 6, 9, 12]
-    private static let skipOptions: [Int] = [5, 10, 15, 30, 45, 60]
-    private static let sleepTimerOptions: [Int] = [5, 10, 15, 30, 45, 60]
+    private static func skipForwardOptions(including current: Int) -> [Int] {
+        PlaybackPresets.shared.skipForwardChoicesIncluding(current: Int32(current)).map { Int($0) }
+    }
+
+    private static func skipBackwardOptions(including current: Int) -> [Int] {
+        PlaybackPresets.shared.skipBackwardChoicesIncluding(current: Int32(current)).map { Int($0) }
+    }
 
     // MARK: - Bindings (read flat state, write through the observer's forwarders)
 

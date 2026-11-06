@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.core.resubscribeOnFailure
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -29,7 +30,7 @@ import kotlinx.coroutines.launch
 
 /**
  * [PlayerSession]'s one state, derived from its [stage] and everything around the loaded book: the engine's facts,
- * the book's position row, the reasons it can't play before Play is pressed (§4.6 proactive causes) and the sleep
+ * the book's position row, the reasons it can't play before Play is pressed and the sleep
  * fade. The session owns the lifecycle and the commands; this owns only the derivation, and writes nothing. It also
  * keeps the time a network drop has been interrupting a listen ([PLAYBACK_DROP_GRACE]): the one grace every platform
  * shares, whichever engine is recovering behind it.
@@ -72,7 +73,7 @@ internal class PlayerStateDerivation(
                         isFinishedRow = finished,
                         unavailable = unavailable,
                     )
-                }
+                }.resubscribeOnFailure("derivation.phaseInputs")
             }
         }
 
@@ -154,7 +155,7 @@ internal class PlayerStateDerivation(
         return Derived(state, nextDrop)
     }
 
-    /** Why [bookId] can't play right now, before Play is pressed, or null (§4.6 proactive causes). */
+    /** Why [bookId] can't play right now, before Play is pressed, or null. */
     fun unavailableReason(bookId: BookId): Flow<AppError?> =
         combine(
             flow = inboxRepository.observeHeldBookIds().map { bookId in it },

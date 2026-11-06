@@ -227,8 +227,12 @@ struct EngineFailureTests {
         harness.engine.emit(.failed(.connectionLost(detail: nil)))
         await awaitObservation { harness.coordinator.engineBook == nil }
 
+        let volumeCount = await harness.engine.volumeCount
         harness.coordinator.remotePlay()
         harness.coordinator.remoteTogglePlayPause()
+        // Remote commands are queued steps; a later instruction reaching the engine means they have run.
+        harness.instructions.send(.setVolume(1))
+        await harness.engine.waitForVolumeCount(volumeCount + 1)
 
         #expect(harness.facts.playRequests == [4, 4])
         #expect(await harness.engine.commandLog.filter { $0 == "load" }.count == 1)

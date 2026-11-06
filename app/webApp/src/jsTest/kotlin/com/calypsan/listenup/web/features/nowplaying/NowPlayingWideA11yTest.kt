@@ -124,7 +124,7 @@ class NowPlayingWideA11yTest :
                     "Pause",
                     "Skip forward 30 seconds",
                     "Chapter position",
-                    "Playback speed, 1 times",
+                    "Playback speed, 1.0 times",
                     "Sleep timer",
                     "Chapters",
                     "Keyboard shortcuts",

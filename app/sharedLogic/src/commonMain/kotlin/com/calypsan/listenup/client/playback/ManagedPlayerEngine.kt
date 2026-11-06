@@ -32,7 +32,7 @@ internal class ManagedPlayerEngine(
     override val speed: StateFlow<Float> get() = playbackManager.playbackSpeed
     override val boostDb: StateFlow<Float> get() = playbackManager.volumeBoostDb
     override val chapters: StateFlow<List<Chapter>> get() = playbackManager.chapters
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> get() = playbackManager.currentChapter
+    override val currentChapter: StateFlow<ChapterInfo?> get() = playbackManager.currentChapter
     override val timeline: StateFlow<PlaybackTimeline?> get() = playbackManager.currentTimeline
     override val error: StateFlow<AppError?> get() = playbackManager.playbackError
     override val outputDeviceName: StateFlow<String?> = outputRoute.deviceName

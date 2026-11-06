@@ -29,7 +29,7 @@ import listenup.composeapp.generated.resources.library_setup_building_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The Library's one status-strip slot (spec §3.1.1 L27/L28): a scan, or a library still arriving, said above the
+ * The Library's one status-strip slot: a scan, or a library still arriving, said above the
  * grid, in the Library's own role colours (N6). Pinned rather than scrolled, and a polite live region, so the news
  * stays where a reader can find it. The bar is linear: wavy progress belongs to the book playing now.
  * [LibraryStatusStrip.Hidden] draws nothing.

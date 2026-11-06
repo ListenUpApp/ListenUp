@@ -75,7 +75,7 @@ enum PersonMatchMapping {
         let roleSentence = [roleWord, worksSentence].compactMap { $0 }.joined(separator: ", ")
         let parts = [candidate.name, roleSentence, libraryLine, MatchCopy.list(sources)].filter { !$0.isEmpty }
         let spoken = parts.count == 4
-            ? String(format: String(localized: "match.person_row_a11y"), parts[0], parts[1], parts[2], parts[3])
+            ? String(localized: .matchPersonRowA11Y(parts[0], parts[1], parts[2], parts[3]))
             : parts.map(MatchCopy.withoutFinalPeriod).joined(separator: ". ") + "."
         let badges = [
             candidate.isBest ? String(localized: "match.best_match") : nil,
@@ -174,13 +174,13 @@ enum PersonMatchMapping {
         return PersonPhotoSection(
             stateTitle: MatchCopy.sectionState(photo.state),
             isTicked: photo.isTicked,
-            proposedFrom: String(format: String(localized: "match.from_source"), photo.proposed.source.label),
+            proposedFrom: String(localized: .matchFromSource(photo.proposed.source.label)),
             currentPath: photo.currentPath,
             yoursCaption: photo.currentPath == nil
                 ? String(localized: "match.yours_no_photo")
                 : String(localized: "match.your_photo"),
             proposedURL: photo.proposed.url,
-            proposedLabel: String(format: String(localized: "match.photo_from_a11y"), photo.proposed.source.label),
+            proposedLabel: String(localized: .matchPhotoFromA11Y(photo.proposed.source.label)),
             segments: segments,
             selectedSegment: photo.chosen.map { .option($0.optionId) } ?? .keepYours,
             switchStyle: switchStyle(segments.count),
@@ -214,17 +214,18 @@ enum PersonMatchMapping {
             stateTitle: MatchCopy.sectionState(biography.state),
             alreadySame: biography.state == .same ? String(localized: "match.biography_already_same") : nil,
             isTicked: biography.isTicked,
-            proposedFrom: String(format: String(localized: "match.from_source"), sources),
+            proposedFrom: String(localized: .matchFromSource(sources)),
             values: MatchValues(
                 name: name,
                 yours: yours,
                 proposed: proposed,
                 isLongText: max(proposed.count, yours?.count ?? 0) > BookMatchMapping.longTextThreshold,
-                accessibilityLabel: String(
-                    format: String(localized: "match.field_full_a11y"),
-                    name, MatchCopy.withoutFinalPeriod(yours ?? String(localized: "match.empty_value")), sources,
+                accessibilityLabel: String(localized: .matchFieldFullA11Y(
+                    name,
+                    MatchCopy.withoutFinalPeriod(yours ?? String(localized: "match.empty_value")),
+                    sources,
                     MatchCopy.withoutFinalPeriod(proposed)
-                )
+                ))
             ),
             isEdited: isEdited,
             editedNote: isEdited ? MatchCopy.editedNote(biography.handEdit, viewerId: viewerId) : nil,

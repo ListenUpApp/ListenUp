@@ -239,7 +239,7 @@ struct LeaderboardRow: Identifiable, Equatable {
         case .books:
             return String(format: String(localized: "common.books_count"), entry.booksFinished)
         case .streak:
-            return String(format: String(localized: "common.n_days"), String(entry.longestStreakDays))
+            return String(localized: .commonNDays(String(entry.longestStreakDays)))
         }
     }
 

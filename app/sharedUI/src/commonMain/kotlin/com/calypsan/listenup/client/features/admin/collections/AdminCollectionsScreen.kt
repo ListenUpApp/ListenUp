@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.admin.collections
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.BorderStroke
@@ -20,13 +23,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.FolderSpecial
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
@@ -35,11 +31,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,6 +53,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
@@ -85,6 +80,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import listenup.composeapp.generated.resources.admin_collection_created
 
 private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
@@ -129,12 +125,13 @@ fun AdminCollectionsScreen(
     }
 
     // Create-success snackbar (only meaningful in Ready).
+    val collectionCreatedMessage = stringResource(Res.string.admin_collection_created)
     val readyCreateSuccess = (state as? AdminCollectionsUiState.Ready)?.createSuccess == true
     LaunchedEffect(readyCreateSuccess) {
         if (readyCreateSuccess) {
             showCreateDialog = false // Dismiss dialog FIRST (before suspend)
             viewModel.clearCreateSuccess()
-            snackbarHostState.showSnackbar("Collection created") // This suspends
+            snackbarHostState.showSnackbar(collectionCreatedMessage) // This suspends
         }
     }
 
@@ -147,7 +144,7 @@ fun AdminCollectionsScreen(
             if (state is AdminCollectionsUiState.Ready) {
                 ListenUpFab(
                     onClick = { showCreateDialog = true },
-                    icon = Icons.Outlined.Add,
+                    icon = ListenUpIcons.Add,
                     contentDescription = stringResource(Res.string.admin_create_collection),
                 )
             }
@@ -279,7 +276,7 @@ private fun CollectionsReadyContent(
     Column(modifier = Modifier.fillMaxSize()) {
         ColorBlockHero(
             title = stringResource(Res.string.common_collections),
-            badgeIcon = Icons.Outlined.FolderSpecial,
+            badgeIcon = ListenUpIcons.FolderSpecial,
             onBack = onBackClick,
             overline = if (isWide) stringResource(Res.string.common_administration) else null,
             supportingText = subtitle,
@@ -382,7 +379,7 @@ private fun CollectionCardTopRow(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         ) {
             androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.FolderSpecial,
+                imageVector = ListenUpIcons.FolderSpecial,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.size(badgeSize * 0.5f),
@@ -392,7 +389,7 @@ private fun CollectionCardTopRow(
         when {
             isSystem -> {
                 TonalIconTile(
-                    icon = Icons.Outlined.Lock,
+                    icon = ListenUpIcons.Lock,
                     size = DELETE_TILE_SIZE_DP.dp,
                     danger = false,
                 )
@@ -411,7 +408,7 @@ private fun CollectionCardTopRow(
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     TonalIconTile(
-                        icon = Icons.Outlined.Delete,
+                        icon = ListenUpIcons.Delete,
                         size = DELETE_TILE_SIZE_DP.dp,
                         danger = true,
                         contentDescription = stringResource(Res.string.common_delete_name, collectionName),
@@ -470,7 +467,7 @@ private fun CollectionCardSubtitle(
                     .background(MaterialTheme.colorScheme.outline, shape = CircleShape),
         )
         androidx.compose.material3.Icon(
-            imageVector = Icons.Outlined.Group,
+            imageVector = ListenUpIcons.Group,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.tertiary,
             modifier = Modifier.size(ACCESS_ICON_SIZE_DP.dp),
@@ -507,7 +504,7 @@ private fun NewCollectionCard(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             ) {
                 androidx.compose.material3.Icon(
-                    imageVector = Icons.Outlined.Add,
+                    imageVector = ListenUpIcons.Add,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(if (isWide) 32.dp else 28.dp),
@@ -536,7 +533,7 @@ private fun CollectionsEmptyState(modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             androidx.compose.material3.Icon(
-                imageVector = Icons.Outlined.FolderOpen,
+                imageVector = ListenUpIcons.FolderOpen,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(EMPTY_BADGE_ICON_DP.dp),
@@ -563,22 +560,21 @@ private fun CreateCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
+    val name = rememberTextFieldState()
 
     ListenUpAlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
         title = stringResource(Res.string.admin_create_collection),
         confirmText = stringResource(Res.string.common_create),
-        onConfirm = { onConfirm(name) },
+        onConfirm = { onConfirm(name.text.toString()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
-        confirmEnabled = name.isNotBlank(),
+        confirmEnabled = name.text.isNotBlank(),
         confirmBusy = isCreating,
         dismissEnabled = !isCreating,
     ) {
         ListenUpTextField(
-            value = name,
-            onValueChange = { name = it },
+            state = name,
             label = stringResource(Res.string.admin_collection_name),
             enabled = !isCreating,
             supportingText = stringResource(Res.string.admin_enter_a_name_for_the),

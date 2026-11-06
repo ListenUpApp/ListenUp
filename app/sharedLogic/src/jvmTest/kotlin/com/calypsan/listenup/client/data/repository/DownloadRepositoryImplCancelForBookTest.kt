@@ -222,6 +222,12 @@ private class NoopBookRepository : BookRepository {
 
     override fun observeBookDetail(id: String): Flow<BookDetail?> = flowOf(null)
 
+    override fun observeBookExists(id: String): Flow<Boolean> = flowOf(false)
+
+    override fun observeBookDurationMs(id: String): Flow<Long?> = flowOf(null)
+
+    override fun observeFirstSeriesId(id: String): Flow<String?> = flowOf(null)
+
     override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null

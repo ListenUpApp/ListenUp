@@ -9,7 +9,7 @@ struct FilesAndAudioFile: Identifiable, Equatable {
     let sizeBytes: Int64
 }
 
-/// Files & Audio (spec §3.2.1 D32): the sheet behind the Details row and the scan warning's Review. Each file by name,
+/// Files & Audio: the sheet behind the Details row and the scan warning's Review. Each file by name,
 /// length and size, then Format, Bitrate, Sample Rate and Channels (HIG, Sheets: a medium detent, Done to leave).
 struct FilesAndAudioSheet: View {
     let files: [FilesAndAudioFile]

@@ -20,7 +20,7 @@ struct ActivityFeedView: View {
                     .padding(.vertical, Spacing.s)
             }
         }
-        .refreshable { observer?.refresh() }
+        .refreshable { await observer?.refreshNow() }
         .navigationTitle(String(localized: "discover.activity"))
         .navigationBarTitleDisplayMode(.inline)
         .bookSelectionChrome(selection)

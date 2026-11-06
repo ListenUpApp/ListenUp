@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `DiscoverViewModel` — flattens its sealed states into SwiftUI-native phases:
 /// `newForYou` (Something New), `recentlyAdded` (Recently Added), `currentlyListening` (Listening
@@ -46,6 +46,11 @@ final class DiscoverObserver {
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    /// `refresh()` for a pull-to-refresh: returns when the shelves fetch has finished.
+    func refreshNow() async {
+        try? await viewModel.refreshNow()
     }
 
     /// Draws ten different books for Something New; leaves every other section alone. Also Something
@@ -135,37 +140,15 @@ final class DiscoverObserver {
         }
     }
 
-    /// Pure: collapse the session list to one row per user (their most-recent book by
-    /// `lastActiveAt`), then order live listeners ahead of the recent-listen fill, each half
-    /// newest-first. The server already returns that order; re-deriving it here keeps the
-    /// mapping total, so a future caller cannot get a silently reshuffled carousel.
-    ///
-    /// Liveness outranks recency deliberately: a non-live row's `lastActiveAt` is a
-    /// `lastPlayedAt` that can easily be more recent than a live session's start, and sorting on
-    /// the raw timestamp alone would interleave "listening now" with "two days ago". Mapping to a
-    /// native value type here keeps bridged Kotlin sessions off the `ForEach` diff path (perf
-    /// rule 8). `nonisolated` — testable off-actor.
+    /// Pure: map the roster to native rows, in the order the shared roster already has. It is one row per person
+    /// (`cached_active_sessions` is keyed by `userId`), live listeners first and then the recent-listen fill, each half
+    /// newest-first (the DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC`) — the same list Android and web draw, so
+    /// iOS neither de-duplicates nor re-sorts it. Mapping to a native value type here keeps bridged Kotlin sessions
+    /// off the `ForEach` diff path (perf rule 8). `nonisolated` — testable off-actor.
     nonisolated static func currentlyListeningRows(
         from sessions: [CurrentlyListeningUiSession]
     ) -> [CurrentlyListeningRow] {
-        var latestByUser: [String: CurrentlyListeningUiSession] = [:]
-        for session in sessions {
-            if let existing = latestByUser[session.userId], rank(existing) >= rank(session) {
-                continue
-            }
-            latestByUser[session.userId] = session
-        }
-        return latestByUser.values
-            .sorted { rank($0) > rank($1) }
-            .map(CurrentlyListeningRow.init(from:))
-    }
-
-    /// Sort key: live first, then most-recently-active. `Bool` is not `Comparable` in Swift, so
-    /// liveness is projected to an `Int` for the tuple comparison.
-    private nonisolated static func rank(
-        _ session: CurrentlyListeningUiSession
-    ) -> (Int, Int64) {
-        (session.isLive ? 1 : 0, session.lastActiveAt)
+        sessions.map(CurrentlyListeningRow.init(from:))
     }
 }
 
@@ -199,7 +182,7 @@ enum CurrentlyListeningPhase: Equatable {
 enum DiscoverShelvesPhase: Equatable {
     case loading
     case ready([DiscoverShelfOwnerRow])
-    /// `needsConnection` is true for an offline or timed-out failure (plan Q3).
+    /// `needsConnection` is true for an offline or timed-out failure.
     case error(needsConnection: Bool)
 }
 

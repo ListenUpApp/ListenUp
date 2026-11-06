@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.PlayerSessionState
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.playback.SpeedStep
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -46,13 +47,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * The player's one view model on every platform (spec §4): Android and desktop through `koinViewModel`, iOS
+ * The player's one view model on every platform: Android and desktop through `koinViewModel`, iOS
  * through `PlayerObserver`, web through the shell's `PlaybackSession`. A projection of [PlayerSession] plus
  * Room metadata; actions forward to the session. A Koin `factory` with a public constructor, so
  * `KoinModuleVerifyTest` covers it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-@Suppress("TooManyFunctions", "LongParameterList") // one function per user intent (spec §4.3); one input per source
+@Suppress("TooManyFunctions", "LongParameterList") // one function per user intent; one input per source
 class PlayerViewModel(
     private val session: PlayerSession,
     engine: PlayerEngine,
@@ -82,7 +83,7 @@ class PlayerViewModel(
     /** Now Playing expanded, shared by every instance. */
     val expanded: StateFlow<Boolean> get() = sheetState.expanded
 
-    /** The book a play request is in flight for, debounced (Book Detail's busy button, Decision 11). */
+    /** The book a play request is in flight for, debounced (Book Detail's busy button). */
     val preparingBookId: StateFlow<String?> =
         session.preparingBookIdUi.map { it?.value }.stateIn(viewModelScope, WhileSubscribedForUi, null)
 
@@ -105,9 +106,9 @@ class PlayerViewModel(
         combine(
             flow = combine(session.speed, playbackPreferences.observeDefaultPlaybackSpeed()) { a, b -> a to b },
             flow2 = combine(session.boostDb, playbackPreferences.observeDefaultVolumeBoostDb()) { a, b -> a to b },
-            flow3 = session.skipBackwardSec,
-            flow4 = session.skipForwardSec,
-        ) { (speed, defaultSpeed), (boost, defaultBoost), back, forward ->
+            flow3 = combine(session.skipBackwardSec, session.skipForwardSec) { back, forward -> back to forward },
+            flow4 = playbackPreferences.observeDefaultSleepTimerMin(),
+        ) { (speed, defaultSpeed), (boost, defaultBoost), (back, forward), defaultSleep ->
             PlayerSettings(
                 speed = speed,
                 defaultSpeed = defaultSpeed,
@@ -115,6 +116,7 @@ class PlayerViewModel(
                 defaultBoostDb = defaultBoost,
                 skipBackSec = back,
                 skipForwardSec = forward,
+                defaultSleepMinutes = defaultSleep,
             )
         }.distinctUntilChanged()
 
@@ -124,9 +126,9 @@ class PlayerViewModel(
                 ?: flowOf(false)
         }
 
-    private val connectivity: Flow<Pair<Boolean, Boolean>> =
+    private val connectivity: Flow<Connectivity> =
         combine(networkMonitor.onlineFlow, serverReachability.state) { online, reach ->
-            online to (reach != Reachability.Unreachable)
+            Connectivity(isOnline = online, serverReachable = reach != Reachability.Unreachable)
         }
 
     private val source: Flow<AudioSource> =
@@ -136,7 +138,7 @@ class PlayerViewModel(
             flow3 = engine.timeline,
             flow4 = bookDownloaded,
             flow5 = connectivity,
-        ) { loaded, device, timeline, downloaded, (online, reachable) ->
+        ) { loaded, device, timeline, downloaded, link ->
             val bound = loaded?.isEngineBound == true
             audioSourceOf(
                 phase = loaded?.phase ?: PlayerPhase.Restored,
@@ -148,8 +150,8 @@ class PlayerViewModel(
                             it.localPath == null && it.hlsUrl != null
                         },
                 bookDownloaded = downloaded,
-                isDeviceOnline = online,
-                isServerReachable = reachable,
+                isDeviceOnline = link.isOnline,
+                isServerReachable = link.serverReachable,
                 offlineCopiesSupported = session.offlineCopiesSupported,
             )
         }.distinctUntilChanged()
@@ -185,7 +187,7 @@ class PlayerViewModel(
                 }
 
                 // The session moved to a new book before Room answered for it. Hold the last frame (null is dropped
-                // below) rather than emit NothingLoaded, which unmounts the bar for a frame on every switch (§3.6).
+                // below) rather than emit NothingLoaded, which unmounts the bar for a frame on every switch.
                 book.id != loaded.bookId.value -> {
                     null
                 }
@@ -267,19 +269,19 @@ class PlayerViewModel(
             flow4 = observeNextInSeries(id.value),
             // The finish dates live on the position row.
             flow5 = session.finishDates(id),
-        ) { duration, ratings, me, next, (finishedAt, startedAt) ->
+        ) { duration, ratings, me, next, dates ->
             FinishedInfo(
-                finishedAtMs = finishedAt,
-                startedAtMs = startedAt,
+                finishedAtMs = dates.finishedAtMs,
+                startedAtMs = dates.startedAtMs,
                 durationMs = duration,
                 yourHalfStars = ratings.firstOrNull { it.userId == me }?.halfStars,
                 nextBook = next,
             )
         }
 
-    // ── Actions (spec §4.3): each forwards to the session; ephemera stay here ──
+    // ── Actions: each forwards to the session; ephemera stay here ──
 
-    /** Load [bookId] and play it (Home's and Book Detail's play entry, P-R5), at [startAtMs] or the saved position. */
+    /** Load [bookId] and play it (Home's and Book Detail's play entry), at [startAtMs] or the saved position. */
     fun playBook(
         bookId: BookId,
         startAtMs: Long? = null,
@@ -341,7 +343,7 @@ class PlayerViewModel(
         session.retry()
     }
 
-    /** Clear the error and keep the bar (§11 row 1). */
+    /** Clear the error and keep the bar. */
     fun dismissError() {
         session.dismissError()
     }
@@ -356,7 +358,7 @@ class PlayerViewModel(
         session.skipForward()
     }
 
-    /** The start of this chapter, or the previous one near its start (§3.3). */
+    /** The start of this chapter, or the previous one near its start. */
     fun previousChapter() {
         session.previousChapter()
     }
@@ -377,7 +379,7 @@ class PlayerViewModel(
         session.seekWithinChapter(fraction)
     }
 
-    /** A book-relative seek (today's web scrubber and Media Session `seekto`; PR 3/6 move them to the chapter). */
+    /** A book-relative seek, used by the web scrubber and the Media Session `seekto` action. */
     fun seekTo(positionMs: Long) {
         session.seekTo(positionMs)
     }
@@ -388,8 +390,8 @@ class PlayerViewModel(
     }
 
     /** One step up or down the speed ladder. */
-    fun stepSpeed(up: Boolean) {
-        session.stepSpeed(up)
+    fun stepSpeed(direction: SpeedStep) {
+        session.stepSpeed(direction)
     }
 
     /** Back to the user's default speed. */
@@ -407,7 +409,7 @@ class PlayerViewModel(
         session.resetBoost()
     }
 
-    /** Start a timer and close the sleep sheet (a choice that moves you, §3.8). */
+    /** Start a timer and close the sleep sheet (a choice that moves you). */
     fun setSleepTimer(mode: SleepTimerMode) {
         session.setSleepTimer(mode)
         overlay.value = PlayerOverlay.None
@@ -423,7 +425,7 @@ class PlayerViewModel(
         session.cancelSleepTimer()
     }
 
-    /** Close book: stop, unload, collapse (§4.3). */
+    /** Close book: stop, unload, collapse. */
     fun closeBook() {
         session.closeBook()
         sheetState.collapse()
@@ -435,13 +437,13 @@ class PlayerViewModel(
         session.playBook(BookId(loaded.book.id), null)
     }
 
-    /** Play the next book in the series (§3.7). */
+    /** Play the next book in the series. */
     fun playNextBook() {
         val next = (uiState.value as? PlayerUiState.Loaded)?.finished?.nextBook ?: return
         session.playBook(BookId(next.bookId), null)
     }
 
-    /** Rate the finished book in half stars (2..10). A failure goes to the error bus (§4.3). */
+    /** Rate the finished book in half stars (2..10). A failure goes to the error bus. */
     fun rate(halfStars: Int) {
         val loaded = uiState.value as? PlayerUiState.Loaded ?: return
         viewModelScope.launch {
@@ -543,4 +545,10 @@ private data class Surroundings(
     val source: AudioSource,
     val sleepTimer: SleepTimerState,
     val isAdmin: Boolean,
+)
+
+/** Whether the device has a network and whether the server answers over it. */
+private data class Connectivity(
+    val isOnline: Boolean,
+    val serverReachable: Boolean,
 )

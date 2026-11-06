@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One chrome for every Now Playing sheet (player spec §3.8): an inline title, a close button in the sheet's top bar,
+/// One chrome for every Now Playing sheet: an inline title, a close button in the sheet's top bar,
 /// and content that scrolls when it can't fit.
 ///
 /// HIG, Sheets: a sheet "with a close button" — iOS 26 draws `Button(role: .close)` in a toolbar as the glass close

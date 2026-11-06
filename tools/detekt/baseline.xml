@@ -100,6 +100,7 @@
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Reset to ${formatSpeed(1.0f)}"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Skip back 10s"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Skip forward 30s"</ID>
+    <ID>NoHardcodedUiString:ListenUpWindow.kt:"ListenUp"</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.collectionId) }</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.userId) }</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject()</ID>

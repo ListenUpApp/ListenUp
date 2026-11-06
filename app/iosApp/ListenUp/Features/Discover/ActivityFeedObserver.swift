@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 /// Observes `ActivityFeedViewModel` — flattens the sealed `ActivityFeedUiState` into a
 /// SwiftUI-native `ActivityFeedPhase`. Each `ActivityUiModel` becomes an `ActivityRowItem`
@@ -31,6 +31,11 @@ final class ActivityFeedObserver {
 
     func refresh() {
         viewModel.refresh()
+    }
+
+    /// `refresh()` for a pull-to-refresh: returns when the reconcile has finished.
+    func refreshNow() async {
+        try? await viewModel.refreshNow()
     }
 
     // MARK: - State mapping
@@ -69,7 +74,7 @@ enum ActivityDestination: Hashable {
 
 /// One activity row: "**who** predicate **highlight** suffix" + a relative timestamp.
 ///
-/// The sentence is the shared `activityParts` every platform reads (spec §2.8), so iOS says exactly
+/// The sentence is the shared `activityParts` every platform reads, so iOS says exactly
 /// what Android and web say; only "You" on your own row is chosen here, from `isYou`.
 struct ActivityRowItem: Identifiable, Equatable {
     let id: String
@@ -92,6 +97,10 @@ struct ActivityRowItem: Identifiable, Equatable {
     /// The book's cover content version; nil when it has none or the row is book-less.
     let coverHash: String?
     let occurredAt: Date
+    /// What the row offers beyond its tap, from the shared `activityRowActions` rule.
+    let actions: [ActivityRowActions.Action]
+    /// The same, for a screen that cannot shelve one book (no selection, or one is under way).
+    let actionsWithoutShelving: [ActivityRowActions.Action]
 
     /// The book when there is one, else the shelf, else the actor.
     var destination: ActivityDestination {
@@ -117,6 +126,10 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.coverPath = model.bookCoverPath
         self.coverHash = model.bookCoverHash
         self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.discover.self
+        self.actions = rules.activityRowActions(row: model, canShelve: true).map(ActivityRowActions.Action.init)
+        self.actionsWithoutShelving = rules.activityRowActions(row: model, canShelve: false)
+            .map(ActivityRowActions.Action.init)
     }
 
     init(
@@ -132,7 +145,9 @@ struct ActivityRowItem: Identifiable, Equatable {
         isYou: Bool = false,
         actorName: String? = nil,
         coverPath: String? = nil,
-        coverHash: String? = nil
+        coverHash: String? = nil,
+        actions: [ActivityRowActions.Action] = [],
+        actionsWithoutShelving: [ActivityRowActions.Action] = []
     ) {
         self.id = id
         self.userId = userId
@@ -147,5 +162,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.coverPath = coverPath
         self.coverHash = coverHash
         self.occurredAt = occurredAt
+        self.actions = actions
+        self.actionsWithoutShelving = actionsWithoutShelving
     }
 }

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.nowplaying.morph.morphCollapseFocus
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,16 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -71,7 +62,7 @@ import kotlin.math.roundToInt
 private val MenuShape = RoundedCornerShape(16.dp)
 
 /**
- * Now Playing's top bar (spec §3.1, P1, the status slot, P25).
+ * Now Playing's top bar, with the status slot.
  *
  * **Compact** (`wide = false`): Collapse · the [StatusChip] in the space between · Cast · More.
  * **Wide** (`wide = true`, `NP-AndroidTablet`, P3): Collapse · "Now playing" in `titleMedium` Medium · the status chip
@@ -136,7 +127,7 @@ private fun CompactTopBar(
             },
             modifier = Modifier.morphCollapseFocus(),
         ) {
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
+            Icon(ListenUpIcons.KeyboardArrowDownFilled, contentDescription = stringResource(Res.string.player_collapse))
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { status() }
         cast()
@@ -169,7 +160,7 @@ private fun WideTopBar(
                 onCollapse()
             },
         ) {
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(Res.string.player_collapse))
+            Icon(ListenUpIcons.KeyboardArrowDownFilled, contentDescription = stringResource(Res.string.player_collapse))
         }
         Text(
             text = stringResource(Res.string.player_now_playing),
@@ -203,7 +194,7 @@ private fun MoreMenu(
                 expanded = true
             },
         ) {
-            Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.player_more_options))
+            Icon(ListenUpIcons.MoreVertFilled, contentDescription = stringResource(Res.string.player_more_options))
         }
         DropdownMenu(
             expanded = expanded,
@@ -275,7 +266,7 @@ private fun PlayerMenuItem.label(): String =
             stringResource(Res.string.player_np_volume_boost_row, value)
         }
 
-        // Never offered here (includesShortcuts = false: Android has no app shortcuts); named for exhaustiveness.
+        // Never offered here (includesShortcuts = false: Android lists its keys in the system's shortcuts helper); named for exhaustiveness.
         PlayerMenuItem.KeyboardShortcuts -> {
             stringResource(Res.string.player_keyboard_shortcuts)
         }
@@ -287,11 +278,11 @@ private fun PlayerMenuItem.label(): String =
 
 private fun PlayerMenuItem.icon(): ImageVector =
     when (this) {
-        PlayerMenuItem.GoToBook -> Icons.Default.Book
-        is PlayerMenuItem.GoToSeries -> Icons.AutoMirrored.Filled.LibraryBooks
-        is PlayerMenuItem.GoToAuthor, PlayerMenuItem.ChooseAuthor -> Icons.Default.Person
-        is PlayerMenuItem.OpenPdf -> Icons.Default.Description
-        is PlayerMenuItem.VolumeBoost -> Icons.AutoMirrored.Filled.VolumeUp
-        PlayerMenuItem.KeyboardShortcuts -> Icons.Default.Keyboard
-        PlayerMenuItem.CloseBook -> Icons.Default.Close
+        PlayerMenuItem.GoToBook -> ListenUpIcons.BookFilled
+        is PlayerMenuItem.GoToSeries -> ListenUpIcons.LibraryBooksFilled
+        is PlayerMenuItem.GoToAuthor, PlayerMenuItem.ChooseAuthor -> ListenUpIcons.PersonFilled
+        is PlayerMenuItem.OpenPdf -> ListenUpIcons.DescriptionFilled
+        is PlayerMenuItem.VolumeBoost -> ListenUpIcons.VolumeUpFilled
+        PlayerMenuItem.KeyboardShortcuts -> ListenUpIcons.KeyboardFilled
+        PlayerMenuItem.CloseBook -> ListenUpIcons.CloseFilled
     }

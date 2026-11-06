@@ -256,11 +256,10 @@ class BookEditViewModel(
             }
 
             is BookEditUiEvent.PublishYearChanged -> {
-                // Stored verbatim: the caret-owning text fields require the echo to match what
-                // was typed (see OwnedTextFieldState's echo-verbatim contract), so no transform
-                // may run between field and state. The field itself restricts input via
-                // ListenUpTextField's transform parameter; the digit filter at the save boundary
-                // in toMetadata() stays as a second line of defense.
+                // Stored verbatim: the field owns the typed text and restricts input itself (an
+                // input transformation on ListenUpTextField), so no transform runs between field
+                // and state. The digit filter at the save boundary in toMetadata() stays as a
+                // second line of defense.
                 state.update { it.copy(publishYear = event.year) }
                 updateHasChanges()
             }

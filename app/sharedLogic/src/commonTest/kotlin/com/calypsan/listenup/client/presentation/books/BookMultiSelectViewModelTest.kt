@@ -216,6 +216,15 @@ class BookMultiSelectViewModelTest :
             }
         }
 
+        test("deselectAll clears the picks and stays in selection") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.selectAll(listOf("b1", "b2"))
+                viewModel.deselectAll()
+                viewModel.selectionMode.value shouldBe SelectionMode.Active(selectedIds = emptySet())
+            }
+        }
+
         // ========== adminAccess ==========
 
         test("adminAccess reflects the current user admin flag") {

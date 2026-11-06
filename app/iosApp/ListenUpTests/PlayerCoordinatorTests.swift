@@ -297,14 +297,17 @@ struct SkipIntervalTests {
         // `rate: 0` (paused) holds the position exactly; a positive rate starts the display link.
         harness.engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitObservation { harness.coordinator.bookPositionMs == 60000 }
+        // Paused, a seek restarts the clock at rate 0: playing, it would run on between the two skips.
+        await harness.run(.pause)
 
         harness.coordinator.remoteSkipForward()
         await harness.progress.waitForSeek(bookId: "book1", afterMs: 90000)
         #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 90000 })
 
+        // The forward skip moved the playhead, so the backward one starts from 90 s, not the stale 60 s.
         harness.coordinator.remoteSkipBackward()
-        await harness.progress.waitForSeek(bookId: "book1", afterMs: 50000)
-        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
+        await harness.progress.waitForSeek(bookId: "book1", afterMs: 80000)
+        #expect(harness.progress.seeks.contains { $0.0 == "book1" && $0.2 == 80000 })
     }
 
     /// §3.3: a lock-screen, AirPods or CarPlay skip moves what the app's does — the interval × speed.

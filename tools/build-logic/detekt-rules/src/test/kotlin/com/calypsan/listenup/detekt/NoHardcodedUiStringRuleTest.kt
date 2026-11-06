@@ -2,6 +2,7 @@ package com.calypsan.listenup.detekt
 
 import dev.detekt.api.Config
 import dev.detekt.test.lint
+import dev.detekt.test.utils.compileContentForTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -116,6 +117,76 @@ class NoHardcodedUiStringRuleTest {
     @Test
     fun `does not flag literal inside a Preview function`() {
         assertEquals(0, rule.lint("""@Preview @Composable fun P() { Text("Speed") }""").size)
+    }
+
+    @Test
+    fun `flags a literal passed as a named text argument to any call`() {
+        assertEquals(1, rule.lint("""@Composable fun S() { ListenUpButton(text = "Retry", onClick = {}) }""").size)
+    }
+
+    @Test
+    fun `flags named title message label and placeholder literals`() {
+        assertEquals(
+            4,
+            rule
+                .lint(
+                    """@Composable fun S() { D(title = "A", message = "B", label = "C", placeholder = "D") }""",
+                ).size,
+        )
+    }
+
+    @Test
+    fun `flags the first argument of showSnackbar`() {
+        assertEquals(1, rule.lint("""suspend fun S() { snackbarHostState.showSnackbar("Saved") }""").size)
+    }
+
+    @Test
+    fun `flags the first argument of shareText`() {
+        assertEquals(1, rule.lint("""suspend fun S() { shareActions.shareText("Check out x", url) }""").size)
+    }
+
+    @Test
+    fun `does not flag a format value passed to stringResource`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { stringResource(Res.string.x, "Bob") }""").size)
+    }
+
+    @Test
+    fun `does not flag a semantics contentDescription assignment from an identifier`() {
+        assertEquals(0, rule.lint("""@Composable fun S(name: String) { M.semantics { contentDescription = name } }""").size)
+    }
+
+    @Test
+    fun `does not flag punctuation-only named text`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { B(text = "•") }""").size)
+    }
+
+    @Test
+    fun `does not flag a named text argument that is an identifier`() {
+        assertEquals(0, rule.lint("""@Composable fun S(t: String) { B(text = t) }""").size)
+    }
+
+    @Test
+    fun `does not flag named text literals inside a Preview function`() {
+        assertEquals(0, rule.lint("""@Preview @Composable fun P() { B(text = "Retry") }""").size)
+    }
+
+    @Test
+    fun `does not flag the label of an animation API`() {
+        assertEquals(0, rule.lint("""@Composable fun S() { val a by animateDpAsState(x, label = "deckX") }""").size)
+        assertEquals(0, rule.lint("""@Composable fun S() { AnimatedContent(x, label = "ButtonContent") { } }""").size)
+    }
+
+    @Test
+    fun `flags the label of a non-animation call`() {
+        assertEquals(1, rule.lint("""@Composable fun S() { Field(label = "Email") }""").size)
+    }
+
+    @Test
+    fun `does not flag literals in a preview file`() {
+        assertEquals(
+            0,
+            rule.lint(compileContentForTest("""@Composable fun S() { B(text = "Retry") }""", "HomePreviews.kt")).size,
+        )
     }
 
     @Test

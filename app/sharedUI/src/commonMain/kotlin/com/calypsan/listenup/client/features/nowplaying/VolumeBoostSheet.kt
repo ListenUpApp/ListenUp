@@ -17,7 +17,7 @@ import com.calypsan.listenup.client.design.components.ButtonGroupChoice
 import com.calypsan.listenup.client.design.components.ConnectedSelectButtonGroup
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.presentation.player.isSameVolumeBoost
 import com.calypsan.listenup.domain.VolumeBoostLimits
 import kotlin.math.roundToInt
@@ -55,10 +55,10 @@ object VolumeBoostPresets {
 }
 
 /**
- * The Boost sheet (spec §5.5.3, PB1–PB5; `Sheets-Android`): the level as the sheet's display figure ("+6 dB"), what
+ * The Boost sheet: the level as the sheet's display figure ("+6 dB"), what
  * boost is for, the five levels as one connected single-select group (m3.material.io/components/button-groups/guidelines:
  * connected groups for selection), and reset to the listener's own default. A discrete catalogue by design — no slider
- * (iOS parity). It stays open while the listener compares levels (§3.8). Adaptive sheet/dialog via [PlayerPanelScaffold].
+ * (iOS parity). It stays open while the listener compares levels. Adaptive sheet/dialog via [AdaptiveSheet].
  *
  * @param currentBoostDb This book's boost, in dB.
  * @param defaultBoostDb The listener's default boost, in dB, which reset returns to.
@@ -76,7 +76,7 @@ fun VolumeBoostSheet(
 ) {
     var selectedBoostDb by remember(currentBoostDb) { mutableFloatStateOf(currentBoostDb) }
 
-    PlayerPanelScaffold(title = stringResource(Res.string.player_volume_boost), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_volume_boost), onDismiss = onDismiss) { _ ->
         Text(
             text = boostLabel(selectedBoostDb),
             style =

@@ -20,6 +20,10 @@ import com.calypsan.listenup.client.notifications.NotificationChannels
 import java.util.Locale
 import com.google.common.collect.ImmutableList
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 private val logger = KotlinLogging.logger {}
 
@@ -36,13 +40,13 @@ private val logger = KotlinLogging.logger {}
 class AudiobookNotificationProvider(
     private val context: Context,
     private val skipIntervals: SkipIntervalsHolder,
+    scope: CoroutineScope,
+    decodeDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val strings: SystemStringsHolder = SystemStringsHolder(),
 ) : MediaNotification.Provider {
     companion object {
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = NotificationChannels.PLAYBACK
-
-        private const val MAX_ARTWORK_CACHE = 3
 
         // Custom commands. Value-neutral names and action strings: the amount they move is the
         // user's synced setting (#1300), so a "_30" in the name was a lie the moment the setting
@@ -88,28 +92,17 @@ class AudiobookNotificationProvider(
         icPause = R.drawable.ic_pause
     }
 
-    /**
-     * LRU artwork cache — Media3 re-emits createNotification on every state tick.
-     *
-     * Entries are downsampled to [NOTIFICATION_ARTWORK_MAX_EDGE_PX] on the longest edge before
-     * they land here, so the whole cache costs about what one full-resolution cover used to.
-     */
-    private val artworkCache =
-        object : LinkedHashMap<String, android.graphics.Bitmap>(
-            MAX_ARTWORK_CACHE,
-            0.75f,
-            true, // access-order for LRU behavior
-        ) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, android.graphics.Bitmap>?) =
-                size > MAX_ARTWORK_CACHE
-        }
-
-    private fun cachedArtwork(
-        key: String,
-        decode: () -> android.graphics.Bitmap?,
-    ): android.graphics.Bitmap? =
-        synchronized(artworkCache) {
-            artworkCache[key] ?: decode()?.also { artworkCache[key] = it }
+    /** Decoded covers, filled off the main thread: Media3 re-emits [createNotification] on every state tick. */
+    private val artwork =
+        NotificationArtworkCache(scope, decodeDispatcher) { uri ->
+            try {
+                decodeDownsampled(openStream = { context.contentResolver.openInputStream(uri) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Failed to decode notification artwork from $uri" }
+                null
+            }
         }
 
     override fun createNotification(
@@ -140,21 +133,24 @@ class AudiobookNotificationProvider(
         builder.setContentTitle(notificationTitle(metadata))
         builder.setContentText(notificationText(metadata))
 
-        // Cover art. Downsampled before caching: the provider serves covers at their stored
-        // resolution and a notification large icon needs a fraction of it.
-        metadata.artworkUri?.let { uri ->
-            val bitmap =
-                cachedArtwork(uri.toString()) {
-                    try {
-                        decodeDownsampled(openStream = { context.contentResolver.openInputStream(uri) })
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn(e) { "Failed to decode notification artwork from $uri" }
-                        null
+        // Cover art. A miss builds without it and republishes once the decode lands, so the main thread never
+        // decodes; the republish is dropped if the session has moved on to another cover meanwhile.
+        val coverUri = metadata.artworkUri
+        if (coverUri != null) {
+            val cover =
+                artwork.load(coverUri) { decoded ->
+                    if (mediaSession.player.mediaMetadata.artworkUri == decoded) {
+                        onNotificationChangedCallback.onNotificationChanged(
+                            createNotification(
+                                mediaSession = mediaSession,
+                                customLayout = customLayout,
+                                actionFactory = actionFactory,
+                                onNotificationChangedCallback = onNotificationChangedCallback,
+                            ),
+                        )
                     }
                 }
-            if (bitmap != null) builder.setLargeIcon(bitmap)
+            if (cover != null) builder.setLargeIcon(cover)
         }
 
         // Actions: 5 total, compact view shows 3 (indices 1, 2, 3)

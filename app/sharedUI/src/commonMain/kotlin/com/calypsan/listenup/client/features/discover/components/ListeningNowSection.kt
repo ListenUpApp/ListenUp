@@ -75,10 +75,10 @@ private val LISTENER_MIN_CELL = 150.dp
  *
  * The server owns the split and the order (live by session start, then recent by last-played), and
  * the Room mirror preserves it — this composable renders the list as given. Every other state keeps
- * the heading (spec §3.8): see [listeningNowBody].
+ * the heading: see [listeningNowBody].
  *
  * @param wide A wide window: every listener in a wrapping grid, so no person is hidden in a row that
- *   ran out (plan Q2). Otherwise a horizontal rail.
+ *   ran out. Otherwise a horizontal rail.
  * @param nowMs the instant relative times are measured against. Read once per composition (the
  *   `DevicesScreen` pattern) so a recomposition cannot make "3 days ago" flicker to "4 days ago"
  *   mid-scroll; passed explicitly by tests.
@@ -179,7 +179,7 @@ internal fun ListeningNowSection(
 
 /** What Listening now draws under its heading: one decision, so every platform reads the same table. */
 internal sealed interface ListeningNowBody {
-    /** Loading, or empty before the roster has synced: never claim "nobody" or "just you" early (plan C4). */
+    /** Loading, or empty before the roster has synced: never claim "nobody" or "just you" early. */
     data object Skeleton : ListeningNowBody
 
     /** The section failed: its line and Try again. */
@@ -299,7 +299,7 @@ private fun ListenerCard(
             // The board draws no author under a listener's title: the person row is the second line.
             cover = session.toCoverModel().copy(author = null),
             onClick = { onBookClick(session.bookId) },
-            // One label per card (spec §8.2): the book and who is on it, not the art's title, the
+            // One label per card: the book and who is on it, not the art's title, the
             // caption and the Live chip read one after another. The person row stays its own stop.
             modifier =
                 Modifier.clearAndSetSemantics {

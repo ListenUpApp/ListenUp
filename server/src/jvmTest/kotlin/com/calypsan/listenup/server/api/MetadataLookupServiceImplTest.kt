@@ -17,7 +17,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
@@ -354,8 +354,8 @@ class MetadataLookupServiceImplTest :
                         0x00,
                         0x00,
                     )
-                val imageStorage =
-                    ImageStorage(HttpClient(MockEngine { _ -> respond(jpegBytes, HttpStatusCode.OK) }))
+                val remoteImageFetcher =
+                    RemoteImageFetcher(HttpClient(MockEngine { _ -> respond(jpegBytes, HttpStatusCode.OK) }))
                 val coverImageStore =
                     CoverImageStore(ImageStore(Path(coversDir.toString()), maxBytes = 10L * 1024 * 1024))
 
@@ -367,7 +367,7 @@ class MetadataLookupServiceImplTest :
                             bookRepository = bookRepo,
                             contributorRepository = contributorRepo,
                             seriesRepository = seriesRepo,
-                            imageStorage = imageStorage,
+                            remoteImageFetcher = remoteImageFetcher,
                             coverImageStore = coverImageStore,
                             matchSource = { asin, locale ->
                                 coordinator.composeBook(BookIdentity(asin = asin, title = ""), locale).map { composed ->
@@ -548,7 +548,7 @@ private fun makeService(
         seriesRepository = seriesRepo,
         imageDeps =
             MetadataImageDeps(
-                imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
+                remoteImageFetcher = RemoteImageFetcher(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
                 coverImageStore =
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),

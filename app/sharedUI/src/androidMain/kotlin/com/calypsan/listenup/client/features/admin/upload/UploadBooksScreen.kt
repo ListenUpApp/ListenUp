@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.admin.upload
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
-import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
@@ -18,10 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -309,14 +304,14 @@ private fun IdleContent(
         ListenUpButton(
             onClick = onChooseFolder,
             text = stringResource(Res.string.admin_upload_books_choose_folder),
-            leadingIcon = Icons.Outlined.FolderOpen,
+            leadingIcon = ListenUpIcons.FolderOpen,
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )
         ListenUpButton(
             onClick = onChooseFiles,
             text = stringResource(Res.string.admin_upload_books_choose_files),
-            leadingIcon = Icons.AutoMirrored.Outlined.InsertDriveFile,
+            leadingIcon = ListenUpIcons.InsertDriveFile,
             // Secondary: a folder is the better answer almost always, so only one of these two
             // should read as the primary action.
             filled = false,
@@ -344,7 +339,7 @@ private fun UploadingContent(
     ) {
         ScallopBadge(size = 120.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
-                imageVector = Icons.Outlined.CloudUpload,
+                imageVector = ListenUpIcons.CloudUpload,
                 contentDescription = null,
                 modifier = Modifier.size(54.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -404,7 +399,7 @@ private fun FinalizingContent(modifier: Modifier = Modifier) {
     ) {
         ScallopBadge(size = 120.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
-                imageVector = Icons.Outlined.CloudUpload,
+                imageVector = ListenUpIcons.CloudUpload,
                 contentDescription = null,
                 modifier = Modifier.size(54.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -439,7 +434,7 @@ private fun FinishedContent(
         Spacer(modifier = Modifier.height(Spacing.xl))
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.primaryContainer) {
             Icon(
-                imageVector = Icons.Outlined.CheckCircle,
+                imageVector = ListenUpIcons.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.primary,
@@ -510,7 +505,7 @@ private fun FailedContent(
     ) {
         ScallopBadge(size = 104.dp, containerColor = MaterialTheme.colorScheme.errorContainer) {
             Icon(
-                imageVector = Icons.Outlined.Close,
+                imageVector = ListenUpIcons.Close,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.error,
@@ -534,7 +529,7 @@ private fun FailedContent(
         ListenUpButton(
             onClick = onTryAgain,
             text = stringResource(Res.string.admin_upload_books_choose_folder),
-            leadingIcon = Icons.Outlined.FolderOpen,
+            leadingIcon = ListenUpIcons.FolderOpen,
             fillMaxWidth = !isWide,
             modifier = Modifier.flowActionWidth(isWide),
         )

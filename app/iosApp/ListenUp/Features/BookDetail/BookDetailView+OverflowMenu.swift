@@ -8,7 +8,7 @@ enum BookDetailMenuConfirmation: Identifiable {
     var id: Self { self }
 }
 
-/// Book Detail's More menu (spec §2.7), drawn from the shared rule (`bookDetailMoreMenu`): Share first, in an unnamed
+/// Book Detail's More menu, drawn from the shared rule (`bookDetailMoreMenu`): Share first, in an unnamed
 /// section; then Progress, Edit and Admin, each a named `Section`; then Delete from Server… alone in a last unnamed
 /// section with the destructive role (HIG, Pull-down buttons and Menus: group related items, destructive items at the
 /// end). A held book has no menu: the toolbar shows the Held pill, and its actions are the held card's.
@@ -70,7 +70,7 @@ extension BookDetailView {
             ShareLink(
                 item: url,
                 subject: Text(observer.title),
-                message: Text(String(format: String(localized: "common.share_book_text"), observer.title))
+                message: Text(String(localized: .commonShareBookText(observer.title)))
             ) {
                 Label(command.title, systemImage: command.systemImage)
             }
@@ -93,9 +93,9 @@ extension BookDetailView {
         case .markFinished: showMarkFinished = true
         case .restart: menuConfirmation = .restart
         case .markNotStarted: menuConfirmation = .markNotStarted
-        case .editDetails: showEdit = true
+        case .editDetails: presentShellSheet(.bookEdit(bookId: bookId))
         case .matchDetails: matchTarget = BookMatchTarget(bookId: bookId)
-        case .editChapters: showChapterEditor = true
+        case .editChapters: presentShellSheet(.chapterEditor(bookId: bookId))
         case .addToCollection: observer.openCollectionPicker()
         case .deleteFromServer:
             observer.clearDeleteError()
@@ -110,8 +110,9 @@ private extension View {
     /// Delete is an alert, not the confirmation dialog the two progress resets use (Simon's call: the HIG wins on
     /// iOS). HIG, Alerts — "when people take an uncommon destructive action that they can't undo, it's important to
     /// display an alert in case they initiated the action accidentally." Cancel is the safe way out and never the
-    /// default; the verb is Delete Book, not OK. A refusal arrives as `ErrorAlertCenter`'s alert, so this one is never
-    /// re-presented for it — two alerts contending for one presentation slot is how one of them is lost.
+    /// default; the verb is Delete Book, not OK. A refusal because another book shares the folder is its own alert
+    /// just below (naming that book), and `GlobalErrorObserver` skips it — two alerts contending for one presentation
+    /// slot is how one of them is lost.
     func menuConfirmations(
         _ confirmation: Binding<BookDetailMenuConfirmation?>,
         observer: BookDetailObserver
@@ -152,6 +153,17 @@ private extension View {
                     fileCount: tracked.fileCount,
                     formattedSize: BookSize.label(tracked.bytes)
                 ))
+            }
+            .alert(
+                BookDeletion.title(bookTitle: observer.title),
+                isPresented: Binding(
+                    get: { observer.deleteRefusal != nil },
+                    set: { if !$0 { observer.clearDeleteError() } }
+                )
+            ) {
+                Button(String(localized: "common.ok"), role: .cancel) {}
+            } message: {
+                Text(observer.deleteRefusal ?? "")
             }
     }
 }

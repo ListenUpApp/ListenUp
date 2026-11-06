@@ -18,7 +18,7 @@ import com.calypsan.listenup.server.matching.apply.MatchCatalogs
 import com.calypsan.listenup.server.matching.apply.MatchCoverFiles
 import com.calypsan.listenup.server.matching.apply.MatchPreparer
 import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -61,7 +61,7 @@ internal class BookMetadataApplier(
     private val bookRepository: BookRepository,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
-    private val imageStorage: ImageStorage,
+    private val remoteImageFetcher: RemoteImageFetcher,
     private val coverImageStore: CoverImageStore,
     private val matchSource: suspend (asin: String, locale: MetadataLocale) -> AppResult<MetadataMatch?>,
     private val genreHierarchy: GenreHierarchyFromLadder,
@@ -129,7 +129,7 @@ internal class BookMetadataApplier(
                     ladderRungs = { genreHierarchy.ensureLadder(it) },
                     moodId = { enrichmentDeps.bookMoodWriter.resolveMoodId(it) },
                 ),
-            covers = MatchCoverFiles(imageStorage, coverImageStore),
+            covers = MatchCoverFiles(remoteImageFetcher, coverImageStore),
             now = ::currentEpochMilliseconds,
         )
 

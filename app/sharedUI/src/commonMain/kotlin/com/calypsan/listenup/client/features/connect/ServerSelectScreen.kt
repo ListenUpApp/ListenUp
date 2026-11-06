@@ -13,11 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -226,7 +222,7 @@ private fun NetworkHeader(
                     ListenUpLoadingIndicatorSmall()
                 } else {
                     Icon(
-                        Icons.Outlined.Refresh,
+                        ListenUpIcons.Refresh,
                         contentDescription = stringResource(Res.string.common_refresh),
                         modifier = Modifier.size(18.dp),
                     )
@@ -300,7 +296,7 @@ private fun ServerRow(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Outlined.Dns,
+                        ListenUpIcons.Dns,
                         contentDescription = null,
                         tint =
                             if (isSelected) {
@@ -392,7 +388,7 @@ private fun ServerRowTrailing(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Outlined.Check,
+                        imageVector = ListenUpIcons.Check,
                         contentDescription = stringResource(Res.string.common_selected),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp),
@@ -424,7 +420,7 @@ private fun AddServerRow(onClick: () -> Unit) {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Outlined.Add,
+                        ListenUpIcons.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )

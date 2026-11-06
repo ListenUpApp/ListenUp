@@ -1,18 +1,15 @@
 package com.calypsan.listenup.client.features.settings
 
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.presentation.settings.SettingsEvent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,26 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SortByAlpha
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,7 +55,6 @@ import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import listenup.composeapp.generated.resources.hardcover_row_subtitle_connected
 import listenup.composeapp.generated.resources.hardcover_row_subtitle_connecting
 import listenup.composeapp.generated.resources.hardcover_row_subtitle_needs_attention
@@ -103,7 +79,7 @@ import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
 import listenup.composeapp.generated.resources.settings_autorewind_on_resume
-import listenup.composeapp.generated.resources.settings_autostart_sleep_timer_when_playing
+import listenup.composeapp.generated.resources.settings_default_timer_hint
 import listenup.composeapp.generated.resources.settings_boost_used_for_new_books
 import listenup.composeapp.generated.resources.settings_choose_light_dark_or_follow
 import listenup.composeapp.generated.resources.settings_default_boost
@@ -140,57 +116,19 @@ import listenup.composeapp.generated.resources.settings_wifi_only_downloads
 import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subtitle
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.calypsan.listenup.client.features.nowplaying.formatPlaybackSpeed
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
+import com.calypsan.listenup.client.playback.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import org.koin.compose.viewmodel.koinViewModel
+import listenup.composeapp.generated.resources.settings_dynamic_colors
 
-/**
- * Preset durations for skip forward button (in seconds).
- */
-@Suppress("MagicNumber")
-object SkipForwardPresets {
-    val presets = listOf(10, 15, 20, 30, 45, 60, 90, 120)
-
-    fun format(seconds: Int): String =
-        when {
-            seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
-            seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
-            else -> "${seconds}s"
-        }
-}
-
-/**
- * Preset durations for skip backward button (in seconds).
- */
-@Suppress("MagicNumber")
-object SkipBackwardPresets {
-    val presets = listOf(5, 10, 15, 20, 30, 45, 60)
-
-    fun format(seconds: Int): String =
-        when {
-            seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
-            seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
-            else -> "${seconds}s"
-        }
-}
-
-/**
- * Preset durations for sleep timer (in minutes).
- * Includes "Off" option represented as null.
- */
-@Suppress("MagicNumber")
-object SleepTimerPresets {
-    val presets: List<Int?> = listOf(null, 5, 10, 15, 20, 30, 45, 60, 90, 120)
-
-    fun format(minutes: Int?): String =
-        when (minutes) {
-            null -> "Off"
-            60 -> "1 hour"
-            90 -> "1.5 hours"
-            120 -> "2 hours"
-            else -> "$minutes min"
-        }
-}
+/** How a skip length reads: `45s`, `2 min`, `1m 30s`. */
+private fun formatSkipSeconds(seconds: Int): String =
+    when {
+        seconds >= 60 && seconds % 60 == 0 -> "${seconds / 60} min"
+        seconds >= 60 -> "${seconds / 60}m ${seconds % 60}s"
+        else -> "${seconds}s"
+    }
 
 /**
  * Settings screen.
@@ -430,7 +368,7 @@ private fun AppearanceSection(
         label = stringResource(Res.string.settings_appearance),
     ) {
         SelectorRow(
-            icon = Icons.Default.DarkMode,
+            icon = ListenUpIcons.DarkModeFilled,
             accent = MaterialTheme.colorScheme.primary,
             title = stringResource(Res.string.common_theme),
             subtitle = stringResource(Res.string.settings_choose_light_dark_or_follow),
@@ -447,9 +385,9 @@ private fun AppearanceSection(
         )
         if (showDynamicColors) {
             SettingToggleRow(
-                icon = Icons.Default.Palette,
+                icon = ListenUpIcons.PaletteFilled,
                 accent = MaterialTheme.colorScheme.primary,
-                title = "Dynamic colors",
+                title = stringResource(Res.string.settings_dynamic_colors),
                 subtitle = "Use colors from your wallpaper (Material You)",
                 checked = state.dynamicColorsEnabled,
                 onCheckedChange = actions.onDynamicColorsChange,
@@ -470,13 +408,13 @@ private fun PlaybackSection(
         label = stringResource(Res.string.common_playback),
     ) {
         SelectorRow(
-            icon = Icons.Default.Speed,
+            icon = ListenUpIcons.SpeedFilled,
             accent = accent,
             title = stringResource(Res.string.settings_default_speed),
             subtitle = stringResource(Res.string.settings_speed_used_for_new_books),
             selectedValue = state.defaultPlaybackSpeed,
-            options = PLAYBACK_SPEED_STEPS,
-            formatValue = { formatPlaybackSpeed(it) },
+            options = PlaybackPresets.speedChoicesIncluding(state.defaultPlaybackSpeed),
+            formatValue = { PlaybackPresets.speedLabel(it) },
             onValueSelected = actions.onPlaybackSpeedChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
@@ -500,7 +438,7 @@ private fun PlaybackSection(
                 dbLabel = stringResource(Res.string.player_boost_db, state.defaultVolumeBoostDb.roundToInt()),
             )
         SelectorRow(
-            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            icon = ListenUpIcons.VolumeUpFilled,
             accent = accent,
             title = stringResource(Res.string.settings_default_boost),
             subtitle = stringResource(Res.string.settings_boost_used_for_new_books),
@@ -512,31 +450,31 @@ private fun PlaybackSection(
             pillContentColor = pillContent,
         )
         SelectorRow(
-            icon = Icons.Default.Forward30,
+            icon = ListenUpIcons.Forward30Filled,
             accent = accent,
             title = stringResource(Res.string.settings_skip_forward),
             subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_forward),
             selectedValue = state.defaultSkipForwardSec,
-            options = SkipForwardPresets.presets,
-            formatValue = { SkipForwardPresets.format(it) },
+            options = PlaybackPresets.skipForwardChoicesIncluding(state.defaultSkipForwardSec),
+            formatValue = ::formatSkipSeconds,
             onValueSelected = actions.onSkipForwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
         )
         SelectorRow(
-            icon = Icons.Default.Replay10,
+            icon = ListenUpIcons.Replay10Filled,
             accent = accent,
             title = stringResource(Res.string.settings_skip_backward),
             subtitle = stringResource(Res.string.settings_duration_when_pressing_skip_backward),
             selectedValue = state.defaultSkipBackwardSec,
-            options = SkipBackwardPresets.presets,
-            formatValue = { SkipBackwardPresets.format(it) },
+            options = PlaybackPresets.skipBackwardChoicesIncluding(state.defaultSkipBackwardSec),
+            formatValue = ::formatSkipSeconds,
             onValueSelected = actions.onSkipBackwardChange,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
         )
         SettingToggleRow(
-            icon = Icons.Default.History,
+            icon = ListenUpIcons.HistoryFilled,
             accent = accent,
             title = stringResource(Res.string.settings_autorewind_on_resume),
             subtitle = stringResource(Res.string.settings_rewind_a_few_seconds_when),
@@ -556,13 +494,13 @@ private fun SleepTimerSection(
         label = stringResource(Res.string.settings_sleep_timer),
     ) {
         SelectorRow(
-            icon = Icons.Default.Timer,
+            icon = ListenUpIcons.TimerFilled,
             accent = accent,
             title = stringResource(Res.string.settings_default_timer),
-            subtitle = stringResource(Res.string.settings_autostart_sleep_timer_when_playing),
+            subtitle = stringResource(Res.string.settings_default_timer_hint),
             selectedValue = state.defaultSleepTimerMin,
-            options = SleepTimerPresets.presets,
-            formatValue = { SleepTimerPresets.format(it) },
+            options = SleepTimerChoices.defaultChoicesIncluding(state.defaultSleepTimerMin),
+            formatValue = { minutes -> minutes?.let { SleepTimerMode.Duration(it).label } ?: "Off" },
             onValueSelected = actions.onSleepTimerChange,
             pillContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             pillContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -581,7 +519,7 @@ private fun LibrarySection(
         label = stringResource(Res.string.common_library),
     ) {
         SettingToggleRow(
-            icon = Icons.Default.SortByAlpha,
+            icon = ListenUpIcons.SortByAlphaFilled,
             accent = accent,
             title = stringResource(Res.string.settings_ignore_articles_when_sorting),
             subtitle = stringResource(Res.string.settings_sort_ignoring_leading_articles_a),
@@ -589,7 +527,7 @@ private fun LibrarySection(
             onCheckedChange = actions.onIgnoreTitleArticlesChange,
         )
         SettingToggleRow(
-            icon = Icons.Default.FilterNone,
+            icon = ListenUpIcons.FilterNoneFilled,
             accent = accent,
             title = stringResource(Res.string.settings_hide_singlebook_series),
             subtitle = stringResource(Res.string.settings_hide_series_with_only_one),
@@ -609,7 +547,7 @@ internal fun CurationRow(
 ) {
     if (onOpenCategories == null) return
     SettingNavigationRow(
-        icon = Icons.Default.Category,
+        icon = ListenUpIcons.CategoryFilled,
         accent = MaterialTheme.colorScheme.primary,
         title = stringResource(Res.string.common_categories),
         subtitle = stringResource(Res.string.admin_categories_curate_subtitle),
@@ -632,7 +570,7 @@ private fun AccountSection(
     ) {
         state.serverUrl?.let { url ->
             InfoRow(
-                icon = Icons.Default.Dns,
+                icon = ListenUpIcons.DnsFilled,
                 accent = accent,
                 title = stringResource(Res.string.common_server),
                 value = url.removePrefix("https://").removePrefix("http://"),
@@ -640,7 +578,7 @@ private fun AccountSection(
         }
         if (onNavigateToDevices != null) {
             SettingNavigationRow(
-                icon = Icons.Default.Devices,
+                icon = ListenUpIcons.DevicesFilled,
                 accent = accent,
                 title = stringResource(Res.string.settings_devices),
                 subtitle = stringResource(Res.string.devices_manage_active_sessions),
@@ -649,7 +587,7 @@ private fun AccountSection(
         }
         HardcoverSettingsRow(rowState = hardcoverRow, onClick = onNavigateToHardcover)
         SettingToggleRow(
-            icon = Icons.Default.Vibration,
+            icon = ListenUpIcons.VibrationFilled,
             accent = accent,
             title = stringResource(Res.string.settings_haptic_feedback),
             subtitle = stringResource(Res.string.settings_haptic_feedback_subtitle),
@@ -695,7 +633,7 @@ internal fun HardcoverSettingsRow(
             }
         }
     SettingNavigationRow(
-        icon = Icons.AutoMirrored.Outlined.MenuBook,
+        icon = ListenUpIcons.MenuBook,
         accent = MaterialTheme.colorScheme.primary,
         title = stringResource(Res.string.hardcover_row_title),
         subtitle = subtitle,
@@ -713,7 +651,7 @@ private fun DownloadsSection(
         label = stringResource(Res.string.settings_downloads),
     ) {
         SettingToggleRow(
-            icon = Icons.Default.Wifi,
+            icon = ListenUpIcons.WifiFilled,
             accent = accent,
             title = stringResource(Res.string.settings_wifi_only_downloads),
             subtitle = stringResource(Res.string.settings_wifi_only_downloads_subtitle),
@@ -730,7 +668,7 @@ private fun StorageSection(onNavigateToStorage: () -> Unit) {
         label = stringResource(Res.string.common_storage),
     ) {
         SettingNavigationRow(
-            icon = Icons.Default.Download,
+            icon = ListenUpIcons.DownloadFilled,
             accent = accent,
             title = stringResource(Res.string.settings_manage_storage),
             subtitle = stringResource(Res.string.settings_view_and_manage_downloaded_audiobooks),
@@ -752,14 +690,14 @@ private fun AboutSection(
         label = stringResource(Res.string.common_about),
     ) {
         InfoRow(
-            icon = Icons.Default.Verified,
+            icon = ListenUpIcons.VerifiedFilled,
             accent = accent,
             title = stringResource(Res.string.settings_app_version),
             value = state.appVersion,
         )
         state.serverVersion?.let { version ->
             InfoRow(
-                icon = Icons.Default.Dns,
+                icon = ListenUpIcons.DnsFilled,
                 accent = accent,
                 title = stringResource(Res.string.settings_server_version),
                 value = version,
@@ -767,7 +705,7 @@ private fun AboutSection(
         }
         if (onNavigateToLicenses != null) {
             SettingNavigationRow(
-                icon = Icons.Default.Gavel,
+                icon = ListenUpIcons.GavelFilled,
                 accent = accent,
                 title = stringResource(Res.string.settings_open_source_licenses),
                 subtitle = stringResource(Res.string.settings_view_thirdparty_licenses),
@@ -775,7 +713,7 @@ private fun AboutSection(
             )
         }
         SettingRow(
-            icon = Icons.Default.Share,
+            icon = ListenUpIcons.ShareFilled,
             accent = accent,
             title = stringResource(Res.string.settings_share_logs),
             subtitle = stringResource(Res.string.settings_share_logs_subtitle),
@@ -783,7 +721,7 @@ private fun AboutSection(
         )
         if (onNavigateToNotificationSettings != null) {
             SettingNavigationRow(
-                icon = Icons.Default.Notifications,
+                icon = ListenUpIcons.NotificationsFilled,
                 accent = accent,
                 title = stringResource(Res.string.notifications_settings_row_title),
                 subtitle = stringResource(Res.string.notifications_settings_row_subtitle),
@@ -793,7 +731,7 @@ private fun AboutSection(
         // Beside Share logs deliberately: both answer "is this thing actually working?", which is
         // the only question a user has when a notification never arrived.
         SettingRow(
-            icon = Icons.Default.NotificationsActive,
+            icon = ListenUpIcons.NotificationsActiveFilled,
             accent = accent,
             title = stringResource(Res.string.settings_test_notification),
             subtitle = stringResource(Res.string.settings_test_notification_subtitle),
@@ -851,7 +789,7 @@ private fun <T> SelectorRow(
                             },
                         trailingIcon =
                             if (isCurrent) {
-                                { Icon(Icons.Default.Check, contentDescription = null) }
+                                { Icon(ListenUpIcons.CheckFilled, contentDescription = null) }
                             } else {
                                 null
                             },
@@ -899,7 +837,7 @@ private fun SignOutTile(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.Logout,
+                imageVector = ListenUpIcons.LogoutFilled,
                 contentDescription = null,
             )
             Text(

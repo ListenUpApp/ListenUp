@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.seriesdetail.components.bookCountLabel
 import com.calypsan.listenup.client.features.shelf.shelfReorderActions
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
@@ -249,7 +246,7 @@ private fun SubSeriesRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.DragIndicator,
+                ListenUpIcons.DragIndicatorFilled,
                 contentDescription = null,
                 tint =
                     if (enabled) {
@@ -268,10 +265,10 @@ private fun SubSeriesRow(
             )
         }
         IconButton(onClick = onMoveEarlier, enabled = enabled && canMoveEarlier) {
-            Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(Res.string.shelf_move_earlier))
+            Icon(ListenUpIcons.ArrowUpwardFilled, contentDescription = stringResource(Res.string.shelf_move_earlier))
         }
         IconButton(onClick = onMoveLater, enabled = enabled && canMoveLater) {
-            Icon(Icons.Default.ArrowDownward, contentDescription = stringResource(Res.string.shelf_move_later))
+            Icon(ListenUpIcons.ArrowDownwardFilled, contentDescription = stringResource(Res.string.shelf_move_later))
         }
     }
 }

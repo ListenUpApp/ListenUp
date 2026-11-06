@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import listenup.composeapp.generated.resources.Res
@@ -27,7 +26,7 @@ import listenup.composeapp.generated.resources.book_detail_retry
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book Detail when the book cannot be shown (spec §3.2.3 Error, gap 24): what happened, Retry when asking again could
+ * Book Detail when the book cannot be shown: what happened, Retry when asking again could
  * help ([AppError.isRetryable]; the page turns Ready by itself when the book arrives) and the way back to the Library.
  */
 @Composable
@@ -61,7 +60,7 @@ fun BookDetailErrorState(
                 text = stringResource(Res.string.book_detail_retry),
                 onClick = onRetry,
                 fillMaxWidth = false,
-                leadingIcon = Icons.Default.Refresh,
+                leadingIcon = ListenUpIcons.RefreshFilled,
             )
         }
         TextButton(

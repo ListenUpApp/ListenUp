@@ -31,7 +31,7 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Book Detail's progress unit (spec §2.9): one unit directly above the action row. In progress, the current chapter
+ * Book Detail's progress unit: one unit directly above the action row. In progress, the current chapter
  * and the time left, over a full-width linear line (rev 7: the wave is for the book playing now, not this page).
  * Finished, the dates it was read between. Not started, nothing.
  */
@@ -45,7 +45,7 @@ internal fun ResumeUnit(
     modifier: Modifier = Modifier,
 ) {
     when (readingStage) {
-        // Not started: nothing above the actions but the stats (spec §2.9).
+        // Not started: nothing above the actions but the stats.
         ReadingStage.NotStarted -> {}
 
         ReadingStage.Finished -> {

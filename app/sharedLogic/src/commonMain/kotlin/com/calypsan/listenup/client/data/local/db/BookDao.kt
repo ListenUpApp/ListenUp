@@ -142,6 +142,43 @@ internal interface BookDao {
     fun observeByIdWithContributors(id: BookId): Flow<BookWithContributors?>
 
     /**
+     * Whether a `books` row for [id] exists, tombstoned or not — the same "exists" as
+     * [observeByIdWithContributors] being non-null, read as one boolean instead of a whole relation. A tombstone
+     * still exists (the player tells a revoked book from a gone one by pairing this with [observeIsLive]).
+     *
+     * @param id The type-safe book ID
+     * @return Flow emitting `true` while a row is present, `false` while it is absent
+     */
+    @Query("SELECT COUNT(*) > 0 FROM books WHERE id = :id")
+    fun observeRowExists(id: BookId): Flow<Boolean>
+
+    /**
+     * The book's `totalDuration` in milliseconds, or null while the row is absent. Tombstones are read like
+     * [observeByIdWithContributors]: no `deletedAt` filter. One column, so it re-runs only when `books` changes.
+     *
+     * @param id The type-safe book ID
+     */
+    @Query("SELECT totalDuration FROM books WHERE id = :id LIMIT 1")
+    fun observeTotalDuration(id: BookId): Flow<Long?>
+
+    /**
+     * The id of the book's first series, or null: the first `book_series` row (insertion order, as the detail read's
+     * relation loads them) whose `series` row is present — exactly `BookDetail.series.first().seriesId`.
+     *
+     * @param id The type-safe book ID
+     */
+    @Query(
+        """
+        SELECT bs.seriesId FROM book_series bs
+        INNER JOIN series s ON s.id = bs.seriesId
+        WHERE bs.bookId = :id
+        ORDER BY bs.rowid
+        LIMIT 1
+        """,
+    )
+    fun observeFirstSeriesId(id: BookId): Flow<String?>
+
+    /**
      * Observe whether a book is currently live (present and not tombstoned) in the local mirror.
      *
      * Emits `false` when the row is absent OR soft-deleted (`deletedAt` non-null) — the signal the

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.dom.visibilityState
 import com.calypsan.listenup.web.features.admin.graphInboxBadge
 import com.calypsan.listenup.web.features.admin.graphRestrictedBooks
 import com.calypsan.listenup.web.design.ButtonKind
@@ -205,12 +206,12 @@ private fun startLifecycleHooks(
             manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
         },
         flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
-        isHidden = { document.asDynamic().visibilityState == "hidden" },
+        isHidden = { document.visibilityState == "hidden" },
         scope = scope,
     )
     recoverSyncOnReturn(
         recover = { koin.get<SyncRepository>().recoverRealtime() },
-        isVisible = { document.asDynamic().visibilityState == "visible" },
+        isVisible = { document.visibilityState == "visible" },
         scope = scope,
     )
     // Another tab signing out of the shared session ends this tab's view of it at once.
@@ -227,7 +228,7 @@ private fun startLifecycleHooks(
                 koin.get<AudioTokenProvider>().prepareForPlayback()
             }
         },
-        isVisible = { document.asDynamic().visibilityState == "visible" },
+        isVisible = { document.visibilityState == "visible" },
         scope = scope,
     )
 }

@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 import org.koin.core.parameter.parametersOf
@@ -30,14 +29,4 @@ fun graphBookReaders(koin: Koin): OpenBookReaders =
         val viewModel = koin.get<BookReadersViewModel> { parametersOf(bookId) }
         val store = ViewModelStore().apply { put(bookId, viewModel) }
         BookReadersSession(state = viewModel.uiState, close = store::clear)
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedBookReaders(
-    state: BookReadersUiState,
-    onOpen: (String) -> Unit = {},
-): OpenBookReaders =
-    { bookId ->
-        onOpen(bookId)
-        BookReadersSession(state = MutableStateFlow(state), close = {})
     }

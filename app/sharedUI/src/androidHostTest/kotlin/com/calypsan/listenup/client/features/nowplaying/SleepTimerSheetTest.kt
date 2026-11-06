@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.features.nowplaying
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -123,6 +125,30 @@ class SleepTimerSheetTest {
         repeat(2) { composeRule.onNodeWithContentDescription("5 minutes more").performClick() }
         composeRule.onNodeWithText("Start").performClick()
         set shouldBe listOf(SleepTimerMode.Duration(30))
+    }
+
+    @Test
+    fun `with a default of 45 the stepper opens at 45 and the 45 min button says Your default`() {
+        sheet(sleepSheetState(defaultMinutes = 45))
+        composeRule.onAllNodesWithText("45 min").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Your default").assertCountEquals(1)
+        composeRule
+            .onNode(
+                hasText("45 min") and
+                    SemanticsMatcher("also says Your default") { node ->
+                        node.config
+                            .getOrNull(SemanticsProperties.Text)
+                            .orEmpty()
+                            .any { it.text == "Your default" }
+                    },
+            ).assertExists()
+    }
+
+    @Test
+    fun `with no default the stepper opens at 20 and no button says Your default`() {
+        sheet(sleepSheetState(defaultMinutes = null))
+        composeRule.onNodeWithText("20 min").assertExists()
+        composeRule.onNodeWithText("Your default").assertDoesNotExist()
     }
 
     @Test

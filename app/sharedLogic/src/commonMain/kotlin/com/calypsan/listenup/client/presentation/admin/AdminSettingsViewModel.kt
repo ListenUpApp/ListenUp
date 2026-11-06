@@ -47,46 +47,49 @@ class AdminSettingsViewModel(
     }
 
     fun loadSettings() {
-        viewModelScope.launch {
-            when (val result = loadServerSettingsUseCase()) {
-                is AppResult.Success -> {
-                    savedServerName = result.data.serverName
-                    savedRemoteUrl = result.data.remoteUrl.orEmpty()
-                    savedHoldNewBooksForReview = result.data.holdNewBooksForReview
-                    savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
-                    savedMetadataRegion = result.data.metadataRegion
-                    state.update { current ->
-                        if (current is AdminSettingsUiState.Ready) {
-                            current.copy(
-                                serverName = result.data.serverName,
-                                remoteUrl = result.data.remoteUrl.orEmpty(),
-                                holdNewBooksForReview = result.data.holdNewBooksForReview,
-                                pushNotificationsEnabled = result.data.pushNotificationsEnabled,
-                                metadataRegion = result.data.metadataRegion,
-                                error = null,
-                            )
-                        } else {
-                            AdminSettingsUiState.Ready(
-                                serverName = result.data.serverName,
-                                remoteUrl = result.data.remoteUrl.orEmpty(),
-                                holdNewBooksForReview = result.data.holdNewBooksForReview,
-                                pushNotificationsEnabled = result.data.pushNotificationsEnabled,
-                                metadataRegion = result.data.metadataRegion,
-                            )
-                        }
-                    }
-                    loadRatingSources()
-                    loadHardcoverSource()
-                }
+        viewModelScope.launch { refreshNow() }
+    }
 
-                is AppResult.Failure -> {
-                    logger.error { "Failed to load server settings: ${result.error}" }
-                    state.update { current ->
-                        if (current is AdminSettingsUiState.Ready) {
-                            current.copy(error = result.error)
-                        } else {
-                            AdminSettingsUiState.Error(result.error)
-                        }
+    /** [loadSettings], but suspending until the fetch has finished (success or failure), so a pull spinner can wait for it. */
+    suspend fun refreshNow() {
+        when (val result = loadServerSettingsUseCase()) {
+            is AppResult.Success -> {
+                savedServerName = result.data.serverName
+                savedRemoteUrl = result.data.remoteUrl.orEmpty()
+                savedHoldNewBooksForReview = result.data.holdNewBooksForReview
+                savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
+                savedMetadataRegion = result.data.metadataRegion
+                state.update { current ->
+                    if (current is AdminSettingsUiState.Ready) {
+                        current.copy(
+                            serverName = result.data.serverName,
+                            remoteUrl = result.data.remoteUrl.orEmpty(),
+                            holdNewBooksForReview = result.data.holdNewBooksForReview,
+                            pushNotificationsEnabled = result.data.pushNotificationsEnabled,
+                            metadataRegion = result.data.metadataRegion,
+                            error = null,
+                        )
+                    } else {
+                        AdminSettingsUiState.Ready(
+                            serverName = result.data.serverName,
+                            remoteUrl = result.data.remoteUrl.orEmpty(),
+                            holdNewBooksForReview = result.data.holdNewBooksForReview,
+                            pushNotificationsEnabled = result.data.pushNotificationsEnabled,
+                            metadataRegion = result.data.metadataRegion,
+                        )
+                    }
+                }
+                loadRatingSources()
+                loadHardcoverSource()
+            }
+
+            is AppResult.Failure -> {
+                logger.error { "Failed to load server settings: ${result.error}" }
+                state.update { current ->
+                    if (current is AdminSettingsUiState.Ready) {
+                        current.copy(error = result.error)
+                    } else {
+                        AdminSettingsUiState.Error(result.error)
                     }
                 }
             }

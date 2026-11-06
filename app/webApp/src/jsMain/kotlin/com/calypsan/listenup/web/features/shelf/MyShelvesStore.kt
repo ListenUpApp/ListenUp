@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.shelf.MyShelvesUiState
 import com.calypsan.listenup.client.presentation.shelf.MyShelvesViewModel
 import com.calypsan.listenup.web.nav.RouteSession
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -28,11 +27,5 @@ fun graphMyShelves(koin: Koin): OpenMyShelves =
         val store = ViewModelStore().apply { put(MY_SHELVES_STORE_KEY, viewModel) }
         MyShelvesSession(state = viewModel.state, onRetry = viewModel::refresh, close = store::clear)
     }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedMyShelves(
-    state: MyShelvesUiState = MyShelvesUiState.Loading,
-    onRetry: () -> Unit = {},
-): OpenMyShelves = { MyShelvesSession(state = MutableStateFlow(state), onRetry = onRetry, close = {}) }
 
 private const val MY_SHELVES_STORE_KEY = "my-shelves"

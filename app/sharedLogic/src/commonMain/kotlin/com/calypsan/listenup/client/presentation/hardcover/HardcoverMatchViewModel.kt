@@ -327,6 +327,9 @@ class HardcoverMatchViewModel(
             subject.value = MatchSubject.Missing
             return
         }
+        // The query lands before the book does, so no Ready state ever shows an empty search box: the
+        // screen seeds its field from the first Ready it sees and owns the text from there.
+        query.value = book.title
         subject.value =
             when (val read = repository.bookMatch(BookId(bookId))) {
                 is AppResult.Success -> {
@@ -341,7 +344,6 @@ class HardcoverMatchViewModel(
                     MatchSubject.Found(book, currentMatch = null, matchKnown = false)
                 }
             }
-        query.value = book.title
         runSearch(book.title, book)
     }
 

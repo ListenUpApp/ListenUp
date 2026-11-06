@@ -31,6 +31,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Instant
 
@@ -466,6 +468,85 @@ class ProfileServiceImplTest :
                         .error
                         .shouldBeInstanceOf<ValidationError>()
                         .field shouldBe "imageFrame"
+                }
+            }
+        }
+
+        test("an avatar upload during a password change is not rolled back") {
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                val verifyEntered = CompletableDeferred<Unit>()
+                val releaseVerify = CompletableDeferred<Unit>()
+                // The verify is held open so the avatar upload's row write lands exactly between updateMyProfile's
+                // read of the row and its write.
+                val gated =
+                    Argon2Limiter(
+                        permits = 1,
+                        hashFn = { plaintext -> hasher.hash(plaintext) },
+                        verifyFn = { plaintext, encoded ->
+                            verifyEntered.complete(Unit)
+                            releaseVerify.await()
+                            hasher.verify(plaintext, encoded)
+                        },
+                    )
+                val tOld = 1_700_000_000_000L
+                val tNew = tOld + 60_000L
+                imageAvatar("u1", tOld)
+                runTest {
+                    sql.usersQueries.updatePasswordHash(password_hash = hasher.hash("correct-pass"), id = "u1")
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = gated,
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
+                        ).copyWith(
+                            PrincipalProvider { UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER) },
+                        )
+                    val edit =
+                        async {
+                            svc.updateMyProfile(
+                                UpdateProfileRequest(
+                                    displayName = "New",
+                                    password = PasswordChange("correct-pass", "brand-new-pass"),
+                                ),
+                            )
+                        }
+                    verifyEntered.await()
+                    val uploaded = ImageFraming(tNew.toString(), ImageFrame(0.5, 0.3, 2.0))
+                    sql.usersQueries.updateAvatarTypeAndFrame(
+                        avatar_type = "image",
+                        avatar_updated_at = tNew,
+                        avatar_frame = contractJson.encodeToString(ImageFraming.serializer(), uploaded),
+                        updated_at = tNew,
+                        id = "u1",
+                    )
+                    releaseVerify.complete(Unit)
+
+                    edit.await().shouldBeInstanceOf<AppResult.Success<Profile>>()
+                    val row = sql.usersQueries.selectById("u1").executeAsOne()
+                    row.display_name shouldBe "New"
+                    row.avatar_type shouldBe "image"
+                    row.avatar_updated_at shouldBe tNew
+                    row.avatar_frame shouldBe contractJson.encodeToString(ImageFraming.serializer(), uploaded)
+                }
+            }
+        }
+
+        test("avatarType image over RPC is refused, and nothing is written") {
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                runTest {
+                    val before = sql.usersQueries.selectById("u1").executeAsOne()
+
+                    val failure =
+                        svc("u1")
+                            .updateMyProfile(UpdateProfileRequest(displayName = "Changed", avatarType = "image"))
+                            .shouldBeInstanceOf<AppResult.Failure>()
+
+                    failure.error.shouldBeInstanceOf<ValidationError>().field shouldBe "avatarType"
+                    sql.usersQueries.selectById("u1").executeAsOne() shouldBe before
                 }
             }
         }

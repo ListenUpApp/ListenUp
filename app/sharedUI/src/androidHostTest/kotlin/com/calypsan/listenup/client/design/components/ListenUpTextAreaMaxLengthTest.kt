@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -19,25 +18,25 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * [ListenUpTextArea]'s `maxLength` holds the text to the limit by dropping overflow from what an edit
- * INSERTS — never by cutting the text the user already wrote.
+ * INSERTS — never by cutting the text the user already wrote — inside the field, so the caret holds.
  */
 @RunWith(RobolectricTestRunner::class)
 class ListenUpTextAreaMaxLengthTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private var note by mutableStateOf("")
+    private val state = TextFieldState()
+    private val note: String get() = state.text.toString()
 
     private fun showNote(
         initial: String,
         maxLength: Int?,
     ) {
-        note = initial
+        state.setTextAndPlaceCursorAtEnd(initial)
         composeRule.setContent {
             MaterialTheme {
                 ListenUpTextArea(
-                    value = note,
-                    onValueChange = { note = it },
+                    state = state,
                     label = "Note",
                     maxLength = maxLength,
                     modifier = Modifier.testTag(TAG),
@@ -93,6 +92,16 @@ class ListenUpTextAreaMaxLengthTest {
         composeRule.onNodeWithTag(TAG).performTextInput("bcd")
 
         composeRule.runOnIdle { note shouldBe long + "bcd" }
+    }
+
+    @Test
+    fun `a clipped paste leaves the caret after what was kept`() {
+        showNote("abcde", maxLength = 8)
+
+        composeRule.onNodeWithTag(TAG).performTextInputSelection(TextRange(2))
+        composeRule.onNodeWithTag(TAG).performTextInput("123456")
+
+        composeRule.runOnIdle { state.selection shouldBe TextRange(5) }
     }
 
     private companion object {

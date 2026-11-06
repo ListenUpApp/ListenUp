@@ -86,7 +86,7 @@ private fun clause(
 }
 
 /**
- * The hero's social sentence (spec §2.10): up to two names a clause, listening first ("Maya and Priya are listening ·
+ * The hero's social sentence: up to two names a clause, listening first ("Maya and Priya are listening ·
  * Tom finished it"), with the names in Medium weight. Built from catalog keys, never from ViewModel copy.
  */
 @Composable
@@ -115,7 +115,7 @@ internal fun socialSentence(summary: ReadersSummary): AnnotatedString {
 }
 
 /**
- * Up to three overlapping avatars and the sentence, as one link to the Readers section (spec §2.10, §5.2): read as the
+ * Up to three overlapping avatars and the sentence, as one link to the Readers section: read as the
  * sentence, avatars hidden. Renders nothing when nobody but you has read the book.
  *
  * @param ringColor The ring around each avatar: the surface the line sits on, so the overlap reads as a cut.

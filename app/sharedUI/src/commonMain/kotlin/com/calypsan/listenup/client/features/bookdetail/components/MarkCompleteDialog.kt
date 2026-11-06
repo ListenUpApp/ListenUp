@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -27,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.util.formatDateLong
@@ -173,7 +172,7 @@ private fun DateField(
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 Icon(
-                    imageVector = Icons.Default.CalendarMonth,
+                    imageVector = ListenUpIcons.CalendarMonthFilled,
                     contentDescription = stringResource(Res.string.common_select_date),
                 )
             },

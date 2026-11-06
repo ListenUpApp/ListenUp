@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Book Detail's "Details" (spec §3.2.1 D31): a heading over the shared rule's rows — Publisher, Released, Genre,
+/// Book Detail's "Details": a heading over the shared rule's rows — Publisher, Released, Genre,
 /// Language, Length, Added, ISBN, ASIN — then three links: All Credits (Cast & Credits), Files & Audio (its sheet) and
 /// Maps & Illustrations (one document opens at once, more open a list). A row whose datum is absent is not in `rows`.
 /// Keys sit left in secondary text, values right in medium weight, with hairline dividers between rows; a link row reads

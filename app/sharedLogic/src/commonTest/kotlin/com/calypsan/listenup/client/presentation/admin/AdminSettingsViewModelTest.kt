@@ -21,6 +21,7 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -128,6 +129,30 @@ class AdminSettingsViewModelTest :
                 ready.isDirty shouldBe false
                 ready.isSaving shouldBe false
                 ready.error shouldBe null
+            }
+        }
+
+        test("refreshNow does not return while the settings are loading, and returns once they land") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                val gate = CompletableDeferred<Unit>()
+                everySuspend { fixture.loadServerSettingsUseCase() } calls {
+                    gate.await()
+                    AppResult.Success(createServerSettings(serverName = "Renamed"))
+                }
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                gate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                    .serverName shouldBe "Renamed"
             }
         }
 

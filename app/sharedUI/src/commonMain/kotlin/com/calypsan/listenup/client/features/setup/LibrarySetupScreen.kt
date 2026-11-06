@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.features.setup
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.fadeIn
@@ -33,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,6 +52,7 @@ import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.FolderRow
@@ -78,6 +76,9 @@ import com.calypsan.listenup.client.design.theme.ContentShapes
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.client.design.theme.HeroInk
+import listenup.composeapp.generated.resources.common_continue
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.library_setup_select_this_folder
 
 /**
  * Library-setup wizard — choose audiobook folders, then confirm.
@@ -262,11 +263,11 @@ private fun DockedSelectionBar(
                 )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.common_continue),
                 onClick = onContinue,
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
-                trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
+                trailingIcon = ListenUpIcons.ArrowForward,
             )
         }
     }
@@ -416,15 +417,20 @@ private fun DesktopPickerPanel(
                 )
             }
             if (!state.isRoot) {
-                ListenUpButton(text = "Back", onClick = onBack, filled = false, fillMaxWidth = false)
+                ListenUpButton(
+                    text = stringResource(Res.string.common_back),
+                    onClick = onBack,
+                    filled = false,
+                    fillMaxWidth = false,
+                )
             }
             ListenUpButton(
-                text = "Continue",
+                text = stringResource(Res.string.common_continue),
                 onClick = onContinue,
                 enabled = state.selectedPaths.isNotEmpty(),
                 isLoading = state.isCreatingLibrary,
                 fillMaxWidth = false,
-                trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
+                trailingIcon = ListenUpIcons.ArrowForward,
             )
         }
     }
@@ -527,7 +533,7 @@ private fun EmptyFolder(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.FolderOpen,
+            imageVector = ListenUpIcons.FolderOpen,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(48.dp),
@@ -545,6 +551,10 @@ private fun EmptyFolder(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(Spacing.xl))
-        ListenUpButton(text = "Select this folder", onClick = onSelectCurrent, modifier = Modifier.fillMaxWidth())
+        ListenUpButton(
+            text = stringResource(Res.string.library_setup_select_this_folder),
+            onClick = onSelectCurrent,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

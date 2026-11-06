@@ -67,6 +67,7 @@ private fun DrawPanel(
                 countdownMs = (state as? SleepTimerState.Active)?.remainingMs,
                 meterFraction = 0.79f,
                 nowMs = 1_761_000_000_000,
+                defaultMinutes = 45,
                 placement = placement,
                 onSet = {},
                 onCancel = {},

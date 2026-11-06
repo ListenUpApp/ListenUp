@@ -43,7 +43,7 @@ import org.jetbrains.compose.resources.stringResource
  * chips ([LeaderboardPeriodChips]), the category as a connected button group, and the ranked list.
  * One control per choice: switching category is a pure state filter in the ViewModel, with no pager.
  *
- * The period chips stay in every state (spec §3.8). Loading is a skeleton of rows; a failure is a line and Try
+ * The period chips stay in every state. Loading is a skeleton of rows; a failure is a line and Try
  * again; an empty period says so, or "Just you so far" when you are alone, when the category also goes.
  *
  * @param onUserClick Opens a person's profile.
@@ -71,7 +71,7 @@ internal fun DiscoverLeaderboardSection(
         ) {
             SectionTitle(title = stringResource(Res.string.discover_leaderboard))
             LeaderboardPeriodChips(selected = selection.period, onSelect = onSelectPeriod)
-            // Only you: all three categories would rank you first, so the choice goes (spec §3.8).
+            // Only you: all three categories would rank you first, so the choice goes.
             if (community != CommunitySize.JustYou) {
                 ConnectedSelectButtonGroup(
                     choices = LeaderboardCategory.entries.map { ButtonGroupChoice(it, categoryLabel(it)) },
@@ -97,7 +97,7 @@ internal fun DiscoverLeaderboardSection(
 
                 is LeaderboardUiState.Empty -> {
                     when (community) {
-                        // Never say "nobody" or "just you" before the roster has synced (plan C4).
+                        // Never say "nobody" or "just you" before the roster has synced.
                         CommunitySize.Unknown -> LeaderboardSkeleton()
 
                         CommunitySize.JustYou -> QuietLine(stringResource(Res.string.discover_leaderboard_just_you))

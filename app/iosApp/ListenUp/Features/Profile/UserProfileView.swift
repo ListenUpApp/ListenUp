@@ -12,7 +12,7 @@ struct UserProfileView: View {
     @Environment(\.dependencies) private var deps
 
     @State private var statsObserver: UserProfileObserver?
-    @State private var isEditing = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     private var user: User? { userObserver.user }
 
@@ -31,14 +31,11 @@ struct UserProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { isEditing = true } label: {
+                Button { presentShellSheet(.editProfile) } label: {
                     Image(systemName: "pencil")
                 }
                 .accessibilityLabel(Text("profile.edit_profile"))
             }
-        }
-        .sheet(isPresented: $isEditing) {
-            EditProfileView()
         }
         .task {
             let observer = statsObserver ?? makeObserver()
@@ -147,7 +144,7 @@ struct UserProfileView: View {
     // MARK: - Edit button
 
     private var editButton: some View {
-        Button { isEditing = true } label: {
+        Button { presentShellSheet(.editProfile) } label: {
             HStack(spacing: 8) {
                 Image(systemName: "pencil")
                 Text(String(localized: "profile.edit_profile"))

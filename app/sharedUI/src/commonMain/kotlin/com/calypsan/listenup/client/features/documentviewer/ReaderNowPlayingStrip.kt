@@ -21,7 +21,7 @@ import com.calypsan.listenup.client.design.MinTouchTarget
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.MiniPlayerGlyphSize
 import com.calypsan.listenup.client.features.nowplaying.authorLine
-import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerIconButton
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
@@ -113,7 +113,7 @@ internal fun ReaderNowPlayingStrip(
                 )
             }
             if (state.showsSkipBack) {
-                Ctrl(
+                PlayerIconButton(
                     icon = SkipGlyphs.backward(skipBackSec),
                     contentDescription = stringResource(Res.string.player_skip_backward, skipBackSec),
                     onClick = onSkipBack,

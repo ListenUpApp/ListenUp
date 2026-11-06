@@ -1,13 +1,12 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,7 +36,7 @@ class SectionTitleTest {
     fun `a colour-block hero title is a heading`() {
         composeRule.setContent {
             MaterialTheme {
-                ColorBlockHero(title = "Administration", badgeIcon = Icons.Default.Settings, onBack = {})
+                ColorBlockHero(title = "Administration", badgeIcon = ListenUpIcons.SettingsFilled, onBack = {})
             }
         }
 

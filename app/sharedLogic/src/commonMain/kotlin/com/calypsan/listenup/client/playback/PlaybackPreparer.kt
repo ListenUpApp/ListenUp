@@ -2,8 +2,10 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -177,8 +179,7 @@ class PlaybackPreparer internal constructor(
                 logger.info { "Refusing to play ${bookId.value}: held for review" }
                 AppResult.Failure(refusal)
             } else {
-                prepareInternal(bookId, start)?.let { AppResult.Success(it) }
-                    ?: AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}"))
+                prepareInternal(bookId, start)
             }
         } catch (e: CancellationException) {
             throw e
@@ -205,7 +206,7 @@ class PlaybackPreparer internal constructor(
     private suspend fun prepareInternal(
         bookId: BookId,
         start: PlaybackStart,
-    ): PreparedPlayback? {
+    ): AppResult<PreparedPlayback> {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
         // 1. Get server URL — the ACTIVE url, so audio streams from the remote host after a roam
@@ -213,14 +214,14 @@ class PlaybackPreparer internal constructor(
         val serverUrl = serverConfig.getActiveUrl()?.value
         if (serverUrl == null) {
             logger.error { "No server URL configured" }
-            return null
+            return couldNotStart(bookId, "no server URL configured")
         }
 
         // 2. Get book with contributors from database
         val bookWithContributors = bookDao.getByIdWithContributors(bookId)
         if (bookWithContributors == null) {
             logger.error { "Book not found: ${bookId.value}" }
-            return null
+            return couldNotStart(bookId, "book not found")
         }
         val book = bookWithContributors.book
 
@@ -252,12 +253,12 @@ class PlaybackPreparer internal constructor(
             val fetched = fetchBookFromServer(bookId)
             if (!fetched) {
                 logger.error { "Failed to fetch book from server: ${bookId.value}" }
-                return null
+                return couldNotStart(bookId, "book fetch from server failed")
             }
             audioFileEntities = audioFileDao.getForBook(bookId.value)
             if (audioFileEntities.isEmpty()) {
                 logger.error { "Audio files still empty after fallback fetch for ${bookId.value}" }
-                return null
+                return couldNotStart(bookId, "audio files still empty after fallback fetch")
             }
         }
 
@@ -267,7 +268,11 @@ class PlaybackPreparer internal constructor(
 
         // 4. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toAudioFile() }
-        val buildResult = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
+        val buildResult =
+            when (val built = buildTimeline(bookId, domainAudioFiles, serverUrl)) {
+                is AppResult.Success -> built.data
+                is AppResult.Failure -> return built
+            }
         val timeline = buildResult.timeline
 
         // 5. Ensure a fresh audio token — only when playback will hit the network. A
@@ -349,23 +354,25 @@ class PlaybackPreparer internal constructor(
         // 7. Trigger background download if not fully downloaded (best-effort caching)
         triggerBackgroundDownloadIfNeeded(bookId, timeline)
 
-        return PreparedPlayback(
-            timeline = timeline,
-            chapters = chapters,
-            bookTitle = book.title,
-            bookAuthor = bookAuthor,
-            bookNarrator = bookNarrator,
-            seriesName = seriesName,
-            seriesId = seriesId,
-            authors = authorRefs,
-            narrators = narratorRefs,
-            coverPath = coverPath,
-            coverHash = book.coverHash,
-            resumePositionMs = resumePositionMs,
-            resumeSpeed = resumeSpeed,
-            resumeBoostDb = resumeBoostDb,
-            measuredGainDb = savedPosition?.measuredGainDb,
-            normalizationGainDb = book.normalizationGainDb,
+        return AppResult.Success(
+            PreparedPlayback(
+                timeline = timeline,
+                chapters = chapters,
+                bookTitle = book.title,
+                bookAuthor = bookAuthor,
+                bookNarrator = bookNarrator,
+                seriesName = seriesName,
+                seriesId = seriesId,
+                authors = authorRefs,
+                narrators = narratorRefs,
+                coverPath = coverPath,
+                coverHash = book.coverHash,
+                resumePositionMs = resumePositionMs,
+                resumeSpeed = resumeSpeed,
+                resumeBoostDb = resumeBoostDb,
+                measuredGainDb = savedPosition?.measuredGainDb,
+                normalizationGainDb = book.normalizationGainDb,
+            ),
         )
     }
 
@@ -518,7 +525,8 @@ class PlaybackPreparer internal constructor(
     /**
      * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
      * streaming URLs from the server only when not fully downloaded (offline-first),
-     * then assemble the timeline. Returns `null` if the server prepare call fails.
+     * then assemble the timeline. Fails if the server prepare call fails and nothing is downloaded: with the typed
+     * cause kept, so a network failure reads as unreachable rather than as a book that can't play.
      *
      * The result also carries [TimelineBuildResult.serverResumePosition] — the
      * server-authoritative resume point from the same prepare() call — so the caller
@@ -528,7 +536,7 @@ class PlaybackPreparer internal constructor(
         bookId: BookId,
         domainAudioFiles: List<AudioFile>,
         serverUrl: String,
-    ): TimelineBuildResult? {
+    ): AppResult<TimelineBuildResult> {
         // Batched instead of one Room query per file — a chaptered book can have 100-300 audio
         // files, and preparing playback is a <500ms budget. Sparse: only downloaded-and-verified
         // files are keys; `localPaths[file.id]` returns null for the rest either way.
@@ -573,7 +581,7 @@ class PlaybackPreparer internal constructor(
                             logger.error {
                                 "prepare() failed for ${bookId.value} and no files are downloaded: ${result.error.message}"
                             }
-                            return null
+                            return AppResult.Failure(result.error.asPlaybackFailure())
                         }
                         logger.warn {
                             "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
@@ -601,8 +609,13 @@ class PlaybackPreparer internal constructor(
                         )
                     },
             )
-        return TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition)
+        return AppResult.Success(TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition))
     }
+
+    private fun couldNotStart(
+        bookId: BookId,
+        reason: String,
+    ): AppResult.Failure = AppResult.Failure(PlaybackError.CouldNotStart(debugInfo = "bookId=${bookId.value}: $reason"))
 
     /**
      * Fetch book data from server and persist locally. Used as a fallback when
@@ -843,3 +856,14 @@ internal fun joinContributorNames(
         }.distinct()
         .joinToString(", ")
 }
+
+/**
+ * A streaming prepare that failed for lack of network is [PlaybackError.ServerUnreachable], so the player keeps
+ * reconnecting and says so; any other failure is not the network's to cure and passes through unchanged.
+ */
+private fun AppError.asPlaybackFailure(): AppError =
+    if (this is TransportError && isRetryable) {
+        PlaybackError.ServerUnreachable(debugInfo = "$code: ${debugInfo.orEmpty()}")
+    } else {
+        this
+    }

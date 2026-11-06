@@ -78,7 +78,7 @@ internal class MorphDrag(
         drag?.sample(event)
         // Capture where the browser allows it, so the moves follow the finger off the element; a synthetic pointer
         // has nothing to capture, and its moves bubble to the window regardless.
-        runCatching { target.asDynamic().setPointerCapture(event.pointerId) }
+        runCatching { target.setPointerCapture(event.pointerId) }
     }
 
     private fun onPointerMove(event: PointerEvent) {

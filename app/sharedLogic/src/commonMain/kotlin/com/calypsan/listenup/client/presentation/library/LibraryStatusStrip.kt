@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.library
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 
 /**
- * What the Library's one status-strip slot says above the grid (spec §3.1.1 L27/L28). Every platform draws this;
+ * What the Library's one status-strip slot says above the grid. Every platform draws this;
  * none decides it, so a scan and a first sync read the same on Android, iOS and web.
  */
 sealed interface LibraryStatusStrip {

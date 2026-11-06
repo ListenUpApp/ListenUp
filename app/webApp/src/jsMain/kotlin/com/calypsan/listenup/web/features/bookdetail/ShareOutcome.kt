@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.dom.shareData
+import com.calypsan.listenup.web.dom.features
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import kotlin.js.Promise
@@ -35,23 +37,20 @@ suspend fun shareBookLink(
     text: String,
     url: String,
 ): ShareOutcome {
-    val nav = window.navigator.asDynamic()
+    val nav = window.navigator.features
 
-    if (nav.share != null) {
-        val payload = js("({})")
-        payload.title = title
-        payload.text = text
-        payload.url = url
+    if (nav.shareOrNull != null) {
         val outcome =
-            runCatching { (nav.share(payload) as Promise<*>).await() }
+            runCatching { nav.share(shareData(title, text, url)).await() }
                 .fold(onSuccess = { ShareOutcome.SHARED }, onFailure = { error ->
                     if (error.isCancellation()) ShareOutcome.SHARED else null
                 })
         if (outcome != null) return outcome
     }
 
-    if (nav.clipboard != null) {
-        return runCatching { (nav.clipboard.writeText(url) as Promise<*>).await() }
+    val clipboard = nav.clipboardOrNull
+    if (clipboard != null) {
+        return runCatching { clipboard.writeText(url).await() }
             .fold(onSuccess = { ShareOutcome.COPIED }, onFailure = { ShareOutcome.FAILED })
     }
     return ShareOutcome.FAILED

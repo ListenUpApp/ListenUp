@@ -3,10 +3,10 @@ import Shared
 
 /// Discover — the social landing screen: the people on this server, and something new for you.
 ///
-/// Reads, top to bottom (spec §2.8): **Listening Now** → **Something New** → **Leaderboard** →
+/// Reads, top to bottom: **Listening Now** → **Something New** → **Leaderboard** →
 /// **Activity** → **Shelves by Others** → **Recently Added**, from three shared ViewModels via native
 /// observers. `DiscoverSection` holds that order and how a regular-width window pairs the
-/// Leaderboard with Activity side by side (§3.7).
+/// Leaderboard with Activity side by side.
 ///
 /// Because Discover is a persistent tab root, the observers are lazily constructed in
 /// `.onAppear` and kept for the screen's lifetime — tearing them down on `.onDisappear`
@@ -14,7 +14,7 @@ import Shared
 /// This mirrors `HomeView`/`LibraryView`.
 ///
 /// `leaderboardLandingRequest` is the shell's landing (`MainShellModel.landOnLeaderboard`): each bump
-/// selects Week, scrolls the leaderboard into view, and moves VoiceOver to its heading (§6.4).
+/// selects Week, scrolls the leaderboard into view, and moves VoiceOver to its heading.
 struct DiscoverView: View {
     /// The shell's leaderboard-landing counter; Discover answers each new value once.
     var leaderboardLandingRequest = 0
@@ -35,7 +35,7 @@ struct DiscoverView: View {
     @State private var handledLanding = 0
     @AccessibilityFocusState private var leaderboardFocused: Bool
     /// The create-invite sheet, presented from the only-you invitation (an admin's), as Admin presents it.
-    @State private var isInviting = false
+    @Environment(\.presentShellSheet) private var presentShellSheet
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -67,9 +67,6 @@ struct DiscoverView: View {
             }
         }
         .bookSelectionChrome(selection)
-        .sheet(isPresented: $isInviting) {
-            CreateInviteView()
-        }
         .onAppear {
             if discover == nil { discover = DiscoverObserver() }
             if leaderboard == nil { leaderboard = LeaderboardObserver() }
@@ -104,9 +101,11 @@ struct DiscoverView: View {
                 .padding(.vertical, Spacing.xs)
             }
             .refreshable {
-                discover.refresh()
+                // The leaderboard only re-runs a failed observation (nothing to wait for).
                 leaderboard.refresh()
-                activity.refresh()
+                async let shelves: Void = discover.refreshNow()
+                async let feed: Void = activity.refreshNow()
+                _ = await (shelves, feed)
             }
             .onAppear { landIfRequested(proxy, leaderboard: leaderboard) }
             .onChange(of: leaderboardLandingRequest) { _, _ in landIfRequested(proxy, leaderboard: leaderboard) }
@@ -158,7 +157,7 @@ struct DiscoverView: View {
                 selection: selection,
                 community: discover.communitySize,
                 viewer: discover.viewer,
-                onInvite: discover.viewer?.canInvite == true ? { isInviting = true } : nil,
+                onInvite: discover.viewer?.canInvite == true ? { presentShellSheet(.createInvite) } : nil,
                 onRetry: { discover.retryListeningNow() }
             )
         case .somethingNew:
@@ -203,7 +202,7 @@ struct DiscoverView: View {
     // MARK: - Landing
 
     /// Answers the shell's leaderboard landing once: Week first, so the board arrives on the right
-    /// period, then the board scrolled to the top, then VoiceOver focus on its heading (spec §6.4).
+    /// period, then the board scrolled to the top, then VoiceOver focus on its heading.
     private func landIfRequested(_ proxy: ScrollViewProxy, leaderboard: LeaderboardObserver) {
         guard leaderboardLandingRequest > handledLanding else { return }
         handledLanding = leaderboardLandingRequest

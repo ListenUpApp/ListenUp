@@ -1,26 +1,32 @@
 import Foundation
+import Shared
 
-/// What an activity row offers beyond its tap, in the board's order (spec §3.5): a book row opens the
+/// What an activity row offers beyond its tap, in the board's order: a book row opens the
 /// book, views the person and adds the book to a shelf; a shelf row opens the shelf and views the
 /// person; a row about neither (a join, a milestone) offers nothing, since its tap already opens the
-/// person (plan Q5). The context menu and the VoiceOver actions read this one list (plan C7).
+/// person. The context menu and the VoiceOver actions read this one list.
 enum ActivityRowActions {
     enum Action: Hashable {
         case openBook(String)
         case openShelf(String)
         case viewPerson(String)
         case addToShelf(String)
+
+        /// Native projection of the shared sealed `ActivityRowAction`.
+        init(_ action: ActivityRowAction) {
+            switch action.sealedType() {
+            case .openBook(let type): self = .openBook(type.value.bookId)
+            case .openShelf(let type): self = .openShelf(type.value.shelfId)
+            case .openProfile(let type): self = .viewPerson(type.value.userId)
+            case .addToShelf(let type): self = .addToShelf(type.value.bookId)
+            }
+        }
     }
 
-    /// The row's actions. `canShelve` is false where the screen has no selection to shelve through.
+    /// The row's actions, as the shared rule decided them. `canShelve` is false where the screen has no selection
+    /// to shelve through.
     static func actions(for item: ActivityRowItem, canShelve: Bool = true) -> [Action] {
-        if let bookId = item.bookId {
-            return [.openBook(bookId), .viewPerson(item.userId)] + (canShelve ? [.addToShelf(bookId)] : [])
-        }
-        if let shelfId = item.shelfId {
-            return [.openShelf(shelfId), .viewPerson(item.userId)]
-        }
-        return []
+        canShelve ? item.actions : item.actionsWithoutShelving
     }
 
     /// Whether a row may offer Add to Shelf: only with a selection to shelve through, and never while
@@ -31,13 +37,13 @@ enum ActivityRowActions {
     static func title(_ action: Action, item: ActivityRowItem) -> String {
         switch action {
         case .openBook, .openShelf:
-            return String(format: String(localized: "discover.activity_open"), item.highlight ?? "")
+            return String(localized: .discoverActivityOpen(item.highlight ?? ""))
         case .viewPerson:
             return item.isYou
                 ? String(localized: "discover.activity_your_profile_a11y")
-                : String(format: String(localized: "discover.activity_view_person_ios"), item.actorName)
+                : String(localized: .discoverActivityViewPersonIos(item.actorName))
         case .addToShelf:
-            return String(format: String(localized: "discover.activity_add_book_to_shelf"), item.highlight ?? "")
+            return String(localized: .discoverActivityAddBookToShelf(item.highlight ?? ""))
         }
     }
 

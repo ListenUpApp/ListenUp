@@ -37,7 +37,7 @@ public class InflateRawSource(
     private val bufferedSource = source.buffered()
     private val reader = BitReader(bufferedSource)
 
-    // 32 KiB circular history window for back-references (RFC §3.2.3 — distances up to 32768).
+    // 32 KiB circular history window for back-references (RFC 1951 §3.2.3 — distances up to 32768).
     private val window = ByteArray(WINDOW_SIZE)
     private var windowPos = 0
 
@@ -45,10 +45,10 @@ public class InflateRawSource(
     private val pending = Buffer()
     private var finished = false
 
-    // Running count of emitted bytes — used to validate back-reference distances (RFC §3.2.3).
+    // Running count of emitted bytes — used to validate back-reference distances (RFC 1951 §3.2.3).
     private var produced = 0L
 
-    // Fixed Huffman tables (RFC §3.2.6) are stream-invariant — build them once and reuse.
+    // Fixed Huffman tables (RFC 1951 §3.2.6) are stream-invariant — build them once and reuse.
     private val fixedLitLen by lazy { HuffmanDecoder(FIXED_LITLEN_LENGTHS) }
     private val fixedDist by lazy { HuffmanDecoder(FIXED_DIST_LENGTHS) }
 
@@ -93,7 +93,7 @@ public class InflateRawSource(
         if (bfinal == 1) finished = true
     }
 
-    /** Stored block (RFC §3.2.4): byte-aligned LEN/NLEN header followed by LEN literal bytes. */
+    /** Stored block (RFC 1951 §3.2.4): byte-aligned LEN/NLEN header followed by LEN literal bytes. */
     private fun decodeStored() {
         reader.alignToByte()
         val len = reader.readBits(16)
@@ -104,7 +104,7 @@ public class InflateRawSource(
         repeat(len) { emit(reader.readBits(8).toByte()) }
     }
 
-    /** Reads a dynamic block's header (RFC §3.2.7) and returns its literal/length + distance decoders. */
+    /** Reads a dynamic block's header (RFC 1951 §3.2.7) and returns its literal/length + distance decoders. */
     private fun readDynamicTables(): Pair<HuffmanDecoder, HuffmanDecoder> {
         val hlit = reader.readBits(5) + 257
         val hdist = reader.readBits(5) + 1
@@ -172,7 +172,7 @@ public class InflateRawSource(
         }
     }
 
-    /** Resolves a length/distance pair (RFC §3.2.5) and copies the run byte-by-byte through the window. */
+    /** Resolves a length/distance pair (RFC 1951 §3.2.5) and copies the run byte-by-byte through the window. */
     private fun copyBackReference(
         lengthSymbol: Int,
         dist: HuffmanDecoder,

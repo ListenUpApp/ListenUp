@@ -1,6 +1,9 @@
 
 package com.calypsan.listenup.client.features.admin.categories
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -9,6 +12,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.selected
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.common_collapsed
@@ -21,7 +25,6 @@ import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.merge_history_genre_title
 import listenup.composeapp.generated.resources.merge_history_open
 import com.calypsan.listenup.client.features.merge.MergeHistoryList
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -44,16 +47,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.CallMerge
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.UnfoldLess
-import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,10 +64,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -126,6 +118,7 @@ import listenup.composeapp.generated.resources.common_rename
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
+import listenup.composeapp.generated.resources.admin_add_root_genre
 
 /**
  * Admin screen for managing the category (genre) tree.
@@ -194,7 +187,7 @@ fun AdminCategoriesScreen(
                         createParentNameState.value = null
                         showCreateDialogState.value = true
                     },
-                    icon = Icons.Outlined.Add,
+                    icon = ListenUpIcons.Add,
                     contentDescription = stringResource(Res.string.admin_add_genre),
                 )
             }
@@ -324,7 +317,7 @@ private fun CategoriesTopBar(
                         },
                     ) {
                         Icon(
-                            imageVector = if (allExpanded) Icons.Outlined.UnfoldLess else Icons.Outlined.UnfoldMore,
+                            imageVector = if (allExpanded) ListenUpIcons.UnfoldLess else ListenUpIcons.UnfoldMore,
                             contentDescription =
                                 stringResource(
                                     if (allExpanded) Res.string.admin_collapse_all else Res.string.admin_expand_all,
@@ -404,7 +397,12 @@ private fun CreateGenreDialog(
 
     if (showCreateDialog) {
         GenreNameDialog(
-            title = if (createParentName != null) "Add sub-genre" else "Add root genre",
+            title =
+                if (createParentName != null) {
+                    stringResource(Res.string.admin_add_subgenre)
+                } else {
+                    stringResource(Res.string.admin_add_root_genre)
+                },
             subtitle = createParentName?.let { "Under: $it" },
             initialName = "",
             confirmLabel = "Create",
@@ -648,16 +646,16 @@ private fun GenreNameDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
 ) {
-    var name by remember { mutableStateOf(initialName) }
+    val name = rememberTextFieldState(initialName)
 
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
         title = title,
         confirmText = confirmLabel,
-        onConfirm = { onConfirm(name.trim()) },
+        onConfirm = { onConfirm(name.text.toString().trim()) },
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
-        confirmEnabled = name.isNotBlank(),
+        confirmEnabled = name.text.isNotBlank(),
     ) {
         Column {
             if (subtitle != null) {
@@ -669,8 +667,7 @@ private fun GenreNameDialog(
                 )
             }
             ListenUpTextField(
-                value = name,
-                onValueChange = { name = it },
+                state = name,
                 label = stringResource(Res.string.admin_genre_name),
                 // Keep the pre-migration corner radius (the OutlinedTextField default).
                 shape = OutlinedTextFieldDefaults.shape,
@@ -919,7 +916,7 @@ private fun CategoryRow(
             null
         }
     var rowPosition by remember { mutableStateOf(Offset.Zero) }
-    var rowHeight by remember { mutableStateOf(0) }
+    var rowHeight by remember { mutableIntStateOf(0) }
 
     val dropHighlightColor = MaterialTheme.colorScheme.primaryContainer
     val selectedColor = MaterialTheme.colorScheme.secondaryContainer
@@ -1029,7 +1026,7 @@ private fun CategoryRowContent(
         // Expand/collapse icon or spacer
         if (hasChildren) {
             Icon(
-                imageVector = Icons.Outlined.ExpandMore,
+                imageVector = ListenUpIcons.ExpandMore,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
@@ -1103,7 +1100,7 @@ private fun SelectableCategoryRowContent(
                 modifier = Modifier.semantics { stateDescription = expansionState },
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
+                    imageVector = ListenUpIcons.ExpandMore,
                     contentDescription = expandLabel,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp).rotate(rotation),
@@ -1121,7 +1118,7 @@ private fun SelectableCategoryRowContent(
 private fun RowScope.CategoryRowLabel(node: GenreTreeNode) {
     // Category icon
     Icon(
-        imageVector = Icons.Outlined.Category,
+        imageVector = ListenUpIcons.Category,
         contentDescription = null,
         tint =
             if (node.depth == 0) {
@@ -1186,7 +1183,7 @@ private fun CategoryContextMenu(
                     onDismiss()
                     onAddChild()
                 },
-                leadingIcon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.Add, contentDescription = null) },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.common_rename)) },
@@ -1195,7 +1192,7 @@ private fun CategoryContextMenu(
                     onDismiss()
                     onRename()
                 },
-                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.Edit, contentDescription = null) },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.admin_move_to)) },
@@ -1204,7 +1201,7 @@ private fun CategoryContextMenu(
                     onDismiss()
                     onMove()
                 },
-                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.ArrowForward, contentDescription = null) },
             )
         }
         if (canCurate) {
@@ -1215,7 +1212,7 @@ private fun CategoryContextMenu(
                     onDismiss()
                     onMerge()
                 },
-                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.CallMerge, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.CallMerge, contentDescription = null) },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.merge_history_open)) },
@@ -1224,7 +1221,7 @@ private fun CategoryContextMenu(
                     onDismiss()
                     onMergeHistory()
                 },
-                leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null) },
+                leadingIcon = { Icon(ListenUpIcons.History, contentDescription = null) },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
@@ -1235,7 +1232,7 @@ private fun CategoryContextMenu(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Outlined.Delete,
+                        ListenUpIcons.Delete,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error,
                     )
@@ -1256,7 +1253,7 @@ private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Category,
+            imageVector = ListenUpIcons.Category,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(64.dp),

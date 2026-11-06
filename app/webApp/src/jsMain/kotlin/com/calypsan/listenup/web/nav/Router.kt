@@ -147,6 +147,17 @@ class Router(
     }
 
     /**
+     * Runs [departure] now when no page holds unsaved work; otherwise asks the held page and runs it only
+     * if the reader chooses to discard. For departures that must prepare something before the route moves
+     * (the player morph measures the bar it grows from), so nothing starts for a move that never happens.
+     * [departure] moves the route itself, with `force = true`, since the question has been answered.
+     */
+    fun whenFreeToLeave(departure: () -> Unit) {
+        val hold = unsavedWork?.takeIf { it.isHeld() }
+        if (hold != null) hold.ask { departure() } else departure()
+    }
+
+    /**
      * Pushes [route] onto history and makes it current — after the held page, if any, agrees.
      *
      * @param force skip the question. For the page's own departures — it saved, or the reader already

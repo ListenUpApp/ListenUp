@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Book Detail's actions (spec §3.2.1 D14/D15/D20): a full-width coral primary capsule — Play, Resume, Listen Again,
+/// Book Detail's actions: a full-width coral primary capsule — Play, Resume, Listen Again,
 /// or Unavailable Offline — then Download and Add to Shelf as a pair of bordered capsules.
 ///
 /// Bordered, not Liquid Glass: these scroll with the content, and the HIG keeps glass for the controls that float
@@ -91,8 +91,7 @@ struct BookListenActions: View {
     /// Spec N2: before it is saved, the download names its size — "Download, 1.29 GB" — never the book's length.
     private var downloadAccessibilityLabel: String {
         downloadState == .notDownloaded
-            ? String(format: String(localized: "book.detail_download_size_a11y"),
-                     StorageFormat.byteSize(downloadSizeBytes))
+            ? String(localized: .bookDetailDownloadSizeA11Y(StorageFormat.byteSize(downloadSizeBytes)))
             : control.accessibilityLabel
     }
 
@@ -135,7 +134,7 @@ struct BookListenActions: View {
     }
 }
 
-/// Remove Download's alert (spec §2.8, the iOS Confirms board): what it frees on this device and that the book stays.
+/// Remove Download's alert: what it frees on this device and that the book stays.
 enum RemoveDownloadCopy {
     static var title: String { String(localized: "book.detail_remove_download_title_ios") }
     static var keep: String { String(localized: "book.detail_remove_download_keep") }
@@ -143,7 +142,7 @@ enum RemoveDownloadCopy {
 
     /// `formattedSize` arrives formatted so the sentence stays testable.
     static func message(formattedSize: String) -> String {
-        String(format: String(localized: "book.detail_remove_download_body"), formattedSize)
+        String(localized: .bookDetailRemoveDownloadBody(formattedSize))
     }
 }
 

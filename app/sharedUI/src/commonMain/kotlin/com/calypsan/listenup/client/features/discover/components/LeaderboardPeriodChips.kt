@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -16,6 +14,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import listenup.composeapp.generated.resources.Res
@@ -52,7 +51,7 @@ internal fun LeaderboardPeriodChips(
                     if (isSelected) {
                         {
                             Icon(
-                                Icons.Default.Check,
+                                ListenUpIcons.CheckFilled,
                                 contentDescription = null,
                                 modifier = Modifier.size(FilterChipDefaults.IconSize),
                             )

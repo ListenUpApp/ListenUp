@@ -22,7 +22,7 @@ struct PendingOperationRow: Identifiable, Equatable {
 
 /// The compact, pure presentation of the sync outbox — what glyph (if any) the shell indicator
 /// shows and whether it shows at all. Pure so the decision is unit-testable rather than tangled in
-/// the toolbar view. Precedence: errors dominate, then in-flight sync, then a pending backlog; a
+/// the toolbar view. Precedence: errors (and a failed refresh) dominate, then in-flight sync, then a pending backlog; a
 /// quiet, empty outbox shows nothing.
 struct SyncStatusPresentation: Equatable {
     enum Icon: Equatable {
@@ -36,8 +36,15 @@ struct SyncStatusPresentation: Equatable {
     /// The badge number for the pending state; nil for syncing/error/hidden.
     let badgeCount: Int?
 
-    static func from(isSyncing: Bool, pendingCount: Int, hasErrors: Bool) -> SyncStatusPresentation {
-        if hasErrors {
+    static func from(
+        isSyncing: Bool,
+        pendingCount: Int,
+        hasErrors: Bool,
+        refreshFailed: Bool = false
+    ) -> SyncStatusPresentation {
+        // A "sync now" that failed keeps the error glyph until the next one, so a pull-to-refresh that did not land
+        // is never silent even with an empty outbox.
+        if hasErrors || refreshFailed {
             return SyncStatusPresentation(isVisible: true, icon: .error, badgeCount: nil)
         }
         if isSyncing {
@@ -62,10 +69,27 @@ final class SyncStatusObserver {
     private(set) var hasErrors: Bool = false
     private(set) var currentOperationDescription: String?
     private(set) var failedOperations: [PendingOperationRow] = []
+    /// The last "sync now" (the indicator's, or the Library's pull-to-refresh) failed. Cleared by the next one.
+    private(set) var refreshFailed: Bool = false
+    private var latestState: SyncIndicatorUiState?
 
     /// The pure indicator decision derived from the flattened counts.
     var presentation: SyncStatusPresentation {
-        SyncStatusPresentation.from(isSyncing: isSyncing, pendingCount: pendingCount, hasErrors: hasErrors)
+        SyncStatusPresentation.from(
+            isSyncing: isSyncing,
+            pendingCount: pendingCount,
+            hasErrors: hasErrors,
+            refreshFailed: refreshFailed
+        )
+    }
+
+    /// "Synced 2 min ago" / "Couldn't sync" / "Syncing…": the shared readout rule, worded for this clock reading.
+    func readoutWords(nowMs: Int64) -> String {
+        guard let latestState else { return SyncReadoutWords.notSyncedYet }
+        return SyncReadoutWords.words(
+            ExportedKotlinPackages.com.calypsan.listenup.client.presentation.sync
+                .syncReadoutOf(state: latestState, nowMs: nowMs)
+        )
     }
 
     private let viewModel: SyncIndicatorViewModel
@@ -103,5 +127,7 @@ final class SyncStatusObserver {
         hasErrors = state.hasErrors
         currentOperationDescription = state.currentOperationDescription
         failedOperations = state.failedOperations.map { PendingOperationRow($0) }
+        refreshFailed = state.refreshFailed
+        latestState = state
     }
 }

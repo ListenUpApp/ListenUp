@@ -154,7 +154,6 @@ kotlin {
                 implementation(libs.ktor.server.status.pages)
                 implementation(libs.ktor.server.auth)
                 implementation(libs.ktor.server.call.id)
-                implementation(libs.ktor.server.rate.limit)
                 implementation(libs.ktor.server.forwarded.header)
                 // PartialContent — byte-range/seek support behind the file-response seam
                 // (respondSeekable). Publishes a linuxX64 variant.
@@ -187,7 +186,7 @@ kotlin {
         getByName("jvmMain") {
             dependencies {
                 // Ktor server core + CIO engine + content-negotiation + serialization-json plus
-                // the resources/status-pages/auth/sse/call-id/rate-limit plugins are in commonMain
+                // the resources/status-pages/auth/sse/call-id plugins are in commonMain
                 // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
                 implementation(libs.ktor.server.auto.head.response)
@@ -547,7 +546,17 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 // into the compiled test binary as `--ktest_gradle_filter`), so the shared helper's
 // command-line-filter probe stands the floor down here too; there is no Kotest
 // system-property path on this lane (see the helper's KDoc).
-failBelowDiscoveredTestCount("linuxX64Test", floor = 65)
+//
+// The floor is DERIVED, not measured (it cannot run on a Mac): 296 commonTest tests ran in the
+// jvmTest run of 2026-10-31, plus 23 `test("…")` declarations in src/linuxX64Test, and 90 % of 319
+// rounds down to 280. CI is the first real run of the new number — correct it from there. The anchor
+// vouches for the lane-only source set; native XML prefixes each `classname` with the lane name (as the
+// Apple lane's does), and the helper accepts that single lane segment before the anchor.
+failBelowDiscoveredTestCount(
+    "linuxX64Test",
+    floor = 280,
+    anchorSpecs = listOf("com.calypsan.listenup.server.NativeServerBootTest"),
+)
 
 // Regenerate the committed golden schema snapshot from the runner (the SSOT after Flyway's
 // removal). Run after adding a migration: ./gradlew :server:generateSchemaSnapshot

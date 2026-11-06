@@ -65,6 +65,7 @@ class LocalizationGeneratorTest {
         assertTrue(cat.contains("\"common.amp\""))
         assertTrue(cat.contains("Tom & Jerry"), "JSON string value, no XML escaping of &")
         assertTrue(cat.contains(""""state": "translated""""))
+        assertTrue(cat.contains(""""extractionState": "manual""""), "manual entries are what Xcode generates symbols for")
     }
 
     @Test

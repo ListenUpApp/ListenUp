@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 
 /**
- * The player card's title for this error, in the browser's words (spec §4.6). Web keeps no string catalog;
+ * The player card's title for this error, in the browser's words. Web keeps no string catalog;
  * the native clients read the same sentences from `en.json` (`player.title_*`).
  */
 internal fun AppError.playerTitle(): String =

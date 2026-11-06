@@ -4,14 +4,14 @@ import Shared
 /// Book detail screen — the native, redesigned assembly.
 ///
 /// A centered hero (with a soft `CoverGlow` halo behind the cover) leads on a neutral band, with the Resume unit, the
-/// actions (`listenUnit`) and the social line inside it, followed by the sections in the visit's stage order (spec
-/// §2.4): chapters first while listening, the synopsis first while deciding, ratings first once finished. A narrow
+/// actions (`listenUnit`) and the social line inside it, followed by the sections in the visit's stage order:
+/// chapters first while listening, the synopsis first while deciding, ratings first once finished. A narrow
 /// width stacks everything; a wide one splits into a left rail (hero, listen unit, social line), sized from the width,
 /// beside a main column of the sections — see `DetailColumns` and `BookDetailIPadRows`. All state comes from
 /// `BookDetailObserver`; the More menu (`+OverflowMenu`) is the shared rule's groups, Delete from Server last.
 struct BookDetailView: View {
     let bookId: String
-    /// Where the screen lands, if not at its top: Home's finishers line opens it on Readers (spec §6.4).
+    /// Where the screen lands, if not at its top: Home's finishers line opens it on Readers.
     let focus: BookDetailFocus?
 
     init(bookId: String, focus: BookDetailFocus? = nil) {
@@ -23,7 +23,7 @@ struct BookDetailView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    /// The hero's cover colours (spec §2.3): neutral until known, at once on a revisit.
+    /// The hero's cover colours: neutral until known, at once on a revisit.
     @State var coverTheme = CoverThemeObserver()
     @State var observer: BookDetailObserver?
     @State var readersObserver: BookReadersObserver?
@@ -110,14 +110,6 @@ struct BookDetailView: View {
                 }
             }
         }
-        .sheet(isPresented: $showEdit) {
-            BookEditView(bookId: bookId)
-        }
-        // A sheet like every other editor (HIG, Sheets); the editor holds its swipe-down while it
-        // has unsaved work, so the draft is never dropped without asking.
-        .sheet(isPresented: $showChapterEditor) {
-            ChapterEditorView(bookId: bookId)
-        }
         // Match details: pushed on a compact width, a full-screen split view on a regular one.
         .bookMatchDetails($matchTarget)
         // The receipt Match details leaves behind, with Undo and See What Changed.
@@ -161,11 +153,11 @@ struct BookDetailView: View {
                     .presentationDragIndicator(.visible)
             }
         }
-        .fullScreenCover(item: Binding(
-            get: { observer?.documentToOpen },
-            set: { if $0 == nil { observer?.dismissReader() } }
-        )) { doc in
-            DocumentReaderView(document: doc, onDone: { observer?.dismissReader() })
+        // The reader is presented by the shell, above the tabs, so a fold or resize does not close it.
+        .onChange(of: observer?.documentToOpen) { _, document in
+            guard let document else { return }
+            observer?.dismissReader()
+            presentShellCover(.documentReader(document))
         }
         .alert(
             String(localized: "book.detail_document_viewer_coming_soon"),
@@ -226,7 +218,7 @@ struct BookDetailView: View {
                     // once whichever branch renders.
                     .haptic(.commit, trigger: bookActionCount)
                 }
-                // Home's finishers line (spec §6.4): once Readers has something to show, bring it to the top and
+                // Home's finishers line: once Readers has something to show, bring it to the top and
                 // VoiceOver's focus to it — once per visit.
                 .onChange(of: readersHaveLoaded, initial: true) { _, loaded in
                     guard loaded, focus == .readers, !landedOnReaders else { return }
@@ -270,7 +262,7 @@ struct BookDetailView: View {
             )
 
             VStack(spacing: 26) {
-                // Admins only, directly under the action unit (spec §3.2.4 rule 4).
+                // Admins only, directly under the action unit.
                 visibilitySection(observer)
                 lastMatchSection(observer)
                 ForEach(shownSections(observer), id: \.self) { kind in
@@ -308,7 +300,7 @@ struct BookDetailView: View {
             .frame(width: railWidth)
 
             VStack(alignment: .leading, spacing: 26) {
-                // Admins only, at the top of the main column (spec §3.2.4 rule 4).
+                // Admins only, at the top of the main column.
                 visibilitySection(observer)
                 iPadRows(observer)
             }
@@ -350,8 +342,9 @@ struct BookDetailView: View {
 
     /// The More menu's open question (mark not started, restart, delete from server), if any.
     @State var menuConfirmation: BookDetailMenuConfirmation?
-    @State var showEdit = false
-    @State var showChapterEditor = false
+    /// The editors are presented by the shell, above the tabs (see `ShellSheet`).
+    @Environment(\.presentShellSheet) var presentShellSheet
+    @Environment(\.presentShellCover) var presentShellCover
     /// Match details, open for this book. `nil` when closed; Match details clears it after Apply.
     @State var matchTarget: BookMatchTarget?
     @State var showReleaseConfirmation = false

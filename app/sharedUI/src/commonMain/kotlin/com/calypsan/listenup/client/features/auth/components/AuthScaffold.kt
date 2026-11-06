@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.auth.components
 
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilledIconButton
@@ -40,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -287,7 +286,7 @@ private fun BackButton(onBack: () -> Unit) {
                 contentColor = MaterialTheme.colorScheme.onSurface,
             ),
     ) {
-        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(Res.string.common_back))
+        Icon(ListenUpIcons.ArrowBack, contentDescription = stringResource(Res.string.common_back))
     }
 }
 

@@ -9,9 +9,9 @@ import kotlinx.coroutines.flow.StateFlow
  * service-bound) via [MediaControllerHolder]. Desktop, Apple, and Web wrap the shared
  * [AudioPlayer] interface directly.
  *
- * VMs consume this interface for all command-side operations (play/pause, seek,
- * speed, queue management). Read-side state (currentBookId, isPlaying, position
- * polling, etc.) continues to flow through [PlaybackManager].
+ * An engine-internal adapter beneath [ManagedPlayerEngine]: ViewModels do not hold it, they
+ * command playback through [PlayerSession], the one owner of every playback command. Read-side
+ * state (currentBookId, isPlaying, position polling, etc.) flows through [PlaybackManager].
  *
  * Lifecycle: [acquire]/[releasePlayer] are refcounted on Android (Media3 service binding);
  * no-ops on Desktop/Apple/Web (AudioPlayer instances are eagerly ready).

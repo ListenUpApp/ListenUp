@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.domain.repository.UploadCandidate
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -32,22 +31,5 @@ fun graphUpload(koin: Koin): OpenUpload =
             onCancel = viewModel::cancel,
             onReset = viewModel::reset,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedUpload(
-    state: UploadBooksUiState,
-    onFilesPicked: (List<UploadCandidate>) -> Unit = {},
-    onCancel: () -> Unit = {},
-    onReset: () -> Unit = {},
-): OpenUpload =
-    {
-        UploadSession(
-            state = MutableStateFlow(state),
-            onFilesPicked = onFilesPicked,
-            onCancel = onCancel,
-            onReset = onReset,
-            close = {},
         )
     }

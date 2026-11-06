@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.client.design.components.PlaybackSlider
 import androidx.compose.animation.AnimatedVisibility
@@ -17,9 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -44,7 +43,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
-import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.PlayerIconButton
+import com.calypsan.listenup.client.features.nowplaying.components.PressFeedback
 import com.calypsan.listenup.client.features.nowplaying.components.MiniBookSwitch
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPrimaryButton
@@ -64,7 +64,7 @@ import listenup.composeapp.generated.resources.player_skip_backward
 import listenup.composeapp.generated.resources.player_skip_forward
 import org.jetbrains.compose.resources.stringResource
 
-/** The narrowest toolbar that holds the whole wide set (§3.5); below it the scrubber and the settings step aside. */
+/** The narrowest toolbar that holds the whole wide set; below it the scrubber and the settings step aside. */
 internal val ToolbarFullSetMinWidth = 840.dp
 
 /** The gap the toolbar floats at, from the window edges and the rail (FloatingToolbar's external padding). */
@@ -94,7 +94,7 @@ private val ToolbarCoverSize = 60.dp
 private const val FOCUSED_SCALE = 1.02f
 
 /**
- * The wide mini player: tablets, unfolded foldables and TV (spec §5.1, board `Mini-AndroidTablet`). An M3 floating
+ * The wide mini player: tablets, unfolded foldables and TV. An M3 floating
  * toolbar on `surfaceContainer` with 28dp corners and the player's one shadow. Back N follows the shared state;
  * forward stays. The chapter scrubber and Speed · Sleep · Chapters appear when the toolbar is at least
  * [ToolbarFullSetMinWidth] wide — the width decides, not the device (sharedUI rule 11).
@@ -210,7 +210,7 @@ private fun RowScope.ToolbarContent(
         modifier = if (fullSet) Modifier.width(ToolbarBodyWidth) else Modifier.weight(1f),
     )
     if (state.showsSkipBack) {
-        Ctrl(
+        PlayerIconButton(
             icon = SkipGlyphs.backward(skipBackwardSec),
             contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
             onClick = actions.onSkipBack,
@@ -228,7 +228,7 @@ private fun RowScope.ToolbarContent(
         busyLabel = miniBusyLabel(line),
         onKeepListening = actions.onKeepListening.takeIf { line == MiniPlayerLine.FadingOut },
     )
-    Ctrl(
+    PlayerIconButton(
         icon = SkipGlyphs.forward(skipForwardSec),
         contentDescription = stringResource(Res.string.player_skip_forward, skipForwardSec),
         onClick = actions.onSkipForward,
@@ -250,8 +250,8 @@ private fun RowScope.ToolbarContent(
             onClick = actions.onSleepClick,
             tonalWhenIdle = false,
         )
-        Ctrl(
-            icon = Icons.AutoMirrored.Filled.List,
+        PlayerIconButton(
+            icon = ListenUpIcons.ListFilled,
             contentDescription = stringResource(Res.string.player_chapters),
             onClick = actions.onChaptersClick,
             size = MinTouchTarget,
@@ -259,14 +259,14 @@ private fun RowScope.ToolbarContent(
             tint = LocalContentColor.current,
         )
     }
-    Ctrl(
-        icon = Icons.Default.KeyboardArrowUp,
+    PlayerIconButton(
+        icon = ListenUpIcons.KeyboardArrowUpFilled,
         contentDescription = stringResource(Res.string.player_mini_open),
         onClick = actions.onOpen,
         size = MinTouchTarget,
         iconSize = MiniPlayerGlyphSize,
         tint = LocalContentColor.current,
-        pressFeedback = false,
+        feedback = PressFeedback.None,
     )
 }
 
@@ -329,13 +329,13 @@ private fun ToolbarScrubber(
     )
 }
 
-/** Speed: a tonal button carrying the rate (§5.1 M13). */
+/** Speed: a tonal button carrying the rate. */
 @Composable
 private fun SpeedButton(
     speed: Float,
     onClick: () -> Unit,
 ) {
-    val rate = formatPlaybackSpeed(speed)
+    val rate = PlaybackPresets.speedLabel(speed)
     val name = stringResource(Res.string.player_playback_speed)
     FilledTonalButton(
         onClick = onClick,

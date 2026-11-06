@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -23,8 +24,7 @@ private fun PreviewListenUpTextFieldEmpty() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpTextField(
-                value = "",
-                onValueChange = {},
+                state = rememberTextFieldState(""),
                 label = SAMPLE_LABEL,
                 placeholder = "https://example.com",
             )
@@ -41,8 +41,7 @@ private fun PreviewListenUpTextFieldWithText() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpTextField(
-                value = "https://listenup.example.com",
-                onValueChange = {},
+                state = rememberTextFieldState("https://listenup.example.com"),
                 label = SAMPLE_LABEL,
                 supportingText = "Enter your ListenUp server address",
             )
@@ -59,8 +58,7 @@ private fun PreviewListenUpTextFieldError() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpTextField(
-                value = "invalid-url",
-                onValueChange = {},
+                state = rememberTextFieldState("invalid-url"),
                 label = SAMPLE_LABEL,
                 isError = true,
                 supportingText = "Invalid URL format. Use https://example.com",
@@ -83,21 +81,18 @@ private fun PreviewListenUpTextFieldStates() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ListenUpTextField(
-                value = "",
-                onValueChange = {},
+                state = rememberTextFieldState(""),
                 label = "Empty",
             )
 
             ListenUpTextField(
-                value = "https://listenup.example.com",
-                onValueChange = {},
+                state = rememberTextFieldState("https://listenup.example.com"),
                 label = "Filled",
                 supportingText = "Valid URL",
             )
 
             ListenUpTextField(
-                value = "invalid",
-                onValueChange = {},
+                state = rememberTextFieldState("invalid"),
                 label = "Error",
                 isError = true,
                 supportingText = "Invalid URL format",

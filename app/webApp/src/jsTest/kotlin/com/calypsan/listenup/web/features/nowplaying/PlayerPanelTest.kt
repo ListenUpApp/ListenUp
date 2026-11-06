@@ -38,6 +38,12 @@ private class OpenedPanel(
 ) {
     var dismissals = 0
 
+    /** Bumping it recomposes the panel (its title carries it) without changing its size, as a playback tick does. */
+    var ticks by mutableStateOf(0)
+
+    /** The height of the panel's body; changing it changes the panel's content size. */
+    var bodyPx by mutableStateOf(0)
+
     fun panel(): HTMLElement? = frame.findAll(".test-dlg").firstOrNull()
 
     fun opener(): HTMLElement = frame.find(".opener")
@@ -62,6 +68,7 @@ class PlayerPanelTest :
             var open by mutableStateOf(false)
             var placement by mutableStateOf<PanelPlacement>(PanelPlacement.Sheet)
             lateinit var opened: OpenedPanel
+            var created = false
             val frame =
                 frames.mount(width, height) {
                     Div(attrs = { style { property("padding", "120px 40px") } }) {
@@ -77,7 +84,7 @@ class PlayerPanelTest :
                     }
                     PlayerPanel(
                         open = open,
-                        title = "Test panel",
+                        title = "Test panel ${if (created) opened.ticks else 0}",
                         panelClass = "test-dlg",
                         placement = placement,
                         onDismiss = {
@@ -85,12 +92,20 @@ class PlayerPanelTest :
                             open = false
                         },
                     ) {
-                        Div(attrs = { style { property("height", "${bodyHeight}px") } }) {
+                        // Not shrinkable: the panel is a flex column, which would otherwise squeeze the body to fit.
+                        Div(attrs = {
+                            style {
+                                property("height", "${if (created) opened.bodyPx else bodyHeight}px")
+                                property("flex-shrink", "0")
+                            }
+                        }) {
                             Button(attrs = { classes("inside") }) { Text("Inside") }
                         }
                     }
                 }
             opened = OpenedPanel(frame)
+            opened.bodyPx = bodyHeight
+            created = true
             opened.opener().focus()
             opened.opener().click()
             awaitFrame()
@@ -206,5 +221,39 @@ class PlayerPanelTest :
             val narrow = frames.mount(PHONE, PHONE_HEIGHT) { Button(attrs = { classes("probe") }) { Text("Probe") } }
             panelPlacementFor(narrow.find(".probe")) shouldBe PanelPlacement.Sheet
             panelPlacementFor(null) shouldBe PanelPlacement.Sheet
+        }
+
+        test("an anchored panel is not re-placed when it recomposes with the same size") {
+            val opened = opened(WIDE, 400, sheet = false, bodyHeight = 1_000)
+            val panel = opened.panel()!!
+            panel.scrollHeight shouldBeGreaterThan panel.clientHeight
+            panel.scrollTop = 100.0
+            val scrolledTo = panel.scrollTop
+            (scrolledTo > 0.0) shouldBe true
+
+            repeat(5) {
+                opened.ticks++
+                awaitFrame()
+                awaitFrame()
+            }
+
+            panel.scrollTop shouldBe scrolledTo
+        }
+
+        test("an anchored panel re-places when its content changes size, then settles") {
+            val opened = opened(WIDE, 400, sheet = false, bodyHeight = 20)
+            val panel = opened.panel()!!
+            panel.style.getPropertyValue("max-height") shouldBe ""
+
+            opened.bodyPx = 1_000
+            awaitFrame()
+            awaitFrame()
+            panel.style.getPropertyValue("max-height") shouldBe "${opened.frame.rect(panel).height}px"
+
+            val top = opened.frame.rect(panel).top
+            repeat(3) {
+                awaitFrame()
+                opened.frame.rect(panel).top shouldBe top
+            }
         }
     })

@@ -167,22 +167,18 @@ struct ImportWizardView: View {
         switch result {
         case .success(let url):
             Task {
-                do {
+                do throws(ImportFilePickError) {
                     // Read the (multi-MB) backup OFF the main thread; doing it synchronously in the
                     // .fileImporter callback froze the UI on large backups. Only the `Sendable`
                     // `Data` crosses back — the non-`Sendable` Kotlin `FileSource` is built here.
-                    let data = try await Task.detached {
-                        try ImportFileSourceBridge.readData(from: url)
-                    }.value
+                    let data = try await ImportFileSourceBridge.readData(from: url)
                     let fileSource = ImportFileSourceBridge.makeFileSource(
                         data: data,
                         filename: url.lastPathComponent
                     )
                     observer?.start(fileSource: fileSource)
-                } catch let error as ImportFilePickError {
-                    pickError = error.message
                 } catch {
-                    pickError = String(localized: "import.upload_failed")
+                    pickError = error.message
                 }
             }
         case .failure:

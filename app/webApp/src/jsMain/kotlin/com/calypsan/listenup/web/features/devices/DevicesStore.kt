@@ -4,7 +4,6 @@ import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.settings.DevicesUiState
 import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -34,23 +33,6 @@ fun graphDevices(koin: Koin): OpenDevices =
             onSignOutOthers = viewModel::signOutOtherDevices,
             onRetry = viewModel::retry,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedDevices(
-    state: DevicesUiState = DevicesUiState.Loading,
-    onRevoke: (String) -> Unit = {},
-    onSignOutOthers: () -> Unit = {},
-    onRetry: () -> Unit = {},
-): OpenDevices =
-    {
-        DevicesSession(
-            state = MutableStateFlow(state),
-            onRevoke = onRevoke,
-            onSignOutOthers = onSignOutOthers,
-            onRetry = onRetry,
-            close = {},
         )
     }
 

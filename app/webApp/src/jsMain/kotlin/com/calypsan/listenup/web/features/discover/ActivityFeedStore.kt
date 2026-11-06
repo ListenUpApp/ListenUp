@@ -4,13 +4,12 @@ import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.web.nav.RouteSession
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
 /**
  * An open See all activity session (X33): the feed and its refresh, backed by a fresh
- * [ActivityFeedViewModel] of its own (plan C6), so leaving the page ends its scope.
+ * [ActivityFeedViewModel] of its own, so leaving the page ends its scope.
  */
 class ActivityFeedSession(
     val state: StateFlow<ActivityFeedUiState>,
@@ -33,11 +32,5 @@ fun graphActivityFeed(koin: Koin): OpenActivityFeed =
             close = store::clear,
         )
     }
-
-/** A session over a state that never changes, for specs. */
-fun fixedActivityFeed(
-    state: ActivityFeedUiState = ActivityFeedUiState.Loading,
-    onRefresh: () -> Unit = {},
-): OpenActivityFeed = { ActivityFeedSession(MutableStateFlow(state), onRefresh, close = {}) }
 
 private const val ACTIVITY_FEED_STORE_KEY = "discover-activity-feed"

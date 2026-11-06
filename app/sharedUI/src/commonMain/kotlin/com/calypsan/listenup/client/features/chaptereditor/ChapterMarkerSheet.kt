@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.transformedBy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -105,7 +107,7 @@ internal fun ChapterMarkerSheetContent(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var name by remember(edit) { mutableStateOf(initialName) }
+    val name = remember(edit) { TextFieldState(initialName) }
     var startsAt by remember(edit) { mutableStateOf(edit.chapterId) }
     var isPicking by remember(edit) { mutableStateOf(false) }
 
@@ -123,10 +125,9 @@ internal fun ChapterMarkerSheetContent(
         MarkerForm(
             edit = edit,
             name = name,
-            onNameChange = { name = it },
             startsAt = chapters.numbered().firstOrNull { it.chapter.id == startsAt },
             onMove = { isPicking = true },
-            onSave = { onSave(name.trim(), startsAt) },
+            onSave = { onSave(name.text.toString().trim(), startsAt) },
             onRemove = onRemove,
             modifier = modifier,
         )
@@ -136,8 +137,7 @@ internal fun ChapterMarkerSheetContent(
 @Composable
 private fun MarkerForm(
     edit: ChapterMarkerEdit,
-    name: String,
-    onNameChange: (String) -> Unit,
+    name: TextFieldState,
     startsAt: NumberedChapter?,
     onMove: () -> Unit,
     onSave: () -> Unit,
@@ -153,11 +153,10 @@ private fun MarkerForm(
     ) {
         Text(text = edit.sheetTitle(), style = MaterialTheme.typography.titleLarge)
         ListenUpTextField(
-            value = name,
-            onValueChange = onNameChange,
+            state = name,
             label = stringResource(Res.string.chapter_editor_marker_name),
             modifier = Modifier.fillMaxWidth(),
-            transform = { it.take(ChapterInput.MAX_SECTION_TITLE) },
+            inputTransformation = markerNameLimit,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
         )
         startsAt?.let { MarkerStartRow(it, onMove.takeUnless { edit.isNew }) }
@@ -174,7 +173,7 @@ private fun MarkerForm(
             ListenUpButton(
                 text = stringResource(Res.string.common_save),
                 onClick = onSave,
-                enabled = name.isNotBlank(),
+                enabled = name.text.isNotBlank(),
                 fillMaxWidth = false,
             )
         }
@@ -274,3 +273,5 @@ private fun ChapterMarkerEdit.sheetTitle(): String =
             else -> Res.string.chapter_editor_marker_edit_book
         },
     )
+
+private val markerNameLimit = transformedBy { it.take(ChapterInput.MAX_SECTION_TITLE) }

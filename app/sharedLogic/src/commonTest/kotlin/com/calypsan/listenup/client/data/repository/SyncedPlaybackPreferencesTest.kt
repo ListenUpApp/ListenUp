@@ -111,4 +111,18 @@ class SyncedPlaybackPreferencesTest :
                 }
             }
         }
+
+        test("the default sleep timer follows its synced field, null meaning Off") {
+            runTest {
+                val repository = FakeUserPreferencesRepository()
+                val preferences = SyncedPlaybackPreferences(repository)
+
+                preferences.observeDefaultSleepTimerMin().test {
+                    awaitItem() shouldBe null
+                    repository.setDefaultSleepTimerMin(45)
+                    awaitItem() shouldBe 45
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

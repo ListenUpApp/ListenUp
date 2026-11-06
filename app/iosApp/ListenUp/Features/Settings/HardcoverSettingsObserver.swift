@@ -225,7 +225,7 @@ final class HardcoverSettingsObserver {
     /// a busy flag flipping.
     nonisolated static func announcement(from old: HardcoverPhase, to new: HardcoverPhase) -> String? {
         guard case .linking = old, case .connected(let connected) = new else { return nil }
-        return String(format: String(localized: "hardcover.row_subtitle_connected"), connected.username)
+        return String(localized: .hardcoverRowSubtitleConnected(connected.username))
     }
 
     nonisolated static func syncLine(from status: HardcoverSyncStatus) -> HardcoverSyncLine {
@@ -291,10 +291,7 @@ final class HardcoverSettingsObserver {
         if now.timeIntervalSince(date) < 60 { return String(localized: "hardcover.last_synced_just_now") }
         let relative = RelativeDateTimeFormatter()
         relative.unitsStyle = .full
-        return String(
-            format: String(localized: "hardcover.last_synced"),
-            relative.localizedString(for: date, relativeTo: now)
-        )
+        return String(localized: .hardcoverLastSynced(relative.localizedString(for: date, relativeTo: now)))
     }
 
     // Deliberately no `default` branches: a new reason must fail to compile here rather than

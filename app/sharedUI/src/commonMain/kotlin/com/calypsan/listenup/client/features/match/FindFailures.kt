@@ -5,12 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.HourglassEmpty
-import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.match.FindFailure
@@ -70,7 +65,7 @@ internal fun FindFailureContent(
     when (failure) {
         FindFailure.Offline -> {
             FailureMessage(
-                icon = Icons.Outlined.CloudOff,
+                icon = ListenUpIcons.CloudOff,
                 title = stringResource(Res.string.match_offline_title),
                 body = stringResource(Res.string.match_offline_body),
             ) { RetryButton(onRetry) }
@@ -78,7 +73,7 @@ internal fun FindFailureContent(
 
         is FindFailure.TimedOut -> {
             FailureMessage(
-                icon = Icons.Outlined.HourglassEmpty,
+                icon = ListenUpIcons.HourglassEmpty,
                 title = stringResource(Res.string.match_timeout_title, failure.source.label),
                 body = stringResource(Res.string.match_timeout_body),
             ) { RetryButton(onRetry) }
@@ -86,7 +81,7 @@ internal fun FindFailureContent(
 
         is FindFailure.RateLimited -> {
             FailureMessage(
-                icon = Icons.Outlined.HourglassEmpty,
+                icon = ListenUpIcons.HourglassEmpty,
                 title = stringResource(Res.string.match_rate_limited_title, failure.source.label),
                 body = stringResource(Res.string.match_rate_limited_body, failure.secondsRemaining),
             ) {
@@ -107,7 +102,7 @@ internal fun FindFailureContent(
 
         is FindFailure.SourceFailed -> {
             FailureMessage(
-                icon = Icons.Outlined.ErrorOutline,
+                icon = ListenUpIcons.ErrorOutline,
                 title = stringResource(Res.string.match_source_failed_title, failure.source.label),
                 body = stringResource(Res.string.match_source_failed_body),
             ) { RetryButton(onRetry) }
@@ -115,7 +110,7 @@ internal fun FindFailureContent(
 
         is FindFailure.NotFoundInStore -> {
             FailureMessage(
-                icon = Icons.Outlined.Storefront,
+                icon = ListenUpIcons.Storefront,
                 title = stringResource(Res.string.match_not_found_title, failure.region.displayName),
                 body = stringResource(Res.string.match_not_found_body),
             ) {
@@ -141,7 +136,7 @@ internal fun FindFailureContent(
 
         FindFailure.NothingFound -> {
             FailureMessage(
-                icon = Icons.Outlined.SearchOff,
+                icon = ListenUpIcons.SearchOff,
                 title = stringResource(Res.string.match_nothing_found_title),
                 body = stringResource(Res.string.match_nothing_found_body),
             ) {
@@ -157,7 +152,7 @@ internal fun FindFailureContent(
 
         is FindFailure.Unexpected -> {
             FailureMessage(
-                icon = Icons.Outlined.ErrorOutline,
+                icon = ListenUpIcons.ErrorOutline,
                 title = stringResource(Res.string.match_unexpected_title),
                 body = failure.error.localized(),
             ) { RetryButton(onRetry) }

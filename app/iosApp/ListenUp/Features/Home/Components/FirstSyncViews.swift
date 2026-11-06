@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// "Building your library" above the first-sync skeleton (spec §2.3 FirstSync, H5): the count joins the title only
-/// while a scan knows both numbers, and VoiceOver hears it as it changes (§8.2).
+/// "Building your library" above the first-sync skeleton: the count joins the title only
+/// while a scan knows both numbers, and VoiceOver hears it as it changes.
 struct FirstSyncStrip: View {
     let count: ArrivalCount?
 
@@ -29,7 +29,7 @@ private extension ArrivalCount {
     var percent: Int { total > 0 ? done * 100 / total : 0 }
 }
 
-/// The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading.
+/// The slot's skeleton: a cover and three lines, while the first sync or the page is loading.
 struct HomeSkeletonView: View {
     @Environment(\.colorScheme) private var colorScheme
 

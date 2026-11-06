@@ -148,8 +148,8 @@ internal class PlaybackManagerImpl(
     override val chapters: StateFlow<List<Chapter>>
         field = MutableStateFlow<List<Chapter>>(emptyList())
 
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
-        field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
+    override val currentChapter: StateFlow<ChapterInfo?>
+        field = MutableStateFlow<ChapterInfo?>(null)
 
     override val effectiveGainDb: StateFlow<Float>
         field = MutableStateFlow(0f)
@@ -166,7 +166,7 @@ internal class PlaybackManagerImpl(
     private var playerObservationJob: Job? = null
 
     // Callback for chapter changes - used by PlaybackService to update notification
-    override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
+    override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
 
     /** Where the last prepared book will start, so [activateBook] can move the playhead there. */
     private var preparedStart: Pair<BookId, Long>? = null

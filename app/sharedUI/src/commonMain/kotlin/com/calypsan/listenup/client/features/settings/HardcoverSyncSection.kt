@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -55,6 +50,7 @@ import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.isLargeFontScale
 import com.calypsan.listenup.client.design.util.relativeTime
@@ -184,7 +180,7 @@ private fun SyncLine(
                     ListenUpLoadingIndicatorSmall()
                 } else {
                     TonalIconTile(
-                        icon = Icons.Outlined.Schedule,
+                        icon = ListenUpIcons.Schedule,
                         size = StatusTileSize,
                         accent = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -211,7 +207,7 @@ private fun StalledCard(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Icon(imageVector = Icons.Outlined.WarningAmber, contentDescription = null)
+                Icon(imageVector = ListenUpIcons.WarningAmber, contentDescription = null)
                 Text(text = stringResource(problem.messageRes()), style = MaterialTheme.typography.bodyLarge)
             }
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
@@ -274,7 +270,7 @@ internal fun HardcoverNeedsMatch(
         trailing = { if (books.isNotEmpty()) CountBadge(count = books.size, contentDescription = countDescription) },
     ) {
         if (books.isEmpty()) {
-            QuietLine(icon = Icons.Outlined.TaskAlt, text = stringResource(Res.string.hardcover_needs_match_none))
+            QuietLine(icon = ListenUpIcons.TaskAlt, text = stringResource(Res.string.hardcover_needs_match_none))
         } else {
             Text(
                 text = stringResource(Res.string.hardcover_needs_match_detail),
@@ -345,7 +341,7 @@ private fun NeedsMatchRow(
                     contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Search,
+                        imageVector = ListenUpIcons.Search,
                         contentDescription = null,
                         modifier = Modifier.size(ButtonDefaults.IconSize),
                     )

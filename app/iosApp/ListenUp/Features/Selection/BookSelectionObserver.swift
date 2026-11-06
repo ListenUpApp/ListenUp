@@ -191,7 +191,18 @@ final class BookSelectionObserver {
     func selectAll(_ bookIds: [String]) { viewModel.selectAll(bookIds: bookIds) }
 
     /// Clears every pick and stays in selection: Deselect All.
-    func deselectAll() { viewModel.enterSelectionMode() }
+    func deselectAll() { viewModel.deselectAll() }
+
+    /// Whether the selection bar reads Deselect All over these books: the shared `selectAllOffer` rule, which is
+    /// the same answer Android and web give (every book on screen is picked, and there is at least one).
+    nonisolated static func readsDeselectAll(onScreen: [String], selected: Set<String>) -> Bool {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.books.self
+        guard let offer = rules.selectAllOffer(onScreen: onScreen, selected: selected) else { return false }
+        switch offer.sealedType() {
+        case .deselectAll: return true
+        case .selectAll: return false
+        }
+    }
 
     // MARK: - Bulk add actions
 

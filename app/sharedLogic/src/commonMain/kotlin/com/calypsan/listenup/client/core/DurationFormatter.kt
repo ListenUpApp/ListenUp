@@ -60,6 +60,18 @@ object DurationFormatter {
         return "${minutes.pad2()}:${seconds.pad2()}"
     }
 
+    /**
+     * `"0:59"` / `"12:04"` / `"1:02:03"` — a playback position or length: `h:mm:ss` from one hour up, `m:ss`
+     * below, hours never wrapping (a 65-hour book reads `"65:00:00"`). ASCII digits in every locale.
+     */
+    fun playbackClock(duration: Duration): String {
+        val clamped = duration.clampToZero()
+        val hours = clamped.inWholeHours
+        val minutes = clamped.inWholeMinutes % 60
+        val seconds = clamped.inWholeSeconds % 60
+        return if (hours > 0) "$hours:${minutes.pad2()}:${seconds.pad2()}" else "$minutes:${seconds.pad2()}"
+    }
+
     /** `"Almost done"` / `"45 min left"` / `"1 hr 30 min left"` / `"2h 15m left"`. */
     fun timeLeft(duration: Duration): String {
         val totalMinutes = duration.inWholeMinutes

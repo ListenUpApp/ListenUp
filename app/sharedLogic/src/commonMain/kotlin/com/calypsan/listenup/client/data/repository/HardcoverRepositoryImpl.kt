@@ -18,7 +18,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlin.time.Clock
@@ -41,14 +40,13 @@ internal class HardcoverRepositoryImpl(
     private val channel: RpcChannel<HardcoverService>,
     private val clock: Clock = Clock.System,
 ) : HardcoverRepository {
-    private val matchChangesFlow = MutableSharedFlow<BookId>(extraBufferCapacity = MATCH_CHANGE_BUFFER)
-
     // In memory on purpose: "just now" is this session's knowledge, and a restart rightly forgets it.
     private val linkTimes = MutableStateFlow<Map<BookId, Instant>>(emptyMap())
 
     override fun linkedAt(bookId: BookId): Instant? = linkTimes.value[bookId]
 
-    override val matchChanges: Flow<BookId> = matchChangesFlow.asSharedFlow()
+    override val matchChanges: Flow<BookId>
+        field = MutableSharedFlow<BookId>(extraBufferCapacity = MATCH_CHANGE_BUFFER)
 
     // Re-asking for a full pull is harmless: a second press only restarts the pull it already asked for.
     override suspend fun syncNow(): AppResult<Unit> = channel.call(idempotent = true) { it.syncNow() }
@@ -66,7 +64,7 @@ internal class HardcoverRepositoryImpl(
             .call(idempotent = true) { it.linkBook(bookId, hcBookId, hcEditionId) }
             .onSuccess {
                 linkTimes.update { times -> times + (bookId to clock.now()) }
-                matchChangesFlow.tryEmit(bookId)
+                matchChanges.tryEmit(bookId)
             }
 
     // Putting the same match back twice leaves it as it was. Not a fresh match, so "just now" is forgotten.
@@ -86,13 +84,13 @@ internal class HardcoverRepositoryImpl(
                 )
             }.onSuccess {
                 linkTimes.update { times -> times - bookId }
-                matchChangesFlow.tryEmit(bookId)
+                matchChanges.tryEmit(bookId)
             }
 
     override suspend fun unlinkBook(bookId: BookId): AppResult<Unit> =
         channel.call(idempotent = true) { it.unlinkBook(bookId) }.onSuccess {
             linkTimes.update { times -> times - bookId }
-            matchChangesFlow.tryEmit(bookId)
+            matchChanges.tryEmit(bookId)
         }
 
     override suspend fun booksNeedingMatch(): AppResult<List<BookId>> =
@@ -108,7 +106,7 @@ internal class HardcoverRepositoryImpl(
     ): AppResult<Unit> =
         channel
             .call(idempotent = true) { it.setBookSynced(bookId, synced) }
-            .onSuccess { matchChangesFlow.tryEmit(bookId) }
+            .onSuccess { matchChanges.tryEmit(bookId) }
 
     override suspend fun keptOffBooks(): AppResult<List<BookId>> = channel.call(idempotent = true) { it.keptOffBooks() }
 

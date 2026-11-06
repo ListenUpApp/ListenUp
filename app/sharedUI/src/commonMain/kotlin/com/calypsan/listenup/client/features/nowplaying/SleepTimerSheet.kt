@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -32,14 +30,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.listenUpOutlinedBorder
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.features.nowplaying.components.PlayerPanelScaffold
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.features.nowplaying.components.SleepCustomStepper
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerChapter
-import com.calypsan.listenup.client.presentation.player.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerChoices
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cancel_timer
 import listenup.composeapp.generated.resources.player_chapter_number
@@ -48,13 +48,13 @@ import listenup.composeapp.generated.resources.player_extend_minutes
 import listenup.composeapp.generated.resources.player_sheet_durations
 import listenup.composeapp.generated.resources.player_sheet_end_of_chapter_after
 import listenup.composeapp.generated.resources.player_sheet_fades_out
+import listenup.composeapp.generated.resources.player_sheet_your_default
 import listenup.composeapp.generated.resources.player_sleep_timer
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import com.calypsan.listenup.client.design.components.formatPlaybackTime
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.features.nowplaying.components.SleepFadingCard
 import com.calypsan.listenup.client.features.nowplaying.components.rememberClockTimeFormatter
@@ -67,7 +67,7 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
 
 /**
- * What the sleep sheet draws (spec §5.5.2), built by the host from the loaded state. Everything that moves with the
+ * What the sleep sheet draws, built by the host from the loaded state. Everything that moves with the
  * position is a lambda, read in the leaf that shows it, so the 4 Hz tick never recomposes the sheet.
  *
  * @property timer The sleep timer: which view the sheet shows.
@@ -76,6 +76,8 @@ import androidx.compose.ui.semantics.contentDescription
  * @property countdownMs Wall-clock time until the timer pauses (`SleepCountdowns.remainingMs`); null with no timer.
  * @property meterFraction The share of the timer still to run (`SleepCountdowns.meterFraction`).
  * @property nowMs The wall clock, injected so "Pauses at" is testable.
+ * @property defaultMinutes The user's default sleep timer: the custom stepper opens at it and the matching duration is
+ *   marked "Your default". Null (Off) leaves the stepper at 20 and marks nothing.
  */
 @Immutable
 internal data class SleepSheetState(
@@ -85,23 +87,24 @@ internal data class SleepSheetState(
     val countdownMs: () -> Long?,
     val meterFraction: () -> Float,
     val nowMs: () -> Long,
+    val defaultMinutes: Int?,
 )
 
 /**
- * The Sleep sheet (spec §5.5.2, PT1–PT8; `Sheets-Android`). With no timer: End of chapter first and largest, in the
+ * The Sleep sheet. With no timer: End of chapter first and largest, in the
  * timer's gold, with the chapter and how long it has left (hidden for a chapterless book); then the durations; then a
- * custom time. Starting a timer closes the sheet (§3.8).
+ * custom time. Starting a timer closes the sheet.
  *
- * Running: the countdown in big m:ss (not a live region, §8), when it pauses by the device's clock, a gold meter of what
+ * Running: the countdown in big m:ss (not a live region), when it pauses by the device's clock, a gold meter of what
  * is left, +5 / +10 / +15 for a duration, and Cancel timer, which keeps the sheet open and returns to the choices (S13).
- * Fading: the same gold card Now Playing shows, with Keep listening (PT7). Adaptive sheet/dialog via
- * [PlayerPanelScaffold].
+ * Fading: the same gold card Now Playing shows, with Keep listening. Adaptive sheet/dialog via
+ * [AdaptiveSheet].
  *
  * @param state What to draw.
  * @param onSetTimer Start a timer with the chosen [SleepTimerMode].
  * @param onCancelTimer Cancel the running timer.
  * @param onExtendTimer Add the given number of minutes to a running duration timer.
- * @param onKeepListening Cancel the timer during its fade; full volume returns (PT7).
+ * @param onKeepListening Cancel the timer during its fade; full volume returns.
  * @param onDismiss Dismiss the panel.
  */
 @Composable
@@ -113,7 +116,7 @@ internal fun SleepTimerSheet(
     onKeepListening: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    PlayerPanelScaffold(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) {
+    AdaptiveSheet(title = stringResource(Res.string.player_sleep_timer), onDismiss = onDismiss) { _ ->
         when (val timer = state.timer) {
             SleepTimerState.Inactive -> {
                 SleepChoices(state = state, onSetTimer = onSetTimer)
@@ -141,16 +144,21 @@ private fun SleepChoices(
     state: SleepSheetState,
     onSetTimer: (SleepTimerMode) -> Unit,
 ) {
-    var customMinutes by rememberSaveable { mutableIntStateOf(SleepTimerChoices.CUSTOM_DEFAULT_MINUTES) }
+    var customMinutes by rememberSaveable(state.defaultMinutes) {
+        mutableIntStateOf(SleepTimerChoices.startingCustomMinutes(state.defaultMinutes))
+    }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        if (SleepTimerChoices.offersEndOfChapter(state.chapter)) {
+        if (SleepTimerChoices.offersEndOfChapter(state.chapter.isWholeBook)) {
             EndOfChapterChoice(
                 chapterName = state.chapter.sleepName(),
                 chapterRemainingMs = state.chapterRemainingMs,
                 onClick = { onSetTimer(SleepTimerMode.EndOfChapter) },
             )
         }
-        DurationGrid(onPick = { minutes -> onSetTimer(SleepTimerMode.Duration(minutes)) })
+        DurationGrid(
+            defaultMinutes = state.defaultMinutes,
+            onPick = { minutes -> onSetTimer(SleepTimerMode.Duration(minutes)) },
+        )
         SleepCustomStepper(
             minutes = customMinutes,
             onStep = { up -> customMinutes = SleepTimerChoices.stepCustom(customMinutes, up) },
@@ -165,7 +173,7 @@ private fun SleepChoices(
 }
 
 /**
- * The sheet's one emphasised choice, in the gold of the running timer (§3.9): the moon, "End of chapter" and "Pauses
+ * The sheet's one emphasised choice, in the gold of the running timer: the moon, "End of chapter" and "Pauses
  * after Bridge Four · in 8m" — content time, like every chapter remainder (S10).
  */
 @Composable
@@ -186,7 +194,7 @@ private fun EndOfChapterChoice(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Bedtime, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(ListenUpIcons.BedtimeFilled, contentDescription = null, modifier = Modifier.size(24.dp))
             Column {
                 Text(stringResource(Res.string.player_end_of_chapter), style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -209,7 +217,10 @@ private fun EndOfChapterChoice(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun DurationGrid(onPick: (minutes: Int) -> Unit) {
+private fun DurationGrid(
+    defaultMinutes: Int?,
+    onPick: (minutes: Int) -> Unit,
+) {
     val groupLabel = stringResource(Res.string.player_sheet_durations)
     Column(
         modifier = Modifier.fillMaxWidth().semantics { contentDescription = groupLabel },
@@ -227,7 +238,17 @@ private fun DurationGrid(onPick: (minutes: Int) -> Unit) {
                                 contentColor = MaterialTheme.colorScheme.onSurface,
                             ),
                         modifier = Modifier.weight(1f).heightIn(min = DURATION_HEIGHT),
-                    ) { Text(SleepTimerMode.Duration(minutes).label) }
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(SleepTimerMode.Duration(minutes).label)
+                            if (minutes == defaultMinutes) {
+                                Text(
+                                    text = stringResource(Res.string.player_sheet_your_default),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    }
                 }
                 repeat(DURATIONS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -250,7 +271,7 @@ private val DURATION_HEIGHT = 56.dp
 private const val DURATIONS_PER_ROW = 3
 
 /**
- * A running timer (PT3–PT6): the countdown, "Pauses at 11:42 PM · 30 min timer" (or, for End of chapter, "Until the end
+ * A running timer: the countdown, "Pauses at 11:42 PM · 30 min timer" (or, for End of chapter, "Until the end
  * of Bridge Four · 8m"), the meter, the extend group for a duration ([SleepTimerChoices.canExtend]), and Cancel timer.
  */
 @Composable
@@ -282,7 +303,7 @@ private fun Countdown(
     state: SleepSheetState,
 ) {
     val countdownMs = state.countdownMs() ?: 0L
-    val countdown = countdownMs.milliseconds.formatPlaybackTime()
+    val countdown = DurationFormatter.playbackClock(countdownMs.milliseconds)
     val fraction = state.meterFraction()
     val formatClock = rememberClockTimeFormatter()
     val mode = timer.mode
@@ -310,7 +331,11 @@ private fun Countdown(
             SleepTimerMode.EndOfChapter -> if (fraction > 0f) (countdownMs / fraction).toLong() else countdownMs
         }
     val meterLabel =
-        stringResource(Res.string.player_sheet_meter_a11y, countdown, totalMs.milliseconds.formatPlaybackTime())
+        stringResource(
+            Res.string.player_sheet_meter_a11y,
+            countdown,
+            DurationFormatter.playbackClock(totalMs.milliseconds),
+        )
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,

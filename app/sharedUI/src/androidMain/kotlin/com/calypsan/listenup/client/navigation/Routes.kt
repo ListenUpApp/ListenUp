@@ -543,11 +543,14 @@ data class DocumentViewer(
 ) : Route
 
 /**
- * Whether Now Playing expands again now that [leftTop] is no longer the top of [stack]: it was a reader opened from
- * Now Playing and it has left the stack (backed out of, by the button or the system back), rather than been covered
- * by a screen pushed over it.
+ * Whether Now Playing expands again now that the stack went from [previous] to [current]: only a plain Back out of a
+ * reader opened from Now Playing does, i.e. [current] is [previous] with that reader removed from the top. A screen
+ * pushed over the reader, or an outside navigation that replaced the stack, does not.
  */
 internal fun reexpandsNowPlaying(
-    leftTop: NavKey?,
-    stack: List<NavKey>,
-): Boolean = leftTop is DocumentViewer && leftTop.opensFromNowPlaying && leftTop !in stack
+    previous: List<NavKey>,
+    current: List<NavKey>,
+): Boolean {
+    val reader = previous.lastOrNull() as? DocumentViewer ?: return false
+    return reader.opensFromNowPlaying && current == previous.dropLast(1)
+}

@@ -301,7 +301,7 @@ internal class MetadataLookupServiceImpl(
                 bookRepository = bookRepository,
                 contributorRepository = contributorRepository,
                 seriesRepository = seriesRepository,
-                imageStorage = imageDeps.imageStorage,
+                remoteImageFetcher = imageDeps.remoteImageFetcher,
                 coverImageStore = imageDeps.coverImageStore,
                 matchSource = { a, locale ->
                     composeBook(a, locale, bookId = bookId).map { composed ->
@@ -349,7 +349,7 @@ internal class MetadataLookupServiceImpl(
         return withCapturedFrames {
             ContributorMetadataApplier(
                 contributorRepository = contributorRepository,
-                imageStorage = imageDeps.imageStorage,
+                remoteImageFetcher = imageDeps.remoteImageFetcher,
                 coordinator = coordinator,
                 imageHome = imageDeps.imageHome,
             ).apply(contributorId, asin, region)
@@ -383,7 +383,7 @@ internal class MetadataLookupServiceImpl(
             // The fetch already carries its own typed failure (unsafe URL or hop, oversize
             // response, declared non-image type) — surface it as-is rather than re-deriving one.
             val bytes =
-                when (val fetched = imageDeps.imageStorage.downloadBytes(url)) {
+                when (val fetched = imageDeps.remoteImageFetcher.downloadBytes(url)) {
                     is AppResult.Success -> fetched.data
                     is AppResult.Failure -> return@withCapturedFrames fetched
                 }

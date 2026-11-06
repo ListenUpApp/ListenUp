@@ -10,9 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -35,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
 import com.calypsan.listenup.client.domain.model.CombinedScore
 import com.calypsan.listenup.client.domain.model.ListenerAverage
@@ -119,7 +117,7 @@ private fun ScoreItem(
             Text(stringResource(Res.string.book_detail_rating_score_detail, ratingCountLabel(score.count), sources))
         },
         leadingContent = { Figure(average) },
-        trailingContent = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null) },
+        trailingContent = { Icon(ListenUpIcons.KeyboardArrowRightFilled, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         // ⛔ Order matters (a11y audit M4): `clickable` sits OUTSIDE `clearAndSetSemantics`, which clears
         // every semantics node to its right — the old rating line put it first, so TalkBack said
@@ -217,7 +215,7 @@ private fun Figure(average: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Rounded.Star,
+            imageVector = ListenUpIcons.StarFilled,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp),

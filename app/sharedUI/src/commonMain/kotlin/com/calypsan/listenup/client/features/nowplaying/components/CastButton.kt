@@ -3,8 +3,6 @@ package com.calypsan.listenup.client.features.nowplaying.components
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -21,13 +19,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.MinTouchTarget
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_sheet_cast_playing_on
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The Cast / route-picker button for the Now Playing screen (spec §5.5.6, PO).
+ * The Cast / route-picker button for the Now Playing screen.
  *
  * At rest on Android it embeds the framework `MediaRouteButton`, which handles device discovery, the chooser and
  * controller dialogs, the connecting animation, and hides itself when no Cast devices are on the network. While
@@ -44,7 +43,7 @@ expect fun CastButton(
 
 /**
  * Cast while casting (`States-Android`'s chip): the cast glyph and the device's name on `primaryContainer`, read as
- * "Cast. Playing on Living Room. Change output". The board's filled chip wins on looks (C13); the route chooser stays
+ * "Cast. Playing on Living Room. Change output". The board's filled chip wins on looks; the route chooser stays
  * the system's own dialog, which M3 does not restyle.
  *
  * @param deviceName The device playing now.
@@ -76,7 +75,7 @@ internal fun CastConnectedButton(
                 }
             },
     ) {
-        Icon(Icons.Default.CastConnected, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(ListenUpIcons.CastConnectedFilled, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(
             text = deviceName,
             maxLines = 1,

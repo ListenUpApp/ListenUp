@@ -1,7 +1,12 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.clearText
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.compactTouchTarget
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,10 +15,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,10 +25,9 @@ import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +51,8 @@ import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_from_this_book
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.book_edit_this_will_remove_contributorstoremovecount
+import listenup.composeapp.generated.resources.book_edit_add_role_placeholder
+import listenup.composeapp.generated.resources.book_edit_remove_role_title
 
 /**
  * Talent section for managing contributors by role.
@@ -73,7 +75,7 @@ fun TalentSection(
     onRemoveRoleSection: (ContributorRole) -> Unit,
 ) {
     var roleToRemove by remember { mutableStateOf<ContributorRole?>(null) }
-    var contributorsToRemoveCount by remember { mutableStateOf(0) }
+    var contributorsToRemoveCount by remember { mutableIntStateOf(0) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Show a section for each visible role
@@ -114,7 +116,7 @@ fun TalentSection(
     roleToRemove?.let { role ->
         ListenUpDestructiveDialog(
             onDismissRequest = { roleToRemove = null },
-            title = "Remove ${role.displayName}s?",
+            title = stringResource(Res.string.book_edit_remove_role_title, role.displayName),
             text =
                 stringResource(
                     Res.string.book_edit_this_will_remove_contributorstoremovecount,
@@ -147,6 +149,15 @@ private fun RoleContributorSection(
     onRemoveContributor: (EditableContributor) -> Unit,
     onRemoveSection: () -> Unit,
 ) {
+    val queryState = rememberForwardingTextFieldState(searchQuery, onEdited = onQueryChange)
+    val pickResult: (ContributorSearchResult) -> Unit = { picked ->
+        onResultSelected(picked)
+        queryState.clearText()
+    }
+    val pickEntered: (String) -> Unit = { entered ->
+        onNameEntered(entered)
+        queryState.clearText()
+    }
     val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Role header with remove button
@@ -168,7 +179,7 @@ private fun RoleContributorSection(
                 modifier = Modifier.compactTouchTarget(footprint = 32.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = ListenUpIcons.CloseFilled,
                     contentDescription = stringResource(Res.string.book_edit_remove_role_section, role.displayName),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -202,18 +213,17 @@ private fun RoleContributorSection(
 
         // Search field
         ListenUpAutocompleteField(
-            value = searchQuery,
-            onValueChange = onQueryChange,
+            state = queryState,
             results = searchResults,
-            onResultSelected = onResultSelected,
+            onResultSelected = pickResult,
             onSubmit = { query ->
                 val trimmed = query.trim()
                 if (trimmed.isNotEmpty()) {
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
-                        onResultSelected(topResult)
+                        pickResult(topResult)
                     } else if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
-                        onNameEntered(trimmed)
+                        pickEntered(trimmed)
                     }
                 }
             },
@@ -227,10 +237,10 @@ private fun RoleContributorSection(
                             null
                         },
                     // No haptic here: AutocompleteResultItem already ticks for the pick.
-                    onClick = { onResultSelected(result) },
+                    onClick = { pickResult(result) },
                 )
             },
-            placeholder = "Add ${role.displayName.lowercase()}...",
+            placeholder = stringResource(Res.string.book_edit_add_role_placeholder, role.displayName.lowercase()),
             isLoading = isSearching,
             emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )
@@ -242,11 +252,11 @@ private fun RoleContributorSection(
             AssistChip(
                 onClick = {
                     haptics.press()
-                    onNameEntered(trimmedQuery)
+                    pickEntered(trimmedQuery)
                 },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                    Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
                 },
             )
         }
@@ -264,7 +274,7 @@ private fun ContributorChip(
         label = { Text(contributor.name) },
         leadingIcon = {
             Icon(
-                imageVector = Icons.Default.Person,
+                imageVector = ListenUpIcons.PersonFilled,
                 contentDescription = null,
                 modifier = Modifier.size(InputChipDefaults.AvatarSize),
             )
@@ -294,7 +304,7 @@ private fun AddRoleButton(
             },
             label = { Text(stringResource(Res.string.book_edit_add_role)) },
             leadingIcon = {
-                Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                Icon(ListenUpIcons.AddFilled, null, Modifier.size(18.dp))
             },
         )
 

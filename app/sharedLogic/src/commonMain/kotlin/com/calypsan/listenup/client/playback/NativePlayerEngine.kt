@@ -29,7 +29,7 @@ private val logger = KotlinLogging.logger {}
 private val DROP_RECOVERY_BACKOFF = listOf(1.seconds, 2.seconds, 4.seconds, 8.seconds)
 
 /**
- * [PlayerEngine] for iOS (spec §4.1, S1). Kotlin prepares through the shared choke point and issues
+ * [PlayerEngine] for iOS. Kotlin prepares through the shared choke point and issues
  * [EngineCommand]s on [commands]; Swift's `PlayerCoordinator` executes them on AVAudioEngine and pushes
  * what the engine does back through the `on…` / `report…` methods. AVAudioSession policy, interruptions,
  * route changes, the gain tap and position persistence stay in Swift, where they are tested.
@@ -70,7 +70,7 @@ class NativePlayerEngine internal constructor(
     override val error: StateFlow<AppError?>
         field = MutableStateFlow<AppError?>(null)
 
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> =
+    override val currentChapter: StateFlow<ChapterInfo?> =
         combine(
             positionMs,
             chapters,
@@ -196,7 +196,7 @@ class NativePlayerEngine internal constructor(
                     is AppResult.Failure -> {
                         error.value = result.error
                         phase.value = EnginePhase.PAUSED
-                        if (isDropRecovery && result.error.isNetworkDrop()) scheduleDropRecovery()
+                        if (isDropRecovery && result.error.isCurableByNetwork()) scheduleDropRecovery()
                     }
                 }
             }

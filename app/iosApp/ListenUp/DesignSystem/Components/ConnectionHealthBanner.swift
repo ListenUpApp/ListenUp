@@ -28,7 +28,7 @@ struct ConnectionHealthBanner: View {
     }
 
     private func updateBody(_ client: String, _ server: String) -> String {
-        String(format: String(localized: "shell.update_available_body"), client, server)
+        String(localized: .shellUpdateAvailableBody(client, server))
     }
 
     @ViewBuilder

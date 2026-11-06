@@ -20,7 +20,6 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -65,15 +64,14 @@ class HardcoverLinker(
     private val states = HashMap<String, MutableStateFlow<HardcoverConnection>>()
     private val pollJobs = HashMap<String, Job>()
     private val userLocks = KeyedMutex()
-    private val connected =
-        MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /**
      * The id of each user whose sign-in completes, as it completes. A new connection can make
      * Hardcover ratings runnable, so the ratings backfill listens here rather than waiting for the
      * nightly sweep to notice every book Hardcover has never tried.
      */
-    val connections: SharedFlow<String> = connected.asSharedFlow()
+    val connections: SharedFlow<String>
+        field = MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     init {
         applicationScope.launch { activity.changes.collect { republish(it) } }
@@ -223,7 +221,7 @@ class HardcoverLinker(
     ): HardcoverConnection =
         when (val me = graphQl.me(tokens.accessToken)) {
             is MeResult.Found -> {
-                store.save(userId, me.me, tokens).also { connected.tryEmit(userId) }
+                store.save(userId, me.me, tokens).also { connections.tryEmit(userId) }
             }
 
             MeResult.Unauthorized, is MeResult.Unavailable -> {

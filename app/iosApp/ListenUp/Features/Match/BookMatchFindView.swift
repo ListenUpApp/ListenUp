@@ -85,7 +85,7 @@ private struct MatchFindScreen: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)
-                    .accessibilityLabel(String(format: String(localized: "match.compare_a11y"), row.title))
+                    .accessibilityLabel(String(localized: .matchCompareA11Y(row.title)))
                 }
             }
         }

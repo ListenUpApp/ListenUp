@@ -26,7 +26,7 @@ enum class EnginePhase {
 }
 
 /**
- * The audio engine the shared [PlayerSession] drives (spec §4.1, S1).
+ * The audio engine the shared [PlayerSession] drives.
  *
  * Two implementations: [ManagedPlayerEngine] over `PlaybackManager` + `PlaybackController` (Android,
  * desktop, web), and [NativePlayerEngine], which forwards commands to Swift's `PlayerCoordinator` (iOS).
@@ -55,7 +55,7 @@ interface PlayerEngine {
     val chapters: StateFlow<List<Chapter>>
 
     /** [chapterInfoAt] over [positionMs] and [chapters]: the one chapter derivation. */
-    val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
+    val currentChapter: StateFlow<ChapterInfo?>
 
     /** The prepared timeline (which files are local, which stream, which are transcoded), or null. */
     val timeline: StateFlow<PlaybackTimeline?>

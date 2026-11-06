@@ -1,12 +1,14 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.web.dom.timeOfDayFormat
+import com.calypsan.listenup.web.dom.toLocaleTimeOfDay
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.presentation.player.PlayerChapterRow
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The player panels' words (spec §5.5): speed, sleep, boost, chapters and people. Web keeps no string catalog; these
+ * The player panels' words: speed, sleep, boost, chapters and people. Web keeps no string catalog; these
  * mirror the sentences `en.json` gives the native clients as `player.sheet_*`. Kept apart from [NowPlayingWords], the
  * page's own words, so each object stays one concern.
  */
@@ -21,6 +23,7 @@ internal object PlayerSheetWords {
     const val DURATIONS = "Durations"
     const val CUSTOM_MINUTES = "Custom (minutes)"
     const val START = "Start"
+    const val YOUR_DEFAULT = "Your default"
     const val FADES_OUT = "Audio fades out over a few seconds before it pauses."
     const val ADD_TIME = "Add time"
     const val CANCEL_TIMER = "Cancel timer"
@@ -39,7 +42,7 @@ internal object PlayerSheetWords {
     /** "Reset to Off (your default)". */
     fun resetBoost(boostText: String): String = "Reset to $boostText (your default)"
 
-    /** End of chapter's line: "Pauses after Bridge Four · in 8m", in content time (open question 2). */
+    /** End of chapter's line: "Pauses after Bridge Four · in 8m", in content time. */
     fun endOfChapterAfter(
         chapterTitle: String,
         chapterRemainingMs: Long,
@@ -53,7 +56,7 @@ internal object PlayerSheetWords {
 
     /**
      * "Pauses at 11:42 PM · 30 min timer", or "Pauses at 11:42 PM" without [minutes]: the browser's own clock format,
-     * so a 24-hour locale reads "23:42" (C16).
+     * so a 24-hour locale reads "23:42".
      */
     fun pausesAt(
         epochMs: Long,
@@ -64,7 +67,7 @@ internal object PlayerSheetWords {
     }
 
     /** A sleep countdown: "23:41", "1:05:00" past an hour. */
-    fun countdown(wallMs: Long): String = formatElapsed(wallMs)
+    fun countdown(wallMs: Long): String = DurationFormatter.playbackClock(wallMs.milliseconds)
 
     /** The gold meter's name: "23:41 of 30:00 remaining". */
     fun meterLabel(
@@ -75,7 +78,7 @@ internal object PlayerSheetWords {
     /** "+5 min". */
     fun extend(minutes: Int): String = "+$minutes min"
 
-    /** A person's books beside their name: "14 books", "1 book", and no line at all for none (C12). */
+    /** A person's books beside their name: "14 books", "1 book", and no line at all for none. */
     fun books(count: Int): String? =
         when {
             count <= 0 -> null
@@ -101,7 +104,9 @@ internal object PlayerSheetWords {
         if (isCurrent) {
             "Chapter ${row.number}, ${row.title}, now playing, ${spokenDuration(remainingMs)} left"
         } else {
-            "Play from chapter ${row.number}: ${row.title}, ${formatElapsed(row.durationMs)}"
+            "Play from chapter ${row.number}: ${row.title}, ${DurationFormatter.playbackClock(
+                row.durationMs.milliseconds,
+            )}"
         }
 }
 
@@ -110,10 +115,7 @@ internal object PlayerSheetWords {
  * some engines put before AM/PM become plain ones, so the line wraps and reads like the rest of the sheet.
  */
 private fun clockTime(epochMs: Long): String {
-    // A Double, not the Long: `js()` sees Kotlin's own Long representation, which `Date` cannot read.
-    val ms = epochMs.toDouble()
-    val date: dynamic = js("new Date(ms)")
-    val options: dynamic = js("({ hour: 'numeric', minute: '2-digit' })")
-    val text: String = date.toLocaleTimeString(undefined, options).unsafeCast<String>()
+    // A Double, not the Long: `Date` cannot read Kotlin's own Long representation.
+    val text = kotlin.js.Date(epochMs.toDouble()).toLocaleTimeOfDay(timeOfDayFormat())
     return text.replace('\u202F', ' ').replace('\u00A0', ' ')
 }

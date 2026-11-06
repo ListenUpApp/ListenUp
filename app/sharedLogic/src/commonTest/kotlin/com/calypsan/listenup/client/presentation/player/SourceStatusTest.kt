@@ -37,7 +37,7 @@ private fun loaded(source: AudioSource): PlayerUiState.Loaded =
         chapter = PlayerChapter(5, 6, 75, "Bridge Four", isGenericTitle = false, isWholeBook = false, startMs = 0, durationMs = 1_235_000),
         chapters = emptyList(),
         source = source,
-        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30),
+        settings = PlayerSettings(1f, 1f, 0f, 0f, 10, 30, null),
         sleepTimer = SleepTimerState.Inactive,
         primary = PrimaryControl.Pause,
         showsSkipBack = true,

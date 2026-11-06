@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.features.auth
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,21 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Cancel
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -32,11 +24,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Box
@@ -47,8 +36,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -56,6 +43,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.passwordVisibilityDescription
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
 import com.calypsan.listenup.client.design.components.FlowStepRow
@@ -185,12 +173,12 @@ private fun EnterEmailContent(
     onSubmit: (String) -> Unit,
     modifier: Modifier,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
+    val email = rememberTextFieldState()
     val focusManager = LocalFocusManager.current
 
     fun submit() {
         focusManager.clearFocus()
-        if (email.isNotBlank()) onSubmit(email.trim())
+        if (email.text.isNotBlank()) onSubmit(email.text.toString().trim())
     }
 
     AuthScaffold(
@@ -200,19 +188,18 @@ private fun EnterEmailContent(
         modifier = modifier,
     ) {
         ListenUpTextField(
-            value = email,
-            onValueChange = { email = it },
+            state = email,
             label = stringResource(Res.string.common_email),
-            leadingIcon = Icons.Outlined.MailOutline,
+            leadingIcon = ListenUpIcons.MailOutline,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
+            onKeyboardAction = { submit() },
         )
         HowItWorks()
         ListenUpButton(
             text = stringResource(Res.string.auth_forgot_password_send_request),
             onClick = { submit() },
-            enabled = email.isNotBlank(),
-            leadingIcon = Icons.AutoMirrored.Outlined.Send,
+            enabled = email.text.isNotBlank(),
+            leadingIcon = ListenUpIcons.Send,
         )
     }
 }
@@ -282,7 +269,7 @@ private fun AwaitingApprovalContent(
     AuthScaffold(
         title = stringResource(Res.string.auth_forgot_password_title),
         subtitle = stringResource(Res.string.auth_forgot_password_awaiting),
-        badge = AuthBadge(Icons.Outlined.Schedule, stringResource(Res.string.auth_pending_review)),
+        badge = AuthBadge(ListenUpIcons.Schedule, stringResource(Res.string.auth_pending_review)),
         modifier = modifier,
     ) {
         ResetTimeline(ticketId)
@@ -297,7 +284,7 @@ private fun AwaitingApprovalContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Outlined.Refresh,
+                imageVector = ListenUpIcons.Refresh,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
@@ -312,7 +299,7 @@ private fun AwaitingApprovalContent(
         ListenUpButton(
             text = stringResource(Res.string.auth_check_status),
             onClick = onCheckStatus,
-            leadingIcon = Icons.Outlined.Refresh,
+            leadingIcon = ListenUpIcons.Refresh,
         )
     }
 }
@@ -335,16 +322,20 @@ private fun EnterCodeContent(
     onSubmit: (code: String, newPassword: String) -> Unit,
     modifier: Modifier,
 ) {
-    var code by remember(state.ticketId) { mutableStateOf("") }
-    var newPassword by remember(state.ticketId) { mutableStateOf("") }
+    val code = remember(state.ticketId) { TextFieldState() }
+    val newPassword = remember(state.ticketId) { TextFieldState() }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorDismissed by remember(state.error, state.attemptsRemaining) { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val displayedError = if (errorDismissed) null else state.error
+    // Typing a new code retires the old "wrong code" message; seeding the field does not.
+    code.ForwardEdits { errorDismissed = true }
 
     fun submit() {
         focusManager.clearFocus()
-        if (code.isNotBlank() && newPassword.isNotBlank()) onSubmit(code, newPassword)
+        if (code.text.isNotBlank() && newPassword.text.isNotBlank()) {
+            onSubmit(code.text.toString(), newPassword.text.toString())
+        }
     }
 
     AuthScaffold(
@@ -353,11 +344,7 @@ private fun EnterCodeContent(
         modifier = modifier,
     ) {
         CodeBoxes(
-            value = code,
-            onValueChange = { enteredCode ->
-                code = enteredCode
-                errorDismissed = true
-            },
+            state = code,
             isError = displayedError != null,
             onDone = { focusManager.moveFocus(FocusDirection.Down) },
         )
@@ -369,15 +356,14 @@ private fun EnterCodeContent(
             )
         }
         ListenUpTextField(
-            value = newPassword,
-            onValueChange = { newPassword = it },
+            state = newPassword,
             label = stringResource(Res.string.auth_password_label),
-            trailingIcon = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+            trailingIcon = if (passwordVisible) ListenUpIcons.VisibilityOff else ListenUpIcons.Visibility,
             onTrailingClick = { passwordVisible = !passwordVisible },
             trailingIconContentDescription = passwordVisibilityDescription(passwordVisible),
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            obfuscation = if (passwordVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { submit() }),
+            onKeyboardAction = { submit() },
         )
         Text(
             text = stringResource(Res.string.auth_forgot_password_reveal_hint),
@@ -388,7 +374,7 @@ private fun EnterCodeContent(
         ListenUpButton(
             text = stringResource(Res.string.common_continue),
             onClick = { submit() },
-            enabled = code.isNotBlank() && newPassword.isNotBlank(),
+            enabled = code.text.isNotBlank() && newPassword.text.isNotBlank(),
         )
     }
 }
@@ -412,19 +398,19 @@ private fun ResetTimeline(ticketId: String) {
     ) {
         FlowStepRow(
             state = FlowStepState.DONE,
-            icon = Icons.AutoMirrored.Outlined.Send,
+            icon = ListenUpIcons.Send,
             title = stringResource(Res.string.auth_forgot_password_step_sent),
             subtitle = stringResource(Res.string.auth_forgot_password_ticket, ticketReference),
         )
         FlowStepRow(
             state = FlowStepState.ACTIVE,
-            icon = Icons.Outlined.Schedule,
+            icon = ListenUpIcons.Schedule,
             title = stringResource(Res.string.auth_forgot_password_step_approve),
             subtitle = stringResource(Res.string.auth_forgot_password_step_approve_sub),
         )
         FlowStepRow(
             state = FlowStepState.TODO,
-            icon = Icons.Outlined.Lock,
+            icon = ListenUpIcons.Lock,
             title = stringResource(Res.string.auth_forgot_password_step_set),
             subtitle = stringResource(Res.string.auth_forgot_password_step_set_sub),
         )
@@ -483,7 +469,7 @@ private fun AttemptsRemaining(remaining: Int?) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (isLast) Icons.Outlined.Warning else Icons.Outlined.Info,
+            imageVector = if (isLast) ListenUpIcons.Warning else ListenUpIcons.Info,
             contentDescription = null,
             tint = ink,
             modifier = Modifier.size(ATTEMPTS_ICON_SIZE),
@@ -521,7 +507,7 @@ private fun DeniedContent(
         modifier = modifier,
     ) {
         TerminalMark(
-            icon = Icons.Outlined.Cancel,
+            icon = ListenUpIcons.Cancel,
             container = MaterialTheme.colorScheme.errorContainer,
             ink = MaterialTheme.colorScheme.onErrorContainer,
         )
@@ -564,14 +550,14 @@ private fun CompleteContent(
         modifier = modifier,
     ) {
         TerminalMark(
-            icon = Icons.Outlined.CheckCircle,
+            icon = ListenUpIcons.CheckCircle,
             container = MaterialTheme.colorScheme.tertiaryContainer,
             ink = MaterialTheme.colorScheme.onTertiaryContainer,
         )
         ListenUpButton(
             text = stringResource(Res.string.setup_back_to_sign_in),
             onClick = onBackToSignIn,
-            leadingIcon = Icons.AutoMirrored.Outlined.Login,
+            leadingIcon = ListenUpIcons.Login,
         )
     }
 }

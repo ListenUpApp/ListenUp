@@ -7,9 +7,9 @@ import io.ktor.client.HttpClientConfig
  * Sets `expectSuccess = true` so non-2xx responses raise `ResponseException` instead
  * of leaking error bodies through the success-decoder path.
  *
- * Typed error mapping happens at the API method boundary — each `apiCall { ... }`
- * wraps its request in `suspendRunCatching`, catches the Ktor exception, and routes
- * it through [com.calypsan.listenup.client.core.error.ErrorMapper] to produce an
+ * Typed error mapping happens at the API method boundary — `RpcChannel.call { ... }` for RPC, or
+ * `suspendRunCatching { ... }` for the few non-RPC REST endpoints — which catches the Ktor exception
+ * and routes it through [com.calypsan.listenup.client.core.error.ErrorMapper] to produce an
  * `AppResult.Failure(typedError)`.
  *
  * (Ktor clients must enable `expectSuccess = true`.)

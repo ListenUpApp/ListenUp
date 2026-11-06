@@ -27,10 +27,11 @@ enum ImportFileSourceBridge {
         return types
     }
 
-    /// Read the security-scoped `url` fully into memory, or throw `ImportFilePickError`. Safe to
-    /// call off the main actor; the returned `Data` is self-contained (not memory-mapped), so it
+    /// Read the security-scoped `url` fully into memory, or throw `ImportFilePickError`. Runs off
+    /// the main actor (`@concurrent`); the returned `Data` is self-contained (not memory-mapped), so it
     /// stays valid after the security scope is released.
-    static func readData(from url: URL) throws -> Data {
+    @concurrent
+    nonisolated static func readData(from url: URL) async throws(ImportFilePickError) -> Data {
         let didScope = url.startAccessingSecurityScopedResource()
         defer { if didScope { url.stopAccessingSecurityScopedResource() } }
 

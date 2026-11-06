@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The hero's social line (spec §2.10): up to three overlapping avatars and one sentence, read as one element, that
+/// The hero's social line: up to three overlapping avatars and one sentence, read as one element, that
 /// brings the Readers section into view. The avatars are hidden from VoiceOver: the sentence names the readers.
 struct HeroSocialLineView: View {
     let line: ReadersSocialLine
@@ -39,7 +39,7 @@ struct HeroSocialLineView: View {
         let finished = finishedClause(line.finished)
         switch (listening, finished) {
         case let (listening?, finished?):
-            return String(format: String(localized: "book.detail_social_join"), listening, finished)
+            return String(localized: .bookDetailSocialJoin(listening, finished))
         case let (listening?, nil):
             return listening
         case let (nil, finished?):
@@ -54,9 +54,9 @@ struct HeroSocialLineView: View {
     private static func listeningClause(_ names: [String]) -> String? {
         switch names.count {
         case 0: nil
-        case 1: String(format: String(localized: "book.detail_social_listening_one"), names[0])
-        case 2: String(format: String(localized: "book.detail_social_listening_two"), names[0], names[1])
-        case 3: String(format: String(localized: "book.detail_social_listening_many_one"), names[0], names[1])
+        case 1: String(localized: .bookDetailSocialListeningOne(names[0]))
+        case 2: String(localized: .bookDetailSocialListeningTwo(names[0], names[1]))
+        case 3: String(localized: .bookDetailSocialListeningManyOne(names[0], names[1]))
         default:
             String(format: String(localized: "book.detail_social_listening_many"), names[0], names[1], names.count - 2)
         }
@@ -65,9 +65,9 @@ struct HeroSocialLineView: View {
     private static func finishedClause(_ names: [String]) -> String? {
         switch names.count {
         case 0: nil
-        case 1: String(format: String(localized: "book.detail_social_finished_one"), names[0])
-        case 2: String(format: String(localized: "book.detail_social_finished_two"), names[0], names[1])
-        case 3: String(format: String(localized: "book.detail_social_finished_many_one"), names[0], names[1])
+        case 1: String(localized: .bookDetailSocialFinishedOne(names[0]))
+        case 2: String(localized: .bookDetailSocialFinishedTwo(names[0], names[1]))
+        case 3: String(localized: .bookDetailSocialFinishedManyOne(names[0], names[1]))
         default:
             String(format: String(localized: "book.detail_social_finished_many"), names[0], names[1], names.count - 2)
         }

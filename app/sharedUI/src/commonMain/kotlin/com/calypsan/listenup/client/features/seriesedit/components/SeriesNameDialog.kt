@@ -1,9 +1,10 @@
 package com.calypsan.listenup.client.features.seriesedit.components
 
+import com.calypsan.listenup.client.design.components.ForwardEdits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -49,6 +50,9 @@ internal fun SeriesNameDialog(
 ) {
     val haptics = LocalHaptics.current
     val existing = draft.existing
+    // The dialog opens on a blank draft and owns the text from there; the ViewModel only hears edits.
+    val name = rememberTextFieldState(draft.name)
+    name.ForwardEdits(onNameChange)
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
         title = title,
@@ -61,15 +65,14 @@ internal fun SeriesNameDialog(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ListenUpTextField(
-                value = draft.name,
-                onValueChange = onNameChange,
+                state = name,
                 label = stringResource(Res.string.series_series_name),
                 shape = OutlinedTextFieldDefaults.shape,
                 isError = existing != null,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions =
                     KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (draft.canCreate) onConfirm() }),
+                onKeyboardAction = { if (draft.canCreate) onConfirm() },
             )
             if (existing == null) {
                 if (draft.name.isNotBlank()) {

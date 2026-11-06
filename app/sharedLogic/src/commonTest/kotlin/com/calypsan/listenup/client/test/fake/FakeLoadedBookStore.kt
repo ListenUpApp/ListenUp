@@ -27,7 +27,11 @@ class FakeLoadedBookStore(
 
     var clearSuspension: suspend () -> Unit = {}
 
+    /** While true, every save throws (a keystore that will not take a write). */
+    var failSaves: Boolean = false
+
     override suspend fun saveLoadedBookId(bookId: String?) {
+        check(!failSaves) { "the keystore refused the write" }
         if (bookId == null) clearSuspension()
         stored = bookId
     }

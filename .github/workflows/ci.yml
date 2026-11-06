@@ -392,11 +392,15 @@ jobs:
       # never committed lands green today (CI regenerates it fresh, and the migration tests
       # run against the regenerated copy, not the committed one), leaving the NEXT migration
       # to be authored against a stale schema. strings/licenses have verify* gates; schemas
-      # had none. This is the generic backstop: any tracked file the build rewrites fails here.
+      # had none. This is the generic backstop: any tracked file the build rewrites, and any new
+      # untracked file it writes (a schema JSON for a freshly bumped DB version), fails here —
+      # `git diff` alone ignores untracked files.
       - name: Verify no generated-artifact drift
         run: |
-          if ! git diff --exit-code; then
-            echo "::error::Tracked files were modified by the build — commit the regenerated artifacts (see the diff above)."
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            git status --porcelain --untracked-files=all
+            git diff
+            echo "::error::The build modified or created files — commit the regenerated artifacts (listed above)."
             exit 1
           fi
 

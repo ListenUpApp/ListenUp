@@ -18,18 +18,20 @@ import com.calypsan.listenup.client.design.components.InlineRetry
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.home.HomeBlock
 import com.calypsan.listenup.client.presentation.home.HomeSlot
 import com.calypsan.listenup.client.presentation.home.HomeStatsUiState
 import com.calypsan.listenup.client.presentation.home.HomeUiState
+import com.calypsan.listenup.client.presentation.home.homeBlocks
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.home_couldnt_load_listening
 import org.jetbrains.compose.resources.stringResource
 
-/** The stats card's width beside shelves or a slot on a tablet (spec §3.4). */
+/** The stats card's width beside shelves or a slot on a tablet. */
 private val WideStatsWidth = 400.dp
 
 /**
- * Home, drawn from fixed state (C12): the greeting in the shell header, then [homeBlocks]. No ViewModel, no Koin, so
+ * Home, drawn from fixed state: the greeting in the shell header, then [homeBlocks]. No ViewModel, no Koin, so
  * host tests render the real screen.
  */
 @Composable
@@ -65,7 +67,7 @@ internal fun HomeBody(
             continueListeningFailed = state.continueListeningError != null,
             showsStrip = state.showsArrivalStrip,
             hasEverythingInProgress = state.everythingInProgress.isNotEmpty(),
-            width = width,
+            isWide = width == HomeWidth.Expanded,
         ).forEach { block ->
             HomeBlockContent(
                 block = block,
@@ -171,7 +173,7 @@ private fun HomeBlockContent(
     }
 }
 
-/** Whichever slot applies, drawn: every kind takes the same position (spec §2.1). */
+/** Whichever slot applies, drawn: every kind takes the same position. */
 @Composable
 private fun SlotContent(
     state: HomeUiState.Ready,

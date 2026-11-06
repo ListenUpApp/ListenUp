@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.ConfirmDialog
 
 /**
- * Confirmation for **deleting a book from the server** — its folder and everything in it (spec §2.8).
+ * Confirmation for **deleting a book from the server** — its folder and everything in it.
  *
  * The body names the files ListenUp tracks there (audio plus documents) and what they weigh, then says out loud that
  * everything else in its folder goes too, for every member, with no undo. No folder path: the client does not know the

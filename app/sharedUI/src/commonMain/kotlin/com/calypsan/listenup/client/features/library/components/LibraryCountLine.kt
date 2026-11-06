@@ -16,7 +16,7 @@ import listenup.composeapp.generated.resources.library_length_minutes_one
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * "248 books · 41 days of listening" (spec §3.1.1 L4): the whole library and its length in the largest whole unit,
+ * "248 books · 41 days of listening": the whole library and its length in the largest whole unit,
  * the one rule every platform shares ([libraryLengthOf]). Under a minute of audio, the books alone.
  */
 @Composable

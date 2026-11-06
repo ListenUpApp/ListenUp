@@ -5,7 +5,7 @@ import com.calypsan.listenup.web.design.isApplePlatform
 import com.calypsan.listenup.web.shell.KeyTarget
 import org.w3c.dom.events.KeyboardEvent
 
-/** What a player shortcut does (spec §5.8's web table). */
+/** What a player shortcut does. */
 enum class PlayerKey {
     /** Space: play or pause. */
     PlayPause,
@@ -78,7 +78,7 @@ data class KeyContext(
 )
 
 /**
- * The player shortcut [press] asks for in [context], or null when the player stands down (spec §5.8): nothing loaded;
+ * The player shortcut [press] asks for in [context], or null when the player stands down: nothing loaded;
  * a press being composed, already handled, or with Ctrl, ⌘ or Alt (those belong to the browser, the OS and the
  * palette); focus in a field or a dialog; Space on a control Space activates; an arrow in a widget the arrows move
  * through. Pure.
@@ -137,7 +137,7 @@ data class PlayerShortcut(
 )
 
 /**
- * The sheet, the tooltips and the handler all read this table, so they cannot disagree (spec §5.8). Search shows its
+ * The sheet, the tooltips and the handler all read this table, so they cannot disagree. Search shows its
  * chord as the reader's keyboard labels it, ⌘K on a Mac, iPhone or iPad and Ctrl+K elsewhere ([platform] is the
  * browser's); the palette takes either modifier everywhere, so `aria-keyshortcuts` names both.
  */

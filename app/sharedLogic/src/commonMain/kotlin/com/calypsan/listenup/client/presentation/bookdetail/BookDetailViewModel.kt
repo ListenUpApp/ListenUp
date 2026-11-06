@@ -646,7 +646,7 @@ class BookDetailViewModel(
 
     /**
      * Puts a **stranded** book — in no collection at all, so hidden from every member — back into
-     * All Books ("Show to all members"; spec §7: no confirmation, it restores what was meant to be
+     * All Books ("Show to all members": no confirmation, it restores what was meant to be
      * public). Admin-only by construction: only an admin's device ever computes a visibility.
      *
      * Sends an empty collection set through the book-edit outbox (offline-first). Its local apply

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Chapters that play from the chapter they name (spec §2.5). Collapsed to the 5-row window around the current
+/// Chapters that play from the chapter they name. Collapsed to the 5-row window around the current
 /// chapter (`preview`); "All N Chapters" expands in place and "Fewer Chapters" collapses it. Each row is a button named "Play from chapter N: title";
 /// the current row is selected and tinted. Rows are disabled whenever the book can't play.
 ///

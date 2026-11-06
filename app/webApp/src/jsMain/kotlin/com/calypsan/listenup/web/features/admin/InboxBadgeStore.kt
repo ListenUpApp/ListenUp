@@ -3,7 +3,6 @@ package com.calypsan.listenup.web.features.admin
 import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.InboxBadgeViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -39,9 +38,3 @@ fun graphInboxBadge(koin: Koin): OpenInboxBadge =
             close = store::clear,
         )
     }
-
-/** A badge over numbers that never change — the shape specs use in place of the graph. */
-fun fixedInboxBadge(
-    heldCount: Int = 0,
-    previewBookIds: List<String> = emptyList(),
-): OpenInboxBadge = { InboxBadgeSession(MutableStateFlow(heldCount), MutableStateFlow(previewBookIds), close = {}) }

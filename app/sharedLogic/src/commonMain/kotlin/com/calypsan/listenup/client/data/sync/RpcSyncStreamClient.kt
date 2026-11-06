@@ -24,7 +24,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.timeout
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -70,19 +69,18 @@ internal class RpcSyncStreamClient(
     private val readIdleTimeoutMillis: Long = DEFAULT_READ_IDLE_TIMEOUT_MS,
     private val initialBackoffMillis: Long = INITIAL_RECONNECT_DELAY_MS,
     private val maxBackoffMillis: Long = MAX_RECONNECT_DELAY_MS,
-    // Test seam: a small capacity lets a test force `frameBus.emit` to suspend deterministically
+    // Test seam: a small capacity lets a test force `frames.emit` to suspend deterministically
     // without depending on the production buffer depth.
     frameBufferCapacity: Int = FRAME_BUFFER_CAPACITY,
 ) : SyncStreamClient {
-    private val frameBus =
+    /** Hot stream of firehose frames; consumers (the dispatcher) collect from here. */
+    override val frames: SharedFlow<SyncFrame>
+        field =
         MutableSharedFlow<SyncFrame>(
             replay = 0,
             extraBufferCapacity = frameBufferCapacity,
             onBufferOverflow = BufferOverflow.SUSPEND,
         )
-
-    /** Hot stream of firehose frames; consumers (the dispatcher) collect from here. */
-    override val frames: SharedFlow<SyncFrame> = frameBus.asSharedFlow()
 
     private var connectionJob: Job? = null
 
@@ -222,7 +220,7 @@ internal class RpcSyncStreamClient(
      */
     private suspend fun apply(frame: SyncFrame) {
         if (isHeartbeat(frame)) return
-        frameBus.emit(frame)
+        frames.emit(frame)
         frame.revision?.let { lastEventId = it }
         state.setConnection(ConnectionState.Connected(lastEventId))
     }

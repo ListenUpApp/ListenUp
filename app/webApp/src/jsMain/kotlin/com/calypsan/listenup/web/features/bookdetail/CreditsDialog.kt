@@ -18,7 +18,7 @@ import org.jetbrains.compose.web.dom.Button as DomButton
 
 /**
  * Everyone credited on a book, each a way to their page: Android's "All credits" sheet and iOS's
- * Cast & Credits. Grouped by role (spec D8, `groupContributorsByRole`, the natives' grouping): a heading per role,
+ * Cast & Credits. Grouped by role (`groupContributorsByRole`, the natives' grouping): a heading per role,
  * then that role's people, each with their framed photo in a circle (or their initials) and their name. A person in
  * two roles appears under both. Every row reads equally — a co-narrated book or an anthology has no lead.
  *

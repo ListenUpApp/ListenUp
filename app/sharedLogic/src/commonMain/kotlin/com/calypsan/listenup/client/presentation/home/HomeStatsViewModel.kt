@@ -159,7 +159,7 @@ sealed interface HomeStatsUiState {
         val maxDailySeconds: Long
             get() = dailyBuckets.maxOfOrNull { it.totalSeconds } ?: 0L
 
-        /** The streak as every platform shows it (spec §2.6); see [streakDisplay]. */
+        /** The streak as every platform shows it; see [streakDisplay]. */
         val streak: StreakDisplay
             get() = streakDisplay(current = currentStreakDays, best = longestStreakDays)
     }

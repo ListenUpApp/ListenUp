@@ -57,7 +57,7 @@ private val YourStarSize = 36.dp
  * @param onEditNote Opens the rate sheet, for the note.
  * @param onRemove Removes your rating; the block offers Undo.
  * @param isFinished The reader has finished the book: the heading asks "How was it?" and the note is for your
- *   listeners (spec §3.2.3 Finished).
+ *   listeners.
  * @param isContained Whether "You" is a filled card of its own. False inside a section that is already a
  *   card (the wide layout, per A-And-Tablet), where a second card would nest one surface in another.
  */

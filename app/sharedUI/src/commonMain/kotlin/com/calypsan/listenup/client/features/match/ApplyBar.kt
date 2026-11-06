@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +21,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.match.ApplySummary
@@ -120,7 +119,7 @@ private fun ApplyBar(
             enabled = canApply,
             isLoading = applying,
             fillMaxWidth = fill,
-            leadingIcon = Icons.Filled.Check,
+            leadingIcon = ListenUpIcons.CheckFilled,
             modifier = modifier.testTag(APPLY_BUTTON_TAG),
         )
     }

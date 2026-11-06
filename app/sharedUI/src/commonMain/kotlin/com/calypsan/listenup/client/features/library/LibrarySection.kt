@@ -10,7 +10,7 @@ import listenup.composeapp.generated.resources.library_series
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The Library's four sections (spec §3.1.1 L2). "In progress" is no longer a section: it is a status
+ * The Library's four sections. "In progress" is no longer a section: it is a status
  * filter on Books ([com.calypsan.listenup.client.presentation.library.BookStatusFilter]).
  */
 enum class LibrarySection { Books, Series, Authors, Narrators }

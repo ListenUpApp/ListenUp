@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.home
 
 /**
- * What a stats card says about streaks — one rule for every platform (spec §2.6). A live streak shows as a header chip
+ * What a stats card says about streaks — one rule for every platform. A live streak shows as a header chip
  * with the best in the footer; a lapsed one shows only the best; none shows nothing. Never a "0-day streak".
  *
  * @property chipDays the current streak for the header chip, or null when there is none.

@@ -197,6 +197,14 @@ class BookMultiSelectViewModel(
         logger.debug { "Selected all ${bookIds.size} books on screen" }
     }
 
+    /**
+     * Clear every pick and stay in selection: [SelectAllOffer.DeselectAll]. Unlike [exitSelectionMode] the bar stays
+     * up, so the reader can pick again.
+     */
+    fun deselectAll() {
+        enterSelectionMode()
+    }
+
     /** Exit selection mode and clear all selections. */
     fun exitSelectionMode() {
         selectionMode.value = SelectionMode.None

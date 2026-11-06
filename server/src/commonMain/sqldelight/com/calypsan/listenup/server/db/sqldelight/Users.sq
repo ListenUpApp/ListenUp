@@ -77,6 +77,10 @@ SELECT EXISTS(SELECT 1 FROM users WHERE id = :id);
 selectDisplayNameById:
 SELECT display_name FROM users WHERE id = :id;
 
+-- Display names for many users (live OR tombstoned) in one round trip; absent ids yield no row.
+selectDisplayNamesByIds:
+SELECT id, display_name FROM users WHERE id IN :ids;
+
 -- Single-row lookup by primary key.
 selectById:
 SELECT * FROM users WHERE id = :id;
@@ -177,6 +181,13 @@ UPDATE users
 SET display_name = :display_name, tagline = :tagline, avatar_type = :avatar_type,
     avatar_updated_at = :avatar_updated_at,
     password_hash = :password_hash, updated_at = :updated_at
+WHERE id = :id;
+
+-- A profile edit that leaves the avatar alone: never touches avatar_type, avatar_updated_at or avatar_frame, so a
+-- concurrent upload's avatar columns survive it.
+updateNameTaglinePassword:
+UPDATE users
+SET display_name = :display_name, tagline = :tagline, password_hash = :password_hash, updated_at = :updated_at
 WHERE id = :id;
 
 -- Replace only the password_hash (test fixture: swap the placeholder hash for a real Argon2

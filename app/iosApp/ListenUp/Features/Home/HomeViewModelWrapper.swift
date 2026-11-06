@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `HomeViewModel` — flattens the sealed `HomeUiState` into a SwiftUI-native
 /// `HomePhase`, and surfaces a Continue Listening failure as a clearable inline error.
@@ -38,6 +38,12 @@ final class HomeViewModelWrapper {
         viewModel.refresh()
     }
 
+    /// `refresh()` for a pull-to-refresh: returns when the sync has finished, so the spinner stays up exactly that long.
+    func refreshNow() async {
+        inlineError = nil
+        try? await viewModel.refreshNow()
+    }
+
     /// Dismiss a book's just-finished card on every device.
     func dismissFinished(bookId: String) {
         viewModel.dismissFinished(bookId: bookId)
@@ -70,7 +76,7 @@ final class HomeViewModelWrapper {
 enum HomePhase: Equatable {
     case loading
     case ready(HomeReady)
-    /// Home could not load; the greeting stays, from the part of the day (spec §3.3).
+    /// Home could not load; the greeting stays, from the part of the day.
     case error(message: String, timeOfDay: HomeTimeOfDay)
 
     init(error: HomeUiStateError) {
@@ -84,13 +90,13 @@ enum HomePhase: Equatable {
 struct HomeReady: Equatable {
     let shelves: [ShelfItem]
     let isSyncing: Bool
-    /// The library's first population or this device's first catch-up is running (spec H5).
+    /// The library's first population or this device's first catch-up is running.
     let isLibraryArriving: Bool
-    /// "412 of 1,280 books", only while a scan knows both numbers (open question 1).
+    /// "412 of 1,280 books", only while a scan knows both numbers.
     let arrivalCount: ArrivalCount?
-    /// The device or the server is out of reach (the shared rule, C15); independent of a failed row.
+    /// The device or the server is out of reach (the shared rule); independent of a failed row.
     let isOffline: Bool
-    /// The library-arriving strip shows above the slot (the shared rule, spec H5).
+    /// The library-arriving strip shows above the slot (the shared rule).
     let showsArrivalStrip: Bool
     /// My Shelves shows its loading state, not the invitation, while the library arrives (the shared rule).
     let showsShelvesLoading: Bool
@@ -102,6 +108,15 @@ struct HomeReady: Equatable {
     let connectivity: HomeConnectivityState
     /// The Continue Listening failure's message while the rest of Home loaded, or nil.
     let continueListeningError: String?
+    /// Home's sections top to bottom in one column, decided by the shared `homeBlocks`.
+    private let columnBlocks: [HomeBlock]
+    /// The same, for a wide window (the slot beside the stats).
+    private let wideBlocks: [HomeBlock]
+
+    /// Home's sections for a window that is, or is not, wide.
+    func blocks(isWide: Bool) -> [HomeBlock] {
+        isWide ? wideBlocks : columnBlocks
+    }
 
     init(from ready: HomeUiStateReady) {
         self.shelves = ready.myShelves.map(ShelfItem.init(from:))
@@ -122,6 +137,58 @@ struct HomeReady: Equatable {
         }
         self.connectivity = HomeConnectivityState(kmp: ready.connectivity)
         self.continueListeningError = ready.continueListeningError?.message
+        func order(isWide: Bool) -> [HomeBlock] {
+            HomeBlock.order(
+                slot: ready.slot,
+                isOffline: ready.isOffline,
+                continueListeningFailed: ready.continueListeningError != nil,
+                showsStrip: ready.showsArrivalStrip,
+                hasEverythingInProgress: !ready.everythingInProgress.isEmpty,
+                isWide: isWide
+            )
+        }
+        self.columnBlocks = order(isWide: false)
+        self.wideBlocks = order(isWide: true)
+    }
+}
+
+extension HomeBlock {
+    /// Home's section order from the shared rule, mapped once to the native enum the view switches on.
+    static func order(
+        slot: HomeSlot,
+        isOffline: Bool,
+        continueListeningFailed: Bool,
+        showsStrip: Bool,
+        hasEverythingInProgress: Bool,
+        isWide: Bool
+    ) -> [HomeBlock] {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.home.self
+        return rules.homeBlocks(
+            slot: slot,
+            isOffline: isOffline,
+            continueListeningFailed: continueListeningFailed,
+            showsStrip: showsStrip,
+            hasEverythingInProgress: hasEverythingInProgress,
+            isWide: isWide
+        ).map { HomeBlock($0) }
+    }
+
+    /// Native projection of the shared sealed `HomeBlock`.
+    init(_ block: Shared.HomeBlock) {
+        switch block.sealedType() {
+        case .offline: self = .offline
+        case .firstSyncStrip: self = .firstSyncStrip
+        case .finished: self = .finished
+        case .nothingInProgress: self = .nothingInProgress
+        case .welcome: self = .welcome
+        case .firstSync: self = .firstSync
+        case .continueListeningFailed: self = .continueListeningFailed
+        case .slotBesideStats: self = .slotBesideStats
+        case .everythingInProgress: self = .everythingInProgress
+        case .stats: self = .stats
+        case .shelves: self = .shelves
+        case .statsBesideShelves: self = .statsBesideShelves
+        }
     }
 }
 
@@ -154,7 +221,7 @@ struct ContinueItem: Identifiable, Equatable {
     /// Every file is on this device, so it plays with no server.
     let isDownloaded: Bool
     let isLoading: Bool
-    /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (spec §2.5, the shared rule).
+    /// Out of reach and not downloaded: the card dims and reads "Needs a connection" (the shared rule).
     var needsConnection = false
 
     /// A card online, as CarPlay and every other caller without a connectivity reads it.
@@ -262,7 +329,7 @@ struct ShelfItem: Identifiable, Equatable {
 
 // MARK: - Slot
 
-/// The one slot under Home's greeting, flattened from the sealed `HomeSlot` (spec §2.2).
+/// The one slot under Home's greeting, flattened from the sealed `HomeSlot`.
 enum HomeSlotItem: Equatable {
     case absent
     case firstSync
@@ -286,7 +353,7 @@ enum HomeSlotItem: Equatable {
     }
 }
 
-/// The just-finished card (spec §2.3).
+/// The just-finished card.
 struct FinishedSlot: Equatable {
     let bookId: String
     let title: String
@@ -358,7 +425,7 @@ enum HomeTimeOfDay: Equatable {
     }
 }
 
-/// Whether Home can reach anything (spec §3.1).
+/// Whether Home can reach anything.
 enum HomeConnectivityState: Equatable {
     case online, offline, serverUnreachable
 

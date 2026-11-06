@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +19,8 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -74,6 +75,8 @@ fun ContributorMergeDialog(
     onDismiss: () -> Unit,
 ) {
     var selected by remember { mutableStateOf<ContributorId?>(null) }
+    // The dialog opens on a cleared query and owns the text while it is open.
+    val queryState = rememberForwardingTextFieldState(query, onEdited = onQueryChange)
 
     ListenUpAlertDialog(
         onDismissRequest = onDismiss,
@@ -91,8 +94,7 @@ fun ContributorMergeDialog(
             )
             Spacer(modifier = Modifier.height(16.dp))
             ListenUpTextField(
-                value = query,
-                onValueChange = onQueryChange,
+                state = queryState,
                 label = stringResource(Res.string.common_search),
                 placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

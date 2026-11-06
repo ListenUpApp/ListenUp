@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.plugins.respondAppError
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
@@ -45,7 +45,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 fun Route.seriesRoutes(
     seriesService: SeriesService,
     imageHome: Path,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
 ) {
     put<SeriesResources.Cover> { res ->
         val service = call.scoped(seriesService)
@@ -57,7 +57,7 @@ fun Route.seriesRoutes(
                 call = call,
                 subdir = "series",
                 imageHome = imageHome,
-                imageStorage = imageStorage,
+                remoteImageFetcher = remoteImageFetcher,
             )
         when (outcome) {
             is ImageUploadOutcome.Rejected -> {

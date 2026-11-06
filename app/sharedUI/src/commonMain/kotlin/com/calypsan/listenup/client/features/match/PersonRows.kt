@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +39,7 @@ import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalLabel
 import com.calypsan.listenup.client.design.components.avatarInitials
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
 import com.calypsan.listenup.client.presentation.match.PersonCandidateUi
@@ -161,7 +158,7 @@ private fun PersonRow(
                 )
             }
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = ListenUpIcons.KeyboardArrowRightFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -177,11 +174,11 @@ private fun PersonBadges(person: PersonCandidateUi) {
             label = stringResource(Res.string.match_best_match),
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            icon = Icons.Outlined.StarOutline,
+            icon = ListenUpIcons.StarOutline,
         )
     }
     if (person.isCurrentLink) {
-        TonalLabel(label = stringResource(Res.string.match_your_current_link), icon = Icons.Outlined.Link)
+        TonalLabel(label = stringResource(Res.string.match_your_current_link), icon = ListenUpIcons.Link)
     }
 }
 

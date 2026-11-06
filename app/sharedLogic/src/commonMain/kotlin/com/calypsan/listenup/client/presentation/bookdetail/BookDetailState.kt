@@ -301,7 +301,7 @@ internal data class BookDetailPage(
 }
 
 /**
- * The section order taken at the first load of one visit to [bookId] (spec §2.4 rule 2). Held beside the overlay
+ * The section order taken at the first load of one visit to [bookId]. Held beside the overlay
  * rather than in it: it is not something the reader did, and nothing but a new visit replaces it.
  */
 internal data class SectionOrderLatch(

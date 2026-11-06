@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Regular-width Discover's paired row: the Leaderboard and Activity side by side, top-aligned, sharing
 /// the width in proportion to `weights` — the board's `minmax(0, 1fr) minmax(0, 1.15fr)`, so the
-/// sentences get a little more room than the ranks (spec §3.7).
+/// sentences get a little more room than the ranks.
 struct DiscoverPairedColumns: Layout {
     /// The Leaderboard : Activity split.
     static let boardWeights: [CGFloat] = [1, 1.15]

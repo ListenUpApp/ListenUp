@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Book Detail's progress unit (spec §2.9): the current chapter and the time left over a determinate progress bar
+/// Book Detail's progress unit: the current chapter and the time left over a determinate progress bar
 /// while in progress; the dates it was read between once finished; nothing before it starts. It sits directly above
 /// the actions, so "where you are" reads before "what to do next".
 struct ResumeUnit: View {
@@ -45,7 +45,7 @@ struct ResumeUnit: View {
                 }
             }
             // HIG, Progress indicators: a determinate bar for a known amount. On a cover's colours, the cover track
-            // under the harmonised fill (Covers boards, Q4); otherwise the system bar, as PR 2 shipped it.
+            // under the harmonised fill (Covers boards); otherwise the system bar, as PR 2 shipped it.
             Group {
                 if let cover {
                     ProgressView(value: fraction)
@@ -88,10 +88,10 @@ struct ResumeUnit: View {
     static func finishedText(_ span: BookFinishedSpan) -> String {
         let finished = date(ms: span.finishedAtMs).formatted(.dateTime.day().month(.abbreviated).year())
         guard let started = span.startedAtMs else {
-            return String(format: String(localized: "book.detail_finished_on"), finished)
+            return String(localized: .bookDetailFinishedOn(finished))
         }
         let start = date(ms: started).formatted(.dateTime.day().month(.abbreviated))
-        return String(format: String(localized: "book.detail_finished_span"), start, finished)
+        return String(localized: .bookDetailFinishedSpan(start, finished))
     }
 
     private static func date(ms: Int64) -> Date { Date(timeIntervalSince1970: TimeInterval(ms) / 1000) }

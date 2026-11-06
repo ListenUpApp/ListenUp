@@ -1,7 +1,7 @@
 import CoreGraphics
 
-/// How Home spends the width it is given, and the order its sections stand in — pure, so the responsive contract
-/// and spec §2.1's fixed order are tested rather than buried in view code (iosApp rule 12).
+/// How Home spends the width it is given — pure, so the responsive contract is tested rather than buried in view
+/// code (iosApp rule 12). The order of its sections is the shared `homeBlocks` rule.
 ///
 /// A window narrower than `minimumWideWidth` is one column with a scrolling rail. A wider one (an iPad with its
 /// sidebar is ~860pt of content) sets the stats card first at 380pt beside the shelves, or beside the slot when there
@@ -44,70 +44,10 @@ struct HomeLayout: Equatable {
         let columns = min(maximumRowColumns, max(1, Int((content + rowGap) / (rowCardMinimum + rowGap))))
         return HomeLayout(arrangement: .wide(statsWidth: statsWidth), margin: margin, rail: .row(columns: columns))
     }
-
-    /// Home's sections, top to bottom (spec §2.1, §3.4) — Android's `homeBlocks` twin. The offline pill sits under
-    /// the greeting, then the library-arriving strip (H5), then the slot (or, when Continue Listening failed and there
-    /// is no slot, the one-line failure in its place). Offline and the failure are separate signals, so both can show.
-    /// Below it: Everything in Progress → Your Last 7 Days → My Shelves.
-    /// A wide window puts the slot beside the stats, and the stats beside the shelves when there is no slot.
-    func blocks(
-        slot: HomeSlotShape,
-        isOffline: Bool,
-        continueListeningFailed: Bool,
-        showsStrip: Bool,
-        hasEverythingInProgress: Bool
-    ) -> [HomeBlock] {
-        var blocks: [HomeBlock] = []
-        if isOffline { blocks.append(.offline) }
-        if showsStrip { blocks.append(.firstSyncStrip) }
-        if let slotBlock = slot.block {
-            blocks.append(isWide ? .slotBesideStats : slotBlock)
-        } else if continueListeningFailed {
-            blocks.append(.continueListeningFailed)
-        }
-        if hasEverythingInProgress { blocks.append(.everythingInProgress) }
-        if blocks.contains(.slotBesideStats) {
-            blocks.append(.shelves)
-        } else if isWide {
-            blocks.append(.statsBesideShelves)
-        } else {
-            blocks.append(contentsOf: [.stats, .shelves])
-        }
-        return blocks
-    }
 }
 
-/// What the slot needs from the layout.
-/// (`empty`, not `none`: `.none` reads as `Optional.none` in every comparison, as PR 1 found with `HomeSlot.None`.)
-enum HomeSlotShape: Equatable {
-    case empty, finished, nothingInProgress, welcome, firstSync
-
-    /// The block that draws this slot, or nil when there is none.
-    var block: HomeBlock? {
-        switch self {
-        case .empty: nil
-        case .finished: .finished
-        case .nothingInProgress: .nothingInProgress
-        case .welcome: .welcome
-        case .firstSync: .firstSync
-        }
-    }
-}
-
-/// One section of Home.
+/// One section of Home. The order is the shared `homeBlocks` rule; this is its native projection.
 enum HomeBlock: Hashable {
     case offline, firstSyncStrip, finished, nothingInProgress, welcome, firstSync, continueListeningFailed
     case slotBesideStats, everythingInProgress, stats, shelves, statsBesideShelves
-}
-
-extension HomeSlotItem {
-    var shape: HomeSlotShape {
-        switch self {
-        case .absent: .empty
-        case .justFinished: .finished
-        case .nothingInProgress: .nothingInProgress
-        case .newListener: .welcome
-        case .firstSync: .firstSync
-        }
-    }
 }

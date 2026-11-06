@@ -14,6 +14,7 @@ struct NowPlayingStrip: View {
             let model = MiniPlayerAccessoryModel.make(
                 snapshot: player.snapshot,
                 chapterRemainingMs: max(0, player.chapterDurationMs - player.displayChapterPositionMs),
+                sleepRemainingMs: player.sleepRemainingMs,
                 chapterFraction: 0, isInline: false, isWide: false)
             NowPlayingStripContent(
                 model: model,
@@ -51,7 +52,7 @@ struct NowPlayingStripContent: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "\(model.skipBackSec)"))
+                .accessibilityLabel(String(localized: .playerSkipBackward("\(model.skipBackSec)")))
             }
             MiniPlayerPrimaryButton(model: model, action: onPrimary)
         }

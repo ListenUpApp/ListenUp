@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Discover activity section: "Activity" and the six most recent community events, then See All
 /// Activity, which opens the full feed on its own screen (X33) — it never expands in place. Loading is
-/// a skeleton of rows and a failure a line with its own Try Again (spec §3.8); an empty feed says so.
+/// a skeleton of rows and a failure a line with its own Try Again; an empty feed says so.
 struct ActivitySectionView: View {
     let observer: ActivityFeedObserver
     /// The screen's selection, for a row's Add to Shelf.
@@ -52,7 +52,7 @@ struct ActivitySectionView: View {
 }
 
 /// Activity rows divided as a list: shared by the section and See All Activity, so the two can never
-/// word or link a row differently (plan C6).
+/// word or link a row differently.
 struct ActivityRowList: View {
     let items: [ActivityRowItem]
     var selection: BookSelectionObserver?

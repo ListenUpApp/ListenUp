@@ -71,6 +71,19 @@ class TestDiscoveryFloorTest {
     }
 
     @Test
+    fun `an anchor matches a bare classname or one behind a single native lane segment`() {
+        fun missing(vararg reported: String) = missingAnchorFailure(":m:t", listOf("com.x.A"), reported.toSet(), isFiltered = false)
+
+        assertNull(missing("com.x.A"))
+        assertNull(missing("iosSimulatorArm64Test.com.x.A"))
+        assertNull(missing("linuxX64Test.com.x.A"))
+        assertNotNull(missing("a.b.com.x.A"), "a multi-dot prefix must not match")
+        assertNotNull(missing("com.x.B"), "a different class must not match")
+        assertNotNull(missing("iosSimulatorArm64Test.com.x.B"))
+        assertNotNull(missing("other.com.x.AB"))
+    }
+
+    @Test
     fun `a filtered run never fails on anchors`() {
         assertNull(missingAnchorFailure(":m:jvmTest", listOf("com.x.Gone"), emptySet(), isFiltered = true))
     }

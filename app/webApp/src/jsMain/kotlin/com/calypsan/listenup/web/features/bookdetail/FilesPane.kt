@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.AudioFile
@@ -12,6 +13,7 @@ import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.TableColumn
+import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -85,7 +87,7 @@ private val FILE_COLUMNS =
     listOf(
         TableColumn<AudioFile>("file", "File", mono = true) { Text(it.filename) },
         TableColumn("duration", "Duration", width = 96, align = ColumnAlign.End, mono = true) {
-            Text(formatClock((it.duration / MILLIS_PER_SECOND).toInt()))
+            Text(DurationFormatter.playbackClock((it.duration / MILLIS_PER_SECOND).toInt().seconds))
         },
         TableColumn("size", "Size", width = 88, align = ColumnAlign.End, mono = true) {
             Text(byteSizeLabel(it.size))

@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.foundation.shape.CircleShape
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * Expressive value selector: a filled tonal pill that shows the current [value] and a trailing
@@ -70,7 +69,7 @@ fun ValuePill(
                 color = contentColor,
             )
             Icon(
-                imageVector = Icons.Default.ExpandMore,
+                imageVector = ListenUpIcons.ExpandMoreFilled,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = contentColor,

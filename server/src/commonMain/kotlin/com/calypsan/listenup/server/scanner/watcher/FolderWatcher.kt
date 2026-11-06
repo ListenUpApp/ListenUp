@@ -12,7 +12,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -59,8 +58,8 @@ internal class FolderWatcher(
     private val watcher: LowLevelDirectoryWatcher = newLowLevelDirectoryWatcher(scope),
     private val selfWrites: SelfWriteRegistry = SelfWriteRegistry { 0L },
 ) {
-    private val emissions = MutableSharedFlow<Path>(extraBufferCapacity = 64)
-    val events: Flow<Path> = emissions.asSharedFlow()
+    val events: Flow<Path>
+        field = MutableSharedFlow<Path>(extraBufferCapacity = 64)
 
     private val pendingLock = SynchronizedObject()
     private val pendingByBookRoot = mutableMapOf<Path, Job>()
@@ -162,7 +161,7 @@ internal class FolderWatcher(
                     // applies backpressure to this per-book-root coroutine rather than silently
                     // dropping the change — a dropped emission would strand the book until the
                     // next periodic rescan. We're already inside scope.launch, so suspending is fine.
-                    emissions.emit(bookRoot)
+                    events.emit(bookRoot)
                     synchronized(pendingLock) { pendingByBookRoot.remove(bookRoot) }
                 }
         }

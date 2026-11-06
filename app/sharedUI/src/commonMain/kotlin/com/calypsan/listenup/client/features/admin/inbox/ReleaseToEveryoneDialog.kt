@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.features.admin.inbox
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_release
 import listenup.composeapp.generated.resources.admin_release_to_everyone
@@ -42,6 +41,6 @@ fun ReleaseToEveryoneDialog(
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismiss,
         // The inbox glyph the held section and the Library entry wear (canvas `A-Detail-Confirm`).
-        icon = Icons.Outlined.Inbox,
+        icon = ListenUpIcons.Inbox,
     )
 }

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -15,6 +13,7 @@ import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.library.components.LibrarySortCard
 import com.calypsan.listenup.client.features.library.components.LibraryStatusChoice
 import com.calypsan.listenup.client.features.settings.SettingsActions
@@ -45,8 +44,8 @@ class ChoiceSemanticsTest {
         composeRule.setContent {
             MaterialTheme {
                 androidx.compose.foundation.layout.Row {
-                    SelectableOptionCard("Member", "Can listen", Icons.Outlined.Person, selected = true, onClick = {})
-                    SelectableOptionCard("Admin", "Can manage", Icons.Outlined.Person, selected = false, onClick = {})
+                    SelectableOptionCard("Member", "Can listen", ListenUpIcons.Person, selected = true, onClick = {})
+                    SelectableOptionCard("Admin", "Can manage", ListenUpIcons.Person, selected = false, onClick = {})
                 }
             }
         }

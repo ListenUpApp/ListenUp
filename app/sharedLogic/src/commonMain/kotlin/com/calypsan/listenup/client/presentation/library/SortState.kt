@@ -81,6 +81,18 @@ enum class SortCategory(
                 BOOK_COUNT,
             )
 
+        /**
+         * [booksCategories] as keys, for iOS: a Swift array of this enum traps when read across the Swift Export
+         * bridge, so iOS reads the keys (strings) and rebuilds each category with [fromKey].
+         */
+        val booksCategoryKeys: List<String> = booksCategories.map { it.key }
+
+        /** [seriesCategories] as keys; see [booksCategoryKeys]. */
+        val seriesCategoryKeys: List<String> = seriesCategories.map { it.key }
+
+        /** [contributorCategories] as keys; see [booksCategoryKeys]. */
+        val contributorCategoryKeys: List<String> = contributorCategories.map { it.key }
+
         fun fromKey(key: String): SortCategory? = entries.find { it.key == key }
     }
 }

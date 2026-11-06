@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesedit.components
 
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,11 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.seriesdetail.components.bookCountLabel
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesPathLabel
@@ -108,6 +105,8 @@ internal fun MoveIntoPicker(
 ) {
     val haptics = LocalHaptics.current
     val searching = state.parentQuery.isNotBlank()
+    // The picker opens blank (closing it resets the query) and owns the text while it is open.
+    val query = rememberForwardingTextFieldState(state.parentQuery) { onEvent(SeriesEditUiEvent.ParentQueryChanged(it)) }
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.series_move_into_named, state.name),
@@ -116,11 +115,10 @@ internal fun MoveIntoPicker(
             modifier = Modifier.padding(horizontal = Spacing.screenMargin).semantics { heading() },
         )
         ListenUpSearchField(
-            value = state.parentQuery,
-            onValueChange = { onEvent(SeriesEditUiEvent.ParentQueryChanged(it)) },
+            state = query,
             onSubmit = {},
             placeholder = stringResource(Res.string.series_merge_search_placeholder),
-            onClear = { onEvent(SeriesEditUiEvent.ParentQueryChanged("")) },
+            clearable = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 12.dp),
         )
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -130,7 +128,7 @@ internal fun MoveIntoPicker(
                     title = stringResource(Res.string.series_top_level_no_parent),
                     meta = null,
                     depth = 0,
-                    leading = { Icon(Icons.Outlined.Home, contentDescription = null) },
+                    leading = { Icon(ListenUpIcons.Home, contentDescription = null) },
                     reason = if (isTopLevel) stringResource(Res.string.series_picker_current) else null,
                     onChoose = {
                         haptics.press()
@@ -143,7 +141,7 @@ internal fun MoveIntoPicker(
                     title = stringResource(Res.string.series_new_parent),
                     meta = null,
                     depth = 0,
-                    leading = { Icon(Icons.Default.Add, contentDescription = null) },
+                    leading = { Icon(ListenUpIcons.AddFilled, contentDescription = null) },
                     reason = null,
                     onChoose = {
                         haptics.press()
@@ -203,7 +201,7 @@ private fun TreeRow(
                 ) {
                     Icon(
                         imageVector =
-                            if (row.isExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            if (row.isExpanded) ListenUpIcons.KeyboardArrowDownFilled else ListenUpIcons.KeyboardArrowRightFilled,
                         contentDescription =
                             "${stringResource(if (row.isExpanded) Res.string.common_collapse else Res.string.common_expand)} ${row.name}",
                     )

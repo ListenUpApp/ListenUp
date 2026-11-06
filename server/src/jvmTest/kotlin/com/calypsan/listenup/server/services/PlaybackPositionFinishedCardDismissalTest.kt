@@ -79,6 +79,45 @@ class PlaybackPositionFinishedCardDismissalTest :
             }
         }
 
+        test("a late dismissal changes only the dismissal, and an older one writes nothing") {
+            withSqlDatabase {
+                runTest {
+                    val repo = repoOver(sql)
+                    repo.finish(lastPlayedAt = FINISHED_AT + 5_000L)
+                    val first = repo.getPosition(USER, BOOK).shouldNotBeNull()
+                    // A writer that bypasses recordPositionDetailed moves the place after the repository's read.
+                    sql.playbackPositionsQueries.update(
+                        position_ms = 7_777L,
+                        last_played_at = first.lastPlayedAt,
+                        finished = 1L,
+                        playback_speed = first.playbackSpeed.toDouble(),
+                        volume_boost_db = first.volumeBoostDb.toDouble(),
+                        measured_gain_db = null,
+                        finished_at = null,
+                        has_custom_speed = 0L,
+                        has_custom_boost = 0L,
+                        current_chapter_id = null,
+                        revision = first.revision,
+                        updated_at = first.updatedAt,
+                        deleted_at = null,
+                        client_op_id = null,
+                        id = first.id,
+                    )
+
+                    repo.dismiss(at = FINISHED_AT + 9_000L, lastPlayedAt = FINISHED_AT + 1_000L)
+
+                    val dismissed = repo.getPosition(USER, BOOK).shouldNotBeNull()
+                    dismissed.finishedCardDismissedAt shouldBe FINISHED_AT + 9_000L
+                    dismissed.positionMs shouldBe 7_777L
+                    dismissed.revision shouldBeGreaterThan first.revision
+
+                    repo.dismiss(at = FINISHED_AT + 8_000L, lastPlayedAt = FINISHED_AT + 1_000L)
+
+                    repo.getPosition(USER, BOOK).shouldNotBeNull().revision shouldBe dismissed.revision
+                }
+            }
+        }
+
         test("a later position write that says nothing about the card keeps the dismissal") {
             withSqlDatabase {
                 runTest {

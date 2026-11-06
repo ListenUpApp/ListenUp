@@ -132,7 +132,7 @@ private const val SCANNING_TITLE = "Scanning your server"
 private const val ARRIVING_TITLE = "Building your library"
 private const val ARRIVING_TAIL = "Books appear here as they arrive; you can start listening now."
 
-/** The strip's box: a polite live region (spec §8.2), so progress is announced without stealing focus. */
+/** The strip's box: a polite live region, so progress is announced without stealing focus. */
 @Composable
 private fun StatusStrip(
     placement: String?,

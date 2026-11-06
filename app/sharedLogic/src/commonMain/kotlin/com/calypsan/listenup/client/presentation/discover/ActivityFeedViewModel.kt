@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.discover
 
+import com.calypsan.listenup.api.result.onFailure
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Activity
@@ -109,14 +110,17 @@ class ActivityFeedViewModel internal constructor(
      * it would repaint the same rows.
      */
     fun refresh() {
+        viewModelScope.launch { refreshNow() }
+    }
+
+    /** [refresh], but suspending until the lifecycle reconcile has finished, so a pull spinner can wait for it. */
+    suspend fun refreshNow() {
         if (state.value is ActivityFeedUiState.Error) observationRuns.update { it + 1 }
-        viewModelScope.launch {
-            refreshing.value = true
-            try {
-                syncRepository.refresh()
-            } finally {
-                refreshing.value = false
-            }
+        refreshing.value = true
+        try {
+            syncRepository.refresh().onFailure { logger.warn { "Activity refresh failed: ${it.message}" } }
+        } finally {
+            refreshing.value = false
         }
     }
 }

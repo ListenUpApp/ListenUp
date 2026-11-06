@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 
 /**
  * Centered empty-state placeholder — icon, title, and subtitle — shown when a search or list
@@ -28,7 +27,7 @@ fun EmptyState(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
-    icon: ImageVector = Icons.Default.SearchOff,
+    icon: ImageVector = ListenUpIcons.SearchOffFilled,
 ) {
     Box(
         modifier = modifier.fillMaxSize(),

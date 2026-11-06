@@ -33,7 +33,7 @@ import listenup.composeapp.generated.resources.book_detail_sample_rate
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Files & audio (spec §3.2.1 D32): the sheet behind the Details row and the scan warning's Review. Each file (its name,
+ * Files & audio: the sheet behind the Details row and the scan warning's Review. Each file (its name,
  * length and size), then the format rows that left Details: Format, Bitrate, Sample rate, Channels.
  */
 @OptIn(ExperimentalMaterial3Api::class)

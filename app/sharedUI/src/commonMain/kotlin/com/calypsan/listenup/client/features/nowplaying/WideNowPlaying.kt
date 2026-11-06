@@ -78,7 +78,7 @@ private val CONTROLS_MAX_WIDTH = 520.dp
 private val COVER_DROP = 40.dp
 
 /**
- * Wide Now Playing (spec §5.3, `NP-AndroidTablet`): Expanded windows, a phone on its side and book posture. It divides
+ * Wide Now Playing: Expanded windows, a phone on its side and book posture. It divides
  * the space it actually gets by [widePanes]:
  * - **Three columns** ([WidePanes.ThreeColumns]): the cover · the player column · the chapter panel.
  * - **Column and panel** ([WidePanes.ColumnAndPanel]): the cover over the player column, beside the panel (an upright
@@ -377,8 +377,8 @@ private fun CoverBesideControls(
 }
 
 /**
- * The controls: the title block, the scrubber, and the transport or the state card in its place
- * (C5). Under the wide header the book takes the board's order, the series a link above the title
+ * The controls: the title block, the scrubber, and the transport or the state card in its place.
+ * Under the wide header the book takes the board's order, the series a link above the title
  * ([TitleArrangement.Wide]). When [isShort] (a phone on its side, under the phone bar) the title drops to one line, the
  * counter and the bylines go (the cover and the More menu still lead to the book), and the play button shrinks to 64 dp.
  */

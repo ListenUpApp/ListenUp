@@ -56,8 +56,8 @@ private const val SKELETON_RAIL_CARDS = 3
 private val SkeletonLineWidths = listOf(0.4f, 0.8f, 0.6f)
 
 /**
- * "Building your library" above the first-sync skeleton (spec §2.3 FirstSync, H5): the count joins the title only
- * while a scan knows both numbers (open question 1), and the change is announced politely (§8.2).
+ * "Building your library" above the first-sync skeleton: the count joins the title only
+ * while a scan knows both numbers, and the change is announced politely.
  */
 @Composable
 internal fun FirstSyncStrip(
@@ -99,7 +99,7 @@ internal fun FirstSyncStrip(
     }
 }
 
-/** The slot's skeleton (H14): a cover and three lines, while the first sync or the page is loading. */
+/** The slot's skeleton: a cover and three lines, while the first sync or the page is loading. */
 @Composable
 internal fun HomeSkeletonSlot(modifier: Modifier = Modifier) {
     val label = stringResource(Res.string.home_up_next_loading_a11y)
@@ -146,8 +146,8 @@ internal fun HomeSkeletonRail(modifier: Modifier = Modifier) {
 }
 
 /**
- * Home while its state is loading (spec §3.3 page loading): a greeting-sized bar in the shell header, the slot and rail
- * skeletons, and no strip. Replaces the spinner (H14).
+ * Home while its state is loading: a greeting-sized bar in the shell header, the slot and rail
+ * skeletons, and no strip. Replaces the spinner.
  */
 @Composable
 internal fun HomeLoadingBody(

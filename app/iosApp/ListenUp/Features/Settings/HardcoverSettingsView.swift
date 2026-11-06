@@ -210,7 +210,7 @@ private struct HardcoverLinkingPhase: View {
 
     /// The instructions, with the address to type set in bold.
     private var instructions: AttributedString {
-        let sentence = String(format: String(localized: "hardcover.linking_instructions"), model.address)
+        let sentence = String(localized: .hardcoverLinkingInstructions(model.address))
         var attributed = AttributedString(sentence)
         if let range = attributed.range(of: model.address) {
             attributed[range].inlinePresentationIntent = .stronglyEmphasized
@@ -296,7 +296,7 @@ private struct HardcoverBrokenPhase: View {
 
     /// "Was connected as simon.", with the name set in bold.
     private func wasConnectedAs(_ username: String) -> AttributedString {
-        var attributed = AttributedString(String(format: String(localized: "hardcover.was_connected_as"), username))
+        var attributed = AttributedString(String(localized: .hardcoverWasConnectedAs(username)))
         if let range = attributed.range(of: username) {
             attributed[range].inlinePresentationIntent = .stronglyEmphasized
             attributed[range].foregroundColor = .primary

@@ -12,13 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Pending
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,14 +21,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiState
+import com.calypsan.listenup.client.presentation.sync.SyncReadout
+import com.calypsan.listenup.client.presentation.sync.syncReadoutOf
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.common_retry
@@ -93,6 +90,8 @@ fun SyncDetailsDropdown(
                 pendingCount = state.pendingCount,
             )
 
+            SyncReadoutLine(state = state)
+
             // Failed operations section
             if (state.failedOperations.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
@@ -115,6 +114,24 @@ fun SyncDetailsDropdown(
             }
         }
     }
+}
+
+/** When the library last synced, or "Couldn't sync" after a refresh that failed. */
+@Composable
+private fun SyncReadoutLine(state: SyncIndicatorUiState) {
+    val nowMs by rememberMinuteClockMs()
+    val readout = syncReadoutOf(state, nowMs)
+    Text(
+        text = syncReadoutText(readout),
+        style = MaterialTheme.typography.bodySmall,
+        color =
+            if (readout == SyncReadout.CouldNotSync) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        modifier = Modifier.padding(top = 8.dp),
+    )
 }
 
 @Composable
@@ -150,7 +167,7 @@ private fun SyncStatusSection(
                 }
             } else if (pendingCount > 0) {
                 Icon(
-                    imageVector = Icons.Default.Pending,
+                    imageVector = ListenUpIcons.PendingFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
@@ -169,7 +186,7 @@ private fun SyncStatusSection(
                 }
             } else {
                 Icon(
-                    imageVector = Icons.Default.CloudSync,
+                    imageVector = ListenUpIcons.CloudSyncFilled,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
@@ -196,7 +213,7 @@ private fun SyncCompleteSection() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Default.CloudDone,
+                imageVector = ListenUpIcons.CloudDoneFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp),
@@ -235,7 +252,7 @@ private fun FailedOperationsSection(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Default.Error,
+                imageVector = ListenUpIcons.ErrorFilled,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp),
@@ -324,7 +341,7 @@ private fun FailedOperationItem(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Default.Refresh,
+                    imageVector = ListenUpIcons.RefreshFilled,
                     contentDescription = stringResource(Res.string.common_retry),
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -337,7 +354,7 @@ private fun FailedOperationItem(
                 },
             ) {
                 Icon(
-                    imageVector = Icons.Default.CheckCircle,
+                    imageVector = ListenUpIcons.CheckCircleFilled,
                     contentDescription = stringResource(Res.string.common_dismiss),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

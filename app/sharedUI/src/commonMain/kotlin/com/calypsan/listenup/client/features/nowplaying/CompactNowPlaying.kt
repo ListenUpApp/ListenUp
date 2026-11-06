@@ -42,14 +42,14 @@ import com.calypsan.listenup.client.presentation.player.PlayerUiState
 private val SCREEN_MARGIN = 24.dp
 
 /**
- * Compact (phone portrait) full-screen Now Playing (spec §5.2, board `NP-AndroidPhone`), top to bottom: the top bar
+ * Compact (phone portrait) full-screen Now Playing, top to bottom: the top bar
  * (Collapse · status · Cast · More), the book ([PlayerBookBlock]), the chapter scrubber over its times, **the
- * transport, or the state card in its place** (P32, C5), and the settings row.
+ * transport, or the state card in its place**, and the settings row.
  *
  * [BoxWithConstraints] scales the cover by both width and available height, and weighted gaps distribute slack. When
  * the content is taller than the screen (large text, a card) it scrolls; when it fits the scroll is off, which leaves
  * the parent's swipe-down-to-collapse gesture (in [NowPlayingScreen]) free to fire. While a problem card shows the scrubber holds still; on a finished
- * book it stays live (§4.5: a seek there is Listen again from that point).
+ * book it stays live (a seek there is Listen again from that point).
  */
 @Suppress("LongParameterList", "LongMethod")
 @Composable

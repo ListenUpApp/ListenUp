@@ -71,7 +71,7 @@ struct UserPermissionsView: View {
             Button(String(localized: "book.edit_keep_editing"), role: .cancel) {}
         }
         .alert(
-            String(format: String(localized: "admin.make_admin_title"), ready.name),
+            String(localized: .adminMakeAdminTitle(ready.name)),
             isPresented: Binding(
                 get: { ready.isConfirmingAdminPromotion },
                 set: { if !$0 { observer?.cancelAdminPromotion() } }
@@ -162,7 +162,7 @@ struct UserPermissionsView: View {
         } footer: {
             if ready.curateWarningShown && section.rows.contains(where: { $0.permission == .curateLibrary }) {
                 Label {
-                    Text(String(format: String(localized: "admin.curate_library_warning"), ready.name))
+                    Text(String(localized: .adminCurateLibraryWarning(ready.name)))
                         .foregroundStyle(.primary)
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -185,7 +185,7 @@ struct UserPermissionsView: View {
                     .accessibilityHidden(true)
                 Text(String(localized: "admin.admins_can_do_everything"))
                     .font(.headline)
-                Text(String(format: String(localized: "admin.admins_can_do_everything_body"), ready.name))
+                Text(String(localized: .adminAdminsCanDoEverythingBody(ready.name)))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -195,7 +195,7 @@ struct UserPermissionsView: View {
             .accessibilityElement(children: .combine)
         } footer: {
             if !ready.isOwner {
-                Text(String(format: String(localized: "admin.admins_change_role_hint"), ready.name))
+                Text(String(localized: .adminAdminsChangeRoleHint(ready.name)))
             }
         }
     }

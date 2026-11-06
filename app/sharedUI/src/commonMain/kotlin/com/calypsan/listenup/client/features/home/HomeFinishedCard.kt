@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -42,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.RatingStars
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.home.AlsoFinished
@@ -60,15 +58,15 @@ import listenup.composeapp.generated.resources.home_you_finished_a_book_a11y
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 
-/** Test tag for the finish card's one link into the finished book (H15). */
+/** Test tag for the finish card's one link into the finished book. */
 internal const val HOME_FINISHED_IDENTITY_TAG = "home-finished-identity"
 
 private val FinishedCover = 120.dp
 private val PlayNextHeight = 56.dp
 
 /**
- * The just-finished kind (spec §2.3): when it was finished, the book as one link, the next in its series with
- * **Play next book** (the leading action, C16), the shared half-star control (Q2) and who else finished it. ✕ dismisses
+ * The just-finished kind: when it was finished, the book as one link, the next in its series with
+ * **Play next book** (the leading action), the shared half-star control and who else finished it. ✕ dismisses
  * it on every device. No next book: no primary button, and the rating is the action.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -101,7 +99,7 @@ internal fun HomeFinishedCard(
                 )
                 IconButton(onClick = { actions.onDismissFinished(card.book.bookId) }) {
                     Icon(
-                        Icons.Filled.Close,
+                        ListenUpIcons.CloseFilled,
                         contentDescription = stringResource(Res.string.home_dismiss_everywhere_a11y),
                     )
                 }
@@ -119,7 +117,11 @@ internal fun HomeFinishedCard(
                             .heightIn(min = PlayNextHeight)
                             .semantics { contentDescription = playLabel },
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(ButtonDefaults.IconSize))
+                    Icon(
+                        ListenUpIcons.PlayArrowFilled,
+                        contentDescription = null,
+                        Modifier.size(ButtonDefaults.IconSize),
+                    )
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text(stringResource(Res.string.home_play_next_book))
                 }
@@ -212,7 +214,7 @@ private fun FinishedRating(
     }
 }
 
-/** "Maya, Tom and 3 more finished it too" (C9), or null when nobody is named (Q7). */
+/** "Maya, Tom and 3 more finished it too", or null when nobody is named. */
 @Composable
 private fun alsoFinishedText(also: AlsoFinished): String? {
     val names = also.names.filter { it.isNotBlank() }

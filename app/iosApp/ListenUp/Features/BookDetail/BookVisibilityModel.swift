@@ -53,7 +53,7 @@ enum VisibilityCopy {
         case .nobody: return String(localized: "book.visibility_every_member")
         case .everyone: return String(localized: "book.visibility_hidden_from_all")
         case .members(let names):
-            return String(format: String(localized: "book.visibility_hidden_from"), nameList(names, expanded: expanded))
+            return String(localized: .bookVisibilityHiddenFrom(nameList(names, expanded: expanded)))
         }
     }
 
@@ -65,18 +65,14 @@ enum VisibilityCopy {
         // Stays Int32: the catalog's `%2$d` reads a C int, so the argument matches it exactly.
         let others = summary.othersCount
         if others == 1 {
-            return String(format: String(localized: "book.visibility_names_one_other"), shown.joined(separator: ", "))
+            return String(localized: .bookVisibilityNamesOneOther(shown.joined(separator: ", ")))
         }
         if others > 1 {
             let list = shown.joined(separator: ", ")
             return String(format: String(localized: "book.visibility_names_others"), list, others)
         }
         if shown.count == 1 { return shown[0] }
-        return String(
-            format: String(localized: "book.visibility_names_two"),
-            shown.dropLast().joined(separator: ", "),
-            shown[shown.count - 1]
-        )
+        return String(localized: .bookVisibilityNamesTwo(shown.dropLast().joined(separator: ", "), shown[shown.count - 1]))
     }
 
     nonisolated static func canExpand(_ names: [String], expanded: Bool) -> Bool {
@@ -87,13 +83,13 @@ enum VisibilityCopy {
         let only = collections.count == 1 ? collections[0].name : nil
         switch hiddenFrom {
         case .members:
-            return only.map { String(format: String(localized: "book.visibility_reason_members_one"), $0) }
+            return only.map { String(localized: .bookVisibilityReasonMembersOne($0)) }
                 ?? String(localized: "book.visibility_reason_members_many")
         case .nobody:
-            return only.map { String(format: String(localized: "book.visibility_reason_nobody_one"), $0) }
+            return only.map { String(localized: .bookVisibilityReasonNobodyOne($0)) }
                 ?? String(localized: "book.visibility_reason_nobody_many")
         case .everyone:
-            return only.map { String(format: String(localized: "book.visibility_reason_everyone_one"), $0) }
+            return only.map { String(localized: .bookVisibilityReasonEveryoneOne($0)) }
                 ?? String(localized: "book.visibility_reason_everyone_many")
         }
     }

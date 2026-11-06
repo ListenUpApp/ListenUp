@@ -32,7 +32,7 @@ sealed interface PlaybackMove {
         val deltaMs: Long,
     ) : PlaybackMove
 
-    /** The current chapter's start once it has run for more than 3 s, else the previous chapter's (§3.3). */
+    /** The current chapter's start once it has run for more than 3 s, else the previous chapter's. */
     data object PreviousChapter : PlaybackMove
 
     /** The next chapter's start; nothing at the last chapter. */

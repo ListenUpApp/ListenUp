@@ -21,6 +21,7 @@ class NoUnderscoreBackingFieldRule :
         val underscoreChannel = Regex("""private val _\w+\s*(:[^=]+)?=\s*Channel\b""")
         val underscoreVar = Regex("""private var _\w+""")
         val stateFlowDual = Regex("""\bval \w+\s*:\s*StateFlow<.*>\s*=\s*\w+\.asStateFlow\(\)""")
+        val sharedFlowDual = Regex("""\bval \w+\s*:\s*(SharedFlow|Flow)<.*>\s*=\s*\w+\.asSharedFlow\(\)""")
 
         // Legitimate exception: the underscore field is a directly-mutated SOURCE for a *derived*
         // public flow (`_x.stateIn(WhileSubscribed)` / `_x.map { … }`), which explicit backing fields
@@ -31,9 +32,9 @@ class NoUnderscoreBackingFieldRule :
         val allowed = setOf("RestoreFromFileViewModel")
 
         // The explicit-backing-field idiom is canonical across the client KMP modules: the 2a
-        // sweep covered :app:sharedLogic; :app:sharedUI, :app:webApp and :contract are folded in here.
-        // :server is a separate (Kotlin/Native) track with its own conventions and stays out of scope.
-        val inScope = listOf("/sharedLogic/", "/sharedUI/", "/webApp/", "/contract/")
+        // sweep covered :app:sharedLogic; :app:sharedUI, :app:webApp and :contract are folded in here,
+        // and :server now follows the same idiom.
+        val inScope = listOf("/sharedLogic/", "/sharedUI/", "/webApp/", "/contract/", "/server/")
 
         fun clientClasses(): List<KoClassDeclaration> {
             val classes =
@@ -74,5 +75,9 @@ class NoUnderscoreBackingFieldRule :
 
         test("no production class exposes a StateFlow property as `mutable.asStateFlow()`; use explicit `field =`") {
             offendersOf(stateFlowDual, emptySet()) shouldBe emptyList()
+        }
+
+        test("no production class exposes a SharedFlow as `mutable.asSharedFlow()`; use explicit `field =`") {
+            offendersOf(sharedFlowDual, emptySet()) shouldBe emptyList()
         }
     })

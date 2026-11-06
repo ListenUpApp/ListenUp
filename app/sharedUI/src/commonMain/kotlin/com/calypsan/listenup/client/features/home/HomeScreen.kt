@@ -11,6 +11,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.calypsan.listenup.client.design.components.rememberPullRefreshGate
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -29,12 +30,12 @@ import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * Home screen: resolves Home's two ViewModels and draws [HomeBody] (C12). Pull-to-refresh and multi-select live here;
+ * Home screen: resolves Home's two ViewModels and draws [HomeBody]. Pull-to-refresh and multi-select live here;
  * everything Home draws lives in [HomeBody], [HomeLoadingBody] and [HomeErrorBody].
  *
  * @param appHeader The shell header slot; the greeting is its leading content.
  * @param onBookClick Opens a book.
- * @param onPlayBook The player's play entry, from the saved position (P-R5, C18).
+ * @param onPlayBook The player's play entry, from the saved position.
  * @param onNavigateToLibrary Opens the Library: Browse the Library, and In Library where the shell has no landings.
  * @param onNavigateToDiscover Opens Discover: the quiet slots' Discover button, and the stats footer's leaderboard link
  *   where the shell has no landings. Inside the shell, In Library and the footer land through [LocalShellLandings].
@@ -48,7 +49,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param contentPadding The shell's insets, applied inside the scroll.
  * @param modifier Modifier from parent
  * @param viewModel HomeViewModel injected via Koin
- * @param multiSelect Multi-select state shared with Library
+ * @param multiSelect Multi-select state of this tab (the shell gives each tab its own)
  * @param statsViewModel HomeStatsViewModel injected via Koin
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,8 +130,8 @@ fun HomeScreen(
                     multiSelect = multiSelect,
                     appHeader = appHeader,
                     onRefresh = {
-                        viewModel.refresh()
                         statsViewModel.refresh()
+                        viewModel.refreshNow()
                     },
                     onRetryStats = statsViewModel::refresh,
                     onEditSelected = onEditSelected,
@@ -149,7 +150,7 @@ private fun HomeReady(
     actions: HomeActions,
     multiSelect: BookMultiSelectViewModel,
     appHeader: AppHeaderSlot,
-    onRefresh: () -> Unit,
+    onRefresh: suspend () -> Unit,
     onRetryStats: () -> Unit,
     onEditSelected: ((List<String>, endSelection: () -> Unit) -> Unit)?,
     contentPadding: PaddingValues,
@@ -171,12 +172,14 @@ private fun HomeReady(
         multiSelect.exitSelectionMode()
     }
 
+    val pullGate = rememberPullRefreshGate()
+
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
-            isRefreshing = state.isLoading,
+            isRefreshing = pullGate.isPulling || state.isLoading,
             onRefresh = {
                 haptics.thresholdActivate()
-                onRefresh()
+                pullGate.pull(onRefresh)
             },
             modifier = Modifier.fillMaxSize(),
         ) {

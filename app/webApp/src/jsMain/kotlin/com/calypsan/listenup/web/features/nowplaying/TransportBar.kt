@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.playback.PlaybackPresets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import com.calypsan.listenup.web.design.LocalCompositionProbe
 import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.isPlainPrimaryClick
+import kotlin.time.Duration.Companion.milliseconds
 import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.disabled
@@ -46,7 +49,7 @@ import kotlin.math.roundToInt
  * nothing for [PlayerUiState.NothingLoaded].
  *
  * The bar shows from the moment a book is asked for: while it prepares it already names the new book, with
- * a spinner on the main button (§3.6). The main button is whatever [PlayerUiState.Loaded.primary] says
+ * a spinner on the main button. The main button is whatever [PlayerUiState.Loaded.primary] says
  * (Play, Pause, Retry, Listen again, …), and it acts through [onPrimary], so the bar never decides on its
  * own what a press means.
  *
@@ -60,7 +63,7 @@ import kotlin.math.roundToInt
  * a seek per pointer sample, which on the HLS path means
  * [com.calypsan.listenup.web.playback.HtmlAudioPlayer] re-running `attach` per sample, destroying
  * and rebuilding an hls.js instance and re-fetching its playlists tens of times a second.
- * Committing once, on release, fixes both. On the bar and the phone Now Playing page it spans the chapter (M10, gap 8).
+ * Committing once, on release, fixes both. On the bar and the phone Now Playing page it spans the chapter.
  */
 @Composable
 fun TransportBar(
@@ -86,7 +89,7 @@ fun TransportBar(
     onFocusChapters: (() -> Unit)? = null,
 ) {
     LocalCompositionProbe.current(TRANSPORT_BAR_PROBE)
-    // Where each panel is open, or null: the bar's controls hang popovers from themselves (§5.1), or open sheets where
+    // Where each panel is open, or null: the bar's controls hang popovers from themselves, or open sheets where
     // the window is narrower than PANEL_POPOVER_MIN_WIDTH_PX (panelPlacementFor).
     val panels = remember { BarPanels() }
     var boostOpen by remember { mutableStateOf(false) }
@@ -121,6 +124,7 @@ fun TransportBar(
         onCancel = onCancelSleepTimer,
         onExtend = onExtendSleepTimer,
         onKeepListening = onCancelSleepTimer,
+        defaultMinutes = settings.defaultSleepMinutes,
         placement = panels.sleep ?: PanelPlacement.Sheet,
         onDismiss = { panels.sleep = null },
     )
@@ -189,7 +193,7 @@ fun TransportBar(
                 sleepCountdownMs = sleepCountdownMs,
                 panels = panels,
                 onOpenSpeed = { opener -> panels.speed = panels.speed.toggledFrom(opener) },
-                // On the page, wider than a phone, the list is already there: Chapters takes focus to it (§5.1 M14).
+                // On the page, wider than a phone, the list is already there: Chapters takes focus to it.
                 onOpenChapters = { opener ->
                     if (isNowPlayingOpen && onFocusChapters != null) {
                         onFocusChapters()
@@ -216,7 +220,7 @@ fun TransportBar(
 internal const val TRANSPORT_BAR_PROBE = "transport-bar"
 
 /**
- * The keyboard shortcuts (§5.1, `?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
+ * The keyboard shortcuts (`?`): the one insertion in the bar's pinned order, between Chapters and Open. In the
  * settings group, so it steps aside with them below 760px, where the web phone has none.
  */
 @Composable
@@ -233,7 +237,7 @@ private fun ShortcutsButton(panels: BarPanels) {
     }) { Icon(WebIcon.Keyboard, size = CHAPTER_ICON_SIZE) }
 }
 
-/** Open ↔ Close: on the page it is the way back (§5.1), and says so; P opens it, and P or Esc closes it. */
+/** Open ↔ Close: on the page it is the way back, and says so; P opens it, and P or Esc closes it. */
 @Composable
 private fun ExpandButton(
     isNowPlayingOpen: Boolean,
@@ -291,7 +295,7 @@ private fun BarBook(
         })
     }
 
-    // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once (§8).
+    // Polite, and empty except while reconnecting: inserting the word is what a screen reader announces, once.
     Span(attrs = {
         classes("sr-only")
         attr(ATTR_ROLE, "status")
@@ -351,7 +355,7 @@ private fun BarTransport(
     val settings = state.settings
     Div(attrs = { classes("tport-mid") }) {
         Div(attrs = { classes("tport-transport") }) {
-            // Its slot is kept while hidden (§3.5's stalls), so the main button never moves under the cursor.
+            // Its slot is kept while hidden, so the main button never moves under the cursor.
             SkipButton(
                 icon = WebIcon.SkipBack,
                 seconds = settings.skipBackSec,
@@ -389,9 +393,7 @@ private fun BarTransport(
 }
 
 /**
- * Speed · Sleep · Chapters: the three that change how this book plays rather than where it is (§5.1 M13, M16,
- * M14). Volume boost left the bar with the redesign; it is one tap away in Now Playing until PR 4 moves it
- * into More.
+ * Speed · Sleep · Chapters: the three that change how this book plays rather than where it is. Volume boost is not on the bar; it lives in More.
  */
 @Composable
 private fun SessionControls(
@@ -412,15 +414,15 @@ private fun SessionControls(
     Button(attrs = {
         classes("tport-speed")
         attr(ATTR_TYPE, VALUE_BUTTON)
-        attr(ATTR_ARIA_LABEL, "Playback speed, ${formatSpeed(speed)} times")
+        attr(ATTR_ARIA_LABEL, "Playback speed, ${PlaybackPresets.speedNumber(speed)} times")
         attr(ATTR_TITLE, NowPlayingWords.withKey("Playback speed", "< >"))
         attr(ATTR_KEYSHORTCUTS, PlayerKeyAria.SPEED)
         attr(ATTR_EXPANDED, (panels.speed != null).toString())
         onClick { event -> onOpenSpeed(event.currentTarget as? HTMLElement) }
-    }) { Text("${formatSpeed(speed)}\u00D7") }
+    }) { Text("${compactSpeedText(speed)}\u00D7") }
 
     // Always offered, unlike chapters: a duration timer needs nothing from the book. Armed, the countdown IS the
-    // control, in gold (§3.9): a timer nobody can see is one the listener forgets setting — and finding out it was
+    // control, in gold: a timer nobody can see is one the listener forgets setting — and finding out it was
     // armed by having the book stop is the one way this feature can feel broken rather than kind.
     val countdown = sleepCountdownMs?.takeIf { sleepTimer is SleepTimerState.Active }?.let(PlayerSheetWords::countdown)
     val sleepLabel = countdown?.let { "Sleep timer, $it left" } ?: "Sleep timer"
@@ -629,36 +631,12 @@ private fun SkipButton(
 }
 
 /**
- * A speed as the shortest text that still reads as that speed: `1x`, `1.5x`, `1.25x`.
+ * A speed for the transport bar's 40px control: `1×` is `1`, `1.5` and `1.25` as they are, the sign added by the caller.
  *
- * Trailing zeros are dropped because the control is 40px wide and "1.00" spends a third of it
- * saying nothing.
+ * The one place a speed is not written as [PlaybackPresets.speedLabel] ("1.0×"): the control is 40px wide, and the
+ * trailing ".0" spends a quarter of it saying nothing. It is built from the shared number, so it cannot drift from it.
  */
-internal fun formatSpeed(speed: Float): String {
-    val hundredths = (speed * HUNDREDTHS).roundToInt()
-    val whole = hundredths / HUNDREDTHS
-    val fraction = hundredths % HUNDREDTHS
-    return when {
-        fraction == 0 -> whole.toString()
-        fraction % TENTHS == 0 -> "$whole.${fraction / TENTHS}"
-        else -> "$whole.${fraction.toString().padStart(2, '0')}"
-    }
-}
-
-/**
- * `H:MM:SS` once a position reaches an hour, `M:SS` below it.
- *
- * Dropping the hour field below an hour is not cosmetic: `0:02:05` and `2:05` are the same moment,
- * but a bar that always shows three fields makes a 40-minute lecture look like a 40-hour epic at a
- * glance, which is the one thing this label exists to convey.
- */
-internal fun formatElapsed(positionMs: Long): String {
-    val totalSeconds = positionMs.coerceAtLeast(0L) / MILLIS_PER_SECOND
-    val hours = totalSeconds / SECONDS_PER_HOUR
-    val minutes = totalSeconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
-    val seconds = totalSeconds % SECONDS_PER_MINUTE
-    return if (hours > 0) "$hours:${twoDigits(minutes)}:${twoDigits(seconds)}" else "$minutes:${twoDigits(seconds)}"
-}
+internal fun compactSpeedText(speed: Float): String = PlaybackPresets.speedNumber(speed).removeSuffix(".0")
 
 /**
  * The element's own `value` string as a position, or null when it is not one.
@@ -668,8 +646,6 @@ internal fun formatElapsed(positionMs: Long): String {
  * is the worst available guess at what an unreadable value meant.
  */
 private fun scrubbedMs(raw: String): Long? = raw.toDoubleOrNull()?.takeIf { it.isFinite() }?.toLong()
-
-private fun twoDigits(value: Long): String = value.toString().padStart(2, '0')
 
 /**
  * Elapsed time, the seek range, and total time — the three things that always move together.
@@ -699,7 +675,7 @@ internal fun Playhead(
     var dragPositionMs by remember { mutableStateOf<Long?>(null) }
     val shownPositionMs = dragPositionMs ?: positionMs
 
-    Span(attrs = { classes("mono", timeClass) }) { Text(formatElapsed(shownPositionMs)) }
+    Span(attrs = { classes("mono", timeClass) }) { Text(DurationFormatter.playbackClock(shownPositionMs.milliseconds)) }
 
     // A place in the story, never in a file: both ranges span the chapter
     // ([startMs] is where that span begins in the book, so a release seeks book-relative either way).
@@ -716,7 +692,11 @@ internal fun Playhead(
         // The implicit `aria-valuenow` is the raw millisecond count, which a screen reader
         // reads out as "four hundred and twenty thousand". Same courtesy the play button gets.
         // "3:30 of 42:00", not just "3:30": where you are only means something against the whole.
-        attr("aria-valuetext", "${formatElapsed(shownPositionMs)} of ${formatElapsed(durationMs)}")
+        attr(
+            "aria-valuetext",
+            "${DurationFormatter.playbackClock(shownPositionMs.milliseconds)} of " +
+                DurationFormatter.playbackClock(durationMs.milliseconds),
+        )
         value(shownPositionMs.toString())
         onInput { event -> dragPositionMs = scrubbedMs(event.target.value) }
         onChange { event ->
@@ -730,20 +710,12 @@ internal fun Playhead(
     val trailing =
         if (showsRemaining) {
             "\u2212" +
-                formatElapsed(
-                    (durationMs - shownPositionMs).coerceAtLeast(0L),
-                )
+                DurationFormatter.playbackClock((durationMs - shownPositionMs).coerceAtLeast(0L).milliseconds)
         } else {
-            formatElapsed(durationMs)
+            DurationFormatter.playbackClock(durationMs.milliseconds)
         }
     Span(attrs = { classes("mono", timeClass) }) { Text(trailing) }
 }
-
-private const val MILLIS_PER_SECOND = 1_000L
-
-private const val SECONDS_PER_MINUTE = 60L
-
-private const val SECONDS_PER_HOUR = 3_600L
 
 /** One second per keyboard step — the unit a listener actually thinks in. */
 private const val STEP_MS = 1_000L
@@ -784,8 +756,3 @@ private const val BAR_COVER_RUNG = 112
 private const val BAR_COVER_RADIUS = 6
 
 private const val PERCENT = 100
-
-/** A speed is carried as hundredths so the ladder's quarter steps stay exact in integer maths. */
-private const val HUNDREDTHS = 100
-
-private const val TENTHS = 10

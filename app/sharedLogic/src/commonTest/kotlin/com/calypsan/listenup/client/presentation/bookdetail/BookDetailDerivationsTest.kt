@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -121,6 +122,11 @@ class BookDetailDerivationsTest :
             }
             test("no chapters, no current chapter") {
                 currentChapterOf(emptyList(), 1_000L) shouldBe null
+            }
+            test("before the first chapter starts there is no current chapter") {
+                val introFirst = listOf(Chapter(id = "a", title = "A", duration = 10_000L, startTime = 30_000L))
+                currentChapterOf(introFirst, positionMs = 10_000L) shouldBe null
+                visiblePlayhead(10_000L, introFirst).chapterIndex shouldBe -1
             }
         }
 

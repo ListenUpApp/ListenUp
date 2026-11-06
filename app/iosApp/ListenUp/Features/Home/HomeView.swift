@@ -17,9 +17,9 @@ struct HomeView: View {
     /// Selects a shell tab: Browse the Library and the quiet slots' Discover leave Home here.
     var onSelectTab: (ShellTab) -> Void = { _ in }
 
-    /// The Everything in Progress header: Library's Books filtered to In Progress (spec §6.4).
+    /// The Everything in Progress header: Library's Books filtered to In Progress.
     @Environment(\.openLibraryInProgress) private var openLibraryInProgress
-    /// The stats card's Leaderboard link: Discover's board on Week (spec §6.4).
+    /// The stats card's Leaderboard link: Discover's board on Week.
     @Environment(\.openDiscoverLeaderboard) private var openDiscoverLeaderboard
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -76,7 +76,7 @@ struct HomeView: View {
     }
 
     /// "Good evening, Simon" once Home has loaded ("Welcome, Simon" for a new listener); the greeting alone when Home
-    /// failed (spec §3.3); nothing while it loads.
+    /// failed; nothing while it loads.
     private var greetingSubtitle: String {
         switch home?.phase {
         case .ready(let ready):
@@ -102,8 +102,9 @@ struct HomeView: View {
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }
         .refreshable {
-            home.refresh()
+            // The stats card only re-runs a failed observation (nothing to wait for), so only Home's sync is awaited.
             stats.refresh()
+            await home.refreshNow()
         }
         .onChange(of: home.inlineError) { _, message in
             // An inline banner appearing is not narrated, so say it (HIG, Feedback).
@@ -126,7 +127,7 @@ struct HomeView: View {
         }
     }
 
-    /// Page loading (spec §3.3, H14): the slot and rail skeletons, no strip, no spinner.
+    /// Page loading: the slot and rail skeletons, no strip, no spinner.
     private var loadingContent: some View {
         VStack(alignment: .leading, spacing: 28) {
             HomeSkeletonView()
@@ -139,13 +140,7 @@ struct HomeView: View {
     private func readyContent(_ ready: HomeReady, home: HomeViewModelWrapper, stats: HomeStatsObserver) -> some View {
         let layout = layout
         ForEach(
-            layout.blocks(
-                slot: ready.slot.shape,
-                isOffline: ready.isOffline,
-                continueListeningFailed: ready.continueListeningError != nil,
-                showsStrip: ready.showsArrivalStrip,
-                hasEverythingInProgress: !ready.everythingInProgress.isEmpty
-            ),
+            ready.blocks(isWide: layout.isWide),
             id: \.self
         ) { block in
             switch block {
@@ -190,8 +185,8 @@ struct HomeView: View {
         }
     }
 
-    /// Whichever slot applies, drawn: every kind takes the same position (spec §2.1). Every play goes through the play
-    /// entry Book Detail uses, from the saved position (P-R5, C16, C18).
+    /// Whichever slot applies, drawn: every kind takes the same position. Every play goes through the play
+    /// entry Book Detail uses, from the saved position.
     @ViewBuilder
     private func slotContent(_ ready: HomeReady, home: HomeViewModelWrapper) -> some View {
         switch ready.slot {
@@ -228,7 +223,7 @@ struct HomeView: View {
 
     // MARK: - Everything in Progress
 
-    /// "Everything in Progress ›" opens the Library's Books filtered to In Progress (spec §6.4); the rail scrolls on
+    /// "Everything in Progress ›" opens the Library's Books filtered to In Progress; the rail scrolls on
     /// iPhone and is one row of width-driven columns on iPad.
     private func everythingInProgress(_ items: [ContinueItem], layout: HomeLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {

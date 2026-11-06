@@ -4,7 +4,9 @@ import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.Button
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.presentation.player.PLAYBACK_SPEED_STEPS
+import com.calypsan.listenup.client.playback.PlaybackPresets
+import com.calypsan.listenup.client.playback.SleepTimerChoices
+import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.presentation.settings.HardcoverRowState
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.domain.VolumeBoostLimits
@@ -23,14 +25,14 @@ import org.jetbrains.compose.web.dom.Text
 /**
  * Settings — the preferences a browser can actually keep.
  *
- * Seven controls, not twelve. Ignore “A”, “An”, “The” lives in the Library's own Sort menu, beside
+ * Eight controls, not twelve. Ignore “A”, “An”, “The” lives in the Library's own Sort menu, beside
  * the sort it changes (spec L5/L6), rather than here. Dynamic colours are Android's wallpaper palette, Wi-Fi-only downloads
- * need machinery web does not have, haptics need hardware, and the sleep-timer default is a stored
- * preference that no client reads yet — web has the sleep timer itself (see
- * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]), but nothing anywhere starts
- * one from this number, so a control here would change nothing. Each is omitted rather than shown
+ * need machinery web does not have, and haptics need hardware. Each is omitted rather than shown
  * disabled: a control that cannot keep its promise is the same lie as a screen that reports success
  * it did not have, and this app has spent a lot of effort not telling that one.
+ *
+ * The default sleep timer is offered because the sleep sheet starts from it (see
+ * [com.calypsan.listenup.web.features.nowplaying.SleepTimerPicker]).
  *
  * Volume boost is no longer among them: `WebGainStage` amplifies through a Web Audio gain node, so
  * the number set here reaches this browser's own speakers rather than only the listener's phone.
@@ -47,6 +49,7 @@ fun SettingsPage(
     onDefaultBoost: (Float) -> Unit,
     onSkipForward: (Int) -> Unit,
     onSkipBackward: (Int) -> Unit,
+    onDefaultSleep: (Int?) -> Unit,
     onAutoRewind: (Boolean) -> Unit,
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
@@ -79,7 +82,7 @@ fun SettingsPage(
             SelectField(
                 label = "Default speed",
                 value = speedKey(state.defaultPlaybackSpeed),
-                options = SPEED_OPTIONS,
+                options = speedOptions(state.defaultPlaybackSpeed),
                 onSelect = { raw -> raw?.toFloatOrNull()?.let(onDefaultSpeed) },
             )
             // Offered because the browser can now act on it: `WebGainStage` amplifies through a
@@ -94,14 +97,22 @@ fun SettingsPage(
             SelectField(
                 label = "Skip back",
                 value = state.defaultSkipBackwardSec.toString(),
-                options = SKIP_OPTIONS,
+                options = skipOptions(PlaybackPresets.skipBackwardChoicesIncluding(state.defaultSkipBackwardSec)),
                 onSelect = { raw -> raw?.toIntOrNull()?.let(onSkipBackward) },
             )
             SelectField(
                 label = "Skip forward",
                 value = state.defaultSkipForwardSec.toString(),
-                options = SKIP_OPTIONS,
+                options = skipOptions(PlaybackPresets.skipForwardChoicesIncluding(state.defaultSkipForwardSec)),
                 onSelect = { raw -> raw?.toIntOrNull()?.let(onSkipForward) },
+            )
+            // Off is the empty choice; the rest is the shared ladder, plus a value set on another device.
+            SelectField(
+                label = "Default sleep timer",
+                value = state.defaultSleepTimerMin?.toString(),
+                options = sleepOptions(state.defaultSleepTimerMin),
+                emptyLabel = "Off",
+                onSelect = { raw -> onDefaultSleep(raw?.toIntOrNull()) },
             )
             CheckboxField(
                 label = "Rewind a little when you come back to a book",
@@ -249,11 +260,21 @@ private val THEME_OPTIONS =
  */
 internal fun themeModeOf(raw: String): ThemeMode = ThemeMode.entries.firstOrNull { it.name == raw } ?: ThemeMode.SYSTEM
 
-/** The same ladder the transport bar cycles through, so the two never disagree about what exists. */
-private val SPEED_OPTIONS =
-    PLAYBACK_SPEED_STEPS.map { speed -> SelectOption(speedKey(speed), "${formatSpeedLabel(speed)}×") }
+/** The shared ladder, plus a speed set on another device, so the select always has a chosen row. */
+private fun speedOptions(current: Float): List<SelectOption> =
+    PlaybackPresets.speedChoicesIncluding(current).map { speed ->
+        SelectOption(speedKey(speed), PlaybackPresets.speedLabel(speed))
+    }
 
-private val SKIP_OPTIONS = listOf(5, 10, 15, 30, 45, 60).map { SelectOption(it.toString(), "$it seconds") }
+/** The shared sleep-timer ladder, plus a value set on another device, so the select always has a chosen row. */
+private fun sleepOptions(current: Int?): List<SelectOption> =
+    SleepTimerChoices.defaultChoicesIncluding(current).filterNotNull().map { minutes ->
+        SelectOption(minutes.toString(), SleepTimerMode.Duration(minutes).label)
+    }
+
+/** One direction's shared choices, plus a length set on another device, so the select always has a chosen row. */
+private fun skipOptions(seconds: List<Int>): List<SelectOption> =
+    seconds.map { SelectOption(it.toString(), "$it seconds") }
 
 /** The same ladder the player's boost picker offers, from the contract both of them read. */
 private val BOOST_OPTIONS =
@@ -264,9 +285,3 @@ internal fun boostKey(boostDb: Float): String = boostDb.toString()
 
 /** A speed as its own `<option>` value — round-tripped through `toFloat`, so it must parse back. */
 internal fun speedKey(speed: Float): String = speed.toString()
-
-/** `1`, `1.5`, `1.25` — trailing zeros dropped, as on the transport bar. */
-internal fun formatSpeedLabel(speed: Float): String {
-    val whole = speed.toInt()
-    return if (speed == whole.toFloat()) whole.toString() else speed.toString()
-}

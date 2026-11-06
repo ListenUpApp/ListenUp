@@ -30,7 +30,7 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.ShellLanding
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 
-/** Stable `LazyColumn` keys for Discover's sections; the landing scrolls by them (Task 14). */
+/** Stable `LazyColumn` keys for Discover's sections; the landing scrolls by them. */
 internal object DiscoverItemKey {
     const val HEADER = "header"
     const val LISTENING = "listening"
@@ -48,7 +48,7 @@ internal object DiscoverItemKey {
 }
 
 /**
- * Holds Discover's list state and answers the shell's leaderboard landing (spec §6.4): Week, then the
+ * Holds Discover's list state and answers the shell's leaderboard landing: Week, then the
  * leaderboard scrolled into view. Selecting first means the board arrives already on the right period.
  */
 @Composable
@@ -80,7 +80,7 @@ internal fun DiscoverLayout(
     listState: LazyListState = rememberLazyListState(),
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    // ≥ 600dp: the community sits side by side. ≥ 840dp (spec §3.4): every section uses the width.
+    // ≥ 600dp: the community sits side by side. ≥ 840dp: every section uses the width.
     val isWide = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val isExpanded = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 

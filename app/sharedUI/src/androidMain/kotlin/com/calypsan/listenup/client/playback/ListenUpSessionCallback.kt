@@ -23,7 +23,6 @@ import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
-import com.calypsan.listenup.client.presentation.player.skipDistanceMs
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.valueOrNull
@@ -836,13 +835,11 @@ internal class ListenUpSessionCallback(
 
             CustomActions.CYCLE_SPEED -> {
                 val currentSpeed = p.playbackParameters.speed
-                val newSpeed = CustomActions.getNextSpeed(currentSpeed)
+                val newSpeed = PlaybackPresets.nextSpeedInCycle(currentSpeed)
                 p.setPlaybackSpeed(newSpeed)
                 playbackManager.onSpeedChanged(newSpeed)
                 logger.info {
-                    "Speed cycled: ${CustomActions.formatSpeed(
-                        currentSpeed,
-                    )} -> ${CustomActions.formatSpeed(newSpeed)}"
+                    "Speed cycled: $currentSpeed -> $newSpeed"
                 }
             }
 
@@ -920,6 +917,24 @@ internal fun mediaButtonsFor(
             emptyList()
         }
     }
+
+/**
+ * What each connected controller should be offered now: its fresh [mediaButtonsFor], for those whose trust gets
+ * custom buttons. Connect-time buttons freeze the skip interval and the language, so the service re-sends these
+ * whenever either changes.
+ */
+internal fun mediaButtonUpdates(
+    controllers: List<Pair<MediaSession.ControllerInfo, ControllerTrust>>,
+    backwardSec: Int,
+    forwardSec: Int,
+    words: SystemStrings,
+): List<Pair<MediaSession.ControllerInfo, List<CommandButton>>> =
+    controllers
+        .filter { (_, trust) -> trust.getsCustomButtons() }
+        .map { (controller, trust) ->
+            controller to
+                mediaButtonsFor(trust = trust, backwardSec = backwardSec, forwardSec = forwardSec, words = words)
+        }
 
 /** Convert Android's EXTRA_MEDIA_FOCUS string to our MediaFocus enum. */
 private fun String.toMediaFocus(): MediaFocus? =

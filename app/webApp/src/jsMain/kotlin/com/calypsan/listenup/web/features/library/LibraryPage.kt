@@ -42,26 +42,6 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * Categories the Books tab sorts by.
- *
- * `SortCategory.entries` also carries categories that only make sense for the Series, Authors and
- * Narrators tabs, so the row is an explicit list rather than the whole enum — a filter by name would
- * silently pick up whatever a future entry happens to be called. In the order board
- * `Library-WebDesktop-Sort` lists them.
- */
-internal val BOOK_SORT_CATEGORIES =
-    listOf(
-        SortCategory.TITLE,
-        SortCategory.AUTHOR,
-        SortCategory.SERIES,
-        SortCategory.ADDED,
-        SortCategory.DURATION,
-        SortCategory.YEAR,
-        SortCategory.RATING,
-        SortCategory.LISTENER_RATING,
-    )
-
-/**
  * The Books tab of the library.
  *
  * Renders [LibraryUiState] and nothing else — the sort, the progress and the "is this empty or still
@@ -289,7 +269,7 @@ private fun CardBody(
         menuTarget?.invoke(this)
         classes("lib-card")
         if (selecting && isSelected) classes("on")
-        // The dense desktop grid drops the narrator line; the tooltip carries it (spec §2.6).
+        // The dense desktop grid drops the narrator line; the tooltip carries it.
         attr("title", cardTooltip(book))
         // A click target owes the same affordance to a reader who is not using a mouse. A bare
         // Div is not focusable, so before this the library could not be reached by keyboard at
@@ -426,7 +406,7 @@ private fun LibraryControls(
 ) {
     Div(attrs = { classes("lib-controls") }) {
         Div(attrs = { classes("lib-controls-end") }) {
-            // A phone's count, beside Sort (spec §3.1.7); the desktop says it in the page header instead.
+            // A phone's count, beside Sort; the desktop says it in the page header instead.
             Span(attrs = { classes("lib-count") }) {
                 Text(if (state.statusCounts.all == 1) "1 book" else "${groupedCount(state.statusCounts.all)} books")
             }
@@ -459,7 +439,7 @@ private fun BookSortControl(
 ) {
     SortDropdown(
         noun = "books",
-        categories = BOOK_SORT_CATEGORIES,
+        categories = SortCategory.booksCategories,
         state = state.booksSortState,
         onCategory = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
         onToggleDirection = { onEvent(LibraryUiEvent.BooksDirectionToggled) },

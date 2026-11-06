@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,6 +26,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
@@ -42,8 +41,8 @@ private val PillHeight = 32.dp
 private val PillIcon = 18.dp
 
 /**
- * The quiet offline pill under the greeting (spec §3.1): the device or the server is out of reach, and downloaded books
- * still play. Informational only — the dimmed cards below are what it explains. Announced politely (§8.2).
+ * The quiet offline pill under the greeting: the device or the server is out of reach, and downloaded books
+ * still play. Informational only — the dimmed cards below are what it explains. Announced politely.
  */
 @Composable
 internal fun OfflinePill(modifier: Modifier = Modifier) {
@@ -58,7 +57,7 @@ internal fun OfflinePill(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Outlined.CloudOff,
+                imageVector = ListenUpIcons.CloudOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(PillIcon),
@@ -73,7 +72,7 @@ internal fun OfflinePill(modifier: Modifier = Modifier) {
 }
 
 /**
- * Home could not load at all (spec §3.3 page error): the greeting stays, and the slot's place carries "We couldn't
+ * Home could not load at all: the greeting stays, and the slot's place carries "We couldn't
  * load Home." with **Try again** ([onRetry] is `refresh()`). The pull-to-refresh lives in the Ready content, so this
  * screen carries its own way back.
  */

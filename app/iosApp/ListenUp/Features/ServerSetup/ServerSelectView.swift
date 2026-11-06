@@ -196,8 +196,7 @@ private struct DiscoveryRow: View {
                 ProgressView().controlSize(.small)
                 Text(String(localized: "connect.searching")).font(.subheadline).foregroundStyle(.secondary)
             } else {
-                Text(String(format: String(localized: "common.no_items_found"),
-                            String(localized: "connect.listenup_server")))
+                Text(String(localized: .commonNoItemsFound(String(localized: "connect.listenup_server"))))
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()

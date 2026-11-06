@@ -18,10 +18,12 @@ import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.client.test.fake.FakeBookRatingRepository
 import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
 import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -32,6 +34,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -381,6 +384,43 @@ class HomeViewModelTest :
 
                 // Then
                 verifySuspend { fixture.syncRepository.sync() }
+            }
+        }
+
+        test("refreshNow does not return while the sync is in flight, and returns once it finishes") {
+            runTest {
+                val fixture = createFixture()
+                val syncGate = CompletableDeferred<Unit>()
+                everySuspend { fixture.syncRepository.sync() } calls {
+                    syncGate.await()
+                    AppResult.Success(Unit)
+                }
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+                pull.isCompleted shouldBe false
+
+                syncGate.complete(Unit)
+                advanceUntilIdle()
+                pull.isCompleted shouldBe true
+            }
+        }
+
+        test("refreshNow returns after a failed sync, without throwing") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.syncRepository.sync() } returns
+                    Failure(RuntimeException("Network error"))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val pull = launch { viewModel.refreshNow() }
+                advanceUntilIdle()
+
+                pull.isCompleted shouldBe true
+                pull.isCancelled shouldBe false
             }
         }
 
@@ -786,7 +826,7 @@ class HomeViewModelTest :
 
                 viewModel.rateFinished("done", halfStars = 8)
                 advanceUntilIdle()
-                verifySuspend { fixture.rig.ratings.rate("done", 8, null) }
+                fixture.rig.ratings.rated shouldBe listOf(FakeBookRatingRepository.RatingWrite("done", 8, null))
                 errors shouldBe emptyList()
 
                 fixture.rig.rateResult = AppResult.Failure(UnexpectedClientError())
@@ -994,7 +1034,7 @@ class HomeViewModelTest :
                 viewModel.rateFinished("wok", halfStars = 7)
                 advanceUntilIdle()
 
-                verifySuspend { fixture.rig.ratings.rate("wok", 7, null) }
+                fixture.rig.ratings.rated shouldBe listOf(FakeBookRatingRepository.RatingWrite("wok", 7, null))
                 errors shouldBe emptyList()
             }
         }

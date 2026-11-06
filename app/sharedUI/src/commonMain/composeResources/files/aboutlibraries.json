@@ -514,56 +514,6 @@
             ]
         },
         {
-            "uniqueId": "androidx.compose.material:material-icons-core",
-            "artifactVersion": "1.7.8",
-            "name": "Compose Material Icons Core",
-            "description": "Compose Material Design core icons. This module contains the most commonly used set of Material icons.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material#1.7.8",
-            "developers": [
-                {
-                    "name": "The Android Open Source Project"
-                }
-            ],
-            "organization": {
-                "name": "The Android Open Source Project"
-            },
-            "scm": {
-                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
-                "url": "https://cs.android.com/androidx/platform/frameworks/support"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
-            "uniqueId": "androidx.compose.material:material-icons-extended",
-            "artifactVersion": "1.7.8",
-            "name": "Compose Material Icons Extended",
-            "description": "Compose Material Design extended icons. This module contains all Material icons. It is a very large dependency and should not be included directly.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/compose-material#1.7.8",
-            "developers": [
-                {
-                    "name": "The Android Open Source Project"
-                }
-            ],
-            "organization": {
-                "name": "The Android Open Source Project"
-            },
-            "scm": {
-                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
-                "url": "https://cs.android.com/androidx/platform/frameworks/support"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
             "uniqueId": "androidx.compose.material:material-ripple",
             "artifactVersion": "1.12.0-beta01",
             "name": "Compose Material Ripple",
@@ -6301,30 +6251,6 @@
             ]
         },
         {
-            "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib-common",
-            "artifactVersion": "2.4.21",
-            "name": "Kotlin Stdlib Common",
-            "description": "Kotlin Common Standard Library (legacy, use kotlin-stdlib instead)",
-            "website": "https://kotlinlang.org/",
-            "developers": [
-                {
-                    "name": "Kotlin Team",
-                    "organisationUrl": "https://www.jetbrains.com"
-                }
-            ],
-            "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/kotlin.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/kotlin.git",
-                "url": "https://github.com/JetBrains/kotlin"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
             "uniqueId": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
             "artifactVersion": "2.1.21",
             "name": "Kotlin Stdlib Jdk7",
@@ -6530,28 +6456,6 @@
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j",
             "artifactVersion": "1.11.0",
             "name": "kotlinx-coroutines-slf4j",
-            "description": "Coroutines support libraries for Kotlin",
-            "website": "https://github.com/Kotlin/kotlinx.coroutines",
-            "developers": [
-                {
-                    "name": "JetBrains Team",
-                    "organisationUrl": "https://www.jetbrains.com"
-                }
-            ],
-            "scm": {
-                "url": "https://github.com/Kotlin/kotlinx.coroutines"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
-            "uniqueId": "org.jetbrains.kotlinx:kotlinx-coroutines-swing",
-            "artifactVersion": "1.11.0",
-            "name": "kotlinx-coroutines-swing",
             "description": "Coroutines support libraries for Kotlin",
             "website": "https://github.com/Kotlin/kotlinx.coroutines",
             "developers": [

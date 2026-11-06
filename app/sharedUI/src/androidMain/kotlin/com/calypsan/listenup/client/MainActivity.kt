@@ -2,6 +2,8 @@ package com.calypsan.listenup.client
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyboardShortcutGroup
+import android.view.Menu
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.calypsan.listenup.api.dto.ServerInfo
@@ -25,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
@@ -47,7 +51,11 @@ import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
+import com.calypsan.listenup.client.navigation.ShellShortcutLabels
+import com.calypsan.listenup.client.navigation.loadShellShortcutLabels
+import com.calypsan.listenup.client.navigation.shellShortcutHelp
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
@@ -111,6 +119,16 @@ class MainActivity : ComponentActivity() {
     private var serverIdentity: ServerInfo? = null
     private val appStartupViewModel: AppStartupViewModel by viewModel()
 
+    /**
+     * The shortcut names for the system's keyboard-shortcuts helper, resolved once at startup.
+     *
+     * `onProvideKeyboardShortcuts` is a synchronous platform callback and the string catalog is read
+     * by a suspend call, so the labels have to be here before the system asks; until they are, the
+     * helper simply lists nothing for this app.
+     */
+    @Volatile
+    private var shortcutLabels: ShellShortcutLabels? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         enableEdgeToEdge()
@@ -166,6 +184,8 @@ class MainActivity : ComponentActivity() {
             getKoin().activatePlaybackController()
         }
 
+        lifecycleScope.launch { shortcutLabels = loadShellShortcutLabels() }
+
         // Continue On (API 37). Guarded because minSdk is 33: the methods are final on Activity and
         // simply do not exist on older platforms, so this is a version check rather than a
         // capability one. Enabling is all the setup there is — no manifest entry, no permission.
@@ -214,6 +234,23 @@ class MainActivity : ComponentActivity() {
             .setExtras(PersistableBundle().apply { putString(EXTRA_HANDOFF_LINK, link) })
             .setFallbackUri(link.toUri())
             .build()
+    }
+
+    /**
+     * Lists the keys the shell answers in the system's keyboard-shortcuts helper (Meta+/), where a
+     * hardware-keyboard user looks for them — the Android counterpart of the iPad's ⌘-hold overlay.
+     * Not offered on a TV, where the same keys only move focus.
+     */
+    override fun onProvideKeyboardShortcuts(
+        data: MutableList<KeyboardShortcutGroup>,
+        menu: Menu?,
+        deviceId: Int,
+    ) {
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+        val labels = shortcutLabels ?: return
+        if (get<DeviceContext>().isLeanback) return
+        val appName = applicationInfo.loadLabel(packageManager)
+        data += KeyboardShortcutGroup(appName, shellShortcutHelp(labels))
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -396,7 +433,11 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         ProvideHaptics(hapticFeedbackEnabled = hapticFeedbackEnabled) {
             // Paint the themed surface edge-to-edge (behind the system bars) so there are no
             // window-background bands at the top/bottom; inner scaffolds stay transparent over it.
-            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            // Test tags double as resource ids so UiAutomator (the baseline-profile generator) can find them.
+            Surface(
+                modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+                color = MaterialTheme.colorScheme.surface,
+            ) {
                 ListenUpNavigation()
             }
         }

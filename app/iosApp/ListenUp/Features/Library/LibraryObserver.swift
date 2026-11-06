@@ -46,6 +46,8 @@ final class LibraryObserver {
     /// What each book's card says. Moves on a position tick without a content revision, so it is
     /// mapped outside the revision gate.
     private(set) var bookStatus: [String: LibraryCardState] = [:]
+    /// What each book's context menu leads with, from the shared `bookMenuPrimary` rule.
+    private(set) var bookMenuPrimary: [String: BookMenuPrimaryValue] = [:]
     /// The whole library's length in ms.
     private(set) var totalDurationMs: Int64 = 0
     /// The library has books, but the status filter matches none of them.
@@ -91,7 +93,7 @@ final class LibraryObserver {
         viewModel.onEvent(event: LibraryUiEventStatusFilterChanged(filter: filter))
     }
 
-    /// Discover's "Recently Added" link: Books sorted Added, newest first, not saved (spec §6.3).
+    /// Discover's "Recently Added" link: Books sorted Added, newest first, not saved.
     func showNewestFirst() {
         viewModel.onEvent(event: LibraryUiEventBooksShownNewestFirst.shared)
     }
@@ -151,6 +153,7 @@ final class LibraryObserver {
                 applyContent(loaded)
             }
             assignIfChanged(\.bookStatus, mapStatus(loaded.bookStatus))
+            assignIfChanged(\.bookMenuPrimary, mapMenuPrimary(loaded.bookStatus))
             assignIfChanged(\.seriesProgress, mapSeriesProgress(loaded.seriesProgress))
             assignIfChanged(\.isSyncing, loaded.isSyncing)
             assignIfChanged(\.statusStrip, LibraryStatusStripModel.from(loaded.statusStrip))
@@ -228,6 +231,16 @@ final class LibraryObserver {
         var result: [String: LibraryCardState] = [:]
         for (key, value) in raw {
             result[key.value] = LibraryCardState.from(value)
+        }
+        return result
+    }
+
+    /// Each book's menu lead, decided by the shared rule while the Kotlin `BookCardStatus` is still in hand.
+    private func mapMenuPrimary(_ raw: [BookId: BookCardStatus]) -> [String: BookMenuPrimaryValue] {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.library.self
+        var result: [String: BookMenuPrimaryValue] = [:]
+        for (key, value) in raw {
+            result[key.value] = BookMenuPrimaryValue(rules.bookMenuPrimary(status: value))
         }
         return result
     }

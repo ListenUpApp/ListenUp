@@ -8,9 +8,7 @@ import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState
 import com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.Koin
 
 /** An open see-all session — every hit of one type for one query. */
@@ -39,22 +37,5 @@ fun graphSeeAll(koin: Koin): OpenSeeAll =
             onOpenHit = viewModel::onResultClicked,
             navActions = viewModel.navActions,
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-fun fixedSeeAll(
-    state: SeeAllSearchUiState,
-    onOpenHit: (SearchHit) -> Unit = {},
-    navActions: Flow<SearchNavAction> = emptyFlow(),
-    onOpen: (String, SearchHitType) -> Unit = { _, _ -> },
-): OpenSeeAll =
-    { query, type ->
-        onOpen(query, type)
-        SeeAllSession(
-            state = MutableStateFlow(state),
-            onOpenHit = onOpenHit,
-            navActions = navActions,
-            close = {},
         )
     }

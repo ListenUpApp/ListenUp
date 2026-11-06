@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,10 +27,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ManageSearch
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -39,7 +38,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -67,6 +65,7 @@ import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.RatingLabels
@@ -246,6 +245,13 @@ private fun ReadyContent(
     onRemoveMatch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Seeded with the query Find opened on; the field owns the text from there. A tapped suggestion is
+    // the screen's own doing, so the screen puts it in the field before asking for the search.
+    val queryState = rememberForwardingTextFieldState(state.query, onEdited = onQueryChange)
+    val searchFor: (String) -> Unit = { text ->
+        queryState.setTextAndPlaceCursorAtEnd(text)
+        onSearchFor(text)
+    }
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         // The same count GridCells.Adaptive arrives at, so a one-column list draws as one segmented group.
         val columns = columnsFor(maxWidth - Spacing.lg * 2)
@@ -259,12 +265,11 @@ private fun ReadyContent(
             fullWidth {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     ListenUpSearchField(
-                        value = state.query,
-                        onValueChange = onQueryChange,
+                        state = queryState,
                         onSubmit = onSearch,
                         placeholder = stringResource(Res.string.hardcover_match_search_placeholder),
                         label = stringResource(Res.string.hardcover_match_search_label),
-                        onClear = { onQueryChange("") },
+                        clearable = true,
                     )
                     MatchingLine(state)
                     state.currentMatch?.let { currentMatch ->
@@ -280,7 +285,7 @@ private fun ReadyContent(
                 state = state,
                 columns = columns,
                 onSearch = onSearch,
-                onSearchFor = onSearchFor,
+                onSearchFor = searchFor,
                 onPick = onPick,
             )
         }
@@ -633,7 +638,7 @@ private fun WeakResultsHint(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(ListenUpIcons.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         stringResource(Res.string.hardcover_match_weak_title, author),
@@ -671,7 +676,7 @@ private fun NoResults(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Outlined.SearchOff,
+                ListenUpIcons.SearchOff,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -714,7 +719,7 @@ private fun SuggestionChips(
             PillChip(
                 label = suggestion,
                 onClick = { onSearchFor(suggestion) },
-                leadingIcon = Icons.AutoMirrored.Outlined.ManageSearch,
+                leadingIcon = ListenUpIcons.ManageSearch,
                 modifier = Modifier.semantics { contentDescription = spoken },
             )
         }

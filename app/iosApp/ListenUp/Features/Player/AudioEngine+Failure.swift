@@ -1,7 +1,7 @@
 import AVFoundation
 
 extension AudioEngine {
-    /// The item's failure, typed once (spec §4.6): network domains are a dropped connection, AVFoundation's
+    /// The item's failure, typed once: network domains are a dropped connection, AVFoundation's
     /// format and decoder codes are an unsupported format, anything else could not start.
     nonisolated static func failure(for error: NSError?) -> EngineFailure {
         guard let error else { return .couldNotStart(detail: nil) }

@@ -19,6 +19,7 @@ struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.presentSignIn) private var presentSignIn
     @State private var shell = MainShellModel()
     @State private var playerObserver: PlayerObserver?
     /// One library projection for every Library tab and sidebar entry in this window.
@@ -168,10 +169,19 @@ struct MainTabView: View {
                     },
                     onViewSeries: { seriesId in shell.open(SeriesDestination(id: seriesId)) },
                     onViewContributor: { contributorId in shell.open(ContributorDestination(id: contributorId)) },
-                    chapterListRequest: $shell.isChapterListRequested
+                    chapterListRequest: $shell.isChapterListRequested,
+                    readerDocument: $shell.playerDocument
                 )
                 .environment(\.reportPlayerSheet) { isOpen in shell.playerSheetIsOpen = isOpen }
             }
+        }
+        // Editors, forms and the PDF reader are presented here, above the id'd tab view, so a fold or resize that
+        // rebuilds the tabs does not dismiss them (see `ShellSheet`).
+        .sheet(item: $shell.presentedSheet) { sheet in
+            ShellSheetContent(sheet: sheet, shell: shell)
+        }
+        .fullScreenCover(item: $shell.presentedCover) { cover in
+            ShellCoverContent(cover: cover, shell: shell)
         }
         // The menu bar's Playback and View commands act on the focused window's shell and player.
         .focusedSceneValue(\.mainShell, shell)
@@ -180,19 +190,8 @@ struct MainTabView: View {
         .onChange(of: isMiniPlayerShown) { _, isShown in
             if !isShown { shell.isPlayerPresented = false }
         }
-        // The shared player's navigation: Go to book, and the held book's Open Inbox for an admin.
-        .onChange(of: playerObserver?.bookToOpen) { _, bookId in
-            guard let bookId else { return }
-            playerObserver?.bookToOpen = nil
-            shell.isPlayerPresented = false
-            shell.open(BookDestination(id: bookId))
-        }
-        .onChange(of: playerObserver?.inboxRequested) { _, requested in
-            guard requested == true else { return }
-            playerObserver?.inboxRequested = false
-            shell.isPlayerPresented = false
-            shell.open(AdminInboxDestination())
-        }
+        // The shared player's one-shot requests (Go to book, Open Inbox, the PDF, Sign in): the front window claims each.
+        .onChange(of: playerObserver?.requests.pending, initial: true) { _, _ in claimPlayerRequest() }
         .onAppear {
             if playerObserver == nil {
                 playerObserver = deps.playerObserver
@@ -207,6 +206,7 @@ struct MainTabView: View {
                 restrictedBooks = RestrictedBooksObserver(viewModel: deps.createRestrictedBooksViewModel())
             }
             restoreNavigationOnce()
+            claimPlayerRequest()
         }
         .onChange(of: sidebarListsSections) { _, showing in
             shell.adaptToSidebarSections(showing: showing)
@@ -233,12 +233,15 @@ struct MainTabView: View {
             guard phase == .active else { return }
             pushTapRouter.sceneBecameActive(sceneID)
             deepLinkRouter.sceneBecameActive(sceneID)
+            playerObserver?.requests.sceneBecameActive(sceneID)
+            claimPlayerRequest()
             if let outcome = pushTapRouter.claimPending(for: sceneID) { shell.route(outcome) }
             claimDeepLink()
         }
         .onDisappear {
             pushTapRouter.sceneWentAway(sceneID)
             deepLinkRouter.sceneWentAway(sceneID)
+            playerObserver?.requests.sceneWentAway(sceneID)
         }
         .alert(
             bookLinkError?.message ?? "",
@@ -259,6 +262,21 @@ struct MainTabView: View {
         case .wrongServer: bookLinkError = .wrongServer
         case .notConnected: bookLinkError = .notConnected
         case .none, .claimInvite: break
+        }
+    }
+
+    /// Acts on the player's pending request when this window is the one to take it.
+    private func claimPlayerRequest() {
+        guard let request = playerObserver?.requests.claim(for: sceneID) else { return }
+        switch request {
+        case .openBook(let bookId):
+            shell.isPlayerPresented = false
+            shell.open(BookDestination(id: bookId))
+        case .openInbox:
+            shell.isPlayerPresented = false
+            shell.open(AdminInboxDestination())
+        case .openDocument(let document): shell.playerDocument = document
+        case .signIn: presentSignIn()
         }
     }
 
@@ -357,6 +375,8 @@ struct MainTabView: View {
         .environment(\.openDiscoverLeaderboard, { shell.landOnLeaderboard() })
         .environment(\.openLibraryInProgress, { shell.openLibraryInProgress() })
         .environment(\.openActivitySubject, { shell.open(subject: $0) })
+        .environment(\.presentShellSheet, { shell.present($0) })
+        .environment(\.presentShellCover, { shell.present($0) })
         .environment(\.heroNamespace, heroNamespace)
         .modifier(TabBarSectionsProbe(isShowingSections: $isTabBarShowingSections))
     }
@@ -465,6 +485,10 @@ extension EnvironmentValues {
     /// by `MainTabView`; used by modally-presented content (the Cast & Credits sheet) to open a
     /// contributor as a full page instead of pushing inside the sheet's own stack.
     @Entry var navigateToContributor: (String) -> Void = { _ in }
+
+    /// Present the sign-in flow over a lapsed session. Provided by the root view, which owns that sheet;
+    /// the shell calls it when the player's Sign in request lands in this window.
+    @Entry var presentSignIn: () -> Void = {}
 
     /// Open the Library's Books sorted Added, newest first, for this session. Provided by
     /// `MainTabView`; Discover's Recently Added heading uses it.

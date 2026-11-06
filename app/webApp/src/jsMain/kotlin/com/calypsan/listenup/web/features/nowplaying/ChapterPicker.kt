@@ -1,5 +1,12 @@
 package com.calypsan.listenup.web.features.nowplaying
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
+import org.w3c.dom.AUTO
+import org.w3c.dom.CENTER
+import org.w3c.dom.ScrollBehavior
+import org.w3c.dom.ScrollLogicalPosition
+import org.w3c.dom.ScrollIntoViewOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
@@ -53,9 +60,9 @@ internal fun ChapterPicker(
                 }
             }
         }
-        // Centred on the chapter being listened to (§3.11, §5.5.4) only once the panel is open and laid out: two
+        // Centred on the chapter being listened to only once the panel is open and laid out: two
         // frames after it is shown, never from the row's own `ref`, which fired while the `<dialog>` was still closed
-        // and left the list at chapter 1 (§9.2, hypothesis 2). `behavior: "auto"`, so nothing animates on open.
+        // and left the list at chapter 1. `behavior: "auto"`, so nothing animates on open.
         DisposableEffect(Unit) {
             var live = true
             window.requestAnimationFrame {
@@ -69,8 +76,8 @@ internal fun ChapterPicker(
 }
 
 /**
- * One chapter: its number, its title (with "Playing · 8m left" under the current one), and its **duration** (gap 16),
- * named for what pressing it does (§8).
+ * One chapter: its number, its title (with "Playing · 8m left" under the current one), and its **duration**,
+ * named for what pressing it does.
  */
 @Composable
 private fun ChapterRow(
@@ -105,7 +112,7 @@ private fun ChapterRow(
                 ) { Text(NowPlayingWords.playingLeft(chapterRemainingMs)) }
             }
         }
-        Span(attrs = { classes("chap-dur") }) { Text(formatElapsed(chapter.durationMs)) }
+        Span(attrs = { classes("chap-dur") }) { Text(DurationFormatter.playbackClock(chapter.durationMs.milliseconds)) }
     }
 }
 
@@ -122,9 +129,5 @@ private class RowNode {
  * sides. `behavior: "auto"` because this runs as the panel opens — an animated scroll from the top
  * of a long list is motion the listener did not ask for and has to wait out.
  */
-private fun scrollToCentre(): dynamic {
-    val options = js("{}")
-    options.block = "center"
-    options.behavior = "auto"
-    return options
-}
+private fun scrollToCentre(): ScrollIntoViewOptions =
+    ScrollIntoViewOptions(block = ScrollLogicalPosition.CENTER, behavior = ScrollBehavior.AUTO)

@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
@@ -43,6 +44,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
 
 class PlaybackServiceImplTest :
@@ -541,6 +543,99 @@ class PlaybackServiceImplTest :
                     val u1Stats = deps.statsRepo.getForUser("u1").shouldNotBeNull()
                     u1Stats.totalSecondsAllTime shouldBe 60L
                     deps.statsRepo.getForUser("u2").shouldBeNull()
+                }
+            }
+        }
+
+        // ─── listening-event plausibility ────────────────────────────────────────
+
+        suspend fun TestDeps.recordRejected(
+            sql: ListenUpDatabase,
+            field: String,
+            mutate: (RecordListeningEventRequest) -> RecordListeningEventRequest,
+        ) {
+            bookRepo.upsert(bookWithThreeFiles("book-1"))
+            makeReachable("book-1", "u1")
+            val startedAt = 1_779_451_200_000L
+            val valid =
+                RecordListeningEventRequest(
+                    id = "evt-bad",
+                    bookId = "book-1",
+                    startPositionMs = 0L,
+                    endPositionMs = 60_000L,
+                    startedAt = startedAt,
+                    endedAt = startedAt + 60_000L,
+                    playbackSpeed = 1.0f,
+                    tz = "UTC",
+                    deviceLabel = null,
+                )
+            val service = service(sql, "u1")
+            val result = service.recordListeningEvent(mutate(valid))
+            val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+            failure.error
+                .shouldBeInstanceOf<ValidationError>()
+                .field shouldBe field
+            sql.listeningEventsQueries
+                .selectById("evt-bad")
+                .executeAsOneOrNull()
+                .shouldBeNull()
+            service.getStats() shouldBe AppResult.Success(null)
+        }
+
+        val rejections: List<Triple<String, String, (RecordListeningEventRequest) -> RecordListeningEventRequest>> =
+            listOf(
+                Triple("ends before it starts", "endedAt") { r -> r.copy(endedAt = r.startedAt - 1L) },
+                Triple("spans more than 24 hours", "endedAt") { r ->
+                    r.copy(endedAt = r.startedAt + 24L * 3_600_000L + 1L)
+                },
+                Triple("ends more than 24 hours in the future", "endedAt") { r ->
+                    val future = Clock.System.now().toEpochMilliseconds() + 25L * 3_600_000L
+                    r.copy(startedAt = future - 60_000L, endedAt = future)
+                },
+                Triple("starts before the epoch", "startedAt") { r -> r.copy(startedAt = -1L, endedAt = 0L) },
+                Triple("has a negative start position", "startPositionMs") { r -> r.copy(startPositionMs = -1L) },
+                Triple("has a negative end position", "endPositionMs") { r -> r.copy(endPositionMs = -1L) },
+                Triple("has a zero playback speed", "playbackSpeed") { r -> r.copy(playbackSpeed = 0f) },
+                Triple("has an excessive playback speed", "playbackSpeed") { r -> r.copy(playbackSpeed = 4.5f) },
+                Triple("has a NaN playback speed", "playbackSpeed") { r -> r.copy(playbackSpeed = Float.NaN) },
+                Triple("has an over-long timezone", "tz") { r -> r.copy(tz = "x".repeat(65)) },
+                Triple("has an over-long device label", "deviceLabel") { r -> r.copy(deviceLabel = "x".repeat(201)) },
+            )
+        for ((name, field, mutate) in rejections) {
+            test("recordListeningEvent refuses an event that $name") {
+                withSqlDatabase {
+                    sql.seedTestLibraryAndFolder()
+                    sql.seedTestUser("u1")
+                    val deps = buildDeps(sql, driver)
+                    runTest { deps.recordRejected(sql, field, mutate) }
+                }
+            }
+        }
+
+        test("recordListeningEvent accepts a long fast span that ends within clock skew of now") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("book-1"))
+                    deps.makeReachable("book-1", "u1")
+                    val endedAt = Clock.System.now().toEpochMilliseconds() + 3_600_000L
+                    val result =
+                        deps.service(sql, "u1").recordListeningEvent(
+                            RecordListeningEventRequest(
+                                id = "evt-ok",
+                                bookId = "book-1",
+                                startPositionMs = 0L,
+                                endPositionMs = 60_000L,
+                                startedAt = endedAt - 23L * 3_600_000L,
+                                endedAt = endedAt,
+                                playbackSpeed = 3.0f,
+                                tz = "UTC",
+                                deviceLabel = null,
+                            ),
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
                 }
             }
         }

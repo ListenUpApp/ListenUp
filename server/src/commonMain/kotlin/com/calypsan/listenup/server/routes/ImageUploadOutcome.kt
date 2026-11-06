@@ -10,7 +10,7 @@ import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.receiveImageUploadParts
 import com.calypsan.listenup.server.media.ImageKind
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import kotlinx.io.files.Path
@@ -38,12 +38,27 @@ internal sealed interface ImageUploadOutcome {
     data class Rejected(
         val status: HttpStatusCode,
         val message: String,
-    ) : ImageUploadOutcome
+    ) : ImageUploadOutcome,
+        FramedUpload
 
     /** The upload's `frame` field was unreadable or out of range; nothing was stored. Answer [error]. */
     data class InvalidFrame(
         val error: ValidationError,
-    ) : ImageUploadOutcome
+    ) : ImageUploadOutcome,
+        FramedUpload
+}
+
+/**
+ * What [receiveFramedImage] made of an image upload's multipart body: the bytes and frame ([Received]), or one
+ * of the two rejections an [ImageUploadOutcome] shares ([ImageUploadOutcome.Rejected],
+ * [ImageUploadOutcome.InvalidFrame]).
+ */
+internal sealed interface FramedUpload {
+    /** The file part and its decoded frame (null when the upload carried none); nothing is stored yet. */
+    data class Received(
+        val bytes: ByteArray,
+        val frame: ImageFrame?,
+    ) : FramedUpload
 }
 
 /** An image upload's optional `frame` field, decoded and range-checked. */
@@ -78,7 +93,7 @@ internal fun framePartOf(field: String?): FramePart {
  * Reads the first file part of a multipart upload, enforces the [IMAGE_MAX_BYTES] cap DURING the read
  * (the streaming primitive aborts before an oversize part fully lands in memory — regardless of whether
  * the part declares a `Content-Length`), validates the bytes carry a recognised image magic number, and
- * writes them content-addressed to `<imageHome>/<subdir>/<sha256>.<ext>` via [imageStorage].
+ * writes them content-addressed to `<imageHome>/<subdir>/<sha256>.<ext>` via [remoteImageFetcher].
  *
  * Content-addressing is deliberate: a replacement image yields a new relative path, which is exactly
  * what clients key their image cache on (the path is the version). Returns 413 for an oversize part,
@@ -95,13 +110,44 @@ internal suspend fun storeMultipartImage(
     call: ApplicationCall,
     subdir: String,
     imageHome: Path,
-    imageStorage: ImageStorage,
+    remoteImageFetcher: RemoteImageFetcher,
 ): ImageUploadOutcome {
+    val received =
+        when (val upload = receiveFramedImage(call, IMAGE_MAX_BYTES, "file")) {
+            is FramedUpload.Received -> upload
+            is ImageUploadOutcome.Rejected -> return upload
+            is ImageUploadOutcome.InvalidFrame -> return upload
+        }
+    val data = received.bytes
+    val frame = received.frame
+    val kind =
+        ImageKind.sniff(data)
+            ?: return ImageUploadOutcome.Rejected(HttpStatusCode.UnprocessableEntity, "invalid image")
+
+    val relPath = "$subdir/${hashBytesSha256(data)}.${kind.ext}"
+    SystemFileSystem.createDirectories(Path(imageHome.toString(), subdir))
+    remoteImageFetcher.writeBytes(data, Path(imageHome.toString(), relPath))
+    return ImageUploadOutcome.Stored(relPath, frame)
+}
+
+/**
+ * The one reader for an image upload's multipart body, shared by the avatar, contributor and series routes.
+ *
+ * Reads the first file part (capped at [maxBytes] DURING the read) and the optional `frame` field, decoding and
+ * range-checking the frame before anything is stored. Answers 413 for an oversize part (`"<subject> exceeds N bytes"`),
+ * 400 when no file part is present, and [ImageUploadOutcome.InvalidFrame] for an unreadable, oversize or
+ * out-of-range frame.
+ */
+internal suspend fun receiveFramedImage(
+    call: ApplicationCall,
+    maxBytes: Long,
+    subject: String,
+): FramedUpload {
     val parts =
         try {
-            receiveImageUploadParts(call, IMAGE_MAX_BYTES)
+            receiveImageUploadParts(call, maxBytes)
         } catch (e: MultipartPartTooLargeException) {
-            return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file exceeds ${e.limit} bytes")
+            return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "$subject exceeds ${e.limit} bytes")
         } catch (e: MultipartFieldTooLargeException) {
             return ImageUploadOutcome.InvalidFrame(invalidImageFrame(e.message))
         }
@@ -112,12 +158,5 @@ internal suspend fun storeMultipartImage(
             is FramePart.Valid -> part.frame
             is FramePart.Invalid -> return ImageUploadOutcome.InvalidFrame(part.error)
         }
-    val kind =
-        ImageKind.sniff(data)
-            ?: return ImageUploadOutcome.Rejected(HttpStatusCode.UnprocessableEntity, "invalid image")
-
-    val relPath = "$subdir/${hashBytesSha256(data)}.${kind.ext}"
-    SystemFileSystem.createDirectories(Path(imageHome.toString(), subdir))
-    imageStorage.writeBytes(data, Path(imageHome.toString(), relPath))
-    return ImageUploadOutcome.Stored(relPath, frame)
+    return FramedUpload.Received(data, frame)
 }

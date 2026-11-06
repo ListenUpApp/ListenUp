@@ -82,7 +82,7 @@ internal fun loadedPlayerState(
         chapter = chapter,
         chapters = rows,
         source = source,
-        settings = PlayerSettings(speed, defaultSpeed, boostDb, defaultBoostDb, skipBackSec, skipForwardSec),
+        settings = PlayerSettings(speed, defaultSpeed, boostDb, defaultBoostDb, skipBackSec, skipForwardSec, null),
         sleepTimer = sleepTimer,
         primary = primary,
         showsSkipBack = showsSkipBack,

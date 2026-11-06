@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.playback.PlayerPhase
 
 /**
- * The card that takes the transport's place on Now Playing (spec P32, §3.7, §4.6, the Now Playing column of §5.6):
+ * The card that takes the transport's place on Now Playing:
  * a problem with its ways out, the finished book, or the sleep timer's fade. Decided once so Android, iOS and web offer the same actions.
  */
 sealed interface PlayerCard {
@@ -23,7 +23,7 @@ sealed interface PlayerCard {
         val tone: PlayerCardTone,
     ) : PlayerCard
 
-    /** Played to the end (§3.7): when, how it was, and what comes next. */
+    /** Played to the end: when, how it was, and what comes next. */
     data class Finished(
         val info: FinishedInfo,
         val primaryAction: PlayerCardAction,
@@ -31,7 +31,7 @@ sealed interface PlayerCard {
     ) : PlayerCard
 
     /**
-     * The sleep timer has fired and the audio is fading (§5.6 "Sleep fading"). Platforms draw it in the sleep gold,
+     * The sleep timer has fired and the audio is fading. Platforms draw it in the sleep gold,
      * with one button, Keep listening ([PlayerCardAction.KeepListening]).
      */
     data object SleepFading : PlayerCard
@@ -63,10 +63,10 @@ sealed interface PlayerCardAction {
     /** Play this book again from the start (F3: never a different one). */
     data object ListenAgain : PlayerCardAction
 
-    /** Play the next book in the series (§3.7). */
+    /** Play the next book in the series. */
     data object PlayNextBook : PlayerCardAction
 
-    /** Cancel the sleep timer during its fade; full volume returns (PT7). */
+    /** Cancel the sleep timer during its fade; full volume returns. */
     data object KeepListening : PlayerCardAction
 }
 
@@ -96,7 +96,7 @@ object PlayerCards {
             -> null
         }
 
-    /** True when Now Playing should close: nothing is loaded, or the loaded book was revoked (§5.6). Pure. */
+    /** True when Now Playing should close: nothing is loaded, or the loaded book was revoked. Pure. */
     fun closesNowPlaying(state: PlayerUiState): Boolean =
         when (state) {
             PlayerUiState.NothingLoaded -> true

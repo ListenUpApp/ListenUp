@@ -67,7 +67,7 @@ struct HomeStatsData: Equatable {
     let maxDaySeconds: Int
     let genres: [GenreBar]
     let hasGenreData: Bool
-    /// The header chip's days, or nil when there is no live streak (spec §2.6).
+    /// The header chip's days, or nil when there is no live streak.
     let streakChipDays: Int?
     /// The footer's best streak, or nil when there has never been one.
     let bestStreakDays: Int?

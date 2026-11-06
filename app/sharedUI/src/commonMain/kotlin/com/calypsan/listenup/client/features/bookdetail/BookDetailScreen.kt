@@ -62,7 +62,6 @@ import com.calypsan.listenup.client.features.bookdetail.components.ReadersLandin
 import com.calypsan.listenup.client.features.bookdetail.components.HeroSocialLine
 import com.calypsan.listenup.client.features.bookdetail.components.PageReaders
 import com.calypsan.listenup.client.features.bookdetail.components.rememberPageReaders
-import com.calypsan.listenup.client.features.bookdetail.components.shownSections
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailHeroBand
@@ -98,21 +97,14 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_insufficient_storage
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.features.share.shareBookText
 
 /**
- * Immersive book detail screen following Material 3 Expressive Design.
+ * The book detail screen: a hero band (cover, title, byline, quick stats), the listen actions, then the
+ * sections in the order the visit's stage calls for.
  *
- * Design Philosophy: "Identity -> Talent -> Action -> Story -> Details"
- * Uses Palette API to extract colors from cover art for dynamic theming.
- *
- * Layout Hierarchy (Strict Order):
- * 1. Hero Section - Identity (Cover, Title, Subtitle) with color-extracted gradient
- * 2. The Talent - Who made this (Authors, Narrators - clickable)
- * 3. Primary Actions - What can I do (Play, Download)
- * 4. Context Metadata - Series, Stats, Genres
- * 5. The Hook - What's it about (Description)
- * 6. Tags - User categorization
- * 7. Chapters - Deep dive content
+ * Android takes no cover-derived colour: the screen stays on Material You colour roles by design, so there
+ * is no cover wash behind the hero.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,7 +126,7 @@ fun BookDetailScreen(
     onCollectionClick: ((collectionId: String) -> Unit)? = null,
     /** Opens the in-app reader on a downloaded document, titled with this book's name. */
     onOpenDocumentViewer: (localPath: String, bookTitle: String) -> Unit = { _, _ -> },
-    /** Open with the Readers section in view, once: Home's finishers line (spec §6.4). */
+    /** Open with the Readers section in view, once: Home's finishers line. */
     landOnReaders: Boolean = false,
     /** The receipt after Match details applied; a slot so a test can render the screen without its ViewModel. */
     matchReceipt: @Composable (
@@ -407,7 +399,7 @@ private fun BookDetailReadyContent(
                     scope.launch {
                         // The RPC-backed server identity, through the one builder every client shares.
                         bookShareUrl(instanceRepository, book.id)?.let { url ->
-                            platformActions.shareText("Check out ${book.title} on ListenUp!\n$url", url)
+                            platformActions.shareText(shareBookText(book.title, url), url)
                         }
                     }
                 },
@@ -523,7 +515,7 @@ private fun BookDetailReadyContent(
             )
         }
 
-        // Release asks first (spec §7). Confirming closes the question at once; the held section's
+        // Release asks first. Confirming closes the question at once; the held section's
         // Release button carries the in-flight state, and success turns this into the ordinary page.
         BookDetailDialog.ReleaseFromInbox -> {
             if (state.isHeld) {
@@ -617,7 +609,7 @@ fun BookDetailContent(
     isPreparing: Boolean = false,
     /** Book Detail's last-match row ("Details matched … · See what changed · Undo last match"), under the actions. */
     lastMatchRow: @Composable (Modifier) -> Unit = {},
-    /** Scroll the Readers section into view once, on arrival (spec §6.4). */
+    /** Scroll the Readers section into view once, on arrival. */
     landOnReaders: Boolean = false,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
@@ -653,7 +645,7 @@ fun BookDetailContent(
     }
 }
 
-/** The phone column's Resume unit over its action group (spec §2.9). */
+/** The phone column's Resume unit over its action group. */
 @Composable
 private fun PhoneListenUnit(
     state: BookDetailUiState.Ready,
@@ -672,7 +664,7 @@ private fun PhoneListenUnit(
             progress = state.progress,
             finishedSpan = state.finishedSpan,
         )
-        // Why the primary below is disabled, directly above it (spec §2.9).
+        // Why the primary below is disabled, directly above it.
         if (state.primaryAction == PrimaryAction.UnavailableOffline) OfflineReason(onRetry = actions.onRetryConnection)
         ListenActionGroup(
             primaryAction = state.primaryAction,
@@ -729,7 +721,7 @@ internal sealed interface PhoneDetailItem {
         override val key = "social"
     }
 
-    /** Who can't see this book (admins only), directly under the actions (spec §3.2.4 rule 4). */
+    /** Who can't see this book (admins only), directly under the actions. */
     data object Visibility : PhoneDetailItem {
         override val key = "visibility"
     }
@@ -761,7 +753,7 @@ private fun BookDetailSection.itemKey(): String =
 internal const val READERS_ITEM_KEY = "readers"
 
 /**
- * The phone column's items, in the order it draws them (spec §2.4): the admin's scan warning, the hero, the action unit (or the held
+ * The phone column's items, in the order it draws them: the admin's scan warning, the hero, the action unit (or the held
  * panel), the social line, the Visibility card, the last match, then the sections in the visit's stage order.
  */
 internal fun phoneDetailItems(
@@ -778,7 +770,7 @@ internal fun phoneDetailItems(
         if (!state.isHeld && hasSocialLine) add(PhoneDetailItem.Social)
         if (!state.isHeld && state.visibility != null) add(PhoneDetailItem.Visibility)
         add(PhoneDetailItem.LastMatch)
-        state.shownSections().forEach { add(PhoneDetailItem.Section(it)) }
+        state.shownSections.forEach { add(PhoneDetailItem.Section(it)) }
     }
 
 /** Where Readers sits in [items], or null when the column shows none. */
@@ -817,7 +809,7 @@ private fun ImmersiveBookDetail(
     val readersIndex = readersItemIndex(items)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    // Home's finishers line lands here (spec §6.4), once per entry: a return to this screen (or a rotation) keeps
+    // Home's finishers line lands here, once per entry: a return to this screen (or a rotation) keeps
     // wherever the reader scrolled to. The index is read off the same list the column draws.
     var landedOnReaders by rememberSaveable(bookId) { mutableStateOf(false) }
     // Focus goes to the Readers heading on a landing, and on every social-line tap: TalkBack follows the jump.
@@ -880,7 +872,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // A held book is triage-only (spec §8, §10): the held section — Release, Edit, Match, Edit
+                        // A held book is triage-only: the held section — Release, Edit, Match, Edit
                         // chapters — stands where the action unit would, under the title.
                         PhoneDetailItem.Held -> {
                             HeldForReviewSection(
@@ -893,7 +885,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // The Resume unit directly over the action group (spec §2.9): where you are, then what next.
+                        // The Resume unit directly over the action group: where you are, then what next.
                         PhoneDetailItem.Listen -> {
                             PhoneListenUnit(
                                 state = state,
@@ -903,7 +895,7 @@ private fun ImmersiveBookDetail(
                             )
                         }
 
-                        // Who else is reading (spec §2.10): a tap brings the Readers section into view.
+                        // Who else is reading: a tap brings the Readers section into view.
                         PhoneDetailItem.Social -> {
                             if (summary != null) {
                                 HeroSocialLine(

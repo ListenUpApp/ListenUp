@@ -1,6 +1,6 @@
 import Foundation
 import ListenupContract
-import Shared
+@preconcurrency import Shared
 
 /// Observes `ABSImportHubViewModel`'s **list** surface — the persistent/resumable roster of
 /// staged ABS imports — and flattens `ABSImportListUiState` (`Loading` / `Ready` / `Error`)
@@ -37,6 +37,8 @@ final class ABSImportHubObserver {
     // MARK: - Actions
 
     func reload() { viewModel.refresh() }
+    /// `reload()` for a pull-to-refresh: returns when the list has loaded.
+    func reloadNow() async { try? await viewModel.refreshNow() }
     func deleteImport(id: String) { viewModel.deleteImport(importId: ImportId(value: id)) }
     func clearError() { viewModel.clearError() }
 

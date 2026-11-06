@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
-import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.MoreVert
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -30,11 +28,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalLayoutDirection
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.foldable.LocalFold
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -459,7 +457,7 @@ internal fun ReaderTopBar(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.GridView,
+                        imageVector = ListenUpIcons.GridView,
                         contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
                     )
                 }
@@ -472,7 +470,7 @@ internal fun ReaderTopBar(
                         },
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.MoreVert,
+                            imageVector = ListenUpIcons.MoreVert,
                             contentDescription = stringResource(Res.string.book_detail_more_options),
                         )
                     }

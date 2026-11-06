@@ -55,7 +55,7 @@ internal fun planDynamicBlock(tokens: IntArray): DynamicBlockPlan {
     val numLitLen = trimmedCount(litlenLengths, MIN_LITLEN_CODES)
     val numDist = trimmedCount(distLengths, MIN_DIST_CODES)
 
-    // Code lengths form one sequence (litlen then dist); repeats may cross the boundary (RFC §3.2.7).
+    // Code lengths form one sequence (litlen then dist); repeats may cross the boundary (RFC 1951 §3.2.7).
     val combined = IntArray(numLitLen + numDist)
     litlenLengths.copyInto(destination = combined, destinationOffset = 0, startIndex = 0, endIndex = numLitLen)
     distLengths.copyInto(destination = combined, destinationOffset = numLitLen, startIndex = 0, endIndex = numDist)
@@ -146,7 +146,7 @@ internal fun emitDynamicBlock(
 }
 
 /**
- * Run-length-encodes a code-length sequence into code-length-code symbols (RFC §3.2.7): literal
+ * Run-length-encodes a code-length sequence into code-length-code symbols (RFC 1951 §3.2.7): literal
  * lengths `0..15`, `16` (copy the previous length 3–6 times), `17` (a 3–10 zero run) and `18` (an
  * 11–138 zero run). Returns the symbol stream and the matching extra-bit values.
  */
@@ -244,17 +244,17 @@ private fun trimmedCount(
     return count
 }
 
-/** Like [trimmedCount] but walks the code-length codes in their transmission order (RFC §3.2.7). */
+/** Like [trimmedCount] but walks the code-length codes in their transmission order (RFC 1951 §3.2.7). */
 private fun trimmedCodeLengthCount(codeLengthLengths: IntArray): Int {
     var count = CODE_LENGTH_ORDER.size
     while (count > MIN_CL_CODES && codeLengthLengths[CODE_LENGTH_ORDER[count - 1]] == 0) count--
     return count
 }
 
-/** Maps a match length `3..258` to its length-code index `0..28` (RFC §3.2.5). */
+/** Maps a match length `3..258` to its length-code index `0..28` (RFC 1951 §3.2.5). */
 internal val LENGTH_CODE_INDEX: IntArray = buildCodeIndex(LENGTH_BASE, MAX_MATCH_LENGTH + 1)
 
-/** Maps a back-reference distance `1..32768` to its distance-code index `0..29` (RFC §3.2.5). */
+/** Maps a back-reference distance `1..32768` to its distance-code index `0..29` (RFC 1951 §3.2.5). */
 internal val DIST_CODE_INDEX: IntArray = buildCodeIndex(DIST_BASE, MAX_DISTANCE + 1)
 
 /** Expands a base-value table into a per-value → code-index lookup of [size] entries. */

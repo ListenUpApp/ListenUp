@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.admin.GenreMergeHistory
 import androidx.lifecycle.ViewModelStore
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.Koin
 
@@ -75,40 +74,6 @@ fun graphCategories(koin: Koin): OpenCategories =
                     retry = viewModel::retryMergeHistory,
                 ),
             close = store::clear,
-        )
-    }
-
-/** A session over a state that never changes — the shape specs pass in place of the graph. */
-@Suppress("LongParameterList")
-fun fixedCategories(
-    state: AdminCategoriesUiState = AdminCategoriesUiState.Loading,
-    onToggleExpanded: (String) -> Unit = {},
-    onExpandAll: () -> Unit = {},
-    onCollapseAll: () -> Unit = {},
-    onCreate: (String, String?) -> Unit = { _, _ -> },
-    onRename: (String, String) -> Unit = { _, _ -> },
-    onDelete: (String) -> Unit = {},
-    onMove: (String, String?) -> Unit = { _, _ -> },
-    onMerge: (String, String) -> Unit = { _, _ -> },
-    onClearError: () -> Unit = {},
-    mergeHistory: GenreMergeHistory? = null,
-    mergeHistoryActions: MergeHistoryActions = MergeHistoryActions.None,
-): OpenCategories =
-    {
-        CategoriesSession(
-            state = MutableStateFlow(state),
-            onToggleExpanded = onToggleExpanded,
-            onExpandAll = onExpandAll,
-            onCollapseAll = onCollapseAll,
-            onCreate = onCreate,
-            onRename = onRename,
-            onDelete = onDelete,
-            onMove = onMove,
-            onMerge = onMerge,
-            onClearError = onClearError,
-            mergeHistory = MutableStateFlow(mergeHistory),
-            mergeHistoryActions = mergeHistoryActions,
-            close = {},
         )
     }
 

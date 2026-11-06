@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.VerifiedUser
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -52,6 +46,7 @@ import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.TonalLabel
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import com.calypsan.listenup.client.domain.model.PermissionPreset
@@ -169,7 +164,7 @@ fun UserPermissionsScreen(
             onConfirm = viewModel::confirmAdminPromotion,
             dismissText = stringResource(Res.string.common_cancel),
             onDismiss = viewModel::cancelAdminPromotion,
-            icon = Icons.Outlined.VerifiedUser,
+            icon = ListenUpIcons.VerifiedUser,
         )
     }
 }
@@ -270,7 +265,7 @@ private fun RoleMenu(
             enabled = enabled,
             filled = false,
             fillMaxWidth = false,
-            trailingIcon = Icons.Outlined.ArrowDropDown,
+            trailingIcon = ListenUpIcons.ArrowDropDown,
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             listOf(UserRole.MEMBER, UserRole.ADMIN).forEach { choice ->
@@ -314,7 +309,7 @@ private fun PresetPicker(
                     label = PermissionPreset.CUSTOM.title(),
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    icon = Icons.Outlined.Tune,
+                    icon = ListenUpIcons.Tune,
                 )
             }
         }
@@ -372,7 +367,7 @@ private fun CurateWarning(text: String) {
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Icon(
-            imageVector = Icons.Outlined.WarningAmber,
+            imageVector = ListenUpIcons.WarningAmber,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.size(20.dp),
@@ -392,7 +387,7 @@ private fun OlderServerNote() {
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         Icon(
-            imageVector = Icons.Outlined.Info,
+            imageVector = ListenUpIcons.Info,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
@@ -414,7 +409,7 @@ private fun AdminsCanDoEverything(name: String) {
         ) {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primary) {
                 Icon(
-                    imageVector = Icons.Outlined.VerifiedUser,
+                    imageVector = ListenUpIcons.VerifiedUser,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.padding(Spacing.md).size(28.dp),

@@ -9,11 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FormatListNumbered
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -34,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
@@ -56,7 +52,7 @@ private val ReleaseMinHeight = 72.dp
 private val SecondaryMinHeight = 64.dp
 
 /**
- * Book Detail's triage panel for a book held for review (spec §3.2.3 Held), where the action unit would be. Amber, not
+ * Book Detail's triage panel for a book held for review, where the action unit would be. Amber, not
  * coral: the fixed held roles ([com.calypsan.listenup.client.design.theme.ListenUpExtendedColors.held]), the app's
  * "waiting for you" colour, which dynamic colour never turns into the wallpaper's tertiary. What it is ("Held for review"), one sentence of why ("Hidden from every member, and it can’t be
  * played until you release it."), then the only things a held book allows: **Release to members** (asks first) across
@@ -109,7 +105,7 @@ fun HeldForReviewSection(
                 TriageTonalButton(
                     label = stringResource(Res.string.common_edit),
                     description = stringResource(Res.string.library_menu_edit_details),
-                    icon = Icons.Outlined.Edit,
+                    icon = ListenUpIcons.Edit,
                     enabled = !isReleasing,
                     onClick = onEditClick,
                     modifier = Modifier.weight(1f),
@@ -117,7 +113,7 @@ fun HeldForReviewSection(
                 TriageTonalButton(
                     label = stringResource(Res.string.book_detail_held_match),
                     description = stringResource(Res.string.match_menu_item),
-                    icon = Icons.Outlined.Search,
+                    icon = ListenUpIcons.Search,
                     enabled = !isReleasing,
                     onClick = onMatchClick,
                     modifier = Modifier.weight(1f),
@@ -125,7 +121,7 @@ fun HeldForReviewSection(
                 TriageTonalButton(
                     label = stringResource(Res.string.book_detail_chapters),
                     description = stringResource(Res.string.chapter_editor_title),
-                    icon = Icons.Outlined.FormatListNumbered,
+                    icon = ListenUpIcons.FormatListNumbered,
                     enabled = !isReleasing,
                     onClick = onEditChaptersClick,
                     modifier = Modifier.weight(1f),
@@ -161,7 +157,11 @@ private fun ReleaseButton(
         if (isReleasing) {
             ListenUpLoadingIndicatorSmall(color = MaterialTheme.extendedColors.onHeld)
         } else {
-            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Icon(
+                ListenUpIcons.CheckFilled,
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize),
+            )
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(Res.string.book_detail_held_release))
         }

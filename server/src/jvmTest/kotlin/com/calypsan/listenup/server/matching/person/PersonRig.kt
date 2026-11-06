@@ -13,7 +13,7 @@ import com.calypsan.listenup.server.matching.review.AUDNEXUS
 import com.calypsan.listenup.server.matching.review.HARDCOVER
 import com.calypsan.listenup.server.matching.undo.MatchReceiptStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -60,8 +60,8 @@ internal class PersonRig(
     val receipts = MatchReceiptStore(db.sql)
     var fault: () -> Unit = {}
     var photoBytes: (String) -> ByteArray = { url -> jpeg(url.length) }
-    private val imageStorage =
-        ImageStorage(
+    private val remoteImageFetcher =
+        RemoteImageFetcher(
             HttpClient(
                 MockEngine { request ->
                     val url = request.url.toString()
@@ -73,7 +73,7 @@ internal class PersonRig(
                 },
             ),
         )
-    val photoFiles = ContributorPhotoFiles(imageStorage, Path(home))
+    val photoFiles = ContributorPhotoFiles(remoteImageFetcher, Path(home))
     val writer = PersonMatchWriter(db.sql, contributors, receipts, now = { 1_000L }, beforeCommit = { fault() })
     val applier = PersonMatchApplier(reviewer, photoFiles, writer, now = { 1_000L })
     val undoer = PersonMatchUndoer(db.sql, contributors, receipts, now = { 2_000L })

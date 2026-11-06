@@ -11,7 +11,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
@@ -235,7 +235,7 @@ private class EnrichmentCtx(
             bookRepository = bookRepo,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
+            remoteImageFetcher = RemoteImageFetcher(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
             coverImageStore = CoverImageStore(ImageStore(IoPath(Path.of(tempDir).resolve("covers").toString()), MAX_COVER_BYTES)),
             matchSource = { asin, locale ->
                 coordinator.composeBook(BookIdentity(asin = asin, title = ""), locale).map { composed ->

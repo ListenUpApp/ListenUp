@@ -16,7 +16,7 @@ import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.RemoteImageFetcher
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
@@ -172,13 +172,13 @@ private fun neverCalledEngine(): MockEngine =
 
 /**
  * Spins up an in-memory DB seeded with one book ("book1"), a cover-scoped [ImageStore] over a
- * temp dir, and a [MetadataLookupServiceImpl] wired to an [ImageStorage] backed by [engine] with
+ * temp dir, and a [MetadataLookupServiceImpl] wired to an [RemoteImageFetcher] backed by [engine] with
  * [maxBytes] as its download cap. Mirrors [ApplyCoverTest]'s `withCoverFixture`, but takes a full
  * [MockEngine] (rather than a fixed byte array) so redirect and oversize scenarios can be modeled.
  */
 private fun withApplyCoverFixture(
     engine: MockEngine,
-    maxBytes: Long = ImageStorage.DEFAULT_MAX_DOWNLOAD_BYTES,
+    maxBytes: Long = RemoteImageFetcher.DEFAULT_MAX_DOWNLOAD_BYTES,
     block: suspend (service: MetadataLookupServiceImpl) -> Unit,
 ) {
     withSqlDatabase {
@@ -220,7 +220,7 @@ private fun withApplyCoverFixture(
                     seriesRepository = seriesRepo,
                     imageDeps =
                         MetadataImageDeps(
-                            imageStorage = ImageStorage(httpClient = HttpClient(engine), maxBytes = maxBytes),
+                            remoteImageFetcher = RemoteImageFetcher(httpClient = HttpClient(engine), maxBytes = maxBytes),
                             coverImageStore = coverStore,
                             imageHome = Path(tempDir.toString()),
                         ),

@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.api.error.SyncError
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -83,11 +84,18 @@ class ListeningEventRepositoryTest :
                         ).data
 
                     // Attacker userA replays the SAME id with attacker-controlled fields.
-                    repo.upsert(
-                        listeningEventPayload("shared-id", "book-a", startPositionMs = 55_555L),
-                        clientOpId = "op-A",
-                        userId = "userA",
-                    )
+                    val attack =
+                        repo.upsert(
+                            listeningEventPayload("shared-id", "book-a", startPositionMs = 55_555L),
+                            clientOpId = "op-A",
+                            userId = "userA",
+                        )
+
+                    // The attacker is told the id does not exist — never handed the victim's row.
+                    val failure = attack.shouldBeInstanceOf<AppResult.Failure>()
+                    val notFound = failure.error.shouldBeInstanceOf<SyncError.NotFound>()
+                    notFound.domain shouldBe "listening_event"
+                    notFound.entityId shouldBe "shared-id"
 
                     // userB's row is untouched — same owner, domain fields, and sync columns.
                     val row = sql.listeningEventsQueries.selectById("shared-id").executeAsOne()

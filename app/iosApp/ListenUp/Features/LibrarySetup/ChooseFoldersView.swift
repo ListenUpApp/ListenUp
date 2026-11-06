@@ -100,10 +100,7 @@ struct ChooseFoldersView: View {
                 .fill(Color(.secondarySystemGroupedBackground))
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(
-            format: String(localized: "library_setup.current_path_label"),
-            viewModel.currentPath
-        ))
+        .accessibilityLabel(String(localized: .librarySetupCurrentPathLabel(viewModel.currentPath)))
     }
 
     // MARK: - Directory list

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.presentation.library
 
-/** The library's length in its largest whole unit, for "248 books · 41 days of listening" (spec L4). */
+/** The library's length in its largest whole unit, for "248 books · 41 days of listening". */
 sealed interface LibraryLength {
     /** Under a minute: no span is shown. */
     data object None : LibraryLength
