@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
+import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import kotlin.time.Duration.Companion.seconds
@@ -40,6 +41,7 @@ internal fun BookChaptersSection(
     wide: Boolean,
     onPlayFromChapter: (Long) -> Unit,
     onOpenChapterMap: () -> Unit,
+    grouped: GroupedChapters? = null,
 ) {
     var expanded by remember(bookId) { mutableStateOf(false) }
     val shown = if (expanded) chapters else preview
@@ -64,7 +66,9 @@ internal fun BookChaptersSection(
             }) { Text("Chapter map") }
         }
         Div(attrs = { classes("bd-ch-body") }) {
-            if (wide) {
+            if (grouped != null) {
+                BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter)
+            } else if (wide) {
                 Table(attrs = { classes("bd-ch-table") }) {
                     Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
                     Tbody {
@@ -116,7 +120,7 @@ internal fun BookChaptersSection(
 }
 
 @Composable
-private fun ChapterButton(
+internal fun ChapterButton(
     chapter: ChapterUiModel,
     number: Int,
     canPlay: Boolean,
@@ -155,4 +159,4 @@ private val CHAPTER_TABLE_HEADINGS = listOf("#", "Title", "Starts", "Length")
 
 private const val MILLIS_PER_SECOND = 1000
 
-private const val PLAY_MARK_SIZE = 14
+internal const val PLAY_MARK_SIZE = 14

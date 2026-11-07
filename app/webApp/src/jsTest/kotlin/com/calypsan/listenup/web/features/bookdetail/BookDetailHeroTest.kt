@@ -54,6 +54,15 @@ class BookDetailHeroTest :
             root.querySelector(".bd-unit [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "11"
         }
 
+        test("in a book with parts the unit leads with the part") {
+            val root =
+                rendered(
+                    inProgress.copy(currentChapter = inProgress.currentChapter?.copy(partTitle = "Part I")),
+                )
+
+            root.querySelector(".bd-unit-ch")!!.textContent shouldBe "Part I · Ch. 6 · Bridge Four"
+        }
+
         test("Resume is a button with no disabled attribute at all (N8)") {
             val root = rendered(inProgress)
             primary(root).textContent!! shouldContain "Resume"

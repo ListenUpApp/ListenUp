@@ -122,6 +122,8 @@ sealed interface BookDetailUiState {
         val currentChapter: CurrentChapter? = null,
         /** The collapsed chapter list: five rows around [currentChapter], or the first five. [chapters] stays the full list. */
         val chapterPreview: List<ChapterUiModel> = emptyList(),
+        /** [chapters] with their parts and books; null for a book with no markers, which draws [chapterPreview] as ever. */
+        val groupedChapters: GroupedChapters? = null,
         /** Time left in milliseconds while in progress, for platforms to format in their own units; null otherwise. */
         val timeRemainingMs: Long? = null,
         /** When a finished book was read; null unless finished with a recorded finish time. */

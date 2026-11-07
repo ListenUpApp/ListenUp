@@ -12,7 +12,7 @@ struct BookDetailReadingModelsTests {
     @Test func currentChapterProjectsEveryField() {
         let projected = BookCurrentChapter(
             CurrentChapter(index: 5, number: 6, title: "Bridge Four", startMs: 9_000, elapsedInChapterMs: 720_000,
-                           isInPlayer: false))
+                           isInPlayer: false, partTitle: nil))
         #expect(projected == BookCurrentChapter(
             index: 5, number: 6, title: "Bridge Four", startMs: 9_000, elapsedInChapterMs: 720_000))
     }
