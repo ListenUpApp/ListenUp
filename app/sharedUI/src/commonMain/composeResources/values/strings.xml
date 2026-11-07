@@ -455,6 +455,7 @@ One beautiful library.</string>
     <string name="book_detail_chapter_count">%1$d chapters</string>
     <string name="book_detail_chapter_count_one">1 chapter</string>
     <string name="book_detail_chapter_label">Ch. %1$d · %2$s</string>
+    <string name="book_detail_chapter_label_in_part">%1$s · Ch. %2$d · %3$s</string>
     <string name="book_detail_chapters">Chapters</string>
     <string name="book_detail_close">Close book</string>
     <string name="book_detail_collection_picker_title">Add to collection</string>
@@ -561,6 +562,8 @@ One beautiful library.</string>
     <string name="book_detail_offline_reason">Can’t reach your server. This book isn’t downloaded, so it can’t play right now.</string>
     <string name="book_detail_other_authors">%1$s, %2$d other authors</string>
     <string name="book_detail_other_narrators">%1$s, %2$d other narrators</string>
+    <string name="book_detail_part_play_a11y">Play %1$s</string>
+    <string name="book_detail_part_summary">%1$s · %2$s</string>
     <string name="book_detail_play">Play</string>
     <string name="book_detail_play_from_chapter_a11y">Play from chapter %1$d: %2$s</string>
     <string name="book_detail_play_ios">Play</string>

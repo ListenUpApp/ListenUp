@@ -21,6 +21,31 @@ class ResumeUnitTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `in a book with parts the line leads with the part`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ResumeUnit(
+                    readingStage = ReadingStage.InProgress,
+                    currentChapter =
+                        CurrentChapter(
+                            index = 6,
+                            number = 7,
+                            title = "5",
+                            startMs = 0,
+                            elapsedInChapterMs = 0,
+                            partTitle = "Part I",
+                        ),
+                    timeRemainingMs = 60_000L,
+                    progress = 0.09f,
+                    finishedSpan = null,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Part I · Ch. 7 · 5").assertExists()
+    }
+
+    @Test
     fun `in progress shows the current chapter, the time left and an 11 percent bar`() {
         composeRule.setContent {
             MaterialTheme {
