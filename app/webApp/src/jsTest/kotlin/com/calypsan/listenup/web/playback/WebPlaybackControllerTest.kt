@@ -118,6 +118,11 @@ private val neverCalledPlaybackManager: PlaybackManager =
             resumeSpeed: Float,
         ) = unexpected()
 
+        override fun onSeek(
+            fromPositionMs: Long,
+            toPositionMs: Long,
+        ) = unexpected()
+
         override fun onSpeedChanged(speed: Float) = unexpected()
 
         override fun onSpeedReset(defaultSpeed: Float) = unexpected()

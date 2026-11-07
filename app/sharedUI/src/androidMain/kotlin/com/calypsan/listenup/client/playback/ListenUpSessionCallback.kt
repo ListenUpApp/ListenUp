@@ -434,7 +434,7 @@ internal class ListenUpSessionCallback(
             val bookId = BrowseTree.extractBookId(item.mediaId)
             if (bookId != null) {
                 // Prepare playback for this book
-                val prepareResult = playbackManager.prepareForSilentStart(BookId(bookId), "Browse selection")
+                val prepareResult = prepareForSilentStart(BookId(bookId), "Browse selection")
                 if (prepareResult != null) {
                     // Build MediaItems from timeline
                     val bookItems =
@@ -465,6 +465,37 @@ internal class ListenUpSessionCallback(
         }
 
         return resolvedItems to lastPrepareResult
+    }
+
+    /**
+     * Prepare [bookId] for a start that has no on-screen surface to report to (Android Auto browse,
+     * voice, media-button resumption): the [PlaybackManager.PrepareResult], or null with the choke
+     * point's typed refusal or failure logged — a held book included.
+     *
+     * Another book still playing is paused first, as the in-app switch does before it prepares
+     * (`ManagedPlayerEngine.beginLoad`). Preparing hands the manager the new book's timeline while
+     * the old one still sounds, and its pause would otherwise arrive after the switch: filed under
+     * the new book at the new book's place, with the old book's listening span closed there too and
+     * everything since its last periodic save lost. Paused here, on the main thread, the local
+     * player reports it at once, while everything still names the outgoing book; a cast receiver
+     * that reports late is caught by the recorder, which closes the outgoing span at its own last
+     * known position whatever book the pause names.
+     */
+    private suspend fun prepareForSilentStart(
+        bookId: BookId,
+        startedBy: String,
+    ): PlaybackManager.PrepareResult? {
+        silenceOutgoingBook(incoming = bookId)
+        return playbackManager.prepareForPlayback(bookId, PlaybackStart.Resume).valueOrNull {
+            logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" }
+        }
+    }
+
+    private fun silenceOutgoingBook(incoming: BookId) {
+        val outgoing = playbackManager.currentBookId.value ?: return
+        if (outgoing == incoming) return
+        val player = transport.activeTransportPlayer() ?: return
+        if (player.playWhenReady) player.pause()
     }
 
     /**
@@ -628,7 +659,7 @@ internal class ListenUpSessionCallback(
         logger.info { "Playing book from voice search: $bookId" }
 
         // Prepare playback for the book
-        val prepareResult = playbackManager.prepareForSilentStart(BookId(bookId), "Voice playback")
+        val prepareResult = prepareForSilentStart(BookId(bookId), "Voice playback")
         if (prepareResult == null) {
             logger.error { "Failed to prepare book for voice playback: $bookId" }
             return emptyList<MediaItem>() to null
@@ -691,7 +722,7 @@ internal class ListenUpSessionCallback(
                     logger.info { "Resuming book: ${bookId.value}" }
 
                     // Prepare playback for the book
-                    val prepareResult = playbackManager.prepareForSilentStart(bookId, "Resumption")
+                    val prepareResult = prepareForSilentStart(bookId, "Resumption")
 
                     if (prepareResult == null) {
                         logger.error { "Failed to prepare book for resumption" }
@@ -943,19 +974,6 @@ private fun String.toMediaFocus(): MediaFocus? =
         MediaStore.Audio.Albums.ENTRY_CONTENT_TYPE -> MediaFocus.ALBUM
         MediaStore.Audio.Media.ENTRY_CONTENT_TYPE -> MediaFocus.TITLE
         else -> MediaFocus.UNSPECIFIED
-    }
-
-/**
- * Prepare [bookId] for a start that has no on-screen surface to report to (Android Auto browse,
- * voice, media-button resumption): the [PlaybackManager.PrepareResult], or null with the choke
- * point's typed refusal or failure logged — a held book included.
- */
-private suspend fun PlaybackManager.prepareForSilentStart(
-    bookId: BookId,
-    startedBy: String,
-): PlaybackManager.PrepareResult? =
-    prepareForPlayback(bookId, PlaybackStart.Resume).valueOrNull {
-        logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" }
     }
 
 /** The hints a voice search arrived with, for the debug log; an absent hint reads "none", not "null". */

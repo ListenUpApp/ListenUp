@@ -118,6 +118,17 @@ interface PlaybackManager :
     )
 
     /**
+     * The listener moved the playhead from [fromPositionMs] to [toPositionMs] (book-relative). Moves
+     * [currentPositionMs] at once — a seek while paused produces no player tick — and, where this
+     * manager records the session, splits the listening span so the jumped-over range is never
+     * counted as listened.
+     */
+    fun onSeek(
+        fromPositionMs: Long,
+        toPositionMs: Long,
+    )
+
+    /**
      * Called when the user explicitly changes playback speed for the current
      * book. Sets per-book speed via [ProgressTracker]; does NOT mutate the
      * global default.

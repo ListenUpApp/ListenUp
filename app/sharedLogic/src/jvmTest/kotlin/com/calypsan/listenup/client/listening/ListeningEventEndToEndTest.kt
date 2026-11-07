@@ -152,7 +152,7 @@ class ListeningEventEndToEndTest :
                     ),
                 )
                 // onPause finalizes the seeded span: endedAt=nowMs, startedAt=nowMs-spanMs → 30s.
-                recorder.onPause(positionMs = spanMs)
+                recorder.onPause(bookId = "book-e2e-2", positionMs = spanMs)
 
                 // Poll server until the event arrives via the engine's reactive queue drain.
                 val serverEvent =

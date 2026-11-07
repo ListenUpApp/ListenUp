@@ -107,6 +107,9 @@ class FakePlaybackManager : PlaybackManager {
     val setBufferingCalls: MutableList<Boolean> = mutableListOf()
     val setPlaybackStateCalls: MutableList<PlaybackState> = mutableListOf()
     val updatedPositions: MutableList<Long> = mutableListOf()
+
+    /** `(from, to)` of every [onSeek]; the seek also lands in [updatedPositions], as the playhead moves with it. */
+    val seeks: MutableList<Pair<Long, Long>> = mutableListOf()
     val updatedSpeeds: MutableList<Float> = mutableListOf()
     val speedChanges: MutableList<Float> = mutableListOf()
     val speedResets: MutableList<Float> = mutableListOf()
@@ -164,6 +167,14 @@ class FakePlaybackManager : PlaybackManager {
         resumeSpeed: Float,
     ) {
         startPlaybackCalls += StartPlaybackCall(player, resumePositionMs, resumeSpeed)
+    }
+
+    override fun onSeek(
+        fromPositionMs: Long,
+        toPositionMs: Long,
+    ) {
+        seeks += fromPositionMs to toPositionMs
+        updatePosition(toPositionMs)
     }
 
     override fun onSpeedChanged(speed: Float) {
