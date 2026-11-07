@@ -539,7 +539,7 @@ internal class PendingOperationQueue(
                             e,
                         ) { "Sender threw for op ${op.clientOpId} (${op.domainName}); retrying as transient" }
                         recordFailedAttempt(
-                            entity,
+                            entity = entity,
                             failureCount = entity.failureCount + 1,
                             lastError = e::class.simpleName ?: "SenderException",
                             // A throw can come mid-send: nothing says the request didn't land.
@@ -582,7 +582,7 @@ internal class PendingOperationQueue(
                                 // persistently-5xx-ing op quarantines after MAX; a transient one costs ≤MAX.
                                 val newCount = entity.failureCount + 1
                                 recordFailedAttempt(
-                                    entity,
+                                    entity = entity,
                                     failureCount = newCount,
                                     lastError = error.code,
                                     mayHaveLanded = true,
@@ -596,7 +596,7 @@ internal class PendingOperationQueue(
                             FailureDisposition.Terminal -> {
                                 // Non-retryable: leap past MAX so the SQL filter never picks it up again.
                                 recordFailedAttempt(
-                                    entity,
+                                    entity = entity,
                                     failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
                                     lastError = error.code,
                                     mayHaveLanded = entity.mayHaveLanded || !error.isRefusal(),
