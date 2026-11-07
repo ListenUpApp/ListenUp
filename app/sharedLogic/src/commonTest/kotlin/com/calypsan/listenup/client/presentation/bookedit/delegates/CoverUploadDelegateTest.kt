@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
+import com.calypsan.listenup.client.domain.model.BookEditData
+import com.calypsan.listenup.client.domain.model.BookMetadata
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -40,9 +43,33 @@ class CoverUploadDelegateTest :
             bookId: String,
             stagingCoverPath: String?,
         ): BookEditUiState =
-            BookEditUiState(
-                bookId = bookId,
-                stagingCoverPath = stagingCoverPath,
+            BookEditUiState.Editing(
+                form = BookEditForm(bookId = bookId, stagingCoverPath = stagingCoverPath),
+                original =
+                    BookEditData(
+                        bookId = bookId,
+                        metadata =
+                            BookMetadata(
+                                title = "",
+                                sortTitle = "",
+                                subtitle = "",
+                                description = "",
+                                publishYear = "",
+                                publisher = "",
+                                language = null,
+                                isbn = "",
+                                asin = "",
+                                abridged = false,
+                                addedAt = null,
+                            ),
+                        contributors = emptyList(),
+                        series = emptyList(),
+                        genres = emptyList(),
+                        tags = emptyList(),
+                        allGenres = emptyList(),
+                        allTags = emptyList(),
+                        coverPath = null,
+                    ),
             )
 
         test("cleanupStagingOnClear does nothing when bookId is blank") {

@@ -22,10 +22,7 @@ class UiStateIsSealedRule :
         val legacyExclusions =
             setOf(
                 "SettingsUiState",
-                "BookEditUiState",
                 "SyncIndicatorUiState",
-                "ContributorEditUiState",
-                "SeriesEditUiState",
                 "StorageUiState",
             )
 

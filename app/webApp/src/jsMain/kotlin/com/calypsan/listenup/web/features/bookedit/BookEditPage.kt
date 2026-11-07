@@ -9,7 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import com.calypsan.listenup.client.domain.model.Language
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.features.edit.EditInlineError
+import com.calypsan.listenup.web.features.edit.EditLoadFailed
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import com.calypsan.listenup.web.design.CheckboxField
@@ -57,62 +60,77 @@ fun BookEditPage(
     onOpenLibrary: () -> Unit,
     onOpenBook: () -> Unit,
 ) {
-    val guard = rememberUnsavedWorkGuard(dirty = state.hasChanges)
+    val editing = state as? BookEditUiState.Editing
+    val guard = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true)
     guard.Dialog()
+    val title = editing?.form?.title.orEmpty()
     Div(attrs = { classes("bd") }) {
-        Breadcrumb(listOf("Library", state.title.ifBlank { "Book" }, "Edit")) { index ->
+        Breadcrumb(listOf("Library", title.ifBlank { "Book" }, "Edit")) { index ->
             guard.leave { if (index == 0) onOpenLibrary() else onOpenBook() }
         }
         PageHeader(
-            title = state.title.ifBlank { "Book" },
-            documentTitle = "Edit " + state.title.ifBlank { "book" },
-            pending = state.isLoading,
+            title = title.ifBlank { "Book" },
+            documentTitle = "Edit " + title.ifBlank { "book" },
+            pending = state is BookEditUiState.Loading,
         )
 
-        if (state.isLoading) {
-            LoadingState()
-            return@Div
-        }
+        when (state) {
+            BookEditUiState.Loading -> {
+                LoadingState()
+            }
 
-        state.error?.let { message ->
-            // Dismissible rather than fatal: the form still holds the reader's edits, and throwing
-            // the page away over a failed save would throw those away with it.
-            Div(attrs = { classes("edit-error") }) {
-                P { Text(message) }
-                Button(
-                    kind = ButtonKind.Secondary,
-                    onClick = { onEvent(BookEditUiEvent.DismissError) },
-                ) { Text("Dismiss") }
+            is BookEditUiState.LoadFailed -> {
+                EditLoadFailed(
+                    error = state.error,
+                    onBack = onOpenBook,
+                    onRetry = { onEvent(BookEditUiEvent.RetryLoad) },
+                )
+            }
+
+            is BookEditUiState.Editing -> {
+                EditingBody(state, onEvent, onCancel = { guard.leave { onEvent(BookEditUiEvent.Cancel) } })
             }
         }
+    }
+}
 
-        // A real <form> spanning the sections AND the actions, so Enter in any field saves — the
-        // browser's implicit submission needs the submit button inside the same form as the
-        // fields. preventDefault stops the navigation that would otherwise reload the page and
-        // discard every unsaved edit on it.
-        Form(attrs = {
-            classes("edit-body")
-            onSubmit { event ->
-                event.preventDefault()
-                onEvent(BookEditUiEvent.Save)
-            }
-        }) {
-            FormSection("Cover") { CoverField(state, onEvent) }
-            FormSection("Details") { CoreFields(state, onEvent) }
-            FormSection("People") { ContributorFields(state, onEvent) }
-            FormSection("Series") { SeriesFields(state, onEvent) }
-            FormSection("Classification") { ClassificationFields(state, onEvent) }
-            FormSection("Identifiers") { IdentifierFields(state, onEvent) }
-            FormSection("Library") { LibraryFields(state, onEvent) }
-            EditActions(state, onCancel = { guard.leave { onEvent(BookEditUiEvent.Cancel) } })
+@Composable
+private fun EditingBody(
+    editing: BookEditUiState.Editing,
+    onEvent: (BookEditUiEvent) -> Unit,
+    onCancel: () -> Unit,
+) {
+    val state = editing.form
+    editing.inlineError?.let { error ->
+        EditInlineError(error = error, onDismiss = { onEvent(BookEditUiEvent.DismissError) })
+    }
+
+    // A real <form> spanning the sections AND the actions, so Enter in any field saves — the
+    // browser's implicit submission needs the submit button inside the same form as the
+    // fields. preventDefault stops the navigation that would otherwise reload the page and
+    // discard every unsaved edit on it.
+    Form(attrs = {
+        classes("edit-body")
+        onSubmit { event ->
+            event.preventDefault()
+            onEvent(BookEditUiEvent.Save)
         }
+    }) {
+        FormSection("Cover") { CoverField(state, isUploading = editing.isUploadingCover, onEvent = onEvent) }
+        FormSection("Details") { CoreFields(state, onEvent) }
+        FormSection("People") { ContributorFields(state, onEvent) }
+        FormSection("Series") { SeriesFields(state, onEvent) }
+        FormSection("Classification") { ClassificationFields(state, onEvent) }
+        FormSection("Identifiers") { IdentifierFields(state, onEvent) }
+        FormSection("Library") { LibraryFields(state, onEvent) }
+        EditActions(isSaving = editing.isSaving, onCancel = onCancel)
     }
 }
 
 /** Title through publisher — what a reader actually corrects on an imported book. */
 @Composable
 private fun CoreFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Div(attrs = { classes("edit-grid") }) {
@@ -173,13 +191,13 @@ private fun CoreFields(
  * curated, so both may only be chosen. Tags and moods may be invented, and [RelationField] makes
  * that an explicit button rather than something Enter does by accident.
  *
- * Collections render only for an admin, because [BookEditUiState.isAdmin] is the ViewModel's word
+ * Collections render only for an admin, because [BookEditForm.isAdmin] is the ViewModel's word
  * on whether this reader may attach one — offering the control to everyone else would be a form
  * field whose save is refused.
  */
 @Composable
 private fun ClassificationFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     RelationField(
@@ -282,7 +300,7 @@ private fun ClassificationFields(
  */
 @Composable
 private fun ContributorFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     state.visibleRoles.sortedBy { it.ordinal }.forEach { role ->
@@ -356,7 +374,7 @@ private fun indefiniteArticle(word: String): String =
  */
 @Composable
 private fun SeriesFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     RelationField(
@@ -398,7 +416,7 @@ private fun SeriesFields(
 /** ISBN, ASIN and the abridged flag — rarely touched, so they sit below the fold. */
 @Composable
 private fun IdentifierFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Div(attrs = { classes("edit-grid") }) {
@@ -437,7 +455,7 @@ private fun IdentifierFields(
  */
 @Composable
 private fun LibraryFields(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Field(
@@ -491,7 +509,7 @@ private const val HELD_NOTE_ICON_SIZE = 16
  */
 @Composable
 private fun EditActions(
-    state: BookEditUiState,
+    isSaving: Boolean,
     onCancel: () -> Unit,
 ) {
     Div(attrs = { classes("edit-actions") }) {
@@ -500,14 +518,14 @@ private fun EditActions(
         Button(
             kind = ButtonKind.Secondary,
             onClick = { onCancel() },
-            enabled = !state.isSaving,
+            enabled = !isSaving,
         ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
         Button(
             kind = ButtonKind.Primary,
             submit = true,
-            enabled = !state.isSaving,
-        ) { Text(if (state.isSaving) "Saving…" else "Save") }
+            enabled = !isSaving,
+        ) { Text(if (isSaving) "Saving…" else "Save") }
     }
 }
 

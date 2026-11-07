@@ -196,14 +196,14 @@ private fun Gate(
         graph =
             WebGraph(
                 openBookDetail = fixedBookDetail(readyBook()),
-                openBookEdit = fixedBookEdit(BookEditUiState()),
+                openBookEdit = fixedBookEdit(BookEditUiState.Loading),
                 openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                 matchDetails = fixedMatchDetails(),
                 openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                 openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-                openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                openContributorEdit = fixedContributorEdit(ContributorEditUiState.Loading),
                 openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-                openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                openSeriesEdit = fixedSeriesEdit(SeriesEditUiState.Loading),
                 openNotifications = fixedNotifications(NotificationsUiState.Empty),
                 openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                 openProfile = fixedProfile(UserProfileUiState.Loading),

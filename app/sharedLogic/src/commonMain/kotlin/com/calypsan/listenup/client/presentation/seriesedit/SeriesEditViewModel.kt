@@ -18,6 +18,8 @@ import com.calypsan.listenup.client.domain.usecase.series.SeriesUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.SaveOutcome
 import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -26,6 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -64,8 +67,8 @@ const val MAX_MERGE_CANDIDATES = 30
  * @property seriesEditRepository RPC dispatcher for merge
  * @property seriesDao DAO for browsing all series as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
- * @property networkMonitor Hierarchy changes need the server; offline, the screen disables them
- * @property permissionsRepository Whether the signed-in user may merge and see the merge history (Curate library)
+ * @param networkMonitor Hierarchy changes need the server; offline, the screen disables them
+ * @param permissionsRepository Whether the signed-in user may merge and see the merge history (Curate library)
  */
 class SeriesEditViewModel internal constructor(
     private val seriesRepository: SeriesRepository,
@@ -75,11 +78,34 @@ class SeriesEditViewModel internal constructor(
     private val seriesEditRepository: SeriesEditRepository,
     seriesDao: SeriesDao,
     private val errorBus: ErrorBus,
-    private val networkMonitor: NetworkMonitor,
-    private val permissionsRepository: PermissionsRepository,
+    networkMonitor: NetworkMonitor,
+    permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     val state: StateFlow<SeriesEditUiState>
-        field = MutableStateFlow(SeriesEditUiState())
+        field = MutableStateFlow<SeriesEditUiState>(SeriesEditUiState.Loading)
+
+    /** The form inside [SeriesEditUiState.Editing]; edits outside it are dropped. */
+    private val form: FormSlot<SeriesEditUiState, SeriesEditForm> =
+        FormSlot(
+            state = state,
+            formOf = { (it as? SeriesEditUiState.Editing)?.form },
+            withForm = {
+                current,
+                form,
+                ->
+                if (current is SeriesEditUiState.Editing) current.copy(form = form) else current
+            },
+        )
+
+    /** Whether hierarchy changes can reach the server; held live so a form built later starts with it. */
+    private val onlineStatus: StateFlow<Boolean> =
+        networkMonitor.onlineFlow.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /** May merge and see the merge history (Curate library); held live for the same reason. */
+    private val canCurateLibrary: StateFlow<Boolean> =
+        permissionsRepository
+            .observeCan(Permission.CURATE_LIBRARY)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
      * The merges folded into this series that can still be undone (#1061) — the "Merged into this"
@@ -92,7 +118,7 @@ class SeriesEditViewModel internal constructor(
             errorBus = errorBus,
             load = {
                 if (permissionsRepository.observeCan(Permission.CURATE_LIBRARY).first()) {
-                    seriesEditRepository.listMergeReceipts(SeriesId(state.value.seriesId))
+                    seriesEditRepository.listMergeReceipts(SeriesId(form.value?.seriesId.orEmpty()))
                 } else {
                     AppResult.Success(emptyList())
                 }
@@ -108,7 +134,7 @@ class SeriesEditViewModel internal constructor(
 
     /**
      * Candidates for the merge-target picker — all live series except the current
-     * one, filtered by [SeriesEditUiState.mergeQuery] (case-insensitive substring).
+     * one, filtered by [SeriesEditForm.mergeQuery] (case-insensitive substring).
      * Capped at [MAX_MERGE_CANDIDATES] to keep the dialog snappy.
      *
      * Computed only while the picker is visible: hidden emits an empty list without ever
@@ -118,15 +144,15 @@ class SeriesEditViewModel internal constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val mergeCandidates: StateFlow<List<SeriesCandidate>> =
-        state
-            .map { it.mergeDialogVisible }
+        form.flow
+            .map { it?.mergeDialogVisible == true }
             .distinctUntilChanged()
             .flatMapLatest { pickerVisible ->
                 if (!pickerVisible) {
                     flowOf(emptyList())
                 } else {
                     combine(
-                        state.map { it.seriesId to it.mergeQuery }.distinctUntilChanged(),
+                        form.flow.map { it?.seriesId to it?.mergeQuery.orEmpty() }.distinctUntilChanged(),
                         seriesDao.observeAll(),
                     ) { (currentId, query), allSeries ->
                         allSeries
@@ -152,7 +178,7 @@ class SeriesEditViewModel internal constructor(
         SeriesHierarchyEditor(
             scope = viewModelScope,
             errorBus = errorBus,
-            state = state,
+            state = form,
             observeLineage = seriesRepository::observeSeriesLineage,
             hierarchy = seriesRepository.observeHierarchy(),
             createSeries = seriesEditRepository::createSeries,
@@ -172,7 +198,7 @@ class SeriesEditViewModel internal constructor(
             scope = viewModelScope,
             errorBus = errorBus,
             hierarchy = seriesRepository.observeHierarchy(),
-            parentId = { state.value.seriesId.ifBlank { null } },
+            parentId = { form.value?.run { seriesId.ifBlank { null } } },
             createSeries = seriesEditRepository::createSeries,
             setParent = seriesEditRepository::setParent,
         )
@@ -186,13 +212,8 @@ class SeriesEditViewModel internal constructor(
     }
 
     init {
-        viewModelScope.launch {
-            networkMonitor.onlineFlow.collect { online -> state.update { it.copy(isOnline = online) } }
-        }
-        permissionsRepository
-            .observeCan(Permission.CURATE_LIBRARY)
-            .onEach { can -> state.update { it.copy(canCurateLibrary = can) } }
-            .launchIn(viewModelScope)
+        onlineStatus.onEach { online -> form.update { it.copy(isOnline = online) } }.launchIn(viewModelScope)
+        canCurateLibrary.onEach { can -> form.update { it.copy(canCurateLibrary = can) } }.launchIn(viewModelScope)
     }
 
     /**
@@ -200,13 +221,8 @@ class SeriesEditViewModel internal constructor(
      * re-emits a filtered list whenever this changes.
      */
     fun onMergeQueryChange(query: String) {
-        state.update { it.copy(mergeQuery = query) }
+        form.update { it.copy(mergeQuery = query) }
     }
-
-    // Track original values for change detection
-    private var originalName: String = ""
-    private var originalDescription: String = ""
-    private var originalCoverPath: String? = null
 
     /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
     private var loadedSeriesId: String? = null
@@ -222,19 +238,16 @@ class SeriesEditViewModel internal constructor(
         loadedSeriesId = seriesId
 
         loadJob?.cancel()
+        state.value = SeriesEditUiState.Loading
         loadJob =
             viewModelScope.launch {
-                state.update { it.copy(isLoading = true, seriesId = seriesId) }
-
                 val series = seriesRepository.getById(seriesId)
                 if (series == null) {
                     // Let the same id be asked for again: nothing was loaded.
                     loadedSeriesId = null
-                    state.update { it.copy(isLoading = false, error = "Series not found") }
+                    state.value = SeriesEditUiState.LoadFailed(seriesId, SeriesError.NotFound())
                     return@launch
                 }
-                history.refresh()
-                hierarchy.observePlacement(seriesId)
 
                 val bookCount = seriesRepository.getBookIdsForSeries(seriesId).size
 
@@ -248,21 +261,19 @@ class SeriesEditViewModel internal constructor(
                         null
                     }
 
-                // Store original values
-                originalName = series.name
-                originalDescription = series.description.orEmpty()
-                originalCoverPath = coverPath
-
-                state.update { current ->
-                    current.copy(
-                        isLoading = false,
+                val loaded =
+                    SeriesEditForm(
+                        seriesId = seriesId,
                         name = series.name,
                         description = series.description.orEmpty(),
                         coverPath = coverPath,
                         bookCount = bookCount,
-                        hasChanges = false,
+                        isOnline = onlineStatus.value,
+                        canCurateLibrary = canCurateLibrary.value,
                     )
-                }
+                state.value = SeriesEditUiState.Editing(form = loaded, original = loaded)
+                history.refresh()
+                hierarchy.observePlacement(seriesId)
 
                 logger.debug { "Loaded series for editing: ${series.name}, bookCount=$bookCount" }
             }
@@ -274,13 +285,11 @@ class SeriesEditViewModel internal constructor(
     fun onEvent(event: SeriesEditUiEvent) {
         when (event) {
             is SeriesEditUiEvent.NameChanged -> {
-                state.update { it.copy(name = event.name) }
-                updateHasChanges()
+                form.update { it.copy(name = event.name) }
             }
 
             is SeriesEditUiEvent.DescriptionChanged -> {
-                state.update { it.copy(description = event.description) }
-                updateHasChanges()
+                form.update { it.copy(description = event.description) }
             }
 
             is SeriesEditUiEvent.CoverSelected -> {
@@ -300,15 +309,15 @@ class SeriesEditViewModel internal constructor(
             }
 
             is SeriesEditUiEvent.ErrorDismissed -> {
-                state.update { it.copy(error = null) }
+                updateEditing { it.copy(inlineError = null) }
             }
 
             is SeriesEditUiEvent.MergeDialogOpened -> {
-                state.update { it.copy(mergeDialogVisible = true) }
+                form.update { it.copy(mergeDialogVisible = true) }
             }
 
             is SeriesEditUiEvent.MergeDialogDismissed -> {
-                state.update { it.copy(mergeDialogVisible = false, mergeQuery = "") }
+                form.update { it.copy(mergeDialogVisible = false, mergeQuery = "") }
             }
 
             is SeriesEditUiEvent.MergeInto -> {
@@ -369,29 +378,36 @@ class SeriesEditViewModel internal constructor(
         }
     }
 
+    /** The [SeriesEditUiState.Editing] the screen is on, if it is editing and nothing is in flight. */
+    private fun idleEditing(): SeriesEditUiState.Editing? =
+        (state.value as? SeriesEditUiState.Editing)?.takeIf { it.phase == EditPhase.Idle }
+
+    private inline fun updateEditing(transform: (SeriesEditUiState.Editing) -> SeriesEditUiState.Editing) {
+        state.update { if (it is SeriesEditUiState.Editing) transform(it) else it }
+    }
+
     /**
      * Merge the current series into [targetId]. After firehose delivery the source is
      * soft-deleted and all of its books re-point at the target; we navigate back.
      */
     private fun mergeInto(targetId: SeriesId) {
+        val editing = idleEditing() ?: return
         // The UI hides the control without Curate library; this keeps a stale tap from reaching the server.
-        if (!state.value.canCurateLibrary) return
-        val sourceId = state.value.seriesId
-        if (sourceId.isBlank()) {
-            logger.error { "Cannot merge: series ID is empty" }
-            return
-        }
+        if (!editing.form.canCurateLibrary) return
+        val sourceId = SeriesId(editing.form.seriesId)
+        // Clear the query along with the picker — a failed merge must not leave a stale pre-filtered
+        // query behind the next open (matches the dismiss path).
+        state.value =
+            editing.copy(
+                phase = EditPhase.Merging,
+                inlineError = null,
+                form = editing.form.copy(mergeDialogVisible = false, mergeQuery = ""),
+            )
 
         viewModelScope.launch {
-            // Clear the query along with the flag — a failed merge must not leave a stale
-            // pre-filtered query behind the next open (matches the dismiss path).
-            state.update {
-                it.copy(mergeInProgress = true, mergeDialogVisible = false, mergeQuery = "", error = null)
-            }
-
-            when (val result = seriesEditRepository.mergeSeries(SeriesId(sourceId), targetId)) {
+            when (val result = seriesEditRepository.mergeSeries(sourceId, targetId)) {
                 is AppResult.Success -> {
-                    state.update { it.copy(mergeInProgress = false) }
+                    updateEditing { it.copy(phase = EditPhase.Idle) }
                     // The target, not back: this merge soft-deleted the series we were editing.
                     navActionsChannel.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
                 }
@@ -399,33 +415,10 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge series: ${result.message}" }
-                    state.update { current ->
-                        current.copy(
-                            mergeInProgress = false,
-                            error =
-                                when (result.error) {
-                                    is SeriesError.MergeSelfTarget -> "Can't merge a series with itself."
-                                    is SeriesError.NotFound -> "One of these series no longer exists."
-                                    else -> result.error.message
-                                },
-                        )
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
                 }
             }
         }
-    }
-
-    /**
-     * Update hasChanges flag based on current vs original values.
-     */
-    private fun updateHasChanges() {
-        val current = state.value
-        val hasChanges =
-            current.name != originalName ||
-                current.description != originalDescription ||
-                current.pendingCoverData != null // Cover changed if we have pending data
-
-        state.update { it.copy(hasChanges = hasChanges) }
     }
 
     /**
@@ -437,15 +430,11 @@ class SeriesEditViewModel internal constructor(
         imageData: ByteArray,
         filename: String,
     ) {
-        val seriesId = state.value.seriesId
-        if (seriesId.isBlank()) {
-            logger.error { "Cannot set cover: series ID is empty" }
-            return
-        }
+        val editing = idleEditing() ?: return
+        val seriesId = editing.form.seriesId
+        state.value = editing.copy(phase = EditPhase.StagingImage, inlineError = null)
 
         viewModelScope.launch {
-            state.update { it.copy(isUploadingCover = true, error = null) }
-
             // Save to staging location for preview (doesn't overwrite original)
             when (val saveResult = imageStagingRepository.saveSeriesCoverStaging(seriesId, imageData)) {
                 is AppResult.Success -> {
@@ -453,26 +442,23 @@ class SeriesEditViewModel internal constructor(
                     logger.info { "Cover saved to staging for preview: $stagingPath" }
 
                     // Store pending data for upload when Save Changes is clicked
-                    state.update { current ->
+                    updateEditing { current ->
                         current.copy(
-                            isUploadingCover = false,
-                            stagingCoverPath = stagingPath,
-                            pendingCoverData = imageData,
-                            pendingCoverFilename = filename,
+                            phase = EditPhase.Idle,
+                            form =
+                                current.form.copy(
+                                    stagingCoverPath = stagingPath,
+                                    pendingCoverData = imageData,
+                                    pendingCoverFilename = filename,
+                                ),
                         )
                     }
-                    updateHasChanges()
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save cover to staging: ${saveResult.message}" }
-                    state.update { current ->
-                        current.copy(
-                            isUploadingCover = false,
-                            error = "Failed to save cover: ${saveResult.message}",
-                        )
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = saveResult.error) }
                 }
             }
         }
@@ -483,42 +469,41 @@ class SeriesEditViewModel internal constructor(
      * Deletes the staging cover and clears pending data.
      */
     private fun handleCoverRemoved() {
-        val seriesId = state.value.seriesId
-        if (seriesId.isBlank()) {
-            logger.error { "Cannot remove cover: series ID is empty" }
-            return
+        val current = form.value ?: return
+        if (current.stagingCoverPath != null) {
+            imageStagingRepository.requestSeriesCoverStagingCleanup(current.seriesId)
         }
 
-        if (state.value.stagingCoverPath != null) {
-            imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
-        }
-
-        state.update { current ->
-            current.copy(
+        form.update { staged ->
+            staged.copy(
                 stagingCoverPath = null,
                 pendingCoverData = null,
                 pendingCoverFilename = null,
             )
         }
-        updateHasChanges()
 
         logger.debug { "Staging cover removed" }
     }
 
     /**
      * Save all changes via the use case.
+     *
+     * Refused unless the form is idle, so a second tap while the first Save is in flight is a no-op.
+     * A failure stays on the form as [SeriesEditUiState.Editing.inlineError], edits intact.
      */
     private fun saveChanges() {
-        val current = state.value
-        if (!current.hasChanges) {
+        val editing = idleEditing() ?: return
+        if (!editing.hasChanges) {
             navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
             return
         }
+        state.value = editing.copy(phase = EditPhase.Saving, inlineError = null)
+        val current = editing.form
+        val original = editing.original
 
         viewModelScope.launch {
-            state.update { it.copy(isSaving = true, error = null) }
-
-            val metadataChanged = current.name != originalName || current.description != originalDescription
+            val nameChanged = current.name != original.name
+            val descriptionChanged = current.description != original.description
 
             val result =
                 updateSeriesUseCase(
@@ -526,9 +511,9 @@ class SeriesEditViewModel internal constructor(
                         seriesId = current.seriesId,
                         name = current.name,
                         description = current.description,
-                        metadataChanged = metadataChanged,
-                        nameChanged = current.name != originalName,
-                        descriptionChanged = current.description != originalDescription,
+                        metadataChanged = nameChanged || descriptionChanged,
+                        nameChanged = nameChanged,
+                        descriptionChanged = descriptionChanged,
                         pendingCoverData = current.pendingCoverData,
                         pendingCoverFilename = current.pendingCoverFilename,
                     ),
@@ -538,14 +523,14 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Success -> {
                     // The save went through; a cover that did not reach the server is said out loud.
                     (result.data as? SaveOutcome.SavedImageNotUploaded)?.let { errorBus.emit(it.toNotice()) }
-                    state.update { saving ->
-                        saving.copy(
-                            isSaving = false,
-                            hasChanges = false,
-                            pendingCoverData = null,
-                            pendingCoverFilename = null,
-                            stagingCoverPath = null,
-                        )
+                    updateEditing { saving ->
+                        val saved =
+                            saving.form.copy(
+                                pendingCoverData = null,
+                                pendingCoverFilename = null,
+                                stagingCoverPath = null,
+                            )
+                        saving.copy(phase = EditPhase.Idle, form = saved, original = saved)
                     }
                     navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
                 }
@@ -553,7 +538,7 @@ class SeriesEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to save series: ${result.message}" }
-                    state.update { it.copy(isSaving = false, error = "Failed to save: ${result.message}") }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
                 }
             }
         }
@@ -563,11 +548,15 @@ class SeriesEditViewModel internal constructor(
      * Cancel editing and clean up any staging files.
      */
     private fun cancelAndCleanup() {
-        val seriesId = state.value.seriesId
-        if (seriesId.isNotBlank() && state.value.stagingCoverPath != null) {
-            imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
-        }
+        cleanUpStagedCover()
         navActionsChannel.trySend(SeriesEditNavAction.NavigateBack)
+    }
+
+    private fun cleanUpStagedCover() {
+        val current = form.value ?: return
+        if (current.seriesId.isNotBlank() && current.stagingCoverPath != null) {
+            imageStagingRepository.requestSeriesCoverStagingCleanup(current.seriesId)
+        }
     }
 
     /**
@@ -576,9 +565,6 @@ class SeriesEditViewModel internal constructor(
      */
     override fun onCleared() {
         super.onCleared()
-        val seriesId = state.value.seriesId
-        if (seriesId.isNotBlank() && state.value.stagingCoverPath != null) {
-            imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
-        }
+        cleanUpStagedCover()
     }
 }

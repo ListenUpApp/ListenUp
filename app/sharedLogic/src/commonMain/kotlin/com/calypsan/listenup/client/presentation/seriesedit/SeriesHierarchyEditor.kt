@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import kotlinx.coroutines.launch
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
@@ -39,7 +40,7 @@ private val logger = KotlinLogging.logger {}
 internal class SeriesHierarchyEditor(
     private val scope: CoroutineScope,
     private val errorBus: ErrorBus,
-    private val state: MutableStateFlow<SeriesEditUiState>,
+    private val state: FormSlot<*, SeriesEditForm>,
     private val observeLineage: (seriesId: String) -> Flow<SeriesLineage>,
     private val hierarchy: Flow<SeriesHierarchy>,
     private val createSeries: suspend (String, SeriesId?) -> AppResult<SeriesId>,
@@ -47,24 +48,30 @@ internal class SeriesHierarchyEditor(
     private val reorderChildren: suspend (SeriesId, List<SeriesId>) -> AppResult<Unit>,
 ) {
     private val expanded = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * The form being edited. Outside `Editing` this is an empty form: the reads it feeds only shape
+     * a write, and [FormSlot.update] drops every write while there is no form.
+     */
+    private val current: SeriesEditForm get() = state.value ?: SeriesEditForm()
     private var latest: SeriesHierarchy = SeriesHierarchy.Empty
 
     /**
      * The "Move into…" rows: the tree, with the series itself, everything inside it and its current
-     * parent disabled, each with its reason; or, while [SeriesEditUiState.parentQuery] is set, every
+     * parent disabled, each with its reason; or, while [SeriesEditForm.parentQuery] is set, every
      * match. Computed only while the picker is visible.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val parentPickerRows: StateFlow<List<ParentPickerRow>> =
-        state
-            .map { it.parentPickerVisible }
+        state.flow
+            .map { it?.parentPickerVisible == true }
             .distinctUntilChanged()
             .flatMapLatest { pickerVisible ->
                 if (!pickerVisible) {
                     flowOf(emptyList())
                 } else {
                     combine(
-                        state.map { it.seriesId to it.parentQuery }.distinctUntilChanged(),
+                        state.flow.map { it?.seriesId.orEmpty() to it?.parentQuery.orEmpty() }.distinctUntilChanged(),
                         expanded,
                         hierarchy,
                     ) { (currentId, query), open, tree ->
@@ -104,7 +111,7 @@ internal class SeriesHierarchyEditor(
 
     /** Opens the parent picker on the series' own place in the tree. */
     fun openParentPicker() {
-        expanded.value = initiallyExpanded(latest, state.value.seriesId)
+        expanded.value = initiallyExpanded(latest, current.seriesId)
         state.update { it.copy(parentPickerVisible = true) }
     }
 
@@ -129,10 +136,10 @@ internal class SeriesHierarchyEditor(
      * is "top level" for a series already there.
      */
     fun changeParent(parentId: SeriesId?) {
-        val currentId = state.value.seriesId
+        val currentId = current.seriesId
         val unchanged =
             if (parentId == null) {
-                state.value.parentId == null
+                current.parentId == null
             } else {
                 parentDisabledReason(latest, currentId, parentId.value) != null
             }
@@ -152,7 +159,7 @@ internal class SeriesHierarchyEditor(
 
     /** The new parent's name changed: a name already in use offers that series instead. */
     fun changeNewParentName(name: String) {
-        val currentId = state.value.seriesId
+        val currentId = current.seriesId
         val existing =
             latest.findByName(name)?.let { series ->
                 ExistingSeriesMatch(
@@ -174,10 +181,10 @@ internal class SeriesHierarchyEditor(
      * level — then moves the series into it. Two server writes; the result arrives through sync.
      */
     fun createParent() {
-        val draft = state.value.newParent ?: return
+        val draft = current.newParent ?: return
         val name = draft.name.trim()
         if (name.isEmpty() || latest.findByName(name) != null) return
-        val slot = state.value.parentId?.let(::SeriesId)
+        val slot = current.parentId?.let(::SeriesId)
         state.update { it.copy(newParent = null) }
         change { id ->
             when (val created = createSeries(name, slot)) {
@@ -193,15 +200,15 @@ internal class SeriesHierarchyEditor(
      * chosen against a tree the first one is about to rearrange.
      */
     private fun change(write: suspend (SeriesId) -> AppResult<Unit>) {
-        val seriesId = state.value.seriesId
+        val seriesId = current.seriesId
         if (seriesId.isBlank()) {
             logger.error { "Cannot change hierarchy: series ID is empty" }
             return
         }
-        if (state.value.hierarchyBusy) return
+        if (current.hierarchyBusy) return
         // Marked busy before the launch, so a second change in the same frame is dropped too.
         state.update {
-            it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "", error = null)
+            it.copy(hierarchyBusy = true, parentPickerVisible = false, parentQuery = "")
         }
 
         scope.launch {
@@ -213,8 +220,8 @@ internal class SeriesHierarchyEditor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to change series hierarchy: ${result.message}" }
-                    // The error bus is the one place a refusal shows. `state.error` stays for load and
-                    // save failures, which some platforms render in place of the whole form.
+                    // The error bus is the one place a refusal shows; the form's inline error is for
+                    // Save, merge and cover failures.
                     state.update { it.copy(hierarchyBusy = false) }
                 }
             }

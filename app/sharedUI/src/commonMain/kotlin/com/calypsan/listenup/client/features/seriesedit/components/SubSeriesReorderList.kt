@@ -60,14 +60,12 @@ private const val LIFTED_SCALE = 1.02f
  * finished move is announced — "Mistborn Era 1 moved to position 2 of 2".
  *
  * The new order is held here until sync brings it back, so the list does not snap to the old order
- * while the server answers; a refusal clears it.
+ * while the server answers.
  */
 @Composable
 internal fun SubSeriesReorderList(
     children: List<SeriesCandidate>,
     enabled: Boolean,
-    /** The last change the server refused, if any; a refusal drops the order held for sync. */
-    refusal: Any?,
     onReorder: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -76,7 +74,6 @@ internal fun SubSeriesReorderList(
     val ids = children.map { it.id.value }
     var pending by remember { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(ids) { pending = null }
-    LaunchedEffect(refusal) { if (refusal != null) pending = null }
     val order = pending?.takeIf { it.toSet() == ids.toSet() } ?: ids
 
     val drag = remember { SubSeriesDrag() }

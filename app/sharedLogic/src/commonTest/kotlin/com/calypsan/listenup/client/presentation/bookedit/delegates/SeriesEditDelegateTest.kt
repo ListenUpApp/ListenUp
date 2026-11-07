@@ -4,7 +4,8 @@ import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.bookedit.asSlot
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -33,12 +34,12 @@ class SeriesEditDelegateTest :
     FunSpec({
 
         class Fixture {
-            val state = MutableStateFlow(BookEditUiState(bookId = "book-1"))
+            val state = MutableStateFlow(BookEditForm(bookId = "book-1"))
             val seriesRepository: SeriesRepository = mock()
 
             fun build(scope: CoroutineScope): SeriesEditDelegate =
                 SeriesEditDelegate(
-                    state = state,
+                    state = state.asSlot(),
                     seriesRepository = seriesRepository,
                     scope = scope,
                     onChangesMade = {},

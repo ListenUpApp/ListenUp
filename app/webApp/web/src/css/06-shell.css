@@ -472,6 +472,8 @@ dialog.dlg.bd-credits { width:520px; }
   background:var(--coral-soft); border:1.5px solid var(--coral); color:var(--ink);
 }
 .edit-error p { margin:0; font-size:var(--fs-ui); }
+/* An edit page whose subject could not be loaded: Try again (when it could help) and Back, the same width. */
+.edit-retry, .edit-back { min-width:8rem; }
 /* A text area is the one field whose height is content, not chrome, so it opts out of `.f-box`'s
    fixed height rather than fighting it. */
 .f-box-area { height:auto; padding:var(--sp-12) 15px; }

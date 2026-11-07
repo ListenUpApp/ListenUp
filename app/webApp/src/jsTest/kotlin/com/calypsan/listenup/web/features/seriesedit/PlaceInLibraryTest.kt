@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerDisabled
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.client.presentation.seriesedit.ExistingSeriesMatch
 import com.calypsan.listenup.client.presentation.seriesedit.NewSeriesDraft
@@ -61,18 +62,18 @@ class PlaceInLibraryTest :
             pickerVisible: Boolean = false,
             parentQuery: String = "",
             newParent: NewSeriesDraft? = null,
-        ) = SeriesEditUiState(
-            isLoading = false,
-            seriesId = "mistborn",
-            name = "Mistborn",
-            parentId = parentId,
-            parentName = parentName,
-            childSeries = childSeries,
-            isOnline = isOnline,
-            parentPickerVisible = pickerVisible,
-            parentQuery = parentQuery,
-            newParent = newParent,
-        )
+        ): SeriesEditUiState =
+            SeriesEditForm(
+                seriesId = "mistborn",
+                name = "Mistborn",
+                parentId = parentId,
+                parentName = parentName,
+                childSeries = childSeries,
+                isOnline = isOnline,
+                parentPickerVisible = pickerVisible,
+                parentQuery = parentQuery,
+                newParent = newParent,
+            ).let { SeriesEditUiState.Editing(form = it, original = it) }
 
         fun page(
             state: SeriesEditUiState,
@@ -165,9 +166,14 @@ class PlaceInLibraryTest :
                                 .Ready(emptyList()),
                         onEvent = { event ->
                             if (event is SeriesEditUiEvent.ChildSeriesReordered) {
+                                val editing = state.value as SeriesEditUiState.Editing
                                 state.value =
-                                    state.value.copy(
-                                        childSeries = event.orderedChildIds.map { id -> children.first { it.id.value == id } },
+                                    editing.copy(
+                                        form =
+                                            editing.form.copy(
+                                                childSeries =
+                                                    event.orderedChildIds.map { id -> children.first { it.id.value == id } },
+                                            ),
                                     )
                             }
                         },

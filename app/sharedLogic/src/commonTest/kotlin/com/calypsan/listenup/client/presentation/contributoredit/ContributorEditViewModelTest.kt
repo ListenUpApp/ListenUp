@@ -7,6 +7,10 @@ import com.calypsan.listenup.client.domain.repository.PendingImageKind
 import com.calypsan.listenup.client.test.fake.FakePendingImageUploads
 import com.calypsan.listenup.client.test.fake.FakePermissionsRepository
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ContributorError
+import kotlinx.coroutines.delay
+import dev.mokkery.answering.calls
+import com.calypsan.listenup.client.presentation.edit.EditPhase
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
@@ -44,6 +48,14 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+/** The [ContributorEditUiState.Editing] the screen is on — failing the spec when it is anything else. */
+private val ContributorEditUiState.editing: ContributorEditUiState.Editing
+    get() = shouldBeInstanceOf<ContributorEditUiState.Editing>()
+
+/** The form inside [editing]. */
+private val ContributorEditUiState.form: ContributorEditForm
+    get() = editing.form
 
 /**
  * Tests for ContributorEditViewModel.
@@ -164,13 +176,14 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val state = viewModel.state.value
-                state.isLoading shouldBe false
-                state.name shouldBe "Stephen King"
+                val editing = viewModel.state.value.editing
+                editing.form.name shouldBe "Stephen King"
+                editing.original shouldBe editing.form
+                editing.hasChanges shouldBe false
             }
         }
 
-        test("loadContributor handles contributor not found") {
+        test("a contributor that is not found is LoadFailed, never an empty form Save would blank") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -183,9 +196,16 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val state = viewModel.state.value
-                state.isLoading shouldBe false
-                state.error shouldBe "Contributor not found"
+                val failed = viewModel.state.value.shouldBeInstanceOf<ContributorEditUiState.LoadFailed>()
+                failed.contributorId shouldBe "nonexistent"
+                failed.error.shouldBeInstanceOf<ContributorError.NotFound>()
+
+                // Nothing is editable: Save is a no-op and writes nothing.
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("x"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ContributorEditUiState.LoadFailed>()
+                verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
             }
         }
 
@@ -201,8 +221,8 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "My edit"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.state.value.form.name shouldBe "My edit"
+                viewModel.state.value.editing.hasChanges shouldBe true
             }
         }
 
@@ -236,8 +256,8 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("contributor-2")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "Second"
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.state.value.form.name shouldBe "Second"
+                viewModel.state.value.editing.hasChanges shouldBe false
             }
         }
 
@@ -254,7 +274,7 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "Recovered"
+                viewModel.state.value.form.name shouldBe "Recovered"
             }
         }
 
@@ -333,8 +353,12 @@ class ContributorEditViewModelTest :
                 viewModel.onEvent(ContributorEditUiEvent.Save)
                 advanceUntilIdle()
 
-                // Then - error should be shown (ViewModel prepends "Failed to save: ")
-                viewModel.state.value.error shouldBe "Failed to save: Network error"
+                // Then - the failure sits beside the edit, which is still there to save again
+                val editing = viewModel.state.value.editing
+                editing.inlineError?.message shouldBe "Network error"
+                editing.phase shouldBe EditPhase.Idle
+                editing.form.name shouldBe "Stephen Edwin King"
+                editing.hasChanges shouldBe true
             }
         }
 
@@ -362,11 +386,11 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then - staged for preview, marked changed, and NOT uploaded yet
-                val state = viewModel.state.value
+                val state = viewModel.state.value.form
                 state.stagingImagePath shouldBe "/staging/contributor-1_staging.jpg"
                 state.displayImagePath shouldBe "/staging/contributor-1_staging.jpg"
                 state.pendingImageFilename shouldBe "avatar.jpg"
-                state.hasChanges shouldBe true
+                viewModel.state.value.editing.hasChanges shouldBe true
                 verifySuspend(VerifyMode.not) {
                     fixture.imageRepository.uploadContributorImage(any(), any(), any(), any())
                 }
@@ -414,8 +438,8 @@ class ContributorEditViewModelTest :
                     awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
                 }
 
-                viewModel.state.value.stagingImagePath shouldBe null
-                viewModel.state.value.pendingImageData shouldBe null
+                viewModel.state.value.form.stagingImagePath shouldBe null
+                viewModel.state.value.form.pendingImageData shouldBe null
             }
         }
 
@@ -642,8 +666,8 @@ class ContributorEditViewModelTest :
                     // Then
                     awaitItem() shouldBe emptyList()
                 }
-                viewModel.state.value.mergeQuery shouldBe ""
-                viewModel.state.value.mergeDialogVisible shouldBe false
+                viewModel.state.value.form.mergeQuery shouldBe ""
+                viewModel.state.value.form.mergeDialogVisible shouldBe false
             }
         }
 
@@ -688,7 +712,7 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
                 viewModel.onMergeQueryChange("stale")
-                viewModel.state.value.mergeDialogVisible shouldBe true
+                viewModel.state.value.form.mergeDialogVisible shouldBe true
 
                 // When
                 viewModel.onEvent(
@@ -700,8 +724,8 @@ class ContributorEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then: closed, and no stale pre-filtered query behind the next open.
-                viewModel.state.value.mergeDialogVisible shouldBe false
-                viewModel.state.value.mergeQuery shouldBe ""
+                viewModel.state.value.form.mergeDialogVisible shouldBe false
+                viewModel.state.value.form.mergeQuery shouldBe ""
             }
         }
 
@@ -827,7 +851,7 @@ class ContributorEditViewModelTest :
 
                 // Then: the rename is held back — no persist, no nav — and the candidate surfaces.
                 val candidate =
-                    viewModel.state.value.renameCollisionCandidate
+                    viewModel.state.value.form.renameCollisionCandidate
                         .shouldNotBeNull()
                 candidate.id shouldBe
                     com.calypsan.listenup.core
@@ -912,7 +936,7 @@ class ContributorEditViewModelTest :
                     }
                     awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
                 }
-                viewModel.state.value.renameCollisionCandidate
+                viewModel.state.value.form.renameCollisionCandidate
                     .shouldBeNull()
             }
         }
@@ -939,9 +963,9 @@ class ContributorEditViewModelTest :
 
                 // Then: prompt clears, but nothing persisted or merged — the typed name is
                 // still sitting unsaved, so the user can decide again.
-                viewModel.state.value.renameCollisionCandidate
+                viewModel.state.value.form.renameCollisionCandidate
                     .shouldBeNull()
-                viewModel.state.value.name shouldBe "George R.R. Martin"
+                viewModel.state.value.form.name shouldBe "George R.R. Martin"
                 verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
                 verifySuspend(VerifyMode.not) {
                     fixture.contributorEditRepository.mergeContributor(any(), any())
@@ -962,7 +986,7 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("viewed-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.canCurateLibrary shouldBe false
+                viewModel.state.value.form.canCurateLibrary shouldBe false
                 viewModel.onEvent(ContributorEditUiEvent.MergeInto(ContributorId("other")))
                 viewModel.onEvent(ContributorEditUiEvent.UnmergeAlias("Alias"))
                 advanceUntilIdle()
@@ -998,12 +1022,15 @@ class ContributorEditViewModelTest :
         test("canCurateLibrary follows the permission") {
             runTest {
                 val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
                 val viewModel = fixture.build()
                 advanceUntilIdle()
-                viewModel.state.value.canCurateLibrary shouldBe true
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.state.value.form.canCurateLibrary shouldBe true
                 fixture.permissions.granted.value = emptySet()
                 advanceUntilIdle()
-                viewModel.state.value.canCurateLibrary shouldBe false
+                viewModel.state.value.form.canCurateLibrary shouldBe false
             }
         }
 
@@ -1031,8 +1058,8 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("contributor-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.imageFrame shouldBe frame
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.state.value.form.imageFrame shouldBe frame
+                viewModel.state.value.editing.hasChanges shouldBe false
             }
         }
 
@@ -1046,7 +1073,7 @@ class ContributorEditViewModelTest :
 
                 viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg", frame))
                 advanceUntilIdle()
-                viewModel.state.value.pendingImageFrame shouldBe frame
+                viewModel.state.value.form.pendingImageFrame shouldBe frame
                 viewModel.onEvent(ContributorEditUiEvent.Save)
                 advanceUntilIdle()
 
@@ -1068,12 +1095,62 @@ class ContributorEditViewModelTest :
 
                 viewModel.onEvent(ContributorEditUiEvent.StageFrame(frame))
                 advanceUntilIdle()
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.state.value.editing.hasChanges shouldBe true
                 viewModel.onEvent(ContributorEditUiEvent.Save)
                 advanceUntilIdle()
 
                 verifySuspend { fixture.contributorEditRepository.setImageFrame(ContributorId("contributor-1"), frame) }
-                viewModel.state.value.pendingImageFrame shouldBe null
+                viewModel.state.value.form.pendingImageFrame shouldBe null
+            }
+        }
+
+        test("Save tapped twice during the rename-collision lookup saves once") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+                // The lookup suspends: the window a second tap used to slip through.
+                every { fixture.contributorDao.observeAll() } returns
+                    flow {
+                        delay(1_000)
+                        emit(emptyList())
+                    }
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("Renamed"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                viewModel.state.value.editing.phase shouldBe EditPhase.Saving
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.updateContributorUseCase.invoke(any()) }
+            }
+        }
+
+        test("keep separate tapped twice saves once") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor(name = "George Martin")
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } calls {
+                    delay(1_000)
+                    AppResult.Success(Unit)
+                }
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                viewModel.onEvent(ContributorEditUiEvent.KeepSeparateOnRename)
+                viewModel.onEvent(ContributorEditUiEvent.KeepSeparateOnRename)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.updateContributorUseCase.invoke(any()) }
             }
         }
     })

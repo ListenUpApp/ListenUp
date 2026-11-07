@@ -1,5 +1,12 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import io.kotest.matchers.nulls.shouldNotBeNull
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.web.editingBook
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.MountRegistry
@@ -13,9 +20,8 @@ import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.events.Event
 
-private fun loaded(): BookEditUiState =
-    BookEditUiState(
-        isLoading = false,
+private fun loaded(): BookEditForm =
+    BookEditForm(
         bookId = "b1",
         title = "The $100 Startup",
         sortTitle = "$100 Startup, The",
@@ -48,6 +54,11 @@ class BookEditPageTest :
             mounts.mount {
                 BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
             }
+
+        fun edited(
+            form: BookEditForm,
+            onEvent: (BookEditUiEvent) -> Unit = {},
+        ): HTMLElement = edited(editingBook(form), onEvent)
 
         // ⛔ UTC, not local. `addedAt` is a real scanner timestamp and Android reads it through
         // `rememberDatePickerState`, which treats millis as UTC. A local rendering names a different
@@ -190,7 +201,7 @@ class BookEditPageTest :
         }
 
         test("a save in flight disables both actions and says so") {
-            val root = edited(loaded().copy(isSaving = true))
+            val root = edited(editingBook(loaded(), phase = EditPhase.Saving))
 
             val buttons = root.querySelectorAll(".edit-actions button")
             (0 until buttons.length).forEach { index ->
@@ -201,9 +212,9 @@ class BookEditPageTest :
 
         test("an error is shown with a way to dismiss it, and the form survives") {
             val events = mutableListOf<BookEditUiEvent>()
-            val root = edited(loaded().copy(error = "Could not save this book.")) { events += it }
+            val root = edited(editingBook(loaded(), inlineError = InternalError())) { events += it }
 
-            root.textContent!! shouldContain "Could not save this book."
+            root.textContent!! shouldContain InternalError().message
             // The fields are still there — the reader's edits are not thrown away with the error.
             (root.querySelector("#edit-title") as HTMLInputElement).value shouldBe "The $100 Startup"
 
@@ -211,10 +222,30 @@ class BookEditPageTest :
             events shouldContain BookEditUiEvent.DismissError
         }
 
+        // A load that failed used to fall through to an empty, editable form whose Save did nothing.
+        test("a book that could not be loaded says so, with no form, Back and Try again") {
+            val events = mutableListOf<BookEditUiEvent>()
+            val error = TransportError.Timeout()
+            val root = edited(BookEditUiState.LoadFailed(bookId = "b1", error = error)) { events += it }
+
+            root.querySelectorAll("input").length shouldBe 0
+            root.textContent!! shouldContain error.message
+            (root.querySelector(".edit-retry") as HTMLElement).click()
+            events shouldContain BookEditUiEvent.RetryLoad
+            root.querySelector(".edit-back").shouldNotBeNull()
+        }
+
+        test("a book that no longer exists offers no Try again") {
+            val root = edited(BookEditUiState.LoadFailed(bookId = "b1", error = ValidationError(message = "Gone.")))
+
+            root.querySelector(".edit-retry") shouldBe null
+            root.querySelector(".edit-back").shouldNotBeNull()
+        }
+
         test("a loading edit page renders no form to type into") {
             // Rendering empty inputs while the book is still loading invites a reader to start
             // typing into fields that are about to be overwritten by the loaded values.
-            val root = edited(BookEditUiState(isLoading = true))
+            val root = edited(BookEditUiState.Loading)
 
             root.querySelectorAll("input").length shouldBe 0
             root.textContent!! shouldContain "Loading…"

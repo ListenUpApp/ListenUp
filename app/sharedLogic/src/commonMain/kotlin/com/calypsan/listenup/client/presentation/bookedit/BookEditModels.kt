@@ -1,7 +1,10 @@
 
 package com.calypsan.listenup.client.presentation.bookedit
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
+import com.calypsan.listenup.client.presentation.edit.EditPhase
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.model.ContributorRole as DomainContributorRole
 import com.calypsan.listenup.client.domain.model.EditableCollection as DomainEditableCollection
@@ -79,14 +82,49 @@ fun EditableMood.displayName(): String =
         }
 
 /**
- * UI state for book editing screen.
+ * UI state for the book editing screen.
+ *
+ * A load that failed is [LoadFailed], never an empty form that looks editable; Save, staging a cover
+ * and their failures all live inside [Editing], so a failure is shown beside the reader's unsaved
+ * edits rather than in place of them.
  */
-data class BookEditUiState(
-    // Loading states
-    val isLoading: Boolean = true,
-    val isSaving: Boolean = false,
-    val isUploadingCover: Boolean = false,
-    val error: String? = null,
+sealed interface BookEditUiState {
+    /** Fetching the book. */
+    data object Loading : BookEditUiState
+
+    /**
+     * The book could not be loaded. The screen shows [error] with Back, and Retry when
+     * [AppError.isRetryable] — retrying [bookId] through [BookEditUiEvent.RetryLoad].
+     */
+    data class LoadFailed(
+        val bookId: String,
+        val error: AppError,
+    ) : BookEditUiState
+
+    /**
+     * Editing [form]. [original] is the book as loaded, the baseline Save diffs against. [phase] says
+     * what is in flight; Save is refused unless it is [EditPhase.Idle]. [inlineError] is a Save or
+     * cover failure, shown inline with the form intact.
+     */
+    data class Editing(
+        val form: BookEditForm,
+        val original: BookEditData,
+        val phase: EditPhase = EditPhase.Idle,
+        val inlineError: AppError? = null,
+        val hasChanges: Boolean = false,
+    ) : BookEditUiState {
+        /** Whether Save is on its way. */
+        val isSaving: Boolean get() = phase == EditPhase.Saving
+
+        /** Whether a picked cover is being staged for preview. */
+        val isUploadingCover: Boolean get() = phase == EditPhase.StagingImage
+    }
+}
+
+/**
+ * The book edit form: every field the reader can change, and the pickers' search state.
+ */
+data class BookEditForm(
     // Book identity (for immersive header)
     val coverPath: String? = null,
     val coverHash: String? = null,
@@ -153,8 +191,6 @@ data class BookEditUiState(
      * the moment a save with collections lands. Always false on a member's device.
      */
     val isHeld: Boolean = false,
-    // Track if changes have been made
-    val hasChanges: Boolean = false,
     // Pending cover upload (stored until Save Changes)
     val pendingCoverData: ByteArray? = null,
     val pendingCoverFilename: String? = null,
@@ -467,6 +503,9 @@ sealed interface BookEditUiEvent {
     data object Cancel : BookEditUiEvent
 
     data object DismissError : BookEditUiEvent
+
+    /** Load the book again after a load that failed with a retryable error. */
+    data object RetryLoad : BookEditUiEvent
 }
 
 /**

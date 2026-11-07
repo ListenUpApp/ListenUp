@@ -4,7 +4,8 @@ import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.bookedit.asSlot
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -34,12 +35,12 @@ class ContributorEditDelegateTest :
     FunSpec({
 
         class Fixture {
-            val state = MutableStateFlow(BookEditUiState(bookId = "book-1"))
+            val state = MutableStateFlow(BookEditForm(bookId = "book-1"))
             val contributorRepository: ContributorRepository = mock()
 
             fun build(scope: CoroutineScope): ContributorEditDelegate =
                 ContributorEditDelegate(
-                    state = state,
+                    state = state.asSlot(),
                     contributorRepository = contributorRepository,
                     scope = scope,
                     onChangesMade = {},

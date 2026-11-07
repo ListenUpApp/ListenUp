@@ -15,6 +15,9 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.api.error.SeriesError
+import kotlinx.coroutines.delay
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import io.kotest.matchers.shouldNotBe
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesChild
 import com.calypsan.listenup.client.domain.model.SeriesLineage
@@ -51,6 +54,14 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+/** The [SeriesEditUiState.Editing] the screen is on — failing the spec when it is anything else. */
+private val SeriesEditUiState.editing: SeriesEditUiState.Editing
+    get() = shouldBeInstanceOf<SeriesEditUiState.Editing>()
+
+/** The form inside [editing]. */
+private val SeriesEditUiState.form: SeriesEditForm
+    get() = editing.form
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SeriesEditViewModelTest :
@@ -147,7 +158,7 @@ class SeriesEditViewModelTest :
                 val fixture = createFixture()
                 val viewModel = fixture.build()
 
-                viewModel.state.value.isLoading shouldBe true
+                viewModel.state.value shouldBe SeriesEditUiState.Loading
             }
         }
 
@@ -163,10 +174,10 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.isLoading shouldBe false
-                viewModel.state.value.name shouldBe "Test Series"
-                viewModel.state.value.description shouldBe "A test series"
-                viewModel.state.value.bookCount shouldBe 1
+                viewModel.state.value.editing.hasChanges shouldBe false
+                viewModel.state.value.form.name shouldBe "Test Series"
+                viewModel.state.value.form.description shouldBe "A test series"
+                viewModel.state.value.form.bookCount shouldBe 1
             }
         }
 
@@ -266,7 +277,7 @@ class SeriesEditViewModelTest :
             }
         }
 
-        test("loadSeries shows error for missing series") {
+        test("a missing series is LoadFailed, never an empty editable form") {
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.seriesRepository.getById("missing") } returns null
@@ -275,8 +286,9 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("missing")
                 advanceUntilIdle()
 
-                viewModel.state.value.isLoading shouldBe false
-                viewModel.state.value.error shouldBe "Series not found"
+                val failed = viewModel.state.value.shouldBeInstanceOf<SeriesEditUiState.LoadFailed>()
+                failed.seriesId shouldBe "missing"
+                failed.error.shouldBeInstanceOf<SeriesError.NotFound>()
             }
         }
 
@@ -294,8 +306,8 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "My edit"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.state.value.form.name shouldBe "My edit"
+                viewModel.state.value.editing.hasChanges shouldBe true
             }
         }
 
@@ -331,8 +343,8 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-2")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "Second"
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.state.value.form.name shouldBe "Second"
+                viewModel.state.value.editing.hasChanges shouldBe false
             }
         }
 
@@ -350,7 +362,7 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.name shouldBe "Recovered"
+                viewModel.state.value.form.name shouldBe "Recovered"
             }
         }
 
@@ -366,12 +378,12 @@ class SeriesEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.state.value.editing.hasChanges shouldBe false
 
                 viewModel.onEvent(SeriesEditUiEvent.NameChanged("New Name"))
 
-                viewModel.state.value.name shouldBe "New Name"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.state.value.form.name shouldBe "New Name"
+                viewModel.state.value.editing.hasChanges shouldBe true
             }
         }
 
@@ -388,8 +400,8 @@ class SeriesEditViewModelTest :
 
                 viewModel.onEvent(SeriesEditUiEvent.DescriptionChanged("New description"))
 
-                viewModel.state.value.description shouldBe "New description"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.state.value.form.description shouldBe "New description"
+                viewModel.state.value.editing.hasChanges shouldBe true
             }
         }
 
@@ -504,7 +516,11 @@ class SeriesEditViewModelTest :
                 viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
                 advanceUntilIdle()
 
-                viewModel.state.value.error shouldBe "Failed to save: Save failed"
+                // The failure sits beside the edit, which is still there to save again.
+                viewModel.state.value.editing.inlineError
+                    ?.message shouldBe "Save failed"
+                viewModel.state.value.form.name shouldBe "Updated Name"
+                viewModel.state.value.editing.hasChanges shouldBe true
                 viewModel.navActions.test {
                     expectNoEvents()
                 }
@@ -559,19 +575,54 @@ class SeriesEditViewModelTest :
 
         // ========== Error Handling Tests ==========
 
-        test("ErrorDismissed clears error") {
+        test("ErrorDismissed clears a save failure and keeps the edit") {
             runTest {
                 val fixture = createFixture()
-                everySuspend { fixture.seriesRepository.getById("missing") } returns null
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase(any()) } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Save failed"),
+                    )
 
                 val viewModel = fixture.build()
-                viewModel.loadSeries("missing")
+                viewModel.loadSeries("series-1")
                 advanceUntilIdle()
-                (viewModel.state.value.error != null) shouldBe true
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Renamed"))
+                viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                advanceUntilIdle()
+                viewModel.state.value.editing.inlineError shouldNotBe null
 
                 viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed)
 
-                viewModel.state.value.error shouldBe null
+                viewModel.state.value.editing.inlineError shouldBe null
+                viewModel.state.value.form.name shouldBe "Renamed"
+            }
+        }
+
+        test("Save tapped twice while the first is in flight saves once") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.updateSeriesUseCase(any()) } calls {
+                    delay(1_000)
+                    AppResult.Success(SaveOutcome.Saved)
+                }
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.NameChanged("Renamed"))
+                viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                viewModel.state.value.editing.phase shouldBe EditPhase.Saving
+                viewModel.onEvent(SeriesEditUiEvent.SaveClicked)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.updateSeriesUseCase(any()) }
             }
         }
 
@@ -742,8 +793,8 @@ class SeriesEditViewModelTest :
                     advanceUntilIdle()
                     awaitItem() shouldBe emptyList()
                 }
-                viewModel.state.value.mergeQuery shouldBe ""
-                viewModel.state.value.mergeDialogVisible shouldBe false
+                viewModel.state.value.form.mergeQuery shouldBe ""
+                viewModel.state.value.form.mergeDialogVisible shouldBe false
             }
         }
 
@@ -762,7 +813,7 @@ class SeriesEditViewModelTest :
                 advanceUntilIdle()
                 viewModel.onEvent(SeriesEditUiEvent.MergeDialogOpened)
                 viewModel.onMergeQueryChange("stale")
-                viewModel.state.value.mergeDialogVisible shouldBe true
+                viewModel.state.value.form.mergeDialogVisible shouldBe true
 
                 // When
                 viewModel.onEvent(
@@ -774,8 +825,8 @@ class SeriesEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then: closed, and no stale pre-filtered query behind the next open.
-                viewModel.state.value.mergeDialogVisible shouldBe false
-                viewModel.state.value.mergeQuery shouldBe ""
+                viewModel.state.value.form.mergeDialogVisible shouldBe false
+                viewModel.state.value.form.mergeQuery shouldBe ""
             }
         }
 
@@ -845,21 +896,21 @@ class SeriesEditViewModelTest :
                 advanceUntilIdle()
 
                 // The parent is the nearest ancestor, not the root.
-                viewModel.state.value.parentId shouldBe "cosmere"
-                viewModel.state.value.parentName shouldBe "Cosmere"
-                viewModel.state.value.childSeries
+                viewModel.state.value.form.parentId shouldBe "cosmere"
+                viewModel.state.value.form.parentName shouldBe "Cosmere"
+                viewModel.state.value.form.childSeries
                     .map { it.displayName } shouldBe listOf("Era 1", "Era 2")
                 // Each sub-series row carries the book count of its own subtree.
-                viewModel.state.value.childSeries
+                viewModel.state.value.form.childSeries
                     .map { it.bookCount } shouldBe listOf(1, 0)
-                viewModel.state.value.name shouldBe "Mistborn"
+                viewModel.state.value.form.name shouldBe "Mistborn"
 
                 lineage.value = SeriesLineage.Flat
                 advanceUntilIdle()
 
-                viewModel.state.value.parentId shouldBe null
-                viewModel.state.value.parentName shouldBe null
-                viewModel.state.value.childSeries shouldBe emptyList()
+                viewModel.state.value.form.parentId shouldBe null
+                viewModel.state.value.form.parentName shouldBe null
+                viewModel.state.value.form.childSeries shouldBe emptyList()
             }
         }
 
@@ -923,7 +974,7 @@ class SeriesEditViewModelTest :
                     advanceUntilIdle()
                     awaitItem() shouldBe emptyList()
                 }
-                viewModel.state.value.parentQuery shouldBe ""
+                viewModel.state.value.form.parentQuery shouldBe ""
             }
         }
 
@@ -961,15 +1012,15 @@ class SeriesEditViewModelTest :
 
                 viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("  Mistborn Saga "))
-                viewModel.state.value.newParent
+                viewModel.state.value.form.newParent
                     ?.canCreate shouldBe true
                 viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
                 advanceUntilIdle()
 
                 verifySuspend { fixture.seriesEditRepository.createSeries("Mistborn Saga", SeriesId("cosmere")) }
                 verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("saga")) }
-                viewModel.state.value.newParent shouldBe null
-                viewModel.state.value.hierarchyBusy shouldBe false
+                viewModel.state.value.form.newParent shouldBe null
+                viewModel.state.value.form.hierarchyBusy shouldBe false
             }
         }
 
@@ -983,10 +1034,10 @@ class SeriesEditViewModelTest :
                 viewModel.onEvent(SeriesEditUiEvent.NewParentStarted)
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("discworld"))
 
-                viewModel.state.value.newParent
+                viewModel.state.value.form.newParent
                     ?.existing shouldBe
                     ExistingSeriesMatch(id = "discworld", name = "Discworld", isSelectable = true)
-                viewModel.state.value.newParent
+                viewModel.state.value.form.newParent
                     ?.canCreate shouldBe false
                 viewModel.onEvent(SeriesEditUiEvent.NewParentConfirmed)
                 advanceUntilIdle()
@@ -994,7 +1045,7 @@ class SeriesEditViewModelTest :
 
                 // A name inside this series can't be offered: it would form a loop.
                 viewModel.onEvent(SeriesEditUiEvent.NewParentNameChanged("Era 1"))
-                viewModel.state.value.newParent
+                viewModel.state.value.form.newParent
                     ?.existing
                     ?.isSelectable shouldBe false
             }
@@ -1005,11 +1056,11 @@ class SeriesEditViewModelTest :
                 val fixture = createFixture()
                 val viewModel = loaded(fixture)
                 advanceUntilIdle()
-                viewModel.state.value.isOnline shouldBe true
+                viewModel.state.value.form.isOnline shouldBe true
 
                 fixture.online.value = false
                 advanceUntilIdle()
-                viewModel.state.value.isOnline shouldBe false
+                viewModel.state.value.form.isOnline shouldBe false
             }
         }
 
@@ -1091,15 +1142,15 @@ class SeriesEditViewModelTest :
 
                 viewModel.onEvent(SeriesEditUiEvent.ParentPickerOpened)
                 viewModel.onEvent(SeriesEditUiEvent.ParentQueryChanged("cos"))
-                viewModel.state.value.parentPickerVisible shouldBe true
+                viewModel.state.value.form.parentPickerVisible shouldBe true
                 viewModel.onEvent(SeriesEditUiEvent.ParentSelected("cosmere"))
                 advanceUntilIdle()
 
                 verifySuspend { fixture.seriesEditRepository.setParent(SeriesId("mistborn"), SeriesId("cosmere")) }
-                viewModel.state.value.parentPickerVisible shouldBe false
-                viewModel.state.value.parentQuery shouldBe ""
-                viewModel.state.value.hierarchyBusy shouldBe false
-                viewModel.state.value.error shouldBe null
+                viewModel.state.value.form.parentPickerVisible shouldBe false
+                viewModel.state.value.form.parentQuery shouldBe ""
+                viewModel.state.value.form.hierarchyBusy shouldBe false
+                viewModel.state.value.editing.inlineError shouldBe null
             }
         }
 
@@ -1120,8 +1171,8 @@ class SeriesEditViewModelTest :
 
                 // Shown once, by the global error surface — never also as the editor's own error,
                 // which on some platforms replaces the whole form.
-                viewModel.state.value.error shouldBe null
-                viewModel.state.value.hierarchyBusy shouldBe false
+                viewModel.state.value.editing.inlineError shouldBe null
+                viewModel.state.value.form.hierarchyBusy shouldBe false
             }
         }
 
@@ -1139,7 +1190,7 @@ class SeriesEditViewModelTest :
                 // Sent before the first write has even started, and again once it is in flight.
                 viewModel.onEvent(SeriesEditUiEvent.ParentSelected("narnia"))
                 advanceUntilIdle()
-                viewModel.state.value.hierarchyBusy shouldBe true
+                viewModel.state.value.form.hierarchyBusy shouldBe true
                 viewModel.onEvent(SeriesEditUiEvent.ParentCleared)
                 viewModel.onEvent(SeriesEditUiEvent.ChildSeriesReordered(listOf("era2", "era1")))
                 advanceUntilIdle()
@@ -1147,7 +1198,7 @@ class SeriesEditViewModelTest :
                 serverAnswer.complete(AppResult.Success(Unit))
                 advanceUntilIdle()
 
-                viewModel.state.value.hierarchyBusy shouldBe false
+                viewModel.state.value.form.hierarchyBusy shouldBe false
                 verifySuspend(VerifyMode.exactly(1)) { fixture.seriesEditRepository.setParent(any(), any()) }
                 verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.reorderChildren(any(), any()) }
             }
@@ -1176,7 +1227,7 @@ class SeriesEditViewModelTest :
                 verifySuspend {
                     fixture.seriesEditRepository.reorderChildren(SeriesId("mistborn"), listOf(SeriesId("era2"), SeriesId("era1")))
                 }
-                viewModel.state.value.hierarchyBusy shouldBe false
+                viewModel.state.value.form.hierarchyBusy shouldBe false
             }
         }
 
@@ -1192,7 +1243,7 @@ class SeriesEditViewModelTest :
                 viewModel.loadSeries("series-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.canCurateLibrary shouldBe false
+                viewModel.state.value.form.canCurateLibrary shouldBe false
                 verifySuspend(VerifyMode.not) { fixture.seriesEditRepository.listMergeReceipts(any()) }
                 viewModel.mergeHistory.value
                     .shouldBeInstanceOf<MergeHistoryState.Ready>()

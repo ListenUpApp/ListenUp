@@ -5,7 +5,8 @@ import com.calypsan.listenup.client.domain.model.EditableContributor
 import com.calypsan.listenup.client.domain.model.EditableSeries
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -17,7 +18,7 @@ import org.w3c.dom.events.Event
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import org.w3c.dom.asList
 
-private fun ready(): BookEditUiState = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune")
+private fun ready(): BookEditForm = BookEditForm(bookId = "b1", title = "Dune")
 
 /**
  * Contributors and series — the two relations that are not just a chip.
@@ -32,11 +33,11 @@ class PeopleAndSeriesTest :
         afterTest { mounts.disposeAll() }
 
         fun page(
-            state: BookEditUiState,
+            state: BookEditForm,
             onEvent: (BookEditUiEvent) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
+                BookEditPage(state = editingBook(state), onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
             }
 
         test("only roles in use get a section") {

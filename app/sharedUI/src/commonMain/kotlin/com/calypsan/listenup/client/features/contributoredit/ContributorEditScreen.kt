@@ -21,7 +21,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +34,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
 import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -55,7 +53,10 @@ import com.calypsan.listenup.client.features.contributoredit.components.RenameCo
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditForm
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.features.edit.EditInlineError
+import com.calypsan.listenup.client.features.edit.EditLoadFailed
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.util.rememberImagePicker
@@ -66,7 +67,6 @@ import com.calypsan.listenup.client.design.image.FrameEditorSource
 import com.calypsan.listenup.client.design.image.scallopFramePreviews
 import com.calypsan.listenup.client.presentation.imageframe.FrameShape
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date
 import listenup.composeapp.generated.resources.contributor_dates
@@ -76,7 +76,6 @@ import listenup.composeapp.generated.resources.contributor_links
 import listenup.composeapp.generated.resources.contributor_merging
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
-import listenup.composeapp.generated.resources.error_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.contributor_edit_website_placeholder
@@ -115,7 +114,8 @@ fun ContributorEditScreen(
 ) {
     LaunchedEffect(contributorId) { viewModel.loadContributor(contributorId) }
 
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val editing = uiState as? ContributorEditUiState.Editing
     val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel) {
@@ -130,7 +130,7 @@ fun ContributorEditScreen(
 
     val requestLeave =
         rememberUnsavedWorkGuard(
-            dirty = state.hasChanges,
+            dirty = editing?.hasChanges == true,
             onLeave = onBackClick,
             // Discard leaves through the ViewModel so it can clean up what the draft staged.
             onDiscard = { viewModel.onEvent(ContributorEditUiEvent.Cancel) },
@@ -157,8 +157,8 @@ fun ContributorEditScreen(
             )
 
             // Content
-            when {
-                state.isLoading -> {
+            when (val current = uiState) {
+                ContributorEditUiState.Loading -> {
                     ListenUpLoadingIndicator(
                         modifier =
                             Modifier
@@ -167,10 +167,11 @@ fun ContributorEditScreen(
                     )
                 }
 
-                state.error != null -> {
-                    ErrorContent(
-                        error = state.error,
-                        onDismiss = { viewModel.onEvent(ContributorEditUiEvent.DismissError) },
+                is ContributorEditUiState.LoadFailed -> {
+                    EditLoadFailed(
+                        error = current.error,
+                        onBack = onBackClick,
+                        onRetry = null,
                         modifier =
                             Modifier
                                 .align(Alignment.Center)
@@ -178,17 +179,16 @@ fun ContributorEditScreen(
                     )
                 }
 
-                else -> {
+                is ContributorEditUiState.Editing -> {
                     ArtistStudioContent(
-                        state = state,
+                        studio = current,
                         colorScheme = colorScheme,
                         onEvent = viewModel::onEvent,
-                        // Guard: the scrim overlay is visual-only, so the merge affordance
-                        // stays inert while a merge is already in flight. The VM owns the
-                        // dialog flag so candidate computation can start and stop with it.
                         onSave = { viewModel.onEvent(ContributorEditUiEvent.Save) },
+                        // The VM refuses a merge while anything is in flight and owns the dialog flag,
+                        // so candidate computation can start and stop with it.
                         onMergeClick = {
-                            if (!state.mergeInProgress) {
+                            if (!current.mergeInProgress) {
                                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
                             }
                         },
@@ -204,11 +204,13 @@ fun ContributorEditScreen(
                 }
             }
 
-            if (state.mergeInProgress) {
+            if (editing?.mergeInProgress == true) {
                 MergeProgressOverlay()
             }
         }
     }
+
+    val state = editing?.form ?: return
 
     if (state.mergeDialogVisible) {
         ContributorMergeDialog(
@@ -241,7 +243,7 @@ fun ContributorEditScreen(
 
 @Composable
 private fun ContributorSaveAction(
-    state: ContributorEditUiState,
+    state: ContributorEditUiState.Editing,
     onSave: () -> Unit,
 ) {
     // A merge is a save-class blocking operation (the RPC can take tens of seconds), so Save
@@ -276,39 +278,13 @@ private fun MergeProgressOverlay() {
 // DIALOGS
 // =============================================================================
 
-@Composable
-private fun ErrorContent(
-    error: String?,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = error ?: stringResource(Res.string.error_unknown),
-            color = MaterialTheme.colorScheme.error,
-        )
-        TextButton(
-            onClick = {
-                haptics.press()
-                onDismiss()
-            },
-        ) {
-            Text(stringResource(Res.string.common_dismiss))
-        }
-    }
-}
-
 // =============================================================================
 // ARTIST STUDIO CONTENT
 // =============================================================================
 
 @Composable
 private fun ArtistStudioContent(
-    state: ContributorEditUiState,
+    studio: ContributorEditUiState.Editing,
     colorScheme: ContributorColorScheme,
     onEvent: (ContributorEditUiEvent) -> Unit,
     onSave: () -> Unit,
@@ -316,6 +292,7 @@ private fun ArtistStudioContent(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val state = studio.form
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val isMediumOrLarger = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
@@ -368,13 +345,22 @@ private fun ArtistStudioContent(
             frame = state.pendingImageFrame ?: state.imageFrame.takeIf { state.pendingImageData == null },
             name = state.name,
             colorScheme = colorScheme,
-            isUploadingImage = state.isUploadingImage,
+            isUploadingImage = studio.isUploadingImage,
             onNameChange = { onEvent(ContributorEditUiEvent.NameChanged(it)) },
             onAvatarClick = { imagePicker.launch() },
             onAdjustPhoto = state.displayImagePath?.let { { editing = ContributorFrameEdit.Existing } },
             onBackClick = onBackClick,
-            actions = { ContributorSaveAction(state = state, onSave = onSave) },
+            actions = { ContributorSaveAction(state = studio, onSave = onSave) },
         )
+
+        // A Save, merge or photo failure sits above the cards, the edits below it untouched.
+        studio.inlineError?.let { error ->
+            EditInlineError(
+                error = error,
+                onDismiss = { onEvent(ContributorEditUiEvent.DismissError) },
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            )
+        }
 
         // Cards section - responsive layout
         if (isMediumOrLarger) {
@@ -391,7 +377,7 @@ private fun ArtistStudioContent(
 
 @Composable
 private fun SingleColumnCardsLayout(
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
     onMergeClick: () -> Unit,
 ) {
@@ -429,7 +415,7 @@ private fun SingleColumnCardsLayout(
 
 @Composable
 private fun TwoColumnCardsLayout(
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
     onMergeClick: () -> Unit,
 ) {
@@ -483,7 +469,7 @@ private fun TwoColumnCardsLayout(
 
 @Composable
 private fun BiographyCardContent(
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
     val description =
@@ -497,7 +483,7 @@ private fun BiographyCardContent(
 
 @Composable
 private fun LinksCardContent(
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
     val website =
@@ -519,7 +505,7 @@ private fun LinksCardContent(
 
 @Composable
 private fun DatesCardContent(
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -567,7 +553,7 @@ internal sealed interface ContributorFrameEdit {
 @Composable
 internal fun ContributorPhotoEditor(
     editing: ContributorFrameEdit,
-    state: ContributorEditUiState,
+    state: ContributorEditForm,
     onEvent: (ContributorEditUiEvent) -> Unit,
     onChooseAnother: () -> Unit,
     onDismiss: () -> Unit,

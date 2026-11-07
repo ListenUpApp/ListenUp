@@ -24,7 +24,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.series_add_subseries
 import listenup.composeapp.generated.resources.series_hierarchy_caption
@@ -44,7 +44,7 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 internal fun PlaceInLibrary(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onAddSubSeries: () -> Unit,
     modifier: Modifier = Modifier,
@@ -92,7 +92,6 @@ internal fun PlaceInLibrary(
             SubSeriesReorderList(
                 children = state.childSeries,
                 enabled = canChange,
-                refusal = state.error,
                 onReorder = { onEvent(SeriesEditUiEvent.ChildSeriesReordered(it)) },
             )
         }

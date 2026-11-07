@@ -14,7 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.core.SeriesId
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -35,7 +35,7 @@ class PlaceInLibraryTest {
     private val events = mutableListOf<SeriesEditUiEvent>()
     private var addClicks = 0
 
-    private fun render(state: SeriesEditUiState) {
+    private fun render(state: SeriesEditForm) {
         composeRule.setContent {
             MaterialTheme {
                 PlaceInLibrary(state = state, onEvent = { events += it }, onAddSubSeries = { addClicks++ })
@@ -129,8 +129,7 @@ class PlaceInLibraryTest {
         const val ANNOUNCE_TIMEOUT_MS = 5_000L
 
         val MISTBORN =
-            SeriesEditUiState(
-                isLoading = false,
+            SeriesEditForm(
                 seriesId = "mistborn",
                 name = "Mistborn",
                 parentId = "cosmere",

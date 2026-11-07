@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.nav
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditUiState
@@ -47,7 +49,7 @@ class UnsavedWorkPagesTest :
             mount = { registry, dirty, onLeave ->
                 registry.mount {
                     BookEditPage(
-                        state = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune", hasChanges = dirty),
+                        state = editingBook(BookEditForm(bookId = "b1", title = "Dune"), hasChanges = dirty),
                         onEvent = { if (it is BookEditUiEvent.Cancel) onLeave() },
                         onOpenLibrary = {},
                         onOpenBook = {},
@@ -63,7 +65,7 @@ class UnsavedWorkPagesTest :
             mount = { registry, dirty, onLeave ->
                 registry.mount {
                     BookEditPage(
-                        state = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune", hasChanges = dirty),
+                        state = editingBook(BookEditForm(bookId = "b1", title = "Dune"), hasChanges = dirty),
                         onEvent = {},
                         onOpenLibrary = onLeave,
                         onOpenBook = {},

@@ -2,7 +2,8 @@
 
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.client.presentation.bookedit.EditableGenre
 import com.calypsan.listenup.client.presentation.bookedit.EditableMood
 import com.calypsan.listenup.client.presentation.bookedit.EditableTag
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
@@ -42,11 +42,17 @@ private const val SEARCH_LIMIT = 10
  * @property scope CoroutineScope for launching operations
  * @property onChangesMade Callback to notify ViewModel of changes
  */
-class GenreTagEditDelegate(
-    private val state: MutableStateFlow<BookEditUiState>,
+internal class GenreTagEditDelegate(
+    private val state: FormSlot<*, BookEditForm>,
     private val scope: CoroutineScope,
     private val onChangesMade: () -> Unit,
 ) {
+    /**
+     * The form being edited. Outside `Editing` this is an empty form: the reads it feeds only shape
+     * a write, and [FormSlot.update] drops every write while there is no form.
+     */
+    private val current: BookEditForm get() = state.value ?: BookEditForm()
+
     private val tagQueryFlow = MutableStateFlow("")
     private val moodQueryFlow = MutableStateFlow("")
 
@@ -171,7 +177,7 @@ class GenreTagEditDelegate(
         if (slug.isEmpty()) return
 
         // Check if tag with same slug already exists in allTags
-        val existingTag = state.value.allTags.find { it.slug == slug }
+        val existingTag = current.allTags.find { it.slug == slug }
 
         if (existingTag != null) {
             // Use existing tag
@@ -180,7 +186,7 @@ class GenreTagEditDelegate(
         }
 
         // Check if we already have this tag added
-        if (state.value.tags.any { it.slug == slug }) {
+        if (current.tags.any { it.slug == slug }) {
             state.update { current ->
                 current.copy(
                     tagSearchQuery = "",
@@ -278,7 +284,7 @@ class GenreTagEditDelegate(
         if (slug.isEmpty()) return
 
         // Check if mood with same slug already exists in allMoods
-        val existingMood = state.value.allMoods.find { it.slug == slug }
+        val existingMood = current.allMoods.find { it.slug == slug }
 
         if (existingMood != null) {
             // Use existing mood
@@ -287,7 +293,7 @@ class GenreTagEditDelegate(
         }
 
         // Check if we already have this mood added
-        if (state.value.moods.any { it.slug == slug }) {
+        if (current.moods.any { it.slug == slug }) {
             state.update { current ->
                 current.copy(
                     moodSearchQuery = "",
@@ -335,12 +341,12 @@ class GenreTagEditDelegate(
 
         val lowerQuery = query.lowercase()
         val currentGenreIds =
-            state.value.genres
+            current.genres
                 .map { it.id }
                 .toSet()
 
         val filtered =
-            state.value.allGenres
+            current.allGenres
                 .filter { genre ->
                     genre.id !in currentGenreIds &&
                         (
@@ -395,12 +401,12 @@ class GenreTagEditDelegate(
         // Filter from allTags (already loaded) by displayName
         val lowerQuery = query.lowercase()
         val currentSlugs =
-            state.value.tags
+            current.tags
                 .map { it.slug }
                 .toSet()
 
         val filtered =
-            state.value.allTags
+            current.allTags
                 .filter { tag ->
                     tag.slug !in currentSlugs &&
                         tag.displayName().lowercase().contains(lowerQuery)
@@ -452,12 +458,12 @@ class GenreTagEditDelegate(
         // Filter from allMoods (already loaded) by displayName
         val lowerQuery = query.lowercase()
         val currentSlugs =
-            state.value.moods
+            current.moods
                 .map { it.slug }
                 .toSet()
 
         val filtered =
-            state.value.allMoods
+            current.allMoods
                 .filter { mood ->
                     mood.slug !in currentSlugs &&
                         mood.displayName().lowercase().contains(lowerQuery)

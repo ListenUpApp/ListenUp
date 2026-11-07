@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditForm
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.web.features.discover.fixedActivityFeed
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
@@ -199,9 +201,9 @@ internal fun mountAt(
     openBookDetail: OpenBookDetail = fixedBookDetail(readyBook()),
     openContributorDetail: OpenContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
     openContributorBooks: OpenContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-    openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+    openContributorEdit: OpenContributorEdit = fixedContributorEdit(ContributorEditUiState.Loading),
     openSeriesDetail: OpenSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-    openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+    openSeriesEdit: OpenSeriesEdit = fixedSeriesEdit(SeriesEditUiState.Loading),
     openChapterEditor: OpenChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
     matchDetails: MatchDetailsGraph = fixedMatchDetails(),
     openNotifications: OpenNotifications = fixedNotifications(NotificationsUiState.Empty),
@@ -229,7 +231,7 @@ internal fun mountAt(
     openImports: OpenImports = fixedImports(),
     openImportFlow: OpenImportFlow = fixedImportFlow(),
     openSearch: OpenSearch = fixedSearch(SearchUiState.Idle()),
-    openBookEdit: OpenBookEdit = fixedBookEdit(BookEditUiState()),
+    openBookEdit: OpenBookEdit = fixedBookEdit(BookEditUiState.Loading),
     openMultiSelect: OpenMultiSelect = fixedMultiSelect(),
     openBulkEdit: OpenBulkEdit = fixedBulkEdit(BulkEditUiState.Loading),
     openBrowseFacet: OpenBrowseFacet = fixedBrowseFacet(BrowseFacetUiState.Loading),
@@ -586,7 +588,12 @@ internal class RecordingSeriesEdit(
     val open: OpenSeriesEdit = { id ->
         requestedIds += id
         SeriesEditSession(
-            state = MutableStateFlow(SeriesEditUiState(isLoading = false, seriesId = id, name = "Series $id")),
+            state =
+                MutableStateFlow(
+                    SeriesEditForm(seriesId = id, name = "Series $id").let {
+                        SeriesEditUiState.Editing(form = it, original = it)
+                    },
+                ),
             mergeCandidates = MutableStateFlow(emptyList()),
             mergeHistory = MutableStateFlow(MergeHistoryState.Ready(emptyList())),
             navActions = navActions,
@@ -613,7 +620,9 @@ internal class RecordingContributorEdit(
         ContributorEditSession(
             state =
                 MutableStateFlow(
-                    ContributorEditUiState(isLoading = false, contributorId = id, name = "Person $id"),
+                    ContributorEditForm(contributorId = id, name = "Person $id").let {
+                        ContributorEditUiState.Editing(form = it, original = it)
+                    },
                 ),
             mergeCandidates = MutableStateFlow(emptyList()),
             navActions = navActions,

@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorCand
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.web.features.edit.EditLoadFailed
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.ConfirmDialog
@@ -72,73 +73,101 @@ fun ContributorEditPage(
     onEvent: (ContributorEditUiEvent) -> Unit,
     onMergeQuery: (String) -> Unit,
 ) {
-    val guard = rememberUnsavedWorkGuard(dirty = state.hasChanges)
+    val editing = state as? ContributorEditUiState.Editing
+    val guard = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true)
     guard.Dialog()
+    val name = editing?.form?.name.orEmpty()
     Div(attrs = { classes("ced") }) {
         PageHeader(
-            title = state.name.ifBlank { "Contributor" },
-            documentTitle = "Edit " + state.name.ifBlank { "contributor" },
-            pending = state.isLoading,
+            title = name.ifBlank { "Contributor" },
+            documentTitle = "Edit " + name.ifBlank { "contributor" },
+            pending = state is ContributorEditUiState.Loading,
         )
-        if (state.isLoading) {
-            Div(attrs = { classes("skel", "ced-skel") })
-            return@Div
-        }
+        when (state) {
+            ContributorEditUiState.Loading -> {
+                Div(attrs = { classes("skel", "ced-skel") })
+            }
 
-        state.error?.let { message ->
-            Div(attrs = { classes("ced-err") }) {
-                P(attrs = {
-                    classes("ced-err-t")
-                    attr("role", "alert")
-                }) { Text(message) }
-                Button(attrs = {
-                    classes("ced-err-x")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    attr("aria-label", "Dismiss")
-                    onClick { onEvent(ContributorEditUiEvent.DismissError) }
-                }) { Icon(WebIcon.X, size = SMALL_ICON) }
+            // Cancel leaves through the ViewModel, which asks the host to go back.
+            is ContributorEditUiState.LoadFailed -> {
+                EditLoadFailed(error = state.error, onBack = { onEvent(ContributorEditUiEvent.Cancel) })
+            }
+
+            is ContributorEditUiState.Editing -> {
+                EditingBody(
+                    editing = state,
+                    mergeCandidates = mergeCandidates,
+                    onEvent = onEvent,
+                    onMergeQuery = onMergeQuery,
+                    onCancel = { guard.leave { onEvent(ContributorEditUiEvent.Cancel) } },
+                )
             }
         }
+    }
+}
 
-        // A real <form> over the fields AND the actions, so Enter in any field saves — the
-        // browser's implicit submission needs the submit button inside the same form.
-        Form(attrs = {
-            classes("edit-body")
-            onSubmit { event ->
-                event.preventDefault()
-                onEvent(ContributorEditUiEvent.Save)
-            }
-        }) {
-            FormSection(title = "Portrait") { PortraitField(state, onEvent) }
-            FormSection(title = "Identity") { IdentityFields(state, onEvent) }
-            FormSection(title = "Life") { LifeFields(state, onEvent) }
-            FormSection(title = "Also known as") { AliasList(state, onEvent) }
-            EditActions(state, onCancel = { guard.leave { onEvent(ContributorEditUiEvent.Cancel) } })
+@Composable
+private fun EditingBody(
+    editing: ContributorEditUiState.Editing,
+    mergeCandidates: List<ContributorCandidate>,
+    onEvent: (ContributorEditUiEvent) -> Unit,
+    onMergeQuery: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    val state = editing.form
+    editing.inlineError?.let { error ->
+        Div(attrs = { classes("ced-err") }) {
+            P(attrs = {
+                classes("ced-err-t")
+                attr("role", "alert")
+            }) { Text(error.message) }
+            Button(attrs = {
+                classes("ced-err-x")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                attr("aria-label", "Dismiss")
+                onClick { onEvent(ContributorEditUiEvent.DismissError) }
+            }) { Icon(WebIcon.X, size = SMALL_ICON) }
         }
+    }
 
-        if (state.mergeDialogVisible) {
-            MergeDialog(
-                query = state.mergeQuery,
-                candidates = mergeCandidates,
-                onQuery = onMergeQuery,
-                onPick = { onEvent(ContributorEditUiEvent.MergeInto(it.id)) },
-                onDismiss = { onEvent(ContributorEditUiEvent.MergeDialogDismissed) },
-            )
+    // A real <form> over the fields AND the actions, so Enter in any field saves — the
+    // browser's implicit submission needs the submit button inside the same form.
+    Form(attrs = {
+        classes("edit-body")
+        onSubmit { event ->
+            event.preventDefault()
+            onEvent(ContributorEditUiEvent.Save)
         }
+    }) {
+        FormSection(title = "Portrait") { PortraitField(editing, onEvent) }
+        FormSection(title = "Identity") { IdentityFields(editing, onEvent) }
+        FormSection(title = "Life") { LifeFields(editing, onEvent) }
+        FormSection(title = "Also known as") { AliasList(editing, onEvent) }
+        EditActions(editing, onCancel = onCancel)
+    }
 
-        // ⛔ The rename is NOT saved while this is up. The ViewModel holds it back precisely so the
-        // reader answers first, and dismissing without answering keeps it held rather than
-        // silently completing a rename that might have meant a merge.
-        state.renameCollisionCandidate?.let { candidate ->
-            RenameCollisionDialog(
-                typedName = state.name,
-                candidate = candidate,
-                canMerge = state.canCurateLibrary,
-                onMerge = { onEvent(ContributorEditUiEvent.ConfirmMergeOnRename) },
-                onKeepSeparate = { onEvent(ContributorEditUiEvent.KeepSeparateOnRename) },
-                onDismiss = { onEvent(ContributorEditUiEvent.DismissRenameCollision) },
-            )
-        }
+    if (state.mergeDialogVisible) {
+        MergeDialog(
+            query = state.mergeQuery,
+            candidates = mergeCandidates,
+            onQuery = onMergeQuery,
+            onPick = { onEvent(ContributorEditUiEvent.MergeInto(it.id)) },
+            onDismiss = { onEvent(ContributorEditUiEvent.MergeDialogDismissed) },
+        )
+    }
+
+    // ⛔ The rename is NOT saved while this is up. The ViewModel holds it back precisely so the
+    // reader answers first, and dismissing without answering keeps it held rather than
+    // silently completing a rename that might have meant a merge.
+    state.renameCollisionCandidate?.let { candidate ->
+        RenameCollisionDialog(
+            typedName = state.name,
+            candidate = candidate,
+            canMerge = state.canCurateLibrary,
+            onMerge = { onEvent(ContributorEditUiEvent.ConfirmMergeOnRename) },
+            onKeepSeparate = { onEvent(ContributorEditUiEvent.KeepSeparateOnRename) },
+            onDismiss = { onEvent(ContributorEditUiEvent.DismissRenameCollision) },
+        )
     }
 }
 
@@ -150,9 +179,10 @@ fun ContributorEditPage(
  */
 @Composable
 private fun PortraitField(
-    state: ContributorEditUiState,
+    editing: ContributorEditUiState.Editing,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     val previewUrl =
         remember(state.pendingImageData) {
             state.pendingImageData?.let { bytes ->
@@ -199,8 +229,8 @@ private fun PortraitField(
             Button(
                 kind = ButtonKind.Secondary,
                 onClick = { input?.click() },
-                enabled = !(state.isSaving || state.isUploadingImage),
-            ) { Text(if (state.isUploadingImage) "Uploading…" else "Choose a photo") }
+                enabled = !(editing.isSaving || editing.isUploadingImage),
+            ) { Text(if (editing.isUploadingImage) "Uploading…" else "Choose a photo") }
             // Re-frames whichever photo Save would leave: a staged pick, or the one already saved.
             // Either way only the frame is staged (decided Q2: inside a form, Done stages).
             val pending = state.pendingImageData
@@ -216,7 +246,7 @@ private fun PortraitField(
                             framing.openUrl(savedPhotoUrl, initial, stageFrame)
                         }
                     },
-                    enabled = !(state.isSaving || state.isUploadingImage),
+                    enabled = !(editing.isSaving || editing.isUploadingImage),
                 ) { Text("Adjust photo") }
             }
             Span(attrs = { classes("ced-portrait-hint") }) { Text("JPG, PNG or WebP") }
@@ -244,9 +274,10 @@ private fun PortraitField(
 
 @Composable
 private fun IdentityFields(
-    state: ContributorEditUiState,
+    editing: ContributorEditUiState.Editing,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     Field(
         label = "Name",
         value = state.name,
@@ -276,9 +307,10 @@ private fun IdentityFields(
  */
 @Composable
 private fun LifeFields(
-    state: ContributorEditUiState,
+    editing: ContributorEditUiState.Editing,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     Div(attrs = { classes("edit-grid") }) {
         Field(
             label = "Born",
@@ -306,9 +338,10 @@ private fun LifeFields(
  */
 @Composable
 private fun AliasList(
-    state: ContributorEditUiState,
+    editing: ContributorEditUiState.Editing,
     onEvent: (ContributorEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     var splitting by remember { mutableStateOf<String?>(null) }
 
     P(attrs = { classes("ced-hint") }) {
@@ -331,7 +364,7 @@ private fun AliasList(
                                 label = "Split $alias back out",
                                 attrs = {
                                     classes("ced-split")
-                                    disabledWhen(state.mergeInProgress)
+                                    disabledWhen(editing.mergeInProgress)
                                 },
                             ) { Text("Split out") }
                         }
@@ -348,9 +381,9 @@ private fun AliasList(
                 onClick = { onEvent(ContributorEditUiEvent.MergeDialogOpened) },
                 attrs = {
                     classes("ced-merge")
-                    disabledWhen(state.mergeInProgress)
+                    disabledWhen(editing.mergeInProgress)
                 },
-            ) { Text(if (state.mergeInProgress) "Merging…" else "Fold another contributor in") }
+            ) { Text(if (editing.mergeInProgress) "Merging…" else "Fold another contributor in") }
         }
     }
 
@@ -478,23 +511,24 @@ private fun RenameCollisionDialog(
  */
 @Composable
 private fun EditActions(
-    state: ContributorEditUiState,
+    editing: ContributorEditUiState.Editing,
     onCancel: () -> Unit,
 ) {
+    val state = editing.form
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
         Button(
             kind = ButtonKind.Secondary,
             onClick = { onCancel() },
-            enabled = !state.isSaving,
+            enabled = !editing.isSaving,
         ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
         Button(
             kind = ButtonKind.Primary,
             submit = true,
-            enabled = !(state.isSaving || !state.hasChanges),
-        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+            enabled = !(editing.isSaving || !editing.hasChanges),
+        ) { Text(if (editing.isSaving) "Saving…" else "Save changes") }
     }
 }
 

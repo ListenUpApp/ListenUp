@@ -4,7 +4,8 @@ import com.calypsan.listenup.client.domain.model.EditableCollection
 import com.calypsan.listenup.client.domain.model.EditableGenre
 import com.calypsan.listenup.client.domain.model.EditableTag
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -14,7 +15,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 
-private fun ready(): BookEditUiState = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune")
+private fun ready(): BookEditForm = BookEditForm(bookId = "b1", title = "Dune")
 
 /**
  * The relational half of the edit form: four relations over one control.
@@ -29,11 +30,11 @@ class ClassificationFieldsTest :
         afterTest { mounts.disposeAll() }
 
         fun page(
-            state: BookEditUiState,
+            state: BookEditForm,
             onEvent: (BookEditUiEvent) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookEditPage(state = state, onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
+                BookEditPage(state = editingBook(state), onEvent = onEvent, onOpenLibrary = {}, onOpenBook = {})
             }
 
         test("attached genres render as removable chips") {

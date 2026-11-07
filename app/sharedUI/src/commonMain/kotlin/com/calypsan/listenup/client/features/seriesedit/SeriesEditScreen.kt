@@ -42,7 +42,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -71,7 +70,10 @@ import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDi
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.features.edit.EditInlineError
+import com.calypsan.listenup.client.features.edit.EditLoadFailed
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
 import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
@@ -79,8 +81,6 @@ import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.book_edit_change_cover
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_dismiss
-import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_enter_a_description_for_this
 import listenup.composeapp.generated.resources.series_merge_into
@@ -132,13 +132,13 @@ fun SeriesEditScreen(
         viewModel.loadSeries(seriesId)
     }
 
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val editing = uiState as? SeriesEditUiState.Editing
     val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
     val mergeHistory by viewModel.mergeHistory.collectAsStateWithLifecycle()
     val parentPickerRows by viewModel.parentPickerRows.collectAsStateWithLifecycle()
     val addSubSeries by viewModel.addSubSeries.collectAsStateWithLifecycle()
 
-    val loaded = rememberLoadedAcknowledgingRefusals(state) { viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed) }
     val pickerAsPane =
         currentWindowAdaptiveInfoV2().windowSizeClass.isWidthAtLeastBreakpoint(
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
@@ -155,7 +155,7 @@ fun SeriesEditScreen(
 
     val requestLeave =
         rememberUnsavedWorkGuard(
-            dirty = state.hasChanges,
+            dirty = editing?.hasChanges == true,
             onLeave = onBackClick,
             // Discard leaves through the ViewModel so it can clean up what the draft staged.
             onDiscard = { viewModel.onEvent(SeriesEditUiEvent.CancelClicked) },
@@ -165,8 +165,8 @@ fun SeriesEditScreen(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                state.isLoading -> {
+            when (val current = uiState) {
+                SeriesEditUiState.Loading -> {
                     ListenUpLoadingIndicator(
                         modifier =
                             Modifier
@@ -175,10 +175,11 @@ fun SeriesEditScreen(
                     )
                 }
 
-                state.error != null && !loaded -> {
-                    ErrorContent(
-                        error = state.error,
-                        onDismiss = { viewModel.onEvent(SeriesEditUiEvent.ErrorDismissed) },
+                is SeriesEditUiState.LoadFailed -> {
+                    EditLoadFailed(
+                        error = current.error,
+                        onBack = onBackClick,
+                        onRetry = null,
                         modifier =
                             Modifier
                                 .align(Alignment.Center)
@@ -186,15 +187,21 @@ fun SeriesEditScreen(
                     )
                 }
 
-                else -> {
+                is SeriesEditUiState.Editing -> {
                     SeriesEditContent(
-                        state = state,
+                        studio = current,
                         mergeHistory = mergeHistory,
                         onEvent = viewModel::onEvent,
                         onAddSubSeries = { viewModel.onAddSubSeriesEvent(AddSubSeriesEvent.Opened) },
                         pickerPane =
-                            if (pickerAsPane && state.parentPickerVisible) {
-                                { MoveIntoPicker(state = state, rows = parentPickerRows, onEvent = viewModel::onEvent) }
+                            if (pickerAsPane && current.form.parentPickerVisible) {
+                                {
+                                    MoveIntoPicker(
+                                        state = current.form,
+                                        rows = parentPickerRows,
+                                        onEvent = viewModel::onEvent,
+                                    )
+                                }
                             } else {
                                 null
                             },
@@ -214,6 +221,8 @@ fun SeriesEditScreen(
             }
         }
     }
+
+    val state = editing?.form ?: return
 
     HierarchyOverlays(
         state = state,
@@ -239,28 +248,10 @@ fun SeriesEditScreen(
     }
 }
 
-/**
- * Whether the series has loaded. Once it has, a refused change is a snackbar (the ViewModel already
- * sent it to the error bus), not a reason to replace the whole editor with an error page — so the
- * error is acknowledged with [onDismissError] instead.
- */
-@Composable
-private fun rememberLoadedAcknowledgingRefusals(
-    state: SeriesEditUiState,
-    onDismissError: () -> Unit,
-): Boolean {
-    var loaded by remember { mutableStateOf(false) }
-    LaunchedEffect(state.isLoading, state.error) {
-        if (!state.isLoading && state.error == null) loaded = true
-        if (loaded && state.error != null) onDismissError()
-    }
-    return loaded
-}
-
 /** The hierarchy's sheets and dialogs: "Move into…" (when not a side pane), New parent, Add sub-series. */
 @Composable
 private fun HierarchyOverlays(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     rows: List<ParentPickerRow>,
     addSubSeries: AddSubSeriesUiState,
     pickerAsSheet: Boolean,
@@ -318,39 +309,13 @@ private fun SeriesOverflowMenu(
 // DIALOGS
 // =============================================================================
 
-@Composable
-private fun ErrorContent(
-    error: String?,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHaptics.current
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = error ?: stringResource(Res.string.error_unknown),
-            color = MaterialTheme.colorScheme.error,
-        )
-        TextButton(
-            onClick = {
-                haptics.press()
-                onDismiss()
-            },
-        ) {
-            Text(stringResource(Res.string.common_dismiss))
-        }
-    }
-}
-
 // =============================================================================
 // MAIN CONTENT
 // =============================================================================
 
 @Composable
 private fun SeriesEditContent(
-    state: SeriesEditUiState,
+    studio: SeriesEditUiState.Editing,
     mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onAddSubSeries: () -> Unit,
@@ -375,8 +340,8 @@ private fun SeriesEditContent(
         }
 
     Row(modifier = modifier.fillMaxSize()) {
-        SeriesEditForm(
-            state = state,
+        SeriesEditFormFields(
+            studio = studio,
             mergeHistory = mergeHistory,
             onEvent = onEvent,
             onAddSubSeries = onAddSubSeries,
@@ -405,8 +370,8 @@ private fun SeriesEditContent(
 private const val PICKER_PANE_WEIGHT = 0.7f
 
 @Composable
-private fun SeriesEditForm(
-    state: SeriesEditUiState,
+private fun SeriesEditFormFields(
+    studio: SeriesEditUiState.Editing,
     mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onAddSubSeries: () -> Unit,
@@ -415,6 +380,7 @@ private fun SeriesEditForm(
     onCoverClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val state = studio.form
     Column(
         modifier =
             modifier
@@ -428,7 +394,7 @@ private fun SeriesEditForm(
         SeriesIdentityHeader(
             coverPath = state.displayCoverPath,
             name = state.name,
-            isUploadingCover = state.isUploadingCover,
+            isUploadingCover = studio.isUploadingCover,
             onNameChange = { onEvent(SeriesEditUiEvent.NameChanged(it)) },
             onCoverClick = onCoverClick,
             onMergeClick = onMergeClick,
@@ -437,11 +403,20 @@ private fun SeriesEditForm(
             saveAction = {
                 SaveAction(
                     onClick = { onEvent(SeriesEditUiEvent.SaveClicked) },
-                    enabled = state.hasChanges,
-                    isBusy = state.isSaving,
+                    enabled = studio.hasChanges,
+                    isBusy = studio.isSaving || studio.mergeInProgress,
                 )
             },
         )
+
+        // A Save, merge or cover failure sits above the cards, the edits below it untouched.
+        studio.inlineError?.let { error ->
+            EditInlineError(
+                error = error,
+                onDismiss = { onEvent(SeriesEditUiEvent.ErrorDismissed) },
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            )
+        }
 
         // Cards section — side by side from medium width, like ContributorEdit's studio cards.
         val isMediumOrLarger =
@@ -651,7 +626,7 @@ private fun SeriesIdentityHeader(
 
 @Composable
 private fun DescriptionCard(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -669,7 +644,7 @@ private fun DescriptionCard(
 /** Where the series sits: its parent, its sub-series, and adding more — applied at once, online only. */
 @Composable
 private fun PlaceInLibraryCard(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onAddSubSeries: () -> Unit,
     modifier: Modifier = Modifier,

@@ -1,15 +1,14 @@
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.client.presentation.bookedit.EditableCollection
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,12 +33,18 @@ private const val SEARCH_LIMIT = 10
  * @property scope CoroutineScope for the reactive load.
  * @property onChangesMade Callback to notify ViewModel of changes.
  */
-class CollectionEditDelegate(
-    private val state: MutableStateFlow<BookEditUiState>,
+internal class CollectionEditDelegate(
+    private val state: FormSlot<*, BookEditForm>,
     private val collectionRepository: CollectionRepository,
     private val scope: CoroutineScope,
     private val onChangesMade: () -> Unit,
 ) {
+    /**
+     * The form being edited. Outside `Editing` this is an empty form: the reads it feeds only shape
+     * a write, and [FormSlot.update] drops every write while there is no form.
+     */
+    private val current: BookEditForm get() = state.value ?: BookEditForm()
+
     /**
      * The book's non-system collection ids at load time — the baseline the dirty-check
      * diffs against. `null` until the first reactive load emission lands.
@@ -49,7 +54,7 @@ class CollectionEditDelegate(
     /**
      * Start observing the current memberships of [bookId] and the available list.
      *
-     * The current set seeds both [BookEditUiState.collections] (the pending edit set)
+     * The current set seeds both [BookEditForm.collections] (the pending edit set)
      * and [originalCollectionIds] (the dirty-check baseline), captured once on the
      * first emission so subsequent server echoes don't clobber unsaved edits.
      */
@@ -123,7 +128,7 @@ class CollectionEditDelegate(
      */
     fun hasChanges(): Boolean {
         val baseline = originalCollectionIds ?: return false
-        return state.value.collections
+        return current.collections
             .map { it.id }
             .toSet() != baseline
     }
@@ -136,12 +141,12 @@ class CollectionEditDelegate(
 
         val lowerQuery = query.lowercase()
         val currentIds =
-            state.value.collections
+            current.collections
                 .map { it.id }
                 .toSet()
 
         val filtered =
-            state.value.allCollections
+            current.allCollections
                 .filter { it.id !in currentIds && it.name.lowercase().contains(lowerQuery) }
                 .take(SEARCH_LIMIT)
 
