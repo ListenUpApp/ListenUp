@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.organize.OrganizePlanBuilder
 import com.calypsan.listenup.server.organize.OrganizeRunState
 import com.calypsan.listenup.server.organize.OrganizerSettingsStore
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -366,7 +367,7 @@ private fun SqlTestDatabases.makeOrganizeService(
     return OrganizeServiceImpl(
         settingsStore = OrganizerSettingsStore(ServerSettingsRepository(db.sql, default = defaultRegistrationPolicy())),
         planBuilder = OrganizePlanBuilder(db.sql),
-        executor = MoveManifestExecutor(broker, bookRepository),
+        executor = MoveManifestExecutor(broker, bookRepository, LibraryLayoutLock()),
         broker = broker,
         libraryRegistry = LibraryRegistry(db.sql),
         sql = db.sql,
