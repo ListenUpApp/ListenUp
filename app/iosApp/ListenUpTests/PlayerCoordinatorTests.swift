@@ -241,6 +241,61 @@ struct AudioSessionInterruptionTests {
         #expect(await harness.engine.playCount == 1)
     }
 
+    private func postRouteLost() {
+        center.post(
+            name: AVAudioSession.routeChangeNotification, object: nil,
+            userInfo: [AVAudioSessionRouteChangeReasonKey:
+                NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
+    }
+
+    /// Waits out a `.ended` that must change nothing, then pins that the book stayed paused with no restart.
+    private func expectStaysPaused(_ harness: PlayerHarness) async {
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(await harness.engine.playCount == 1)
+        #expect(await harness.engine.didActivateSession == false)
+    }
+
+    @Test("Headphones out, then a call: the call's end does not start the book on the speaker")
+    func routeLossPauseSurvivesALaterInterruption() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+
+        postRouteLost()
+        await harness.engine.waitUntilPaused()
+        postInterruptionBegan()
+        postInterruptionEnded(shouldResume: true)
+
+        await expectStaysPaused(harness)
+    }
+
+    @Test("A call, then the headphones come out during it: the call's end does not resume")
+    func routeLossDuringAnInterruptionCancelsItsResume() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+
+        postInterruptionBegan()
+        await awaitObservation { harness.coordinator.pauseCause == .interruption }
+        postRouteLost()
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.pauseCause == .routeLost }
+        postInterruptionEnded(shouldResume: true)
+
+        await expectStaysPaused(harness)
+    }
+
+    @Test("A call, then the user pauses during it: the call's end does not resume")
+    func userPauseDuringAnInterruptionCancelsItsResume() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+
+        postInterruptionBegan()
+        await awaitObservation { harness.coordinator.pauseCause == .interruption }
+        await harness.run(.pause)
+        postInterruptionEnded(shouldResume: true)
+
+        await expectStaysPaused(harness)
+    }
+
     @Test func interruptionBeganWhileBufferingPauses() async {
         let harness = PlayerHarness(notificationCenter: center)
         await harness.loadAndStart()

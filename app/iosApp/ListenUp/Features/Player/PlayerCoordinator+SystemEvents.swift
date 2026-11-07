@@ -40,41 +40,49 @@ extension PlayerCoordinator {
             guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                   let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
                   RouteChangePolicy.shouldPause(reason: reason) else { return }
-            steps.yield(.interruption(.pause))
+            steps.yield(.routeLost)
         }
     }
 
     func applyInterruption(_ action: InterruptionPolicy.Action) async {
-        guard let loaded = engineBook else { return }
         switch action {
-        case .pause:
-            // .playing OR .buffering: both mean audio intent is "advancing".
-            if isEngineLoading {
-                // Nothing has started: cancel the queued start instead of pausing an engine that never played.
-                playWhenLoaded = false
-                pausedByInterruption = true
-            } else if isPlaybackActive {
-                pausedByInterruption = true
-                await engine.pause()
-                enginePhase = .paused
-                reportPaused(loaded.bookId)
-                updateNowPlaying()
-            }
-        case .resume:
-            guard pausedByInterruption else { return }
-            pausedByInterruption = false
-            if isEngineLoading {
-                playWhenLoaded = true
-            } else if !isPlaying {
-                await engine.activateSession()
-                await engine.play()
-                enginePhase = .playing
-                progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs,
-                    speed: playbackSpeed, durationMs: bookDurationMs)
-                updateNowPlaying()
-            }
-        case .none:
-            break
+        case .pause: await pauseForSystem(.interruption)
+        case .resume: await resumeAfterInterruption()
+        case .none: break
+        }
+    }
+
+    func applyRouteLoss() async { await pauseForSystem(.routeLost) }
+
+    /// Pause for a cause outside the user's hands, recording the cause.
+    private func pauseForSystem(_ cause: PauseCause) async {
+        guard let loaded = engineBook else { return }
+        // .playing OR .buffering: both mean audio intent is "advancing".
+        if isEngineLoading {
+            // Nothing has started: cancel the queued start instead of pausing an engine that never played.
+            playWhenLoaded = false
+            pauseCause = cause
+        } else if isPlaybackActive {
+            pauseCause = cause
+            await engine.pause()
+            enginePhase = .paused
+            reportPaused(loaded.bookId)
+            updateNowPlaying()
+        }
+    }
+
+    private func resumeAfterInterruption() async {
+        guard let loaded = engineBook, pauseCause != nil else { return }
+        pauseCause = nil
+        if isEngineLoading {
+            playWhenLoaded = true
+        } else if !isPlaying {
+            await engine.activateSession()
+            await engine.play()
+            enginePhase = .playing
+            progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs,
+                speed: playbackSpeed, durationMs: bookDurationMs)
+            updateNowPlaying()
         }
     }
 
