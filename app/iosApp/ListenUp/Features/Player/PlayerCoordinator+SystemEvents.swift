@@ -54,16 +54,23 @@ extension PlayerCoordinator {
 
     func applyRouteLoss() async { await pauseForSystem(.routeLost) }
 
-    /// Pause for a cause outside the user's hands, recording the cause.
+    /// Pause for a cause outside the user's hands, recording the cause. Only a book that is advancing (playing,
+    /// buffering, or loading to play) pauses: an interruption landing on a book already paused records nothing,
+    /// so its end can never start what the user or a lost route had stopped.
     private func pauseForSystem(_ cause: PauseCause) async {
         guard let loaded = engineBook else { return }
         // .playing OR .buffering: both mean audio intent is "advancing".
+        let isAdvancing = isEngineLoading ? playWhenLoaded : isPlaybackActive
+        guard isAdvancing else {
+            // Headphones out during a call: its end must not resume the book on the speaker.
+            if cause == .routeLost, pauseCause == .interruption { pauseCause = .routeLost }
+            return
+        }
+        pauseCause = cause
         if isEngineLoading {
             // Nothing has started: cancel the queued start instead of pausing an engine that never played.
             playWhenLoaded = false
-            pauseCause = cause
-        } else if isPlaybackActive {
-            pauseCause = cause
+        } else {
             await engine.pause()
             enginePhase = .paused
             reportPaused(loaded.bookId)
@@ -71,8 +78,10 @@ extension PlayerCoordinator {
         }
     }
 
+    /// An interruption ended and the system says playback may resume: only a pause the interruption caused does.
+    /// One the user made, or a lost route's, stays put.
     private func resumeAfterInterruption() async {
-        guard let loaded = engineBook, pauseCause != nil else { return }
+        guard let loaded = engineBook, pauseCause == .interruption else { return }
         pauseCause = nil
         if isEngineLoading {
             playWhenLoaded = true
