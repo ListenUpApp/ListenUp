@@ -31,6 +31,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -170,13 +173,132 @@ class OrganizeOnEditRelocatorTest :
                 }
             }
         }
+
+        test("one Save that sends several edits keeps the book canonical — the FIRST pre-edit state decides") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-relocate-coalesced-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthorRow(sql)
+                val bookDir =
+                    libraryRoot.resolve("Brandon Sanderson/Elantris").also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                try {
+                    runBlocking {
+                        val repo = makeBookRepository(this@withSqlDatabase)
+                        val preEdit =
+                            bookPayload(title = "Elantris", rootRelPath = "Brandon Sanderson/Elantris")
+                        repo.upsert(preEdit)
+                        val relocator = makeRelocator(this@withSqlDatabase, repo, scope, debounceMs = 500)
+                        // A client Save is updateBook → setBookContributors → setBookSeries, each its
+                        // own RPC. Only the first sees the pre-Save state; the later two already carry
+                        // the new title at the old path, which on its own reads as "filed by hand".
+                        val midSave =
+                            bookPayload(title = "The Way of Kings", rootRelPath = "Brandon Sanderson/Elantris")
+                        repo.upsert(midSave)
+                        relocator.onBookEdited(BookId("b1"), preEdit)
+                        relocator.onBookEdited(BookId("b1"), midSave)
+                        relocator.onBookEdited(BookId("b1"), midSave)
+
+                        eventually(10.seconds) {
+                            sql.booksQueries
+                                .selectById("b1")
+                                .executeAsOne()
+                                .root_rel_path shouldBe "Brandon Sanderson/The Way of Kings"
+                        }
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("an edit during a relocation neither cancels it nor is lost — the book re-plans after it") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-relocate-inflight-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthorRow(sql)
+                val bookDir =
+                    libraryRoot.resolve("Brandon Sanderson/Elantris").also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val gate = BrokerGate()
+                try {
+                    runBlocking {
+                        val repo = makeBookRepository(this@withSqlDatabase)
+                        val preEdit =
+                            bookPayload(title = "Elantris", rootRelPath = "Brandon Sanderson/Elantris")
+                        repo.upsert(preEdit)
+                        val firstEdit =
+                            bookPayload(title = "The Way of Kings", rootRelPath = "Brandon Sanderson/Elantris")
+                        repo.upsert(firstEdit)
+                        val relocator = makeRelocator(this@withSqlDatabase, repo, scope, clock = gate::clock)
+
+                        relocator.onBookEdited(BookId("b1"), preEdit)
+                        gate.awaitEntered()
+
+                        // The broker is mid-manifest. A second edit lands now; its pre-edit state is
+                        // the half-way book — new title, old path — and both later RPCs of a Save
+                        // arrive too.
+                        repo.upsert(
+                            bookPayload(title = "Words of Radiance", rootRelPath = "Brandon Sanderson/Elantris"),
+                        )
+                        relocator.onBookEdited(BookId("b1"), firstEdit)
+                        relocator.onBookEdited(BookId("b1"), firstEdit)
+                        gate.release()
+
+                        eventually(10.seconds) {
+                            sql.booksQueries
+                                .selectById("b1")
+                                .executeAsOne()
+                                .root_rel_path shouldBe "Brandon Sanderson/Words of Radiance"
+                            libraryRoot
+                                .resolve("Brandon Sanderson/Words of Radiance/Words of Radiance.m4b")
+                                .toFile()
+                                .exists() shouldBe true
+                            libraryRoot.resolve("Brandon Sanderson/The Way of Kings").toFile().exists() shouldBe false
+                            libraryRoot.resolve("Brandon Sanderson/Elantris").toFile().exists() shouldBe false
+                        }
+                    }
+                } finally {
+                    gate.release()
+                    scope.cancel()
+                }
+            }
+        }
     })
+
+/**
+ * Parks the first broker manifest mid-flight: the broker stamps its self-write claims from the
+ * registry's clock, so the first clock read blocks until [release]. Every later read passes.
+ */
+private class BrokerGate {
+    private val first = AtomicBoolean(true)
+    private val entered = CountDownLatch(1)
+    private val released = CountDownLatch(1)
+
+    fun clock(): Long {
+        if (first.getAndSet(false)) {
+            entered.countDown()
+            released.await(10, TimeUnit.SECONDS)
+        }
+        return 0L
+    }
+
+    fun awaitEntered() {
+        check(entered.await(10, TimeUnit.SECONDS)) { "the relocation never reached the broker" }
+    }
+
+    fun release() = released.countDown()
+}
 
 /** A relocator over the real broker/executor graph, with the AUTHOR_TITLE schema persisted. */
 private suspend fun makeRelocator(
     db: SqlTestDatabases,
     repo: BookRepository,
     scope: CoroutineScope,
+    debounceMs: Long = 50,
+    clock: () -> Long = { 0L },
 ): OrganizeOnEditRelocator {
     val store = OrganizerSettingsStore(ServerSettingsRepository(db.sql, default = RegistrationPolicy.CLOSED))
     store.set(OrganizeSettingsDto(preset = OrganizePreset.AUTHOR_TITLE))
@@ -186,7 +308,7 @@ private suspend fun makeRelocator(
         executor =
             MoveManifestExecutor(
                 LibraryWriteBroker(
-                    SelfWriteRegistry { 0L },
+                    SelfWriteRegistry(clock),
                     WriteJournal(tempJournalDir()),
                     SqlLibraryRootProvider(db.sql),
                 ),
@@ -194,7 +316,7 @@ private suspend fun makeRelocator(
                 LibraryLayoutLock(),
             ),
         scope = scope,
-        debounceMs = 50,
+        debounceMs = debounceMs,
     )
 }
 
