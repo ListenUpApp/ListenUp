@@ -538,14 +538,12 @@ internal class PendingOperationQueue(
                         logger.warn(
                             e,
                         ) { "Sender threw for op ${op.clientOpId} (${op.domainName}); retrying as transient" }
-                        dao.update(
-                            entity.copy(
-                                failureCount = entity.failureCount + 1,
-                                lastAttemptAt = nowMillis(),
-                                lastError = e::class.simpleName ?: "SenderException",
-                                // A throw can come mid-send: nothing says the request didn't land.
-                                mayHaveLanded = true,
-                            ),
+                        recordFailedAttempt(
+                            entity = entity,
+                            failureCount = entity.failureCount + 1,
+                            lastError = e::class.simpleName ?: "SenderException",
+                            // A throw can come mid-send: nothing says the request didn't land.
+                            mayHaveLanded = true,
                         )
                         retryableFailures++
                         continue
@@ -583,13 +581,11 @@ internal class PendingOperationQueue(
                                 // Server ANSWERED with a retryable failure (5xx): spend one attempt. A
                                 // persistently-5xx-ing op quarantines after MAX; a transient one costs ≤MAX.
                                 val newCount = entity.failureCount + 1
-                                dao.update(
-                                    entity.copy(
-                                        failureCount = newCount,
-                                        lastAttemptAt = nowMillis(),
-                                        lastError = error.code,
-                                        mayHaveLanded = true,
-                                    ),
+                                recordFailedAttempt(
+                                    entity = entity,
+                                    failureCount = newCount,
+                                    lastError = error.code,
+                                    mayHaveLanded = true,
                                 )
                                 retryableFailures++
                                 logger.warn {
@@ -599,22 +595,16 @@ internal class PendingOperationQueue(
 
                             FailureDisposition.Terminal -> {
                                 // Non-retryable: leap past MAX so the SQL filter never picks it up again.
-                                dao.update(
-                                    entity.copy(
-                                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
-                                        lastAttemptAt = nowMillis(),
-                                        lastError = error.code,
-                                        mayHaveLanded = entity.mayHaveLanded || !error.isRefusal(),
-                                    ),
+                                recordFailedAttempt(
+                                    entity = entity,
+                                    failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                                    lastError = error.code,
+                                    mayHaveLanded = entity.mayHaveLanded || !error.isRefusal(),
                                 )
                                 terminalFailures++
                                 logger.warn {
                                     "Pending op ${op.clientOpId} dead-lettered (non-retryable): ${error.code}"
                                 }
-                                // The server rejected this edit; its optimistic Room value is now a
-                                // phantom no reconcile/catch-up/echo will repair. Request a heal to
-                                // re-fetch server truth for the entity (DRIFT-1).
-                                healRequests.trySend(SentEntityRef(op.domainName, op.entityId))
                             }
                         }
                     }
@@ -629,6 +619,34 @@ internal class PendingOperationQueue(
                 sentEntities = sentEntities,
             )
         }
+
+    /**
+     * Records a failed attempt that spends budget, and owns the one transition into a dead letter.
+     *
+     * Once [failureCount] passes [MAX_RETRYABLE_ATTEMPTS] the op is dead-lettered, whichever path
+     * got it there: a refusal, the last server-answered 5xx, or the last sender throw. Its
+     * optimistic Room value is then a phantom at an unchanged `(id, revision)` that no reconcile,
+     * catch-up or echo will repair, so a heal is requested to re-fetch server truth (DRIFT-1).
+     * Below the ceiling the op can still land, so the anti-flicker shield stays up and nothing heals.
+     */
+    private suspend fun recordFailedAttempt(
+        entity: PendingOperationV2Entity,
+        failureCount: Int,
+        lastError: String,
+        mayHaveLanded: Boolean,
+    ) {
+        dao.update(
+            entity.copy(
+                failureCount = failureCount,
+                lastAttemptAt = nowMillis(),
+                lastError = lastError,
+                mayHaveLanded = mayHaveLanded,
+            ),
+        )
+        if (failureCount > MAX_RETRYABLE_ATTEMPTS) {
+            healRequests.trySend(SentEntityRef(entity.domainName, entity.entityId))
+        }
+    }
 
     /**
      * Live count of ops still within retry budget. Engine forwards this to `SyncEngineState`.
