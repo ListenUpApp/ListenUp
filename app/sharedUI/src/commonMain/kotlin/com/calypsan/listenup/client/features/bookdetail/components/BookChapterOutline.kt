@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.chapter.withOpenParts
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
@@ -189,7 +186,7 @@ private fun CollapsiblePartRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = if (isOpen) Icons.Filled.ExpandMore else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    imageVector = if (isOpen) ListenUpIcons.ExpandMoreFilled else ListenUpIcons.KeyboardArrowRightFilled,
                     contentDescription = null,
                 )
                 Spacer(Modifier.size(8.dp))
@@ -270,7 +267,7 @@ private fun PartPlayButton(
         modifier = Modifier.semantics { selected = part.isCurrentChapter },
     ) {
         Icon(
-            imageVector = Icons.Filled.PlayArrow,
+            imageVector = ListenUpIcons.PlayArrowFilled,
             contentDescription = stringResource(Res.string.book_detail_part_play_a11y, part.title),
             tint = if (playback.canPlay) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )

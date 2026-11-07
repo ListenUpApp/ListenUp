@@ -4996,6 +4996,7 @@
       }
     },
     "book.detail_chapter_label_in_part": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6172,6 +6173,7 @@
       }
     },
     "book.detail_part_play_a11y": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6182,6 +6184,7 @@
       }
     },
     "book.detail_part_summary": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
