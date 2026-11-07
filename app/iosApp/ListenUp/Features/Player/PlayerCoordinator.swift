@@ -114,6 +114,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case instruction(EngineInstruction)
         case loadResolved(LoadedBook)
         case interruption(InterruptionPolicy.Action)
+        /// The output device went away (headphones unplugged, AirPods out): pause, for good.
+        case routeLost
         case remote(RemoteAction)
     }
     /// A book `engine.load` has resolved, waiting its turn to start behind the instructions received before it.
@@ -147,9 +149,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
     var playWhenLoaded = true
     /// A `.seek` that arrived while the book was loading, applied once it has loaded.
     private var pendingSeekMs: Int64?
-    /// True only while playback is paused *because of* an audio-session interruption. Gates
+    /// Why the system, not the user, paused playback — the pause's cause decides whether anything may restart it.
+    enum PauseCause: Equatable, Sendable {
+        /// An audio-session interruption (a call, Siri, an alarm): its end may resume, if the system says so.
+        case interruption
+        /// The output device went away: nothing but the user resumes, or the book would play out of the speaker.
+        case routeLost
+    }
+    /// Set while playback is paused by the system, `nil` when it plays or the user paused it. Gates
     /// `.ended + .shouldResume`: a user's deliberate pause is never overridden.
-    var pausedByInterruption = false
+    var pauseCause: PauseCause?
     private static let positionReportIntervalMs: Int64 = 5000
     /// Feeds the shared "playback preempts downloads" signal. Optional for unit tests.
     private let bandwidthCoordinator: PlaybackBandwidthCoordinator?
@@ -191,6 +200,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 case .instruction(let instruction): await self?.execute(instruction)
                 case .loadResolved(let book): await self?.startLoaded(book)
                 case .interruption(let action): await self?.applyInterruption(action)
+                case .routeLost: await self?.applyRouteLoss()
                 case .remote(let command): await self?.perform(command)
                 }
             }
@@ -259,7 +269,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// plays or loads: the in-flight load is superseded, the outgoing book's place is saved, and its
     /// metadata is replaced synchronously, so a switch never leaks the old book's audio or chapters.
     private func load(bookId: String, prepared: PreparedPlayback) {
-        pausedByInterruption = false
+        pauseCause = nil
         loadTask?.cancel()
         loadGeneration &+= 1
         let generation = loadGeneration
@@ -365,7 +375,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     func play() async {
-        pausedByInterruption = false
+        pauseCause = nil
         if isEngineLoading { playWhenLoaded = true; return }
         // Nothing held (a failure dropped the book): the shared player prepares it afresh, never a `.play` here.
         guard let loaded = engineBook else { return }
@@ -378,7 +388,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     func pause() async {
-        pausedByInterruption = false
+        pauseCause = nil
         if isEngineLoading { playWhenLoaded = false; return }
         guard let loaded = engineBook, isPlaybackActive else { return }
         await engine.pause()
@@ -462,7 +472,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// The `.stop` instruction's body. The shared player already knows (it issued the stop), so this
     /// reports nothing back: an `unloaded` fact here could land after the next book's load and drop it.
     private func stopEngine() async {
-        pausedByInterruption = false
+        pauseCause = nil
         // Record the place before forgetting the book (a Close mid-play must not lose up to 5 s).
         let place = isEngineLoading ? nil : engineBook.map { (bookId: $0.bookId, positionMs: bookPositionMs) }
         if let place, isPlaybackActive { reportPaused(place.bookId) }
