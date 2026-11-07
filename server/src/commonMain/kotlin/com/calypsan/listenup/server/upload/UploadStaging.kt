@@ -1,10 +1,15 @@
 package com.calypsan.listenup.server.upload
 
 import com.calypsan.listenup.api.dto.uploads.UploadLimits as ContractUploadLimits
+import com.calypsan.listenup.api.error.UploadError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.failure
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Duration
@@ -33,6 +38,15 @@ internal data class UploadLimits(
     val maxFileBytes: Long = ContractUploadLimits.MAX_FILE_BYTES,
 )
 
+/** What a live session is in the middle of, while a request holds it; see [UploadStaging.inPhase]. */
+internal enum class UploadPhase {
+    /** Its staged books are moving into the library. */
+    FINALIZING,
+
+    /** Its staging directory is being swept. */
+    ABANDONING,
+}
+
 /** What a session currently holds — the numbers both the quota check and the client's progress read. */
 internal data class UploadSessionStats(
     val fileCount: Int,
@@ -51,7 +65,9 @@ internal data class UploadSessionStats(
  * anything else can trip over.
  *
  * Sessions are **filesystem-truth**: a session exists exactly as long as its directory does.
- * There is no table, no in-memory registry to lose on restart, and no way for the two to disagree.
+ * There is no table and no way for the two to disagree. The one thing held in memory is which
+ * session a request is finalizing or abandoning right now ([inPhase]) — a fact about this
+ * process, not about the session, so losing it on restart is correct.
  */
 private val logger = loggerFor<UploadStaging>()
 
@@ -59,6 +75,9 @@ internal class UploadStaging(
     private val paths: UploadPaths,
     val limits: UploadLimits = UploadLimits(),
 ) {
+    private val phaseLock = SynchronizedObject()
+    private val phases = mutableMapOf<String, UploadPhase>()
+
     /**
      * Mints a fresh session and creates its staging directory, returning the session id.
      *
@@ -156,6 +175,62 @@ internal class UploadStaging(
         val parts = stagedFiles(sessionDir).filter { it.name.endsWith(PART_SUFFIX) }
         parts.forEach { SystemFileSystem.delete(it, mustExist = false) }
         return parts.size
+    }
+
+    /**
+     * Abandons [sessionId], sweeping its staging directory — unless a finalize is importing it
+     * right now, which is refused as [UploadError.SessionBusy]. A client that leaves its upload
+     * screen mid-finalize sends exactly this request, and honouring it would delete files the
+     * import has not reached yet: a truncated book in the library, and a retry the duplicate check
+     * then refuses.
+     */
+    suspend fun abandonSession(sessionId: String): AppResult<Unit> =
+        inPhase(sessionId, UploadPhase.ABANDONING) {
+            val dir = openSession(sessionId) ?: return@inPhase failure(UploadError.SessionNotFound())
+            deleteSession(dir)
+            AppResult.Success(Unit)
+        }
+
+    /**
+     * Runs [block] while [sessionId] is claimed for [phase], refusing when another request already
+     * holds it: [UploadError.SessionBusy] while a finalize is importing it, and
+     * [UploadError.SessionNotFound] while an abandon is sweeping it.
+     *
+     * The claim is the only thing that serialises the two requests that can destroy a session's
+     * staged files, so it is taken atomically and released on every exit. It lives in memory
+     * rather than on disk because it describes a request this process is serving: a server that
+     * restarts mid-finalize is serving none, and its session must come back as an ordinary one
+     * — staging directory intact for the write journal's resume, and abandonable — rather than
+     * locked by a marker nothing will ever clear.
+     */
+    suspend fun <T> inPhase(
+        sessionId: String,
+        phase: UploadPhase,
+        block: suspend () -> AppResult<T>,
+    ): AppResult<T> {
+        val holder =
+            synchronized(phaseLock) {
+                val current = phases[sessionId]
+                if (current == null) phases[sessionId] = phase
+                current
+            }
+        when (holder) {
+            null -> {}
+
+            // Mid-sweep, the session is already as good as gone.
+            UploadPhase.ABANDONING -> {
+                return failure(UploadError.SessionNotFound(debugInfo = "session $sessionId is being abandoned"))
+            }
+
+            UploadPhase.FINALIZING -> {
+                return failure(UploadError.SessionBusy(debugInfo = "session $sessionId is finalizing; refused $phase"))
+            }
+        }
+        return try {
+            block()
+        } finally {
+            synchronized(phaseLock) { phases.remove(sessionId) }
+        }
     }
 
     /** Removes [sessionDir] and everything staged in it. Idempotent — a missing directory is a no-op. */

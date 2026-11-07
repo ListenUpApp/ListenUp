@@ -45,6 +45,11 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.nio.file.Path as NioPath
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path as IoPath
@@ -262,7 +267,137 @@ class UploadFinalizeE2ETest :
                 rig.allLibraryFiles() shouldBe emptyList()
             }
         }
+
+        // ── one finalize at a time, and nothing deletes it mid-import ───────────
+
+        test("abandoning a session mid-finalize is refused, and the book still imports completely") {
+            val gate = BrokerGate()
+            withUploadRig(clock = gate::clock) { rig ->
+                val session = rig.newSession()
+                rig.stage(session, "The Way of Kings/01.m4b", "a")
+                rig.stage(session, "The Way of Kings/02.m4b", "b")
+                rig.stage(session, "The Way of Kings/03.m4b", "c")
+                rig.stageAbsMetadata(
+                    session,
+                    "The Way of Kings",
+                    title = "The Way of Kings",
+                    author = "Brandon Sanderson",
+                )
+
+                runBlocking {
+                    val finalizing = async(Dispatchers.IO) { rig.finalizeResult(session) }
+                    gate.awaitEntered()
+
+                    // The client left the screen while the server was importing: its quiet abandon
+                    // must not sweep the staged files out from under the import.
+                    rig
+                        .abandon(session)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<UploadError.SessionBusy>()
+                    rig.sessionExists(session) shouldBe true
+
+                    gate.release()
+                    val book =
+                        finalizing
+                            .await()
+                            .shouldBeInstanceOf<AppResult.Success<UploadFinalizeResult>>()
+                            .data.books
+                            .single()
+                    book.status shouldBe UploadedBookStatus.IMPORTED
+                    rig.libraryFilesUnder("Brandon Sanderson/The Way of Kings") shouldContainExactlyInAnyOrder
+                        listOf("01.m4b", "02.m4b", "03.m4b", "metadata.json")
+                    rig.sessionExists(session) shouldBe false
+                }
+            }
+        }
+
+        test("a second finalize of a session already finalizing is refused, and the first imports once") {
+            val gate = BrokerGate()
+            withUploadRig(clock = gate::clock) { rig ->
+                val session = rig.newSession()
+                rig.stage(session, "Elantris/Elantris.m4b", "a")
+                rig.stageAbsMetadata(session, "Elantris", title = "Elantris", author = "Brandon Sanderson")
+
+                runBlocking {
+                    val first = async(Dispatchers.IO) { rig.finalizeResult(session) }
+                    gate.awaitEntered()
+
+                    rig
+                        .finalizeResult(session)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<UploadError.SessionBusy>()
+
+                    gate.release()
+                    first
+                        .await()
+                        .shouldBeInstanceOf<AppResult.Success<UploadFinalizeResult>>()
+                        .data.books
+                        .single()
+                        .status shouldBe UploadedBookStatus.IMPORTED
+                    rig.allLibraryFiles() shouldContainExactlyInAnyOrder
+                        listOf("Brandon Sanderson/Elantris/Elantris.m4b", "Brandon Sanderson/Elantris/metadata.json")
+                }
+            }
+        }
+
+        test("once a finalize has finished, abandoning the session is the ordinary not-found, not busy") {
+            withUploadRig { rig ->
+                val imported = rig.newSession()
+                rig.stage(imported, "Elantris/Elantris.m4b", "a")
+                rig.stageAbsMetadata(imported, "Elantris", title = "Elantris", author = "Brandon Sanderson")
+                rig.finalize(imported)
+
+                val refused = rig.newSession()
+                rig.stage(refused, "notes/readme.pdf", "pdf")
+                rig.finalizeResult(refused).shouldBeInstanceOf<AppResult.Failure>()
+
+                listOf(imported, refused).forEach { session ->
+                    rig
+                        .abandon(session)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<UploadError.SessionNotFound>()
+                }
+            }
+        }
+
+        test("abandoning a session no finalize is touching sweeps it") {
+            withUploadRig { rig ->
+                val session = rig.newSession()
+                rig.stage(session, "Elantris/Elantris.m4b", "a")
+
+                rig.abandon(session).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                rig.sessionExists(session) shouldBe false
+                rig.allLibraryFiles() shouldBe emptyList()
+            }
+        }
     })
+
+/**
+ * Parks the first broker manifest mid-flight: the broker stamps its self-write claims from the
+ * registry's clock, so the first clock read blocks until [release]. Every later read passes.
+ */
+private class BrokerGate {
+    private val first = AtomicBoolean(true)
+    private val entered = CountDownLatch(1)
+    private val released = CountDownLatch(1)
+
+    fun clock(): Long {
+        if (first.getAndSet(false)) {
+            entered.countDown()
+            released.await(10, TimeUnit.SECONDS)
+        }
+        return 0L
+    }
+
+    fun awaitEntered() {
+        check(entered.await(10, TimeUnit.SECONDS)) { "the finalize never reached the broker" }
+    }
+
+    fun release() = released.countDown()
+}
 
 // ── rig ─────────────────────────────────────────────────────────────────────────
 
@@ -314,6 +449,9 @@ private class UploadFinalizeRig(
             }
         stage(sessionId, "$bookFolder/metadata.json", "{${fields.joinToString(",")}}")
     }
+
+    /** The client's abandon request — `DELETE` on the session. */
+    fun abandon(sessionId: String): AppResult<Unit> = runBlocking { staging.abandonSession(sessionId) }
 
     fun finalizeResult(sessionId: String): AppResult<UploadFinalizeResult> {
         val sessionDir = requireNotNull(staging.openSession(sessionId))
@@ -403,7 +541,10 @@ private class UploadFinalizeRig(
 }
 
 /** Builds a [UploadFinalizeRig] over fresh temp directories and a migrated database, then tears it down. */
-private fun withUploadRig(block: (UploadFinalizeRig) -> Unit) {
+private fun withUploadRig(
+    clock: () -> Long = { 0L },
+    block: (UploadFinalizeRig) -> Unit,
+) {
     withSqlDatabase {
         val homeDir = Files.createTempDirectory("listenup-upload-home-")
         val libraryRoot = Files.createTempDirectory("listenup-upload-library-")
@@ -414,7 +555,7 @@ private fun withUploadRig(block: (UploadFinalizeRig) -> Unit) {
             val bookRepository = makeBookRepository(this)
             val broker =
                 LibraryWriteBroker(
-                    SelfWriteRegistry { 0L },
+                    SelfWriteRegistry(clock),
                     WriteJournal(tempJournalDir()),
                     SqlLibraryRootProvider(sql),
                 )

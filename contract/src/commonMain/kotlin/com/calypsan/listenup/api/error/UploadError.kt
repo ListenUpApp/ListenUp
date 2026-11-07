@@ -35,6 +35,25 @@ sealed interface UploadError : AppError {
     }
 
     /**
+     * The session is being finalized right now — its books are moving into the library — so it
+     * can be neither abandoned nor finalized a second time until that finishes. Not retryable: the
+     * running finalize is the one that answers, and it sweeps the session when it is done, so
+     * repeating the request can only meet this refusal or a session that is already gone.
+     */
+    @Serializable
+    @SerialName("UploadError.SessionBusy")
+    data class SessionBusy(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : UploadError {
+        override val message: String = "That upload is already being added to your library."
+        override val code: String = "UPLOAD_SESSION_BUSY"
+        override val isRetryable: Boolean = false
+
+        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
+    }
+
+    /**
      * The file's path within the upload was refused before a single byte was read.
      *
      * A client-supplied relative path is untrusted input that decides where bytes land, so it is

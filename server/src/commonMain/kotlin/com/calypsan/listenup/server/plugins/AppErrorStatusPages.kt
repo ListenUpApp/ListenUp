@@ -334,6 +334,9 @@ private fun UploadError.toHttpStatus(): HttpStatusCode =
         // failure, and it needs the typed value to do it.
         is UploadError.SessionNotFound -> HttpStatusCode.Gone
 
+        // The session exists and is mid-finalize: the request conflicts with its current state.
+        is UploadError.SessionBusy -> HttpStatusCode.Conflict
+
         is UploadError.InvalidFilePath -> HttpStatusCode.BadRequest
 
         // Produced on the client and never sent by the server; mapped like InvalidFilePath so the
