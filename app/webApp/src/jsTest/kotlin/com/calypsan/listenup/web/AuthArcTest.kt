@@ -67,6 +67,8 @@ class AuthArcTest :
                         probe.userCount shouldBe 1
 
                         // ── The library half ────────────────────────────────────────────────
+                        // The harness seeds a folder at boot, so the wizard must step aside.
+                        probe.wizardSaidNotNeeded shouldBe true
                         // ⛔ Counted, not merely succeeded-on. `/` certainly has sub-directories on
                         // any machine this runs on, so a success carrying an empty list would mean
                         // the folder picker renders a dead end while every call reports fine.

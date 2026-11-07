@@ -6,7 +6,9 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
@@ -41,6 +43,12 @@ data class AuthArcProbe(
      */
     val userCount: Int,
     /**
+     * True once the real [LibrarySetupViewModel] answered [LibrarySetupUiState.NotNeeded]. The
+     * harness seeds a library folder at boot, so a wizard that offered to browse here would be
+     * reading the server wrong.
+     */
+    val wizardSaidNotNeeded: Boolean,
+    /**
      * Sub-directories the real `browseFilesystem` RPC returned for `/`, or -1 if the call failed.
      *
      * Counted, not merely succeeded-on: the folder picker's whole job is to show what is actually
@@ -50,7 +58,7 @@ data class AuthArcProbe(
     val rootDirectoryCount: Int,
     /** `AppError.code` from a failed browse, or null when it succeeded. */
     val browseErrorCode: String?,
-    /** True once a real directory was registered as a library folder through the real ViewModel. */
+    /** True once a real directory was added as a library folder through the real ViewModel. */
     val folderRegistered: Boolean,
     /** The error the page would have shown had registration failed, or null. */
     val folderError: String?,
@@ -127,21 +135,31 @@ suspend fun probeAuthArc(
         // having reached the RPC channel — precisely the handoff the state machine above cannot see.
         val authed = app.koin.get<AdminRepository>().getUsers()
 
-        // ── The library half of first run ────────────────────────────────────────────────────
-        // Driven through the real LibrarySetupViewModel rather than the RPC proxies, because the
-        // proxies are not what the page uses: a browse that works but never reaches `state` would
-        // pass an RPC-level check and still render an empty picker.
+        // ── The library half ─────────────────────────────────────────────────────────────────
+        // Driven through the real ViewModels rather than the RPC proxies, because the proxies are
+        // not what the pages use: a browse that works but never reaches `state` would pass an
+        // RPC-level check and still render an empty picker.
         //
-        // In the same arc, and in this order, deliberately. Registering a folder is admin-only, so
-        // it cannot run before the admin above exists — and this harness boots ONE server, whose
-        // setup this probe already owns.
-        // The wizard browses the root itself once its setup check says setup is needed; a browse
-        // asked for before that answer would be refused, so the probe waits for the first listing.
-        val librarySetup = app.koin.get<LibrarySetupViewModel>()
+        // After the admin above, deliberately: browsing and adding folders are admin-only. The
+        // harness seeds a library folder at boot, so the first-run wizard has nothing to do here
+        // and says so; the folder picker a listener reaches on this server is Library Settings'
+        // Add folder, which is the path driven below.
+        val wizard = app.koin.get<LibrarySetupViewModel>()
+        val wizardAnswer =
+            withTimeoutOrNull(ARC_TIMEOUT) { wizard.state.first { it !is LibrarySetupUiState.Checking } }
+
+        val librarySettings = app.koin.get<LibrarySettingsViewModel>()
+        withTimeoutOrNull(ARC_TIMEOUT) { librarySettings.state.first { it !is LibrarySettingsUiState.Loading } }
+        librarySettings.setShowFolderBrowser(true)
         val browsed =
             withTimeoutOrNull(ARC_TIMEOUT) {
-                librarySetup.state.first { it is LibrarySetupUiState.Browsing && !it.isLoadingDirectories }
-            } as? LibrarySetupUiState.Browsing
+                librarySettings.state.first {
+                    it is LibrarySettingsUiState.Ready &&
+                        it.showFolderBrowser &&
+                        !it.isBrowserLoading &&
+                        (it.browserEntries.isNotEmpty() || it.error != null)
+                }
+            } as? LibrarySettingsUiState.Ready
 
         // ⛔ `as? String` first, and that is what makes the `?.let` below safe. Kotlin/JS dispatches
         // scope functions on a raw `dynamic` as JS PROPERTY LOOKUPS, so `someDynamic?.let { }`
@@ -150,9 +168,8 @@ suspend fun probeAuthArc(
         val spare = window.asDynamic().__LU_SPARE_FOLDER as? String
         val registered =
             spare?.let { path ->
-                librarySetup.togglePath(path)
-                librarySetup.completeSetup()
-                withTimeoutOrNull(ARC_TIMEOUT) { librarySetup.navActions.first() }
+                librarySettings.addScanPath(path)
+                withTimeoutOrNull(ARC_TIMEOUT) { librarySettings.events.first() }
             }
 
         AuthArcProbe(
@@ -161,10 +178,11 @@ suspend fun probeAuthArc(
             authedCallSucceeded = authed is AppResult.Success,
             authedCallErrorCode = (authed as? AppResult.Failure)?.error?.code,
             userCount = (authed as? AppResult.Success)?.data?.size ?: NO_USER_COUNT,
-            rootDirectoryCount = browsed?.directories?.size ?: NO_USER_COUNT,
+            wizardSaidNotNeeded = wizardAnswer is LibrarySetupUiState.NotNeeded,
+            rootDirectoryCount = browsed?.browserEntries?.size ?: NO_USER_COUNT,
             browseErrorCode = browsed?.error?.code,
-            folderRegistered = registered is LibrarySetupNavAction.Finished,
-            folderError = (librarySetup.state.value as? LibrarySetupUiState.Browsing)?.error?.message,
+            folderRegistered = registered is LibrarySettingsEvent.FolderSavedScanStarted,
+            folderError = (librarySettings.state.value as? LibrarySettingsUiState.Ready)?.error?.message,
         )
     } finally {
         app.close()
