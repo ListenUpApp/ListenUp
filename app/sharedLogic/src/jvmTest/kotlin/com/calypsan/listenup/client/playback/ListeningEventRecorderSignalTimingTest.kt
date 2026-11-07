@@ -79,7 +79,7 @@ class ListeningEventRecorderSignalTimingTest :
 
                     recorder.onPlay(bookId = "book1", positionMs = 0L, playbackSpeed = 1.0f)
                     nowMs = 2_000L // advance so the span is non-zero-duration and finalizes
-                    recorder.onPause(positionMs = 5_000L)
+                    recorder.onPause(bookId = "book1", positionMs = 5_000L)
 
                     // No pre-commit tick: neither the signal=false enqueue nor the post-commit
                     // signalEnqueued ticked while the transaction was open.

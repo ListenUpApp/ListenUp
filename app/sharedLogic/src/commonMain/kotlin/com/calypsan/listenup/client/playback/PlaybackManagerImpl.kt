@@ -475,12 +475,31 @@ internal class PlaybackManagerImpl(
                 }
             }
 
+            // The player stopped without a pause: close the listen where it stopped.
             PlaybackState.Idle,
-            PlaybackState.Buffering,
-            PlaybackState.Ended,
             is PlaybackState.Error,
+            -> {
+                reportStoppedIfRecording()
+            }
+
+            // A stall: the listen goes on (the reporter keeps the span open across it).
+            PlaybackState.Buffering,
+            // The end of the book is reported with its own guard, by the player observation in startPlayback.
+            PlaybackState.Ended,
             -> {}
         }
+    }
+
+    /** [PlaybackProgressReporter.onPlaybackStopped] for the active book, where this instance records the session. */
+    private fun reportStoppedIfRecording() {
+        if (!persistTransitionsViaReporter) return
+        val activeBookId = currentBookId.value ?: return
+        reporter.onPlaybackStopped(
+            bookId = activeBookId,
+            positionMs = currentPositionMs.value,
+            speed = playbackSpeed.value,
+            durationMs = totalDurationMs.value,
+        )
     }
 
     /**
@@ -517,6 +536,20 @@ internal class PlaybackManagerImpl(
      */
     override fun updateSpeed(speed: Float) {
         playbackSpeed.value = speed
+    }
+
+    /**
+     * The playhead moves now; on the reporter-recording wiring (web, desktop) the seek also splits the
+     * listening span, as Android's service and iOS's coordinator do from their own seek signals.
+     */
+    override fun onSeek(
+        fromPositionMs: Long,
+        toPositionMs: Long,
+    ) {
+        updatePosition(toPositionMs)
+        if (!persistTransitionsViaReporter) return
+        val bookId = currentBookId.value ?: return
+        reporter.onSeek(bookId = bookId, beforeMs = fromPositionMs, afterMs = toPositionMs, speed = playbackSpeed.value)
     }
 
     /**
@@ -582,6 +615,8 @@ internal class PlaybackManagerImpl(
      * Called when playback stops or when access is revoked.
      */
     override fun clearPlayback() {
+        // A teardown while still playing or buffering is the end of that listen.
+        reportStoppedIfRecording()
         playerObservationJob?.cancel()
         playerObservationJob = null
         currentBookId.value = null

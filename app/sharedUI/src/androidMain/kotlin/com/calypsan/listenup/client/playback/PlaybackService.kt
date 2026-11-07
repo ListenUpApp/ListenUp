@@ -902,7 +902,7 @@ class PlaybackService :
                             positionMs = positionMs,
                             speed = transportPlayer.playbackParameters.speed,
                         )
-                        listeningEventRecorder.onPeriodicTick(positionMs = positionMs)
+                        listeningEventRecorder.onPeriodicTick(bookId = bookId.value, positionMs = positionMs)
                     }
                 }
             }
@@ -1015,7 +1015,7 @@ class PlaybackService :
                     durationMs = getBookDurationMs(),
                 )
                 serviceScope.launch {
-                    listeningEventRecorder.onPause(positionMs = positionMs)
+                    listeningEventRecorder.onPause(bookId = bookId.value, positionMs = positionMs)
                 }
                 saveRefinedMeasurement(bookId = bookId, positionMs = positionMs)
             }

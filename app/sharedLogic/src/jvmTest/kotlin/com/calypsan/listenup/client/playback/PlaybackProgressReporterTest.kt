@@ -186,6 +186,133 @@ class PlaybackProgressReporterTest :
                 }
             }
         }
+
+        // A web player reports Playing again after every stall and at every file change of a multi-file book.
+        // That is the same listen going on, not a new one: the span opened at its start must survive to the pause.
+        test("Playing again with the span open (a stall or a file change ending) keeps one span from start to pause") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, enqueued, tracker, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(1_200_000L)
+                    reporter.onPositionUpdate(bookId = BookId(BOOK_ID), positionMs = 1_199_000L, speed = SPEED)
+                    advanceUntilIdle()
+
+                    // Minute 45: the next file starts.
+                    setNow(2_701_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 2_700_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    db.tentativeSpanDao().countRows() shouldBe 1
+
+                    setNow(3_001_000L)
+                    reporter.onPlaybackPaused(bookId = BookId(BOOK_ID), positionMs = 3_000_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    val event = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).single()
+                    event.startPositionMs shouldBe 0L
+                    event.endPositionMs shouldBe 3_000_000L
+                    event.startedAt shouldBe 1_000L
+                    event.endedAt shouldBe 3_001_000L
+                    enqueued.size shouldBe 1
+                    db.tentativeSpanDao().get().shouldBeNull()
+                    // The session began once: a stall ending is not a fresh start of the book.
+                    tracker.onPlaybackStartedCalls.size shouldBe 1
+                }
+            }
+        }
+
+        test("Playing after a pause opens a new span: only an open span absorbs a repeated Playing") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, _, tracker, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(61_000L)
+                    reporter.onPlaybackPaused(bookId = BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(121_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 1
+                    db
+                        .tentativeSpanDao()
+                        .get()
+                        .shouldNotBeNull()
+                        .startPositionMs shouldBe 60_000L
+                    tracker.onPlaybackStartedCalls.size shouldBe 2
+                }
+            }
+        }
+
+        test("a seek splits the open span so the jumped-over range is not counted as listened") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, _, _, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(121_000L)
+                    reporter.onSeek(bookId = BookId(BOOK_ID), beforeMs = 120_000L, afterMs = 3_000_000L, speed = SPEED)
+                    advanceUntilIdle()
+                    setNow(181_000L)
+                    reporter.onPlaybackPaused(bookId = BookId(BOOK_ID), positionMs = 3_060_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    val events =
+                        db
+                            .listeningEventDao()
+                            .getByBookForUser(USER_ID, BOOK_ID)
+                            .map { it.startPositionMs to it.endPositionMs }
+                    events.toSet() shouldBe setOf(0L to 120_000L, 3_000_000L to 3_060_000L)
+                }
+            }
+        }
+
+        test("playback stopping without a pause (an error, a teardown) closes the open span where it stopped") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, _, tracker, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(91_000L)
+                    reporter.onPlaybackStopped(bookId = BookId(BOOK_ID), positionMs = 90_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    db
+                        .listeningEventDao()
+                        .getByBookForUser(USER_ID, BOOK_ID)
+                        .single()
+                        .endPositionMs shouldBe 90_000L
+                    tracker.onPlaybackPausedCalls.size shouldBe 1
+
+                    // A second stop has no span to close and saves nothing again.
+                    reporter.onPlaybackStopped(bookId = BookId(BOOK_ID), positionMs = 90_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    tracker.onPlaybackPausedCalls.size shouldBe 1
+                }
+            }
+        }
+
+        test("a retry after playback stopped opens a fresh span rather than stretching the old one") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, _, _, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(91_000L)
+                    reporter.onPlaybackStopped(bookId = BookId(BOOK_ID), positionMs = 90_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(400_000L)
+                    reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 90_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    val span = db.tentativeSpanDao().get().shouldNotBeNull()
+                    span.startPositionMs shouldBe 90_000L
+                    span.startedAt shouldBe 400_000L
+                }
+            }
+        }
     })
 
 /**

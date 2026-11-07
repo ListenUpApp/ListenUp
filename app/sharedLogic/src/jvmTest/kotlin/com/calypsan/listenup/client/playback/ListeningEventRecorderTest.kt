@@ -69,7 +69,7 @@ class ListeningEventRecorderTest :
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
 
                     now = 31_000L
-                    recorder.onPeriodicTick(5_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 5_000L)
 
                     val span = db.tentativeSpanDao().get()
                     span.shouldNotBeNull()
@@ -92,7 +92,7 @@ class ListeningEventRecorderTest :
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
 
                     now = 61_000L
-                    recorder.onPause(positionMs = 60_000L)
+                    recorder.onPause(BOOK_ID, positionMs = 60_000L)
 
                     // Tentative span must be gone
                     db.tentativeSpanDao().get().shouldBeNull()
@@ -200,7 +200,7 @@ class ListeningEventRecorderTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
                     now = 61_000L
-                    recorder.onPeriodicTick(60_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 60_000L)
 
                     recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
 
@@ -228,7 +228,7 @@ class ListeningEventRecorderTest :
                 // Fixed clock: both onPlay and onPause see the same millisecond → zero duration
                 withFixture(nowMillis = 5_000L) { recorder, db, enqueuedOps ->
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
-                    recorder.onPause(positionMs = 30_000L)
+                    recorder.onPause(BOOK_ID, positionMs = 30_000L)
 
                     // No listening event
                     db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
@@ -359,7 +359,7 @@ class ListeningEventRecorderTest :
                     // the tentative-span delete (and event upsert) must roll back so the
                     // ONLY breadcrumb recoverOrphan reads survives. Before the fix the span
                     // was deleted unconditionally and the event stranded at revision=0.
-                    recorder.onPause(positionMs = 60_000L)
+                    recorder.onPause(BOOK_ID, positionMs = 60_000L)
 
                     // The tentative span MUST still exist — the delete rolled back.
                     db.tentativeSpanDao().get().shouldNotBeNull()
@@ -427,7 +427,7 @@ class ListeningEventRecorderTest :
                     // THIS process opens a live span and extends it.
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
                     now = 31_000L
-                    recorder.onPeriodicTick(5_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 5_000L)
 
                     // A late startup recovery fires while this process is mid-listen (the race the
                     // reorder + process identity guards against).
@@ -452,11 +452,11 @@ class ListeningEventRecorderTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
                     recorder.onPlay(BOOK_ID, positionMs = 600_000L, SPEED) // 0:10:00
                     now = 121_000L
-                    recorder.onPeriodicTick(720_000L) // 0:12:00
+                    recorder.onPeriodicTick(BOOK_ID, 720_000L) // 0:12:00
                     now = 122_000L
                     recorder.onSeek(positionBeforeSeek = 720_000L, positionAfterSeek = 18_000_000L) // → 5:00:00
                     now = 242_000L
-                    recorder.onPause(positionMs = 18_120_000L) // 5:02:00
+                    recorder.onPause(BOOK_ID, positionMs = 18_120_000L) // 5:02:00
 
                     val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
                     events.size shouldBe 2

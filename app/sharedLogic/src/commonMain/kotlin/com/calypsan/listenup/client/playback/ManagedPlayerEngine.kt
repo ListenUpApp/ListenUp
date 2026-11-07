@@ -108,9 +108,10 @@ internal class ManagedPlayerEngine(
     override fun pause() = playbackController.pause()
 
     override fun seekTo(positionMs: Long) {
+        // Read before the player moves: the manager's position is the edge the listening span splits at.
+        val fromPositionMs = playbackManager.currentPositionMs.value
         playbackController.seekTo(positionMs)
-        // A seek while paused produces no tick; tell the manager so the playhead moves at once.
-        playbackManager.updatePosition(positionMs)
+        playbackManager.onSeek(fromPositionMs = fromPositionMs, toPositionMs = positionMs)
     }
 
     override fun setSpeed(speed: Float) {
