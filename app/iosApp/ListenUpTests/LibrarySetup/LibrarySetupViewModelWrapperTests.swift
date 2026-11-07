@@ -50,14 +50,10 @@ struct LibrarySetupWrapperSelectionTests {
         directories: [DirectoryEntry] = [],
         selectedPaths: Set<String> = []
     ) -> LibrarySetupUiState {
-        LibrarySetupUiState(
-            isCheckingStatus: false,
-            needsSetup: true,
+        LibrarySetupUiStateBrowsing(
             currentPath: "/media",
-            parentPath: "/",
             directories: directories,
             isLoadingDirectories: false,
-            isRoot: false,
             selectedPaths: selectedPaths,
             isCreatingLibrary: false,
             error: nil
@@ -127,7 +123,7 @@ struct LibrarySetupWrapperSelectionTests {
     /// nil-unwrap crash on such a wrapper; now they `guard` and no-op safely.
     @Test func actionsAreSafeNoOpsWithoutABackingViewModel() {
         let wrapper = LibrarySetupViewModelWrapper()
-        wrapper.checkStatus()
+        wrapper.retryStatusCheck()
         wrapper.open("/media")
         wrapper.up()
         wrapper.toggle("/media/A")
@@ -137,5 +133,52 @@ struct LibrarySetupWrapperSelectionTests {
         wrapper.dismissError()
         // Reaching here without trapping is the assertion; pin a state read too.
         #expect(wrapper.hasSelection == false)
+    }
+}
+
+@Suite("LibrarySetupViewModelWrapper phase")
+@MainActor
+struct LibrarySetupWrapperPhaseTests {
+    @Test func checkingMapsToChecking() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(LibrarySetupUiStateChecking.shared)
+        #expect(wrapper.phase == .checking)
+    }
+
+    /// The bug this pins: a failed check used to leave the wizard on a spinner forever. It is now
+    /// its own phase, carrying the error's message for the Try Again screen.
+    @Test func checkFailedCarriesTheErrorMessage() {
+        let error = InternalError(correlationId: nil, debugInfo: nil, cause: nil)
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(LibrarySetupUiStateCheckFailed(error: error))
+        #expect(wrapper.phase == .checkFailed(message: error.message))
+    }
+
+    @Test func notNeededFinishesTheWizard() {
+        let wrapper = LibrarySetupViewModelWrapper()
+        var finished = false
+        wrapper.onFinished = { finished = true }
+        wrapper.apply(LibrarySetupUiStateNotNeeded.shared)
+        #expect(wrapper.phase == .notNeeded)
+        #expect(finished == true)
+    }
+
+    @Test func browsingMapsThePickerAndItsInlineError() {
+        let error = InternalError(correlationId: nil, debugInfo: nil, cause: nil)
+        let wrapper = LibrarySetupViewModelWrapper()
+        wrapper.apply(LibrarySetupUiStateBrowsing(
+            currentPath: "/media/A",
+            directories: [],
+            isLoadingDirectories: true,
+            selectedPaths: [],
+            isCreatingLibrary: false,
+            error: error
+        ))
+        #expect(wrapper.phase == .browsing)
+        #expect(wrapper.currentPath == "/media/A")
+        #expect(wrapper.parentPath == "/media")
+        #expect(wrapper.isRoot == false)
+        #expect(wrapper.isLoadingDirectories == true)
+        #expect(wrapper.errorMessage == error.message)
     }
 }

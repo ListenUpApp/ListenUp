@@ -126,7 +126,7 @@ private fun librarySetupShapes(): Map<String, @Composable () -> Unit> =
     shapes(
         shape("librarySetup #1: { LibrarySetupPage( state = setupState(s") {
             LibrarySetupPage(
-                state = setupState(selectedPaths = setOf("/srv/Audiobooks"), error = "That folder could not be read."),
+                state = setupState(selectedPaths = setOf("/srv/Audiobooks"), error = InternalError()),
                 onOpenFolder = {},
                 onNavigateUp = {},
                 onToggleFolder = {},

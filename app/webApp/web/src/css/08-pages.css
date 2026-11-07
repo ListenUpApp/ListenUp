@@ -52,6 +52,9 @@
 .luw .lib-retry { margin-top: var(--sp-8); }
 /* The failed-setup-check panel's one move, filling the auth card like the sign-in submit does. */
 .luw .setup-check-retry { margin-top: var(--sp-8); }
+/* "Building your library": a stalled first scan says so, then offers the partial library. */
+.luw .populating-stalled { margin: var(--sp-8) 0 0; color: var(--ink-3); }
+.luw .populating-continue { margin-top: var(--sp-16); }
 
 /* ---- The confirm dialog. `<dialog>` gives the top layer and the backdrop pseudo-element, so all
    this has to do is look like the rest of the app. */

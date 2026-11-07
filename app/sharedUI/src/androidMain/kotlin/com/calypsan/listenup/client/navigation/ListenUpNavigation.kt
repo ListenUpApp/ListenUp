@@ -1,26 +1,20 @@
 package com.calypsan.listenup.client.navigation
 
-import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.nowplaying.morph.LocalPlayerMorph
 import com.calypsan.listenup.client.features.nowplaying.morph.rememberPlayerMorph
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -34,17 +28,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import com.calypsan.listenup.client.features.setup.SetupCheckFailedScreen
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.error_book_not_connected
 import listenup.composeapp.generated.resources.error_book_wrong_server
-import listenup.composeapp.generated.resources.startup_setup_check_failed_message
-import listenup.composeapp.generated.resources.startup_setup_check_failed_title
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -67,7 +58,6 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
-import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.ProvideRestrictedBookIds
 import com.calypsan.listenup.client.features.bulkedit.PendingSelectionExit
@@ -286,49 +276,6 @@ private fun JoinNavigation(
 @Composable
 private fun LoadingScreen() {
     FullScreenLoadingIndicator()
-}
-
-/**
- * Full-screen error surface shown when an admin's library-setup check fails.
- *
- * Mirrors the existing error-state pattern (icon + message + retry button) so the
- * admin gets an honest, retryable failure instead of silently landing in an empty
- * Shell. [onRetry] re-runs the setup-status check.
- */
-@Composable
-private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
-    Box(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(32.dp),
-        ) {
-            Icon(
-                imageVector = ListenUpIcons.ErrorOutlineFilled,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.error,
-            )
-            Text(
-                text = stringResource(Res.string.startup_setup_check_failed_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-            Text(
-                text = stringResource(Res.string.startup_setup_check_failed_message),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            ListenUpButton(text = stringResource(Res.string.common_retry), onClick = onRetry)
-        }
-    }
 }
 
 /**

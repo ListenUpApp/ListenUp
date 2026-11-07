@@ -252,6 +252,11 @@ private val EXCUSED =
         // panel — in-flight sync is chrome the reader has nothing to decide about — and wires only
         // the dead-letter half of this ViewModel (see DeadLetterStore).
         "SyncIndicatorViewModel.toggleExpanded",
+        // The 30-minute re-check after a long background is the app-process lifecycle's (MainActivity,
+        // the iOS scene phase). A browser tab that sat hidden re-reads nothing on return; a reload is
+        // its fresh start, and that re-runs the check from scratch.
+        "AppStartupViewModel.onAppBackgrounded",
+        "AppStartupViewModel.onAppForegrounded",
         // `refreshNow` is the awaitable twin of refresh()/load(), for native pull-to-refresh; web has no
         // pull-to-refresh and its stores call the fire-and-forget refresh().
         "HomeViewModel.refreshNow",

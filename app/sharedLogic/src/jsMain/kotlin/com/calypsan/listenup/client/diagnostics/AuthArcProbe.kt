@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
@@ -134,12 +135,13 @@ suspend fun probeAuthArc(
         // In the same arc, and in this order, deliberately. Registering a folder is admin-only, so
         // it cannot run before the admin above exists — and this harness boots ONE server, whose
         // setup this probe already owns.
+        // The wizard browses the root itself once its setup check says setup is needed; a browse
+        // asked for before that answer would be refused, so the probe waits for the first listing.
         val librarySetup = app.koin.get<LibrarySetupViewModel>()
-        librarySetup.loadDirectory(ROOT_PATH)
         val browsed =
             withTimeoutOrNull(ARC_TIMEOUT) {
-                librarySetup.state.first { !it.isLoadingDirectories }
-            }
+                librarySetup.state.first { it is LibrarySetupUiState.Browsing && !it.isLoadingDirectories }
+            } as? LibrarySetupUiState.Browsing
 
         // ⛔ `as? String` first, and that is what makes the `?.let` below safe. Kotlin/JS dispatches
         // scope functions on a raw `dynamic` as JS PROPERTY LOOKUPS, so `someDynamic?.let { }`
@@ -160,9 +162,9 @@ suspend fun probeAuthArc(
             authedCallErrorCode = (authed as? AppResult.Failure)?.error?.code,
             userCount = (authed as? AppResult.Success)?.data?.size ?: NO_USER_COUNT,
             rootDirectoryCount = browsed?.directories?.size ?: NO_USER_COUNT,
-            browseErrorCode = browsed?.error,
+            browseErrorCode = browsed?.error?.code,
             folderRegistered = registered is LibrarySetupNavAction.Finished,
-            folderError = librarySetup.state.value.error,
+            folderError = (librarySetup.state.value as? LibrarySetupUiState.Browsing)?.error?.message,
         )
     } finally {
         app.close()
@@ -172,7 +174,6 @@ suspend fun probeAuthArc(
 private val ARC_TIMEOUT = 20.seconds
 
 private const val NO_USER_COUNT = -1
-private const val ROOT_PATH = "/"
 
 private const val PROBE_FIRST_NAME = "Probe"
 private const val PROBE_LAST_NAME = "Admin"

@@ -25,7 +25,7 @@ import org.jetbrains.compose.web.dom.Text
  * this wizard since the beginning; a web-only admin reached the shell, saw nothing, and had no
  * control anywhere in the app that would have helped.
  *
- * Pure in [state]; the session wiring lives one level up.
+ * Pure in [state] — the picker step; the session wiring and the check before it live one level up.
  *
  * ⛔ **This is a browser of the SERVER's filesystem, not yours.** Every path here comes from
  * `LibraryAdminService.browseFilesystem` and is absolute on the machine running ListenUp — which
@@ -40,7 +40,7 @@ import org.jetbrains.compose.web.dom.Text
  */
 @Composable
 fun LibrarySetupPage(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onOpenFolder: (String) -> Unit,
     onNavigateUp: () -> Unit,
     onToggleFolder: (String) -> Unit,
@@ -55,7 +55,7 @@ fun LibrarySetupPage(
             subtitle = "These folders are on the machine running your ListenUp server.",
         )
 
-        state.error?.let { message ->
+        state.error?.message?.let { message ->
             Div(attrs = {
                 classes("lsetup-err")
                 attr("role", "alert")
@@ -73,7 +73,7 @@ fun LibrarySetupPage(
         Breadcrumb(state, onNavigateUp, onUseCurrentFolder = { onSelectFolder(state.currentPath) })
 
         when {
-            state.isCheckingStatus || state.isLoadingDirectories -> {
+            state.isLoadingDirectories -> {
                 Div(attrs = { classes("skel", "lsetup-skel") })
             }
 
@@ -116,7 +116,7 @@ fun LibrarySetupPage(
  */
 @Composable
 private fun Breadcrumb(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onNavigateUp: () -> Unit,
     onUseCurrentFolder: () -> Unit,
 ) {
@@ -203,7 +203,7 @@ private fun FolderRow(
  */
 @Composable
 private fun SelectionBar(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onComplete: () -> Unit,
     onClearSelection: () -> Unit,
 ) {

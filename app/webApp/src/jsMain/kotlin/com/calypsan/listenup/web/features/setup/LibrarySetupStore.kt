@@ -2,9 +2,6 @@ package com.calypsan.listenup.web.features.setup
 
 import com.calypsan.listenup.web.nav.RouteSession
 import androidx.lifecycle.ViewModelStore
-import com.calypsan.listenup.api.result.getOrDefault
-import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
@@ -16,8 +13,8 @@ import org.koin.core.Koin
  * An open library-setup wizard, the gestures it accepts, and the teardown for it.
  *
  * [navActions] carries the single one-shot the wizard emits — `Finished`. It is a flow rather than
- * a state field because it is an event: the ViewModel does not flip `needsSetup` back to false when
- * setup completes, so the host has to hear "done" once and stop showing the wizard itself.
+ * a state field because it is an event: the wizard stays on its picker when setup completes, so the
+ * host has to hear "done" once and stop showing the wizard itself.
  */
 class LibrarySetupSession(
     val state: StateFlow<LibrarySetupUiState>,
@@ -30,13 +27,8 @@ class LibrarySetupSession(
     /** Choose a folder as a whole — the page passes the one currently being browsed. */
     val onSelectFolder: (String) -> Unit,
     val onClearSelection: () -> Unit,
-    /** Ask the server again whether setup is needed — the retry for a probe that failed. */
-    val onCheckStatus: () -> Unit,
-    /**
-     * Whether this browser already holds a library. Consulted only when the setup probe fails:
-     * a reader with a mirror opens offline rather than being walled out by a server that is down.
-     */
-    val hasLocalLibrary: suspend () -> Boolean,
+    /** Ask the server again whether setup is needed — the retry for a check that failed. */
+    val onRetry: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -52,7 +44,6 @@ typealias OpenLibrarySetup = () -> LibrarySetupSession
 fun graphLibrarySetup(koin: Koin): OpenLibrarySetup =
     {
         val viewModel = koin.get<LibrarySetupViewModel>()
-        val syncRepository = koin.get<SyncRepository>()
         val store = ViewModelStore().apply { put("library-setup", viewModel) }
         LibrarySetupSession(
             state = viewModel.state,
@@ -64,10 +55,7 @@ fun graphLibrarySetup(koin: Koin): OpenLibrarySetup =
             onDismissError = viewModel::clearError,
             onSelectFolder = viewModel::selectPath,
             onClearSelection = viewModel::clearSelection,
-            onCheckStatus = viewModel::checkLibraryStatus,
-            // `getOrDefault(false)` on failure: an unreadable mirror is treated as no mirror, which
-            // offers the retry — the one answer that cannot strand anyone.
-            hasLocalLibrary = { suspendRunCatching { syncRepository.hasLocalLibrary() }.getOrDefault { false } },
+            onRetry = viewModel::retryStatusCheck,
             close = store::clear,
         )
     }

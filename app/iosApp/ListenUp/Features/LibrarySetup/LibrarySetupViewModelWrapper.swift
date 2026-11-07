@@ -21,15 +21,27 @@ struct DirectoryItem: Identifiable, Equatable {
     }
 }
 
+/// Which step of the wizard is on screen, flattened from the sealed `LibrarySetupUiState`.
+enum LibrarySetupPhase: Equatable {
+    /// Asking the server whether setup is needed.
+    case checking
+    /// The server could not answer; the screen shows `message` with Try Again.
+    case checkFailed(message: String)
+    /// The library already watches folders — the wizard's job is done and the host moves on.
+    case notNeeded
+    /// Choosing folders.
+    case browsing
+}
+
 /// Observes ``LibrarySetupViewModel`` — the `LibrarySetupUiState` and its one-shot
 /// `navActions` flow — flattening both into SwiftUI-native state. Thin over `FlowBridge`.
-/// Errors are mapped once here into ``errorMessage`` (no `errorBus`).
+/// Errors are mapped once here: a failed check into ``phase``, a browse/registration failure into
+/// ``errorMessage`` (no `errorBus`).
 @Observable
 @MainActor
 final class LibrarySetupViewModelWrapper {
-    // Status check
-    private(set) var isCheckingStatus: Bool = true
-    private(set) var needsSetup: Bool = false
+    /// Checking, failed, not needed, or browsing — the screen switches on this first.
+    private(set) var phase: LibrarySetupPhase = .checking
 
     // Folder browser
     private(set) var currentPath: String = "/"
@@ -52,7 +64,7 @@ final class LibrarySetupViewModelWrapper {
     // Library creation
     private(set) var isCreatingLibrary: Bool = false
 
-    // Error (mapped once from state.error)
+    /// A browse or folder-registration failure, shown as an alert over the picker.
     private(set) var errorMessage: String?
 
     /// Navigation callbacks — set by the coordinator.
@@ -80,9 +92,11 @@ final class LibrarySetupViewModelWrapper {
 
     // MARK: - Actions
 
-    func checkStatus() {
+    /// Ask the server again after a failed check. The ViewModel checks once by itself when it is
+    /// created, so there is nothing to start on appear.
+    func retryStatusCheck() {
         guard let viewModel else { return }
-        viewModel.checkLibraryStatus()
+        viewModel.retryStatusCheck()
     }
 
     func open(_ path: String) {
@@ -127,14 +141,27 @@ final class LibrarySetupViewModelWrapper {
     /// Internal (not private) so wrapper-level tests can drive the stateful selection
     /// logic directly without a live KMP ViewModel.
     func apply(_ state: LibrarySetupUiState) {
-        isCheckingStatus = state.isCheckingStatus
-        needsSetup = state.needsSetup
+        switch state.sealedType() {
+        case .checking:
+            phase = .checking
+        case .checkFailed(let failedType):
+            phase = .checkFailed(message: failedType.value.error.message)
+        case .notNeeded:
+            phase = .notNeeded
+            onFinished?()
+        case .browsing(let browsingType):
+            phase = .browsing
+            applyBrowsing(browsingType.value)
+        }
+    }
+
+    private func applyBrowsing(_ state: LibrarySetupUiStateBrowsing) {
         currentPath = state.currentPath
         parentPath = state.parentPath
         isRoot = state.isRoot
         isLoadingDirectories = state.isLoadingDirectories
         isCreatingLibrary = state.isCreatingLibrary
-        errorMessage = state.error
+        errorMessage = state.error?.message
 
         let selected = state.selectedPaths
         selectedPaths = selected
