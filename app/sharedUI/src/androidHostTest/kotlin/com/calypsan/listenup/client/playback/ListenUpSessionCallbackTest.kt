@@ -112,6 +112,62 @@ class ListenUpSessionCallbackTest {
         prepared.shouldBeEmpty()
     }
 
+    // ── A start from the car, the Assistant or the resume card switches books cleanly ──
+    //
+    // The in-app switch pauses the outgoing book before preparing the next. These paths prepare
+    // without a screen, and the outgoing book's pause, arriving after the switch, was filed under
+    // the new book at the new book's place.
+
+    @Test
+    fun `resuming another book pauses the one still playing before preparing it`() {
+        val player = FakeExoPlayer(playWhenReady = true)
+        val pausesAtPrepare = mutableListOf<Int>()
+        val callback =
+            resumptionCallback(
+                loadedBookId = BookId("next"),
+                prepared = mutableListOf(),
+                playingBookId = BookId("outgoing"),
+                player = player,
+                onPrepare = { pausesAtPrepare += player.pauseCount },
+            )
+
+        runCatching { callback.resume() }
+
+        pausesAtPrepare shouldBe listOf(1)
+    }
+
+    @Test
+    fun `resuming the book already playing pauses nothing`() {
+        val player = FakeExoPlayer(playWhenReady = true)
+        val callback =
+            resumptionCallback(
+                loadedBookId = BookId("same"),
+                prepared = mutableListOf(),
+                playingBookId = BookId("same"),
+                player = player,
+            )
+
+        runCatching { callback.resume() }
+
+        player.pauseCount shouldBe 0
+    }
+
+    @Test
+    fun `resuming another book while the player is already paused pauses nothing`() {
+        val player = FakeExoPlayer(playWhenReady = false)
+        val callback =
+            resumptionCallback(
+                loadedBookId = BookId("next"),
+                prepared = mutableListOf(),
+                playingBookId = BookId("outgoing"),
+                player = player,
+            )
+
+        runCatching { callback.resume() }
+
+        player.pauseCount shouldBe 0
+    }
+
     // ── Publishing the landing position ───────────────────────────────────────
     //
     // Seeking the player is only half the job: the in-app position comes from a poll that runs
@@ -765,10 +821,15 @@ class ListenUpSessionCallbackTest {
     private fun resumptionCallback(
         loadedBookId: BookId?,
         prepared: MutableList<BookId>,
+        playingBookId: BookId? = null,
+        player: Player? = null,
+        onPrepare: () -> Unit = {},
     ): ListenUpSessionCallback {
         val playbackManager = mock<PlaybackManager>()
+        every { playbackManager.currentBookId } returns MutableStateFlow(playingBookId)
         everySuspend { playbackManager.prepareForPlayback(any(), any()) } calls
             { (bookId: BookId, _: Long?) ->
+                onPrepare()
                 prepared += bookId
                 AppResult.Failure(PlaybackError.CouldNotStart())
             }
@@ -782,7 +843,7 @@ class ListenUpSessionCallbackTest {
             authSession = mock<AuthSession>(),
             loadedBookRepository = FakeLoadedBookRepository(loadedBookId),
             serviceScope = CoroutineScope(Dispatchers.Unconfined),
-            transport = FakePlaybackTransport(null, 0L),
+            transport = FakePlaybackTransport(player, 0L),
             uriPermissionGranter = FakeUriPermissionGranter(),
             strings = SystemStringsHolder(),
             skipIntervals = stockIntervals(),
