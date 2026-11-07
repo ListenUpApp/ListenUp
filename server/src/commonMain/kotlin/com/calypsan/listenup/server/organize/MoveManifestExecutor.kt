@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.librarywrite.WriteManifest
 import com.calypsan.listenup.server.librarywrite.WriteOp
 import com.calypsan.listenup.server.librarywrite.ancestorPruneOps
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 
 /**
  * Executes one [MovePlanEntry]: moves every file in [MovePlanEntry.files] via
@@ -33,22 +34,29 @@ import com.calypsan.listenup.server.services.BookRepository
  * scanner's path match misses, the `(folder_id, inode)` lookup — the existing moved-book
  * detection in `BookRepository.resolveOrInsert` — re-links the book to its new path under its
  * original id, no operator intervention required.
+ *
+ * Scans: the file move and the path rewrite run under [layoutLock], the lock a scan's persist also
+ * holds. A scan that walked the book at its old folder therefore persists either wholly before the
+ * move or wholly after it, and in the second case finds the book's audio at its new path and leaves
+ * it alone instead of tombstoning it (see [LibraryLayoutLock]).
  */
 class MoveManifestExecutor(
     private val broker: LibraryWriteBroker,
     private val bookRepository: BookRepository,
+    private val layoutLock: LibraryLayoutLock,
 ) {
     /** Moves [entry]'s files on disk, then rewrites the book's stored path. See the class KDoc for the ordering guarantee. */
-    suspend fun execute(entry: MovePlanEntry): AppResult<Unit> {
-        val moveResult = broker.executeManifest(manifestFor(entry))
-        if (moveResult is AppResult.Failure) return moveResult
+    suspend fun execute(entry: MovePlanEntry): AppResult<Unit> =
+        layoutLock.withLock {
+            val moveResult = broker.executeManifest(manifestFor(entry))
+            if (moveResult is AppResult.Failure) return@withLock moveResult
 
-        return bookRepository.moveRootRelPath(
-            BookId(entry.bookId),
-            entry.toRootRelPath,
-            renamedAudioFilename = entry.audioRename?.to,
-        )
-    }
+            bookRepository.moveRootRelPath(
+                BookId(entry.bookId),
+                entry.toRootRelPath,
+                renamedAudioFilename = entry.audioRename?.to,
+            )
+        }
 
     private fun manifestFor(entry: MovePlanEntry): WriteManifest =
         WriteManifest(

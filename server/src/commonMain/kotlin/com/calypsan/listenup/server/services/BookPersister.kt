@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
+import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
 
 private val log = loggerFor<BookPersister>()
@@ -111,6 +113,14 @@ private val UNKNOWN_FOLDER_ID = FolderId("unknown")
  * [libraryRepository] reads the per-library `holdNewBooksForReview` gate; [collectionService]
  * resolves (or creates) the appropriate system collection (ALL_BOOKS or INBOX) each scan.
  * Both back the system-collection auto-membership described above.
+ *
+ * Stale walks: a scan walks the disk well before it persists, and the organizer may move a book in
+ * between. Each persist therefore runs under [layoutLock] (shared with the organizer's moves) and
+ * trusts the disk over the walk: a walked book whose audio has left the place the walk saw it is
+ * not written, and the sweep spares a book whose identity file left the walked path for the folder
+ * its row now names.
+ * [isOnDisk] is that disk probe; tests that persist synthetic scan results with no files behind
+ * them replace it.
  */
 class BookPersister internal constructor(
     private val ingest: BookIngestPort,
@@ -122,8 +132,10 @@ class BookPersister internal constructor(
     private val eventBus: MutableSharedFlow<ScanEvent>,
     private val changeBus: ChangeBus,
     private val scope: CoroutineScope,
+    private val layoutLock: LibraryLayoutLock,
     private val coverImageStore: CoverImageStore? = null,
     private val coverSpool: CoverSpool? = null,
+    private val isOnDisk: (Path) -> Boolean = { SystemFileSystem.exists(it) },
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
@@ -150,10 +162,12 @@ class BookPersister internal constructor(
             val counts: PersistCounts
             try {
                 counts =
-                    if (suppressFirehose) {
-                        withContext(FirehoseSuppressed) { persistAll(result, libraryId) }
-                    } else {
-                        persistAll(result, libraryId)
+                    layoutLock.withLock {
+                        if (suppressFirehose) {
+                            withContext(FirehoseSuppressed) { persistAll(result, libraryId) }
+                        } else {
+                            persistAll(result, libraryId)
+                        }
                     }
             } catch (e: OutOfMemoryError) {
                 // OOM means the JVM heap is compromised. We still emit Completed with the partial
@@ -305,7 +319,7 @@ class BookPersister internal constructor(
         // 100% for the whole persist. We emit PERSISTING progress so the same bar advances 0→100% again
         // under a "Saving library" label. [toPersist] is the count of books actually written
         // (Added/Modified/Moved); Removed changes are tombstones, not persisted books.
-        val changedBooks =
+        val walkedBooks =
             result.changes.mapNotNull { change ->
                 when (change) {
                     is ChangeEventDto.Added -> coverBearing(change.book)
@@ -314,6 +328,8 @@ class BookPersister internal constructor(
                     is ChangeEventDto.Removed -> null
                 }
             }
+        // A book the organizer moved after the walk saw it is not where the walk recorded it.
+        val changedBooks = walkedBooks.withoutBooksGoneSinceWalk(::folderRootOf, isOnDisk)
         val toPersist = changedBooks.size
 
         // Resolve every contributor, series, AND distinct genre string across the whole scan to a
@@ -429,7 +445,10 @@ class BookPersister internal constructor(
                 // to persist) is in seenPaths, so the sweep never tombstones a present book. Its
                 // tombstone count joins the incremental-removal count so a full rescan whose ONLY
                 // change is a sweep-caught deletion still fires the reconcile nudge.
-                removed += ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
+                // Where the walk found each book's identity file lets the sweep tell a book the organizer
+                // moved after the walk (its file has left the walked path) from one that is gone.
+                val walkedIdentityFiles = result.books.identityFilesByInode(::folderRootOf, folderIdByRoot)
+                removed += ingest.softDeleteAbsentByPaths(libraryId, seenPaths, walkedIdentityFiles)
             }
         }
         return PersistCounts(persisted, failed, removed)
@@ -623,3 +642,47 @@ internal data class PersistCounts(
  */
 internal fun ScanResult.toSummary(counts: PersistCounts): com.calypsan.listenup.api.dto.scanner.ScanResultSummary =
     toSummary().copy(persisted = counts.persisted, failed = counts.failed)
+
+/**
+ * True when this walked book's first audio file is still on disk where the walk found it. One probe
+ * per book: a move or rename relocates that file with the rest, and a book with no audio entry has
+ * nothing to probe, so it is taken as present.
+ */
+private fun AnalyzedBook.stillOnDisk(
+    folderRoot: String,
+    isOnDisk: (Path) -> Boolean,
+): Boolean {
+    val audio = candidate.files.firstOrNull { it.fileType == FileType.AUDIO } ?: return true
+    return isOnDisk(Path(folderRoot, audio.relPath))
+}
+
+/**
+ * These walked books minus any whose audio has left the place the walk saw it. Writing such a book
+ * would mint a second book at a folder that no longer exists (or point the real one back at it), so
+ * it is left to the next scan, which walks it where it now lives.
+ */
+private fun List<AnalyzedBook>.withoutBooksGoneSinceWalk(
+    folderRootOf: (AnalyzedBook) -> String,
+    isOnDisk: (Path) -> Boolean,
+): List<AnalyzedBook> {
+    val (present, gone) = partition { book -> book.stillOnDisk(folderRootOf(book), isOnDisk) }
+    if (gone.isNotEmpty()) {
+        log.info {
+            "Not persisting ${gone.size} walked book(s) whose audio has since left the walked path " +
+                "(moved or removed after the walk): ${gone.map { it.candidate.rootRelPath }}"
+        }
+    }
+    return present
+}
+
+/** Each walked book's identity file (see [identityFile]), keyed by its folder and inode, at its walked absolute path. */
+private fun List<AnalyzedBook>.identityFilesByInode(
+    folderRootOf: (AnalyzedBook) -> String,
+    folderIdByRoot: Map<String, FolderId>,
+): Map<FolderScopedInode, String> =
+    mapNotNull { book ->
+        val file = book.candidate.identityFile() ?: return@mapNotNull null
+        val inode = file.inode ?: return@mapNotNull null
+        val root = folderRootOf(book)
+        FolderScopedInode(folderIdByRoot.getValue(root), inode) to Path(root, file.relPath).toString()
+    }.toMap()

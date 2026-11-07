@@ -163,12 +163,17 @@ interface BookIngestPort {
      * scan — no BookId resolution required for books that did not change. Folder-qualifying the
      * seen set closes a cross-folder path-aliasing bug (two folders sharing a relative path).
      *
+     * [walkedIdentityFiles] maps each walked book's identity file (see [identityFile]) to the absolute
+     * path the walk found it at. It lets the sweep recognise a book the organizer moved after the walk
+     * recorded it at its old folder, which the path-keyed [seen] set cannot.
+     *
      * Returns the number of books tombstoned, so the orchestrator knows a delete-only full scan
      * changed rows above the client cursor and must broadcast the reconcile nudge.
      */
     suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
+        walkedIdentityFiles: Map<FolderScopedInode, String> = emptyMap(),
     ): Int
 
     /**
@@ -201,6 +206,15 @@ interface BookIngestPort {
 data class FolderScopedPath(
     val folderId: FolderId,
     val rootRelPath: String,
+)
+
+/**
+ * A book's identity file within a scan: the owning [folderId] plus the file's [inode] — the key a
+ * stored book carries in `books.inode`, folder-scoped for the same reason as [FolderScopedPath].
+ */
+data class FolderScopedInode(
+    val folderId: FolderId,
+    val inode: Long,
 )
 
 /**

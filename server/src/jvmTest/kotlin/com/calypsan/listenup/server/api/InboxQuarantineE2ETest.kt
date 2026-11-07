@@ -42,6 +42,7 @@ import io.kotest.matchers.shouldBe
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
 import org.koin.ktor.ext.inject
@@ -219,6 +220,12 @@ private suspend fun BookPersister.scanSubtree(
     rootPath: String,
     book: AnalyzedBook,
 ) {
+    // A real scan only reports files it found, and the persister checks they are still there.
+    for (file in book.candidate.files) {
+        val onDisk = Path.of(rootPath, file.relPath)
+        Files.createDirectories(onDisk.parent)
+        if (Files.notExists(onDisk)) Files.createFile(onDisk)
+    }
     persist(
         ScanResult(
             correlationId = "scan-${book.candidate.rootRelPath}",

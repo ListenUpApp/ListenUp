@@ -11,10 +11,12 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BusEvent
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -23,6 +25,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import java.nio.file.Files
+import java.nio.file.Path
 
 class BookRepositorySoftDeleteAbsentTest :
     FunSpec({
@@ -172,7 +176,77 @@ class BookRepositorySoftDeleteAbsentTest :
                 }
             }
         }
+
+        test("softDeleteAbsentByPaths spares a book whose file left the walked path for the path its row names") {
+            sweepOverDisk { repo, root ->
+                val moved = repo.resolveOrInsert(SEEDED_LIBRARY_ID, TEST_FOLDER_ID, analyzedFor("new", inode = 7L)).resolved()
+                root.writeAudio("new/01.m4b")
+
+                repo.softDeleteAbsentByPaths(
+                    SEEDED_LIBRARY_ID,
+                    seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "old")),
+                    walkedIdentityFiles = mapOf(FolderScopedInode(TEST_FOLDER_ID, 7L) to root.resolve("old/01.m4b").toString()),
+                ) shouldBe 0
+
+                repo.findById(moved)?.deletedAt shouldBe null
+            }
+        }
+
+        test("softDeleteAbsentByPaths still sweeps a book whose walked file is still where the walk saw it") {
+            // The walk saw this inode at "regrouped" and the file is still there: the book was folded
+            // into another one (or otherwise re-read), not moved after the walk, so its old row goes.
+            sweepOverDisk { repo, root ->
+                val stale = repo.resolveOrInsert(SEEDED_LIBRARY_ID, TEST_FOLDER_ID, analyzedFor("stale", inode = 7L)).resolved()
+                root.writeAudio("stale/01.m4b")
+                root.writeAudio("regrouped/01.m4b")
+
+                repo.softDeleteAbsentByPaths(
+                    SEEDED_LIBRARY_ID,
+                    seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "regrouped")),
+                    walkedIdentityFiles =
+                        mapOf(FolderScopedInode(TEST_FOLDER_ID, 7L) to root.resolve("regrouped/01.m4b").toString()),
+                ) shouldBe 1
+
+                repo.findById(stale)?.deletedAt shouldNotBe null
+            }
+        }
+
+        test("softDeleteAbsentByPaths still sweeps a moved-looking book whose audio is not on disk either") {
+            sweepOverDisk { repo, root ->
+                val gone = repo.resolveOrInsert(SEEDED_LIBRARY_ID, TEST_FOLDER_ID, analyzedFor("new", inode = 7L)).resolved()
+
+                repo.softDeleteAbsentByPaths(
+                    SEEDED_LIBRARY_ID,
+                    seen = emptySet(),
+                    walkedIdentityFiles = mapOf(FolderScopedInode(TEST_FOLDER_ID, 7L) to root.resolve("old/01.m4b").toString()),
+                ) shouldBe 1
+
+                repo.findById(gone)?.deletedAt shouldNotBe null
+            }
+        }
     })
+
+private val SEEDED_LIBRARY_ID = LibraryId("test-library")
+
+/** A sweep over a real library folder on disk, registered as [TEST_FOLDER_ID]. */
+private fun sweepOverDisk(block: suspend (BookRepository, Path) -> Unit) {
+    val root = Files.createTempDirectory("listenup-sweep-")
+    try {
+        withSqlDatabase {
+            sql.seedTestLibraryAndFolder(folderId = TEST_FOLDER_ID.value, folderPath = root.toString())
+            val (repo, _) = repository(sql, driver, ChangeBus())
+            runTest { block(repo, root) }
+        }
+    } finally {
+        root.toFile().deleteRecursively()
+    }
+}
+
+private fun Path.writeAudio(relPath: String) {
+    val file = resolve(relPath)
+    Files.createDirectories(file.parent)
+    Files.writeString(file, "audio")
+}
 
 // --- Constants --------------------------------------------------------------
 

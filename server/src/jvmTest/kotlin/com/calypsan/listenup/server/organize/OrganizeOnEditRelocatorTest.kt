@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.librarywrite.tempJournalDir
 import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -190,6 +191,7 @@ private suspend fun makeRelocator(
                     SqlLibraryRootProvider(db.sql),
                 ),
                 repo,
+                LibraryLayoutLock(),
             ),
         scope = scope,
         debounceMs = 50,
