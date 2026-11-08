@@ -45,6 +45,10 @@ private val logger = loggerFor<UploadRouteLog>()
  *  - `POST /api/v1/admin/uploads/{id}/finalize` — ingests the staged tree.
  *  - `DELETE /api/v1/admin/uploads/{id}` — abandons it and sweeps the staging directory.
  *
+ * Finalize and abandon each claim the session for their duration, so neither can run while the
+ * other (or a second finalize) is: an abandon mid-import would delete files the import has not
+ * reached yet.
+ *
  * One request per file rather than one N-part request is deliberate. The existing
  * [streamFirstFilePartTo] handles exactly one file part and is proven on both runtimes — the
  * Kotlin/Native server cannot use Ktor's multipart transform at all (KTOR-7361) and decodes the
@@ -101,12 +105,16 @@ internal fun Route.uploadRoutes(
     delete(UploadRoutePaths.SESSION_TEMPLATE) {
         if (!requireUploadAdmin(call)) return@delete
         val sessionId = call.sessionIdOrNull() ?: return@delete respondAppError(call, UploadError.SessionNotFound())
-        val sessionDir =
-            staging.openSession(sessionId)
-                ?: return@delete respondAppError(call, UploadError.SessionNotFound())
-        staging.deleteSession(sessionDir)
-        logger.info { "upload session abandoned: $sessionId" }
-        call.respond(HttpStatusCode.NoContent)
+        when (val result = staging.abandonSession(sessionId)) {
+            is AppResult.Success -> {
+                logger.info { "upload session abandoned: $sessionId" }
+                call.respond(HttpStatusCode.NoContent)
+            }
+
+            is AppResult.Failure -> {
+                respondAppError(call, result.error)
+            }
+        }
     }
 }
 

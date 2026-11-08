@@ -532,6 +532,28 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-ch-play { flex:none; color:var(--coral-text); }
 .bd-ch-table .bd-ch-row { gap:var(--sp-8); }
 .bd-ch-table .bd-ch-t { flex:0 1 auto; }
+/* A marked book: a part is a tinted row whose name opens it and whose play is its own control; a book
+   heads the parts inside it. Grouped rows are the phone's rows at every width, because a table has
+   nowhere to put a row that opens. */
+.bd-part-label { margin:0; padding:var(--sp-4) var(--sp-8); font-size:0.8125rem; font-weight:600; color:var(--coral-text); }
+.bd-book { margin:var(--sp-12) 0 var(--sp-4); padding:0 var(--sp-8); font-size:1rem; font-weight:700; color:var(--ink); }
+.bd-in-book { margin-left:var(--sp-12); }
+.bd-part { display:flex; align-items:center; gap:var(--sp-4); margin-top:var(--sp-4); border-radius:var(--r-sm); background:var(--surface-2); }
+.bd-part.is-current { background:var(--coral-soft); }
+.bd-part-open, .bd-part-name { flex:1; min-width:0; min-height:52px; display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-4) var(--sp-8); padding:var(--sp-4) var(--sp-12); }
+.bd-part-open { font:inherit; text-align:left; background:none; border:0; border-radius:var(--r-sm); color:var(--ink); cursor:pointer; }
+@media (hover: hover) { .bd-part-open:hover { background:var(--surface-3); } }
+.bd-part-open:active { background:var(--surface-3); }
+.bd-part-open:focus { outline:none; }
+.bd-part-open:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+.bd-part-t { font-weight:600; color:var(--ink); }
+.bd-part-sub { font-size:0.875rem; color:var(--ink-2); }
+.bd-part-play { flex:none; width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:none; border:0; border-radius:var(--r-sm); color:var(--coral-text); cursor:pointer; }
+@media (hover: hover) { .bd-part-play:not([disabled]):hover { background:var(--surface-3); } }
+.bd-part-play:not([disabled]):active { background:var(--surface-3); }
+.bd-part-play[disabled] { opacity:0.5; cursor:not-allowed; }
+.bd-part-play:focus { outline:none; }
+.bd-part-play:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
 .bd-ch-all { align-self:stretch; min-height:44px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
 .bd-ch-all:focus { outline:none; }
 .bd-ch-all:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }

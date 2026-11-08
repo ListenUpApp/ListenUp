@@ -377,6 +377,8 @@ class ManagedPlayerEngineTest :
                     rig.engine.setVolume(0.5f)
                     rig.controller.seekCalls shouldContainExactly listOf(42_000L)
                     rig.manager.updatedPositions shouldContainExactly listOf(42_000L)
+                    // From where the playhead was before the player moved: the edge the listening span splits at.
+                    rig.manager.seeks shouldContainExactly listOf(0L to 42_000L)
                     rig.controller.speedCalls shouldContainExactly listOf(1.25f, 1.0f)
                     rig.manager.speedChanges shouldContainExactly listOf(1.25f)
                     rig.manager.speedResets shouldContainExactly listOf(1.0f)

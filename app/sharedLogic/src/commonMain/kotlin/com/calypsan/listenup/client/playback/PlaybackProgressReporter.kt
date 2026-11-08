@@ -4,6 +4,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -33,10 +34,16 @@ private val logger = KotlinLogging.logger {}
  * [PlaybackManagerImpl] via `MediaControllerHolder` — do not record a second time.
  *
  * **Trigger set.** Mirrors what Android records today: open on play/resume, advance on each
- * heartbeat tick, finalize on pause and on book finish, and **split the span on a seek** (see
- * [onSeek]) so a jumped-over range is never counted as listened content. Speed-change does not
- * split the span — the span keeps its opening speed, which is metadata only; stats derive
- * listening time from wall-clock and content from positions, both accurate regardless.
+ * heartbeat tick, finalize on pause, on book finish and on a stop without a pause
+ * ([onPlaybackStopped]), and **split the span on a seek** (see [onSeek]) so a jumped-over range is
+ * never counted as listened content. Speed-change does not split the span — the span keeps its
+ * opening speed, which is metadata only; stats derive listening time from wall-clock and content
+ * from positions, both accurate regardless.
+ *
+ * **One listen, one start.** The reporter keeps the span's phase ([SpanPhase]) itself, so a
+ * player that reports playing again without having paused — the web player does after every
+ * stall and at every file change of a multi-file book — continues the listen instead of starting
+ * it over: [onPlaybackStarted] while the same book's span is open does nothing.
  *
  * **Also the in-session pause→resume auto-rewind seam (#1220).** [notePlaybackPaused] /
  * [notePlaybackResumed] are a SEPARATE pair of methods from the trigger set above — they carry
@@ -69,10 +76,14 @@ class PlaybackProgressReporter(
     private val localPreferences: LocalPreferences,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
+    /** Whether a listening span is open, and for which book. */
+    private val spanPhase = atomic<SpanPhase>(SpanPhase.Closed)
+
     /**
      * Playback started or resumed: save the position (starting a re-listen when a finished book plays
      * again outside the end credits of [durationMs] — see [ProgressTracker.onPlaybackStarted]) and
-     * open a listening span.
+     * open a listening span. A no-op while [bookId]'s span is already open: playing again after a
+     * stall is the same listen going on (see the class KDoc).
      */
     fun onPlaybackStarted(
         bookId: BookId,
@@ -80,6 +91,8 @@ class PlaybackProgressReporter(
         speed: Float,
         durationMs: Long,
     ) {
+        val open = SpanPhase.Open(bookId)
+        if (spanPhase.getAndSet(open) == open) return
         progressTracker.onPlaybackStarted(
             bookId = bookId,
             positionMs = positionMs,
@@ -99,13 +112,30 @@ class PlaybackProgressReporter(
         speed: Float,
         durationMs: Long,
     ) {
+        spanPhase.value = SpanPhase.Closed
         progressTracker.onPlaybackPaused(
             bookId = bookId,
             positionMs = positionMs,
             speed = speed,
             durationMs = durationMs,
         )
-        record { it.onPause(positionMs) }
+        record { it.onPause(bookId.value, positionMs) }
+    }
+
+    /**
+     * Playback stopped without pausing — the player failed, or the session was torn down while it
+     * was still playing or buffering: when a span is open this is the pause it never got
+     * ([onPlaybackPaused]), and otherwise nothing. Without it the open span would absorb the next
+     * play of the same book, stretching one listen across the gap.
+     */
+    fun onPlaybackStopped(
+        bookId: BookId,
+        positionMs: Long,
+        speed: Float,
+        durationMs: Long,
+    ) {
+        if (spanPhase.value == SpanPhase.Closed) return
+        onPlaybackPaused(bookId = bookId, positionMs = positionMs, speed = speed, durationMs = durationMs)
     }
 
     /** Periodic heartbeat during playback: save the position and extend the open span. */
@@ -115,7 +145,7 @@ class PlaybackProgressReporter(
         speed: Float,
     ) {
         progressTracker.onPositionUpdate(bookId, positionMs, speed)
-        record { it.onPeriodicTick(positionMs) }
+        record { it.onPeriodicTick(bookId.value, positionMs) }
     }
 
     /**
@@ -195,8 +225,9 @@ class PlaybackProgressReporter(
         positionMs: Long,
         durationMs: Long,
     ): Boolean {
+        spanPhase.value = SpanPhase.Closed
         val accepted = progressTracker.onBookFinished(bookId, positionMs, durationMs)
-        record { it.onPause(if (accepted) durationMs else positionMs) }
+        record { it.onPause(bookId.value, if (accepted) durationMs else positionMs) }
         return accepted
     }
 
@@ -288,4 +319,15 @@ class PlaybackProgressReporter(
             }
         }
     }
+}
+
+/** Whether [PlaybackProgressReporter] has a listening span open, and for which book. */
+private sealed interface SpanPhase {
+    /** No span open: the next play starts a listen. */
+    data object Closed : SpanPhase
+
+    /** A span open for [bookId]: another play of it is the same listen going on. */
+    data class Open(
+        val bookId: BookId,
+    ) : SpanPhase
 }

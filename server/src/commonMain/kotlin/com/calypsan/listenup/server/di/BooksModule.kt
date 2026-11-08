@@ -59,6 +59,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.services.PendingGenrePromotion
@@ -364,6 +365,9 @@ private fun Module.coverAndPersisterBindings(
     }
     single { DocumentFileLocator(get<ListenUpDatabase>()) }
 
+    // Shared by the persister and the organizer's MoveManifestExecutor — see LibraryLayoutLock.
+    single { LibraryLayoutLock() }
+
     single {
         BookPersister(
             ingest = get(),
@@ -375,6 +379,7 @@ private fun Module.coverAndPersisterBindings(
             eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
             changeBus = get(),
             scope = get(),
+            layoutLock = get(),
             coverImageStore = get<CoverImageStore>(),
             coverSpool = get(),
         )

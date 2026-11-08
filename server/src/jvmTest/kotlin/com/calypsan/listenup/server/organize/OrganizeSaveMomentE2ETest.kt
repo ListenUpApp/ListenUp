@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -288,7 +289,7 @@ private fun makeService(
     return OrganizeServiceImpl(
         settingsStore = OrganizerSettingsStore(ServerSettingsRepository(db.sql, default = RegistrationPolicy.CLOSED)),
         planBuilder = OrganizePlanBuilder(db.sql),
-        executor = MoveManifestExecutor(broker, repo),
+        executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock()),
         broker = broker,
         libraryRegistry = LibraryRegistry(db.sql),
         sql = db.sql,

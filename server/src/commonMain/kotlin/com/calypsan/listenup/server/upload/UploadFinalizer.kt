@@ -33,8 +33,10 @@ import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
 import com.calypsan.listenup.server.services.LibraryRegistry
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
@@ -85,7 +87,8 @@ internal class UploadFinalizer(
     private val ingest: UploadIngestTrigger,
 ) {
     /**
-     * Ingests everything staged in [sessionDir] and removes the session.
+     * Ingests everything staged in [sessionDir] and removes the session. Refused with
+     * [UploadError.SessionBusy] while another request is finalizing or abandoning the same session.
      *
      * The session directory is swept on **every** exit path, success or failure. A session that
      * has been finalized is finished: leaving its files behind would mean a later attempt could
@@ -95,7 +98,24 @@ internal class UploadFinalizer(
     suspend fun finalize(
         sessionId: String,
         sessionDir: Path,
+    ): AppResult<UploadFinalizeResult> =
+        staging.inPhase(sessionId, UploadPhase.FINALIZING) {
+            // Once begun, an import runs to the end even if the request that started it goes away:
+            // stopping between two books' manifests would leave the later ones staged in a session
+            // the client is about to abandon, and a book half-imported into the library.
+            withContext(NonCancellable) { finalizeClaimed(sessionId, sessionDir) }
+        }
+
+    /** [finalize]'s body, run while this request holds the session's [UploadPhase.FINALIZING] claim. */
+    private suspend fun finalizeClaimed(
+        sessionId: String,
+        sessionDir: Path,
     ): AppResult<UploadFinalizeResult> {
+        // An abandon that finished between the route opening the session and this claim has
+        // already swept it; there is nothing left to import.
+        if (staging.openSession(sessionId) == null) {
+            return failure(UploadError.SessionNotFound(debugInfo = "session $sessionId was abandoned before finalize"))
+        }
         val swept = staging.sweepPartFiles(sessionDir)
         if (swept > 0) logger.warn { "upload $sessionId: swept $swept incomplete file(s) before ingest" }
 

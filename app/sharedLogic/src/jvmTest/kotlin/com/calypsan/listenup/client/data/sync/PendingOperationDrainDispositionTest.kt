@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
@@ -527,6 +528,106 @@ class PendingOperationDrainDispositionTest :
                 // The dead-letter must signal a heal so the phantom optimistic edit re-fetches server truth.
                 val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
                 healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                db.close()
+            }
+        }
+
+        test("a Server5xx every wave heals the entity exactly once, on the attempt that dead-letters it") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.Server5xx(statusCode = 503)) },
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
+                queue.observeHealRequests().test {
+                    // While the op can still land, the shield stays up: no heal.
+                    repeat(MAX_RETRYABLE_ATTEMPTS) {
+                        queue.drain()
+                        expectNoEvents()
+                    }
+                    queue.drain()
+                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                    // Dead-lettered: later waves never pick it up, so never heal again.
+                    queue.drain()
+                    expectNoEvents()
+                }
+                db.close()
+            }
+        }
+
+        test("a sender that throws every wave heals the entity exactly once, on the attempt that dead-letters it") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { error("persistent sender bug") },
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(OutboxChannels.Tags, "t2", OpKind.Update, "{}", "u1")
+                queue.observeHealRequests().test {
+                    repeat(MAX_RETRYABLE_ATTEMPTS) {
+                        queue.drain()
+                        expectNoEvents()
+                    }
+                    queue.drain()
+                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t2")
+                    queue.drain()
+                    expectNoEvents()
+                }
+                db.close()
+            }
+        }
+
+        test("a Terminal refusal heals the entity exactly once") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "t3")) },
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(OutboxChannels.Tags, "t3", OpKind.Update, "{}", "u1")
+                queue.observeHealRequests().test {
+                    queue.drain()
+                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t3")
+                    queue.drain()
+                    expectNoEvents()
+                }
+                db.close()
+            }
+        }
+
+        test("an edit that lands on its last retry never heals") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var attempts = 0
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender =
+                            PendingOperationSender {
+                                attempts++
+                                if (attempts <= MAX_RETRYABLE_ATTEMPTS) {
+                                    AppResult.Failure(TransportError.Server5xx(statusCode = 503))
+                                } else {
+                                    AppResult.Success(Unit)
+                                }
+                            },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Tags, "t4", OpKind.Update, "{}", "u1")
+                queue.observeHealRequests().test {
+                    repeat(MAX_RETRYABLE_ATTEMPTS + 1) {
+                        queue.drain()
+                        expectNoEvents()
+                    }
+                }
+                db.pendingOperationV2Dao().get(opId) shouldBe null
                 db.close()
             }
         }

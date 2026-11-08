@@ -40,7 +40,7 @@ class ListeningEventRecorderInterleavingTest :
                     spans.holdNextRead()
 
                     withContext(Dispatchers.Default) {
-                        val pause = launch { recorder.onPause(positionMs = 60_000L) }
+                        val pause = launch { recorder.onPause(BOOK_ID, positionMs = 60_000L) }
                         spans.held.await()
                         val play = launch { recorder.onPlay(BOOK_ID, 60_000L, SPEED) }
                         withTimeoutOrNull(CHANCE_TO_INTERLEAVE_MS) { spans.written.await() }
@@ -76,9 +76,9 @@ class ListeningEventRecorderInterleavingTest :
                     spans.holdNextRead()
 
                     withContext(Dispatchers.Default) {
-                        val tick = launch { recorder.onPeriodicTick(30_000L) }
+                        val tick = launch { recorder.onPeriodicTick(BOOK_ID, 30_000L) }
                         spans.held.await()
-                        val pause: Job = launch { recorder.onPause(positionMs = 60_000L) }
+                        val pause: Job = launch { recorder.onPause(BOOK_ID, positionMs = 60_000L) }
                         withTimeoutOrNull(CHANCE_TO_INTERLEAVE_MS) { pause.join() }
                         spans.release.complete(Unit)
                         listOf(tick, pause).forEach { it.join() }

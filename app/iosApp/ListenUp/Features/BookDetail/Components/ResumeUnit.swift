@@ -74,9 +74,17 @@ struct ResumeUnit: View {
         }
     }
 
-    /// "Ch. 6 · Bridge Four".
+    /// "Ch. 6 · Bridge Four", led by the part in a book that has them: "Part I · Ch. 7 · 5".
     static func chapterText(_ chapter: BookCurrentChapter) -> String {
-        String(format: String(localized: "book.detail_chapter_label"), chapter.number, chapter.title)
+        guard let part = chapter.partTitle else {
+            return String(format: String(localized: "book.detail_chapter_label"), chapter.number, chapter.title)
+        }
+        return String(
+            format: String(localized: "book.detail_chapter_label_in_part"),
+            part,
+            chapter.number,
+            chapter.title
+        )
     }
 
     /// "40 hr, 31 min left" in the reader's locale.

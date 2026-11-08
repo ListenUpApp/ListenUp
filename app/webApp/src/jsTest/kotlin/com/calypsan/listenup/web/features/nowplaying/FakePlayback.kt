@@ -201,6 +201,11 @@ internal class FakePlaybackManager(
         scope.launch { player.durationMs.collect { totalDurationMs.value = it } }
     }
 
+    override fun onSeek(
+        fromPositionMs: Long,
+        toPositionMs: Long,
+    ) = updatePosition(toPositionMs)
+
     override fun onSpeedChanged(speed: Float) = updateSpeed(speed)
 
     override fun onSpeedReset(defaultSpeed: Float) = updateSpeed(defaultSpeed)

@@ -21,7 +21,7 @@ fun organizeModule(): Module =
     module {
         single { OrganizerSettingsStore(settings = get()) }
         single { OrganizePlanBuilder(sql = get()) }
-        single { MoveManifestExecutor(broker = get(), bookRepository = get()) }
+        single { MoveManifestExecutor(broker = get(), bookRepository = get(), layoutLock = get()) }
         single { OrganizeRunState() }
         single {
             OrganizeOnEditRelocator(

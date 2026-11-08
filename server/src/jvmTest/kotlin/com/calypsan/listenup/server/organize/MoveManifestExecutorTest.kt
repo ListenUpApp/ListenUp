@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.scanner.pipeline.Walker
 import com.calypsan.listenup.server.scanner.watcher.FolderWatcher
 import com.calypsan.listenup.server.scanner.watcher.StableSizeDebouncer
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.LibraryLayoutLock
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.IngestOutcome
@@ -96,7 +97,7 @@ class MoveManifestExecutorTest :
                     val entry = plan.entries.single()
 
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    val executor = MoveManifestExecutor(broker, repo)
+                    val executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock())
                     val result = executor.execute(entry)
 
                     result shouldBe AppResult.Success(Unit)
@@ -148,7 +149,7 @@ class MoveManifestExecutorTest :
                     entry.isRelocation shouldBe false
 
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+                    MoveManifestExecutor(broker, repo, LibraryLayoutLock()).execute(entry) shouldBe AppResult.Success(Unit)
 
                     // EnsureDir was a no-op on an existing dir, MoveFile renamed in place, and
                     // DeleteDirIfEmpty left the still-occupied folder alone.
@@ -212,7 +213,7 @@ class MoveManifestExecutorTest :
                     Files.writeString(newDir.resolve("02.m4b"), "already-there")
 
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    val executor = MoveManifestExecutor(broker, repo)
+                    val executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock())
 
                     val firstAttempt = executor.execute(entry)
                     firstAttempt.shouldBeInstanceOf<AppResult.Failure>()
@@ -271,7 +272,7 @@ class MoveManifestExecutorTest :
 
                     val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+                    MoveManifestExecutor(broker, repo, LibraryLayoutLock()).execute(entry) shouldBe AppResult.Success(Unit)
 
                     libraryRoot.resolve("Brandon Sanderson/The Way of Kings/The Way of Kings.m4b").toFile().exists() shouldBe true
                     withClue("every folder the move left describing nothing goes, deepest first") {
@@ -314,7 +315,7 @@ class MoveManifestExecutorTest :
 
                     val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    MoveManifestExecutor(broker, repo).execute(entry) shouldBe AppResult.Success(Unit)
+                    MoveManifestExecutor(broker, repo, LibraryLayoutLock()).execute(entry) shouldBe AppResult.Success(Unit)
 
                     withClue("the sibling still lives in the series folder, so the chain stops there") {
                         bookDir.toFile().exists() shouldBe false
@@ -350,7 +351,7 @@ class MoveManifestExecutorTest :
 
                     val entry = OrganizePlanBuilder(sql).build(LibraryId("test-library"), settings).entries.single()
                     val broker = LibraryWriteBroker(SelfWriteRegistry { 0L }, WriteJournal(tempJournalDir()), SqlLibraryRootProvider(sql))
-                    val executor = MoveManifestExecutor(broker, repo)
+                    val executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock())
                     executor.execute(entry) shouldBe AppResult.Success(Unit)
 
                     // The crash-resume shape: the same entry again, every op already applied. The
@@ -401,7 +402,7 @@ class MoveManifestExecutorTest :
                             SqlLibraryRootProvider(sql),
                             suppressionTtlMs = 30_000,
                         )
-                    val executor = MoveManifestExecutor(broker, repo)
+                    val executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock())
 
                     withSuppressingWatcher(libraryRoot.toString(), registry) { watcher ->
                         val emissions = mutableListOf<IoPath>()
@@ -454,7 +455,7 @@ class MoveManifestExecutorTest :
                                 WriteJournal(tempJournalDir()),
                                 SqlLibraryRootProvider(sql),
                             )
-                        val executor = MoveManifestExecutor(broker, repo)
+                        val executor = MoveManifestExecutor(broker, repo, LibraryLayoutLock())
                         executor.execute(entry) shouldBe AppResult.Success(Unit)
 
                         // A REAL Walker -> Grouper -> Analyzer pass over the moved library root — exactly

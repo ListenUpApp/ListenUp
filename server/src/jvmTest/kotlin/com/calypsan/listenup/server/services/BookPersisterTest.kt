@@ -867,6 +867,7 @@ internal class FakeBookIngest(
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
+        walkedIdentityFiles: Map<FolderScopedInode, String>,
     ): Int {
         softDeleteAbsentByPathsSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         // Record just the paths — these orchestration tests assert WHICH paths are swept, not folder
@@ -922,7 +923,10 @@ internal suspend fun SqlTestDatabases.persister(
         eventBus = eventBus,
         changeBus = changeBus,
         scope = scope,
+        layoutLock = LibraryLayoutLock(),
         coverImageStore = coverImageStore,
+        // These scan results are synthetic: no files stand behind them, so every walked book is "present".
+        isOnDisk = { true },
     )
 }
 

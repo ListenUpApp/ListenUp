@@ -1,9 +1,6 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
-import com.calypsan.listenup.api.dto.scanner.CandidateBook
-import com.calypsan.listenup.api.dto.scanner.FileEntry
-import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.SidecarCuration
 import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.metadata.BookField
@@ -773,10 +770,6 @@ class BookRepository(
         return trustedMove(candidates, identityFileSize, occupancy.pathsInThisIngest + occupiedOnDisk)
     }
 
-    /** The file whose inode anchors this book's identity — the same pick as [identityInode], with its size. */
-    private fun CandidateBook.identityFile(): FileEntry? =
-        files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }
-
     private fun isDirectoryOnDisk(
         folderRoot: String,
         rootRelPath: String,
@@ -1331,23 +1324,73 @@ class BookRepository(
      * two folders holding a book at the same relative path no longer mask each other in the sweep.
      *
      * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent].
+     *
+     * A book absent from [seen] that the organizer moved after the walk recorded it is spared (see
+     * [movedAfterTheWalk]). The caller holds [LibraryLayoutLock], so no move lands between that check
+     * and the tombstone. Only the books the walk did not see are checked.
      */
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
+        walkedIdentityFiles: Map<FolderScopedInode, String>,
     ): Int {
-        val toDelete =
+        val absentFromWalk =
             suspendTransaction(db) {
                 db.booksQueries
                     .selectLiveIdsAndPathsForLibrary(libraryId.value)
                     .executeAsList()
                     .filterNot { FolderScopedPath(FolderId(it.folder_id), it.root_rel_path) in seen }
-                    .map { it.id }
             }
-        for (id in toDelete) {
+        val (movedSinceWalk, toDelete) =
+            absentFromWalk.partition { row ->
+                movedAfterTheWalk(
+                    bookId = row.id,
+                    folderId = FolderId(row.folder_id),
+                    rootRelPath = row.root_rel_path,
+                    walkedIdentityFiles = walkedIdentityFiles,
+                )
+            }
+        if (movedSinceWalk.isNotEmpty()) {
+            log.info {
+                "Sweep spared ${movedSinceWalk.size} book(s) moved after the walk recorded them at their old " +
+                    "folder: ${movedSinceWalk.map { it.root_rel_path }}"
+            }
+        }
+        for (id in toDelete.map { it.id }) {
             softDelete(BookId(id), clientOpId = null)
         }
         return toDelete.size
+    }
+
+    /**
+     * True when the walk saw [bookId] under an older path and the organizer has moved it since: the
+     * walk recorded the book's identity file (same folder, same inode) at a path that file has left,
+     * and the book's first audio file is on disk where its row now says it lives. A book the walk
+     * genuinely missed (deleted, ignored, or regrouped into another book) fails one of those tests and
+     * is swept as before.
+     */
+    private suspend fun movedAfterTheWalk(
+        bookId: String,
+        folderId: FolderId,
+        rootRelPath: String,
+        walkedIdentityFiles: Map<FolderScopedInode, String>,
+    ): Boolean {
+        if (walkedIdentityFiles.isEmpty()) return false
+        val stored =
+            suspendTransaction<Pair<Long, String>?>(db) {
+                val inode =
+                    db.booksQueries
+                        .selectById(bookId)
+                        .executeAsOneOrNull()
+                        ?.inode
+                val filename = db.bookAudioFilesQueries.selectPrimaryFilenameForBook(bookId).executeAsOneOrNull()
+                if (inode == null || filename == null) null else inode to filename
+            } ?: return false
+        val (inode, filename) = stored
+        val walkedAt = walkedIdentityFiles[FolderScopedInode(folderId, inode)] ?: return false
+        val folderRoot = folderRootPath(folderId) ?: return false
+        return !SystemFileSystem.exists(Path(walkedAt)) &&
+            SystemFileSystem.exists(Path(folderRoot, rootRelPath, filename))
     }
 
     /**

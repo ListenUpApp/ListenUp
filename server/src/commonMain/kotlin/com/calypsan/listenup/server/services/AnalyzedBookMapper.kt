@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.parseSeriesSequence
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -254,5 +255,11 @@ class AnalyzedBookMapper(
  * the book's UUID, which would strand the user's positions, progress, shelves,
  * and edits on the swept-away old row.
  */
-internal fun CandidateBook.identityInode(): Long? =
-    files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }?.inode
+internal fun CandidateBook.identityInode(): Long? = identityFile()?.inode
+
+/** The file whose inode anchors this book's identity — the pick [identityInode] reads. */
+internal fun CandidateBook.identityFile(): FileEntry? =
+    files.firstOrNull { file ->
+        file.fileType == FileType.AUDIO &&
+            file.inode != null
+    }

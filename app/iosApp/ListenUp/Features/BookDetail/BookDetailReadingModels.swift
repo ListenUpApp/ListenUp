@@ -51,18 +51,29 @@ struct BookCurrentChapter: Equatable {
     let title: String
     let startMs: Int64
     let elapsedInChapterMs: Int64
+    /// The part it sits in, for "Part I · Ch. 7 · 5"; nil outside any part.
+    let partTitle: String?
 
-    init(index: Int, number: Int, title: String, startMs: Int64, elapsedInChapterMs: Int64) {
+    init(
+        index: Int,
+        number: Int,
+        title: String,
+        startMs: Int64,
+        elapsedInChapterMs: Int64,
+        partTitle: String? = nil
+    ) {
         self.index = index
         self.number = number
         self.title = title
         self.startMs = startMs
         self.elapsedInChapterMs = elapsedInChapterMs
+        self.partTitle = partTitle
     }
 
     init(_ chapter: CurrentChapter) {
         self.init(index: Int(chapter.index), number: Int(chapter.number), title: chapter.title,
-                  startMs: chapter.startMs, elapsedInChapterMs: chapter.elapsedInChapterMs)
+                  startMs: chapter.startMs, elapsedInChapterMs: chapter.elapsedInChapterMs,
+                  partTitle: chapter.partTitle)
     }
 }
 
@@ -93,6 +104,8 @@ struct BookReadingState: Equatable {
     var primaryAction: BookPrimaryActionKind = .play
     var currentChapter: BookCurrentChapter?
     var chapterPreview: [BookChapterRow] = []
+    /// The chapters with their parts and books; nil for a flat book, which draws `chapterPreview`.
+    var groupedChapters: BookGroupedChapters?
     var timeRemainingMs: Int64?
     var finishedSpan: BookFinishedSpan?
     var downloadSizeBytes: Int64 = 0
@@ -107,6 +120,7 @@ struct BookReadingState: Equatable {
         primaryAction = BookPrimaryActionKind(ready.primaryAction)
         currentChapter = ready.currentChapter.map(BookCurrentChapter.init)
         chapterPreview = ready.chapterPreview.map { BookChapterRow($0) }
+        groupedChapters = ready.groupedChapters.map(BookGroupedChapters.init)
         timeRemainingMs = ready.timeRemainingMs
         finishedSpan = ready.finishedSpan.map(BookFinishedSpan.init)
         downloadSizeBytes = ready.downloadSizeBytes

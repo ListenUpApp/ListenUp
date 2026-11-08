@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
+import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_all_chapters
 import listenup.composeapp.generated.resources.book_detail_fewer_chapters
@@ -73,6 +74,7 @@ internal fun BookChaptersSection(
     canPlay: Boolean,
     onPlayFromChapter: (startMs: Long) -> Unit,
     modifier: Modifier = Modifier,
+    grouped: GroupedChapters? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val shown = if (expanded) chapters else preview
@@ -92,14 +94,23 @@ internal fun BookChaptersSection(
                 chapterCount = chapters.size,
                 modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp),
             )
-            shown.forEach { chapter ->
-                ChapterRow(
-                    chapter = chapter,
-                    number = numberById[chapter.id] ?: 0,
-                    current = currentChapter.takeIf { chapter.isCurrent },
-                    canPlay = canPlay,
-                    onPlayFromChapter = onPlayFromChapter,
+            if (grouped != null) {
+                BookChapterOutline(
+                    grouped = grouped,
+                    chapters = chapters,
+                    expanded = expanded,
+                    playback = ChapterPlayback(currentChapter, canPlay, onPlayFromChapter),
                 )
+            } else {
+                shown.forEach { chapter ->
+                    ChapterRow(
+                        chapter = chapter,
+                        number = numberById[chapter.id] ?: 0,
+                        current = currentChapter.takeIf { chapter.isCurrent },
+                        canPlay = canPlay,
+                        onPlayFromChapter = onPlayFromChapter,
+                    )
+                }
             }
             // Expands in place, and collapses again.
             if (chapters.size > preview.size) {
@@ -122,12 +133,13 @@ internal fun BookChaptersSection(
 }
 
 @Composable
-private fun ChapterRow(
+internal fun ChapterRow(
     chapter: ChapterUiModel,
     number: Int,
     current: CurrentChapter?,
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
     val label = stringResource(Res.string.book_detail_play_from_chapter_a11y, number, chapter.title)
@@ -144,7 +156,7 @@ private fun ChapterRow(
         contentColor = contentColor,
         shape = if (isCurrent) RoundedCornerShape(26.dp) else MaterialTheme.shapes.medium,
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .heightIn(min = ChapterRowMinHeight)
                 .clickable(enabled = canPlay, role = Role.Button, onClickLabel = label, onClick = play)
@@ -203,7 +215,7 @@ private fun ChapterRow(
  * row never claims a book is playing that isn't. Under a minute in there is nothing to count yet: just the words.
  */
 @Composable
-private fun currentChapterLabel(current: CurrentChapter): String {
+internal fun currentChapterLabel(current: CurrentChapter): String {
     val elapsed = current.elapsedInChapterMs
     val inLabel = DurationFormatter.hoursMinutes(elapsed.milliseconds)
     return when {

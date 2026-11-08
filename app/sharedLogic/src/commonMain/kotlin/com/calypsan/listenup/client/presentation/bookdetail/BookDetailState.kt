@@ -64,12 +64,15 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
     val progress =
         if (hasMeaningfulProgress) (positionMs.toFloat() / detail.duration).coerceIn(0f, 1f) else null
 
-    val current =
+    val located =
         if (hasMeaningfulProgress) {
             currentChapterOf(chapters, positionMs)?.copy(isInPlayer = ambient.loadedBookId == detail.id.value)
         } else {
             null
         }
+    val grouped = chapters.groupedChapters(located?.index)
+    val current =
+        located?.copy(partTitle = grouped?.run { rows.partTitleOf(chapters[located.index].id) })
 
     val chapterRows =
         chapters.mapIndexed { index, domainChapter ->
@@ -125,6 +128,7 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         primaryAction = primaryActionFor(stage, showServerWarning, canPlay),
         currentChapter = current,
         chapterPreview = chapterWindow(chapterRows, current?.index),
+        groupedChapters = grouped,
         timeRemainingMs = timeRemainingMs,
         finishedSpan =
             position

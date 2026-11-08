@@ -68,9 +68,8 @@ private val logger = KotlinLogging.logger {}
  * @property processId Identity of the current app-process launch — an in-memory UUID minted
  *   once per process (the DI [single][org.koin.core.module.Module] is memoized, so the default
  *   [Uuid.random] is evaluated exactly once per running app). Every span this recorder opens is
- *   stamped with it, and [recoverOrphan] / [onPlay] compare against it to tell the current
- *   process's live span apart from an orphan left by a prior process. Injected for deterministic
- *   testing.
+ *   stamped with it, and [recoverOrphan] compares against it to tell the current process's live
+ *   span apart from an orphan left by a prior process. Injected for deterministic testing.
  * @property clock Injected for deterministic testing. Defaults to [Clock.System].
  * @property timeZone Injected for deterministic testing. Defaults to
  *   [TimeZone.currentSystemDefault].
@@ -102,16 +101,16 @@ class ListeningEventRecorder internal constructor(
      * Opens a new tentative span at [positionMs] with [playbackSpeed], stamped with this
      * process's [processId].
      *
-     * **Never destroys a prior process's orphan.** If a span from a DIFFERENT process launch is
-     * still open (a crash / OS-kill left it behind and startup [recoverOrphan] has not run yet —
-     * e.g. the user hit play while catch-up was still paging), it is recovered (finalized) FIRST,
-     * then the new span is opened. Only if that recovery could not clear the row (its finalize
-     * rolled back) do we bail without opening a new span, so the orphan survives as the recovery
-     * breadcrumb rather than being clobbered by the single-row table's replace semantics.
-     *
-     * A span from the SAME process is unexpected on a raw [onPlay] ([onSpeedChange] / [onSeek] /
-     * [onMediaItemTransition] each finalize first), so replacing it is safe and keeps the
-     * single-row invariant.
+     * **Never destroys a span already open.** A span left open is finalized FIRST, at the
+     * position and time of its last heartbeat (the last moment it is known to have been playing),
+     * then the new span is opened. It may come from a DIFFERENT process launch (a crash / OS-kill
+     * left it behind and startup [recoverOrphan] has not run yet — e.g. the user hit play while
+     * catch-up was still paging), or from this one, when a pause never reached the recorder (a
+     * book switched without one, a player that reports playing again after a stall). The table's
+     * key is the span id, so an upsert of the new span beside it would add a second row, which the
+     * next finalize deletes unrecorded. Only if the finalize could not clear the row (it rolled
+     * back) do we bail without opening a new span, so the old span survives as the recovery
+     * breadcrumb.
      */
     suspend fun onPlay(
         bookId: String,
@@ -133,21 +132,20 @@ class ListeningEventRecorder internal constructor(
                 return
             }
         val existing = tentativeSpanDao.get()
-        if (existing != null && existing.processId != processId) {
+        if (existing != null) {
+            val origin = if (existing.processId == processId) "this process" else "a prior process"
             logger.info {
-                "[ListeningEventRecorder] onPlay found an orphan span from a prior process " +
-                    "(book=${existing.bookId}) — recovering it before opening the new span"
+                "[ListeningEventRecorder] onPlay found a span still open from $origin " +
+                    "(book=${existing.bookId}) — finalizing it before opening the new span"
             }
-            finalizeCurrentSpan(endPositionMs = existing.currentPositionMs, endedAt = existing.lastHeartbeatAt)
-            // If the orphan's finalize rolled back (e.g. a failed enqueue), the row survives.
-            // Never overwrite it — bail so startup recoverOrphan re-promotes it next launch.
-            if (tentativeSpanDao.get() != null) {
-                logger.warn {
-                    "[ListeningEventRecorder] Prior-process orphan did not clear during onPlay — " +
-                        "leaving it intact for recovery, new span not opened"
-                }
-                return
-            }
+            val cleared =
+                finalizeThenCheckCleared(
+                    endPositionMs = existing.currentPositionMs,
+                    endedAt = existing.lastHeartbeatAt,
+                    bookId = existing.bookId,
+                    caller = "onPlay",
+                )
+            if (!cleared) return
         }
         val nowMs = clock.now().toEpochMilliseconds()
         tentativeSpanDao.upsertSingleton(
@@ -169,11 +167,21 @@ class ListeningEventRecorder internal constructor(
 
     /**
      * Advances [TentativeSpanEntity.currentPositionMs] and [TentativeSpanEntity.lastHeartbeatAt]
-     * to the current time. No-op if no span is open.
+     * to the current time. No-op if no span is open, or if the open span is not [bookId]'s: a
+     * position in one book never extends a listen to another.
      */
-    suspend fun onPeriodicTick(positionMs: Long) {
+    suspend fun onPeriodicTick(
+        bookId: String,
+        positionMs: Long,
+    ) {
         spanLock.withLock {
             val existing = tentativeSpanDao.get() ?: return
+            if (existing.bookId != bookId) {
+                logger.warn {
+                    "[ListeningEventRecorder] Tick for book=$bookId while book=${existing.bookId}'s span is open — ignored"
+                }
+                return
+            }
             val nowMs = clock.now().toEpochMilliseconds()
             tentativeSpanDao.upsertSingleton(
                 existing.copy(
@@ -186,11 +194,28 @@ class ListeningEventRecorder internal constructor(
 
     /**
      * Closes the current span at [positionMs] and finalizes it. No-op if no span is open.
+     *
+     * [positionMs] is a place in [bookId]. When the open span is another book's, that position
+     * means nothing for it: the span is still closed now (its book stopped when this one took
+     * over), but at its own last known position, never at a place in a different book.
      */
-    suspend fun onPause(positionMs: Long) {
+    suspend fun onPause(
+        bookId: String,
+        positionMs: Long,
+    ) {
         spanLock.withLock {
-            val nowMs = clock.now().toEpochMilliseconds()
-            finalizeCurrentSpan(endPositionMs = positionMs, endedAt = nowMs)
+            val existing = tentativeSpanDao.get() ?: return
+            val endPositionMs =
+                if (existing.bookId == bookId) {
+                    positionMs
+                } else {
+                    logger.warn {
+                        "[ListeningEventRecorder] Pause for book=$bookId while book=${existing.bookId}'s span is open " +
+                            "— closing it at its own last known position"
+                    }
+                    existing.currentPositionMs
+                }
+            finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = clock.now().toEpochMilliseconds())
         }
     }
 
@@ -330,9 +355,9 @@ class ListeningEventRecorder internal constructor(
      * Finalizes the current span, then reports whether the tentative row actually cleared.
      *
      * [finalizeCurrentSpan] deliberately leaves the row in place when its enqueue fails — that
-     * survivor is the ONLY breadcrumb [recoverOrphan] can re-promote from. [onPlay]'s cross-process
-     * branch already honors that breadcrumb; every SAME-process finalize-then-reopen flow
-     * ([onSpeedChange], [onSeek], [onMediaItemTransition]) must honor it too — opening a new span
+     * survivor is the ONLY breadcrumb [recoverOrphan] can re-promote from. Every
+     * finalize-then-reopen flow ([onPlay], [onSpeedChange], [onSeek], [onMediaItemTransition])
+     * must honor it — opening a new span
      * on top of a survivor would silently destroy the breadcrumb and lose the whole original span,
      * not just the failed write. Returns `false` (and logs a warning tagged with [caller]) when the
      * row survived, so the call site can bail without opening a new span.
