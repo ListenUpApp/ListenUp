@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.features.setup
 
 import com.calypsan.listenup.api.dto.DirectoryEntry
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
@@ -20,24 +22,16 @@ internal fun entry(
 ) = DirectoryEntry(name = name, path = path, hasChildren = hasChildren, itemCount = itemCount)
 
 internal fun setupState(
-    isCheckingStatus: Boolean = false,
-    needsSetup: Boolean = true,
     currentPath: String = "/srv",
-    parentPath: String? = "/",
     directories: List<DirectoryEntry> = listOf(entry()),
     isLoadingDirectories: Boolean = false,
-    isRoot: Boolean = false,
     selectedPaths: Set<String> = emptySet(),
     isCreatingLibrary: Boolean = false,
-    error: String? = null,
-) = LibrarySetupUiState(
-    isCheckingStatus = isCheckingStatus,
-    needsSetup = needsSetup,
+    error: AppError? = null,
+) = LibrarySetupUiState.Browsing(
     currentPath = currentPath,
-    parentPath = parentPath,
     directories = directories,
     isLoadingDirectories = isLoadingDirectories,
-    isRoot = isRoot,
     selectedPaths = selectedPaths,
     isCreatingLibrary = isCreatingLibrary,
     error = error,
@@ -57,7 +51,7 @@ class LibrarySetupPageTest :
         afterTest { mounts.disposeAll() }
 
         fun page(
-            state: LibrarySetupUiState,
+            state: LibrarySetupUiState.Browsing,
             onOpenFolder: (String) -> Unit = {},
             onNavigateUp: () -> Unit = {},
             onToggleFolder: (String) -> Unit = {},
@@ -153,7 +147,7 @@ class LibrarySetupPageTest :
 
         test("the current path is shown, and up is offered") {
             var ups = 0
-            val host = page(setupState(currentPath = "/srv/media", isRoot = false), onNavigateUp = { ups++ })
+            val host = page(setupState(currentPath = "/srv/media"), onNavigateUp = { ups++ })
 
             (host.querySelector(".lsetup-path") as HTMLElement).textContent shouldBe "/srv/media"
             (host.querySelector(".lsetup-up") as HTMLElement).click()
@@ -162,7 +156,7 @@ class LibrarySetupPageTest :
         }
 
         test("the root offers no way up") {
-            val host = page(setupState(currentPath = "/", parentPath = null, isRoot = true))
+            val host = page(setupState(currentPath = "/"))
 
             (host.querySelector(".lsetup-up") as HTMLButtonElement).disabled shouldBe true
         }
@@ -240,9 +234,9 @@ class LibrarySetupPageTest :
 
         test("an error is shown and can be dismissed") {
             var dismissed = 0
-            val host = page(setupState(error = "That folder could not be read."), onDismissError = { dismissed++ })
+            val host = page(setupState(error = InternalError()), onDismissError = { dismissed++ })
 
-            host.textContent.orEmpty() shouldContain "That folder could not be read."
+            host.textContent.orEmpty() shouldContain InternalError().message
             (host.querySelector(".lsetup-err-x") as HTMLElement).click()
 
             dismissed shouldBe 1

@@ -12,7 +12,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * `sharedLogic/.../client/presentation/`. The check is structural:
  * `hasSealedModifier` must be true.
  *
- * Legacy exclusions: the 8 types below use the flat `data class` shape and await
+ * Legacy exclusions: the types below use the flat `data class` shape and await
  * migration. Do NOT add new types to this list — fix the type instead.
  */
 class UiStateIsSealedRule :
@@ -22,11 +22,7 @@ class UiStateIsSealedRule :
         val legacyExclusions =
             setOf(
                 "SettingsUiState",
-                "LibrarySetupUiState",
-                "BookEditUiState",
                 "SyncIndicatorUiState",
-                "ContributorEditUiState",
-                "SeriesEditUiState",
                 "StorageUiState",
             )
 

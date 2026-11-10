@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import io.kotest.core.spec.style.FunSpec
@@ -33,9 +33,8 @@ import kotlin.coroutines.resume
 /** How long a spec waits for an event that SHOULD arrive. */
 private const val EVENT_TIMEOUT_MS = 2_000L
 
-private fun withCover(): BookEditUiState =
-    BookEditUiState(
-        isLoading = false,
+private fun withCover(): BookEditForm =
+    BookEditForm(
         bookId = "b1",
         title = "The $100 Startup",
         coverHash = "abc123",
@@ -95,9 +94,10 @@ class CoverFieldTest :
         afterTest { mounts.disposeAll() }
 
         fun coverField(
-            state: BookEditUiState,
+            state: BookEditForm,
+            isUploading: Boolean = false,
             onEvent: (BookEditUiEvent) -> Unit = {},
-        ): HTMLElement = mounts.mount { CoverField(state = state, onEvent = onEvent) }
+        ): HTMLElement = mounts.mount { CoverField(state = state, isUploading = isUploading, onEvent = onEvent) }
 
         test("no pending cover renders the book's current artwork, hash-busted") {
             val root = coverField(withCover())
@@ -112,7 +112,7 @@ class CoverFieldTest :
         }
 
         test("an upload in flight disables the control") {
-            val root = coverField(withCover().copy(isUploadingCover = true))
+            val root = coverField(withCover(), isUploading = true)
 
             val button = root.querySelector(".cover-pick") as HTMLButtonElement
             button.disabled shouldBe true
@@ -129,7 +129,7 @@ class CoverFieldTest :
 
         test("a replaced preview releases its object URL") {
             var state by mutableStateOf(withCover().copy(pendingCoverData = tinyPng()))
-            val root = mounts.mount { CoverField(state = state, onEvent = {}) }
+            val root = mounts.mount { CoverField(state = state, isUploading = false, onEvent = {}) }
             val firstUrl = (root.querySelector(".cover-art img") as HTMLImageElement).src
 
             state = state.copy(pendingCoverData = tinyPng(trailingBytes = 1))
@@ -198,12 +198,12 @@ class CoverFieldTest :
         test("dropping while an upload is in flight is ignored") {
             // disabled suppresses CLICK, not the drag-and-drop machinery — the drop handler
             // must guard isUploadingCover itself.
-            var state by mutableStateOf(withCover().copy(isUploadingCover = true))
+            var uploading by mutableStateOf(true)
             val events = mutableListOf<BookEditUiEvent>()
-            val root = mounts.mount { CoverField(state = state, onEvent = { events += it }) }
+            val root = mounts.mount { CoverField(state = withCover(), isUploading = uploading, onEvent = { events += it }) }
 
             dropImage(root) // ignored: an upload is in flight
-            state = state.copy(isUploadingCover = false)
+            uploading = false
             awaitFrame() // the recomposition that re-enables the field
             dropImage(root) // must be accepted
 

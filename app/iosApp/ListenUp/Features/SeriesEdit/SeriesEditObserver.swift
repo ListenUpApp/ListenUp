@@ -8,7 +8,8 @@ import Shared
 @Observable
 @MainActor
 final class SeriesEditObserver {
-    private(set) var isLoading: Bool = true
+    /// Loading, failed to load, or editing — the sheet switches on this first.
+    private(set) var phase: EditScreenPhase = .loading
     private(set) var name: String = ""
     /// The series description — stored as `seriesDescription` and read from Kotlin's
     /// `descriptionText` alias: Swift Export never exports a member named `description`.
@@ -159,7 +160,7 @@ final class SeriesEditObserver {
         viewModel.onAddSubSeriesEvent(event: action.kotlinEvent)
     }
 
-    private func applyPlacement(_ state: SeriesEditUiState) {
+    private func applyPlacement(_ state: SeriesEditForm) {
         parentName = state.parentName
         isTopLevel = state.parentId == nil
         hierarchyBusy = state.hierarchyBusy
@@ -169,27 +170,40 @@ final class SeriesEditObserver {
         newParent = state.newParent.map(NewSeriesDraftItem.init)
         let children = state.childSeries.map(EditableSubSeries.init)
         let serverIds = children.map(\.id)
-        // Take the VM's list when it changed, or when a refused change left the drop unapplied.
-        if serverIds != lastServerChildIds || (state.error != nil && !state.hierarchyBusy) {
+        // Take the VM's list when it changed.
+        if serverIds != lastServerChildIds {
             childSeries = children
         }
         lastServerChildIds = serverIds
     }
 
-    private func apply(_ state: SeriesEditUiState) {
+    private func apply(_ uiState: SeriesEditUiState) {
+        phase = Self.phase(of: uiState)
+        guard case .editing(let editingType) = uiState.sealedType() else { return }
+        let editing = editingType.value
+        let state = editing.form
         applyPlacement(state)
-        isLoading = state.isLoading
         name = state.name
         seriesDescription = state.descriptionText
         displayCoverPath = state.displayCoverPath
-        hasChanges = state.hasChanges
-        isSaving = state.isSaving
-        isUploadingCover = state.isUploadingCover
-        error = state.error
+        hasChanges = editing.hasChanges
+        isSaving = editing.isSaving
+        isUploadingCover = editing.isUploadingCover
+        // A Save, merge or cover failure: shown over the form, which keeps the edits.
+        error = editing.inlineError?.message
         bookCount = Int(state.bookCount)
-        mergeInProgress = state.mergeInProgress
+        mergeInProgress = editing.mergeInProgress
         canCurateLibrary = state.canCurateLibrary
         mergeQuery = state.mergeQuery
+    }
+
+    /// The sheet's phase for `state`. Pure, so it is unit-tested without a live ViewModel.
+    static func phase(of state: SeriesEditUiState) -> EditScreenPhase {
+        switch state.sealedType() {
+        case .loading: return .loading
+        case .loadFailed(let failedType): return .failed(failedType.value.error)
+        case .editing: return .editing
+        }
     }
 
     private func applyNav(_ action: SeriesEditNavAction) {

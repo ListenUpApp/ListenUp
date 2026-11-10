@@ -362,7 +362,14 @@ class AppStartupViewModel internal constructor(
                                         "isAdmin=${user?.isAdmin == true}) — " +
                                         "skipping library-setup check"
                                 }
-                                markReady()
+                                // No user at all under a lapsed session is not "a known non-admin": the
+                                // dead session could not say who this is, so the answer is provisional
+                                // and signing in re-runs the check (the browser's in-memory store on
+                                // plain-http LAN reaches here on every reload).
+                                markReady(
+                                    provisional =
+                                        user == null && authSession.authState.value is AuthState.SessionLapsed,
+                                )
                             }
                         }
 

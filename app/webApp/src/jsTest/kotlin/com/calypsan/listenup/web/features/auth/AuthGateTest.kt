@@ -56,6 +56,11 @@ import com.calypsan.listenup.web.features.chaptereditor.fixedChapterEditor
 import com.calypsan.listenup.web.features.match.fixedMatchDetails
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
+import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
+import com.calypsan.listenup.web.features.setup.fixedLibraryReadiness
+import com.calypsan.listenup.web.features.setup.OpenLibraryReadiness
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
@@ -155,15 +160,16 @@ private fun mountGate(
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
     inviteCode: String? = null,
     errors: Flow<AppError> = emptyFlow(),
-    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState()),
     openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
     notice: @Composable () -> Unit = {},
+    openLibraryReadiness: OpenLibraryReadiness = fixedLibraryReadiness(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
     compositions +=
         renderComposable(root = host) {
-            Gate(graph, themeMode, inviteCode, errors, openLibrarySetup, openConnectionHealth, notice)
+            Gate(graph, themeMode, inviteCode, errors, openLibrarySetup, openConnectionHealth, notice, openLibraryReadiness)
         }
     return host
 }
@@ -175,27 +181,29 @@ private fun Gate(
     themeMode: Flow<ThemeMode> = flowOf(ThemeMode.SYSTEM),
     inviteCode: String? = null,
     errors: Flow<AppError> = emptyFlow(),
-    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+    openLibrarySetup: OpenLibrarySetup = fixedLibrarySetup(setupState()),
     openConnectionHealth: OpenConnectionHealth = fixedConnectionHealth(),
     notice: @Composable () -> Unit = {},
+    openLibraryReadiness: OpenLibraryReadiness = fixedLibraryReadiness(),
 ) {
     val router = remember { Router().also { routers += it } }
     AuthGate(
         authGraph = graph,
         router = router,
         openLibrarySetup = openLibrarySetup,
+        openLibraryReadiness = openLibraryReadiness,
         openConnectionHealth = openConnectionHealth,
         graph =
             WebGraph(
                 openBookDetail = fixedBookDetail(readyBook()),
-                openBookEdit = fixedBookEdit(BookEditUiState()),
+                openBookEdit = fixedBookEdit(BookEditUiState.Loading),
                 openChapterEditor = fixedChapterEditor(ChapterEditorUiState.Loading),
                 matchDetails = fixedMatchDetails(),
                 openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
                 openContributorBooks = fixedContributorBooks(ContributorBooksUiState.Loading),
-                openContributorEdit = fixedContributorEdit(ContributorEditUiState()),
+                openContributorEdit = fixedContributorEdit(ContributorEditUiState.Loading),
                 openSeriesDetail = fixedSeriesDetail(SeriesDetailUiState.Loading),
-                openSeriesEdit = fixedSeriesEdit(SeriesEditUiState()),
+                openSeriesEdit = fixedSeriesEdit(SeriesEditUiState.Loading),
                 openNotifications = fixedNotifications(NotificationsUiState.Empty),
                 openNotificationPrefs = fixedNotificationPrefs(NotificationPrefsUiState.Loading),
                 openProfile = fixedProfile(UserProfileUiState.Loading),
@@ -274,7 +282,7 @@ class AuthGateTest :
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = true)),
+                    openLibraryReadiness = fixedLibraryReadiness(MutableStateFlow(LibraryReadiness.NeedsSetup)),
                 )
 
             host.querySelector(".lsetup").shouldNotBeNull()
@@ -318,7 +326,7 @@ class AuthGateTest :
             val host =
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openLibrarySetup = fixedLibrarySetup(setupState()),
                     openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
@@ -336,7 +344,7 @@ class AuthGateTest :
             val host =
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openLibrarySetup = fixedLibrarySetup(setupState()),
                     openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
@@ -354,7 +362,7 @@ class AuthGateTest :
             val host =
                 mountGate(
                     FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openLibrarySetup = fixedLibrarySetup(setupState()),
                     openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
                 )
 
@@ -431,29 +439,25 @@ class AuthGateTest :
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
+                    openLibrarySetup = fixedLibrarySetup(setupState()),
                 )
 
             host.querySelector(".lapse") shouldBe null
         }
 
         test("a server that is already set up goes straight to the app") {
-            val host =
-                mountGate(
-                    FakeAuthGraph(authenticated()),
-                    openLibrarySetup = fixedLibrarySetup(setupState(needsSetup = false)),
-                )
+            val host = mountGate(FakeAuthGraph(authenticated()))
 
             host.querySelector(".shell").shouldNotBeNull()
             host.querySelector(".lsetup") shouldBe null
         }
 
         // Flashing an empty library at precisely the person about to be told why it is empty.
-        test("neither branch renders while the status probe is in flight") {
+        test("neither branch renders while readiness is still checking") {
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
-                    openLibrarySetup = fixedLibrarySetup(setupState(isCheckingStatus = true, needsSetup = false)),
+                    openLibraryReadiness = fixedLibraryReadiness(MutableStateFlow(LibraryReadiness.Checking)),
                 )
 
             host.querySelector(".lsetup") shouldBe null
@@ -461,94 +465,142 @@ class AuthGateTest :
             host.querySelectorAll(".auth-boot").length shouldBe 1
         }
 
-        // Android's `SetupCheckFailedScreen`. The ViewModel reports a failed probe as `error` with
-        // `needsSetup` still false, which the gate used to read as "no setup needed" — dropping a
-        // fresh admin into an empty shell with a toast that vanished, and no way to ask again.
-        test("a failed setup check with nothing local offers to check again instead of an empty app") {
-            var checks = 0
+        // Android's `SetupCheckFailedScreen`: an honest failure and the one move that can fix it. When
+        // a local library or a lapsed session should open the app instead is the shared ViewModel's
+        // rule (AppStartupViewModelTest), not this gate's.
+        test("a failed readiness check offers to check again instead of an empty app") {
+            var retries = 0
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
-                    openLibrarySetup =
-                        fixedLibrarySetup(
-                            setupState(needsSetup = false, error = "Couldn't reach the server."),
-                            onCheckStatus = { checks++ },
-                            hasLocalLibrary = { false },
-                        ),
+                    openLibraryReadiness =
+                        fixedLibraryReadiness(MutableStateFlow(LibraryReadiness.CheckFailed), onRetry = { retries++ }),
                 )
 
-            val retry =
-                withTimeout(RECOMPOSE_TIMEOUT_MS) {
-                    var found: HTMLElement? = null
-                    while (found == null) {
-                        found = host.querySelector(".setup-check-retry") as? HTMLElement
-                        if (found == null) delay(10)
-                    }
-                    found
-                }
             host.querySelector(".shell") shouldBe null
-            retry.click()
+            (host.querySelector(".setup-check-retry") as HTMLElement).click()
 
-            checks shouldBe 1
+            retries shouldBe 1
         }
 
-        // ⛔ Offline-first. Android's `resolveOfflineOrFail` opens a returning reader offline
-        // rather than walling them out; a wall here would take away a library that is sitting in
-        // OPFS and reads perfectly well, because the server happened to be down at sign-in.
-        test("a failed setup check over a library already in this browser opens the app") {
+        // The wizard asks the server again itself. Its failure used to leave Android on a spinner
+        // forever; here, as there, it is the same honest failure with a retry.
+        test("the wizard's own failed check offers to check again, wired to the wizard") {
+            var retries = 0
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
+                    openLibraryReadiness = fixedLibraryReadiness(MutableStateFlow(LibraryReadiness.NeedsSetup)),
                     openLibrarySetup =
-                        fixedLibrarySetup(
-                            setupState(needsSetup = false, error = "Couldn't reach the server."),
-                            hasLocalLibrary = { true },
-                        ),
+                        fixedLibrarySetup(LibrarySetupUiState.CheckFailed(InternalError()), onRetry = { retries++ }),
                 )
 
-            withTimeout(RECOMPOSE_TIMEOUT_MS) {
-                while (host.querySelector(".shell") == null) delay(10)
-            }
-            host.querySelector(".setup-check-retry") shouldBe null
+            host.querySelector(".lsetup") shouldBe null
+            (host.querySelector(".setup-check-retry") as HTMLElement).click()
+
+            retries shouldBe 1
         }
 
-        // A lapsed session would fail the retry against the same dead credentials, and the wall
-        // would paint over the banner that is the only way back in — Android resolves Ready here.
-        test("a failed setup check under a lapsed session keeps the app and its sign-in banner") {
+        test("a wizard that finds nothing to set up hands back to readiness") {
+            val readiness = MutableStateFlow<LibraryReadiness>(LibraryReadiness.NeedsSetup)
             val host =
                 mountGate(
-                    FakeAuthGraph(AuthState.SessionLapsed(UserId("u1"))),
-                    openLibrarySetup =
-                        fixedLibrarySetup(
-                            setupState(needsSetup = false, error = "Your session expired."),
-                            hasLocalLibrary = { false },
-                        ),
-                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
+                    FakeAuthGraph(authenticated()),
+                    openLibraryReadiness =
+                        fixedLibraryReadiness(readiness, onSetupComplete = { readiness.value = LibraryReadiness.Ready }),
+                    openLibrarySetup = fixedLibrarySetup(LibrarySetupUiState.NotNeeded),
                 )
 
             withTimeout(RECOMPOSE_TIMEOUT_MS) {
                 while (host.querySelector(".shell") == null) delay(10)
             }
-            host.querySelector(".setup-check-retry") shouldBe null
         }
 
-        // ⛔ The ViewModel does NOT flip `needsSetup` back to false on success — its last act is to
-        // start the scan and emit the one-shot. A gate re-reading the state would show the wizard
-        // again, over a library that was just configured, forever.
-        test("finishing setup opens the app even though the state still says setup is needed") {
+        // ⛔ The wizard stays on its picker when setup succeeds — its last act is to start the scan and
+        // emit the one-shot. The event is what tells readiness setup is done.
+        test("finishing setup tells readiness, which then opens the app") {
             val finished = MutableSharedFlow<LibrarySetupNavAction>(replay = 1)
             finished.tryEmit(LibrarySetupNavAction.Finished)
+            val readiness = MutableStateFlow<LibraryReadiness>(LibraryReadiness.NeedsSetup)
             val host =
                 mountGate(
                     FakeAuthGraph(authenticated()),
-                    openLibrarySetup =
-                        fixedLibrarySetup(setupState(needsSetup = true), navActions = finished),
+                    openLibraryReadiness =
+                        fixedLibraryReadiness(readiness, onSetupComplete = { readiness.value = LibraryReadiness.Ready }),
+                    openLibrarySetup = fixedLibrarySetup(setupState(), navActions = finished),
                 )
 
             withTimeout(RECOMPOSE_TIMEOUT_MS) {
                 while (host.querySelector(".shell") == null) delay(10)
             }
             host.querySelector(".lsetup") shouldBe null
+        }
+
+        test("the first scan holds the app on Building your library, with Continue once it stalls") {
+            var continued = 0
+            val readiness = MutableStateFlow<LibraryReadiness>(LibraryReadiness.Populating(progress = null))
+            val host =
+                mountGate(
+                    FakeAuthGraph(authenticated()),
+                    openLibraryReadiness =
+                        fixedLibraryReadiness(readiness, onContinueToPartialLibrary = { continued++ }),
+                )
+
+            host.querySelector(".shell") shouldBe null
+            host.textContent.orEmpty() shouldContain "Building your library"
+            host.querySelector(".populating-continue") shouldBe null
+
+            readiness.value = LibraryReadiness.Populating(progress = null, stalled = true)
+            val go =
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    var found: HTMLElement? = null
+                    while (found == null) {
+                        found = host.querySelector(".populating-continue") as? HTMLElement
+                        if (found == null) delay(10)
+                    }
+                    found
+                }
+            go.click()
+
+            continued shouldBe 1
+        }
+
+        // ⛔ The re-auth wall. A plain-http reload into a lapsed session could not check the library,
+        // and the gate used to keep that stale failure through the sign-in that revived the session:
+        // "Couldn't check library setup" in front of a reader who had just signed in. Readiness is now
+        // the shared ViewModel's, opened ONCE by a branch that stays mounted across the sign-in — so
+        // it sees the transition and re-checks, and the gate renders its new answer.
+        test("signing back in from a lapsed session reaches the shell, not the setup wall") {
+            var opened = 0
+            val readiness = MutableStateFlow<LibraryReadiness>(LibraryReadiness.Ready)
+            val graph = FakeAuthGraph(AuthState.SessionLapsed(UserId("u1")))
+            val host =
+                mountGate(
+                    graph,
+                    openLibraryReadiness = {
+                        opened++
+                        fixedLibraryReadiness(readiness)()
+                    },
+                    openConnectionHealth = fixedConnectionHealth(ConnectionHealthUi.SessionExpired),
+                )
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".shell") == null) delay(10)
+            }
+
+            // Signing in: the ViewModel re-runs its provisional check, then answers Ready.
+            graph.state.value = authenticated()
+            readiness.value = LibraryReadiness.Checking
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".auth-boot") == null) delay(10)
+            }
+            readiness.value = LibraryReadiness.Ready
+            withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                while (host.querySelector(".shell") == null) delay(10)
+            }
+
+            host.querySelector(".setup-check-retry") shouldBe null
+            host.textContent.orEmpty() shouldNotContain "Couldn't check library setup"
+            opened shouldBe 1
         }
 
         test("initializing shows the boot surface, never a login form") {

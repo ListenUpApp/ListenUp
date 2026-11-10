@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.web.features.admin.fixedInboxBadge
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.notifications.NotificationEvent
@@ -431,7 +433,7 @@ class WebAppRootTest :
                     "/book/b-stormlight/edit",
                     openBookEdit =
                         fixedBookEdit(
-                            BookEditUiState(isLoading = false, title = "The Way of Kings"),
+                            editingBook(BookEditForm(title = "The Way of Kings")),
                             onOpen = { asked += it },
                         ),
                 )

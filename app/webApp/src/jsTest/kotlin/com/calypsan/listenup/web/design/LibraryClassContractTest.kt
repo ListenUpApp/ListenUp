@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.error.ValidationError
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.domain.model.ContributorRole
@@ -238,7 +239,7 @@ private fun libraryShapes2(): Map<String, @Composable () -> Unit> =
             ContributorEditPage(
                 state =
                     editingContributor(
-                        error = "That name is already taken.",
+                        error = ValidationError(message = "That name is already taken."),
                         aliases = listOf("Richard Bachman"),
                         imagePath = "contributors/c-king.jpg",
                     ),
@@ -281,7 +282,7 @@ private fun libraryShapes3(): Map<String, @Composable () -> Unit> =
             // adds the discard control), the skeleton, and the picker in each of its
             // three shapes — nothing matched, a selectable list, and a capped one.
             SeriesEditPage(
-                state = editingSeries(error = "That name is taken.", coverPath = "series/s.jpg"),
+                state = editingSeries(error = ValidationError(message = "That name is taken."), coverPath = "series/s.jpg"),
                 mergeCandidates = emptyList(),
                 mergeHistory = contractMergeHistory,
                 onEvent = {},

@@ -2,7 +2,12 @@ package com.calypsan.listenup.web.features.contributoredit
 
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.ContributorError
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditForm
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.edit.EditPhase
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.web.awaitFrame
@@ -49,7 +54,9 @@ internal fun editingContributor(
     deathDate: String = "",
     aliases: List<String> = emptyList(),
     imagePath: String? = null,
-    error: String? = null,
+    pendingImageData: ByteArray? = null,
+    pendingImageFilename: String? = null,
+    error: AppError? = null,
     isLoading: Boolean = false,
     isSaving: Boolean = false,
     isUploadingImage: Boolean = false,
@@ -59,26 +66,39 @@ internal fun editingContributor(
     mergeQuery: String = "",
     renameCollisionCandidate: ContributorCandidate? = null,
     canCurateLibrary: Boolean = true,
-) = ContributorEditUiState(
-    isLoading = isLoading,
-    isSaving = isSaving,
-    isUploadingImage = isUploadingImage,
-    error = error,
-    contributorId = "c-king",
-    imagePath = imagePath,
-    name = name,
-    description = description,
-    website = website,
-    birthDate = birthDate,
-    deathDate = deathDate,
-    aliases = aliases,
-    mergeInProgress = mergeInProgress,
-    mergeDialogVisible = mergeDialogVisible,
-    mergeQuery = mergeQuery,
-    hasChanges = hasChanges,
-    renameCollisionCandidate = renameCollisionCandidate,
-    canCurateLibrary = canCurateLibrary,
-)
+): ContributorEditUiState {
+    if (isLoading) return ContributorEditUiState.Loading
+    val form =
+        ContributorEditForm(
+            contributorId = "c-king",
+            imagePath = imagePath,
+            pendingImageData = pendingImageData,
+            pendingImageFilename = pendingImageFilename,
+            name = name,
+            description = description,
+            website = website,
+            birthDate = birthDate,
+            deathDate = deathDate,
+            aliases = aliases,
+            mergeDialogVisible = mergeDialogVisible,
+            mergeQuery = mergeQuery,
+            renameCollisionCandidate = renameCollisionCandidate,
+            canCurateLibrary = canCurateLibrary,
+        )
+    return ContributorEditUiState.Editing(
+        form = form,
+        // A draft is a form that differs from what was loaded.
+        original = if (hasChanges) form.copy(name = "$name (as loaded)") else form,
+        phase =
+            when {
+                isSaving -> EditPhase.Saving
+                isUploadingImage -> EditPhase.StagingImage
+                mergeInProgress -> EditPhase.Merging
+                else -> EditPhase.Idle
+            },
+        inlineError = error,
+    )
+}
 
 private fun page(
     state: ContributorEditUiState,
@@ -265,11 +285,14 @@ class ContributorEditPageTest :
 
         test("an error is announced, and can be dismissed") {
             val seen = mutableListOf<ContributorEditUiEvent>()
-            val host = page(editingContributor(error = "That name is already taken."), onEvent = { seen += it })
+            val error = ValidationError(message = "That name is already taken.")
+            val host = page(editingContributor(error = error), onEvent = { seen += it })
 
             val alert = host.querySelector(".ced-err-t").shouldNotBeNull()
             alert.getAttribute("role") shouldBe "alert"
             alert.textContent shouldBe "That name is already taken."
+            // The failure sits above the form; the edit is still there to save again.
+            host.querySelector("form").shouldNotBeNull()
 
             (host.querySelector(".ced-err-x") as HTMLButtonElement).click()
             awaitFrame()
@@ -458,6 +481,19 @@ class ContributorEditPageTest :
             dialog.textContent.shouldNotBeNull() shouldContain "Richard Bachman already exists."
         }
 
+        // A missing subject used to fall through to an empty, editable form whose Save wrote blanks.
+        test("a contributor that could not be loaded says so, with no form and a way back") {
+            val seen = mutableListOf<ContributorEditUiEvent>()
+            val host = page(ContributorEditUiState.LoadFailed("gone", ContributorError.NotFound()), onEvent = { seen += it })
+
+            host.querySelector("form") shouldBe null
+            host.querySelector(".edit-retry") shouldBe null
+            (host.querySelector(".edit-back") as HTMLButtonElement).click()
+            awaitFrame()
+
+            seen shouldContainExactly listOf(ContributorEditUiEvent.Cancel)
+        }
+
         test("a page still loading draws nothing it does not know yet") {
             val host = page(editingContributor(isLoading = true))
 
@@ -523,7 +559,7 @@ class ContributorEditPageTest :
             val bytes = pngFile().readByteArray().shouldNotBeNull()
             val host =
                 page(
-                    editingContributor().copy(pendingImageData = bytes, pendingImageFilename = "face.png"),
+                    editingContributor(pendingImageData = bytes, pendingImageFilename = "face.png"),
                     onEvent = { events += it },
                 )
 

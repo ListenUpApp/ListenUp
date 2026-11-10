@@ -48,7 +48,7 @@ import com.calypsan.listenup.client.features.seriesdetail.components.seriesPathL
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerDisabledReason
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_collapse
 import listenup.composeapp.generated.resources.common_expand
@@ -74,7 +74,7 @@ private val IndentPerLevel = 20.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MoveIntoPickerSheet(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     rows: List<ParentPickerRow>,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
@@ -98,7 +98,7 @@ internal fun MoveIntoPickerSheet(
  */
 @Composable
 internal fun MoveIntoPicker(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     rows: List<ParentPickerRow>,
     onEvent: (SeriesEditUiEvent) -> Unit,
     modifier: Modifier = Modifier,
@@ -292,7 +292,7 @@ private fun PickerRowLayout(
 /** "New parent series": creates the parent where the series sits now and moves it in. */
 @Composable
 internal fun NewParentDialog(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
     val draft = state.newParent ?: return

@@ -18,131 +18,143 @@ struct ContributorEditView: View {
     var body: some View {
         Group {
             if let observer {
-                EditSheetScaffold(
-                    title: String(localized: "contributor.edit_title"),
-                    hasChanges: observer.hasChanges,
-                    canSave: observer.hasChanges,
-                    isSaving: observer.isSaving,
-                    onCancel: { observer.onCancel(); dismiss() },
-                    onSave: { observer.onSave() }
-                ) {
-                    Section {
-                        ImageEditHeader(
-                            shape: .circle,
-                            size: 120,
-                            isUploading: observer.isUploadingImage,
-                            canRemove: false,
-                            onPicked: { _ in },
-                            onRemove: {},
-                            framing: framing(observer)
-                        ) {
-                            // A staged pick is a local file in displayImagePath and renders from disk
-                            // before Save, as BookEditView shows displayCoverPath; the saved photo streams.
-                            // Either way it wears the frame it will be shown with.
-                            ContributorAvatar(
-                                name: observer.name,
-                                imagePath: observer.displayImagePath,
-                                id: contributorId,
-                                fontSize: 40,
-                                streamsContributorPhoto: !observer.hasStagedImage,
-                                frame: observer.displayFrame
+                switch observer.phase {
+                case .loading:
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .loadFailed(let message, let canRetry):
+                    EditLoadFailedView(
+                        message: message,
+                        canRetry: canRetry,
+                        onRetry: { observer.loadContributor(contributorId: contributorId) },
+                        onClose: { dismiss() }
+                    )
+                case .editing:
+                    EditSheetScaffold(
+                        title: String(localized: "contributor.edit_title"),
+                        hasChanges: observer.hasChanges,
+                        canSave: observer.hasChanges,
+                        isSaving: observer.isSaving,
+                        onCancel: { observer.onCancel(); dismiss() },
+                        onSave: { observer.onSave() }
+                    ) {
+                        Section {
+                            ImageEditHeader(
+                                shape: .circle,
+                                size: 120,
+                                isUploading: observer.isUploadingImage,
+                                canRemove: false,
+                                onPicked: { _ in },
+                                onRemove: {},
+                                framing: framing(observer)
+                            ) {
+                                // A staged pick is a local file in displayImagePath and renders from disk
+                                // before Save, as BookEditView shows displayCoverPath; the saved photo streams.
+                                // Either way it wears the frame it will be shown with.
+                                ContributorAvatar(
+                                    name: observer.name,
+                                    imagePath: observer.displayImagePath,
+                                    id: contributorId,
+                                    fontSize: 40,
+                                    streamsContributorPhoto: !observer.hasStagedImage,
+                                    frame: observer.displayFrame
+                                )
+                            }
+                            .frame(maxWidth: .infinity)
+                            .listRowBackground(Color.clear)
+                        }
+
+                        Section {
+                            AppTextField(
+                                placeholder: "",
+                                text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                                entry: .words,
+                                label: String(localized: "contributor.edit_name")
+                            )
+                            AppTextField(
+                                placeholder: String(localized: "contributor.edit_bio_placeholder"),
+                                text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
+                                entry: .sentences,
+                                label: String(localized: "contributor.edit_bio"),
+                                axis: .vertical
+                            )
+                            AppTextField(
+                                placeholder: "",
+                                text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
+                                entry: .url,
+                                label: String(localized: "contributor.edit_website")
                             )
                         }
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
-                    }
 
-                    Section {
-                        AppTextField(
-                            placeholder: "",
-                            text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
-                            entry: .words,
-                            label: String(localized: "contributor.edit_name")
-                        )
-                        AppTextField(
-                            placeholder: String(localized: "contributor.edit_bio_placeholder"),
-                            text: Binding(get: { observer.bio }, set: { observer.onBioChanged($0) }),
-                            entry: .sentences,
-                            label: String(localized: "contributor.edit_bio"),
-                            axis: .vertical
-                        )
-                        AppTextField(
-                            placeholder: "",
-                            text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
-                            entry: .url,
-                            label: String(localized: "contributor.edit_website")
-                        )
-                    }
-
-                    Section {
-                        EditDateField(
-                            label: String(localized: "contributor.edit_born"),
-                            isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
-                        )
-                        EditDateField(
-                            label: String(localized: "contributor.edit_died"),
-                            isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) })
-                        )
-                    }
-
-                    AliasesEditSection(
-                        aliases: observer.aliases,
-                        canCurate: observer.canCurateLibrary,
-                        onUnmerge: { observer.onUnmergeAlias($0) },
-                        onMergeTapped: {
-                            // The VM computes merge candidates only while it believes
-                            // the picker is open — tell it before presenting the sheet.
-                            observer.onMergeDialogOpened()
-                            showMergeSheet = true
+                        Section {
+                            EditDateField(
+                                label: String(localized: "contributor.edit_born"),
+                                isoDate: Binding(get: { observer.birthDate }, set: { observer.onBirthDateChanged($0) })
+                            )
+                            EditDateField(
+                                label: String(localized: "contributor.edit_died"),
+                                isoDate: Binding(get: { observer.deathDate }, set: { observer.onDeathDateChanged($0) })
+                            )
                         }
-                    )
-                }
-                .alert(
-                    String(localized: "common.error"),
-                    isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
-                ) {
-                    Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
-                } message: {
-                    Text(observer.error ?? "")
-                }
-                .alert(
-                    String(localized: "contributor.rename_collision_title"),
-                    isPresented: Binding(
-                        get: { observer.renameCollisionCandidate != nil },
-                        set: { if !$0 { observer.onDismissRenameCollision() } }
-                    ),
-                    presenting: observer.renameCollisionCandidate
-                ) { _ in
-                    // Merging is Curate library's: without it the collision offers only keep-separate.
-                    if observer.canCurateLibrary {
-                        Button(String(localized: "contributor.rename_collision_merge")) {
-                            observer.onConfirmMergeOnRename()
+
+                        AliasesEditSection(
+                            aliases: observer.aliases,
+                            canCurate: observer.canCurateLibrary,
+                            onUnmerge: { observer.onUnmergeAlias($0) },
+                            onMergeTapped: {
+                                // The VM computes merge candidates only while it believes
+                                // the picker is open — tell it before presenting the sheet.
+                                observer.onMergeDialogOpened()
+                                showMergeSheet = true
+                            }
+                        )
+                    }
+                    .alert(
+                        String(localized: "common.error"),
+                        isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
+                    ) {
+                        Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
+                    } message: {
+                        Text(observer.error ?? "")
+                    }
+                    .alert(
+                        String(localized: "contributor.rename_collision_title"),
+                        isPresented: Binding(
+                            get: { observer.renameCollisionCandidate != nil },
+                            set: { if !$0 { observer.onDismissRenameCollision() } }
+                        ),
+                        presenting: observer.renameCollisionCandidate
+                    ) { _ in
+                        // Merging is Curate library's: without it the collision offers only keep-separate.
+                        if observer.canCurateLibrary {
+                            Button(String(localized: "contributor.rename_collision_merge")) {
+                                observer.onConfirmMergeOnRename()
+                            }
                         }
+                        Button(String(localized: "contributor.rename_collision_keep_separate")) {
+                            observer.onKeepSeparateOnRename()
+                        }
+                        Button(String(localized: "common.cancel"), role: .cancel) {
+                            observer.onDismissRenameCollision()
+                        }
+                    } message: { candidate in
+                        Text(String(localized: .contributorRenameCollisionBody(observer.name, candidate.name)))
                     }
-                    Button(String(localized: "contributor.rename_collision_keep_separate")) {
-                        observer.onKeepSeparateOnRename()
+                    .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
+                        ContributorMergeSheet(
+                            candidates: observer.mergeCandidates,
+                            query: observer.mergeQuery,
+                            onQueryChange: { observer.onMergeQueryChange($0) },
+                            onSelect: { observer.onMergeInto($0) },
+                            onDismiss: { showMergeSheet = false }
+                        )
                     }
-                    Button(String(localized: "common.cancel"), role: .cancel) {
-                        observer.onDismissRenameCollision()
+                    .onChange(of: observer.didFinish) { _, finished in
+                        guard finished else { return }
+                        // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
+                        // with it, and the presenter would have no way to learn where the survivor is.
+                        if let merged = observer.mergedIntoContributorId { onMergedInto?(merged) }
+                        dismiss()
                     }
-                } message: { candidate in
-                    Text(String(localized: .contributorRenameCollisionBody(observer.name, candidate.name)))
-                }
-                .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
-                    ContributorMergeSheet(
-                        candidates: observer.mergeCandidates,
-                        query: observer.mergeQuery,
-                        onQueryChange: { observer.onMergeQueryChange($0) },
-                        onSelect: { observer.onMergeInto($0) },
-                        onDismiss: { showMergeSheet = false }
-                    )
-                }
-                .onChange(of: observer.didFinish) { _, finished in
-                    guard finished else { return }
-                    // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
-                    // with it, and the presenter would have no way to learn where the survivor is.
-                    if let merged = observer.mergedIntoContributorId { onMergedInto?(merged) }
-                    dismiss()
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

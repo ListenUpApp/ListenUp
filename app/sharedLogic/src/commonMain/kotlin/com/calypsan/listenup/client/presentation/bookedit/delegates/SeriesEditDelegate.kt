@@ -5,7 +5,8 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
 
@@ -40,12 +40,18 @@ private const val SEARCH_LIMIT = 10
  * @property scope CoroutineScope for launching operations
  * @property onChangesMade Callback to notify ViewModel of changes
  */
-class SeriesEditDelegate(
-    private val state: MutableStateFlow<BookEditUiState>,
+internal class SeriesEditDelegate(
+    private val state: FormSlot<*, BookEditForm>,
     private val seriesRepository: SeriesRepository,
     private val scope: CoroutineScope,
     private val onChangesMade: () -> Unit,
 ) {
+    /**
+     * The form being edited. Outside `Editing` this is an empty form: the reads it feeds only shape
+     * a write, and [FormSlot.update] drops every write while there is no form.
+     */
+    private val current: BookEditForm get() = state.value ?: BookEditForm()
+
     private val seriesQueryFlow = MutableStateFlow("")
 
     init {
@@ -228,7 +234,7 @@ class SeriesEditDelegate(
 
         // Filter out series already added to this book
         val currentSeriesIds =
-            state.value.series
+            current.series
                 .mapNotNull { it.id }
                 .toSet()
         val filteredResults = response.series.filter { it.id !in currentSeriesIds }

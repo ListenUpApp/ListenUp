@@ -104,40 +104,57 @@ fun LibrarySetupScreen(
         }
     }
 
-    // Errors surface on the global ErrorBus from the VM; clear the local flag so it doesn't re-latch.
-    LaunchedEffect(state.error) {
-        if (state.error != null) viewModel.clearError()
+    // A setup check that resolved to "nothing to set up" (another admin finished it meanwhile) is
+    // the wizard's job done: move on exactly as a completed setup would.
+    LaunchedEffect(state) {
+        if (state is LibrarySetupUiState.NotNeeded) onSetupComplete()
     }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        BoxWithConstraints {
-            val isWide = maxWidth >= TwoPaneMinWidth
-            when {
-                state.isCheckingStatus || !state.needsSetup -> {
-                    FullScreenLoadingIndicator()
-                }
-
-                isWide -> {
-                    DesktopLayout(
-                        state = state,
-                        onOpen = viewModel::loadDirectory,
-                        onToggle = viewModel::togglePath,
-                        onSelectCurrent = { viewModel.selectPath(state.currentPath) },
-                        onBack = viewModel::navigateUp,
-                        onContinue = viewModel::completeSetup,
-                    )
-                }
-
-                else -> {
-                    PhoneLayout(
-                        state = state,
-                        onOpen = viewModel::loadDirectory,
-                        onToggle = viewModel::togglePath,
-                        onSelectCurrent = { viewModel.selectPath(state.currentPath) },
-                        onContinue = viewModel::completeSetup,
-                    )
-                }
+        when (val current = state) {
+            LibrarySetupUiState.Checking, LibrarySetupUiState.NotNeeded -> {
+                FullScreenLoadingIndicator()
             }
+
+            is LibrarySetupUiState.CheckFailed -> {
+                SetupCheckFailedScreen(onRetry = viewModel::retryStatusCheck)
+            }
+
+            is LibrarySetupUiState.Browsing -> {
+                // Browse and registration failures surface on the global ErrorBus from the VM; clear
+                // the local copy so it doesn't re-latch.
+                LaunchedEffect(current.error) {
+                    if (current.error != null) viewModel.clearError()
+                }
+                BrowsingLayout(state = current, viewModel = viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrowsingLayout(
+    state: LibrarySetupUiState.Browsing,
+    viewModel: LibrarySetupViewModel,
+) {
+    BoxWithConstraints {
+        if (maxWidth >= TwoPaneMinWidth) {
+            DesktopLayout(
+                state = state,
+                onOpen = viewModel::loadDirectory,
+                onToggle = viewModel::togglePath,
+                onSelectCurrent = { viewModel.selectPath(state.currentPath) },
+                onBack = viewModel::navigateUp,
+                onContinue = viewModel::completeSetup,
+            )
+        } else {
+            PhoneLayout(
+                state = state,
+                onOpen = viewModel::loadDirectory,
+                onToggle = viewModel::togglePath,
+                onSelectCurrent = { viewModel.selectPath(state.currentPath) },
+                onContinue = viewModel::completeSetup,
+            )
         }
     }
 }
@@ -146,7 +163,7 @@ fun LibrarySetupScreen(
 
 @Composable
 private fun PhoneLayout(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
@@ -223,7 +240,7 @@ private fun PhoneLayout(
 
 @Composable
 private fun DockedSelectionBar(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onContinue: () -> Unit,
 ) {
     // A bottom bar's container level, not a shadow: chrome stays tonal.
@@ -277,7 +294,7 @@ private fun DockedSelectionBar(
 
 @Composable
 private fun DesktopLayout(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,
@@ -343,7 +360,7 @@ private fun DesktopLayout(
 
 @Composable
 private fun DesktopPickerPanel(
-    state: LibrarySetupUiState,
+    state: LibrarySetupUiState.Browsing,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSelectCurrent: () -> Unit,

@@ -44,7 +44,6 @@ struct ChooseFoldersView: View {
             .prominentAction()
             .disabled(!hasSelection || viewModel.isCreatingLibrary)
         }
-        .onAppear { viewModel.checkStatus() }
         .alert(
             String(localized: "common.something_went_wrong"),
             isPresented: errorBinding,

@@ -5,7 +5,8 @@ package com.calypsan.listenup.client.presentation.bookedit.delegates
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
 import com.calypsan.listenup.client.presentation.bookedit.EditableContributor
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -39,12 +39,18 @@ private const val SEARCH_LIMIT = 10
  * @property scope CoroutineScope for launching operations
  * @property onChangesMade Callback to notify ViewModel of changes
  */
-class ContributorEditDelegate(
-    private val state: MutableStateFlow<BookEditUiState>,
+internal class ContributorEditDelegate(
+    private val state: FormSlot<*, BookEditForm>,
     private val contributorRepository: ContributorRepository,
     private val scope: CoroutineScope,
     private val onChangesMade: () -> Unit,
 ) {
+    /**
+     * The form being edited. Outside `Editing` this is an empty form: the reads it feeds only shape
+     * a write, and [FormSlot.update] drops every write while there is no form.
+     */
+    private val current: BookEditForm get() = state.value ?: BookEditForm()
+
     // Per-role query flows for debounced search
     private val roleQueryFlows = mutableMapOf<ContributorRole, MutableStateFlow<String>>()
     private val roleSearchJobs = mutableMapOf<ContributorRole, Job>()
@@ -298,7 +304,7 @@ class ContributorEditDelegate(
 
                 // Filter out contributors already added for this role
                 val currentContributorIds =
-                    state.value
+                    current
                         .contributorsForRole(role)
                         .mapNotNull { it.id }
                         .toSet()

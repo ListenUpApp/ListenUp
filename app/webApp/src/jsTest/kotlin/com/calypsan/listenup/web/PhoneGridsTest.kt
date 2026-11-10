@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -88,7 +90,7 @@ class PhoneGridsTest :
                     frames.mount(width) {
                         InShell {
                             BookEditPage(
-                                state = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune"),
+                                state = editingBook(BookEditForm(bookId = "b1", title = "Dune")),
                                 onEvent = {},
                                 onOpenLibrary = {},
                                 onOpenBook = {},

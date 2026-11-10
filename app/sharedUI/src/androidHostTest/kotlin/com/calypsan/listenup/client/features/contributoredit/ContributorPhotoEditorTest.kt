@@ -12,7 +12,7 @@ import com.calypsan.listenup.client.design.image.pngFile
 import com.calypsan.listenup.client.design.image.restoreCoil
 import com.calypsan.listenup.client.design.image.startKoinForContributorPhotos
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
-import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditForm
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -53,7 +53,7 @@ class ContributorPhotoEditorTest {
 
     private fun show(
         editing: ContributorFrameEdit,
-        state: ContributorEditUiState = ContributorEditUiState(contributorId = "c1", imagePath = "contributors/a.jpg"),
+        state: ContributorEditForm = ContributorEditForm(contributorId = "c1", imagePath = "contributors/a.jpg"),
     ) = compose.setContent {
         MaterialTheme {
             ContributorPhotoEditor(
@@ -90,7 +90,7 @@ class ContributorPhotoEditorTest {
         val staged = pngBytes()
         show(
             ContributorFrameEdit.Existing,
-            ContributorEditUiState(contributorId = "c1", pendingImageData = staged, pendingImageFilename = "staged.png"),
+            ContributorEditForm(contributorId = "c1", pendingImageData = staged, pendingImageFilename = "staged.png"),
         )
         pressDone()
         val upload = events.single().shouldBeInstanceOf<ContributorEditUiEvent.UploadImage>()

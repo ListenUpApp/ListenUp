@@ -24,6 +24,8 @@ import com.calypsan.listenup.client.presentation.bookedit.delegates.ContributorE
 import com.calypsan.listenup.client.presentation.bookedit.delegates.CoverUploadDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.GenreTagEditDelegate
 import com.calypsan.listenup.client.presentation.bookedit.delegates.SeriesEditDelegate
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -31,10 +33,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -68,13 +72,27 @@ class BookEditViewModel(
 ) : ViewModel() {
     // Use explicit backing field for mutable state shared with delegates
     val state: StateFlow<BookEditUiState>
-        field = MutableStateFlow(BookEditUiState())
+        field = MutableStateFlow<BookEditUiState>(BookEditUiState.Loading)
 
     private val navActionsChannel = Channel<BookEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<BookEditNavAction> = navActionsChannel.receiveAsFlow()
 
-    // Original state for change detection (set when book is loaded)
-    private var originalState: BookEditData? = null
+    /** The form inside [BookEditUiState.Editing], for the delegates that edit one slice of it. */
+    private val form: FormSlot<BookEditUiState, BookEditForm> =
+        FormSlot(
+            state = state,
+            formOf = { (it as? BookEditUiState.Editing)?.form },
+            withForm = {
+                current,
+                form,
+                ->
+                if (current is BookEditUiState.Editing) current.copy(form = form) else current
+            },
+        )
+
+    /** Admin status gates the Collections field; held live so a form built later starts with it. */
+    private val adminStatus: StateFlow<Boolean> =
+        userRepository.observeIsAdmin().stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // The held-for-review observation for the loaded book; replaced when another book loads.
     private var heldObservation: Job? = null
@@ -86,7 +104,7 @@ class BookEditViewModel(
     // Delegates for focused editing operations
     private val contributorDelegate =
         ContributorEditDelegate(
-            state = state,
+            state = form,
             contributorRepository = contributorRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -94,7 +112,7 @@ class BookEditViewModel(
 
     private val seriesDelegate =
         SeriesEditDelegate(
-            state = state,
+            state = form,
             seriesRepository = seriesRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -102,14 +120,14 @@ class BookEditViewModel(
 
     private val genreTagDelegate =
         GenreTagEditDelegate(
-            state = state,
+            state = form,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
         )
 
     private val collectionDelegate =
         CollectionEditDelegate(
-            state = state,
+            state = form,
             collectionRepository = collectionRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -128,9 +146,7 @@ class BookEditViewModel(
         // Admin status gates the Collections field — observe reactively so the UI
         // hides it for members.
         viewModelScope.launch {
-            userRepository.observeIsAdmin().collect { isAdmin ->
-                state.update { it.copy(isAdmin = isAdmin) }
-            }
+            adminStatus.collect { admin -> form.update { it.copy(isAdmin = admin) } }
         }
     }
 
@@ -148,85 +164,85 @@ class BookEditViewModel(
         if (loadedBookId == bookId) return
         loadedBookId = bookId
 
-        // Start observing the book's collection memberships + the available list.
-        // Reactive, so it runs alongside the one-shot use-case load below.
-        collectionDelegate.loadCollections(bookId)
         heldObservation?.cancel()
-        heldObservation =
-            viewModelScope.launch {
-                inboxRepository
-                    .observeHeldBookIds()
-                    .map { held -> BookId(bookId) in held }
-                    .distinctUntilChanged()
-                    .collect { held -> state.update { it.copy(isHeld = held) } }
-            }
         loadJob?.cancel()
+        state.value = BookEditUiState.Loading
         loadJob =
             viewModelScope.launch {
-                state.update { it.copy(isLoading = true, bookId = bookId) }
-
                 when (val result = loadBookForEditUseCase(bookId)) {
                     is AppResult.Success -> {
                         val editData = result.data
-                        originalState = editData
-
-                        // Determine visible roles from existing contributors
-                        val rolesFromContributors =
-                            editData.contributors
-                                .flatMap { it.roles }
-                                .toSet()
 
                         // Always show Author section, plus any roles that have contributors
-                        val initialVisibleRoles = rolesFromContributors + ContributorRole.AUTHOR
+                        val initialVisibleRoles =
+                            editData.contributors.flatMap { it.roles }.toSet() + ContributorRole.AUTHOR
+
+                        state.value =
+                            BookEditUiState.Editing(
+                                form = editData.toForm(bookId, initialVisibleRoles, adminStatus.value),
+                                original = editData,
+                            )
 
                         // Set up search for each visible role
                         initialVisibleRoles.forEach { role ->
                             contributorDelegate.setupRoleSearch(role)
                         }
+                        // The book's collection memberships + the available list, and whether it is
+                        // held — reactive, so they follow Room for as long as the form is open.
+                        collectionDelegate.loadCollections(bookId)
+                        heldObservation =
+                            viewModelScope.launch {
+                                inboxRepository
+                                    .observeHeldBookIds()
+                                    .map { held -> BookId(bookId) in held }
+                                    .distinctUntilChanged()
+                                    .collect { held -> form.update { it.copy(isHeld = held) } }
+                            }
 
-                        state.update { editState ->
-                            editState.copy(
-                                isLoading = false,
-                                coverPath = editData.coverPath,
-                                coverHash = editData.coverHash,
-                                title = editData.metadata.title,
-                                sortTitle = editData.metadata.sortTitle,
-                                subtitle = editData.metadata.subtitle,
-                                description = editData.metadata.description,
-                                publishYear = editData.metadata.publishYear,
-                                publisher = editData.metadata.publisher,
-                                language = editData.metadata.language,
-                                isbn = editData.metadata.isbn,
-                                asin = editData.metadata.asin,
-                                abridged = editData.metadata.abridged,
-                                addedAt = editData.metadata.addedAt,
-                                contributors = editData.contributors,
-                                series = editData.series,
-                                visibleRoles = initialVisibleRoles,
-                                genres = editData.genres,
-                                allGenres = editData.allGenres,
-                                tags = editData.tags,
-                                allTags = editData.allTags,
-                                moods = editData.moods,
-                                allMoods = editData.allMoods,
-                                hasChanges = false,
-                            )
-                        }
-
-                        logger.debug {
-                            "Loaded book for editing: ${editData.metadata.title}"
-                        }
+                        logger.debug { "Loaded book for editing: ${editData.metadata.title}" }
                     }
 
                     is AppResult.Failure -> {
                         // Let the same id be asked for again: nothing was loaded.
                         loadedBookId = null
                         errorBus.emit(result.error)
-                        state.update { it.copy(isLoading = false, error = result.message) }
+                        state.value = BookEditUiState.LoadFailed(bookId, result.error)
                     }
                 }
             }
     }
+
+    private fun BookEditData.toForm(
+        bookId: String,
+        visibleRoles: Set<ContributorRole>,
+        isAdmin: Boolean,
+    ): BookEditForm =
+        BookEditForm(
+            bookId = bookId,
+            coverPath = coverPath,
+            coverHash = coverHash,
+            title = metadata.title,
+            sortTitle = metadata.sortTitle,
+            subtitle = metadata.subtitle,
+            description = metadata.description,
+            publishYear = metadata.publishYear,
+            publisher = metadata.publisher,
+            language = metadata.language,
+            isbn = metadata.isbn,
+            asin = metadata.asin,
+            abridged = metadata.abridged,
+            addedAt = metadata.addedAt,
+            contributors = contributors,
+            series = series,
+            visibleRoles = visibleRoles,
+            genres = genres,
+            allGenres = allGenres,
+            tags = tags,
+            allTags = allTags,
+            moods = moods,
+            allMoods = allMoods,
+            isAdmin = isAdmin,
+        )
 
     /**
      * Handle UI events by routing to appropriate delegates.
@@ -236,22 +252,22 @@ class BookEditViewModel(
         when (event) {
             // Metadata changes - handled directly
             is BookEditUiEvent.TitleChanged -> {
-                state.update { it.copy(title = event.title) }
+                form.update { it.copy(title = event.title) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.SortTitleChanged -> {
-                state.update { it.copy(sortTitle = event.sortTitle) }
+                form.update { it.copy(sortTitle = event.sortTitle) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.SubtitleChanged -> {
-                state.update { it.copy(subtitle = event.subtitle) }
+                form.update { it.copy(subtitle = event.subtitle) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.DescriptionChanged -> {
-                state.update { it.copy(description = event.description) }
+                form.update { it.copy(description = event.description) }
                 updateHasChanges()
             }
 
@@ -260,37 +276,37 @@ class BookEditViewModel(
                 // input transformation on ListenUpTextField), so no transform runs between field
                 // and state. The digit filter at the save boundary in toMetadata() stays as a
                 // second line of defense.
-                state.update { it.copy(publishYear = event.year) }
+                form.update { it.copy(publishYear = event.year) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.PublisherChanged -> {
-                state.update { it.copy(publisher = event.publisher) }
+                form.update { it.copy(publisher = event.publisher) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.LanguageChanged -> {
-                state.update { it.copy(language = event.code) }
+                form.update { it.copy(language = event.code) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.IsbnChanged -> {
-                state.update { it.copy(isbn = event.isbn) }
+                form.update { it.copy(isbn = event.isbn) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AsinChanged -> {
-                state.update { it.copy(asin = event.asin) }
+                form.update { it.copy(asin = event.asin) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AbridgedChanged -> {
-                state.update { it.copy(abridged = event.abridged) }
+                form.update { it.copy(abridged = event.abridged) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AddedAtChanged -> {
-                state.update { it.copy(addedAt = event.epochMillis) }
+                form.update { it.copy(addedAt = event.epochMillis) }
                 updateHasChanges()
             }
 
@@ -415,7 +431,11 @@ class BookEditViewModel(
             }
 
             is BookEditUiEvent.DismissError -> {
-                state.update { it.copy(error = null) }
+                updateEditing { it.copy(inlineError = null) }
+            }
+
+            is BookEditUiEvent.RetryLoad -> {
+                (state.value as? BookEditUiState.LoadFailed)?.let { loadBook(it.bookId) }
             }
         }
     }
@@ -441,21 +461,24 @@ class BookEditViewModel(
      * Uses data class equality on [BookMetadata] for clean comparison.
      */
     private fun updateHasChanges() {
-        val original = originalState ?: return
-        val current = state.value
+        updateEditing { editing ->
+            val current = editing.form
+            val original = editing.original
+            val hasChanges =
+                current.toMetadata() != original.metadata ||
+                    current.contributors != original.contributors ||
+                    current.series != original.series ||
+                    current.genres != original.genres ||
+                    current.tags != original.tags ||
+                    current.moods != original.moods ||
+                    collectionDelegate.hasChanges() ||
+                    current.pendingCoverData != null
+            editing.copy(hasChanges = hasChanges)
+        }
+    }
 
-        val currentMetadata = current.toMetadata()
-        val hasChanges =
-            currentMetadata != original.metadata ||
-                current.contributors != original.contributors ||
-                current.series != original.series ||
-                current.genres != original.genres ||
-                current.tags != original.tags ||
-                current.moods != original.moods ||
-                collectionDelegate.hasChanges() ||
-                current.pendingCoverData != null
-
-        state.update { it.copy(hasChanges = hasChanges) }
+    private inline fun updateEditing(transform: (BookEditUiState.Editing) -> BookEditUiState.Editing) {
+        state.update { if (it is BookEditUiState.Editing) transform(it) else it }
     }
 
     /**
@@ -465,22 +488,23 @@ class BookEditViewModel(
      * - Change detection (comparing current vs original)
      * - Orchestrating repository calls in correct order
      * - Error handling with fail-fast semantics
+     *
+     * Refused unless the form is idle, so a second tap while the first Save is in flight is a no-op.
+     * A failure stays on the form as [BookEditUiState.Editing.inlineError], edits intact.
      */
     private fun saveChanges() {
-        val original = originalState ?: return
-        val current = state.value
+        val editing = state.value as? BookEditUiState.Editing ?: return
+        if (editing.phase != EditPhase.Idle) return
 
-        if (!current.hasChanges) {
+        if (!editing.hasChanges) {
             navActionsChannel.trySend(BookEditNavAction.NavigateBack)
             return
         }
+        state.value = editing.copy(phase = EditPhase.Saving, inlineError = null)
+        val current = editing.form
 
         viewModelScope.launch {
-            state.update { it.copy(isSaving = true, error = null) }
-
-            val updateRequest = current.toUpdateRequest()
-
-            when (val result = updateBookUseCase(updateRequest, original)) {
+            when (val result = updateBookUseCase(current.toUpdateRequest(), editing.original)) {
                 is AppResult.Success -> {
                     // The save went through; a cover that did not reach the server is said out loud.
                     (result.data as? SaveOutcome.SavedImageNotUploaded)?.let { errorBus.emit(it.toNotice()) }
@@ -490,19 +514,20 @@ class BookEditViewModel(
                         if (collectionDelegate.hasChanges()) saveCollections(current) else null
                     if (collectionsResult is AppResult.Failure) {
                         errorBus.emit(collectionsResult.error)
-                        state.update {
-                            it.copy(isSaving = false, error = collectionsResult.message)
-                        }
+                        updateEditing { it.copy(phase = EditPhase.Idle, inlineError = collectionsResult.error) }
                         return@launch
                     }
 
-                    state.update { editState ->
+                    updateEditing { editState ->
                         editState.copy(
-                            isSaving = false,
+                            phase = EditPhase.Idle,
                             hasChanges = false,
-                            pendingCoverData = null,
-                            pendingCoverFilename = null,
-                            stagingCoverPath = null,
+                            form =
+                                editState.form.copy(
+                                    pendingCoverData = null,
+                                    pendingCoverFilename = null,
+                                    stagingCoverPath = null,
+                                ),
                         )
                     }
                     navActionsChannel.trySend(BookEditNavAction.NavigateBack)
@@ -510,9 +535,7 @@ class BookEditViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    state.update {
-                        it.copy(isSaving = false, error = result.message)
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
                 }
             }
         }
@@ -522,16 +545,16 @@ class BookEditViewModel(
      * Dispatch the current collection set via the access-aware [BookEditRepository.setBookCollections]
      * RPC. No optimistic Room write — the firehose echo + AccessChanged reconcile deliver the new state.
      */
-    private suspend fun saveCollections(current: BookEditUiState) =
+    private suspend fun saveCollections(current: BookEditForm) =
         bookEditRepository.setBookCollections(
             id = BookId(current.bookId),
             collectionIds = current.collections.map { it.id },
         )
 
     /**
-     * Build [BookMetadata] from current UI state.
+     * Build [BookMetadata] from the form.
      */
-    private fun BookEditUiState.toMetadata(): BookMetadata =
+    private fun BookEditForm.toMetadata(): BookMetadata =
         BookMetadata(
             title = title,
             sortTitle = sortTitle,
@@ -548,9 +571,9 @@ class BookEditViewModel(
         )
 
     /**
-     * Build [BookUpdateRequest] from current UI state.
+     * Build [BookUpdateRequest] from the form.
      */
-    private fun BookEditUiState.toUpdateRequest(): BookUpdateRequest =
+    private fun BookEditForm.toUpdateRequest(): BookUpdateRequest =
         BookUpdateRequest(
             bookId = bookId,
             metadata = toMetadata(),

@@ -15,7 +15,7 @@ class BookEditUiStateRoleAccessorsTest :
 
         test("searchQueryForRole / searchLoadingForRole / searchResultsForRole read the role-keyed maps") {
             val state =
-                BookEditUiState(
+                BookEditForm(
                     roleSearchQueries = mapOf(ContributorRole.EDITOR to "carol"),
                     roleSearchLoading = mapOf(ContributorRole.EDITOR to true),
                     roleSearchResults =
@@ -34,7 +34,7 @@ class BookEditUiStateRoleAccessorsTest :
 
         test("orderedVisibleRoles returns the visible roles in enum declaration order, not set order") {
             val state =
-                BookEditUiState(
+                BookEditForm(
                     visibleRoles = setOf(ContributorRole.EDITOR, ContributorRole.AUTHOR, ContributorRole.NARRATOR),
                 )
 
@@ -43,7 +43,7 @@ class BookEditUiStateRoleAccessorsTest :
         }
 
         test("availableRolesToAdd excludes the visible roles") {
-            val state = BookEditUiState(visibleRoles = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR))
+            val state = BookEditForm(visibleRoles = setOf(ContributorRole.AUTHOR, ContributorRole.NARRATOR))
 
             state.availableRolesToAdd shouldBe
                 listOf(

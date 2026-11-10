@@ -2,7 +2,7 @@ package com.calypsan.listenup.web.features.bookedit
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.CoverPickerField
 import com.calypsan.listenup.web.design.coverUrl
@@ -15,12 +15,13 @@ import com.calypsan.listenup.web.design.coverUrl
  */
 @Composable
 fun CoverField(
-    state: BookEditUiState,
+    state: BookEditForm,
+    isUploading: Boolean,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     CoverPickerField(
         pendingBytes = state.pendingCoverData,
-        isUploading = state.isUploadingCover,
+        isUploading = isUploading,
         inputId = "edit-cover-input",
         onPicked = { bytes, filename ->
             onEvent(BookEditUiEvent.UploadCover(imageData = bytes, filename = filename))

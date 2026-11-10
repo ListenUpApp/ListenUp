@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.nav
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -37,7 +39,7 @@ class UnsavedWorkGuardTest :
             mounts.mount {
                 CompositionLocalProvider(LocalRouter provides router) {
                     BookEditPage(
-                        state = BookEditUiState(isLoading = false, bookId = "b1", title = "Dune", hasChanges = dirty),
+                        state = editingBook(BookEditForm(bookId = "b1", title = "Dune"), hasChanges = dirty),
                         onEvent = {},
                         onOpenLibrary = {},
                         onOpenBook = {},

@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.api.result.failureOf
+import kotlinx.coroutines.delay
+import com.calypsan.listenup.client.presentation.edit.EditPhase
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.model.BookEditData
 import com.calypsan.listenup.client.domain.model.BookUpdateRequest
@@ -45,6 +47,20 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+
+/** The [BookEditUiState.Editing] the screen is on — failing the spec when it is anything else. */
+private val BookEditUiState.editing: BookEditUiState.Editing
+    get() = shouldBeInstanceOf<BookEditUiState.Editing>()
+
+/** The form inside [editing]. */
+private val BookEditUiState.form: BookEditForm
+    get() = editing.form
+
+/** What [BookEditViewModel] is editing now — failing the spec when it is not editing. */
+private fun BookEditViewModel.editing(): BookEditUiState.Editing = state.value.editing
+
+/** The form [BookEditViewModel] is editing now. */
+private fun BookEditViewModel.form(): BookEditForm = state.value.form
 
 /**
  * Tests for BookEditViewModel.
@@ -169,16 +185,12 @@ class BookEditViewModelTest :
 
         // ========== Initial State Tests ==========
 
-        test("initial state has isLoading true") {
+        test("initial state is Loading, never an empty editable form") {
             runTest {
-                // Given
                 val fixture = createFixture()
                 val viewModel = fixture.build()
 
-                // Then
-                viewModel.state.value.isLoading shouldBe true
-                viewModel.state.value.title shouldBe ""
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.state.value shouldBe BookEditUiState.Loading
             }
         }
 
@@ -209,20 +221,20 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val state = viewModel.state.value
-                state.isLoading shouldBe false
+                val editing = viewModel.state.value.editing
+                editing.inlineError shouldBe null
+                editing.hasChanges shouldBe false
+                val state = editing.form
                 state.title shouldBe "The Way of Kings"
                 state.subtitle shouldBe "Book One of the Stormlight Archive"
                 state.description shouldBe "An epic fantasy adventure"
                 state.publishYear shouldBe "2010"
                 state.publisher shouldBe "Tor Books"
                 state.language shouldBe "en"
-                state.hasChanges shouldBe false
-                state.error shouldBe null
             }
         }
 
-        test("loadBook not found sets error state") {
+        test("a failed load is LoadFailed with the typed error, never Editing with empty fields") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -234,9 +246,9 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val state = viewModel.state.value
-                state.isLoading shouldBe false
-                state.error shouldBe "Book not found"
+                val failed = viewModel.state.value.shouldBeInstanceOf<BookEditUiState.LoadFailed>()
+                failed.bookId shouldBe "nonexistent"
+                failed.error.message shouldBe "Book not found"
             }
         }
 
@@ -253,8 +265,8 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.title shouldBe "My edit"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.form().title shouldBe "My edit"
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -288,8 +300,8 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-2")
                 advanceUntilIdle()
 
-                viewModel.state.value.title shouldBe "Second"
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.form().title shouldBe "Second"
+                viewModel.editing().hasChanges shouldBe false
             }
         }
 
@@ -306,7 +318,7 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.title shouldBe "Recovered"
+                viewModel.form().title shouldBe "Recovered"
             }
         }
 
@@ -320,7 +332,7 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.isHeld shouldBe true
+                viewModel.form().isHeld shouldBe true
             }
         }
 
@@ -334,7 +346,7 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
 
-                viewModel.state.value.isHeld shouldBe false
+                viewModel.form().isHeld shouldBe false
             }
         }
 
@@ -351,7 +363,7 @@ class BookEditViewModelTest :
                 fixture.inbox.held.value = emptySet<BookId>()
                 advanceUntilIdle()
 
-                viewModel.state.value.isHeld shouldBe false
+                viewModel.form().isHeld shouldBe false
             }
         }
 
@@ -379,7 +391,7 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val state = viewModel.state.value
+                val state = viewModel.state.value.form
                 state.contributors.size shouldBe 1
                 val editable = state.contributors.first()
                 editable.name shouldBe "Patrick Rothfuss"
@@ -399,14 +411,14 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.editing().hasChanges shouldBe false
 
                 // When
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("New Title"))
 
                 // Then
-                viewModel.state.value.hasChanges shouldBe true
-                viewModel.state.value.title shouldBe "New Title"
+                viewModel.editing().hasChanges shouldBe true
+                viewModel.form().title shouldBe "New Title"
             }
         }
 
@@ -422,11 +434,11 @@ class BookEditViewModelTest :
 
                 // When - change then revert
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("New Title"))
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("Original Title"))
 
                 // Then
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.editing().hasChanges shouldBe false
             }
         }
 
@@ -446,7 +458,7 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.PublishYearChanged("20ab24cd"))
 
                 // Then - stored exactly as typed (echo-verbatim contract)
-                viewModel.state.value.publishYear shouldBe "20ab24cd"
+                viewModel.form().publishYear shouldBe "20ab24cd"
             }
         }
 
@@ -491,7 +503,7 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.AddRoleSection(ContributorRole.EDITOR))
 
                 // Then
-                (ContributorRole.EDITOR in viewModel.state.value.visibleRoles) shouldBe true
+                (ContributorRole.EDITOR in viewModel.form().visibleRoles) shouldBe true
             }
         }
 
@@ -510,11 +522,11 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val authors = viewModel.state.value.authors
+                val authors = viewModel.form().authors
                 authors.size shouldBe 1
                 authors.first().name shouldBe "New Author"
                 authors.first().id shouldBe null // New contributor has no ID
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -534,7 +546,7 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                val authors = viewModel.state.value.authors
+                val authors = viewModel.form().authors
                 authors.size shouldBe 1
                 authors.first().id shouldBe "existing-1"
                 authors.first().name shouldBe "Existing Author"
@@ -551,17 +563,19 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.authors.size shouldBe 1
+                viewModel.form().authors.size shouldBe 1
 
                 // When
                 val editable =
-                    viewModel.state.value.contributors
+                    viewModel
+                        .form()
+                        .contributors
                         .first()
                 viewModel.onEvent(BookEditUiEvent.RemoveContributor(editable, ContributorRole.AUTHOR))
 
                 // Then
-                viewModel.state.value.authors.size shouldBe 0
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.form().authors.size shouldBe 0
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -582,11 +596,13 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.SeriesSelected(searchResult))
 
                 // Then
-                viewModel.state.value.series.size shouldBe 1
-                viewModel.state.value.series
+                viewModel.form().series.size shouldBe 1
+                viewModel
+                    .form()
+                    .series
                     .first()
                     .name shouldBe "The Stormlight Archive"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -604,11 +620,15 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.SeriesEntered("New Fantasy Series"))
 
                 // Then
-                viewModel.state.value.series.size shouldBe 1
-                viewModel.state.value.series
+                viewModel.form().series.size shouldBe 1
+                viewModel
+                    .form()
+                    .series
                     .first()
                     .name shouldBe "New Fantasy Series"
-                viewModel.state.value.series
+                viewModel
+                    .form()
+                    .series
                     .first()
                     .id shouldBe null // New series has no ID
             }
@@ -627,15 +647,19 @@ class BookEditViewModelTest :
 
                 // When
                 val loadedSeries =
-                    viewModel.state.value.series
+                    viewModel
+                        .form()
+                        .series
                         .first()
                 viewModel.onEvent(BookEditUiEvent.SeriesSequenceChanged(loadedSeries, "1"))
 
                 // Then
-                viewModel.state.value.series
+                viewModel
+                    .form()
+                    .series
                     .first()
                     .sequence shouldBe "1"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -656,11 +680,13 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.GenreSelected(genre))
 
                 // Then
-                viewModel.state.value.genres.size shouldBe 1
-                viewModel.state.value.genres
+                viewModel.form().genres.size shouldBe 1
+                viewModel
+                    .form()
+                    .genres
                     .first()
                     .name shouldBe "Fantasy"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -674,17 +700,19 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.genres.size shouldBe 1
+                viewModel.form().genres.size shouldBe 1
 
                 // When
                 val editableGenre =
-                    viewModel.state.value.genres
+                    viewModel
+                        .form()
+                        .genres
                         .first()
                 viewModel.onEvent(BookEditUiEvent.RemoveGenre(editableGenre))
 
                 // Then
-                viewModel.state.value.genres.size shouldBe 0
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.form().genres.size shouldBe 0
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -705,11 +733,13 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.TagSelected(tag))
 
                 // Then
-                viewModel.state.value.tags.size shouldBe 1
-                viewModel.state.value.tags
+                viewModel.form().tags.size shouldBe 1
+                viewModel
+                    .form()
+                    .tags
                     .first()
                     .displayName() shouldBe "Favorites"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -723,17 +753,19 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.tags.size shouldBe 1
+                viewModel.form().tags.size shouldBe 1
 
                 // When
                 val editableTag =
-                    viewModel.state.value.tags
+                    viewModel
+                        .form()
+                        .tags
                         .first()
                 viewModel.onEvent(BookEditUiEvent.RemoveTag(editableTag))
 
                 // Then
-                viewModel.state.value.tags.size shouldBe 0
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.form().tags.size shouldBe 0
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -754,11 +786,13 @@ class BookEditViewModelTest :
                 viewModel.onEvent(BookEditUiEvent.MoodSelected(mood))
 
                 // Then
-                viewModel.state.value.moods.size shouldBe 1
-                viewModel.state.value.moods
+                viewModel.form().moods.size shouldBe 1
+                viewModel
+                    .form()
+                    .moods
                     .first()
                     .displayName() shouldBe "Feel Good"
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -772,17 +806,19 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.moods.size shouldBe 1
+                viewModel.form().moods.size shouldBe 1
 
                 // When
                 val editableMood =
-                    viewModel.state.value.moods
+                    viewModel
+                        .form()
+                        .moods
                         .first()
                 viewModel.onEvent(BookEditUiEvent.RemoveMood(editableMood))
 
                 // Then
-                viewModel.state.value.moods.size shouldBe 0
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.form().moods.size shouldBe 0
+                viewModel.editing().hasChanges shouldBe true
             }
         }
 
@@ -797,7 +833,7 @@ class BookEditViewModelTest :
                 val viewModel = fixture.build()
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.editing().hasChanges shouldBe false
 
                 // When / Then
                 viewModel.navActions.test {
@@ -909,7 +945,12 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                viewModel.state.value.error shouldBe "Save failed"
+                // The failure sits beside the edit, which is still there to save again.
+                val editing = viewModel.state.value.editing
+                editing.inlineError?.message shouldBe "Save failed"
+                editing.phase shouldBe EditPhase.Idle
+                editing.form.title shouldBe "Updated"
+                editing.hasChanges shouldBe true
                 // No nav action emitted on failure — Channel stays silent.
                 viewModel.navActions.test {
                     expectNoEvents()
@@ -987,7 +1028,7 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                viewModel.state.value.isAdmin shouldBe true
+                viewModel.form().isAdmin shouldBe true
             }
         }
 
@@ -1004,7 +1045,7 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 // Then
-                viewModel.state.value.isAdmin shouldBe false
+                viewModel.form().isAdmin shouldBe false
             }
         }
 
@@ -1030,7 +1071,7 @@ class BookEditViewModelTest :
                 // When — add a collection so the set differs from the baseline, then save
                 viewModel.onEvent(BookEditUiEvent.CollectionSelected(EditableCollection(id = "coll-1", name = "Favorites")))
                 advanceUntilIdle()
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
                 viewModel.onEvent(BookEditUiEvent.Save)
                 advanceUntilIdle()
 
@@ -1121,10 +1162,10 @@ class BookEditViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
-                viewModel.state.value.hasChanges shouldBe true
+                viewModel.editing().hasChanges shouldBe true
                 viewModel.onEvent(BookEditUiEvent.TitleChanged("Original"))
 
-                viewModel.state.value.hasChanges shouldBe false
+                viewModel.editing().hasChanges shouldBe false
             }
         }
 
@@ -1153,25 +1194,68 @@ class BookEditViewModelTest :
                 // Then — no collection rewrite reaches the repository, so nothing can tombstone the
                 // INBOX row: the book stays held, in the inbox and under the badge
                 verifySuspend(VerifyMode.not) { fixture.bookEditRepository.setBookCollections(any(), any()) }
-                viewModel.state.value.isHeld shouldBe true
+                viewModel.form().isHeld shouldBe true
             }
         }
 
-        test("dismiss error clears error state") {
+        test("dismiss clears a save failure and keeps the form") {
             runTest {
-                // Given
                 val fixture = createFixture()
-                everySuspend { fixture.loadBookForEditUseCase("nonexistent") } returns failureOf("Book not found")
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } returns failureOf("Save failed")
                 val viewModel = fixture.build()
-                viewModel.loadBook("nonexistent")
+                viewModel.loadBook("book-1")
                 advanceUntilIdle()
-                viewModel.state.value.error shouldBe "Book not found"
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
 
-                // When
                 viewModel.onEvent(BookEditUiEvent.DismissError)
 
-                // Then
-                viewModel.state.value.error shouldBe null
+                viewModel.editing().inlineError shouldBe null
+                viewModel.editing().form.title shouldBe "Updated"
+            }
+        }
+
+        test("retry after a failed load loads the book") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns failureOf("Offline")
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<BookEditUiState.LoadFailed>()
+
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns
+                    AppResult.Success(createBookEditData(bookId = "book-1", title = "Back"))
+                viewModel.onEvent(BookEditUiEvent.RetryLoad)
+                advanceUntilIdle()
+
+                viewModel.editing().form.title shouldBe "Back"
+            }
+        }
+
+        test("Save tapped twice while the first is in flight saves once") {
+            runTest {
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1", title = "Original")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                everySuspend { fixture.updateBookUseCase(any(), any()) } calls {
+                    delay(1_000)
+                    AppResult.Success(SaveOutcome.Saved)
+                }
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                viewModel.onEvent(BookEditUiEvent.TitleChanged("Updated"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                viewModel.editing().phase shouldBe EditPhase.Saving
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.updateBookUseCase(any(), any()) }
             }
         }
     })

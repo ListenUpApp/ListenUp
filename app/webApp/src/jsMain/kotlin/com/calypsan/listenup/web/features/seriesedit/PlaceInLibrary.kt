@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
@@ -44,7 +44,7 @@ import org.w3c.dom.HTMLElement
  */
 @Composable
 internal fun PlaceInLibrarySection(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
     onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
 ) {
@@ -119,7 +119,7 @@ private enum class MoveDirection { Earlier, Later }
 
 @Composable
 private fun SubSeriesList(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
     val children = state.childSeries

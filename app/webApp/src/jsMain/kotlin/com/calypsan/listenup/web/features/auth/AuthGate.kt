@@ -52,7 +52,12 @@ import com.calypsan.listenup.web.features.notifications.OpenNotificationBell
 import com.calypsan.listenup.web.features.notifications.OpenNotificationPrefs
 import com.calypsan.listenup.web.features.notifications.OpenNotifications
 import com.calypsan.listenup.web.features.setup.LibrarySetupPage
+import com.calypsan.listenup.web.features.setup.OpenLibraryReadiness
 import com.calypsan.listenup.web.features.setup.OpenLibrarySetup
+import com.calypsan.listenup.client.domain.model.ScanProgressState
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
+import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
+import org.jetbrains.compose.web.dom.P
 import com.calypsan.listenup.web.features.profile.OpenEditProfile
 import com.calypsan.listenup.web.features.profile.OpenProfile
 import com.calypsan.listenup.web.features.seriesdetail.OpenSeriesDetail
@@ -98,6 +103,7 @@ fun AuthGate(
     router: Router,
     graph: WebGraph,
     openLibrarySetup: OpenLibrarySetup,
+    openLibraryReadiness: OpenLibraryReadiness,
     openConnectionHealth: OpenConnectionHealth,
     observeThemeMode: () -> Flow<ThemeMode>,
     initialInviteCode: String? = null,
@@ -194,7 +200,7 @@ fun AuthGate(
                     authGraph = authGraph,
                     onDismissOutdated = health.onDismiss,
                 )
-                LibrarySetupGate(openLibrarySetup, sessionLapsed = state is AuthState.SessionLapsed) {
+                LibraryReadinessGate(openLibraryReadiness, openLibrarySetup) {
                     WebAppRoot(
                         router = router,
                         graph = graph,
@@ -228,75 +234,74 @@ private fun SetupBranch(authGraph: AuthGraph) {
 }
 
 /**
- * Holds back the app while the server has no audiobook folders.
+ * Holds back the app until the library is safe to show — the shared `LibraryReadiness`, the same
+ * sealed answer Android's and iOS's startup gates switch on.
  *
- * A signed-in admin whose server was never pointed at anything reaches a shell with an empty
- * library and no control anywhere in it that would help — so the wizard comes first, exactly as it
- * does on Android and iOS. Everyone else (and every non-admin, whose `getSetupStatus` reports no
- * setup needed) falls straight through to [content] having rendered nothing.
+ * It used to be derived here from the setup wizard's own state plus a local-library probe and the
+ * session phase, a five-arm `when` over three flags. That copy went stale: a reader who reloaded into
+ * a lapsed session, had the probe fail, and signed back in from the banner kept the stale failure
+ * and met "Couldn't check library setup". `AppStartupViewModel` owns the whole rule — local-first
+ * resolve, the bounded check, the offline and lapsed-session fallbacks, the re-check after re-auth —
+ * and this gate only renders it.
  *
- * ⛔ **The gate closes on the `Finished` event, not on the state.** `LibrarySetupViewModel` does
- * not flip `needsSetup` back to false when `completeSetup` succeeds — its last act is to start the
- * scan and emit the one-shot. A gate that re-read `needsSetup` would therefore show the wizard
- * again, over a library that was just configured, forever.
- *
- * While the status probe is in flight neither branch renders: showing the app for the half-second
- * before the answer arrives would flash an empty library at precisely the person who is about to
- * be told why it is empty.
- *
- * ## A probe that failed
- *
- * The ViewModel reports one as `error` with `needsSetup` still false — which used to read here as
- * "nothing to set up", dropping a fresh admin into an empty shell with a toast that vanished and no
- * way to ask again. The rule now is Android's `AppStartupViewModel.resolveOfflineOrFail`, so the
- * two clients answer the same failure the same way:
- *  - **a library already in this browser** opens the app. Offline-first: a server that is down at
- *    sign-in must not take away a mirror that reads perfectly well.
- *  - **a lapsed session** opens the app too. A retry would fail against the same dead credentials,
- *    and the wall would paint over the sign-in banner — the only way back in.
- *  - **otherwise** a retry panel, which re-runs the probe.
- * Until the mirror has answered, the boot surface holds — the same reason as the probe itself.
+ * Opened by the signed-in branch, which stays mounted across `SessionLapsed` → `Authenticated`, so
+ * the ViewModel lives through the sign-in that should re-run its check.
  */
 @Composable
-private fun LibrarySetupGate(
+private fun LibraryReadinessGate(
+    openLibraryReadiness: OpenLibraryReadiness,
     openLibrarySetup: OpenLibrarySetup,
-    sessionLapsed: Boolean,
     content: @Composable () -> Unit,
 ) {
+    val session = rememberSession { openLibraryReadiness() }
+
+    when (val readiness = session.readiness.collectAsState().value) {
+        // Showing the app before the answer arrives would flash an empty library at precisely the
+        // person who is about to be told why it is empty.
+        LibraryReadiness.Checking -> AuthBoot()
+
+        LibraryReadiness.CheckFailed -> SetupCheckFailed(onRetry = session.onRetry)
+
+        LibraryReadiness.NeedsSetup -> LibrarySetupWizard(openLibrarySetup, onFinished = session.onSetupComplete)
+
+        is LibraryReadiness.Populating -> LibraryPopulating(readiness, onContinue = session.onContinueToPartialLibrary)
+
+        LibraryReadiness.Ready -> content()
+    }
+}
+
+/**
+ * The folder wizard, for a server with no audiobook folders.
+ *
+ * ⛔ **Done is the `Finished` event, not a state.** The wizard stays on its picker when
+ * `completeSetup` succeeds — its last act is to start the scan and emit the one-shot — so [onFinished]
+ * is what moves readiness on. A wizard whose own check finds nothing to set up is done too.
+ */
+@Composable
+private fun LibrarySetupWizard(
+    openLibrarySetup: OpenLibrarySetup,
+    onFinished: () -> Unit,
+) {
     val session = rememberSession { openLibrarySetup() }
-    val state by session.state.collectAsState()
-
-    var finished by remember { mutableStateOf(false) }
     LaunchedEffect(session) {
-        session.navActions.collect { finished = true }
+        session.navActions.collect { onFinished() }
     }
 
-    val checkFailed = state.error != null && !state.needsSetup && !state.isCheckingStatus
-    // Null until the mirror answers. Asked only when the probe has failed — the common path never
-    // touches it.
-    var hasLocalLibrary by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(checkFailed) {
-        if (checkFailed && hasLocalLibrary == null) hasLocalLibrary = session.hasLocalLibrary()
-    }
-
-    when {
-        finished || (!state.needsSetup && !state.isCheckingStatus && !checkFailed) -> {
-            content()
-        }
-
-        checkFailed && (sessionLapsed || hasLocalLibrary == true) -> {
-            content()
-        }
-
-        checkFailed && hasLocalLibrary == false -> {
-            SetupCheckFailed(onRetry = session.onCheckStatus)
-        }
-
-        state.isCheckingStatus || checkFailed -> {
+    when (val state = session.state.collectAsState().value) {
+        LibrarySetupUiState.Checking -> {
             AuthBoot()
         }
 
-        else -> {
+        is LibrarySetupUiState.CheckFailed -> {
+            SetupCheckFailed(onRetry = session.onRetry)
+        }
+
+        LibrarySetupUiState.NotNeeded -> {
+            LaunchedEffect(Unit) { onFinished() }
+            AuthBoot()
+        }
+
+        is LibrarySetupUiState.Browsing -> {
             LibrarySetupPage(
                 state = state,
                 onOpenFolder = session.onOpenFolder,
@@ -331,6 +336,43 @@ private fun SetupCheckFailed(onRetry: () -> Unit) {
         ) { Text("Try again") }
     }
 }
+
+/**
+ * The first scan is still building the library, so the shell — which would be empty — waits.
+ *
+ * Android's and iOS's "Building your library" screen. A scan that has gone quiet for long enough is
+ * marked stalled, and then the reader may continue into the part of the library that has landed.
+ */
+@Composable
+private fun LibraryPopulating(
+    populating: LibraryReadiness.Populating,
+    onContinue: () -> Unit,
+) {
+    AuthLayout(title = "Building your library", subtitle = populating.progress.describe()) {
+        if (populating.stalled) {
+            P(attrs = { classes("populating-stalled") }) {
+                Text(
+                    "This is taking longer than expected. You can continue to your library now — " +
+                        "the rest will keep appearing as it syncs.",
+                )
+            }
+            Button(
+                kind = ButtonKind.Primary,
+                fill = true,
+                onClick = onContinue,
+                attrs = { classes("populating-continue") },
+            ) { Text("Continue") }
+        }
+    }
+}
+
+/** One line about where the scan is; null progress is the import that follows the scan. */
+private fun ScanProgressState?.describe(): String =
+    when {
+        this == null -> "Finishing up — almost there."
+        filesTotal > 0 -> "$phaseDisplayName · $current of $filesTotal files"
+        else -> "Scanning your folders…"
+    }
 
 /** Which of `NeedsLogin`'s four screens is showing. See [LoginBranch]. */
 private enum class LoginPane {

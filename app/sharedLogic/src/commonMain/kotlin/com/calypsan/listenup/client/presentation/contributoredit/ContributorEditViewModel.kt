@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
@@ -20,6 +21,8 @@ import com.calypsan.listenup.client.domain.usecase.settle
 import com.calypsan.listenup.client.domain.usecase.toNotice
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import com.calypsan.listenup.client.presentation.edit.FormSlot
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -28,6 +31,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -68,14 +72,60 @@ data class ContributorCandidate(
 )
 
 /**
- * UI state for contributor editing screen.
+ * UI state for the contributor editing screen.
+ *
+ * A contributor that could not be loaded is [LoadFailed], never an empty form whose Save would
+ * write blank fields; Save, merges, a staged photo and their failures all live inside [Editing], so
+ * a failure is shown beside the reader's unsaved edits rather than in place of them.
  */
-data class ContributorEditUiState(
-    // Loading states
-    val isLoading: Boolean = true,
-    val isSaving: Boolean = false,
-    val isUploadingImage: Boolean = false,
-    val error: String? = null,
+sealed interface ContributorEditUiState {
+    /** Reading the contributor. */
+    data object Loading : ContributorEditUiState
+
+    /** The contributor could not be loaded (it no longer exists). The screen shows [error] with Back. */
+    data class LoadFailed(
+        val contributorId: String,
+        val error: AppError,
+    ) : ContributorEditUiState
+
+    /**
+     * Editing [form]. [original] is the form as loaded, the baseline [hasChanges] diffs against.
+     * [phase] says what is in flight; Save, a merge and a new photo each start only from
+     * [EditPhase.Idle]. [inlineError] is a Save, merge or photo failure, shown with the form intact.
+     */
+    data class Editing(
+        val form: ContributorEditForm,
+        val original: ContributorEditForm,
+        val phase: EditPhase = EditPhase.Idle,
+        val inlineError: AppError? = null,
+    ) : ContributorEditUiState {
+        /** Whether anything differs from what was loaded — a field, a picked photo, or a new frame. */
+        val hasChanges: Boolean
+            get() =
+                form.name != original.name ||
+                    form.description != original.description ||
+                    form.website != original.website ||
+                    form.birthDate != original.birthDate ||
+                    form.deathDate != original.deathDate ||
+                    form.pendingImageData != null ||
+                    form.pendingImageFrame != null
+
+        /** Whether Save is on its way. */
+        val isSaving: Boolean get() = phase == EditPhase.Saving
+
+        /** Whether a picked photo is being staged for preview. */
+        val isUploadingImage: Boolean get() = phase == EditPhase.StagingImage
+
+        /** Whether a merge is on its way. */
+        val mergeInProgress: Boolean get() = phase == EditPhase.Merging
+    }
+}
+
+/**
+ * The contributor edit form: the fields the reader can change, the staged photo, and the merge
+ * picker's state.
+ */
+data class ContributorEditForm(
     // Contributor identity
     val contributorId: String = "",
     val imagePath: String? = null,
@@ -96,13 +146,10 @@ data class ContributorEditUiState(
     val deathDate: String = "", // ISO 8601 format (YYYY-MM-DD)
     // Alias management (Room-observed; updated reactively by the firehose)
     val aliases: List<String> = emptyList(),
-    val mergeInProgress: Boolean = false,
     // Merge-target picker visibility — candidates are computed only while true
     val mergeDialogVisible: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
     val mergeQuery: String = "",
-    // Track if changes have been made
-    val hasChanges: Boolean = false,
     // Set when Save finds an existing contributor whose name matches the just-typed
     // name under forgiving normalization. Non-null drives the rename-collision prompt;
     // the rename is held back (not saved) until the user picks merge or keep-separate.
@@ -197,10 +244,10 @@ sealed interface ContributorEditUiEvent {
     ) : ContributorEditUiEvent
 
     // Rename-collision prompt (surfaced from Save when the new name matches an existing
-    // contributor under forgiving normalization; see [ContributorEditUiState.renameCollisionCandidate])
+    // contributor under forgiving normalization; see [ContributorEditForm.renameCollisionCandidate])
 
     /**
-     * User chose to merge into [ContributorEditUiState.renameCollisionCandidate] instead of
+     * User chose to merge into [ContributorEditForm.renameCollisionCandidate] instead of
      * completing the rename: the contributor being edited is folded into the existing one,
      * which survives under its own name.
      */
@@ -257,7 +304,7 @@ sealed interface ContributorEditNavAction {
  * @property contributorAliasDao DAO for observing the contributor's aliases (Room is read truth)
  * @property contributorDao DAO for browsing all contributors as merge-target candidates
  * @property errorBus Global error bus for snackbar emissions
- * @property permissionsRepository Whether the signed-in user may merge and unmerge (Curate library)
+ * @param permissionsRepository Whether the signed-in user may merge and unmerge (Curate library)
  */
 class ContributorEditViewModel internal constructor(
     private val contributorRepository: ContributorRepository,
@@ -269,17 +316,33 @@ class ContributorEditViewModel internal constructor(
     private val contributorAliasDao: ContributorAliasDao,
     private val contributorDao: ContributorDao,
     private val errorBus: ErrorBus,
-    private val permissionsRepository: PermissionsRepository,
+    permissionsRepository: PermissionsRepository,
 ) : ViewModel() {
     val state: StateFlow<ContributorEditUiState>
-        field = MutableStateFlow(ContributorEditUiState())
+        field = MutableStateFlow<ContributorEditUiState>(ContributorEditUiState.Loading)
+
+    /** The form inside [ContributorEditUiState.Editing]; edits outside it are dropped. */
+    private val form: FormSlot<ContributorEditUiState, ContributorEditForm> =
+        FormSlot(
+            state = state,
+            formOf = { (it as? ContributorEditUiState.Editing)?.form },
+            withForm = { current, form ->
+                if (current is ContributorEditUiState.Editing) current.copy(form = form) else current
+            },
+        )
+
+    /** May merge and unmerge (Curate library); held live so a form built later starts with it. */
+    private val canCurateLibrary: StateFlow<Boolean> =
+        permissionsRepository
+            .observeCan(Permission.CURATE_LIBRARY)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val navActionsChannel = Channel<ContributorEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<ContributorEditNavAction> = navActionsChannel.receiveAsFlow()
 
     /**
      * Candidates for the merge-target picker — all live contributors except the current
-     * one, filtered by [ContributorEditUiState.mergeQuery] (case-insensitive substring).
+     * one, filtered by [ContributorEditForm.mergeQuery] (case-insensitive substring).
      * Capped at [MAX_MERGE_CANDIDATES] to keep the dialog snappy.
      *
      * Computed only while the picker is visible: hidden emits an empty list without ever
@@ -289,15 +352,15 @@ class ContributorEditViewModel internal constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val mergeCandidates: StateFlow<List<ContributorCandidate>> =
-        state
-            .map { it.mergeDialogVisible }
+        form.flow
+            .map { it?.mergeDialogVisible == true }
             .distinctUntilChanged()
             .flatMapLatest { pickerVisible ->
                 if (!pickerVisible) {
                     flowOf(emptyList())
                 } else {
                     combine(
-                        state.map { it.contributorId to it.mergeQuery }.distinctUntilChanged(),
+                        form.flow.map { it?.contributorId to it?.mergeQuery.orEmpty() }.distinctUntilChanged(),
                         contributorDao.observeAll(),
                     ) { (currentId, query), allContributors ->
                         allContributors
@@ -319,18 +382,10 @@ class ContributorEditViewModel internal constructor(
             }.stateIn(viewModelScope, WhileSubscribedForUi, emptyList())
 
     init {
-        permissionsRepository
-            .observeCan(Permission.CURATE_LIBRARY)
-            .onEach { can -> state.update { it.copy(canCurateLibrary = can) } }
+        canCurateLibrary
+            .onEach { can -> form.update { it.copy(canCurateLibrary = can) } }
             .launchIn(viewModelScope)
     }
-
-    // Track original values for change detection
-    private var originalName: String = ""
-    private var originalDescription: String = ""
-    private var originalWebsite: String = ""
-    private var originalBirthDate: String = ""
-    private var originalDeathDate: String = ""
 
     /** The id whose data the form currently holds or is fetching; a repeat load for it is a no-op. */
     private var loadedContributorId: String? = null
@@ -347,28 +402,21 @@ class ContributorEditViewModel internal constructor(
         loadedContributorId = contributorId
 
         loadJob?.cancel()
+        aliasJob?.cancel()
+        state.value = ContributorEditUiState.Loading
         loadJob =
             viewModelScope.launch {
-                state.update { it.copy(isLoading = true, contributorId = contributorId) }
-
                 val contributor = contributorRepository.getById(contributorId)
                 if (contributor == null) {
                     // Let the same id be asked for again: nothing was loaded.
                     loadedContributorId = null
-                    state.update { it.copy(isLoading = false, error = "Contributor not found") }
+                    state.value = ContributorEditUiState.LoadFailed(contributorId, ContributorError.NotFound())
                     return@launch
                 }
 
-                // Store original values
-                originalName = contributor.name
-                originalDescription = contributor.description.orEmpty()
-                originalWebsite = contributor.website.orEmpty()
-                originalBirthDate = contributor.birthDate.orEmpty()
-                originalDeathDate = contributor.deathDate.orEmpty()
-
-                state.update { editState ->
-                    editState.copy(
-                        isLoading = false,
+                val loaded =
+                    ContributorEditForm(
+                        contributorId = contributorId,
                         imagePath = contributor.imagePath,
                         imageFrame = contributor.imageFrame,
                         name = contributor.name,
@@ -376,16 +424,15 @@ class ContributorEditViewModel internal constructor(
                         website = contributor.website.orEmpty(),
                         birthDate = contributor.birthDate.orEmpty(),
                         deathDate = contributor.deathDate.orEmpty(),
-                        hasChanges = false,
+                        canCurateLibrary = canCurateLibrary.value,
                     )
-                }
+                state.value = ContributorEditUiState.Editing(form = loaded, original = loaded)
 
                 // Subscribe to Room aliases (single source of truth; updated by the firehose).
-                aliasJob?.cancel()
                 aliasJob =
                     contributorAliasDao
                         .observeForContributor(contributorId)
-                        .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
+                        .onEach { aliases -> form.update { it.copy(aliases = aliases) } }
                         .launchIn(viewModelScope)
 
                 logger.debug { "Loaded contributor for editing: ${contributor.name}" }
@@ -397,7 +444,7 @@ class ContributorEditViewModel internal constructor(
      * re-emits a filtered list whenever this changes.
      */
     fun onMergeQueryChange(query: String) {
-        state.update { it.copy(mergeQuery = query) }
+        form.update { it.copy(mergeQuery = query) }
     }
 
     /**
@@ -406,28 +453,23 @@ class ContributorEditViewModel internal constructor(
     fun onEvent(event: ContributorEditUiEvent) {
         when (event) {
             is ContributorEditUiEvent.NameChanged -> {
-                state.update { it.copy(name = event.name) }
-                updateHasChanges()
+                form.update { it.copy(name = event.name) }
             }
 
             is ContributorEditUiEvent.DescriptionChanged -> {
-                state.update { it.copy(description = event.description) }
-                updateHasChanges()
+                form.update { it.copy(description = event.description) }
             }
 
             is ContributorEditUiEvent.WebsiteChanged -> {
-                state.update { it.copy(website = event.website) }
-                updateHasChanges()
+                form.update { it.copy(website = event.website) }
             }
 
             is ContributorEditUiEvent.BirthDateChanged -> {
-                state.update { it.copy(birthDate = event.date) }
-                updateHasChanges()
+                form.update { it.copy(birthDate = event.date) }
             }
 
             is ContributorEditUiEvent.DeathDateChanged -> {
-                state.update { it.copy(deathDate = event.date) }
-                updateHasChanges()
+                form.update { it.copy(deathDate = event.date) }
             }
 
             is ContributorEditUiEvent.UploadImage -> {
@@ -435,8 +477,7 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.StageFrame -> {
-                state.update { it.copy(pendingImageFrame = event.frame) }
-                updateHasChanges()
+                form.update { it.copy(pendingImageFrame = event.frame) }
             }
 
             is ContributorEditUiEvent.Save -> {
@@ -448,15 +489,15 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.DismissError -> {
-                state.update { it.copy(error = null) }
+                updateEditing { it.copy(inlineError = null) }
             }
 
             is ContributorEditUiEvent.MergeDialogOpened -> {
-                state.update { it.copy(mergeDialogVisible = true) }
+                form.update { it.copy(mergeDialogVisible = true) }
             }
 
             is ContributorEditUiEvent.MergeDialogDismissed -> {
-                state.update { it.copy(mergeDialogVisible = false, mergeQuery = "") }
+                form.update { it.copy(mergeDialogVisible = false, mergeQuery = "") }
             }
 
             is ContributorEditUiEvent.MergeInto -> {
@@ -476,12 +517,20 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.DismissRenameCollision -> {
-                state.update { it.copy(renameCollisionCandidate = null) }
+                form.update { it.copy(renameCollisionCandidate = null) }
             }
         }
     }
 
     // ========== Merge / Unmerge ==========
+
+    /** The [ContributorEditUiState.Editing] the screen is on, if it is editing and nothing is in flight. */
+    private fun idleEditing(): ContributorEditUiState.Editing? =
+        (state.value as? ContributorEditUiState.Editing)?.takeIf { it.phase == EditPhase.Idle }
+
+    private inline fun updateEditing(transform: (ContributorEditUiState.Editing) -> ContributorEditUiState.Editing) {
+        state.update { if (it is ContributorEditUiState.Editing) transform(it) else it }
+    }
 
     /**
      * Fold the [chosen] contributor into the one whose page we're on. The **viewed** contributor is
@@ -491,49 +540,32 @@ class ContributorEditViewModel internal constructor(
      * Galbraith in. Passing these in the other order would delete the page you're viewing.
      */
     private fun mergeInto(chosen: ContributorId) {
+        val editing = idleEditing() ?: return
         // The UI hides the control without Curate library; this keeps a stale tap from reaching the server.
-        if (!state.value.canCurateLibrary) return
-        val viewedId = state.value.contributorId
-        if (viewedId.isBlank()) {
-            logger.error { "Cannot merge: contributor ID is empty" }
-            return
-        }
+        if (!editing.form.canCurateLibrary) return
+        val viewedId = ContributorId(editing.form.contributorId)
+        // Clear the query along with the picker — a failed merge must not leave a stale pre-filtered
+        // query behind the next open (matches the dismiss path).
+        state.value =
+            editing.copy(
+                phase = EditPhase.Merging,
+                inlineError = null,
+                form = editing.form.copy(mergeDialogVisible = false, mergeQuery = ""),
+            )
 
         viewModelScope.launch {
-            // Clear the query along with the flag — a failed merge must not leave a stale
-            // pre-filtered query behind the next open (matches the dismiss path).
-            state.update {
-                it.copy(mergeInProgress = true, mergeDialogVisible = false, mergeQuery = "", error = null)
-            }
-
-            when (
-                val result =
-                    contributorEditRepository.mergeContributor(
-                        source = chosen,
-                        target = ContributorId(viewedId),
-                    )
-            ) {
+            when (val result = contributorEditRepository.mergeContributor(source = chosen, target = viewedId)) {
                 is AppResult.Success -> {
-                    state.update { it.copy(mergeInProgress = false) }
+                    updateEditing { it.copy(phase = EditPhase.Idle) }
                     // The survivor, not back: the viewed contributor survived this merge, but the
                     // detail page behind the editor was rendered from pre-merge state.
-                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
+                    navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(viewedId))
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge contributor: ${result.message}" }
-                    state.update { editState ->
-                        editState.copy(
-                            mergeInProgress = false,
-                            error =
-                                when (result.error) {
-                                    is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
-                                    is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    else -> result.error.message
-                                },
-                        )
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
                 }
             }
         }
@@ -544,15 +576,12 @@ class ContributorEditViewModel internal constructor(
      * without [aliasName] once the firehose event lands; we stay on this screen.
      */
     private fun unmergeAlias(aliasName: String) {
-        if (!state.value.canCurateLibrary) return
-        val contributorId = state.value.contributorId
-        if (contributorId.isBlank()) {
-            logger.error { "Cannot unmerge: contributor ID is empty" }
-            return
-        }
+        val editing = idleEditing() ?: return
+        if (!editing.form.canCurateLibrary) return
+        val contributorId = ContributorId(editing.form.contributorId)
 
         viewModelScope.launch {
-            when (val result = contributorEditRepository.unmergeContributor(ContributorId(contributorId), aliasName)) {
+            when (val result = contributorEditRepository.unmergeContributor(contributorId, aliasName)) {
                 is AppResult.Success -> {
                     logger.debug { "Unmerged alias '$aliasName'; new contributor id=${result.data}" }
                 }
@@ -560,16 +589,7 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to unmerge alias '$aliasName': ${result.message}" }
-                    state.update { editState ->
-                        editState.copy(
-                            error =
-                                when (result.error) {
-                                    is ContributorError.AliasNotFound -> "That alias is no longer on this contributor."
-                                    is ContributorError.NotFound -> "This contributor no longer exists."
-                                    else -> result.error.message
-                                },
-                        )
-                    }
+                    updateEditing { it.copy(inlineError = result.error) }
                 }
             }
         }
@@ -587,15 +607,11 @@ class ContributorEditViewModel internal constructor(
         filename: String,
         frame: ImageFrame?,
     ) {
-        val contributorId = state.value.contributorId
-        if (contributorId.isBlank()) {
-            logger.error { "Cannot set image: contributor ID is empty" }
-            return
-        }
+        val editing = idleEditing() ?: return
+        val contributorId = editing.form.contributorId
+        state.value = editing.copy(phase = EditPhase.StagingImage, inlineError = null)
 
         viewModelScope.launch {
-            state.update { it.copy(isUploadingImage = true, error = null) }
-
             // Save to staging location for preview (doesn't upload or overwrite the original)
             when (val saveResult = imageStagingRepository.saveContributorImageStaging(contributorId, imageData)) {
                 is AppResult.Success -> {
@@ -603,28 +619,25 @@ class ContributorEditViewModel internal constructor(
                     logger.info { "Contributor image saved to staging for preview: $stagingPath" }
 
                     // Store pending data for upload when Save is clicked
-                    state.update { editState ->
+                    updateEditing { editState ->
                         editState.copy(
-                            isUploadingImage = false,
-                            stagingImagePath = stagingPath,
-                            pendingImageData = imageData,
-                            pendingImageFilename = filename,
-                            // A new pick replaces any staged frame.
-                            pendingImageFrame = frame,
+                            phase = EditPhase.Idle,
+                            form =
+                                editState.form.copy(
+                                    stagingImagePath = stagingPath,
+                                    pendingImageData = imageData,
+                                    pendingImageFilename = filename,
+                                    // A new pick replaces any staged frame.
+                                    pendingImageFrame = frame,
+                                ),
                         )
                     }
-                    updateHasChanges()
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(saveResult.error)
                     logger.error { "Failed to save contributor image to staging: ${saveResult.message}" }
-                    state.update { editState ->
-                        editState.copy(
-                            isUploadingImage = false,
-                            error = "Failed to save image: ${saveResult.message}",
-                        )
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = saveResult.error) }
                 }
             }
         }
@@ -637,7 +650,7 @@ class ContributorEditViewModel internal constructor(
      * [SaveOutcome.SavedImageNotUploaded]. Called from
      * [persistChanges] once metadata persists.
      */
-    private suspend fun commitAndUploadImageIfPending(current: ContributorEditUiState): SaveOutcome {
+    private suspend fun commitAndUploadImageIfPending(current: ContributorEditForm): SaveOutcome {
         val pendingData = current.pendingImageData ?: return SaveOutcome.Saved
         val pendingFilename = current.pendingImageFilename ?: return SaveOutcome.Saved
         val contributorId = current.contributorId
@@ -677,37 +690,30 @@ class ContributorEditViewModel internal constructor(
         return pendingImageUploads.settle(PendingImageKind.ContributorImage, contributorId, result)
     }
 
-    private fun updateHasChanges() {
-        val current = state.value
-        val hasChanges =
-            current.name != originalName ||
-                current.description != originalDescription ||
-                current.website != originalWebsite ||
-                current.birthDate != originalBirthDate ||
-                current.deathDate != originalDeathDate ||
-                current.pendingImageData != null || // Image changed if we have pending staged data
-                current.pendingImageFrame != null
-
-        state.update { it.copy(hasChanges = hasChanges) }
-    }
-
     /**
      * Save all changes. If the name changed and now collides (under [normalizeContributorName])
-     * with another live contributor, the save is held back and [ContributorEditUiState.renameCollisionCandidate]
+     * with another live contributor, the save is held back and [ContributorEditForm.renameCollisionCandidate]
      * is set instead — [persistChanges] runs only once the user picks merge or keep-separate.
+     *
+     * The form enters [EditPhase.Saving] before the collision lookup suspends, so a second tap in
+     * that window is refused rather than starting a second save.
      */
     private fun saveChanges() {
-        val current = state.value
-        if (!current.hasChanges) {
+        val editing = idleEditing() ?: return
+        if (!editing.hasChanges) {
             navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
             return
         }
+        state.value = editing.copy(phase = EditPhase.Saving, inlineError = null)
 
         viewModelScope.launch {
-            if (current.name != originalName) {
-                val collision = findRenameCollision(current.name)
+            val current = editing.form
+            if (current.name != editing.original.name) {
+                val collision = findRenameCollision(current.contributorId, current.name)
                 if (collision != null) {
-                    state.update { it.copy(renameCollisionCandidate = collision) }
+                    updateEditing {
+                        it.copy(phase = EditPhase.Idle, form = it.form.copy(renameCollisionCandidate = collision))
+                    }
                     return@launch
                 }
             }
@@ -721,8 +727,10 @@ class ContributorEditViewModel internal constructor(
      * Martin"). Reads the same Room-backed contributor list [mergeCandidates] draws from, but
      * unfiltered by the merge-picker's search query and count cap.
      */
-    private suspend fun findRenameCollision(newName: String): ContributorCandidate? {
-        val currentId = state.value.contributorId
+    private suspend fun findRenameCollision(
+        currentId: String,
+        newName: String,
+    ): ContributorCandidate? {
         val normalizedNew = normalizeContributorName(newName)
         return contributorDao
             .observeAll()
@@ -736,11 +744,10 @@ class ContributorEditViewModel internal constructor(
 
     /**
      * Persists the metadata via the use case — the actual write, shared by the no-collision
-     * Save path and the "keep separate" choice on the rename-collision prompt.
+     * Save path and the "keep separate" choice on the rename-collision prompt. Runs in
+     * [EditPhase.Saving]; a failure returns the form to idle with the error inline.
      */
-    private suspend fun persistChanges(current: ContributorEditUiState) {
-        state.update { it.copy(isSaving = true, error = null) }
-
+    private suspend fun persistChanges(current: ContributorEditForm) {
         val result =
             updateContributorUseCase(
                 ContributorUpdateRequest(
@@ -768,15 +775,15 @@ class ContributorEditViewModel internal constructor(
                         )
                     if (reframed is AppResult.Failure) errorBus.emit(reframed.error)
                 }
-                state.update { editState ->
-                    editState.copy(
-                        isSaving = false,
-                        hasChanges = false,
-                        pendingImageData = null,
-                        pendingImageFilename = null,
-                        pendingImageFrame = null,
-                        stagingImagePath = null,
-                    )
+                updateEditing { editState ->
+                    val saved =
+                        editState.form.copy(
+                            pendingImageData = null,
+                            pendingImageFilename = null,
+                            pendingImageFrame = null,
+                            stagingImagePath = null,
+                        )
+                    editState.copy(phase = EditPhase.Idle, form = saved, original = saved)
                 }
                 navActionsChannel.trySend(ContributorEditNavAction.SaveSuccess)
             }
@@ -784,12 +791,7 @@ class ContributorEditViewModel internal constructor(
             is AppResult.Failure -> {
                 errorBus.emit(result.error)
                 logger.error { "Failed to save contributor: ${result.message}" }
-                state.update { editState ->
-                    editState.copy(
-                        isSaving = false,
-                        error = "Failed to save: ${result.message}",
-                    )
-                }
+                updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
             }
         }
     }
@@ -797,31 +799,26 @@ class ContributorEditViewModel internal constructor(
     /**
      * User chose to merge on the rename-collision prompt: the contributor being edited is
      * the merge *source* (folded in, soft-deleted, its typed rename discarded) and
-     * [ContributorEditUiState.renameCollisionCandidate] is the *target* (survives under its own
+     * [ContributorEditForm.renameCollisionCandidate] is the *target* (survives under its own
      * name — which is what collided with the typed rename in the first place). On success there
      * is nothing left to show on this page, so we land on the survivor.
      */
     private fun mergeOnRename() {
-        if (!state.value.canCurateLibrary) return
-        val candidate = state.value.renameCollisionCandidate ?: return
-        val viewedId = state.value.contributorId
-        if (viewedId.isBlank()) {
-            logger.error { "Cannot merge: contributor ID is empty" }
-            return
-        }
+        val editing = idleEditing() ?: return
+        if (!editing.form.canCurateLibrary) return
+        val candidate = editing.form.renameCollisionCandidate ?: return
+        val viewedId = ContributorId(editing.form.contributorId)
+        state.value =
+            editing.copy(
+                phase = EditPhase.Merging,
+                inlineError = null,
+                form = editing.form.copy(renameCollisionCandidate = null),
+            )
 
         viewModelScope.launch {
-            state.update { it.copy(mergeInProgress = true, renameCollisionCandidate = null, error = null) }
-
-            when (
-                val result =
-                    contributorEditRepository.mergeContributor(
-                        source = ContributorId(viewedId),
-                        target = candidate.id,
-                    )
-            ) {
+            when (val result = contributorEditRepository.mergeContributor(source = viewedId, target = candidate.id)) {
                 is AppResult.Success -> {
-                    state.update { it.copy(mergeInProgress = false) }
+                    updateEditing { it.copy(phase = EditPhase.Idle) }
                     // The survivor, not back: this merge soft-deleted the contributor we were editing.
                     navActionsChannel.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
                 }
@@ -829,17 +826,7 @@ class ContributorEditViewModel internal constructor(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Failed to merge on rename: ${result.message}" }
-                    state.update { editState ->
-                        editState.copy(
-                            mergeInProgress = false,
-                            error =
-                                when (result.error) {
-                                    is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
-                                    is ContributorError.NotFound -> "One of these contributors no longer exists."
-                                    else -> result.error.message
-                                },
-                        )
-                    }
+                    updateEditing { it.copy(phase = EditPhase.Idle, inlineError = result.error) }
                 }
             }
         }
@@ -847,23 +834,30 @@ class ContributorEditViewModel internal constructor(
 
     /**
      * User chose to keep both contributors separate on the rename-collision prompt: clears the
-     * prompt and proceeds with the rename exactly as if no collision had been found.
+     * prompt and proceeds with the rename exactly as if no collision had been found. Refused unless
+     * the prompt is up and nothing is in flight, so a double tap saves once.
      */
     private fun keepSeparateOnRename() {
-        if (state.value.renameCollisionCandidate == null) return
-        state.update { it.copy(renameCollisionCandidate = null) }
-        viewModelScope.launch { persistChanges(state.value) }
+        val editing = idleEditing() ?: return
+        if (editing.form.renameCollisionCandidate == null) return
+        val form = editing.form.copy(renameCollisionCandidate = null)
+        state.value = editing.copy(phase = EditPhase.Saving, inlineError = null, form = form)
+        viewModelScope.launch { persistChanges(form) }
     }
 
     /**
      * Cancel editing and clean up any staged image file, then navigate back.
      */
     private fun cancelAndCleanup() {
-        val contributorId = state.value.contributorId
-        if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
-            imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
-        }
+        cleanUpStagedImage()
         navActionsChannel.trySend(ContributorEditNavAction.NavigateBack)
+    }
+
+    private fun cleanUpStagedImage() {
+        val current = form.value ?: return
+        if (current.contributorId.isNotBlank() && current.stagingImagePath != null) {
+            imageStagingRepository.requestContributorImageStagingCleanup(current.contributorId)
+        }
     }
 
     /**
@@ -872,9 +866,6 @@ class ContributorEditViewModel internal constructor(
      */
     override fun onCleared() {
         super.onCleared()
-        val contributorId = state.value.contributorId
-        if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
-            imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
-        }
+        cleanUpStagedImage()
     }
 }

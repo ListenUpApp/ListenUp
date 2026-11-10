@@ -656,6 +656,36 @@ class AppStartupViewModelTest :
             }
         }
 
+        // The browser's shape of the same trap: on plain-http LAN the store is in memory, so a reload
+        // into a lapsed session has NO cached user at all, and refreshing one fails on the dead
+        // session. "No user" is not "a known non-admin" — the answer is provisional, and signing in
+        // must re-run the check, or an admin with an unconfigured server never sees the wizard.
+        test("a lapsed cold start with no cached user is provisional, so signing in re-runs the check") {
+            runTest {
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val channel = libraryAdminChannel(service)
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val authState = MutableStateFlow<AuthState>(AuthState.SessionLapsed(UserId("user-001")))
+                val authSession = mock<AuthSession>()
+                every { authSession.authState } returns authState
+
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, createMockSyncRepository())
+                advanceUntilIdle()
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+                viewModel.state.value.resolvedWithoutCredentials shouldBe true
+
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns AppResult.Success(SetupStatus(needsSetup = true))
+                authState.value = AuthState.Authenticated(UserId("user-001"), SessionId("session-001"))
+                advanceUntilIdle()
+
+                viewModel.readiness.value shouldBe LibraryReadiness.NeedsSetup
+            }
+        }
+
         // ...but only a PROVISIONAL answer is re-resolved. A mid-session lapse must not re-run the
         // check: the answer was already resolved with live credentials, and re-running would flash
         // the opaque readiness overlay over a perfectly good shell. This pins the deliberate

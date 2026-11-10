@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerDisabledReason
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.EmptyLook
@@ -42,7 +42,7 @@ import org.jetbrains.compose.web.dom.Button as DomButton
  */
 @Composable
 internal fun ParentPickerDialog(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     rows: List<ParentPickerRow>,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
@@ -306,7 +306,7 @@ private fun treeKey(
 /** The "New parent series" dialog: creates the parent where this series sits now, then moves it in. */
 @Composable
 internal fun NewParentDialog(
-    state: SeriesEditUiState,
+    state: SeriesEditForm,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
     val draft = state.newParent ?: return

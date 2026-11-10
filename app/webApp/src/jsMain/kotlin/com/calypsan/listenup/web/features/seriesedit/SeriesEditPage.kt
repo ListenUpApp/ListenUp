@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.web.features.edit.EditLoadFailed
 import com.calypsan.listenup.web.design.EmptyLook
 import com.calypsan.listenup.web.design.EmptyState
 import com.calypsan.listenup.web.design.CoverPickerField
@@ -65,75 +66,111 @@ fun SeriesEditPage(
     addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
     onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
 ) {
-    val guard = rememberUnsavedWorkGuard(dirty = state.hasChanges)
+    val editing = state as? SeriesEditUiState.Editing
+    val guard = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true)
     guard.Dialog()
+    val name = editing?.form?.name.orEmpty()
     Div(attrs = { classes("sed") }) {
         PageHeader(
-            title = state.name.ifBlank { "Series" },
-            documentTitle = "Edit " + state.name.ifBlank { "series" },
-            pending = state.isLoading,
+            title = name.ifBlank { "Series" },
+            documentTitle = "Edit " + name.ifBlank { "series" },
+            pending = state is SeriesEditUiState.Loading,
         )
-        if (state.isLoading) {
-            Div(attrs = { classes("skel", "sed-skel") })
-            return@Div
-        }
+        when (state) {
+            SeriesEditUiState.Loading -> {
+                Div(attrs = { classes("skel", "sed-skel") })
+            }
 
-        state.error?.let { message ->
-            Div(attrs = { classes("sed-err") }) {
-                P(attrs = {
-                    classes("sed-err-t")
-                    attr("role", "alert")
-                }) { Text(message) }
-                Button(attrs = {
-                    classes("sed-err-x")
-                    attr(ATTR_TYPE, VALUE_BUTTON)
-                    attr("aria-label", "Dismiss")
-                    onClick { onEvent(SeriesEditUiEvent.ErrorDismissed) }
-                }) { Icon(WebIcon.X, size = SMALL_ICON) }
+            // Cancel leaves through the ViewModel, which asks the host to go back.
+            is SeriesEditUiState.LoadFailed -> {
+                EditLoadFailed(error = state.error, onBack = { onEvent(SeriesEditUiEvent.CancelClicked) })
+            }
+
+            is SeriesEditUiState.Editing -> {
+                EditingBody(
+                    editing = state,
+                    mergeCandidates = mergeCandidates,
+                    mergeHistory = mergeHistory,
+                    onEvent = onEvent,
+                    onMergeQuery = onMergeQuery,
+                    parentPickerRows = parentPickerRows,
+                    addSubSeries = addSubSeries,
+                    onAddSubSeriesEvent = onAddSubSeriesEvent,
+                    onCancel = { guard.leave { onEvent(SeriesEditUiEvent.CancelClicked) } },
+                )
             }
         }
+    }
+}
 
-        // A real <form> over the fields AND the actions, so Enter in any field saves — the
-        // browser's implicit submission needs the submit button inside the same form.
-        Form(attrs = {
-            classes("edit-body")
-            onSubmit { event ->
-                event.preventDefault()
-                onEvent(SeriesEditUiEvent.SaveClicked)
-            }
-        }) {
-            FormSection(title = "Cover") { CoverSection(state, onEvent) }
-            FormSection(title = "Identity") { IdentityFields(state, onEvent) }
-            // en.json's series.place_in_library
-            FormSection(title = "Place in library") { PlaceInLibrarySection(state, onEvent, onAddSubSeriesEvent) }
-            // Merging, and undoing a merge, are curating: only for a reader who may curate.
-            if (state.canCurateLibrary) {
-                FormSection(title = "This series") { MergeSection(state, onEvent) }
-                FormSection(title = "Merged into this") {
-                    MergeHistoryList(
-                        state = mergeHistory,
-                        onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
-                        onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
-                    )
-                }
-            }
-            EditActions(state, onCancel = { guard.leave { onEvent(SeriesEditUiEvent.CancelClicked) } })
+@Composable
+private fun EditingBody(
+    editing: SeriesEditUiState.Editing,
+    mergeCandidates: List<SeriesCandidate>,
+    mergeHistory: MergeHistoryState,
+    onEvent: (SeriesEditUiEvent) -> Unit,
+    onMergeQuery: (String) -> Unit,
+    parentPickerRows: List<ParentPickerRow>,
+    addSubSeries: AddSubSeriesUiState,
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
+    onCancel: () -> Unit,
+) {
+    val state = editing.form
+    editing.inlineError?.let { error ->
+        Div(attrs = { classes("sed-err") }) {
+            P(attrs = {
+                classes("sed-err-t")
+                attr("role", "alert")
+            }) { Text(error.message) }
+            Button(attrs = {
+                classes("sed-err-x")
+                attr(ATTR_TYPE, VALUE_BUTTON)
+                attr("aria-label", "Dismiss")
+                onClick { onEvent(SeriesEditUiEvent.ErrorDismissed) }
+            }) { Icon(WebIcon.X, size = SMALL_ICON) }
         }
+    }
 
-        if (state.parentPickerVisible) ParentPickerDialog(state, parentPickerRows, onEvent)
-        NewParentDialog(state, onEvent)
-        AddSubSeriesDialogs(addSubSeries, onAddSubSeriesEvent)
-
-        if (state.mergeDialogVisible) {
-            MergeDialog(
-                query = state.mergeQuery,
-                candidates = mergeCandidates,
-                bookCount = state.bookCount,
-                onQuery = onMergeQuery,
-                onConfirm = { onEvent(SeriesEditUiEvent.MergeInto(it)) },
-                onDismiss = { onEvent(SeriesEditUiEvent.MergeDialogDismissed) },
-            )
+    // A real <form> over the fields AND the actions, so Enter in any field saves — the
+    // browser's implicit submission needs the submit button inside the same form.
+    Form(attrs = {
+        classes("edit-body")
+        onSubmit { event ->
+            event.preventDefault()
+            onEvent(SeriesEditUiEvent.SaveClicked)
         }
+    }) {
+        FormSection(title = "Cover") { CoverSection(editing, onEvent) }
+        FormSection(title = "Identity") { IdentityFields(editing, onEvent) }
+        // en.json's series.place_in_library
+        FormSection(title = "Place in library") { PlaceInLibrarySection(state, onEvent, onAddSubSeriesEvent) }
+        // Merging, and undoing a merge, are curating: only for a reader who may curate.
+        if (state.canCurateLibrary) {
+            FormSection(title = "This series") { MergeSection(editing, onEvent) }
+            FormSection(title = "Merged into this") {
+                MergeHistoryList(
+                    state = mergeHistory,
+                    onUndo = { onEvent(SeriesEditUiEvent.UndoMerge(it)) },
+                    onRetry = { onEvent(SeriesEditUiEvent.RetryMergeHistory) },
+                )
+            }
+        }
+        EditActions(editing, onCancel = onCancel)
+    }
+
+    if (state.parentPickerVisible) ParentPickerDialog(state, parentPickerRows, onEvent)
+    NewParentDialog(state, onEvent)
+    AddSubSeriesDialogs(addSubSeries, onAddSubSeriesEvent)
+
+    if (state.mergeDialogVisible) {
+        MergeDialog(
+            query = state.mergeQuery,
+            candidates = mergeCandidates,
+            bookCount = state.bookCount,
+            onQuery = onMergeQuery,
+            onConfirm = { onEvent(SeriesEditUiEvent.MergeInto(it)) },
+            onDismiss = { onEvent(SeriesEditUiEvent.MergeDialogDismissed) },
+        )
     }
 }
 
@@ -147,14 +184,15 @@ fun SeriesEditPage(
  */
 @Composable
 private fun CoverSection(
-    state: SeriesEditUiState,
+    editing: SeriesEditUiState.Editing,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     var coverFailed by remember(state.seriesId) { mutableStateOf(false) }
 
     CoverPickerField(
         pendingBytes = state.pendingCoverData,
-        isUploading = state.isUploadingCover,
+        isUploading = editing.isUploadingCover,
         inputId = "sed-cover-input",
         onPicked = { bytes, filename ->
             onEvent(SeriesEditUiEvent.CoverSelected(imageData = bytes, filename = filename))
@@ -185,9 +223,10 @@ private fun CoverSection(
 
 @Composable
 private fun IdentityFields(
-    state: SeriesEditUiState,
+    editing: SeriesEditUiState.Editing,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     Field(
         label = "Name",
         value = state.name,
@@ -205,9 +244,10 @@ private fun IdentityFields(
 /** What this series holds, and the one destructive thing that can be done to it. */
 @Composable
 private fun MergeSection(
-    state: SeriesEditUiState,
+    editing: SeriesEditUiState.Editing,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
+    val state = editing.form
     P(attrs = { classes("sed-hint") }) { Text("${bookCountLabel(state.bookCount)} in this series.") }
     Div(attrs = { classes("sed-merge-act") }) {
         Button(
@@ -215,9 +255,9 @@ private fun MergeSection(
             onClick = { onEvent(SeriesEditUiEvent.MergeDialogOpened) },
             attrs = {
                 classes("sed-merge")
-                disabledWhen(state.mergeInProgress)
+                disabledWhen(editing.mergeInProgress)
             },
-        ) { Text(if (state.mergeInProgress) "Merging…" else "Merge into another series") }
+        ) { Text(if (editing.mergeInProgress) "Merging…" else "Merge into another series") }
     }
 }
 
@@ -295,23 +335,24 @@ private fun MergeDialog(
  */
 @Composable
 private fun EditActions(
-    state: SeriesEditUiState,
+    editing: SeriesEditUiState.Editing,
     onCancel: () -> Unit,
 ) {
+    val state = editing.form
     Div(attrs = { classes("edit-actions") }) {
         // ⛔ type=button: a <button> with no type inside a form defaults to SUBMIT, so this would
         // save the very edits Cancel exists to discard.
         Button(
             kind = ButtonKind.Secondary,
             onClick = { onCancel() },
-            enabled = !state.isSaving,
+            enabled = !editing.isSaving,
         ) { Text("Cancel") }
         // No onClick: submitting the form is what saves, for click and Enter alike.
         Button(
             kind = ButtonKind.Primary,
             submit = true,
-            enabled = !(state.isSaving || !state.hasChanges),
-        ) { Text(if (state.isSaving) "Saving…" else "Save changes") }
+            enabled = !(editing.isSaving || !editing.hasChanges),
+        ) { Text(if (editing.isSaving) "Saving…" else "Save changes") }
     }
 }
 

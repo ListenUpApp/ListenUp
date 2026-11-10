@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.presentation.seriesedit.NewSeriesDraft
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerDisabledReason
 import com.calypsan.listenup.client.presentation.seriesedit.ParentPickerRow
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
-import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldNotContain
@@ -32,7 +32,7 @@ class MoveIntoPickerTest {
     private val events = mutableListOf<SeriesEditUiEvent>()
 
     private fun render(
-        state: SeriesEditUiState = MISTBORN,
+        state: SeriesEditForm = MISTBORN,
         rows: List<ParentPickerRow> = TREE,
     ) {
         composeRule.setContent {
@@ -135,8 +135,7 @@ class MoveIntoPickerTest {
 
     private companion object {
         val MISTBORN =
-            SeriesEditUiState(
-                isLoading = false,
+            SeriesEditForm(
                 seriesId = "mistborn",
                 name = "Mistborn",
                 parentId = "cosmere",

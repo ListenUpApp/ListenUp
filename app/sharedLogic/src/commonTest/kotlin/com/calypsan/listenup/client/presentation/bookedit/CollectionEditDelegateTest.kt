@@ -60,13 +60,13 @@ class CollectionEditDelegateTest :
             )
 
         class Fixture {
-            val state = MutableStateFlow(BookEditUiState(bookId = "book-1"))
+            val state = MutableStateFlow(BookEditForm(bookId = "book-1"))
             val collectionRepository: CollectionRepository = mock()
             var changesMade = 0
 
             fun build(scope: CoroutineScope): CollectionEditDelegate =
                 CollectionEditDelegate(
-                    state = state,
+                    state = state.asSlot(),
                     collectionRepository = collectionRepository,
                     scope = scope,
                     onChangesMade = { changesMade++ },

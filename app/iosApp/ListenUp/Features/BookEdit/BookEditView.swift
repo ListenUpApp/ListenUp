@@ -16,25 +16,19 @@ struct BookEditView: View {
     var body: some View {
         Group {
             if let observer {
-                EditSheetScaffold(
-                    title: String(localized: "book.detail_edit_book"),
-                    hasChanges: observer.hasChanges,
-                    canSave: observer.hasChanges,
-                    isSaving: observer.isSaving,
-                    onCancel: { observer.onCancel(); dismiss() },
-                    onSave: { observer.onSave() }
-                ) {
-                    form(observer)
+                switch observer.phase {
+                case .loading:
+                    LoadingStateView()
+                case .loadFailed(let message, let canRetry):
+                    EditLoadFailedView(
+                        message: message,
+                        canRetry: canRetry,
+                        onRetry: { observer.onRetryLoad() },
+                        onClose: { dismiss() }
+                    )
+                case .editing:
+                    editingSheet(observer)
                 }
-                .alert(
-                    String(localized: "common.error"),
-                    isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
-                ) {
-                    Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
-                } message: {
-                    Text(observer.error ?? "")
-                }
-                .onChange(of: observer.didFinish) { _, finished in if finished { dismiss() } }
             } else {
                 LoadingStateView()
             }
@@ -45,6 +39,28 @@ struct BookEditView: View {
             observer = obs
             obs.loadBook(bookId: bookId)
         }
+    }
+
+    private func editingSheet(_ observer: BookEditObserver) -> some View {
+        EditSheetScaffold(
+            title: String(localized: "book.detail_edit_book"),
+            hasChanges: observer.hasChanges,
+            canSave: observer.hasChanges,
+            isSaving: observer.isSaving,
+            onCancel: { observer.onCancel(); dismiss() },
+            onSave: { observer.onSave() }
+        ) {
+            form(observer)
+        }
+        .alert(
+            String(localized: "common.error"),
+            isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
+        ) {
+            Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
+        } message: {
+            Text(observer.error ?? "")
+        }
+        .onChange(of: observer.didFinish) { _, finished in if finished { dismiss() } }
     }
 
     // MARK: - Form

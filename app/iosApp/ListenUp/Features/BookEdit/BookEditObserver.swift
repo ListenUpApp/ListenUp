@@ -46,7 +46,8 @@ struct LanguageChoice: Identifiable, Hashable {
 @Observable
 @MainActor
 final class BookEditObserver {
-    private(set) var isLoading: Bool = true
+    /// Loading, failed to load, or editing — the sheet switches on this first.
+    private(set) var phase: EditScreenPhase = .loading
 
     // Text fields
     private(set) var title: String = ""
@@ -318,11 +319,32 @@ final class BookEditObserver {
     func onSave() { viewModel.onEvent(event: BookEditUiEventSave.shared) }
     func onCancel() { viewModel.onEvent(event: BookEditUiEventCancel.shared) }
     func onDismissError() { viewModel.onEvent(event: BookEditUiEventDismissError.shared) }
+    func onRetryLoad() { viewModel.onEvent(event: BookEditUiEventRetryLoad.shared) }
 
     // MARK: - State flatten
 
     private func apply(_ state: BookEditUiState) {
-        isLoading = state.isLoading
+        phase = Self.phase(of: state)
+        guard case .editing(let editingType) = state.sealedType() else { return }
+        let editing = editingType.value
+        applyForm(editing.form)
+        hasChanges = editing.hasChanges
+        isSaving = editing.isSaving
+        isUploadingCover = editing.isUploadingCover
+        // A Save or cover failure: shown over the form, which keeps the edits.
+        error = editing.inlineError?.message
+    }
+
+    /// The sheet's phase for `state`. Pure, so it is unit-tested without a live ViewModel.
+    static func phase(of state: BookEditUiState) -> EditScreenPhase {
+        switch state.sealedType() {
+        case .loading: return .loading
+        case .loadFailed(let failedType): return .failed(failedType.value.error)
+        case .editing: return .editing
+        }
+    }
+
+    private func applyForm(_ state: BookEditForm) {
         title = state.title
         sortTitle = state.sortTitle
         subtitle = state.subtitle
@@ -336,7 +358,6 @@ final class BookEditObserver {
         addedAt = state.addedAt.map { Date(timeIntervalSince1970: Double($0) / 1000) }
         displayCoverPath = state.displayCoverPath
         coverHash = state.coverHash
-        isUploadingCover = state.isUploadingCover
         rawSeries = state.series
         rawGenres = state.genres
         rawTags = state.tags
@@ -351,14 +372,11 @@ final class BookEditObserver {
         isAdmin = state.isAdmin
         isHeld = state.isHeld
         applySearchState(state)
-        hasChanges = state.hasChanges
-        isSaving = state.isSaving
-        error = state.error
     }
 
     /// Maps the add-picker search sub-state (per-role contributor, series, genre, tag, mood) from
     /// the shared `BookEditUiState` into native value types, off the SwiftUI diff path.
-    private func applySearchState(_ state: BookEditUiState) {
+    private func applySearchState(_ state: BookEditForm) {
         // Series.
         seriesQuery = state.seriesSearchQuery
         seriesSearching = state.seriesSearchLoading
@@ -396,7 +414,7 @@ final class BookEditObserver {
     /// …ContributorRole"). We reconstruct a Swift `ContributorRole` locally from the string, which
     /// then passes safely into the Kotlin accessors as a function argument (the direction that
     /// bridges). Raw Kotlin lists are stashed by `apiValue` for the id→object lookup on remove/select.
-    private func applyRoleSections(_ state: BookEditUiState) {
+    private func applyRoleSections(_ state: BookEditForm) {
         var sections: [BookEditRoleSection] = []
         var rawContributors: [String: [EditableContributor]] = [:]
         var rawResults: [String: [ContributorSearchResult]] = [:]

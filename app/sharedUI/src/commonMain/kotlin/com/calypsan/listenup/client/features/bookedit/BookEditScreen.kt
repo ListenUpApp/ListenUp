@@ -14,8 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +40,10 @@ import com.calypsan.listenup.client.features.bookedit.components.StudioCard
 import com.calypsan.listenup.client.features.bookedit.components.TalentSection
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.features.edit.EditInlineError
+import com.calypsan.listenup.client.features.edit.EditLoadFailed
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
@@ -52,10 +53,8 @@ import listenup.composeapp.generated.resources.book_edit_identifiers
 import listenup.composeapp.generated.resources.book_edit_publishing
 import listenup.composeapp.generated.resources.book_edit_talent
 import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.common_library
 import listenup.composeapp.generated.resources.common_series
-import listenup.composeapp.generated.resources.error_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.common_save_changes
@@ -82,7 +81,8 @@ fun BookEditScreen(
         viewModel.loadBook(bookId)
     }
 
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val editing = uiState as? BookEditUiState.Editing
 
     LaunchedEffect(viewModel) {
         viewModel.navActions.collect { navAction ->
@@ -93,19 +93,19 @@ fun BookEditScreen(
         }
     }
 
-    val requestLeave = rememberUnsavedWorkGuard(dirty = state.hasChanges, onLeave = onBackClick)
+    val requestLeave = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true, onLeave = onBackClick)
 
     ListenUpScaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         bottomBar = {
-            if (!state.isLoading) {
+            if (editing != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 3.dp,
                 ) {
                     ListenUpButton(
                         text =
-                            if (state.isSaving) {
+                            if (editing.isSaving) {
                                 stringResource(
                                     Res.string.common_saving,
                                 )
@@ -113,8 +113,8 @@ fun BookEditScreen(
                                 stringResource(Res.string.common_save_changes)
                             },
                         onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
-                        enabled = state.hasChanges && !state.isSaving,
-                        isLoading = state.isSaving,
+                        enabled = editing.hasChanges && !editing.isSaving,
+                        isLoading = editing.isSaving,
                         leadingIcon = ListenUpIcons.SaveFilled,
                         modifier = Modifier.padding(Spacing.lg),
                     )
@@ -126,8 +126,8 @@ fun BookEditScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             // Content
-            when {
-                state.isLoading -> {
+            when (val current = uiState) {
+                BookEditUiState.Loading -> {
                     ListenUpLoadingIndicator(
                         modifier =
                             Modifier
@@ -136,30 +136,22 @@ fun BookEditScreen(
                     )
                 }
 
-                state.error != null -> {
-                    Column(
+                is BookEditUiState.LoadFailed -> {
+                    EditLoadFailed(
+                        error = current.error,
+                        onBack = onBackClick,
+                        onRetry = { viewModel.onEvent(BookEditUiEvent.RetryLoad) },
                         modifier =
                             Modifier
                                 .align(Alignment.Center)
                                 .padding(paddingValues),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = state.error ?: stringResource(Res.string.error_unknown),
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        TextButton(
-                            onClick = { viewModel.onEvent(BookEditUiEvent.DismissError) },
-                        ) {
-                            Text(stringResource(Res.string.common_dismiss))
-                        }
-                    }
+                    )
                 }
 
-                else -> {
+                is BookEditUiState.Editing -> {
                     BookEditContent(
                         bookId = bookId,
-                        state = state,
+                        studio = current,
                         onEvent = viewModel::onEvent,
                         onBackClick = requestLeave,
                         // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
@@ -181,11 +173,12 @@ fun BookEditScreen(
 @Composable
 private fun BookEditContent(
     bookId: String,
-    state: BookEditUiState,
+    studio: BookEditUiState.Editing,
     onEvent: (BookEditUiEvent) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val state = studio.form
     // Detect window size for responsive layout
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
     val isMediumOrLarger =
@@ -225,7 +218,7 @@ private fun BookEditContent(
             title = state.title,
             subtitle = state.subtitle,
             sortTitle = state.sortTitle,
-            isUploadingCover = state.isUploadingCover,
+            isUploadingCover = studio.isUploadingCover,
             onTitleChange = { onEvent(BookEditUiEvent.TitleChanged(it)) },
             onSubtitleChange = { onEvent(BookEditUiEvent.SubtitleChanged(it)) },
             onSortTitleChange = { onEvent(BookEditUiEvent.SortTitleChanged(it)) },
@@ -234,6 +227,15 @@ private fun BookEditContent(
             bookId = bookId,
             coverHash = state.coverHash,
         )
+
+        // A Save or cover failure sits above the cards, the edits below it untouched.
+        studio.inlineError?.let { error ->
+            EditInlineError(
+                error = error,
+                onDismiss = { onEvent(BookEditUiEvent.DismissError) },
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            )
+        }
 
         // Cards section - responsive layout
         if (isMediumOrLarger) {
@@ -249,7 +251,7 @@ private fun BookEditContent(
  */
 @Composable
 private fun SingleColumnCardsLayout(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Column(
@@ -363,7 +365,7 @@ private fun SingleColumnCardsLayout(
  */
 @Composable
 private fun ClassificationCard(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     StudioCard(title = stringResource(Res.string.book_edit_classification)) {
@@ -414,7 +416,7 @@ private fun ClassificationCard(
 @Suppress("LongMethod")
 @Composable
 private fun TwoColumnCardsLayout(
-    state: BookEditUiState,
+    state: BookEditForm,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
     Column(

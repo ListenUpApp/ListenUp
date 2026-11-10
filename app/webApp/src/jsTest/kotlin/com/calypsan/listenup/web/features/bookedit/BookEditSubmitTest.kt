@@ -1,7 +1,8 @@
 package com.calypsan.listenup.web.features.bookedit
 
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
-import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import com.calypsan.listenup.web.MountRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -31,12 +32,7 @@ class BookEditSubmitTest :
         fun page(onEvent: (BookEditUiEvent) -> Unit): HTMLElement =
             mounts.mount {
                 BookEditPage(
-                    state =
-                        BookEditUiState(
-                            isLoading = false,
-                            bookId = "b1",
-                            title = "The Institute",
-                        ),
+                    state = editingBook(BookEditForm(bookId = "b1", title = "The Institute")),
                     onEvent = onEvent,
                     onOpenLibrary = {},
                     onOpenBook = {},

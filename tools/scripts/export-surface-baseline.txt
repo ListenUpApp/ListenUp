@@ -122,12 +122,14 @@ BookDocument
 BookDownloadStatus
 BookDownloadStatus_SealedType
 BookEditData
+BookEditForm
 BookEditNavAction
 BookEditNavAction_SealedType
 BookEditRepository
 BookEditUiEvent
 BookEditUiEvent_SealedType
 BookEditUiState
+BookEditUiState_SealedType
 BookEditViewModel
 BookError
 BookError_SealedType
@@ -227,7 +229,6 @@ ClaimInviteViewModel
 CodecCapability
 Collection
 CollectionBookItem
-CollectionEditDelegate
 CollectionError
 CollectionError_SealedType
 CollectionRef
@@ -254,13 +255,14 @@ ContributorDetailNavAction_SealedType
 ContributorDetailUiState
 ContributorDetailUiState_SealedType
 ContributorDetailViewModel
-ContributorEditDelegate
+ContributorEditForm
 ContributorEditNavAction
 ContributorEditNavAction_SealedType
 ContributorEditRepository
 ContributorEditUiEvent
 ContributorEditUiEvent_SealedType
 ContributorEditUiState
+ContributorEditUiState_SealedType
 ContributorEditViewModel
 ContributorError
 ContributorError_SealedType
@@ -282,7 +284,6 @@ CoverThemeStyle
 CoverThemeTokens
 CoverThemes
 CoverUi
-CoverUploadDelegate
 CreateEditShelfNavAction
 CreateEditShelfNavAction_SealedType
 CreateEditShelfUiState
@@ -350,6 +351,8 @@ DriftRefusal
 DriftResult
 DriftResult_SealedType
 DurationFormatter
+EditPhase
+EditPhase_SealedType
 EditProfileEvent
 EditProfileEvent_SealedType
 EditProfileUiState
@@ -428,7 +431,6 @@ GenreMergeHistory
 GenreRepository
 GenreShare
 GenreShareBar
-GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
 GroupedChapters
@@ -582,6 +584,7 @@ LibrarySettingsViewModel
 LibrarySetupNavAction
 LibrarySetupNavAction_SealedType
 LibrarySetupUiState
+LibrarySetupUiState_SealedType
 LibrarySetupViewModel
 LibraryShowcase
 LibraryStatusStrip
@@ -898,13 +901,14 @@ SeriesCrumb
 SeriesDetailUiState
 SeriesDetailUiState_SealedType
 SeriesDetailViewModel
-SeriesEditDelegate
+SeriesEditForm
 SeriesEditNavAction
 SeriesEditNavAction_SealedType
 SeriesEditRepository
 SeriesEditUiEvent
 SeriesEditUiEvent_SealedType
 SeriesEditUiState
+SeriesEditUiState_SealedType
 SeriesEditViewModel
 SeriesError
 SeriesError_SealedType

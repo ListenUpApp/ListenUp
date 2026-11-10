@@ -193,7 +193,7 @@ private val PAGE_STATES =
             mountAt("/book/42", openBookDetail = fixedBookDetail(BookDetailUiState.Error(BookError.NotFound())))
         },
         PageState("a book's edit form, loading") {
-            mountAt("/book/42/edit", openBookEdit = fixedBookEdit(BookEditUiState(isLoading = true)))
+            mountAt("/book/42/edit", openBookEdit = fixedBookEdit(BookEditUiState.Loading))
         },
         PageState("the chapter editor, loading") { mountAt("/book/42/chapters") },
         PageState("a contributor, loading") { mountAt("/contributor/c1") },

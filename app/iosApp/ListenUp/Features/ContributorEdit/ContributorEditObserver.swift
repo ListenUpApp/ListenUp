@@ -7,7 +7,8 @@ import Shared
 @Observable
 @MainActor
 final class ContributorEditObserver {
-    private(set) var isLoading: Bool = true
+    /// Loading, failed to load, or editing — the sheet switches on this first.
+    private(set) var phase: EditScreenPhase = .loading
     private(set) var name: String = ""
     /// The contributor biography — stored as `bio` and read from Kotlin's `descriptionText` alias:
     /// Swift Export never exports a member named `description` (the `NSObject` clash).
@@ -27,6 +28,7 @@ final class ContributorEditObserver {
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var isUploadingImage: Bool = false
+    private(set) var mergeInProgress: Bool = false
     private(set) var error: String?
     private(set) var didFinish: Bool = false
     /// Set alongside `didFinish` when a merge committed: the id of the contributor that survived it.
@@ -101,8 +103,17 @@ final class ContributorEditObserver {
     func onKeepSeparateOnRename() { viewModel.onEvent(event: ContributorEditUiEventKeepSeparateOnRename.shared) }
     func onDismissRenameCollision() { viewModel.onEvent(event: ContributorEditUiEventDismissRenameCollision.shared) }
 
-    private func apply(_ state: ContributorEditUiState) {
-        isLoading = state.isLoading
+    private func apply(_ uiState: ContributorEditUiState) {
+        phase = Self.phase(of: uiState)
+        guard case .editing(let editingType) = uiState.sealedType() else { return }
+        let editing = editingType.value
+        let state = editing.form
+        hasChanges = editing.hasChanges
+        isSaving = editing.isSaving
+        isUploadingImage = editing.isUploadingImage
+        mergeInProgress = editing.mergeInProgress
+        // A Save, merge or photo failure: shown over the form, which keeps the edits.
+        error = editing.inlineError?.message
         name = state.name
         bio = state.descriptionText
         website = state.website
@@ -117,14 +128,19 @@ final class ContributorEditObserver {
             saved: ImageFrameValue(state.imageFrame),
             hasStagedImage: stagingPath != nil
         )
-        hasChanges = state.hasChanges
-        isSaving = state.isSaving
-        isUploadingImage = state.isUploadingImage
-        error = state.error
         aliases = Array(state.aliases)
         mergeQuery = state.mergeQuery
         canCurateLibrary = state.canCurateLibrary
         renameCollisionCandidate = state.renameCollisionCandidate.map(MergeCandidate.init)
+    }
+
+    /// The sheet's phase for `state`. Pure, so it is unit-tested without a live ViewModel.
+    static func phase(of state: ContributorEditUiState) -> EditScreenPhase {
+        switch state.sealedType() {
+        case .loading: return .loading
+        case .loadFailed(let failedType): return .failed(failedType.value.error)
+        case .editing: return .editing
+        }
     }
 
     /// The staged frame wins; with none, a staged new photo shows its centre crop and the saved photo its saved

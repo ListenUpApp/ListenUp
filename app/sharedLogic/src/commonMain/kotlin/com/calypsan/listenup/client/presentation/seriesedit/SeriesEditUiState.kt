@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.seriesedit
 
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.client.presentation.edit.EditPhase
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
 
@@ -7,7 +9,7 @@ import com.calypsan.listenup.core.SeriesId
  * Lightweight projection of a series as a row the editor lists: a merge-target or parent
  * candidate, or one of the series' own sub-series.
  *
- * [bookCount] is real for a sub-series ([SeriesEditUiState.childSeries]) — every book in it and
+ * [bookCount] is real for a sub-series ([SeriesEditForm.childSeries]) — every book in it and
  * below it. For a picker candidate it is always `0`: there is no per-series book-count query
  * for the pickers yet, so their dialogs hide it.
  */
@@ -18,14 +20,56 @@ data class SeriesCandidate(
 )
 
 /**
- * UI state for series editing screen.
+ * UI state for the series editing screen.
+ *
+ * A series that could not be loaded is [LoadFailed], never an empty form; Save, a merge, a staged
+ * cover and their failures all live inside [Editing], so a failure is shown beside the reader's
+ * unsaved edits rather than in place of them.
  */
-data class SeriesEditUiState(
-    // Loading states
-    val isLoading: Boolean = true,
-    val isSaving: Boolean = false,
-    val isUploadingCover: Boolean = false,
-    val error: String? = null,
+sealed interface SeriesEditUiState {
+    /** Reading the series. */
+    data object Loading : SeriesEditUiState
+
+    /** The series could not be loaded (it no longer exists). The screen shows [error] with Back. */
+    data class LoadFailed(
+        val seriesId: String,
+        val error: AppError,
+    ) : SeriesEditUiState
+
+    /**
+     * Editing [form]. [original] is the form as loaded, the baseline [hasChanges] diffs against.
+     * [phase] says what is in flight; Save, a merge and a new cover each start only from
+     * [EditPhase.Idle]. [inlineError] is a Save, merge or cover failure, shown with the form intact.
+     */
+    data class Editing(
+        val form: SeriesEditForm,
+        val original: SeriesEditForm,
+        val phase: EditPhase = EditPhase.Idle,
+        val inlineError: AppError? = null,
+    ) : SeriesEditUiState {
+        /** Whether the name, the description or the cover differs from what was loaded. */
+        val hasChanges: Boolean
+            get() =
+                form.name != original.name ||
+                    form.description != original.description ||
+                    form.pendingCoverData != null
+
+        /** Whether Save is on its way. */
+        val isSaving: Boolean get() = phase == EditPhase.Saving
+
+        /** Whether a picked cover is being staged for preview. */
+        val isUploadingCover: Boolean get() = phase == EditPhase.StagingImage
+
+        /** Whether a merge is on its way. */
+        val mergeInProgress: Boolean get() = phase == EditPhase.Merging
+    }
+}
+
+/**
+ * The series edit form: the fields the reader can change, the staged cover, the pickers, and where
+ * the series sits in the hierarchy.
+ */
+data class SeriesEditForm(
     // Series identity
     val seriesId: String = "",
     val name: String = "",
@@ -37,8 +81,6 @@ data class SeriesEditUiState(
     val pendingCoverFilename: String? = null,
     // Display metadata
     val bookCount: Int = 0,
-    // Merge (server-canonical; firehose delivers result)
-    val mergeInProgress: Boolean = false,
     // Merge-target picker visibility — candidates are computed only while true
     val mergeDialogVisible: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
@@ -64,8 +106,6 @@ data class SeriesEditUiState(
     val isOnline: Boolean = true,
     /** May merge this series and see (and undo) the merges folded into it (Curate library). */
     val canCurateLibrary: Boolean = false,
-    // Track if changes have been made
-    val hasChanges: Boolean = false,
 ) {
     /** [description] for the Swift Export boundary: a member named `description` collides with `NSObject.description` and is never exported. */
     val descriptionText: String get() = description

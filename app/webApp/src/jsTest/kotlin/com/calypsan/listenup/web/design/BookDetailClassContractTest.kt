@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditForm
+import com.calypsan.listenup.web.editingBook
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.match.FieldState
 import com.calypsan.listenup.api.error.BookError
@@ -542,12 +544,13 @@ private fun bookdetailShapes6(): Map<String, @Composable () -> Unit> =
             // exercises every field primitive it owns.
             BookEditPage(
                 state =
-                    BookEditUiState(
-                        isLoading = false,
-                        bookId = "b1",
-                        title = "The Institute",
-                        publisher = "Hodder",
-                        language = "en",
+                    editingBook(
+                        BookEditForm(
+                            bookId = "b1",
+                            title = "The Institute",
+                            publisher = "Hodder",
+                            language = "en",
+                        ),
                     ),
                 onEvent = {},
                 onOpenLibrary = {},

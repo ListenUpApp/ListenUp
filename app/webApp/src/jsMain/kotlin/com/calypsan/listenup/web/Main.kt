@@ -40,6 +40,7 @@ import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.auth.graphConnectionHealth
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.admin.AdminSessions
+import com.calypsan.listenup.web.features.setup.graphLibraryReadiness
 import com.calypsan.listenup.web.features.setup.graphLibrarySetup
 import androidx.compose.runtime.CompositionLocalProvider
 import com.calypsan.listenup.web.nav.LocalRouter
@@ -169,6 +170,7 @@ private fun bootInto(mount: Element) {
                     router = router,
                     graph = graphWeb(koin),
                     openLibrarySetup = graphLibrarySetup(koin),
+                    openLibraryReadiness = graphLibraryReadiness(koin),
                     openConnectionHealth = graphConnectionHealth(koin),
                     observeThemeMode = { koin.get<LocalPreferences>().themeMode },
                     initialInviteCode = inviteCode,

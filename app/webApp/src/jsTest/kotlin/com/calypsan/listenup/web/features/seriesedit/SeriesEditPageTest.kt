@@ -8,6 +8,11 @@ import com.calypsan.listenup.client.presentation.merge.MergeHistoryState
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.SeriesError
+import com.calypsan.listenup.client.presentation.edit.EditPhase
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditForm
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.web.awaitFrame
@@ -42,7 +47,7 @@ internal fun editingSeries(
     coverPath: String? = null,
     pendingCoverData: ByteArray? = null,
     bookCount: Int = 5,
-    error: String? = null,
+    error: AppError? = null,
     isLoading: Boolean = false,
     isSaving: Boolean = false,
     isUploadingCover: Boolean = false,
@@ -51,23 +56,34 @@ internal fun editingSeries(
     mergeDialogVisible: Boolean = false,
     mergeQuery: String = "",
     canCurateLibrary: Boolean = true,
-) = SeriesEditUiState(
-    isLoading = isLoading,
-    isSaving = isSaving,
-    isUploadingCover = isUploadingCover,
-    error = error,
-    seriesId = "s-stormlight",
-    name = name,
-    description = description,
-    coverPath = coverPath,
-    pendingCoverData = pendingCoverData,
-    bookCount = bookCount,
-    mergeInProgress = mergeInProgress,
-    mergeDialogVisible = mergeDialogVisible,
-    mergeQuery = mergeQuery,
-    hasChanges = hasChanges,
-    canCurateLibrary = canCurateLibrary,
-)
+): SeriesEditUiState {
+    if (isLoading) return SeriesEditUiState.Loading
+    val form =
+        SeriesEditForm(
+            seriesId = "s-stormlight",
+            name = name,
+            description = description,
+            coverPath = coverPath,
+            pendingCoverData = pendingCoverData,
+            bookCount = bookCount,
+            mergeDialogVisible = mergeDialogVisible,
+            mergeQuery = mergeQuery,
+            canCurateLibrary = canCurateLibrary,
+        )
+    return SeriesEditUiState.Editing(
+        form = form,
+        // A draft is a form that differs from what was loaded.
+        original = if (hasChanges) form.copy(name = "$name (as loaded)") else form,
+        phase =
+            when {
+                isSaving -> EditPhase.Saving
+                isUploadingCover -> EditPhase.StagingImage
+                mergeInProgress -> EditPhase.Merging
+                else -> EditPhase.Idle
+            },
+        inlineError = error,
+    )
+}
 
 private fun page(
     state: SeriesEditUiState,
@@ -216,16 +232,32 @@ class SeriesEditPageTest :
 
         test("an error is announced, and can be dismissed") {
             val seen = mutableListOf<SeriesEditUiEvent>()
-            val host = page(editingSeries(error = "That name is already taken."), onEvent = { seen += it })
+            val error = ValidationError(message = "That name is already taken.")
+            val host = page(editingSeries(error = error), onEvent = { seen += it })
 
             val alert = host.querySelector(".sed-err-t").shouldNotBeNull()
             alert.getAttribute("role") shouldBe "alert"
             alert.textContent shouldBe "That name is already taken."
+            // The failure sits above the form; the edit is still there to save again.
+            host.querySelector("form").shouldNotBeNull()
 
             (host.querySelector(".sed-err-x") as HTMLButtonElement).click()
             awaitFrame()
 
             seen shouldContainExactly listOf(SeriesEditUiEvent.ErrorDismissed)
+        }
+
+        // A missing subject used to fall through to an empty, editable form whose Save wrote blanks.
+        test("a series that could not be loaded says so, with no form and a way back") {
+            val seen = mutableListOf<SeriesEditUiEvent>()
+            val host = page(SeriesEditUiState.LoadFailed("gone", SeriesError.NotFound()), onEvent = { seen += it })
+
+            host.querySelector("form") shouldBe null
+            host.querySelector(".edit-retry") shouldBe null
+            (host.querySelector(".edit-back") as HTMLButtonElement).click()
+            awaitFrame()
+
+            seen shouldContainExactly listOf(SeriesEditUiEvent.CancelClicked)
         }
 
         test("a page still loading draws nothing it does not know yet") {
