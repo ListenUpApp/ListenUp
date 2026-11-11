@@ -229,7 +229,7 @@ class BookDetailSectionOrderTest {
         val heading = composeRule.onNode(isHeading() and hasText("Readers")).getUnclippedBoundsInRoot()
         val root = composeRule.onRoot().getUnclippedBoundsInRoot()
         (heading.top >= root.top && heading.bottom <= root.bottom) shouldBe true
-        composeRule.onNodeWithText("Listening").assertIsDisplayed()
+        composeRule.onNodeWithText("Listening · 40%").assertIsDisplayed()
     }
 
     // The mini player floats over the page: at the end of the scroll the last section must clear it, not sit under it.

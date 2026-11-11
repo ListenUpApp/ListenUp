@@ -172,7 +172,7 @@ app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/hardcover/Hardco
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/match/MatchReceiptRegion.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/profile/EditProfilePage.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/ratings/RatingsPanel.kt 1
-app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/readers/ReadersPane.kt 4
+app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/readers/ReadersPane.kt 2
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/serieslist/SeriesListPage.kt 2
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/settings/SettingsPage.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/shelf/MyShelvesPage.kt 1

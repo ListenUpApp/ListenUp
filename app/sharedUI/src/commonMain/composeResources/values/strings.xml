@@ -612,6 +612,8 @@ One beautiful library.</string>
     <string name="book_detail_read_by">Read by</string>
     <string name="book_detail_reader_listening">Listening</string>
     <string name="book_detail_reader_listening_now">Listening now</string>
+    <string name="book_detail_reader_listening_now_percent">Listening now · %1$d%</string>
+    <string name="book_detail_reader_listening_percent">Listening · %1$d%</string>
     <string name="book_detail_reader_view_profile">View profile</string>
     <string name="book_detail_readers">Readers</string>
     <string name="book_detail_readers_a11y_finished">%1$s, finished %2$s</string>

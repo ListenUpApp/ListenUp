@@ -226,10 +226,10 @@ private fun ReaderRow(
             } else {
                 Span(attrs = { classes("rdr-s") }) { Text(stateLine(kind, nowMs)) }
             }
-            // The bar replaces the number (spec §5.2); the number is in the bar's name, so the row still says it.
+            // The line above prints the percent, so the bar is decoration: a named bar would say it twice.
             if (kind is ReaderLineKind.Reading) {
                 kind.progressPct?.let { pct ->
-                    ProgressBar(value = pct / PERCENT, label = "$pct percent", attrs = { classes("rdr-bar") })
+                    ProgressBar(value = pct / PERCENT, decorative = true, attrs = { classes("rdr-bar") })
                 }
             }
             line.rating?.note?.let { note ->
@@ -252,7 +252,7 @@ private fun ReaderRow(
  * What one reader line says about itself.
  *
  * A Reading line says "Listening" — or "Listening now" when it is live (yours, while the player plays this book) —
- * with or without a percentage: the progress is the bar under it, never a number (spec §5.2).
+ * then how far they are when that is known ("Listening · 62%"). The bar under the line draws the same number.
  *
  * A read logged on Hardcover says "Read …", never "Finished …": it wasn't listened to here.
  */
@@ -261,7 +261,7 @@ internal fun stateLine(
     nowMs: Long,
 ): String =
     when (kind) {
-        is ReaderLineKind.Reading -> if (kind.isLive) "Listening now" else "Listening"
+        is ReaderLineKind.Reading -> readingLine(kind)
 
         is ReaderLineKind.Finished -> "Finished ${relativeOrMonthYear(kind.finishedAtMs, nowMs)}"
 
@@ -271,6 +271,12 @@ internal fun stateLine(
         // Rated without reading it here (imported history, say): no progress and no date to give.
         ReaderLineKind.Rated -> "Rated"
     }
+
+/** "Listening" or "Listening now", then the percent when it is known: "Listening · 62%". */
+private fun readingLine(kind: ReaderLineKind.Reading): String {
+    val activity = if (kind.isLive) "Listening now" else "Listening"
+    return kind.progressPct?.let { pct -> "$activity · $pct%" } ?: activity
+}
 
 private const val COLLAPSED_READERS = 3
 

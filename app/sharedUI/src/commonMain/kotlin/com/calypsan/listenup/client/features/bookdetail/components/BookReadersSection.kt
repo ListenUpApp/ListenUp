@@ -54,7 +54,8 @@ import listenup.composeapp.generated.resources.book_detail_readers
 import listenup.composeapp.generated.resources.book_detail_readers_finished
 import listenup.composeapp.generated.resources.book_detail_reader_listening
 import listenup.composeapp.generated.resources.book_detail_reader_listening_now
-import listenup.composeapp.generated.resources.book_detail_readers_a11y_reading
+import listenup.composeapp.generated.resources.book_detail_reader_listening_now_percent
+import listenup.composeapp.generated.resources.book_detail_reader_listening_percent
 import listenup.composeapp.generated.resources.book_detail_see_all_readers
 import listenup.composeapp.generated.resources.book_detail_readers_reading
 import listenup.composeapp.generated.resources.book_detail_readers_note
@@ -68,6 +69,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlin.time.Clock
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -390,7 +392,7 @@ fun BookReadersContent(
  * A single reader row.
  *
  * When [ReaderRowUi.isReading] is true the avatar gets a 2.5dp [MaterialTheme.colorScheme.primary]
- * ring offset 2dp from the circle, a thin progress bar + percentage label show when
+ * ring offset 2dp from the circle, the percentage and a thin progress bar show when
  * [ReaderRowUi.progressPct] is known, and a trailing [ListenUpIcons.GraphicEqFilled] indicates active
  * listening. When finished, a "Finished {when}" line shows under the name with a trailing
  * [ListenUpIcons.CheckCircleFilled]. A rated-only row reads "Rated" with a trailing star. When the row
@@ -498,18 +500,29 @@ internal fun ReaderRow(
 @Composable
 private fun ReaderStateLine(reader: ReaderRowUi) {
     if (reader.isReading) {
+        val pct = reader.progressPct
         Text(
             text =
-                stringResource(
-                    if (reader.isLive) Res.string.book_detail_reader_listening_now else Res.string.book_detail_reader_listening,
-                ),
+                if (pct == null) {
+                    stringResource(
+                        if (reader.isLive) Res.string.book_detail_reader_listening_now else Res.string.book_detail_reader_listening,
+                    )
+                } else {
+                    stringResource(
+                        if (reader.isLive) {
+                            Res.string.book_detail_reader_listening_now_percent
+                        } else {
+                            Res.string.book_detail_reader_listening_percent
+                        },
+                        pct,
+                    )
+                },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 1.dp),
         )
         if (reader.progressPct != null) {
-            // The bar replaces the number; the number is spoken, merged into the row.
-            val spoken = stringResource(Res.string.book_detail_readers_a11y_reading, reader.name, reader.progressPct)
+            // The line above says how far; the bar draws it, and TalkBack skips it rather than say it twice.
             LinearProgressIndicator(
                 progress = { reader.progressPct.coerceIn(0, 100) / 100f },
                 modifier =
@@ -517,7 +530,7 @@ private fun ReaderStateLine(reader: ReaderRowUi) {
                         .padding(top = 6.dp)
                         .widthIn(max = 150.dp)
                         .fillMaxWidth()
-                        .semantics { contentDescription = spoken },
+                        .semantics { hideFromAccessibility() },
             )
         }
     } else if (reader.finishedWhen != null && reader.isOnHardcover) {
