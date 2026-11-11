@@ -161,17 +161,18 @@ class ReadersTest :
 
             // Progress is not presence: someone partway through is Listening, never Listening now.
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Ada LovelaceListening", "Grace HopperFinished yesterday")
+                listOf("Ada LovelaceListening · 42%", "Grace HopperFinished yesterday")
         }
 
-        test("a reading row draws its progress as a bar named with the percent, and prints no number") {
+        test("a reading row prints its percent and draws the bar beneath it, hidden from screen readers") {
             val host = panel(readersData(reader(userId = "u1", displayName = "Ada Lovelace", progressPct = 64)))
 
             val row = rows(host).single()
-            val bar = row.querySelector("[role=progressbar]") as HTMLElement
-            bar.getAttribute("aria-valuenow") shouldBe "64"
-            bar.getAttribute("aria-label") shouldBe "64 percent"
-            row.textContent.orEmpty().contains("%") shouldBe false
+            row.querySelector(".rdr-s")?.textContent shouldBe "Listening · 64%"
+            // The line already says how far; a named bar would say it a second time.
+            val bar = row.querySelector(".rdr-bar") as HTMLElement
+            bar.getAttribute("aria-hidden") shouldBe "true"
+            row.querySelector("[role=progressbar]") shouldBe null
         }
 
         test("a reader with no progress and a finish is shown as finished, not as both") {
@@ -192,8 +193,9 @@ class ReadersTest :
             // The arm is still live — the type says `Int?` — and a spec that could not fail here
             // would be no spec at all.
             stateLine(ReaderLineKind.Reading(null), READERS_NOW) shouldBe "Listening"
-            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "Listening"
-            stateLine(ReaderLineKind.Reading(42, isLive = true), READERS_NOW) shouldBe "Listening now"
+            stateLine(ReaderLineKind.Reading(null, isLive = true), READERS_NOW) shouldBe "Listening now"
+            stateLine(ReaderLineKind.Reading(42), READERS_NOW) shouldBe "Listening · 42%"
+            stateLine(ReaderLineKind.Reading(42, isLive = true), READERS_NOW) shouldBe "Listening now · 42%"
             stateLine(ReaderLineKind.Finished(READERS_NOW - DAY), READERS_NOW) shouldBe "Finished yesterday"
             stateLine(ReaderLineKind.FinishedOnHardcover(READERS_NOW - DAY), READERS_NOW) shouldBe "Read yesterday"
         }
@@ -263,7 +265,7 @@ class ReadersTest :
                 )
 
             rows(host).map { it.textContent?.trim() } shouldContainExactly
-                listOf("Grace HopperListening", "YouListening")
+                listOf("Grace HopperListening · 10%", "YouListening · 80%")
         }
 
         test("only your own row is Listening now, live and marked, while the player is playing this book") {
@@ -276,10 +278,10 @@ class ReadersTest :
                 )
 
             val (grace, you) = rows(host)
-            grace.textContent?.trim() shouldBe "Grace HopperListening"
+            grace.textContent?.trim() shouldBe "Grace HopperListening · 10%"
             grace.classList.contains("is-live") shouldBe false
             grace.querySelector("svg") shouldBe null
-            you.textContent?.trim() shouldBe "YouListening now"
+            you.textContent?.trim() shouldBe "YouListening now · 80%"
             you.classList.contains("is-live") shouldBe true
             (you.querySelector("svg") != null) shouldBe true
         }

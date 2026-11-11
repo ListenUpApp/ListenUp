@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** A reader's progress is a bar, not a number; the number is spoken (spec §5.2 Reader bars). */
+/** A reader partway through says how far in words, with the bar beneath drawing the same number. */
 @RunWith(RobolectricTestRunner::class)
 class ReaderRowProgressTest {
     @get:Rule
@@ -45,17 +45,19 @@ class ReaderRowProgressTest {
     )
 
     @Test
-    fun `your live row draws a bar and says Listening now, and speaks the percent`() {
+    fun `your live row says Listening now with its percent, over a bar screen readers skip`() {
         composeRule.setContent {
             WithAvatarDependencies { ReaderRow(reader = row("Maya", 64, isLive = true), onUserClick = {}) }
         }
-        composeRule.onAllNodesWithText("64%", substring = true, useUnmergedTree = true).assertCountEquals(0)
-        composeRule.onNodeWithText("Listening now", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Listening now · 64%", useUnmergedTree = true).assertExists()
+        // The line already says how far; a spoken bar would say it a second time.
         composeRule
             .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo), useUnmergedTree = true)
             .fetchSemanticsNodes()
-            .size shouldBe 1
-        composeRule.onNode(hasContentDescription("Maya, 64 percent")).assertExists()
+            .single()
+            .config
+            .contains(SemanticsProperties.HideFromAccessibility) shouldBe true
+        composeRule.onAllNodes(hasContentDescription("percent", substring = true), useUnmergedTree = true).assertCountEquals(0)
     }
 
     // Progress alone says someone is partway through, not that they are listening right now.
@@ -64,7 +66,7 @@ class ReaderRowProgressTest {
         composeRule.setContent {
             WithAvatarDependencies { ReaderRow(reader = row("Priya", 20), onUserClick = {}) }
         }
-        composeRule.onNodeWithText("Listening", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Listening · 20%", useUnmergedTree = true).assertExists()
         composeRule.onAllNodesWithText("Listening now", useUnmergedTree = true).assertCountEquals(0)
         composeRule
             .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo), useUnmergedTree = true)

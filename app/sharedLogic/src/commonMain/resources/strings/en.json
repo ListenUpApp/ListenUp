@@ -504,6 +504,8 @@
     "detail_see_all_readers_ios": "See All %1$d Readers",
     "detail_reader_listening_now": "Listening now",
     "detail_reader_listening": "Listening",
+    "detail_reader_listening_percent": "Listening · %1$d%",
+    "detail_reader_listening_now_percent": "Listening now · %1$d%",
     "detail_social_listening_one": "%1$s is listening",
     "detail_social_listening_two": "%1$s and %2$s are listening",
     "detail_social_listening_many_one": "%1$s, %2$s and 1 other are listening",

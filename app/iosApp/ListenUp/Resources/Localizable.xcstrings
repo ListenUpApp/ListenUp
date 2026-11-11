@@ -6722,6 +6722,28 @@
         }
       }
     },
+    "book.detail_reader_listening_now_percent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening now · %1$d%%"
+          }
+        }
+      }
+    },
+    "book.detail_reader_listening_percent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening · %1$d%%"
+          }
+        }
+      }
+    },
     "book.detail_reader_view_profile": {
       "extractionState": "manual",
       "localizations": {

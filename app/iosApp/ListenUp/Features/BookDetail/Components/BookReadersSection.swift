@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// A heading with a "{N} listening now" subtitle leads, then flat display-only rows: a
 /// tinted initials avatar (with a coral ring when the reader is listening now), the name,
-/// and either a progress bar + percent (reading) or a "Finished {date}" line. The current
+/// and either "Listening · {percent}" over a progress bar (reading) or a "Finished {date}" line. The current
 /// user's row gets a "(You)" suffix. A reader's rating sits beside their name as small stars, with
 /// their note in quotes beneath (two lines at most); someone who rated the book without reading it
 /// here reads "Rated". A reader whose newest read was logged on Hardcover reads "Read {date}" with a
@@ -13,7 +13,7 @@ import SwiftUI
 /// with an "Also on Hardcover" badge. Tapping a row opens that reader's profile.
 ///
 /// On Book Detail the rows are capped at three (on every platform) and "See All N Readers" opens the
-/// whole list (`BookReadersListView`); a reader's progress is a bar, its percent spoken in the row's label.
+/// whole list (`BookReadersListView`).
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
@@ -230,12 +230,10 @@ struct BookReadersSection: View {
 
     @ViewBuilder
     private func progress(_ reader: BookReaderRow) -> some View {
-        Text(reader.isLive
-             ? String(localized: "book.detail_reader_listening_now")
-             : String(localized: "book.detail_reader_listening"))
+        Text(Self.readingStatus(for: reader))
             .font(.footnote)
             .foregroundStyle(.secondary)
-        // The bar replaces the number; the percent is in the row's VoiceOver label.
+        // The line above says how far; the bar draws it. The row's one VoiceOver label speaks the percent.
         if let pct = reader.progressPercent {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
@@ -280,6 +278,21 @@ struct BookReadersSection: View {
     }
 
     // MARK: - Text helpers
+
+    /// A reading row's line: "Listening · 62%", or "Listening now · 38%" for you while the player plays this book.
+    static func readingStatus(for reader: BookReaderRow) -> String {
+        guard let pct = reader.progressPercent else {
+            return reader.isLive
+                ? String(localized: "book.detail_reader_listening_now")
+                : String(localized: "book.detail_reader_listening")
+        }
+        return String(
+            format: reader.isLive
+                ? String(localized: "book.detail_reader_listening_now_percent")
+                : String(localized: "book.detail_reader_listening_percent"),
+            pct
+        )
+    }
 
     private func name(for reader: BookReaderRow) -> String {
         reader.isYou
