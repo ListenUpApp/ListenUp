@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.client.core.tightenMarkdownEmphasis
 import com.calypsan.listenup.core.decodeHtmlEntities
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Em
@@ -94,7 +95,7 @@ internal sealed interface MarkdownSpan {
 
 /** Splits a description into paragraphs of classified spans. Blank input yields no paragraphs. */
 internal fun parseBookDescription(description: String): List<List<MarkdownSpan>> =
-    normalizeHtml(description)
+    tightenMarkdownEmphasis(normalizeHtml(description))
         .split(PARAGRAPH_BREAK)
         .map { it.trim() }
         .filter { it.isNotEmpty() }

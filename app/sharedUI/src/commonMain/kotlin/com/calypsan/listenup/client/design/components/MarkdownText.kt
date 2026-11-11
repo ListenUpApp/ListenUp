@@ -2,10 +2,12 @@ package com.calypsan.listenup.client.design.components
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.tightenMarkdownEmphasis
 import com.calypsan.listenup.client.design.text.forProse
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
@@ -33,8 +35,9 @@ fun MarkdownText(
     // Prose: each paragraph aligns to its own start, so an Arabic description in an English layout runs flush right.
     val prose = style.forProse()
     val type = MaterialTheme.typography
+    val content = remember(markdown) { tightenMarkdownEmphasis(markdown) }
     Markdown(
-        content = markdown,
+        content = content,
         modifier = modifier,
         colors =
             markdownColor(
