@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.Timestamp
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.collections.shouldHaveSize
 import kotlinx.coroutines.flow.first
 import kotlin.time.measureTime
 
@@ -85,7 +85,7 @@ class ContributorPreviewQueryTest :
             }
         }
 
-        test("the preview query stays cheap on a 5,000-book library") {
+        test("the preview query finds each book by key on a 5,000-book library") {
             withHeldBookDb { db ->
                 val books =
                     (0 until BOOKS).map { i ->
@@ -121,12 +121,15 @@ class ContributorPreviewQueryTest :
                     }
                 logger.info { "EXPLAIN QUERY PLAN:\n" + plan.joinToString("\n") }
 
+                // Each credit finds its book by key; a plan that scans books instead is the regression this guards.
+                // There is no (role, contributorId) index on purpose: the query measured an 11 ms median on JVM without
+                // one. The guard is the plan rather than a stopwatch, which a loaded CI runner can't keep steady.
+                plan.filter { it.startsWith("SEARCH b ") && it.endsWith("(id=?)") }.shouldHaveSize(1)
+
                 db.previews("author") // warm
                 val timings =
                     (1..RUNS).map { measureTime { db.previews("author") }.inWholeMilliseconds }.sorted()
-                val median = timings[RUNS / 2]
-                logger.info { "median over $RUNS runs: ${median}ms (all: $timings)" }
-                median shouldBeLessThan BUDGET_MS
+                logger.info { "median over $RUNS runs: ${timings[RUNS / 2]}ms (all: $timings)" }
             }
         }
     })
@@ -137,10 +140,3 @@ private const val BOOKS = 5_000
 private const val CONTRIBUTORS = 1_200
 private const val EXTRA_CREDITS = 7_000
 private const val RUNS = 5
-
-/**
- * A regression guard, not the decision line. Library PR 6b measured a 11ms median on JVM against a 20ms threshold for
- * adding a `(role, contributorId)` index, so no index was added; this budget leaves room for slow CI runners while
- * still catching a plan that stops using the primary key.
- */
-private const val BUDGET_MS = 100L
