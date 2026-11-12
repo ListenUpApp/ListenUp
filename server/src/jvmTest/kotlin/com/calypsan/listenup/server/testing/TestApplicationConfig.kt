@@ -79,6 +79,11 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 // whether the host machine happens to have it installed, and it would race a test
                 // that publishes its own TranscoderAvailability. Tests set availability explicitly.
                 "transcode.probeOnStartup" to "false",
+                // Ktor gives `module()` 10 s to return by default. The first boot in a freshly forked
+                // test JVM (class loading, migrations, the genre tree written row by row) has run past
+                // that on a loaded CI runner and failed with a bare TimeoutCancellationException.
+                // ProjectConfig's per-test timeout stays the guard against a boot that truly hangs.
+                "ktor.application.startupTimeoutMillis" to STARTUP_TIMEOUT_MILLIS,
             ).apply {
                 if (registrationPolicy != null) put("registration.policy", registrationPolicy)
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
@@ -89,6 +94,9 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
             }
     }
 }
+
+/** How long a test server's `module()` may take to boot: well past a cold CI fork, well inside the per-test timeout. */
+private const val STARTUP_TIMEOUT_MILLIS = "60000"
 
 /**
  * Seeds a library row with id `"test-library"` and a folder row with id

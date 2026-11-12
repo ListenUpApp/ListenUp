@@ -16,6 +16,15 @@ struct AttributedStringMarkdownTests {
         #expect(!text.contains("**"))
     }
 
+    /// A catalogue description that closes its bold after a space: CommonMark alone shows the asterisks.
+    @Test func boldClosedAfterASpaceIsStillBold() {
+        let result = AttributedString.fromBookMarkdown("**From a new voice, the truth. **\n\nLet us fly.")
+        let text = plain(result)
+        #expect(!text.contains("**"), "\(text)")
+        let bold = result.runs.first { $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true }
+        #expect(bold.map { String(result[$0.range].characters) } == "From a new voice, the truth.")
+    }
+
     @Test func italicEmphasisIsParsedNotShownLiterally() {
         let result = AttributedString.fromBookMarkdown("An *italic* word.")
         let text = plain(result)

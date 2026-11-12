@@ -136,15 +136,19 @@ struct PlayerFlight: CustomStringConvertible {
         String(format: "(%.1f,%.1f %.1fx%.1f)", rect.minX, rect.minY, rect.width, rect.height)
     }
 
+    /// How long a step may take on a loaded CI simulator, where the player has taken 1.4 s just to appear. Only a
+    /// ceiling: every wait ends as soon as its condition holds.
+    static let patience: Duration = .seconds(15)
+
     /// Opens the player through the book button, as a tap or VoiceOver would, then samples the presented view until
-    /// its transition ends.
+    /// its transition ends. It returns only once the presentation has settled, so a close never lands mid-flight.
     static func open(in hosted: HostedView) async throws -> PlayerFlight {
         let book = try #require(hosted.stops(labelContaining: "The Way of Kings").first, "\(hosted.tree)")
         try #require(hosted.activate(labelled: book.label), "the book button did not activate")
         let started = ContinuousClock.now
         var samples: [Sample] = []
         var settledFrames = 0
-        while ContinuousClock.now - started < .seconds(3), settledFrames < 5 {
+        while ContinuousClock.now - started < patience, settledFrames < 5 {
             if let presented = presented(in: hosted.window) {
                 let elapsed = started.duration(to: .now)
                 let layer = presented.view.layer.presentation() ?? presented.view.layer
@@ -157,6 +161,7 @@ struct PlayerFlight: CustomStringConvertible {
             try await Task.sleep(for: .milliseconds(16))
         }
         try #require(!samples.isEmpty, "the player was never presented")
+        try #require(settledFrames >= 5, "the player's presentation never finished")
         return PlayerFlight(windowWidth: hosted.window.bounds.width, samples: samples)
     }
 
@@ -169,7 +174,7 @@ struct PlayerFlight: CustomStringConvertible {
 
     static func waitUntil(_ condition: () -> Bool) async throws {
         let started = ContinuousClock.now
-        while !condition(), ContinuousClock.now - started < .seconds(5) {
+        while !condition(), ContinuousClock.now - started < patience {
             try await Task.sleep(for: .milliseconds(20))
         }
         try #require(condition(), "timed out")

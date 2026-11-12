@@ -47,6 +47,13 @@ class BookMarkdownTest :
             host.textContent!! shouldNotContain "*"
         }
 
+        test("bold closed after a space is still bold, and the space stays between the words") {
+            val host = mounts.mount { BookMarkdown("**The truth. **Let us fly.") }
+
+            host.querySelector("strong")!!.textContent shouldBe "The truth."
+            host.textContent shouldBe "The truth. Let us fly."
+        }
+
         test("a blank line starts a new paragraph") {
             val host = mounts.mount { BookMarkdown("First para.\n\nSecond para.") }
 

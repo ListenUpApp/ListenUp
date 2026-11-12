@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 
 extension AttributedString {
     /// Parses a book description into a styled `AttributedString`, preserving block
@@ -13,12 +14,16 @@ extension AttributedString {
     /// A small HTML pre-pass converts the common tags to their Markdown / whitespace
     /// equivalents so HTML descriptions degrade gracefully instead of showing literal
     /// angle brackets. Anything that still fails to parse falls back to the raw string
-    /// rendered as plain text — never nothing, never a crash.
+    /// rendered as plain text — never nothing, never a crash. A bold run closed after a space (`**the truth. **`)
+    /// has the space moved outside it first, by the same shared step Android and web run, so it still reads as bold.
     ///
     /// - Parameter markdown: The raw description text from the shared model.
     /// - Returns: A styled `AttributedString` ready to hand to `Text(_:)`.
     static func fromBookMarkdown(_ markdown: String) -> AttributedString {
-        let normalized = normalizingHtmlToMarkdown(markdown)
+        // After the HTML pass, so a `<b>sentence </b>` it turns into `**sentence **` is tightened too.
+        let normalized = ExportedKotlinPackages.com.calypsan.listenup.client.core.tightenMarkdownEmphasis(
+            markdown: normalizingHtmlToMarkdown(markdown)
+        )
         let options = AttributedString.MarkdownParsingOptions(
             allowsExtendedAttributes: false,
             interpretedSyntax: .full,
