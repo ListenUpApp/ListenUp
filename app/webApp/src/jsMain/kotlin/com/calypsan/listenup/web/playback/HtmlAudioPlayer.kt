@@ -132,9 +132,14 @@ private const val MS_PER_SECOND = 1000.0
  *
  * The one stall nothing in the browser corrects in time is a network that silently drops every packet, so a
  * [PlaybackStallWatch] on [stallScope] fails a listen that stalls with no progress at the shared drop grace.
+ *
+ * [element] is a parameter only so a spec can pause it from outside, the way the browser does when headphones
+ * are unplugged. It is never added to the document: audio needs no layout box, and an element in the tree
+ * invites CSS — and the next person's `querySelector` — to reach it.
  */
 internal class HtmlAudioPlayer(
     stallScope: CoroutineScope = MainScope(),
+    private val element: HTMLAudioElement = document.createElement("audio") as HTMLAudioElement,
 ) : AudioPlayer {
     override val state: StateFlow<PlaybackState>
         field = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
@@ -144,12 +149,6 @@ internal class HtmlAudioPlayer(
 
     override val durationMs: StateFlow<Long>
         field = MutableStateFlow(0L)
-
-    /**
-     * Never added to the document: audio needs no layout box, and an element in the tree invites
-     * CSS — and the next person's `querySelector` — to reach it.
-     */
-    private val element: HTMLAudioElement = document.createElement("audio") as HTMLAudioElement
 
     private var segments: List<AudioSegment> = emptyList()
     private var currentIndex: Int = 0
@@ -188,7 +187,8 @@ internal class HtmlAudioPlayer(
      * An unprimed [load] clears it: priming is a one-shot ([primedForNextLoad]) that the next load consumes, so a
      * book only starts by itself when the listener asked for that book. Also cleared by [pause], [forgetContent]
      * (so [releasePlayer], [primeForPlayback] and a `load(emptyList())` clear it too), [onPlayRejected] when it does
-     * not return early, and [onSegmentEnded] at the end of the last segment.
+     * not return early, [onPaused] when the browser paused the element itself, and [onSegmentEnded] at the end of
+     * the last segment.
      */
     private var resumeOnReady: Boolean = false
 
@@ -627,9 +627,22 @@ internal class HtmlAudioPlayer(
         element.pause()
     }
 
+    /**
+     * A `pause` the element is still honouring withdraws [resumeOnReady], whoever caused it.
+     *
+     * Usually [pause] did, and has already withdrawn it. When the browser did — Chrome on Android and Safari on iOS
+     * pause the element when the output device goes away, as when headphones are pulled out — nothing else would,
+     * and the next file the element is pointed at (a chapter jump or a seek into another file) would start the book
+     * through the speaker. iOS's coordinator keeps a lost route paused the same way (`PauseCause.routeLost`); web
+     * has no interruption-end resume, so every pause the browser makes is that kind.
+     *
+     * [HTMLAudioElement.paused] is read rather than the event trusted: the `pause` from [pause] is dispatched after
+     * a [play] issued in the same breath, and by then the element is playing again.
+     */
     private fun onPaused() {
         // The element fires `pause` on its way to `ended` too; `ended` owns that transition.
         if (!element.ended && state.value !is PlaybackState.Error) {
+            if (element.paused) resumeOnReady = false
             endListen()
             state.value = PlaybackState.Paused
         }
