@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.uploads.UploadLimits as ContractUploadLimit
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.failure
+import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.io.statFile
@@ -51,6 +52,12 @@ internal enum class UploadPhase {
 internal data class UploadSessionStats(
     val fileCount: Int,
     val totalBytes: Long,
+)
+
+/** A session that has room for one more file: where it goes, and how many bytes the session has left. */
+internal data class FileAdmission(
+    val sessionDir: Path,
+    val remainingBytes: Long,
 )
 
 /**
@@ -131,6 +138,31 @@ internal class UploadStaging(
         }
         if (SystemFileSystem.metadataOrNull(sessionDir)?.isDirectory == true) recurse(sessionDir)
         return out
+    }
+
+    /**
+     * Admits one more file into [sessionId], or refuses a session already at its [limits] with
+     * [UploadError.SessionTooLarge] and sweeps it.
+     *
+     * The sweep is an [abandonSession], claim and all, never a bare [deleteSession]: a session at
+     * its cap is exactly the one a client finalizes next, and a straggling file request that lands
+     * while that finalize is importing must not delete files it has not reached yet. That request
+     * is refused as [UploadError.SessionBusy] instead, and the finalize sweeps the session itself.
+     */
+    suspend fun admitFile(sessionId: String): AppResult<FileAdmission> {
+        val sessionDir = openSession(sessionId) ?: return failure(UploadError.SessionNotFound())
+        val before = stats(sessionDir)
+        val remaining = limits.maxSessionBytes - before.totalBytes
+        if (before.fileCount < limits.maxFiles && remaining > 0) {
+            return AppResult.Success(FileAdmission(sessionDir, remaining))
+        }
+        return abandonSession(sessionId).flatMap {
+            failure(
+                UploadError.SessionTooLarge(
+                    debugInfo = "session $sessionId at ${before.fileCount} files / ${before.totalBytes} bytes",
+                ),
+            )
+        }
     }
 
     /**
@@ -233,7 +265,12 @@ internal class UploadStaging(
         }
     }
 
-    /** Removes [sessionDir] and everything staged in it. Idempotent — a missing directory is a no-op. */
+    /**
+     * Removes [sessionDir] and everything staged in it. Idempotent — a missing directory is a no-op.
+     *
+     * Only ever called by a request holding the session's [inPhase] claim — the finalize that is
+     * done with it, or an [abandonSession] — so nothing sweeps a session another request is using.
+     */
     fun deleteSession(sessionDir: Path) {
         deleteRecursively(sessionDir)
     }

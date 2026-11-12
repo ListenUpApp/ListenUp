@@ -312,6 +312,41 @@ class UploadFinalizeE2ETest :
             }
         }
 
+        test("a file arriving at a full session mid-finalize is refused, and the book still imports completely") {
+            val gate = BrokerGate()
+            // Two staged files fill the session, so the next file trips the quota.
+            withUploadRig(clock = gate::clock, limits = UploadLimits(maxFiles = 2)) { rig ->
+                val session = rig.newSession()
+                rig.stage(session, "Mistborn/Mistborn.m4b", "a")
+                rig.stageAbsMetadata(session, "Mistborn", title = "Mistborn", author = "Brandon Sanderson")
+
+                runBlocking {
+                    val finalizing = async(Dispatchers.IO) { rig.finalizeResult(session) }
+                    gate.awaitEntered()
+
+                    // A straggling file request lands while the import runs: the quota refusal must
+                    // not sweep the staged files out from under the import.
+                    rig
+                        .admitFile(session)
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<UploadError.SessionBusy>()
+                    rig.sessionExists(session) shouldBe true
+
+                    gate.release()
+                    finalizing
+                        .await()
+                        .shouldBeInstanceOf<AppResult.Success<UploadFinalizeResult>>()
+                        .data.books
+                        .single()
+                        .status shouldBe UploadedBookStatus.IMPORTED
+                    rig.libraryFilesUnder("Brandon Sanderson/Mistborn") shouldContainExactlyInAnyOrder
+                        listOf("Mistborn.m4b", "metadata.json")
+                    rig.sessionExists(session) shouldBe false
+                }
+            }
+        }
+
         test("a second finalize of a session already finalizing is refused, and the first imports once") {
             val gate = BrokerGate()
             withUploadRig(clock = gate::clock) { rig ->
@@ -453,6 +488,9 @@ private class UploadFinalizeRig(
     /** The client's abandon request — `DELETE` on the session. */
     fun abandon(sessionId: String): AppResult<Unit> = runBlocking { staging.abandonSession(sessionId) }
 
+    /** The quota check a file request runs before it reads a byte. */
+    fun admitFile(sessionId: String): AppResult<FileAdmission> = runBlocking { staging.admitFile(sessionId) }
+
     fun finalizeResult(sessionId: String): AppResult<UploadFinalizeResult> {
         val sessionDir = requireNotNull(staging.openSession(sessionId))
         return runBlocking { finalizer.finalize(sessionId, sessionDir) }
@@ -543,6 +581,7 @@ private class UploadFinalizeRig(
 /** Builds a [UploadFinalizeRig] over fresh temp directories and a migrated database, then tears it down. */
 private fun withUploadRig(
     clock: () -> Long = { 0L },
+    limits: UploadLimits = UploadLimits(),
     block: (UploadFinalizeRig) -> Unit,
 ) {
     withSqlDatabase {
@@ -551,7 +590,7 @@ private fun withUploadRig(
         try {
             sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
             val ingested = mutableListOf<IoPath>()
-            val staging = UploadStaging(UploadPaths(IoPath(homeDir.toString())))
+            val staging = UploadStaging(UploadPaths(IoPath(homeDir.toString())), limits)
             val bookRepository = makeBookRepository(this)
             val broker =
                 LibraryWriteBroker(
