@@ -26,11 +26,8 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeout
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * An optimistic "add book to shelf" is written at `revision = 0` under a client-minted id. When the
@@ -169,8 +166,7 @@ private class Harness(
     /** Drain the refused op, then heal exactly as the engine's heal-drain collector does. */
     suspend fun drainAndHeal() {
         queue.drain()
-        val ref = withTimeout(5.seconds) { queue.observeHealRequests().first() }
-        reconciler.healEntity(ref)
+        reconciler.healOwed()
     }
 }
 

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.sync
 
-import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
@@ -16,10 +15,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
 // A synthetic channel whose name is deliberately NOT one of OutboxChannels.all — several tests below
@@ -197,7 +193,7 @@ class PendingOperationDrainDispositionTest :
                 AuthError::class.sealedSubclasses.toSet()
         }
 
-        test("a permission refusal emits a heal request for the entity") {
+        test("a permission refusal owes a heal for the entity") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -208,8 +204,8 @@ class PendingOperationDrainDispositionTest :
                     )
                 queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
                 queue.drain()
-                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
-                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                queue.pendingHeals().map { it.entity } shouldContainExactly
+                    listOf(SentEntityRef(OutboxChannels.Tags.name, "t1"))
                 db.close()
             }
         }
@@ -513,7 +509,7 @@ class PendingOperationDrainDispositionTest :
             }
         }
 
-        test("DRIFT-1: a Terminal dead-letter emits a heal request for the op's entity") {
+        test("DRIFT-1: a Terminal dead-letter owes a heal for the op's entity") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -526,13 +522,13 @@ class PendingOperationDrainDispositionTest :
                 queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
                 queue.drain()
                 // The dead-letter must signal a heal so the phantom optimistic edit re-fetches server truth.
-                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
-                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                queue.pendingHeals().map { it.entity } shouldContainExactly
+                    listOf(SentEntityRef(OutboxChannels.Tags.name, "t1"))
                 db.close()
             }
         }
 
-        test("a Server5xx every wave heals the entity exactly once, on the attempt that dead-letters it") {
+        test("a Server5xx every wave owes the entity one heal, on the attempt that dead-letters it") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -542,23 +538,22 @@ class PendingOperationDrainDispositionTest :
                         nowMillis = { 1_000L },
                     )
                 queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
-                queue.observeHealRequests().test {
-                    // While the op can still land, the shield stays up: no heal.
-                    repeat(MAX_RETRYABLE_ATTEMPTS) {
-                        queue.drain()
-                        expectNoEvents()
-                    }
+                // While the op can still land, the shield stays up: no heal.
+                repeat(MAX_RETRYABLE_ATTEMPTS) {
                     queue.drain()
-                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
-                    // Dead-lettered: later waves never pick it up, so never heal again.
-                    queue.drain()
-                    expectNoEvents()
+                    queue.pendingHeals() shouldBe emptyList()
                 }
+                queue.drain()
+                val heals = queue.pendingHeals()
+                heals.map { it.entity } shouldContainExactly listOf(SentEntityRef(OutboxChannels.Tags.name, "t1"))
+                // Dead-lettered: later waves never pick it up, so never request the heal again.
+                queue.drain()
+                queue.pendingHeals() shouldBe heals
                 db.close()
             }
         }
 
-        test("a sender that throws every wave heals the entity exactly once, on the attempt that dead-letters it") {
+        test("a sender that throws every wave owes the entity one heal, on the attempt that dead-letters it") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -568,21 +563,20 @@ class PendingOperationDrainDispositionTest :
                         nowMillis = { 1_000L },
                     )
                 queue.enqueue(OutboxChannels.Tags, "t2", OpKind.Update, "{}", "u1")
-                queue.observeHealRequests().test {
-                    repeat(MAX_RETRYABLE_ATTEMPTS) {
-                        queue.drain()
-                        expectNoEvents()
-                    }
+                repeat(MAX_RETRYABLE_ATTEMPTS) {
                     queue.drain()
-                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t2")
-                    queue.drain()
-                    expectNoEvents()
+                    queue.pendingHeals() shouldBe emptyList()
                 }
+                queue.drain()
+                val heals = queue.pendingHeals()
+                heals.map { it.entity } shouldContainExactly listOf(SentEntityRef(OutboxChannels.Tags.name, "t2"))
+                queue.drain()
+                queue.pendingHeals() shouldBe heals
                 db.close()
             }
         }
 
-        test("a Terminal refusal heals the entity exactly once") {
+        test("a Terminal refusal owes the entity one heal") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -592,12 +586,11 @@ class PendingOperationDrainDispositionTest :
                         nowMillis = { 1_000L },
                     )
                 queue.enqueue(OutboxChannels.Tags, "t3", OpKind.Update, "{}", "u1")
-                queue.observeHealRequests().test {
-                    queue.drain()
-                    awaitItem() shouldBe SentEntityRef(OutboxChannels.Tags.name, "t3")
-                    queue.drain()
-                    expectNoEvents()
-                }
+                queue.drain()
+                val heals = queue.pendingHeals()
+                heals.map { it.entity } shouldContainExactly listOf(SentEntityRef(OutboxChannels.Tags.name, "t3"))
+                queue.drain()
+                queue.pendingHeals() shouldBe heals
                 db.close()
             }
         }
@@ -621,18 +614,16 @@ class PendingOperationDrainDispositionTest :
                         nowMillis = { 1_000L },
                     )
                 val opId = queue.enqueue(OutboxChannels.Tags, "t4", OpKind.Update, "{}", "u1")
-                queue.observeHealRequests().test {
-                    repeat(MAX_RETRYABLE_ATTEMPTS + 1) {
-                        queue.drain()
-                        expectNoEvents()
-                    }
+                repeat(MAX_RETRYABLE_ATTEMPTS + 1) {
+                    queue.drain()
+                    queue.pendingHeals() shouldBe emptyList()
                 }
                 db.pendingOperationV2Dao().get(opId) shouldBe null
                 db.close()
             }
         }
 
-        test("DRIFT-1: dismissOp emits a heal request for the dismissed op's entity") {
+        test("DRIFT-1: dismissOp owes a heal for the dismissed op's entity") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -644,8 +635,8 @@ class PendingOperationDrainDispositionTest :
                 val opId = queue.enqueue(OutboxChannels.Tags, "t9", OpKind.Update, "{}", "u1")
                 queue.dismissOp(opId)
                 // Dismissing abandons the optimistic edit; the entity must heal to server truth.
-                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
-                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t9")
+                queue.pendingHeals().map { it.entity } shouldContainExactly
+                    listOf(SentEntityRef(OutboxChannels.Tags.name, "t9"))
                 // The op row is gone.
                 db.pendingOperationV2Dao().get(opId) shouldBe null
                 db.close()

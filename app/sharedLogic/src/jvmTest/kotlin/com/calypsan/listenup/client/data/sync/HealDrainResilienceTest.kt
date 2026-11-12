@@ -28,7 +28,7 @@ private const val POLL_MS = 10L
 /**
  * Regression guard for the heal-drain collector dying on its first failing heal.
  *
- * [SyncEngine]'s heal collector drains [PendingOperationQueue.observeHealRequests] — the DRIFT-1
+ * [SyncEngine]'s heal collector runs the heals [PendingOperationQueue.pendingHeals] owes — the DRIFT-1
  * repair for an optimistic edit the server rejected. It was the ONE collector in the engine with no
  * per-item guard: a throw out of [DrainReconciler.healEntity] killed the coroutine, and because
  * `ensureHealDrain` is only re-entered from `runStart` (which no-ops for an already-started user),
