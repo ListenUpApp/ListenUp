@@ -177,7 +177,7 @@ private class DeathOfflineCatchUp : DeathEmptyCatchUp() {
     }
 }
 
-private abstract class DeathEmptyCatchUp : CatchUp {
+private open class DeathEmptyCatchUp : CatchUp {
     override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
