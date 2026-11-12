@@ -1,11 +1,15 @@
 package com.calypsan.listenup.server.upload
 
+import com.calypsan.listenup.api.error.UploadError
+import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.nio.file.Path as NioPath
+import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path as IoPath
 
 /**
@@ -16,10 +20,13 @@ import kotlinx.io.files.Path as IoPath
 class UploadStagingTest :
     FunSpec({
 
-        fun withHome(block: (UploadStaging, NioPath) -> Unit) {
+        fun withHome(
+            limits: UploadLimits = UploadLimits(),
+            block: (UploadStaging, NioPath) -> Unit,
+        ) {
             val home = Files.createTempDirectory("listenup-upload-staging-")
             try {
-                block(UploadStaging(UploadPaths(IoPath(home.toString()))), home)
+                block(UploadStaging(UploadPaths(IoPath(home.toString())), limits), home)
             } finally {
                 home.toFile().deleteRecursively()
             }
@@ -93,4 +100,53 @@ class UploadStagingTest :
                 staging.openSession(id).shouldBeNull()
             }
         }
+
+        test("a session with room admits the next file and says how many bytes it has left") {
+            withHome(UploadLimits(maxFiles = 2, maxSessionBytes = 100L)) { staging, _ ->
+                val id = staging.createSession()
+                val dir = staging.openSession(id).shouldNotBeNull()
+                staging.stageBytes(dir, "a.m4b", 40)
+
+                val admission = runBlocking { staging.admitFile(id) }.shouldBeInstanceOf<AppResult.Success<FileAdmission>>()
+                admission.data shouldBe FileAdmission(sessionDir = dir, remainingBytes = 60L)
+            }
+        }
+
+        test("a session at its file cap is refused as too large, and swept") {
+            withHome(UploadLimits(maxFiles = 1)) { staging, _ ->
+                val id = staging.createSession()
+                staging.stageBytes(staging.openSession(id).shouldNotBeNull(), "a.m4b", 8)
+
+                runBlocking { staging.admitFile(id) }
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<UploadError.SessionTooLarge>()
+                staging.openSession(id).shouldBeNull()
+            }
+        }
+
+        test("a session out of bytes is refused as too large, and swept") {
+            withHome(UploadLimits(maxSessionBytes = 8L)) { staging, _ ->
+                val id = staging.createSession()
+                staging.stageBytes(staging.openSession(id).shouldNotBeNull(), "a.m4b", 8)
+
+                runBlocking { staging.admitFile(id) }
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<UploadError.SessionTooLarge>()
+                staging.openSession(id).shouldBeNull()
+            }
+        }
     })
+
+/** Commits [size] bytes at [name] in [sessionDir], the way an accepted file lands. */
+private fun UploadStaging.stageBytes(
+    sessionDir: IoPath,
+    name: String,
+    size: Int,
+) {
+    val target = IoPath(sessionDir, name)
+    val part = beginFile(target)
+    Files.write(NioPath.of(part.toString()), ByteArray(size))
+    commitFile(part, target)
+}

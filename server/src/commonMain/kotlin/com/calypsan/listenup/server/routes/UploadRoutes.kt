@@ -47,7 +47,8 @@ private val logger = loggerFor<UploadRouteLog>()
  *
  * Finalize and abandon each claim the session for their duration, so neither can run while the
  * other (or a second finalize) is: an abandon mid-import would delete files the import has not
- * reached yet.
+ * reached yet. A file request that finds its session over quota sweeps it through that same
+ * abandon, so it too is refused rather than sweeping a session mid-import.
  *
  * One request per file rather than one N-part request is deliberate. The existing
  * [streamFirstFilePartTo] handles exactly one file part and is proven on both runtimes — the
@@ -131,19 +132,13 @@ private suspend fun receiveOneFile(
     staging: UploadStaging,
 ) {
     val sessionId = call.sessionIdOrNull() ?: return respondAppError(call, UploadError.SessionNotFound())
-    val sessionDir = staging.openSession(sessionId) ?: return respondAppError(call, UploadError.SessionNotFound())
-
-    val before = staging.stats(sessionDir)
-    val remaining = staging.limits.maxSessionBytes - before.totalBytes
-    if (before.fileCount >= staging.limits.maxFiles || remaining <= 0) {
-        staging.deleteSession(sessionDir)
-        return respondAppError(
-            call,
-            UploadError.SessionTooLarge(
-                debugInfo = "session $sessionId at ${before.fileCount} files / ${before.totalBytes} bytes",
-            ),
-        )
-    }
+    val admission =
+        when (val admitted = staging.admitFile(sessionId)) {
+            is AppResult.Success -> admitted.data
+            is AppResult.Failure -> return respondAppError(call, admitted.error)
+        }
+    val sessionDir = admission.sessionDir
+    val remaining = admission.remainingBytes
 
     val rawRelPath = call.request.queryParameters[UploadRoutePaths.REL_PATH_PARAM]
     if (rawRelPath == null) {
