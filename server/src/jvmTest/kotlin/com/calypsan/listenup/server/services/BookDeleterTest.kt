@@ -524,7 +524,7 @@ private fun deleterRig(dbs: SqlTestDatabases): DeleterRig {
     val sidecarWriteState = SidecarWriteStateRepository(dbs.sql)
     return DeleterRig(
         repo = repo,
-        deleter = BookDeleter(dbs.sql, repo, broker, sidecarWriteState),
+        deleter = BookDeleter(dbs.sql, repo, broker, LibraryLayoutLock(), sidecarWriteState),
         journal = journal,
         sidecarWriteState = sidecarWriteState,
     )

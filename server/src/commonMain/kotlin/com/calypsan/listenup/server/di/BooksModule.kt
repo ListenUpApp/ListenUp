@@ -163,6 +163,7 @@ fun booksModule(
                 sql = get<ListenUpDatabase>(),
                 bookRepository = get<BookRepository>(),
                 broker = get<LibraryWriteBroker>(),
+                layoutLock = get<LibraryLayoutLock>(),
                 // Nullable — a books slice without the sidecar module still deletes books; it just
                 // has no `sidecar_write_state` row to clear.
                 sidecarWriteState = getOrNull<SidecarWriteStateRepository>(),
@@ -365,7 +366,7 @@ private fun Module.coverAndPersisterBindings(
     }
     single { DocumentFileLocator(get<ListenUpDatabase>()) }
 
-    // Shared by the persister and the organizer's MoveManifestExecutor — see LibraryLayoutLock.
+    // Shared by the persister, the organizer's MoveManifestExecutor and BookDeleter — see LibraryLayoutLock.
     single { LibraryLayoutLock() }
 
     single {

@@ -53,11 +53,19 @@ private val logger = loggerFor<BookDeleter>()
  * files gone and the book row live — which the next scan reconciles, because the sweep tombstones
  * every live book it no longer finds on disk. The reverse order would leave a tombstoned row over
  * files nothing in the app can reach any more, and no pass converges that.
+ *
+ * **Scans.** The whole delete — guards, file removal and tombstone — runs under [layoutLock], the
+ * lock a scan's persist also holds. The persister checks each walked book against the disk before
+ * it writes it; without the lock a delete landing between that check and the write had its
+ * tombstone revived by the stale walk, bringing the book back on every device with no files behind
+ * it. Under the lock a racing persist lands wholly before the delete or wholly after it, and in the
+ * second case finds the audio gone and leaves the book dead (see [LibraryLayoutLock]).
  */
 class BookDeleter(
     private val sql: ListenUpDatabase,
     private val bookRepository: BookRepository,
     private val broker: LibraryWriteBroker,
+    private val layoutLock: LibraryLayoutLock,
     private val sidecarWriteState: SidecarWriteStateRepository? = null,
 ) {
     /**
@@ -66,7 +74,9 @@ class BookDeleter(
      * or already tombstoned (its files may still be on disk from an interrupted earlier attempt,
      * so reporting success here would be a lie).
      */
-    suspend fun delete(id: BookId): AppResult<Unit> {
+    suspend fun delete(id: BookId): AppResult<Unit> = layoutLock.withLock { deleteUnderLayoutLock(id) }
+
+    private suspend fun deleteUnderLayoutLock(id: BookId): AppResult<Unit> {
         val book = bookRepository.findById(id) ?: return bookNotFound(id)
         if (book.deletedAt != null) return bookNotFound(id)
 
