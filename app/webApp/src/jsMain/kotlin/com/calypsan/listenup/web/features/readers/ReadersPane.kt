@@ -181,7 +181,8 @@ private fun ReaderRow(
     val kind = line.kind
     Button(attrs = {
         classes("rdr-row")
-        // Live only for you, while the player plays this book: the one listener we know is listening now.
+        // Live while they are listening right now: you, while the player plays this book; anyone else, while fresh
+        // presence says so. The avatar takes the chapter list's coral ring.
         if (kind is ReaderLineKind.Reading && kind.isLive) classes("is-live")
         attr("type", "button")
         attr("aria-describedby", OPENS_PROFILE_ID)
@@ -251,7 +252,7 @@ private fun ReaderRow(
 /**
  * What one reader line says about itself.
  *
- * A Reading line says "Listening" — or "Listening now" when it is live (yours, while the player plays this book) —
+ * A Reading line says "Listening" — or "Listening now" when it is live (you or anyone else, listening right now) —
  * then how far they are when that is known ("Listening · 62%"). The bar under the line draws the same number.
  *
  * A read logged on Hardcover says "Read …", never "Finished …": it wasn't listened to here.

@@ -17,9 +17,11 @@ import com.calypsan.listenup.client.domain.model.ListenerRating
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.ScoreSource
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bulkedit.BulkEditPreviewRow
@@ -35,7 +37,10 @@ import com.calypsan.listenup.client.presentation.match.PersonReviewUiState
 import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import com.calypsan.listenup.web.features.admin.finished
 import com.calypsan.listenup.web.features.admin.preview
+import com.calypsan.listenup.web.features.bookdetail.BookChaptersSection
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.web.features.bookdetail.PlacedReaders
+import com.calypsan.listenup.web.features.bookdetail.face
 import com.calypsan.listenup.web.features.bookdetail.BookFilesPage
 import com.calypsan.listenup.web.features.bookdetail.ChapterMapPage
 import com.calypsan.listenup.web.features.bookdetail.readyBook
@@ -591,6 +596,30 @@ private fun readerShapes(): Map<String, @Composable () -> Unit> {
         "reader #4: page(BookReadersUiState.Loading)" to page(BookReadersUiState.Loading),
         "reader #5: page(BookReadersUiState.NoReaders)" to page(BookReadersUiState.NoReaders),
         "reader #6: page(BookReadersUiState.Error(isRetryabl" to page(BookReadersUiState.Error(isRetryable = true)),
+        // Another reader listening now: the panel's live ring.
+        "reader #7: panel(live other reader)" to
+            panel(BookReadersUiState.Data(BookReaders(listOf(reading)), liveUserIds = setOf(reading.userId))),
+        // The chapter list with readers on it: a live face and its glow, a +N disc, and "Show all"'s stack.
+        "reader #8: chapters with readers" to { chaptersWithReaders() },
+    )
+}
+
+@Composable
+private fun chaptersWithReaders() {
+    val chapters =
+        (0 until 8).map { i ->
+            ChapterUiModel("c$i", "Chapter ${i + 1}", "10:00", null, i == 0, i * 60_000L, 60_000L)
+        }
+    val crowd = listOf(face("Maya", isLive = true), face("Priya"), face("Tom"), face("Sam"))
+    BookChaptersSection(
+        bookId = "42",
+        chapters = chapters,
+        preview = chapters.take(5),
+        canPlay = true,
+        wide = false,
+        onPlayFromChapter = {},
+        onOpenChapterMap = {},
+        readers = PlacedReaders(mapOf("c1" to crowd, "c7" to listOf(face("Lee")))),
     )
 }
 
