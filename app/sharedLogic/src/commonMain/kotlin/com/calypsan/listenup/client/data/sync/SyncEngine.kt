@@ -290,10 +290,10 @@ internal class SyncEngine(
         // replayed value at subscribe time gets dropped, and there's nothing
         // after it).
         ensureDrainScheduling()
-        // Step 5b: drain dead-letter/dismiss heal requests — re-fetch server truth for an entity
-        // whose optimistic edit the server rejected, so a content-only phantom the digest can't see
-        // is repaired (DRIFT-1). Subscribed before connect so a dead-letter during startup catch-up
-        // drain is not missed.
+        // Step 5b: run the owed dead-letter/dismiss heals — re-fetch server truth for an entity whose
+        // optimistic edit the server rejected, so a content-only phantom the digest can't see is
+        // repaired (DRIFT-1). The heals are stored, so this first sweep also runs any a killed process
+        // left owed.
         ensureHealDrain()
         // Step 5c: refresh the Discover surfaces on every reconnect. Subscribed before connect so
         // the initial start-connect is the dropped first edge (start already primed + reconciled).
@@ -972,19 +972,8 @@ internal class SyncEngine(
         if (healDrainJob?.isActive == true) return
         healDrainJob =
             scope.launch {
-                queue.observeHealRequests().collect { ref ->
-                    // Guard per request so one failed heal logs and the collector KEEPS COLLECTING —
-                    // an uncaught throw in an appScope collector kills the process on Kotlin/Native,
-                    // and here it would also strand every later heal behind an UNLIMITED channel that
-                    // nothing drains (ensureHealDrain is only re-entered from runStart, which no-ops
-                    // for an already-started user).
-                    try {
-                        drainReconciler.healEntity(ref)
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn(e) { "Heal request handling failed; heal collector continues" }
-                    }
+                drainReconciler.healSweepTriggers(state.observe().map { it.connection }).collect {
+                    drainReconciler.healOwed()
                 }
             }
     }

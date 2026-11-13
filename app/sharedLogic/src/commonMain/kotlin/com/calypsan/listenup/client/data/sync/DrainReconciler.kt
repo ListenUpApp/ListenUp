@@ -2,6 +2,13 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -12,8 +19,8 @@ private val logger = KotlinLogging.logger {}
  *
  * Both run only AFTER [PendingOperationQueue.drain] has returned — [SyncEngine.runDrain] calls
  * [reconcileSentEntities] once the drain wave completes, and [SyncEngine]'s heal-drain collector
- * calls [healEntity] per dead-lettered/dismissed op — so neither ever holds the queue's own drain
- * mutex. Both serialize their server pull on the SAME [catchUpMutex] that [SyncEngine] uses for every
+ * calls [healOwed] to run every heal a dead-lettered/dismissed op left owed — so neither ever holds
+ * the queue's own drain mutex. Both serialize their server pull on the SAME [catchUpMutex] that [SyncEngine] uses for every
  * other cursor-advancing catch-up/reconcile, which is passed in (not owned here) so that single
  * serialization guarantee is preserved across the split. Extracted from [SyncEngine] to keep that
  * class focused on connection + orchestration lifecycle.
@@ -25,6 +32,49 @@ internal class DrainReconciler(
     private val catchUpMutex: Mutex,
 ) {
     /**
+     * When to run [healOwed]: once on collection (the heal signal replays its current value) — which runs any
+     * heal a killed process left owed — on every new heal request, and on each [connection] edge into
+     * [ConnectionState.Connected], so a heal whose fetch failed offline runs once the server is back.
+     * Conflated: every sweep reads all owed heals, so requests that land mid-sweep need only one more.
+     */
+    fun healSweepTriggers(connection: Flow<ConnectionState>): Flow<Unit> =
+        merge(
+            queue.observeHealSignal().map { },
+            connection
+                .map { it is ConnectionState.Connected }
+                .distinctUntilChanged()
+                .filter { it }
+                .map { },
+        ).conflate()
+
+    /**
+     * Run every heal [PendingOperationQueue] still owes, settling each one that ran — so a heal whose fetch
+     * failed, or threw, stays owed for the next sweep. Never throws but for cancellation: it runs in the
+     * engine's long-lived heal collector, where an uncaught throw would end every later heal (and on
+     * Kotlin/Native the process).
+     */
+    suspend fun healOwed() {
+        val owed =
+            try {
+                queue.pendingHeals()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "reading the owed heals failed; they stay owed for the next sweep" }
+                return
+            }
+        for (heal in owed) {
+            try {
+                if (healEntity(heal.entity) == HealOutcome.Settled) queue.settleHeal(heal)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "heal of ${heal.entity} threw; it stays owed" }
+            }
+        }
+    }
+
+    /**
      * Re-fetch current server truth for [ref]'s entity and apply it over a never-accepted optimistic
      * edit (DRIFT-1). Triggered when an outbox op dead-lettered or was dismissed: the local row's
      * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or firehose echo repairs
@@ -34,33 +84,41 @@ internal class DrainReconciler(
      * revisions are not stale), so no force override is needed.
      *
      * Gated on [PendingOperationQueue.hasQueuedOpFor] so a fresh in-flight edit for the same entity
-     * is never clobbered — its own echo is the authority then. Runs the fetch under [catchUpMutex]
-     * like every other server pull. Unlike [reconcileSentEntities], this does NOT skip ungated
-     * (userScoped/global) domains: the server's by-id read now serves the curation domains, which is
-     * exactly where this heal is needed.
+     * is never clobbered — its own echo is the authority then, and should it be refused in turn it owes
+     * a heal of its own. Runs the fetch under [catchUpMutex] like every other server pull. Unlike
+     * [reconcileSentEntities], this does NOT skip ungated (userScoped/global) domains: the server's
+     * by-id read now serves the curation domains, which is exactly where this heal is needed.
+     *
+     * @return [HealOutcome.StillOwed] only when the fetch failed, so the heal must run again.
      */
-    suspend fun healEntity(ref: SentEntityRef) {
-        if (queue.hasQueuedOpFor(ref.domainName, ref.entityId)) return
+    suspend fun healEntity(ref: SentEntityRef): HealOutcome {
+        if (queue.hasQueuedOpFor(ref.domainName, ref.entityId)) return HealOutcome.Settled
         val handler =
             registry.lookup(ref.domainName) ?: run {
                 logger.debug { "heal: '${ref.domainName}' has no sync handler; skipping (client-only channel)" }
-                return
+                return HealOutcome.Settled
             }
 
         val fetch =
             handler.refetchForOutboxKey(ref.entityId) ?: run {
                 logger.debug { "heal: '${ref.domainName}' has no targeted fetch for ${ref.entityId}; discarding" }
                 handler.discardUnacknowledged(ref.entityId)
-                return
+                return HealOutcome.Settled
             }
 
         @Suppress("UNCHECKED_CAST")
         val typed = handler as SyncDomainHandler<Any>
-        val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, fetch) }
-        if (result is AppResult.Failure) {
-            logger.warn {
-                "heal fetch failed for '${ref.domainName}' entity ${ref.entityId}: ${result.error.code}; " +
-                    "the phantom persists until the next heal trigger"
+        return when (val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, fetch) }) {
+            is AppResult.Success -> {
+                HealOutcome.Settled
+            }
+
+            is AppResult.Failure -> {
+                logger.warn {
+                    "heal fetch failed for '${ref.domainName}' entity ${ref.entityId}: ${result.error.code}; " +
+                        "it stays owed until the next heal sweep"
+                }
+                HealOutcome.StillOwed
             }
         }
     }
@@ -148,4 +206,13 @@ private fun List<TargetedFetch>.merged(): List<TargetedFetch> {
         collectionIds.takeIf { it.isNotEmpty() }?.let { TargetedFetch.ByCollectionIds(it.distinct()) },
         bookIds.takeIf { it.isNotEmpty() }?.let { TargetedFetch.ByBookIds(it.distinct()) },
     )
+}
+
+/** Whether a heal of one entity is done, or must run again on the next sweep. */
+internal enum class HealOutcome {
+    /** Server truth was applied, or nothing remains for a heal to do. */
+    Settled,
+
+    /** The re-fetch failed; the entity still shows a value the server never accepted. */
+    StillOwed,
 }

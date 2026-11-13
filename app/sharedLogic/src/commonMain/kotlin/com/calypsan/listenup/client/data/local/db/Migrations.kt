@@ -657,3 +657,18 @@ internal val MIGRATION_27_28 =
             connection.executeDdl("DELETE FROM `sync_cursor` WHERE `domainName` = 'public_profiles'")
         }
     }
+
+/**
+ * v28 → v29: adds `pending_heal`, the entities owed a re-fetch of server truth because their outbox edit
+ * dead-lettered or was dismissed. Until now that debt lived only in memory and a killed process dropped it.
+ * Non-destructive by construction — a CREATE only; no existing row is touched.
+ */
+internal val MIGRATION_28_29 =
+    object : Migration(28, 29) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `pending_heal` (`domainName` TEXT NOT NULL, `entityId` TEXT NOT NULL, " +
+                    "`requestId` TEXT NOT NULL, PRIMARY KEY(`domainName`, `entityId`))",
+            )
+        }
+    }

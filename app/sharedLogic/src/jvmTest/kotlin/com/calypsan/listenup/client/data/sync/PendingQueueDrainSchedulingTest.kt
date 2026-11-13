@@ -585,6 +585,18 @@ private class CountingDao(
 
     override suspend fun delete(clientOpId: String) = delegate.delete(clientOpId)
 
+    override suspend fun requestHeal(heal: com.calypsan.listenup.client.data.local.db.PendingHealEntity) = delegate.requestHeal(heal)
+
+    override suspend fun pendingHeals() = delegate.pendingHeals()
+
+    override suspend fun settleHeal(
+        domainName: String,
+        entityId: String,
+        requestId: String,
+    ) = delegate.settleHeal(domainName, entityId, requestId)
+
+    override suspend fun deleteAllHeals() = delegate.deleteAllHeals()
+
     override suspend fun update(op: com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity) = delegate.update(op)
 
     override suspend fun nextDispatchable(

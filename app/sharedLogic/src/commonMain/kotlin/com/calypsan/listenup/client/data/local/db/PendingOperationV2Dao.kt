@@ -285,6 +285,30 @@ internal interface PendingOperationV2Dao {
         maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
     ): String?
 
+    /** Records that ([PendingHealEntity.domainName], [PendingHealEntity.entityId]) owes a heal, replacing any earlier request. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun requestHeal(heal: PendingHealEntity)
+
+    /** Every heal still owed, from any process that requested one. */
+    @Query("SELECT * FROM pending_heal")
+    suspend fun pendingHeals(): List<PendingHealEntity>
+
+    /**
+     * Settles one heal: deletes its row only while it still holds [requestId], so a request made after the
+     * settling heal read the row survives to run again.
+     */
+    @Query(
+        "DELETE FROM pending_heal WHERE domainName = :domainName AND entityId = :entityId AND requestId = :requestId",
+    )
+    suspend fun settleHeal(
+        domainName: String,
+        entityId: String,
+        requestId: String,
+    )
+
+    @Query("DELETE FROM pending_heal")
+    suspend fun deleteAllHeals()
+
     @Query("DELETE FROM pending_operation WHERE ownerUserId != :keepUserId")
     suspend fun deleteAllExcept(keepUserId: String)
 

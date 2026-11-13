@@ -101,6 +101,8 @@ internal class LibraryResetHelperImpl(
 
             if (discardPendingOperations) {
                 database.pendingOperationV2Dao().deleteAll()
+                // A heal names an entity of the library being left, so it is dropped with the ops that owed it.
+                database.pendingOperationV2Dao().deleteAllHeals()
                 // A queued image names a book, series or contributor of the library being left; the
                 // ids mean nothing in the next one.
                 database.pendingImageUploadDao().deleteAll()

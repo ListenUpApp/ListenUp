@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.PendingHealEntity
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -68,6 +69,18 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
     override suspend fun delete(clientOpId: String) {
         inserted.removeAll { it.clientOpId == clientOpId }
     }
+
+    override suspend fun requestHeal(heal: PendingHealEntity) = Unit
+
+    override suspend fun pendingHeals(): List<PendingHealEntity> = emptyList()
+
+    override suspend fun settleHeal(
+        domainName: String,
+        entityId: String,
+        requestId: String,
+    ) = Unit
+
+    override suspend fun deleteAllHeals() = Unit
 
     override suspend fun update(op: PendingOperationV2Entity) {
         for (i in inserted.indices) {

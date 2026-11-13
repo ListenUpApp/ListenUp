@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PassThroughTransactionRunner
+import com.calypsan.listenup.client.data.local.db.PendingHealEntity
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -18,14 +19,12 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -95,6 +94,15 @@ internal data class DrainOutcome(
 internal data class SentEntityRef(
     val domainName: String,
     val entityId: String,
+)
+
+/**
+ * A heal owed to [entity], as stored by [PendingOperationQueue]: [requestId] names the request, so settling
+ * it leaves alone a newer request for the same entity.
+ */
+internal data class PendingHeal(
+    val entity: SentEntityRef,
+    val requestId: String,
 )
 
 /**
@@ -304,21 +312,44 @@ internal class PendingOperationQueue(
         enqueueCounter.update { it + 1 }
     }
 
-    // Heal requests. When an op dead-letters (server rejected it non-retryably) or is dismissed, the
-    // optimistic Room edit it carried was never accepted by the server — yet its (id, revision) is
-    // unchanged, so the digest matches, catch-up (revision > cursor) skips it, and no firehose echo ever
-    // arrives. Nothing in the convergence machinery repairs a content-only divergence (DRIFT-1). The
-    // engine drains this channel to re-fetch current server truth by id and apply it over the phantom.
-    // UNLIMITED capacity so a `trySend` never fails or suspends — including from inside `drainMutex`.
-    private val healRequests = Channel<SentEntityRef>(Channel.UNLIMITED)
+    // Ticks once per heal request so the engine sweeps the owed heals promptly. The heals themselves live in
+    // Room (see [requestHeal]); this counter only wakes the sweep, and StateFlow's replay-on-subscribe makes
+    // the engine sweep once on start — which is what runs a heal a killed process left owed.
+    private val healSignal = MutableStateFlow(0L)
 
     /**
-     * Entities whose optimistic outbox edit dead-lettered or was dismissed and must be re-fetched
-     * from current server truth to overwrite the never-accepted local value. The engine drains this
-     * under its catch-up lock, gated on the entity having no remaining dispatchable op (see
-     * [hasQueuedOpFor]) so an in-flight edit is never clobbered.
+     * Ticks whenever an entity is newly owed a heal, and replays its current value to a new collector so the
+     * collector sweeps once on subscribing. The engine sweeps [pendingHeals] on each tick.
+     *
+     * When an op dead-letters (the server rejected it) or is dismissed, the optimistic Room edit it carried
+     * was never accepted by the server — yet its (id, revision) is unchanged, so the digest matches,
+     * catch-up (revision > cursor) skips it, and no firehose echo ever arrives. Nothing in the convergence
+     * machinery repairs a content-only divergence (DRIFT-1); only a re-fetch of server truth by id does.
      */
-    fun observeHealRequests(): Flow<SentEntityRef> = healRequests.receiveAsFlow()
+    fun observeHealSignal(): StateFlow<Long> = healSignal.asStateFlow()
+
+    /**
+     * Every heal still owed — including any a previous process requested and was killed before running.
+     * The engine heals each under its catch-up lock, gated on the entity having no remaining dispatchable
+     * op (see [hasQueuedOpFor]) so an in-flight edit is never clobbered, then [settleHeal]s it.
+     */
+    suspend fun pendingHeals(): List<PendingHeal> =
+        dao.pendingHeals().map { PendingHeal(SentEntityRef(it.domainName, it.entityId), it.requestId) }
+
+    /**
+     * Marks [heal] done. A request for the same entity made after [heal] was read is kept, so it runs too.
+     */
+    suspend fun settleHeal(heal: PendingHeal) {
+        dao.settleHeal(heal.entity.domainName, heal.entity.entityId, heal.requestId)
+    }
+
+    // Stored in the caller's transaction, so the heal commits with the write that owes it or not at all.
+    private suspend fun requestHeal(
+        domainName: String,
+        entityId: String,
+    ) {
+        dao.requestHeal(PendingHealEntity(domainName, entityId, requestId = Uuid.random().toString()))
+    }
 
     /**
      * Enqueue a new op on [channel]. Returns its generated `clientOpId`. `check`s [op] is one of
@@ -460,7 +491,7 @@ internal class PendingOperationQueue(
      * in flight, the apply is shielded so the optimistic state is not clobbered by a (possibly
      * stale) server snapshot — the authoritative state arrives via the edit's own echo once it
      * drains. Dead-lettered ops do NOT count as in-flight, so a permanently-failed edit lets the
-     * entity converge to server truth — via the dead-letter heal (see [observeHealRequests]), which
+     * entity converge to server truth — via the dead-letter heal (see [pendingHeals]), which
      * this same predicate gates so an in-flight sibling edit is never clobbered
      * (see [PendingOperationV2Dao.hasQueuedOp]).
      */
@@ -626,7 +657,7 @@ internal class PendingOperationQueue(
      * Once [failureCount] passes [MAX_RETRYABLE_ATTEMPTS] the op is dead-lettered, whichever path
      * got it there: a refusal, the last server-answered 5xx, or the last sender throw. Its
      * optimistic Room value is then a phantom at an unchanged `(id, revision)` that no reconcile,
-     * catch-up or echo will repair, so a heal is requested to re-fetch server truth (DRIFT-1).
+     * catch-up or echo will repair, so a heal is stored with the update to re-fetch server truth (DRIFT-1).
      * Below the ceiling the op can still land, so the anti-flicker shield stays up and nothing heals.
      */
     private suspend fun recordFailedAttempt(
@@ -635,17 +666,19 @@ internal class PendingOperationQueue(
         lastError: String,
         mayHaveLanded: Boolean,
     ) {
-        dao.update(
-            entity.copy(
-                failureCount = failureCount,
-                lastAttemptAt = nowMillis(),
-                lastError = lastError,
-                mayHaveLanded = mayHaveLanded,
-            ),
-        )
-        if (failureCount > MAX_RETRYABLE_ATTEMPTS) {
-            healRequests.trySend(SentEntityRef(entity.domainName, entity.entityId))
+        val deadLettered = failureCount > MAX_RETRYABLE_ATTEMPTS
+        transactionRunner.atomically {
+            dao.update(
+                entity.copy(
+                    failureCount = failureCount,
+                    lastAttemptAt = nowMillis(),
+                    lastError = lastError,
+                    mayHaveLanded = mayHaveLanded,
+                ),
+            )
+            if (deadLettered) requestHeal(entity.domainName, entity.entityId)
         }
+        if (deadLettered) healSignal.update { it + 1 }
     }
 
     /**
@@ -699,14 +732,19 @@ internal class PendingOperationQueue(
     /**
      * Drop an op permanently and heal its entity. The optimistic local edit the op carried was
      * never confirmed by the server, and its unchanged `(id, revision)` means no reconcile,
-     * catch-up, or firehose echo would repair it — so a [SentEntityRef] heal request is emitted to
+     * catch-up, or firehose echo would repair it — so a heal is requested to
      * re-fetch current server truth over the abandoned local value (DRIFT-1), matching the
-     * dead-letter path.
+     * dead-letter path. The heal is stored with the deletion, so a killed process still owes it.
      */
     suspend fun dismissOp(clientOpId: String) {
-        val op = dao.get(clientOpId)
-        dao.delete(clientOpId)
-        if (op != null) healRequests.trySend(SentEntityRef(op.domainName, op.entityId))
+        val dismissed =
+            transactionRunner.atomically {
+                dao.get(clientOpId)?.also { op ->
+                    dao.delete(clientOpId)
+                    requestHeal(op.domainName, op.entityId)
+                }
+            }
+        if (dismissed != null) healSignal.update { it + 1 }
     }
 
     /**
