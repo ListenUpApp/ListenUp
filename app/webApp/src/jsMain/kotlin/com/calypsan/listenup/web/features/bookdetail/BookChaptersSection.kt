@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReaders
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
@@ -42,6 +43,7 @@ internal fun BookChaptersSection(
     onPlayFromChapter: (Long) -> Unit,
     onOpenChapterMap: () -> Unit,
     grouped: GroupedChapters? = null,
+    readers: ChapterReadersLookup = ChapterReadersLookup.None,
 ) {
     var expanded by remember(bookId) { mutableStateOf(false) }
     val shown = if (expanded) chapters else preview
@@ -67,7 +69,7 @@ internal fun BookChaptersSection(
         }
         Div(attrs = { classes("bd-ch-body") }) {
             if (grouped != null) {
-                BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter)
+                BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter, readers)
             } else if (wide) {
                 Table(attrs = { classes("bd-ch-table") }) {
                     Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
@@ -77,7 +79,16 @@ internal fun BookChaptersSection(
                                 val number = numberById[chapter.id] ?: 0
                                 Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
                                     Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
-                                    Td { ChapterButton(chapter, number, canPlay, onPlayFromChapter, withMeta = false) }
+                                    Td {
+                                        ChapterButton(
+                                            chapter,
+                                            number,
+                                            canPlay,
+                                            onPlayFromChapter,
+                                            withMeta = false,
+                                            readers = readers.onChapter(chapter.id),
+                                        )
+                                    }
                                     Td(attrs = { classes("bd-ch-d", "mono") }) {
                                         Text(
                                             DurationFormatter.playbackClock(
@@ -101,19 +112,29 @@ internal fun BookChaptersSection(
                                 canPlay,
                                 onPlayFromChapter,
                                 withMeta = true,
+                                readers = readers.onChapter(chapter.id),
                             )
                         }
                     }
                 }
             }
-            // Expands in place and collapses again; aria-expanded says which.
+            // Expands in place and collapses again; aria-expanded says which. Collapsed, it carries everyone on a
+            // chapter the window leaves out: a part header in the window stands for its folded chapter, so the
+            // window's chapters are what is shown.
             if (chapters.size > preview.size) {
+                val outside = if (expanded) null else readers.beyond(preview.map { it.id })
                 Button(attrs = {
                     classes("bd-ch-all")
                     attr("type", "button")
                     attr("aria-expanded", expanded.toString())
+                    outside?.let { attr("aria-describedby", BEYOND_READERS_ID) }
                     onClick { expanded = !expanded }
-                }) { Text(if (expanded) "Show fewer chapters" else "Show all ${chapters.size} chapters") }
+                }) {
+                    Span { Text(if (expanded) "Show fewer chapters" else "Show all ${chapters.size} chapters") }
+                    outside?.let { ChapterReadersStack(it) }
+                }
+                // Beside the button, not in it: inside, the sentence would become part of the button's name.
+                outside?.let { ChapterReadersSentence(it, BEYOND_READERS_ID) }
             }
         }
     }
@@ -126,13 +147,16 @@ internal fun ChapterButton(
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
     withMeta: Boolean,
+    readers: ChapterReaders? = null,
 ) {
+    val sentenceId = chapterReadersId(chapter.id)
     Button(attrs = {
         classes("bd-ch-row")
         if (chapter.isCurrent) classes("is-current")
         attr("type", "button")
         attr("aria-label", "Play from chapter $number: ${chapter.title}")
         if (chapter.isCurrent) attr("aria-current", "true")
+        readers?.let { attr("aria-describedby", sentenceId) }
         // Only when it can't play: a `disabled` attribute of any value disables the button.
         if (!canPlay) attr("disabled", "")
         onClick { onPlayFromChapter(chapter.startMs) }
@@ -141,15 +165,24 @@ internal fun ChapterButton(
             // A phone row (board): number, title, length, then the play mark.
             Span(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
             Span(attrs = { classes("bd-ch-t") }) { Text(chapter.title) }
+            readers?.let { ChapterReadersStack(it) }
             Span(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
             Icon(WebIcon.Play, size = PLAY_MARK_SIZE, attrs = { classes("bd-ch-play") })
         } else {
-            // A desktop title cell (board): the play mark leads the title.
+            // A desktop title cell (board): the play mark leads the title, the readers follow it.
             Icon(WebIcon.Play, size = PLAY_MARK_SIZE, attrs = { classes("bd-ch-play") })
             Span(attrs = { classes("bd-ch-t") }) { Text(chapter.title) }
+            readers?.let { ChapterReadersStack(it) }
         }
     }
+    readers?.let { ChapterReadersSentence(it, sentenceId) }
 }
+
+/** The id of the sentence that describes the row (or part header) standing for [chapterId]. */
+internal fun chapterReadersId(chapterId: String): String = "bd-chr-$chapterId"
+
+/** The sentence describing "Show all N chapters": who is on a chapter the collapsed list leaves out. */
+private const val BEYOND_READERS_ID = "bd-chr-beyond"
 
 /** The Chapters section's element id. */
 internal const val CHAPTERS_SECTION_ID = "bd-chapters"
