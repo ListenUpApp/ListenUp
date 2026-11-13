@@ -378,6 +378,38 @@ class SocialServiceTest :
             }
         }
 
+        test("bookReadership carries a reader's exact position and last play from the row their percent comes from") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("b1")
+                sql.seedPublicProfile("u1", displayName = "User One")
+                sql.seedPublicProfile("u2", displayName = "User Two")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+
+                    setBookDuration("b1", totalDuration = 10_000L)
+                    sql.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 100L)
+                    sql.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 4_321L, lastPlayedAt = 7L)
+
+                    val readers =
+                        makeService(sql, driver, principalFor("u1"))
+                            .bookReadership(BookId("b1"))
+                            .value()
+                            .readers
+
+                    val reading = readers.first { it.userId == "u2" }
+                    reading.currentProgressPct shouldBe 43
+                    reading.currentPositionMs shouldBe 4_321L
+                    reading.lastPlayedAtMs shouldBe 7L
+                    val finished = readers.first { it.userId == "u1" }
+                    finished.currentPositionMs shouldBe null
+                    finished.lastPlayedAtMs shouldBe null
+                }
+            }
+        }
+
         test("bookReadership carries pulled Hardcover reads apart from ListenUp finishes, and lists a Hardcover-only reader") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
