@@ -19,6 +19,8 @@ final class BookReadersObserver {
     private(set) var phase: BookReadersPhase = .loading
     /// Who else is reading, for the hero's social line; nil until there is someone besides you.
     private(set) var socialLine: ReadersSocialLine?
+    /// Where everyone else is in the book, for the chapter list's avatars; nobody until there is someone.
+    private(set) var chapterReaders: ChapterReadersLookup = .none
 
     // MARK: - Dependencies
 
@@ -40,22 +42,27 @@ final class BookReadersObserver {
         case .loading:
             phase = .loading
             socialLine = nil
+            chapterReaders = .none
         case .noReaders:
             phase = .empty
             socialLine = nil
+            chapterReaders = .none
         case .data(let dataType):
             let data = dataType.value
             phase = .data(Self.rows(from: data.readers, isLive: { data.isLive(reader: $0) }))
             socialLine = ReadersSocialLine(data.summary)
+            chapterReaders = ChapterReadersLookup(data.chapterReaders)
         case .error(let errorType):
             let error = errorType.value
             phase = .error(isRetryable: error.isRetryable)
             socialLine = nil
+            chapterReaders = .none
         }
     }
 
     /// Pure: project the shared `BookReaders` to display rows. `isLive` is the shared answer for who is listening
-    /// right now (`BookReadersUiState.Data.isLive`: you, while the player plays this book). `nonisolated` because
+    /// right now (`BookReadersUiState.Data.isLive`: you, while the player plays this book; anyone else, while fresh
+    /// presence says they are listening to it). `nonisolated` because
     /// it touches no actor state — callable from tests off the main actor.
     nonisolated static func rows(
         from readers: BookReaders,
@@ -94,8 +101,8 @@ struct BookReaderRow: Identifiable, Equatable {
     let isYou: Bool
     /// 0...100 when partway through; nil otherwise.
     let progressPercent: Int?
-    /// Listening right now: only you, while the player plays this book. A reading row that is not live says
-    /// "Listening" with its bar, no ring and no mark — progress is not presence.
+    /// Listening right now: you, while the player plays this book; anyone else, while fresh presence says so. A
+    /// reading row that is not live says "Listening" with its bar, no ring and no mark — progress is not presence.
     let isLive: Bool
     /// Most recent completion, when finished and not currently reading; nil otherwise.
     let lastFinished: Date?

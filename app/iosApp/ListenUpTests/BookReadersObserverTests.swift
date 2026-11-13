@@ -167,6 +167,19 @@ struct BookReadersObserverTests {
         #expect(BookReadersObserver.rows(from: readers).allSatisfy { !$0.isLive })
     }
 
+    @Test func anotherReaderListeningNowIsLiveAndSaysSo() {
+        let readers = BookReaders(readers: [
+            reader(id: "me", name: "Rowan Hale", isYou: true, progressPct: 40),
+            reader(id: "u2", name: "Maya Vance", progressPct: 20)
+        ])
+
+        let rows = BookReadersObserver.rows(from: readers, isLive: { $0.userId == "u2" })
+
+        #expect(rows[0].isLive == false)
+        #expect(rows[1].isLive == true)
+        #expect(BookReadersSection.readingStatus(for: rows[1]) == "Listening now · 20%")
+    }
+
     @Test func emptyReadersYieldsNoRows() {
         #expect(BookReadersObserver.rows(from: BookReaders(readers: [])).isEmpty)
     }

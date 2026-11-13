@@ -5,10 +5,14 @@ import SwiftUI
 ///
 /// `isOpen` is nil for a part with nothing to open: any part in the collapsed window, and one that is
 /// only its announcement. Then the row is the part's name and its play, and nothing claims to expand.
+///
+/// `readers` is who else is here: everyone in the part while it is closed, else whoever is on the chapter folded
+/// into this header. Their avatars sit before the chevron; VoiceOver hears them in the row's value.
 struct BookPartRow: View {
     let part: BookPartHeader
     let isOpen: Bool?
     let canPlay: Bool
+    var readers: ChapterReaderStack?
     let onToggle: () -> Void
     let onPlay: () -> Void
 
@@ -18,6 +22,7 @@ struct BookPartRow: View {
                 Button(action: onToggle) {
                     HStack(spacing: 12) {
                         text
+                        stack
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(Color.listenUpOrange)
@@ -28,11 +33,19 @@ struct BookPartRow: View {
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(toggleName)
-                .accessibilityValue(String(localized: isOpen ? "common.expanded" : "common.collapsed"))
+                .accessibilityValue(
+                    [String(localized: isOpen ? "common.expanded" : "common.collapsed"), readers?.sentence]
+                        .compactMap { $0 }
+                        .joined(separator: ", ")
+                )
                 .accessibilityAddTraits(.isButton)
             } else {
-                text
-                    .accessibilityElement(children: .combine)
+                HStack(spacing: 12) {
+                    text
+                    stack
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(readers?.sentence ?? "")
             }
             Button(action: onPlay) {
                 Image(systemName: "play.fill")
@@ -49,6 +62,13 @@ struct BookPartRow: View {
         }
         .frame(minHeight: 56)
         .padding(.horizontal, Spacing.m)
+    }
+
+    @ViewBuilder
+    private var stack: some View {
+        if let readers {
+            ChapterReadersStackView(stack: readers)
+        }
     }
 
     /// "Part II, 13 chapters · 45 hr, 30 min".
