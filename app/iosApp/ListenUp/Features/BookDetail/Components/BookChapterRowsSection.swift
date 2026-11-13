@@ -4,6 +4,10 @@ import SwiftUI
 /// chapter (`preview`); "All N Chapters" expands in place and "Fewer Chapters" collapses it. Each row is a button named "Play from chapter N: title";
 /// the current row is selected and tinted. Rows are disabled whenever the book can't play.
 ///
+/// Everyone else reading the book shows as a stack of avatars on the row of the chapter they are on; a collapsed part
+/// carries the stack of everyone in it, and the collapsed list's "All N Chapters" everyone on a row it hides. VoiceOver
+/// hears them as the row's value, so each row stays one element whose label is still its action.
+///
 /// Pure/presentational: it takes the projected rows and reports a tap with the chapter's start.
 struct BookChapterRowsSection: View {
     let chapters: [BookChapterRow]
@@ -11,6 +15,8 @@ struct BookChapterRowsSection: View {
     /// A marked book's outline. Nil for a flat book, which draws exactly what it always has.
     let grouped: BookGroupedChapters?
     let canPlay: Bool
+    /// Where everyone else is in the book.
+    let readers: ChapterReadersLookup
     let onPlayFromChapter: (Int64) -> Void
 
     @State private var expanded: Bool
@@ -18,11 +24,13 @@ struct BookChapterRowsSection: View {
     @State private var partOverrides: [String: Bool] = [:]
 
     init(chapters: [BookChapterRow], preview: [BookChapterRow], grouped: BookGroupedChapters? = nil, canPlay: Bool,
-         initiallyExpanded: Bool = false, onPlayFromChapter: @escaping (Int64) -> Void) {
+         readers: ChapterReadersLookup = .none, initiallyExpanded: Bool = false,
+         onPlayFromChapter: @escaping (Int64) -> Void) {
         self.chapters = chapters
         self.preview = preview
         self.grouped = grouped
         self.canPlay = canPlay
+        self.readers = readers
         self.onPlayFromChapter = onPlayFromChapter
         _expanded = State(initialValue: initiallyExpanded)
     }
@@ -63,18 +71,27 @@ struct BookChapterRowsSection: View {
                 // Expands in place, and collapses again.
                 if chapters.count > preview.count {
                     Divider()
+                    // Collapsed, it carries everyone on a chapter whose row it hides.
+                    let hidden = expanded ? nil : readers.beyond(shownChapterIds(grouped))
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
                     } label: {
-                        Text(expanded
-                             ? String(localized: "book.detail_fewer_chapters_ios")
-                             : String(format: String(localized: "book.detail_all_chapters_ios"), chapters.count))
-                            .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 12) {
+                            Text(expanded
+                                 ? String(localized: "book.detail_fewer_chapters_ios")
+                                 : String(format: String(localized: "book.detail_all_chapters_ios"), chapters.count))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if let hidden {
+                                ChapterReadersStackView(stack: hidden)
+                            }
+                        }
+                        .frame(minHeight: 50)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.listenUpOrange)
                     .padding(.horizontal, Spacing.m)
+                    .accessibilityValue(hidden?.sentence ?? "")
                 }
             }
             .background(
@@ -83,6 +100,19 @@ struct BookChapterRowsSection: View {
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The chapters the collapsed list shows a row for: the window's, and in a marked book also each chapter folded
+    /// into a part header the window shows.
+    private func shownChapterIds(_ grouped: BookGroupedChapters?) -> [String] {
+        guard let grouped else { return preview.map(\.id) }
+        return grouped.previewRows.compactMap { row in
+            switch row {
+            case .part(let part): part.chapterId
+            case .chapter(let number, _): chapters.indices.contains(number - 1) ? chapters[number - 1].id : nil
+            case .book: nil
+            }
+        }
     }
 
     /// The window with the part it sits in named above it, or with `expanded` the whole outline.
@@ -106,10 +136,13 @@ struct BookChapterRowsSection: View {
         case .book(let title, _):
             groupLabel(title)
         case .part(let part):
+            let isOpen = expanded && part.chapterCount > 0 ? part.isOpen(overrides: partOverrides) : nil
             BookPartRow(
                 part: part,
-                isOpen: expanded && part.chapterCount > 0 ? part.isOpen(overrides: partOverrides) : nil,
+                isOpen: isOpen,
                 canPlay: canPlay,
+                // A closed part carries everyone in it; otherwise the header is the chapter folded into it.
+                readers: isOpen == false ? readers.inPart(part.chapterId) : readers.onChapter(part.chapterId),
                 onToggle: {
                     withAnimation(.easeInOut(duration: 0.2)) { partOverrides = part.toggled(partOverrides) }
                 },
@@ -136,7 +169,8 @@ struct BookChapterRowsSection: View {
     }
 
     private func row(_ chapter: BookChapterRow, number: Int) -> some View {
-        Button {
+        let onChapter = readers.onChapter(chapter.id)
+        return Button {
             onPlayFromChapter(chapter.startMs)
         } label: {
             HStack(spacing: 12) {
@@ -149,6 +183,9 @@ struct BookChapterRowsSection: View {
                     .foregroundStyle(chapter.isCurrent ? Color.listenUpOrange : .primary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if let stack = onChapter {
+                    ChapterReadersStackView(stack: stack)
+                }
                 Text(chapter.duration)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -167,6 +204,8 @@ struct BookChapterRowsSection: View {
         .accessibilityLabel(
             String(format: String(localized: "book.detail_play_from_chapter_a11y"), number, chapter.title)
         )
+        // Who is here is the row's state; its label stays the action (HIG, Accessibility).
+        .accessibilityValue(onChapter?.sentence ?? "")
         // The current chapter is marked by colour and weight; VoiceOver gets it as state (HIG, Accessibility).
         .accessibilityAddTraits(chapter.isCurrent ? [.isButton, .isSelected] : .isButton)
     }

@@ -127,7 +127,7 @@ ORDER BY last_played_at DESC;
 -- not-deleted filter as the queries above, floored on :playedSince so a book abandoned months ago
 -- no longer reads as "reading, 40%" forever.
 listInProgressForBook:
-SELECT user_id, position_ms FROM playback_positions
+SELECT user_id, position_ms, last_played_at FROM playback_positions
 WHERE book_id = :bookId AND finished = 0 AND position_ms > 0 AND deleted_at IS NULL
   AND last_played_at >= :playedSince;
 

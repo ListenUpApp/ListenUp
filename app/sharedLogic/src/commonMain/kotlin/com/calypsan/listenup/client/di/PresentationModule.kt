@@ -395,6 +395,10 @@ internal val bookPresentationModule =
                 repo = get(),
                 bookId = params.get(),
                 loadedBooks = get(),
+                bookRepository = get(),
+                activeSessions = get(),
+                authSession = get(),
+                serverReachability = get(),
             )
         }
         factory { params ->

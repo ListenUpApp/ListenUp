@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,11 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -36,6 +40,8 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.chapter.withOpenParts
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReaders
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReadership
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
 import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
@@ -68,6 +74,9 @@ internal data class ChapterPlayback(
  * so this only draws: a chapter row's number indexes [chapters].
  *
  * How the reader left each part lives here, on the screen, as nothing about it is worth keeping.
+ *
+ * Everyone else reading sits on their chapter's row ([readership]); a closed part's header carries everyone inside it,
+ * and any other header the readers of the chapter folded into it.
  */
 @Composable
 internal fun BookChapterOutline(
@@ -75,9 +84,18 @@ internal fun BookChapterOutline(
     chapters: List<ChapterUiModel>,
     expanded: Boolean,
     playback: ChapterPlayback,
+    readership: ChapterReadership = ChapterReadership.None,
 ) {
     var overrides by rememberSaveable(stateSaver = partOverridesSaver) { mutableStateOf(emptyMap<String, Boolean>()) }
     val rows = if (expanded) grouped.rows.withOpenParts(overrides) else grouped.previewRows
+    // A header's own chapter has a row of its own unless it folded into the header.
+    val chapterIdsWithRows =
+        remember(grouped) {
+            grouped.rows.mapNotNullTo(mutableSetOf()) { row -> (row as? ChapterOutlineRow.ChapterRow)?.run { chapter.id } }
+        }
+    val foldedReaders = { part: ChapterOutlineRow.PartHeader ->
+        if (part.chapterId in chapterIdsWithRows) null else readership.onChapter(part.chapterId)
+    }
 
     if (!expanded) grouped.previewLabel?.let { PartLabel(it) }
 
@@ -94,15 +112,18 @@ internal fun BookChapterOutline(
             is ChapterOutlineRow.PartHeader -> {
                 key("part-${row.chapterId}") {
                     if (expanded && row.chapterCount > 0) {
+                        val isOpen = row.isOpen(overrides)
                         CollapsiblePartRow(
                             part = row,
-                            isOpen = row.isOpen(overrides),
+                            isOpen = isOpen,
                             onToggle = { overrides = row.toggled(overrides) },
                             playback = playback,
+                            // Closed, the part's chapters have no rows: its header carries everyone in it.
+                            readers = if (isOpen) foldedReaders(row) else readership.inPart(row.chapterId),
                             modifier = inset,
                         )
                     } else {
-                        PlayablePartRow(part = row, playback = playback, modifier = inset)
+                        PlayablePartRow(part = row, playback = playback, readers = foldedReaders(row), modifier = inset)
                     }
                 }
             }
@@ -117,6 +138,7 @@ internal fun BookChapterOutline(
                             canPlay = playback.canPlay,
                             onPlayFromChapter = playback.onPlayFromChapter,
                             modifier = inset,
+                            readers = readership.onChapter(chapter.id),
                         )
                     }
                 }
@@ -163,13 +185,15 @@ private fun CollapsiblePartRow(
     isOpen: Boolean,
     onToggle: () -> Unit,
     playback: ChapterPlayback,
+    readers: ChapterReaders?,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
     val summary = partSummary(part)
     val state = stringResource(if (isOpen) Res.string.common_expanded else Res.string.common_collapsed)
+    val description = withReaders("${part.title}, $summary", readers)
 
-    PartSurface(part, modifier) {
+    PartSurface(part, modifier) { ringColor ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
                 modifier =
@@ -180,7 +204,7 @@ private fun CollapsiblePartRow(
                             haptics.press()
                             onToggle()
                         }.semantics {
-                            contentDescription = "${part.title}, $summary"
+                            contentDescription = description
                             stateDescription = state
                         }.padding(start = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -190,7 +214,13 @@ private fun CollapsiblePartRow(
                     contentDescription = null,
                 )
                 Spacer(Modifier.size(8.dp))
-                PartText(part, summary, playback.current.takeIf { part.isCurrentChapter })
+                PartText(
+                    part = part,
+                    summary = summary,
+                    current = playback.current.takeIf { part.isCurrentChapter },
+                    modifier = Modifier.weight(1f),
+                )
+                readers?.let { ChapterReaderStack(it, ringColor, Modifier.padding(start = 12.dp)) }
             }
             PartPlayButton(part, playback)
         }
@@ -202,35 +232,51 @@ private fun CollapsiblePartRow(
 private fun PlayablePartRow(
     part: ChapterOutlineRow.PartHeader,
     playback: ChapterPlayback,
+    readers: ChapterReaders?,
     modifier: Modifier = Modifier,
 ) {
-    PartSurface(part, modifier) {
+    PartSurface(part, modifier) { ringColor ->
         Row(
             modifier = Modifier.heightIn(min = PartRowMinHeight).padding(start = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.weight(1f)) {
-                PartText(part, partSummary(part), playback.current.takeIf { part.isCurrentChapter })
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                PartText(
+                    part = part,
+                    summary = partSummary(part),
+                    current = playback.current.takeIf { part.isCurrentChapter },
+                    modifier = Modifier.weight(1f),
+                )
+                readers?.let { here ->
+                    // The row is not one button, so the readers are read as a line of their own.
+                    val sentence = chapterReadersSentence(here)
+                    Box(Modifier.padding(start = 12.dp).clearAndSetSemantics { contentDescription = sentence }) {
+                        ChapterReaderStack(here, ringColor)
+                    }
+                }
             }
             PartPlayButton(part, playback)
         }
     }
 }
 
+/** The header's container; [content] gets its colour, which the readers' avatars are cut out of. */
 @Composable
 private fun PartSurface(
     part: ChapterOutlineRow.PartHeader,
     modifier: Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable (containerColor: Color) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
+    val containerColor = if (part.isCurrentChapter) colors.primaryContainer else colors.surfaceContainerHigh
     Surface(
-        color = if (part.isCurrentChapter) colors.primaryContainer else colors.surfaceContainerHigh,
+        color = containerColor,
         contentColor = if (part.isCurrentChapter) colors.onPrimaryContainer else colors.onSurface,
         shape = MaterialTheme.shapes.medium,
         modifier = modifier.fillMaxWidth().padding(top = 4.dp),
-        content = content,
-    )
+    ) {
+        content(containerColor)
+    }
 }
 
 @Composable
@@ -238,8 +284,9 @@ private fun PartText(
     part: ChapterOutlineRow.PartHeader,
     summary: String,
     current: CurrentChapter?,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.padding(vertical = 8.dp)) {
+    Column(modifier.padding(vertical = 8.dp)) {
         Text(
             text = part.title,
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),

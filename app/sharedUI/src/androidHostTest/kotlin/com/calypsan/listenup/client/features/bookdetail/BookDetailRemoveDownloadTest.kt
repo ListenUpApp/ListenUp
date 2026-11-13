@@ -20,7 +20,6 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.navigation.PaneSized
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
-import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -102,7 +101,7 @@ class BookDetailRemoveDownloadTest {
                     koinConfiguration {
                         modules(
                             module {
-                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId, FakeLoadedBooks()) }
+                                viewModel { (bookId: String) -> bookReadersViewModel(readers, bookId) }
                                 viewModel { (bookId: String) ->
                                     BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
                                 }

@@ -24,6 +24,7 @@ extension BookDetailView {
                     preview: observer.reading.chapterPreview,
                     grouped: observer.reading.groupedChapters,
                     canPlay: observer.canPlay,
+                    readers: readersObserver?.chapterReaders ?? .none,
                     onPlayFromChapter: { observer.play(fromChapterStartMs: $0) }
                 )
             }

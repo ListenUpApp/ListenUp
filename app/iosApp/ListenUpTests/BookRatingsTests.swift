@@ -44,7 +44,9 @@ struct BookRatingsTests {
             finishes: finishes,
             rating: rating,
             hardcoverFinishes: [],
-            finishesAlsoOnHardcover: []
+            finishesAlsoOnHardcover: [],
+            currentPositionMs: nil,
+            lastPlayedAtMs: nil
         )
     }
 

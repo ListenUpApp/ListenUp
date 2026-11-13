@@ -88,4 +88,25 @@ class SocialDtosTest :
                     """"finishes":[5],"hardcoverFinishes":[3]}"""
             contractJson.decodeFromString<BookReaderEntry>(json).finishesAlsoOnHardcover shouldBe emptyList()
         }
+
+        test("a reader's exact position and when they last played round-trip") {
+            val original =
+                BookReaderEntry(
+                    "u1",
+                    "Ada",
+                    "auto",
+                    currentProgressPct = 41,
+                    finishes = emptyList(),
+                    currentPositionMs = 1_234_567L,
+                    lastPlayedAtMs = 1_777_000_000_000L,
+                )
+            contractJson.decodeFromString<BookReaderEntry>(contractJson.encodeToString(original)) shouldBe original
+        }
+
+        test("an entry from a server that predates exact positions decodes with neither") {
+            val json = """{"userId":"u1","displayName":"Ada","avatarType":"auto","currentProgressPct":41,"finishes":[]}"""
+            val entry = contractJson.decodeFromString<BookReaderEntry>(json)
+            entry.currentPositionMs shouldBe null
+            entry.lastPlayedAtMs shouldBe null
+        }
     })
