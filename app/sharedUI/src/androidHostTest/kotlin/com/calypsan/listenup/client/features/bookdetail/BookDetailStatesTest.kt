@@ -17,7 +17,6 @@ import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailErrorState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
-import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.client.testing.Windows
 import com.calypsan.listenup.core.BookId
@@ -175,7 +174,7 @@ class BookDetailStatesTest {
                     koinConfiguration {
                         modules(
                             module {
-                                viewModel { (bookId: String) -> BookReadersViewModel(readers, bookId, FakeLoadedBooks()) }
+                                viewModel { (bookId: String) -> bookReadersViewModel(readers, bookId) }
                             },
                         )
                     },

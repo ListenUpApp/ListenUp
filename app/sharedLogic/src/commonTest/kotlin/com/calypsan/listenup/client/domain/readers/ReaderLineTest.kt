@@ -124,7 +124,23 @@ class ReaderLineTest :
                 )
         }
 
-        test("only your own reading line can be live, and only when the player is playing this book") {
+        test("another reader's line is live only while presence says they are listening to this book") {
+            val readers =
+                listOf(
+                    Reader("me", "You", isYou = true, currentProgressPct = 40, finishes = emptyList()),
+                    Reader("u2", "Jake", isYou = false, currentProgressPct = 43, finishes = emptyList()),
+                    Reader("u3", "Done", isYou = false, currentProgressPct = null, finishes = listOf(5L)),
+                )
+            // Presence naming you changes nothing: only the player knows whether you are listening.
+            flattenToLines(readers, liveUserIds = setOf("u2", "u3", "me")).map { it.kind } shouldBe
+                listOf(
+                    ReaderLineKind.Reading(40, isLive = false),
+                    ReaderLineKind.Reading(43, isLive = true),
+                    ReaderLineKind.Finished(5L),
+                )
+        }
+
+        test("your own reading line is live only when the player is playing this book") {
             val readers =
                 listOf(
                     Reader("me", "You", isYou = true, currentProgressPct = 40, finishes = emptyList()),
@@ -132,7 +148,7 @@ class ReaderLineTest :
                 )
             flattenToLines(readers, youAreLive = true).map { it.kind } shouldBe
                 listOf(ReaderLineKind.Reading(40, isLive = true), ReaderLineKind.Reading(43, isLive = false))
-            // Progress alone never claims anyone is live: we only know it for you.
+            // Progress alone never claims anyone is live.
             flattenToLines(readers).map { it.kind } shouldBe
                 listOf(ReaderLineKind.Reading(40, isLive = false), ReaderLineKind.Reading(43, isLive = false))
         }

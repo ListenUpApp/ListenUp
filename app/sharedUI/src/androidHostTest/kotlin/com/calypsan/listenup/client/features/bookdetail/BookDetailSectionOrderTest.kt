@@ -43,7 +43,6 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
-import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
@@ -362,7 +361,7 @@ class BookDetailSectionOrderTest {
                                 single { profiles }
                                 single { storage }
                                 single { images }
-                                viewModel { (bookId: String) -> BookReadersViewModel(readersRepo, bookId, FakeLoadedBooks()) }
+                                viewModel { (bookId: String) -> bookReadersViewModel(readersRepo, bookId) }
                                 viewModel { (bookId: String) ->
                                     BookRatingsViewModel(bookId, ratings, flowOf(null), ErrorBus(), users)
                                 }
