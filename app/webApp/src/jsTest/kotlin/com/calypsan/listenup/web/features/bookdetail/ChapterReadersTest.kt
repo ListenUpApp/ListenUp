@@ -192,13 +192,13 @@ class ChapterReadersTest :
             // How far into its breath each glow is, in ms.
             fun phase(root: HTMLElement): Double {
                 val glow = root.querySelector(".bd-chr-glow").asDynamic()
-                return (
+                val progress =
                     glow
                         .getAnimations()[0]
                         .effect
                         .getComputedTiming()
                         .progress as Double
-                ) * GLOW_CYCLE_MS
+                return progress * GLOW_CYCLE_MS
             }
             val apart = kotlin.math.abs(phase(second) - phase(first))
             minOf(apart, GLOW_CYCLE_MS - apart) shouldBe (0.0 plusOrMinus CLOCK_TOLERANCE_MS)

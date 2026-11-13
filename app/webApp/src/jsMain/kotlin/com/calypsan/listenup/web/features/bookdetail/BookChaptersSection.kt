@@ -71,37 +71,7 @@ internal fun BookChaptersSection(
             if (grouped != null) {
                 BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter, readers)
             } else if (wide) {
-                Table(attrs = { classes("bd-ch-table") }) {
-                    Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
-                    Tbody {
-                        shown.forEach { chapter ->
-                            key(chapter.id) {
-                                val number = numberById[chapter.id] ?: 0
-                                Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
-                                    Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
-                                    Td {
-                                        ChapterButton(
-                                            chapter,
-                                            number,
-                                            canPlay,
-                                            onPlayFromChapter,
-                                            withMeta = false,
-                                            readers = readers.onChapter(chapter.id),
-                                        )
-                                    }
-                                    Td(attrs = { classes("bd-ch-d", "mono") }) {
-                                        Text(
-                                            DurationFormatter.playbackClock(
-                                                (chapter.startMs / MILLIS_PER_SECOND).toInt().seconds,
-                                            ),
-                                        )
-                                    }
-                                    Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
-                                }
-                            }
-                        }
-                    }
-                }
+                ChapterTable(shown, numberById, canPlay, onPlayFromChapter, readers)
             } else {
                 Div(attrs = { classes("bd-ch-list") }) {
                     shown.forEach { chapter ->
@@ -118,26 +88,83 @@ internal fun BookChaptersSection(
                     }
                 }
             }
-            // Expands in place and collapses again; aria-expanded says which. Collapsed, it carries everyone on a
-            // chapter the window leaves out: a part header in the window stands for its folded chapter, so the
-            // window's chapters are what is shown.
             if (chapters.size > preview.size) {
-                val outside = if (expanded) null else readers.beyond(preview.map { it.id })
-                Button(attrs = {
-                    classes("bd-ch-all")
-                    attr("type", "button")
-                    attr("aria-expanded", expanded.toString())
-                    outside?.let { attr("aria-describedby", BEYOND_READERS_ID) }
-                    onClick { expanded = !expanded }
-                }) {
-                    Span { Text(if (expanded) "Show fewer chapters" else "Show all ${chapters.size} chapters") }
-                    outside?.let { ChapterReadersStack(it) }
-                }
-                // Beside the button, not in it: inside, the sentence would become part of the button's name.
-                outside?.let { ChapterReadersSentence(it, BEYOND_READERS_ID) }
+                ShowAllChaptersButton(
+                    total = chapters.size,
+                    expanded = expanded,
+                    outside = if (expanded) null else readers.beyond(preview.map { it.id }),
+                    onToggle = { expanded = !expanded },
+                )
             }
         }
     }
+}
+
+/** The desktop chapter table: number, the chapter's play button, its start time and its length. */
+@Composable
+private fun ChapterTable(
+    shown: List<ChapterUiModel>,
+    numberById: Map<String, Int>,
+    canPlay: Boolean,
+    onPlayFromChapter: (Long) -> Unit,
+    readers: ChapterReadersLookup,
+) {
+    Table(attrs = { classes("bd-ch-table") }) {
+        Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
+        Tbody {
+            shown.forEach { chapter ->
+                key(chapter.id) {
+                    val number = numberById[chapter.id] ?: 0
+                    Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
+                        Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
+                        Td {
+                            ChapterButton(
+                                chapter,
+                                number,
+                                canPlay,
+                                onPlayFromChapter,
+                                withMeta = false,
+                                readers = readers.onChapter(chapter.id),
+                            )
+                        }
+                        Td(attrs = { classes("bd-ch-d", "mono") }) {
+                            Text(
+                                DurationFormatter.playbackClock(
+                                    (chapter.startMs / MILLIS_PER_SECOND).toInt().seconds,
+                                ),
+                            )
+                        }
+                        Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * "Show all N chapters" / "Show fewer chapters", expanding in place; aria-expanded says which. Collapsed, it carries
+ * [outside]: everyone on a chapter the window leaves out (a part header in the window stands for its folded chapter).
+ */
+@Composable
+private fun ShowAllChaptersButton(
+    total: Int,
+    expanded: Boolean,
+    outside: ChapterReaders?,
+    onToggle: () -> Unit,
+) {
+    Button(attrs = {
+        classes("bd-ch-all")
+        attr("type", "button")
+        attr("aria-expanded", expanded.toString())
+        outside?.let { attr("aria-describedby", BEYOND_READERS_ID) }
+        onClick { onToggle() }
+    }) {
+        Span { Text(if (expanded) "Show fewer chapters" else "Show all $total chapters") }
+        outside?.let { ChapterReadersStack(it) }
+    }
+    // Beside the button, not in it: inside, the sentence would become part of the button's name.
+    outside?.let { ChapterReadersSentence(it, BEYOND_READERS_ID) }
 }
 
 @Composable
