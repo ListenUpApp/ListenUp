@@ -4,10 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +35,7 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.ContentShapes
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReaders
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.CurrentChapter
 import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
@@ -62,6 +66,9 @@ private val ChapterRowMinHeight = 56.dp
  * chapter, or the first five); "All N chapters" expands in place to [chapters], "Fewer chapters" collapses it. Every row is a button; the current row
  * sits on the primary container and says how far in it is. Rows are disabled with the primary when the book can't play.
  *
+ * Everyone else reading the book sits on their chapter's row as an avatar ([readers]); while the list is collapsed,
+ * those past the rows shown ride on "All N chapters". One glow clock runs for the whole list.
+ *
  * Not lazy, on purpose: the section is one item of the page, so the social line's scroll target has
  * a fixed index, and a long book composes its rows once, on "All".
  */
@@ -75,8 +82,10 @@ internal fun BookChaptersSection(
     onPlayFromChapter: (startMs: Long) -> Unit,
     modifier: Modifier = Modifier,
     grouped: GroupedChapters? = null,
+    readers: ChapterReadersOnPage = ChapterReadersOnPage.None,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val readership = readers.readership
     val shown = if (expanded) chapters else preview
     // A chapter's number is its place in the whole book, not in the window: computed once per list.
     val numberById = remember(chapters) { chapters.withIndex().associate { (i, chapter) -> chapter.id to i + 1 } }
@@ -86,45 +95,43 @@ internal fun BookChaptersSection(
         shape = ContentShapes.card,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(
-            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            ChaptersHeader(
-                chapterCount = chapters.size,
-                modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp),
-            )
-            if (grouped != null) {
-                BookChapterOutline(
-                    grouped = grouped,
-                    chapters = chapters,
-                    expanded = expanded,
-                    playback = ChapterPlayback(currentChapter, canPlay, onPlayFromChapter),
+        ProvideLiveGlow(isAnyoneListening = readers.isAnyoneListening) {
+            Column(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ChaptersHeader(
+                    chapterCount = chapters.size,
+                    modifier = Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp),
                 )
-            } else {
-                shown.forEach { chapter ->
-                    ChapterRow(
-                        chapter = chapter,
-                        number = numberById[chapter.id] ?: 0,
-                        current = currentChapter.takeIf { chapter.isCurrent },
-                        canPlay = canPlay,
-                        onPlayFromChapter = onPlayFromChapter,
+                if (grouped != null) {
+                    BookChapterOutline(
+                        grouped = grouped,
+                        chapters = chapters,
+                        expanded = expanded,
+                        playback = ChapterPlayback(currentChapter, canPlay, onPlayFromChapter),
+                        readership = readership,
                     )
+                } else {
+                    shown.forEach { chapter ->
+                        ChapterRow(
+                            chapter = chapter,
+                            number = numberById[chapter.id] ?: 0,
+                            current = currentChapter.takeIf { chapter.isCurrent },
+                            canPlay = canPlay,
+                            onPlayFromChapter = onPlayFromChapter,
+                            readers = readership.onChapter(chapter.id),
+                        )
+                    }
                 }
-            }
-            // Expands in place, and collapses again.
-            if (chapters.size > preview.size) {
-                FilledTonalButton(
-                    onClick = { expanded = !expanded },
-                    shapes = ButtonDefaults.shapes(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = ChapterRowMinHeight),
-                ) {
-                    Text(
-                        if (expanded) {
-                            stringResource(Res.string.book_detail_fewer_chapters)
-                        } else {
-                            stringResource(Res.string.book_detail_all_chapters, chapters.size)
-                        },
+                // Expands in place, and collapses again.
+                if (chapters.size > preview.size) {
+                    AllChaptersButton(
+                        expanded = expanded,
+                        chapterCount = chapters.size,
+                        // Expanded, every reader is on a row of their own.
+                        readers = if (expanded) null else readership.beyond(preview.map { it.id }),
+                        onClick = { expanded = !expanded },
                     )
                 }
             }
@@ -132,6 +139,47 @@ internal fun BookChaptersSection(
     }
 }
 
+/**
+ * "All N chapters", carrying the avatars of everyone on a chapter the collapsed list does not show; "Fewer chapters"
+ * once it is open.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AllChaptersButton(
+    expanded: Boolean,
+    chapterCount: Int,
+    readers: ChapterReaders?,
+    onClick: () -> Unit,
+) {
+    val label =
+        if (expanded) {
+            stringResource(Res.string.book_detail_fewer_chapters)
+        } else {
+            stringResource(Res.string.book_detail_all_chapters, chapterCount)
+        }
+    val description = withReaders(label, readers)
+    FilledTonalButton(
+        onClick = onClick,
+        shapes = ButtonDefaults.shapes(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .heightIn(min = ChapterRowMinHeight)
+                .semantics { contentDescription = description },
+    ) {
+        Text(label)
+        readers?.let { beyond ->
+            Spacer(Modifier.width(12.dp))
+            ChapterReaderStack(beyond, ringColor = ButtonDefaults.filledTonalButtonColors().containerColor)
+        }
+    }
+}
+
+/**
+ * One chapter: a button that plays from its start. [readers] are everyone else on this chapter, drawn between the title
+ * and the length and named after the row's action in its description.
+ */
 @Composable
 internal fun ChapterRow(
     chapter: ChapterUiModel,
@@ -140,9 +188,12 @@ internal fun ChapterRow(
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    readers: ChapterReaders? = null,
 ) {
     val haptics = LocalHaptics.current
     val label = stringResource(Res.string.book_detail_play_from_chapter_a11y, number, chapter.title)
+    // Who else is here is what the row says, not what it does: the click keeps the bare label.
+    val description = withReaders(label, readers)
     val isCurrent = chapter.isCurrent
     val containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     val contentColor =
@@ -162,7 +213,7 @@ internal fun ChapterRow(
                 .clickable(enabled = canPlay, role = Role.Button, onClickLabel = label, onClick = play)
                 // One button, named by what it does: "Play from chapter 6: Bridge Four".
                 .clearAndSetSemantics {
-                    contentDescription = label
+                    contentDescription = description
                     role = Role.Button
                     selected = isCurrent
                     if (canPlay) {
@@ -198,6 +249,13 @@ internal fun ChapterRow(
                 current?.let { here ->
                     Text(text = currentChapterLabel(here), style = MaterialTheme.typography.labelMedium)
                 }
+            }
+            readers?.let { here ->
+                // Cut out of the row they sit on: the card, or the current row's container.
+                ChapterReaderStack(
+                    readers = here,
+                    ringColor = if (isCurrent) containerColor else MaterialTheme.colorScheme.surfaceContainerLow,
+                )
             }
             Text(text = chapter.duration, style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"))
             Icon(
