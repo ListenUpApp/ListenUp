@@ -27,7 +27,9 @@ struct BookReadersObserverTests {
             finishes: finishes,
             rating: nil,
             hardcoverFinishes: hardcoverFinishes,
-            finishesAlsoOnHardcover: finishesAlsoOnHardcover
+            finishesAlsoOnHardcover: finishesAlsoOnHardcover,
+            currentPositionMs: nil,
+            lastPlayedAtMs: nil
         )
     }
 
