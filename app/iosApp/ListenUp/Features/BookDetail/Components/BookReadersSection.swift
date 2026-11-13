@@ -220,7 +220,8 @@ struct BookReadersSection: View {
     private func avatar(_ reader: BookReaderRow) -> some View {
         UserAvatarView(userId: reader.id, fallbackName: reader.displayName, size: 44)
             .overlay {
-                // A coral ring marks the one reader known to be listening right now: you, while it plays.
+                // A coral ring marks whoever is listening right now: you while it plays, anyone else while presence
+                // says so. The chapter list rings the same people.
                 if reader.isLive {
                     Circle()
                         .strokeBorder(Color.listenUpOrange, lineWidth: 2.5)
@@ -279,7 +280,7 @@ struct BookReadersSection: View {
 
     // MARK: - Text helpers
 
-    /// A reading row's line: "Listening · 62%", or "Listening now · 38%" for you while the player plays this book.
+    /// A reading row's line: "Listening · 62%", or "Listening now · 38%" for whoever is listening right now.
     static func readingStatus(for reader: BookReaderRow) -> String {
         guard let pct = reader.progressPercent else {
             return reader.isLive
