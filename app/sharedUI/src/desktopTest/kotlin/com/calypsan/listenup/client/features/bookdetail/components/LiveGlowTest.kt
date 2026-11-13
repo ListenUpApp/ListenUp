@@ -26,7 +26,7 @@ class LiveGlowTest :
         test("it decelerates: halfway through the breath it is already well past halfway out") {
             val half = liveGlowPoseAt(800f)
             half.scale shouldBeGreaterThan 1.35f
-            (0.45f - half.alpha) shouldBeGreaterThan 0.225f
+            0.45f - half.alpha shouldBeGreaterThan 0.225f
         }
 
         test("held still, the glow sits at 1.35 times the avatar and 22 percent") {

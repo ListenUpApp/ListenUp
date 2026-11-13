@@ -121,8 +121,9 @@ class ChapterReadersTest {
         composeRule
             .onNodeWithContentDescription("Play from chapter 7: Chapter title 7. Priya, Tom and 2 others are on this chapter.")
             .assertExists()
-        composeRule.onAllNodesWithText("+2", useUnmergedTree = true).assertCountEquals(0)
-        composeRule.onAllNodesWithText("PS", useUnmergedTree = true).assertCountEquals(0)
+        // The merged tree is what TalkBack reads; the unmerged one still lists children clearAndSetSemantics hides.
+        composeRule.onAllNodesWithText("+2", substring = true).assertCountEquals(0)
+        composeRule.onAllNodesWithText("PS", substring = true).assertCountEquals(0)
     }
 
     @Test
