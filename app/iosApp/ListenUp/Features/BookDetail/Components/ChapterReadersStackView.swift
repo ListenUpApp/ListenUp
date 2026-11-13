@@ -151,6 +151,6 @@ enum BreathingGlow {
             overflowCount: 2, listeningNow: nil, notListening: nil
         ))
     }
-    .padding(32)
+    .padding(Spacing.xl)
     .background(Color(.secondarySystemGroupedBackground))
 }
