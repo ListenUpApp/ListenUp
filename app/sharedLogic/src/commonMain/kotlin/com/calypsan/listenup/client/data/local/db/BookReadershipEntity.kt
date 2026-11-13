@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.Flow
  * `hardcoverFinishesJson` holds the reader's Hardcover reads (#601 B3) the same way, so the Readers
  * section can badge them offline too. `finishesAlsoOnHardcoverJson` holds, the same way, which of the
  * finishes in `finishesJson` were also logged on Hardcover, so the section can say so offline.
+ *
+ * `currentPositionMs` and `lastPlayedAtMs` are the in-progress position `currentProgressPct` is derived from, and
+ * when it was last played: they put a reader on their chapter, most recent first. Null when not in progress, and
+ * from a server that predates them.
  */
 @Entity(tableName = "book_readership", primaryKeys = ["bookId", "userId"])
 internal data class BookReadershipEntity(
@@ -33,6 +37,8 @@ internal data class BookReadershipEntity(
     val observedAt: Long,
     val hardcoverFinishesJson: String = "",
     val finishesAlsoOnHardcoverJson: String = "",
+    val currentPositionMs: Long? = null,
+    val lastPlayedAtMs: Long? = null,
 )
 
 @Dao

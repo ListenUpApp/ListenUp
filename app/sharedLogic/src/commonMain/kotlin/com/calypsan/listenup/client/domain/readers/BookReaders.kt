@@ -34,6 +34,9 @@ data class BookReaders(
  * @property finishesAlsoOnHardcover The [finishes] that were also logged on Hardcover — the server
  *   paired each with a Hardcover read of the same listen, so it is one row that says "Also on
  *   Hardcover", never a second Hardcover row. A subset of [finishes], epoch ms newest-first.
+ * @property currentPositionMs Where the in-progress position is, book-relative ms: what puts the reader on a
+ *   chapter. Null when not in progress, and from a server that predates it (place them by [currentProgressPct]).
+ * @property lastPlayedAtMs When the in-progress position was last played, epoch ms; null when unknown.
  */
 data class Reader(
     val userId: String,
@@ -44,4 +47,6 @@ data class Reader(
     val rating: ListenerRating? = null,
     val hardcoverFinishes: List<Long> = emptyList(),
     val finishesAlsoOnHardcover: List<Long> = emptyList(),
+    val currentPositionMs: Long? = null,
+    val lastPlayedAtMs: Long? = null,
 )
