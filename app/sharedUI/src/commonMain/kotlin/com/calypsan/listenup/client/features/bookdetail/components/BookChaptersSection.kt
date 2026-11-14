@@ -61,6 +61,9 @@ import kotlin.time.Duration.Companion.milliseconds
 /** A chapter row's minimum height: the board's 56 dp, above M3's 48 dp touch target. */
 private val ChapterRowMinHeight = 56.dp
 
+/** The card's side inset, which a part divider's rule reaches past to run edge to edge. */
+internal val ChaptersCardInset = 12.dp
+
 /**
  * Chapters that play from the chapter they name. Collapsed, [preview] (the 5-row window around the current
  * chapter, or the first five); "All N chapters" expands in place to [chapters], "Fewer chapters" collapses it. Every row is a button; the current row
@@ -97,7 +100,7 @@ internal fun BookChaptersSection(
     ) {
         ProvideLiveGlow(isAnyoneListening = readers.isAnyoneListening) {
             Column(
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 12.dp),
+                modifier = Modifier.padding(horizontal = ChaptersCardInset).padding(top = 20.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ChaptersHeader(

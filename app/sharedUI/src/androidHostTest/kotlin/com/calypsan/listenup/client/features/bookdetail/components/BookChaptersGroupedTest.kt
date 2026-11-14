@@ -1,15 +1,12 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -28,8 +25,9 @@ import org.robolectric.annotation.Config
 private const val SPAN_MS = 600_000L
 
 /**
- * A marked book's chapters. The fixtures go through the real [groupedChapters], so nothing here
- * re-derives the outline: Credits, then Part I (folded) with 1 to 6, then Part II (folded) with 7 to 9.
+ * A marked book's chapters under part dividers. The fixtures go through the real [groupedChapters],
+ * so nothing here re-derives the outline: Credits, then Part I (its own "Part I" chapter, then 1 to 6),
+ * then Part II (its own "Part II" chapter, then 7 to 9). Every chapter is a row.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w800dp-h3000dp")
@@ -63,47 +61,39 @@ class BookChaptersGroupedTest {
         )
     }
 
-    private fun current(index: Int) =
-        CurrentChapter(
-            index = index,
-            number = index + 1,
-            title = book[index].title,
-            startMs = book[index].startTime,
-            elapsedInChapterMs = 0L,
-            isInPlayer = true,
-        )
+    private fun current(
+        chapters: List<Chapter>,
+        index: Int,
+    ) = CurrentChapter(
+        index = index,
+        number = index + 1,
+        title = chapters[index].title,
+        startMs = chapters[index].startTime,
+        elapsedInChapterMs = 0L,
+        isInPlayer = true,
+    )
 
     private val plays = mutableListOf<Long>()
 
-    /** Where playback is, as state: a test moves it the way the player would. */
-    private var playhead by mutableStateOf<Int?>(null)
-
     private fun render(
         currentIndex: Int? = 6,
-        canPlay: Boolean = true,
         chapters: List<Chapter> = book,
     ) {
-        playhead = currentIndex
         composeRule.setContent {
-            val index = playhead
-            val rows = rowsOf(chapters, index)
-            val window = index?.let { rows.subList((it - 2).coerceAtLeast(0), (it + 3).coerceAtMost(rows.size)) }
+            val rows = rowsOf(chapters, currentIndex)
+            val window =
+                currentIndex?.let { rows.subList((it - 2).coerceAtLeast(0), (it + 3).coerceAtMost(rows.size)) }
             MaterialTheme {
                 BookChaptersSection(
                     chapters = rows,
                     preview = window ?: rows.take(5),
-                    currentChapter = index?.let(::current),
-                    canPlay = canPlay,
+                    currentChapter = currentIndex?.let { current(chapters, it) },
+                    canPlay = true,
                     onPlayFromChapter = { plays += it },
-                    grouped = chapters.groupedChapters(index),
+                    grouped = chapters.groupedChapters(currentIndex),
                 )
             }
         }
-        composeRule.waitForIdle()
-    }
-
-    private fun movePlaybackTo(index: Int) {
-        playhead = index
         composeRule.waitForIdle()
     }
 
@@ -112,157 +102,100 @@ class BookChaptersGroupedTest {
         composeRule.waitForIdle()
     }
 
-    private fun expandedState(value: String) = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value)
+    private fun divider(sentence: String) = composeRule.onNodeWithContentDescription(sentence)
 
-    private fun part(title: String) = composeRule.onNodeWithContentDescription(title, substring = true)
+    private fun chapterRow(label: String) = composeRule.onNodeWithContentDescription(label)
 
-    @Test
-    fun `the collapsed list names the part it sits in`() {
-        render(currentIndex = 6)
+    private val notAButton = SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick)
 
-        composeRule.onNodeWithText("Part I").assertIsDisplayed()
-    }
+    private val neverCurrent = SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected)
 
     @Test
-    fun `the next part's header shows where it falls in the window, with its play action`() {
-        render(currentIndex = 7)
-
-        composeRule.onNodeWithContentDescription("Play Part II").performClick()
-
-        plays shouldBe listOf(8 * SPAN_MS)
-    }
-
-    @Test
-    fun `a row keeps the number it has in the whole book, folded chapters counted`() {
-        render(currentIndex = 6)
-
-        composeRule.onNodeWithContentDescription("Play from chapter 7: 5").assertIsDisplayed()
-    }
-
-    @Test
-    fun `All chapters opens the current part and leaves the others closed`() {
+    fun `every chapter the audiobook has is a row, the part's own chapter included, numbered in audio order`() {
         render(currentIndex = 6)
         openAll()
 
-        part("Part I,").assert(expandedState("Expanded"))
-        part("Part II,").assert(expandedState("Collapsed"))
-        composeRule.onNodeWithContentDescription("Play from chapter 3: 1").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertDoesNotExist()
+        chapterRow("Play from chapter 1: Credits").assertIsDisplayed()
+        chapterRow("Play from chapter 2: Part I").assertIsDisplayed()
+        chapterRow("Play from chapter 9: Part II").assertIsDisplayed()
+        chapterRow("Play from chapter 12: 9").assertIsDisplayed()
     }
 
     @Test
-    fun `chapters outside any part stay in the list`() {
+    fun `a divider is a heading that says its title, how many chapters it holds and how long it runs`() {
         render(currentIndex = 6)
         openAll()
 
-        composeRule.onNodeWithContentDescription("Play from chapter 1: Credits").assertIsDisplayed()
+        divider("Part I, 7 chapters, 1 hour 10 minutes").assert(isHeading()).assert(notAButton)
+        divider("Part II, 4 chapters, 40 minutes").assert(isHeading()).assert(notAButton)
     }
 
     @Test
-    fun `tapping a part opens and closes it without playing`() {
+    fun `a divider shows its count and length quietly under its title`() {
         render(currentIndex = 6)
         openAll()
 
-        part("Part II,").performClick()
-        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertIsDisplayed()
-        part("Part II,").assert(expandedState("Expanded"))
-
-        part("Part II,").performClick()
-        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertDoesNotExist()
-        plays shouldBe emptyList()
+        composeRule.onNodeWithText("4 chapters · 40m", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
-    fun `a part's play is its own control, and starts the chapter folded into it`() {
+    fun `the collapsed window is headed by the part it starts inside, and shows the divider it crosses`() {
         render(currentIndex = 6)
-        openAll()
 
-        composeRule.onNodeWithContentDescription("Play Part II").performClick()
-
-        plays shouldBe listOf(8 * SPAN_MS)
-        part("Part II,").assert(expandedState("Collapsed"))
+        divider("Part I, 7 chapters, 1 hour 10 minutes").assertIsDisplayed()
+        divider("Part II, 4 chapters, 40 minutes").assertIsDisplayed()
+        // Five rows: chapters 5 to 9, the last of them Part II's own chapter.
+        chapterRow("Play from chapter 5: 3").assertIsDisplayed()
+        chapterRow("Play from chapter 9: Part II").assertIsDisplayed()
+        chapterRow("Play from chapter 10: 7").assertDoesNotExist()
     }
 
     @Test
-    fun `a part says how many chapters it lists and how long it runs`() {
-        render(currentIndex = 6)
-        openAll()
+    fun `a window inside one part shows no other part's divider`() {
+        render(currentIndex = 3)
 
-        composeRule.onNodeWithText("3 chapters · 40m").assertIsDisplayed()
+        divider("Part I, 7 chapters, 1 hour 10 minutes").assertIsDisplayed()
+        divider("Part II, 4 chapters, 40 minutes").assertDoesNotExist()
     }
 
     @Test
-    fun `when the current chapter is the folded one, its header shows as current`() {
+    fun `only the row is current, never its part's divider`() {
         render(currentIndex = 8)
         openAll()
 
-        composeRule.onNodeWithContentDescription("Play Part II").assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
-        composeRule.onNodeWithText("Now playing").assertIsDisplayed()
+        chapterRow("Play from chapter 9: Part II").assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
+        divider("Part II, 4 chapters, 40 minutes").assert(neverCurrent)
     }
 
     @Test
-    fun `a book that cannot play can still open its parts, and plays nothing`() {
-        render(currentIndex = null, canPlay = false)
-        openAll()
-
-        composeRule.onNodeWithContentDescription("Play Part II").assertIsNotEnabled()
-        part("Part II,").performClick()
-        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertIsNotEnabled()
-    }
-
-    @Test
-    fun `a part the reader opened stays open when playback moves into it`() {
-        render(currentIndex = 6)
-        openAll()
-        part("Part II,").performClick()
-        composeRule.waitForIdle()
-
-        // What tapping a chapter inside the part does: the playhead lands in it.
-        movePlaybackTo(9)
-
-        part("Part II,").assert(expandedState("Expanded"))
-        composeRule.onNodeWithContentDescription("Play from chapter 10: 7").assertIsDisplayed()
-    }
-
-    @Test
-    fun `a part the reader closed stays closed when playback moves on`() {
-        render(currentIndex = 6)
-        openAll()
-        part("Part I,").performClick()
-        composeRule.waitForIdle()
-
-        movePlaybackTo(9)
-
-        part("Part I,").assert(expandedState("Collapsed"))
-        composeRule.onNodeWithContentDescription("Play from chapter 3: 1").assertDoesNotExist()
-    }
-
-    @Test
-    fun `a part nobody touched follows the playhead`() {
+    fun `a part's own chapter plays like any other row`() {
         render(currentIndex = 6)
         openAll()
 
-        movePlaybackTo(9)
+        chapterRow("Play from chapter 9: Part II").performClick()
 
-        part("Part I,").assert(expandedState("Collapsed"))
-        part("Part II,").assert(expandedState("Expanded"))
+        plays shouldBe listOf(8 * SPAN_MS)
     }
 
     @Test
-    fun `a book header is an outer tier that closes nothing`() {
-        val omnibus = book.mapIndexed { i, chapter -> if (i == 1) chapter.copy(bookTitle = "Book One") else chapter }
+    fun `an omnibus heads each book above its parts, and numbers its chapters from 1 again`() {
+        val omnibus =
+            book.mapIndexed { i, chapter ->
+                when (i) {
+                    0 -> chapter.copy(bookTitle = "Book One")
+                    8 -> chapter.copy(bookTitle = "Book Two")
+                    else -> chapter
+                }
+            }
 
-        render(currentIndex = 6, chapters = omnibus)
+        render(currentIndex = 9, chapters = omnibus)
         openAll()
 
-        composeRule
-            .onNodeWithText("Book One")
-            .assertIsDisplayed()
-            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
-            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.StateDescription))
-        // Everything inside it is still drawn: its parts, and the open one's chapters.
-        part("Part I,").assert(expandedState("Expanded"))
-        part("Part II,").assert(expandedState("Collapsed"))
-        composeRule.onNodeWithContentDescription("Play from chapter 3: 1").assertIsDisplayed()
+        composeRule.onNodeWithText("Book Two").assert(isHeading()).assert(notAButton)
+        chapterRow("Play from chapter 8: 6").assertIsDisplayed()
+        chapterRow("Play from chapter 1: Part II").assertIsDisplayed()
+        // Indexed by its place in the whole list, not by its number: the row plays its own chapter.
+        chapterRow("Play from chapter 2: 7").performClick()
+        plays shouldBe listOf(9 * SPAN_MS)
     }
 }
