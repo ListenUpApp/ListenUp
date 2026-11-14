@@ -139,7 +139,8 @@ struct BookChapterRowsAccessibilityTests {
         #expect(book.isHeader, "\(book)")
         #expect(hosted.stop(labelled: "Play from chapter 1: Chapter 7") != nil, "\(hosted.tree)")
         #expect(hosted.stop(labelled: "Play from chapter 1: Chapter 1") != nil, "\(hosted.tree)")
-        #expect(hosted.activate(labelled: "Play from chapter 1: Chapter 7"))
+        // Its effect is the proof: SwiftUI reports a styled row button's activation as not taken even when it fires.
+        hosted.activate(labelled: "Play from chapter 1: Chapter 7")
         #expect(played.starts == [all[6].startMs])
     }
 
