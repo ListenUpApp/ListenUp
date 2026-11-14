@@ -68,6 +68,16 @@ aboutLibraries {
         fetchRemoteFunding = false
     }
 
+    library {
+        // Compose Desktop and Skiko ship one native runtime per host (`…-linux-x64`, `…-macos-arm64`),
+        // and the build resolves the one for the machine it runs on. Listed, they would make the
+        // manifest differ by machine. Both carry the licence of the Compose libraries already listed.
+        exclusionPatterns.addAll(
+            Regex("""org\.jetbrains\.compose\.desktop:desktop-jvm-.+""").toPattern(),
+            Regex("""org\.jetbrains\.skiko:skiko-awt-runtime-.+""").toPattern(),
+        )
+    }
+
     export {
         // Write the generated JSON directly into Compose resources so it is
         // bundled at compile time and accessible via Res.readBytes().
@@ -83,8 +93,9 @@ aboutLibraries {
 // dependency-graph collector (not a pure function): the committed manifest is
 // snapshotted BEFORE exportLibraryDefinitions rewrites it in place, then the
 // gate diffs snapshot vs regenerated. On drift the corrected file is already
-// on disk — review and commit it. (Export output is deterministic: entries
-// are sorted and the timestamp metadata block is disabled by default.)
+// on disk — review and commit it. (Export output is deterministic on any machine:
+// entries are sorted, the timestamp metadata block is disabled by default, and
+// the host-specific desktop runtimes are excluded above.)
 val licenseManifestFile = file("src/commonMain/composeResources/files/aboutlibraries.json")
 val licenseManifestSnapshot = layout.buildDirectory.file("aboutLibraries/committed-manifest-snapshot.json")
 

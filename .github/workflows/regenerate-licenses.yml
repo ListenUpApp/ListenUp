@@ -1,8 +1,8 @@
 # Keeps the OSS license manifest (app/sharedUI/.../aboutlibraries.json) in sync with the dependency
 # catalog automatically. Dependabot bumps `gradle/libs.versions.toml` but cannot run Gradle, so it
 # never regenerates the manifest — which then fails the `verifyLicenses` gate on main. This workflow
-# regenerates it on Linux (the authoritative platform — a macOS regen produces a different manifest
-# and must never be committed) and opens a fix PR whenever it drifts.
+# regenerates it and opens a fix PR whenever it drifts. (The manifest is the same on any machine,
+# so a contributor can also run `./gradlew :app:sharedUI:exportLibraryDefinitions` and commit it.)
 #
 # Runs on: a dependency/build change landing on main (the Dependabot-merge case), or on demand
 # (workflow_dispatch — use this to heal main right now).
@@ -73,4 +73,4 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "🔖 chore(licenses): regenerate aboutlibraries.json (dependency bump)" \
-            --body "Automated — a dependency change altered the OSS license set, so \`exportLibraryDefinitions\` regenerated the manifest on Linux (the platform CI's \`verifyLicenses\` gate compares against). Merging this makes \`verifyLicenses\` pass again."
+            --body "Automated — a dependency change altered the OSS license set, so \`exportLibraryDefinitions\` regenerated the manifest. Merging this makes \`verifyLicenses\` pass again."
