@@ -544,7 +544,7 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-ch-list > :first-child, .bd-ch-table tbody > tr:first-child .bd-ch-div > * { margin-top:0; border-top:0; }
 .bd-part-t { font-size:1.25rem; font-weight:800; letter-spacing:-0.01em; color:var(--ink); }
 .bd-part-sub { font-size:0.84375rem; font-weight:500; color:var(--ink-2); }
-.bd-ch-table td.bd-ch-div { padding:0; border-bottom:0; }
+.bd-ch-table .bd-part-tr > td.bd-ch-div { padding:0; border-bottom:0; }
 .bd-ch-all { --chr-ring:var(--surface-2); align-self:stretch; min-height:44px; display:flex; align-items:center; justify-content:center; gap:10px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
 .bd-ch-all:focus { outline:none; }
 .bd-ch-all:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
