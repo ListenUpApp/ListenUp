@@ -171,7 +171,9 @@ final class ChapterEditorObserver {
             isSaving = editing.isSaving
             changedElsewhere = editing.changedElsewhere
             chapters = rowModels(editing)
-            sections = ChapterEditorSection.sections(from: outlineEntries(editing, rows: chapters))
+            sections = ChapterEditorSection.sections(
+                from: ChapterOutlineEntry.entries(editing.outline, rows: chapters)
+            )
             partSuggestionTitles = editing.partSuggestion?.titles
             drift = driftModel(editing)
             timeline.update(TimelineInput(
@@ -198,24 +200,6 @@ final class ChapterEditorObserver {
                 partTitle: chapter.partTitle,
                 bookTitle: chapter.bookTitle
             )
-        }
-    }
-
-    /// The shared outline as native values. `number` is 1-based, so it indexes `rows` directly: the
-    /// editor's outline folds nothing, and both are built from the same `chapters`.
-    private func outlineEntries(
-        _ editing: ChapterEditorUiStateEditing,
-        rows: [EditableChapterRow]
-    ) -> [ChapterOutlineEntry] {
-        editing.outline.map { row in
-            switch row.sealedType() {
-            case .bookHeader(let type):
-                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .book, title: type.value.title))
-            case .partHeader(let type):
-                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .part, title: type.value.title))
-            case .chapterRow(let type):
-                .chapter(rows[Int(type.value.number) - 1])
-            }
         }
     }
 
@@ -306,6 +290,23 @@ private extension MarkerTier {
         switch self {
         case .part: .Part
         case .book: .Book
+        }
+    }
+}
+
+extension ChapterOutlineEntry {
+    /// The shared outline as native values. Each chapter row's `index` is its place in the chapters `rows` was built
+    /// from, so it indexes `rows` directly. Its `number` would not: it starts again at each book of an omnibus.
+    static func entries(_ outline: [ChapterOutlineRow], rows: [EditableChapterRow]) -> [ChapterOutlineEntry] {
+        outline.map { row in
+            switch row.sealedType() {
+            case .bookHeader(let type):
+                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .book, title: type.value.title))
+            case .partHeader(let type):
+                .marker(EditorMarker(chapterId: type.value.chapterId, tier: .part, title: type.value.title))
+            case .chapterRow(let type):
+                .chapter(rows[Int(type.value.index)])
+            }
         }
     }
 }

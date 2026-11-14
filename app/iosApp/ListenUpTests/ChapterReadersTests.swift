@@ -59,7 +59,6 @@ struct ChapterReadersTests {
     }
 
     @Test func eachPlaceHasItsOwnWording() {
-        #expect(stack([face("Tom")], place: .ThisPart).sentence == "Tom is in this part.")
         #expect(stack([face("Maya"), face("Tom")], place: .FurtherOn).sentence
                 == "Maya and Tom are on chapters further on.")
         #expect(stack([face("Tom")], place: .Earlier).sentence == "Tom is on an earlier chapter.")
@@ -71,7 +70,6 @@ struct ChapterReadersTests {
     @Test func nobodyIsAnywhereByDefault() {
         let none = ChapterReadersLookup.none
         #expect(none.onChapter("c1") == nil)
-        #expect(none.inPart("c1") == nil)
         #expect(none.beyond(["c1"]) == nil)
     }
 }

@@ -2,81 +2,72 @@ import Shared
 import Testing
 @testable import ListenUp
 
-/// Which rows a closed part hides. The grouping is the shared outline's; this pins that the native
-/// projection reads it the same way Android and web do.
+/// How a marked book's outline becomes the cards the list draws. The grouping is the shared outline's; this pins
+/// that the native projection reads it the same way Android and web do, and splits it one card per part.
 @Suite("BookGroupedChapters")
 struct BookGroupedChaptersTests {
-    private func part(_ id: String, current: Bool = false) -> BookPartHeader {
-        BookPartHeader(title: id, chapterId: id, chapterCount: 2, durationMs: 1_000, startMs: 0,
-                       containsCurrent: current, isCurrentChapter: false)
+    private func part(_ id: String, count: Int = 2) -> BookPartHeader {
+        BookPartHeader(title: id, chapterId: id, chapterCount: count, durationMs: 1_000)
     }
 
-    private var grouped: BookGroupedChapters {
-        let rows: [BookOutlineRow] = [
-            .chapter(number: 1, partId: nil),
-            .part(part("a", current: true)),
-            .chapter(number: 3, partId: "a"),
-            .part(part("b")),
-            .chapter(number: 5, partId: "b")
-        ]
-        return BookGroupedChapters(rows: rows, previewLabel: nil, previewRows: rows)
+    private func chapters(_ sections: [BookOutlineSection]) -> [[Int]] {
+        sections.map { $0.chapters.map(\.index) }
     }
 
-    private func ids(_ rows: [BookOutlineRow]) -> [String] { rows.map(\.id) }
+    // MARK: - Sections
 
-    @Test func thePartHoldingTheCurrentChapterOpensAndTheOthersDoNot() {
-        #expect(part("a", current: true).isOpen(overrides: [:]))
-        #expect(!part("b").isOpen(overrides: [:]))
+    /// ⛔ Every chapter is a row: a part's header heads its card and never stands in for a chapter.
+    @Test func eachPartIsACardOfEveryOneOfItsChapters() {
+        let sections = BookGroupedChapters.sections([
+            .part(part("a")), .chapter(index: 0, number: 1), .chapter(index: 1, number: 2),
+            .part(part("b")), .chapter(index: 2, number: 3)
+        ])
+        #expect(sections.map(\.part?.chapterId) == ["a", "b"])
+        #expect(chapters(sections) == [[0, 1], [2]])
     }
 
-    /// ⛔ Tapping a chapter in an opened part moves the playhead into it. That must not close it.
-    @Test func aPartTheReaderOpenedStaysOpenWhenPlaybackMovesIntoIt() {
-        let overrides = part("b").toggled([:])
-        #expect(part("b").isOpen(overrides: overrides))
-        #expect(part("b", current: true).isOpen(overrides: overrides))
+    /// Opening Credits before Part I is a card of its own, with no heading.
+    @Test func chaptersBeforeTheFirstPartAreACardWithNoHeading() {
+        let sections = BookGroupedChapters.sections([
+            .chapter(index: 0, number: 1), .part(part("a")), .chapter(index: 1, number: 2)
+        ])
+        #expect(sections.count == 2)
+        #expect(sections[0].part == nil && sections[0].book == nil)
+        #expect(chapters(sections) == [[0], [1]])
     }
 
-    /// ⛔ And playback leaving a part the reader closed must not reopen it.
-    @Test func aPartTheReaderClosedStaysClosedWhenPlaybackMovesOn() {
-        let overrides = part("a", current: true).toggled([:])
-        #expect(!part("a", current: true).isOpen(overrides: overrides))
-        #expect(!part("a").isOpen(overrides: overrides))
+    /// A book's heading rides on the card of the part that opens it, not on an empty card of its own.
+    @Test func aBookOpeningWithAPartIsOneCard() {
+        let sections = BookGroupedChapters.sections([
+            .book(title: "Book One", chapterId: "c0"), .part(part("a")), .chapter(index: 0, number: 1),
+            .book(title: "Book Two", chapterId: "c1"), .chapter(index: 1, number: 1),
+            .part(part("b")), .chapter(index: 2, number: 2)
+        ])
+        #expect(sections.map(\.book) == ["Book One", "Book Two", nil])
+        #expect(sections.map(\.part?.chapterId) == ["a", nil, "b"])
+        #expect(chapters(sections) == [[0], [1], [2]])
     }
 
-    @Test func aPartNobodyTouchedFollowsTheCurrentChapter() {
-        #expect(part("a", current: true).isOpen(overrides: ["other": false]))
-        #expect(!part("a").isOpen(overrides: ["other": true]))
+    /// ⛔ An omnibus numbers each book from 1, so the number repeats; the index never does, and is the identity.
+    @Test func aChapterIsKnownByItsIndexNotItsNumber() {
+        let first = BookOutlineRow.chapter(index: 0, number: 1)
+        let second = BookOutlineRow.chapter(index: 7, number: 1)
+        #expect(first.id != second.id)
+        let sections = BookGroupedChapters.sections([.book(title: "Two", chapterId: "c7"), second])
+        #expect(sections.first?.chapters == [BookOutlineChapter(index: 7, number: 1)])
     }
 
-    @Test func togglingTwiceLandsWhereTheReaderLastLeftIt() {
-        let overrides = part("b").toggled(part("b").toggled([:]))
-        #expect(!part("b").isOpen(overrides: overrides))
-        #expect(!part("b", current: true).isOpen(overrides: overrides))
+    // MARK: - The heading
+
+    @Test func aPartsHeadingSaysItsCountAndLength() {
+        let reaper = BookPartHeader(title: "Part IV: Reaper", chapterId: "c", chapterCount: 13,
+                                    durationMs: (5 * 60 + 16) * 60_000)
+        #expect(reaper.summary.hasPrefix("13 chapters · "))
+        #expect(reaper.spokenName == "Part IV: Reaper, 13 chapters, 5 hours, 16 minutes")
     }
 
-    /// ⛔ A closed part keeps its header and hides only its own chapters; those in no part always show.
-    @Test func aClosedPartHidesItsChaptersOnly() {
-        #expect(ids(grouped.visibleRows(overrides: [:])) == ["chapter-1", "part-a", "chapter-3", "part-b"])
-    }
-
-    @Test func openingAPartShowsItsChapters() {
-        #expect(ids(grouped.visibleRows(overrides: ["b": true])).contains("chapter-5"))
-    }
-
-    // MARK: - Hairlines
-
-    /// ⛔ The flat list draws none after its last row. A trailing one doubles the line above the
-    /// "All N Chapters" button, and hangs off the end of a short book.
-    @Test func noHairlineFollowsTheLastRow() {
-        let rows = grouped.rows
-        #expect(!BookGroupedChapters.hasDivider(after: rows[4], in: rows))
-    }
-
-    @Test func aHairlineFollowsEveryOtherChapterAndNoHeader() {
-        let rows = grouped.rows
-        #expect(BookGroupedChapters.hasDivider(after: rows[0], in: rows))
-        #expect(BookGroupedChapters.hasDivider(after: rows[2], in: rows))
-        #expect(!BookGroupedChapters.hasDivider(after: rows[1], in: rows))
+    @Test func aPartOfOneChapterSaysSo() {
+        #expect(part("a", count: 1).summary.hasPrefix("1 chapter · "))
     }
 
     // MARK: - Reading the shared outline
@@ -87,45 +78,19 @@ struct BookGroupedChaptersTests {
         let shared = GroupedChapters(
             rows: [
                 ChapterOutlineRowBookHeader(title: "Book One", chapterId: "b", startMs: 3),
-                ChapterOutlineRowPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5, startMs: 6,
-                                            containsCurrent: true, isCurrentChapter: false),
-                ChapterOutlineRowChapterRow(chapter: chapter, number: 7, partId: "p")
+                ChapterOutlineRowPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5, startMs: 6),
+                ChapterOutlineRowChapterRow(chapter: chapter, index: 7, number: 8)
             ],
-            previewLabel: "Part I",
-            previewRows: [ChapterOutlineRowChapterRow(chapter: chapter, number: 8, partId: nil)]
+            previewRows: [ChapterOutlineRowChapterRow(chapter: chapter, index: 9, number: 10)]
         )
 
         let projected = BookGroupedChapters(shared)
 
-        let header = BookPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5, startMs: 6,
-                                    containsCurrent: true, isCurrentChapter: false)
+        let header = BookPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5)
         #expect(projected.rows == [
-            .book(title: "Book One", chapterId: "b"), .part(header), .chapter(number: 7, partId: "p")
+            .book(title: "Book One", chapterId: "b"), .part(header), .chapter(index: 7, number: 8)
         ])
-        #expect(projected.previewLabel == "Part I")
-        #expect(projected.previewRows == [.chapter(number: 8, partId: nil)])
-    }
-
-    @Test func aFoldedCurrentChapterIsNotReadAsMerelyContainingIt() {
-        let shared = GroupedChapters(
-            rows: [ChapterOutlineRowPartHeader(title: "Part I", chapterId: "p", chapterCount: 0, durationMs: 1, startMs: 2,
-                                               containsCurrent: false, isCurrentChapter: true)],
-            previewLabel: nil,
-            previewRows: []
-        )
-
-        guard case .part(let part)? = BookGroupedChapters(shared).rows.first else {
-            Issue.record("expected a part")
-            return
-        }
-        #expect(part.isCurrentChapter)
-        #expect(!part.containsCurrent)
-    }
-
-    @Test func aPartThatIsOnlyItsAnnouncementSaysJustItsLength() {
-        let silent = BookPartHeader(title: "Part I", chapterId: "c", chapterCount: 0, durationMs: 3_600_000, startMs: 0,
-                                    containsCurrent: false, isCurrentChapter: false)
-        #expect(!silent.summary.contains("chapter"))
+        #expect(projected.previewRows == [.chapter(index: 9, number: 10)])
     }
 
     @Test func theResumeLineLeadsWithThePart() {
