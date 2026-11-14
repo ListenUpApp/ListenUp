@@ -6,13 +6,6 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
-kotlin {
-    compilerOptions {
-        // :app:sharedLogic/:app:sharedUI carry pre-release-marked metadata via the kotlinx-rpc dev-channel pin (see gradle/libs.versions.toml); drop this flag when migrating to rpc stable.
-        freeCompilerArgs.add("-Xskip-prerelease-check")
-    }
-}
-
 dependencies {
     implementation(projects.app.sharedUI)
     implementation(projects.app.sharedLogic)

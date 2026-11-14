@@ -147,11 +147,7 @@ kotlin {
     }
 
     // JVM target for desktop (Windows/Linux)
-    jvm("desktop") {
-        compilerOptions {
-            freeCompilerArgs.add("-Xskip-prerelease-check") // kotlinx-rpc dev-channel pin carries pre-release metadata; drop with the rpc-stable migration (libs.versions.toml)
-        }
-    }
+    jvm("desktop")
 
     sourceSets {
         androidMain.dependencies {
