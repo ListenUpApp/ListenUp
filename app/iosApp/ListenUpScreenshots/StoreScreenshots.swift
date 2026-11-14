@@ -166,6 +166,7 @@ final class StoreScreenshots: XCTestCase {
         guard manageStorage.isHittable else { return false }
         manageStorage.tap()
         settle(4)
+        guard app.state == .runningForeground else { return false }
         snap("06-downloads")
         return true
     }
@@ -207,6 +208,12 @@ final class StoreScreenshots: XCTestCase {
     @MainActor
     private func screen(_ name: String, _ capture: () -> Bool) -> String? {
         if capture() { return nil }
+        // A screen that crashes the app leaves nothing to dump; relaunch (still signed in) and carry on.
+        guard app.state == .runningForeground else {
+            app.launch()
+            _ = tab("Home").waitForExistence(timeout: 60)
+            return "\(name) (the app crashed)"
+        }
         dumpHierarchy(name)
         backToRoot()
         tab("Home").tap()
