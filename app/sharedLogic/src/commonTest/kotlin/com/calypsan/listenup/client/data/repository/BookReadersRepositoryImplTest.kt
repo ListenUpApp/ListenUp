@@ -61,6 +61,8 @@ class BookReadersRepositoryImplTest :
             finishes: List<Long> = emptyList(),
             hardcoverFinishes: List<Long> = emptyList(),
             finishesAlsoOnHardcover: List<Long> = emptyList(),
+            currentPositionMs: Long? = null,
+            lastPlayedAtMs: Long? = null,
         ) = BookReaderEntry(
             userId = userId,
             displayName = displayName,
@@ -69,6 +71,8 @@ class BookReadersRepositoryImplTest :
             finishes = finishes,
             hardcoverFinishes = hardcoverFinishes,
             finishesAlsoOnHardcover = finishesAlsoOnHardcover,
+            currentPositionMs = currentPositionMs,
+            lastPlayedAtMs = lastPlayedAtMs,
         )
 
         fun user(
@@ -174,6 +178,44 @@ class BookReadersRepositoryImplTest :
                             reader.isYou shouldBe false
                             reader.currentProgressPct shouldBe 43
                             reader.finishes.shouldBeEmpty()
+                        }
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a reader's exact position and last play survive the Room cache") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(
+                                BookReadership(
+                                    listOf(
+                                        entry(
+                                            "u2",
+                                            "Jake",
+                                            currentProgressPct = 43,
+                                            currentPositionMs = 4_321L,
+                                            lastPlayedAtMs = 7L,
+                                        ),
+                                        entry("u3", "Old Server", currentProgressPct = 10),
+                                    ),
+                                ),
+                            )
+                    }
+
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = user(id = "me"))
+                    .observeReadersFor("b1")
+                    .test {
+                        val readers = awaitNonEmpty()
+                        readers.first { it.userId == "u2" }.let { jake ->
+                            jake.currentPositionMs shouldBe 4_321L
+                            jake.lastPlayedAtMs shouldBe 7L
+                        }
+                        readers.first { it.userId == "u3" }.let { old ->
+                            old.currentPositionMs shouldBe null
+                            old.lastPlayedAtMs shouldBe null
                         }
                         cancelAndIgnoreRemainingEvents()
                     }

@@ -69,6 +69,19 @@ data class BookReaderEntry(
      */
     @SerialName("finishesAlsoOnHardcover")
     val finishesAlsoOnHardcover: List<Long> = emptyList(),
+    /**
+     * Where the in-progress position is, book-relative ms: the same position [currentProgressPct] is
+     * derived from, exact enough to name the chapter a reader is on. Null when not in progress, and
+     * from a server that predates the field.
+     */
+    @SerialName("currentPositionMs")
+    val currentPositionMs: Long? = null,
+    /**
+     * When the in-progress position was last played, epoch ms: orders readers sharing a chapter by
+     * who was there most recently. Null when not in progress, and from a server that predates it.
+     */
+    @SerialName("lastPlayedAtMs")
+    val lastPlayedAtMs: Long? = null,
 )
 
 /** The full readership of a book: everyone (incl. the caller) who is reading or has finished it. */

@@ -645,6 +645,8 @@ private fun BookSection(
                 onPlayFromChapter = panes.onPlayFromChapter,
                 onOpenChapterMap = panes.onOpenChapterMap,
                 grouped = state.groupedChapters,
+                readers =
+                    (panes.readers as? BookReadersUiState.Data)?.chapterReaders?.asLookup() ?: ChapterReadersLookup.None,
             )
         }
 

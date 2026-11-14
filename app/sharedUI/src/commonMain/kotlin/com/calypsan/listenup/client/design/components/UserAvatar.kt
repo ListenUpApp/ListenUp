@@ -63,6 +63,9 @@ enum class AvatarSize(
     val fontSize: TextUnit,
 ) {
     Mini(20.dp, 9.sp),
+
+    // A face in a row's stack of readers, sitting between a list row's title and its length.
+    Compact(24.dp, 10.sp),
     Small(32.dp, 12.sp),
     Medium(48.dp, 16.sp),
     Large(96.dp, 28.sp),

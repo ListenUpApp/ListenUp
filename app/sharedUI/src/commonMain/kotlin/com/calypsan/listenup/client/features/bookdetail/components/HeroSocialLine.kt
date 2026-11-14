@@ -46,7 +46,7 @@ import org.jetbrains.compose.resources.stringResource
 private const val SOCIAL_AVATARS = 3
 
 /** The four wordings of one clause: one name, two, two and one other, two and N others. */
-private data class ClauseKeys(
+internal data class ClauseKeys(
     val one: StringResource,
     val two: StringResource,
     val manyOne: StringResource,

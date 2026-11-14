@@ -216,6 +216,9 @@ ChapterNaming
 ChapterNavigation
 ChapterOutlineRow
 ChapterOutlineRow_SealedType
+ChapterReaderFace
+ChapterReaders
+ChapterReadership
 ChapterRowUi
 ChapterSetProblem
 ChapterSetProblem_SealedType
@@ -822,10 +825,13 @@ RatingSourceUnavailable
 Reachability
 Reachability_SealedType
 Reader
+ReaderClause
+ReaderClauseForm
 ReaderLine
 ReaderLineKind
 ReaderLineKind_SealedType
 ReaderRef
+ReadersPlace
 ReadersSummary
 ReadingOrderError
 ReadingOrderError_SealedType

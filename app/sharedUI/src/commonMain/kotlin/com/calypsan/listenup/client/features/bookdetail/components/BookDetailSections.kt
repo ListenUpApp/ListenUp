@@ -65,6 +65,8 @@ internal fun BookDetailSectionContent(
                 onPlayFromChapter = actions.onPlayFromChapter,
                 modifier = modifier,
                 grouped = state.groupedChapters,
+                // A held book is triage-only: its readers are never asked for.
+                readers = if (state.isHeld) ChapterReadersOnPage.None else rememberChapterReaders(bookId),
             )
         }
 

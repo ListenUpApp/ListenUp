@@ -134,14 +134,14 @@ internal class SocialServiceImpl(
         }
         val totalDuration = books.findById(bookId)?.totalDuration ?: 0L
         val readingSince = clock.now().toEpochMilliseconds() - READING_WINDOW.inWholeMilliseconds
-        val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince) // List<userId, positionMs>
+        val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince).associateBy { it.userId }
         // Newest-first per user. Hardcover reads travel apart so every client can badge them.
         val (pulled, listened) =
             bookReads.finishesForBook(bookId.value).partition { it.source == BookReadSource.HARDCOVER }
         val finishesByUser = listened.groupBy { it.userId }
         val hardcoverByUser = pulled.groupBy { it.userId }
 
-        val userIds = (inProgress.map { it.first } + finishesByUser.keys + hardcoverByUser.keys).toSet()
+        val userIds = (inProgress.keys + finishesByUser.keys + hardcoverByUser.keys).toSet()
         val identities = publicProfiles.identities(userIds)
 
         val entries =
@@ -155,10 +155,14 @@ internal class SocialServiceImpl(
                         hardcover = hardcoverByUser[uid]?.map { it.finishedAt }.orEmpty(),
                         zone = sql.homeTimeZone(uid),
                     )
-                val positionMs = inProgress.firstOrNull { it.first == uid }?.second
+                val position = inProgress[uid]
                 val pct =
-                    positionMs?.let { position ->
-                        if (totalDuration > 0) (position * 100 / totalDuration).toInt().coerceIn(0, 100) else null
+                    position?.let { row ->
+                        if (totalDuration > 0) {
+                            (row.positionMs * 100 / totalDuration).toInt().coerceIn(0, 100)
+                        } else {
+                            null
+                        }
                     }
                 BookReaderEntry(
                     userId = uid,
@@ -168,6 +172,8 @@ internal class SocialServiceImpl(
                     finishes = listenedAt,
                     hardcoverFinishes = paired.hardcoverOnly,
                     finishesAlsoOnHardcover = paired.alsoOnHardcover,
+                    currentPositionMs = position?.positionMs,
+                    lastPlayedAtMs = position?.lastPlayedAt,
                 )
             }
         // Reading-first, then most-recent finish (either kind) desc.

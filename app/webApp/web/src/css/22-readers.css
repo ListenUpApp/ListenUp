@@ -16,6 +16,10 @@
    once would otherwise turn the list into a block of colour. */
 .luw .rdr-row.is-live { color: var(--ink); }
 .luw .rdr-row.is-live svg { color: var(--coral-text); }
+/* Anyone listening now, you or another reader: the chapter list's still coral ring, offset 2px, and a line that
+   reads as present rather than quiet. */
+.luw .rdr-row.is-live .uav { outline: 2px solid var(--coral-fill); outline-offset: 2px; }
+.luw .rdr-row.is-live .rdr-s { color: var(--ink); }
 .luw .rdr-row svg { flex: none; margin-left: auto; color: var(--ink-3); }
 .luw .rdr-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 /* Two lines before the ellipsis: one cut a name to 78 of its 179px at 200% text (WCAG 1.4.4). */

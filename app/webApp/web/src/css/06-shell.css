@@ -517,14 +517,15 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-ch-table td { padding:0 var(--sp-8); border-bottom:1px solid var(--line-2); vertical-align:middle; }
 .bd-ch-table td.bd-ch-n { width:2.5rem; color:var(--ink-2); }
 .bd-ch-table td.bd-ch-d { width:5.5rem; white-space:nowrap; }
-.bd-ch-row { width:100%; min-height:46px; display:flex; align-items:center; gap:var(--sp-12); padding:0 var(--sp-8); text-align:left; background:none; border:0; border-radius:var(--r-sm); font:inherit; font-size:0.9375rem; color:var(--ink); cursor:pointer; }
+.bd-ch-row { --chr-ring:var(--surface); width:100%; min-height:46px; display:flex; align-items:center; gap:var(--sp-12); padding:0 var(--sp-8); text-align:left; background:none; border:0; border-radius:var(--r-sm); font:inherit; font-size:0.9375rem; color:var(--ink); cursor:pointer; }
 .bd-ch-list .bd-ch-row { border-bottom:1px solid var(--line-2); border-radius:0; }
-@media (hover: hover) { .bd-ch-row:not([disabled]):hover { background:var(--surface-2); } }
+@media (hover: hover) { .bd-ch-row:not([disabled]):hover { background:var(--surface-2); --chr-ring:var(--surface-2); } }
 /* A row says it in colour when pressed (03-press.css: rows deepen rather than move). */
-.bd-ch-row:not([disabled]):active { background:var(--surface-3); }
+.bd-ch-row:not([disabled]):active { background:var(--surface-3); --chr-ring:var(--surface-3); }
 .bd-ch-row:focus { outline:none; }
 .bd-ch-row:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
 .bd-ch-row.is-current, .bd-ch-table tr.is-current { background:var(--surface-2); font-weight:700; }
+.bd-ch-row.is-current { --chr-ring:var(--surface-2); }
 .bd-ch-row[disabled] { opacity:0.5; cursor:not-allowed; }
 .bd-ch-n { width:1.5rem; flex:none; color:var(--ink-2); }
 .bd-ch-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -538,12 +539,13 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-part-label { margin:0; padding:var(--sp-4) var(--sp-8); font-size:0.8125rem; font-weight:600; color:var(--coral-text); }
 .bd-book { margin:var(--sp-12) 0 var(--sp-4); padding:0 var(--sp-8); font-size:1rem; font-weight:700; color:var(--ink); }
 .bd-in-book { margin-left:var(--sp-12); }
-.bd-part { display:flex; align-items:center; gap:var(--sp-4); margin-top:var(--sp-4); border-radius:var(--r-sm); background:var(--surface-2); }
-.bd-part.is-current { background:var(--coral-soft); }
+.bd-part { --chr-ring:var(--surface-2); display:flex; align-items:center; gap:var(--sp-4); margin-top:var(--sp-4); border-radius:var(--r-sm); background:var(--surface-2); }
+/* coral-soft is translucent; a ring in it would let the face beneath show through, so the ring mixes it solid. */
+.bd-part.is-current { background:var(--coral-soft); --chr-ring:color-mix(in srgb, var(--coral) 12%, var(--surface)); }
 .bd-part-open, .bd-part-name { flex:1; min-width:0; min-height:52px; display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-4) var(--sp-8); padding:var(--sp-4) var(--sp-12); }
 .bd-part-open { font:inherit; text-align:left; background:none; border:0; border-radius:var(--r-sm); color:var(--ink); cursor:pointer; }
-@media (hover: hover) { .bd-part-open:hover { background:var(--surface-3); } }
-.bd-part-open:active { background:var(--surface-3); }
+@media (hover: hover) { .bd-part-open:hover { background:var(--surface-3); --chr-ring:var(--surface-3); } }
+.bd-part-open:active { background:var(--surface-3); --chr-ring:var(--surface-3); }
 .bd-part-open:focus { outline:none; }
 .bd-part-open:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
 .bd-part-t { font-weight:600; color:var(--ink); }
@@ -554,9 +556,30 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-part-play[disabled] { opacity:0.5; cursor:not-allowed; }
 .bd-part-play:focus { outline:none; }
 .bd-part-play:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
-.bd-ch-all { align-self:stretch; min-height:44px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
+.bd-ch-all { --chr-ring:var(--surface-2); align-self:stretch; min-height:44px; display:flex; align-items:center; justify-content:center; gap:10px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
 .bd-ch-all:focus { outline:none; }
 .bd-ch-all:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
+/* Who else is on a chapter (canvas W-States, W-Live, W-Far): 24px faces overlapping by 6px, each cut out of
+   the one beneath by a 2px ring in its row's colour (--chr-ring), between the title and the length. They are
+   decoration: the row's sentence says who, and the row plays as it always did. The row's height is unchanged. */
+.bd-chr { flex:none; display:inline-flex; align-items:center; }
+.bd-ch-table .bd-chr { margin-left:6px; }
+.bd-part .bd-chr { margin-left:auto; }
+.bd-chr-f { position:relative; flex:none; display:inline-flex; border-radius:50%; }
+.bd-chr-f + .bd-chr-f { margin-left:-6px; }
+/* A live face's coral ring is 2px further out, so the face after it tucks in less. */
+.bd-chr-f.is-live + .bd-chr-f { margin-left:-2px; }
+.bd-chr-f > .uav, .bd-chr-more { position:relative; box-shadow:0 0 0 2px var(--chr-ring, var(--surface)); outline:2px solid transparent; outline-offset:2px; transition:outline-color 200ms ease; }
+.bd-chr-more { width:24px; height:24px; align-items:center; justify-content:center; background:var(--surface-3); color:var(--ink-2); font-size:0.625rem; font-weight:800; }
+/* Listening now: a still coral ring, offset 2px, fading in and out over 200ms as presence comes and goes. */
+.bd-chr-f.is-live > .uav { outline-color:var(--coral-fill); }
+@media (forced-colors: active) { .bd-chr-f:not(.is-live) > .uav, .bd-chr-more { outline:none; } }
+/* ...and a glow breathing out behind it. Every glow keeps one clock: ChapterReadersStack.kt starts each one
+   as far into its cycle as the page already is, through a negative animation-delay. */
+.bd-chr-glow { position:absolute; inset:0; border-radius:50%; background:var(--coral-fill); pointer-events:none; opacity:0.45; animation:bd-chr-breathe 2000ms cubic-bezier(0.05, 0.7, 0.1, 1) infinite; }
+@keyframes bd-chr-breathe { 0% { transform:scale(1); opacity:0.45; } 80%, 100% { transform:scale(1.7); opacity:0; } }
+/* Less motion: the glow holds still, halfway out. */
+@media (prefers-reduced-motion: reduce) { .bd-chr-glow { animation:none; transform:scale(1.35); opacity:0.22; } }
 /* Who else is reading: one link to the Readers panel, under the actions (spec §2.10). */
 .bd-social { display:flex; align-items:center; gap:10px; min-height:44px; font-size:0.875rem; color:var(--ink-2); text-decoration:none; border-radius:var(--r-sm); }
 .bd-social b { font-weight:600; color:var(--ink); }

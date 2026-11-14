@@ -14,9 +14,9 @@ data class ReaderLine(
 /** What a [ReaderLine] is reporting about its person: mid-book, or done with it. */
 sealed interface ReaderLineKind {
     /**
-     * The person is partway through; [progressPct] is known when non-null. [isLive] only for you, while the player
-     * is playing this book: the one reader we know is listening right now ("Listening now"). Everyone else's
-     * progress says they are reading ("Listening"), never that they are live.
+     * The person is partway through; [progressPct] is known when non-null. [isLive] when they are listening right
+     * now ("Listening now"): you, while the player is playing this book; anyone else, while fresh presence says
+     * they are listening to it. Otherwise their progress says they are reading ("Listening"), never that they are live.
      */
     data class Reading(
         val progressPct: Int?,
@@ -52,11 +52,13 @@ sealed interface ReaderLineKind {
  * [ReaderLineKind.FinishedOnHardcover] for a read pulled from Hardcover — then lines for people who
  * only rated. Ordering: all reading lines first, then all finished lines newest-first across readers
  * and both kinds, then rated-only lines. A person's rating rides on their first line. Your reading line is live when
- * [youAreLive] (the player is playing this book); no one else's ever is.
+ * [youAreLive] (the player is playing this book); anyone else's when they are in [liveUserIds] (fresh presence says
+ * they are listening to this book).
  */
 fun flattenToLines(
     readers: List<Reader>,
     youAreLive: Boolean = false,
+    liveUserIds: Set<String> = emptySet(),
 ): List<ReaderLine> {
     val reading =
         readers
@@ -66,7 +68,11 @@ fun flattenToLines(
                     userId = reader.userId,
                     name = reader.displayName,
                     isYou = reader.isYou,
-                    kind = ReaderLineKind.Reading(reader.currentProgressPct, isLive = youAreLive && reader.isYou),
+                    kind =
+                        ReaderLineKind.Reading(
+                            reader.currentProgressPct,
+                            isLive = if (reader.isYou) youAreLive else reader.userId in liveUserIds,
+                        ),
                 )
             }
     val finished =

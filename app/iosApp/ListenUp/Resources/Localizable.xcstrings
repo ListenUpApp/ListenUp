@@ -5006,6 +5006,270 @@
         }
       }
     },
+    "book.detail_chapter_readers_earlier_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are on earlier chapters."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_earlier_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are on earlier chapters."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_earlier_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is on an earlier chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_earlier_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are on earlier chapters."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_further_on_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are on chapters further on."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_further_on_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are on chapters further on."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_further_on_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is on a chapter further on."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_further_on_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are on chapters further on."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_in_part_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are in this part."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_in_part_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are in this part."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_in_part_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is in this part."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_in_part_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are in this part."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_listening_now_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are listening now."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_listening_now_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are listening now."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_listening_now_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is listening now."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_listening_now_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are listening now."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_on_chapter_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are on this chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_on_chapter_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are on this chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_on_chapter_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is on this chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_on_chapter_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are on this chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_other_chapters_many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others are on other chapters."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_other_chapters_many_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and 1 other are on other chapters."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_other_chapters_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is on another chapter."
+          }
+        }
+      }
+    },
+    "book.detail_chapter_readers_other_chapters_two": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@ are on other chapters."
+          }
+        }
+      }
+    },
     "book.detail_chapters": {
       "extractionState": "manual",
       "localizations": {

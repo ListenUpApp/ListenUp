@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.chapter.withOpenParts
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReaders
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
 import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
@@ -34,9 +35,12 @@ internal fun BookChapterOutline(
     expanded: Boolean,
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
+    readers: ChapterReadersLookup = ChapterReadersLookup.None,
 ) {
     var overrides by remember(bookId) { mutableStateOf(emptyMap<String, Boolean>()) }
     val rows = if (expanded) grouped.rows.withOpenParts(overrides) else grouped.previewRows
+    // A chapter with a row of its own carries its readers there; a header carries only its folded one's.
+    val chapterRowIds = rows.mapNotNullTo(mutableSetOf()) { (it as? ChapterOutlineRow.ChapterRow)?.chapter?.id }
 
     if (!expanded) grouped.previewLabel?.let { label -> P(attrs = { classes("bd-part-label") }) { Text(label) } }
 
@@ -53,9 +57,16 @@ internal fun BookChapterOutline(
 
                 is ChapterOutlineRow.PartHeader -> {
                     key("part-${row.chapterId}") {
+                        val isOpen = row.isOpen(overrides).takeIf { expanded && row.chapterCount > 0 }
                         PartRow(
                             part = row,
-                            isOpen = row.isOpen(overrides).takeIf { expanded && row.chapterCount > 0 },
+                            isOpen = isOpen,
+                            readers =
+                                when {
+                                    isOpen == false -> readers.inPart(row.chapterId)
+                                    row.chapterId in chapterRowIds -> null
+                                    else -> readers.onChapter(row.chapterId)
+                                },
                             tier = tier,
                             canPlay = canPlay,
                             onToggle = { overrides = row.toggled(overrides) },
@@ -68,7 +79,14 @@ internal fun BookChapterOutline(
                     chapters.getOrNull(row.number - 1)?.let { chapter ->
                         key(chapter.id) {
                             Div(attrs = { tier?.let { classes(it) } }) {
-                                ChapterButton(chapter, row.number, canPlay, onPlayFromChapter, withMeta = true)
+                                ChapterButton(
+                                    chapter,
+                                    row.number,
+                                    canPlay,
+                                    onPlayFromChapter,
+                                    withMeta = true,
+                                    readers = readers.onChapter(chapter.id),
+                                )
                             }
                         }
                     }
@@ -82,24 +100,36 @@ internal fun BookChapterOutline(
  * One part. Its play is a button of its own; with [isOpen] set, the rest of the row is the button
  * that opens and closes it. [isOpen] is null when there is nothing to open: any part in the collapsed
  * window, and one that is only its announcement. Then the row claims no expanded state at all.
+ *
+ * [readers] are everyone in the part while it is closed, else whoever is on the chapter folded into the header. The
+ * sentence about them describes the button that acts on what they are on: the toggle for a closed part, the play
+ * button for the folded chapter.
  */
 @Composable
 private fun PartRow(
     part: ChapterOutlineRow.PartHeader,
     isOpen: Boolean?,
+    readers: ChapterReaders?,
     tier: String?,
     canPlay: Boolean,
     onToggle: () -> Unit,
     onPlay: () -> Unit,
 ) {
     val summary = partSummary(part)
+    val sentenceId = chapterReadersId(part.chapterId)
+    // A closed part's readers are in the part; any other header's are on the chapter its play button plays.
+    val describesPart = readers != null && isOpen == false
+    val describesPlay = readers != null && isOpen != false
     Div(attrs = {
         classes("bd-part")
         tier?.let { classes(it) }
         if (part.isCurrentChapter) classes("is-current")
     }) {
         if (isOpen == null) {
-            Div(attrs = { classes("bd-part-name") }) { PartText(part.title, summary) }
+            Div(attrs = { classes("bd-part-name") }) {
+                PartText(part.title, summary)
+                readers?.let { ChapterReadersStack(it) }
+            }
         } else {
             Button(attrs = {
                 classes("bd-part-open")
@@ -107,10 +137,12 @@ private fun PartRow(
                 attr("data-part", part.title)
                 attr("aria-expanded", isOpen.toString())
                 attr("aria-label", "${part.title}, $summary")
+                if (describesPart) attr("aria-describedby", sentenceId)
                 onClick { onToggle() }
             }) {
                 Icon(if (isOpen) WebIcon.ChevronDown else WebIcon.ChevronRight, size = CHEVRON_SIZE)
                 PartText(part.title, summary)
+                readers?.let { ChapterReadersStack(it) }
             }
         }
         Button(attrs = {
@@ -119,10 +151,12 @@ private fun PartRow(
             attr("aria-label", "Play ${part.title}")
             // The folded chapter has no row to mark, so its header says it is the current one.
             if (part.isCurrentChapter) attr("aria-current", "true")
+            if (describesPlay) attr("aria-describedby", sentenceId)
             // Only when it can't play: a `disabled` attribute of any value disables the button.
             if (!canPlay) attr("disabled", "")
             onClick { onPlay() }
         }) { Icon(WebIcon.Play, size = PLAY_MARK_SIZE) }
+        readers?.let { ChapterReadersSentence(it, sentenceId) }
     }
 }
 

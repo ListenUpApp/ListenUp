@@ -160,6 +160,8 @@ private fun BookReaderEntry.toEntity(
         observedAt = observedAt,
         hardcoverFinishesJson = hardcoverFinishes.joinToString(","),
         finishesAlsoOnHardcoverJson = finishesAlsoOnHardcover.joinToString(","),
+        currentPositionMs = currentPositionMs,
+        lastPlayedAtMs = lastPlayedAtMs,
     )
 
 private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
@@ -171,6 +173,8 @@ private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
         finishes = timestampsIn(finishesJson),
         hardcoverFinishes = timestampsIn(hardcoverFinishesJson),
         finishesAlsoOnHardcover = timestampsIn(finishesAlsoOnHardcoverJson),
+        currentPositionMs = currentPositionMs,
+        lastPlayedAtMs = lastPlayedAtMs,
     )
 
 /** The epoch-ms list a readership column holds, comma-joined (empty string = none). */

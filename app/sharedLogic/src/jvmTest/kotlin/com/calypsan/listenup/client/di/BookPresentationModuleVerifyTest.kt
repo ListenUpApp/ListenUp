@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
+import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRatingRepository
@@ -79,6 +81,8 @@ import org.koin.test.verify.verify
  *    editor's file boundaries read the first, its "Play from here" commands the second.
  *  - [PermissionsRepository] — owned by `socialModule`.
  *  - [UserProfileRepository] — owned by `socialModule` (who matched the book, on Book Detail's last-match row).
+ *  - [ActiveSessionRepository] — owned by `socialModule` (who is listening now, for Book Detail's readers).
+ *  - [AuthSession] — owned by `authModule` (the signed-in user the presence roster is fetched for).
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookPresentationModuleVerifyTest :
@@ -124,6 +128,9 @@ class BookPresentationModuleVerifyTest :
                         LoadedBookRepository::class,
                         // The player's live playhead: Book Detail keeps up with the player for the loaded book.
                         LoadedBookPlayhead::class,
+                        // Who is listening now, and for whom: Book Detail's readers ring a live listener.
+                        ActiveSessionRepository::class,
+                        AuthSession::class,
                     ),
             )
         }

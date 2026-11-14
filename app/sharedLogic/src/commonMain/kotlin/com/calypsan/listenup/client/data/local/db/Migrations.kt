@@ -672,3 +672,17 @@ internal val MIGRATION_28_29 =
             )
         }
     }
+
+/**
+ * v29 → v30: `book_readership.currentPositionMs` and `lastPlayedAtMs` — each reader's exact in-progress position
+ * and when they last played it, so Book Detail can put them on the chapter they are in. Non-destructive by
+ * construction: two nullable columns, so every cached reader reads as "position unknown" (the percent still places
+ * them) until the next presence ping refills the mirror.
+ */
+internal val MIGRATION_29_30 =
+    object : Migration(29, 30) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_readership` ADD COLUMN `currentPositionMs` INTEGER")
+            connection.executeDdl("ALTER TABLE `book_readership` ADD COLUMN `lastPlayedAtMs` INTEGER")
+        }
+    }

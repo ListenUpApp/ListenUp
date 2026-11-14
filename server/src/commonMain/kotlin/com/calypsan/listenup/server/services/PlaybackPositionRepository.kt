@@ -725,18 +725,19 @@ class PlaybackPositionRepository(
         }
 
     /**
-     * (userId, positionMs) for every user with a live, in-progress (unfinished, positionMs>0) position
-     * on [bookId] played at or after [playedSince]. The floor is the caller's decision, as with
-     * [mostRecentUnfinishedPerUser].
+     * An [InProgressPosition] for every user with a live, in-progress (unfinished, positionMs>0)
+     * position on [bookId] played at or after [playedSince]. The floor is the caller's decision, as
+     * with [mostRecentUnfinishedPerUser].
      */
     suspend fun listInProgressForBook(
         bookId: String,
         playedSince: Long,
-    ): List<Pair<String, Long>> =
+    ): List<InProgressPosition> =
         suspendTransaction(db) {
             db.playbackPositionsQueries
-                .listInProgressForBook(bookId, playedSince) { userId, positionMs -> userId to positionMs }
-                .executeAsList()
+                .listInProgressForBook(bookId, playedSince) { userId, positionMs, lastPlayedAt ->
+                    InProgressPosition(userId = userId, positionMs = positionMs, lastPlayedAt = lastPlayedAt)
+                }.executeAsList()
         }
 
     private fun Playback_positions.toSyncPayload(): PlaybackPositionSyncPayload =
@@ -829,6 +830,19 @@ internal fun resolveStartedAt(
     finishedAt: Long,
     nowMs: Long,
 ): Long? = startedAt?.takeIf { it > 0 && it <= finishedAt && it <= nowMs + SKEW_TOLERANCE_MS }
+
+/**
+ * One user's in-progress position in a book, for its readership.
+ *
+ * @property userId Whose position this is.
+ * @property positionMs Where they are, book-relative ms.
+ * @property lastPlayedAt Epoch-ms they last played the book.
+ */
+data class InProgressPosition(
+    val userId: String,
+    val positionMs: Long,
+    val lastPlayedAt: Long,
+)
 
 /**
  * One user's most-recently-played unfinished book — the presence section's recent-fill row before

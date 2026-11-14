@@ -114,8 +114,9 @@ private const val MAX_COLLAPSED_READERS = 3
  *   since [finishedWhen] reads the same for two finishes in one month; `null` for other rows.
  * @property isAlsoOnHardcover `true` for a ListenUp finish the reader logged on Hardcover too: the one
  *   row reads "Finished {date}" beside an "Also on Hardcover" label, instead of a second Hardcover row.
- * @property isLive `true` only for your own reading row while the player is playing this book: "Listening now", the
- *   ring and the listening mark. Any other reading row says "Listening" over its bar: progress is not presence.
+ * @property isLive `true` while this reader is listening right now — you, while the player is playing this book; anyone
+ *   else, while fresh presence says so: "Listening now", the ring and the listening mark. Any other reading row says
+ *   "Listening" over its bar: progress is not presence.
  */
 data class ReaderRowUi(
     val userId: String,
@@ -617,4 +618,18 @@ internal fun rememberPageReaders(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val data = state as? BookReadersUiState.Data ?: return PageReaders(hasArrived = false, summary = null)
     return PageReaders(hasArrived = true, summary = data.summary.takeIf { it.avatars.isNotEmpty() })
+}
+
+/**
+ * Where everyone else is in the book, for the chapter list. It resolves the same [BookReadersViewModel] as
+ * [BookReadersSection] and [rememberPageReaders], so all three share one repository flow. Nobody, until it loads.
+ */
+@Composable
+internal fun rememberChapterReaders(
+    bookId: String,
+    viewModel: BookReadersViewModel = koinViewModel(parameters = { parametersOf(bookId) }),
+): ChapterReadersOnPage {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val data = state as? BookReadersUiState.Data ?: return ChapterReadersOnPage.None
+    return ChapterReadersOnPage(data.chapterReaders, isAnyoneListening = data.liveUserIds.isNotEmpty())
 }
