@@ -12,7 +12,8 @@ struct BookPartHeader: Equatable {
 
     /// "13 chapters · 5 hr, 16 min", the quiet line under the title.
     var summary: String {
-        String(format: String(localized: "book.detail_part_summary"), count, DurationFormatting.abbreviated(ms: durationMs))
+        let length = DurationFormatting.abbreviated(ms: durationMs)
+        return String(format: String(localized: "book.detail_part_summary"), count, length)
     }
 
     /// "Part IV: Reaper, 13 chapters, 5 hours, 16 minutes": what VoiceOver reads for the heading, the length spelled

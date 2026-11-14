@@ -78,7 +78,8 @@ struct BookGroupedChaptersTests {
         let shared = GroupedChapters(
             rows: [
                 ChapterOutlineRowBookHeader(title: "Book One", chapterId: "b", startMs: 3),
-                ChapterOutlineRowPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5, startMs: 6),
+                ChapterOutlineRowPartHeader(title: "Part I", chapterId: "p", chapterCount: 4, durationMs: 5,
+                                            startMs: 6),
                 ChapterOutlineRowChapterRow(chapter: chapter, index: 7, number: 8)
             ],
             previewRows: [ChapterOutlineRowChapterRow(chapter: chapter, index: 9, number: 10)]
