@@ -39,15 +39,12 @@ internal fun face(
 
 /**
  * Readers placed by chapter id, standing in for the shared projection (which only sharedLogic can build): each
- * chapter's readers on its row, a part's on its header while closed, and everyone else on "Show all".
+ * chapter's readers on its row, and everyone else on "Show all".
  */
 internal class PlacedReaders(
     private val byChapter: Map<String, List<ChapterReaderFace>>,
-    private val byPart: Map<String, List<ChapterReaderFace>> = emptyMap(),
 ) : ChapterReadersLookup {
     override fun onChapter(chapterId: String) = byChapter[chapterId]?.let { ChapterReaders(ReadersPlace.ThisChapter, it) }
-
-    override fun inPart(partId: String) = byPart[partId]?.let { ChapterReaders(ReadersPlace.ThisPart, it) }
 
     override fun beyond(shownChapterIds: List<String>) =
         byChapter
@@ -253,7 +250,7 @@ class ChapterReadersTest :
         }
 
         context("a marked book") {
-            // Credits, then Part I (its announcement folded) with 1 to 6, then Part II (folded) with 7 to 9.
+            // Credits, then Part I (its own "Part I" chapter, then 1 to 6), then Part II ("Part II", then 7 to 9).
             val book =
                 listOf("Credits", "Part I", "1", "2", "3", "4", "5", "6", "Part II", "7", "8", "9").mapIndexed {
                     i,
@@ -287,29 +284,22 @@ class ChapterReadersTest :
                     )
                 }
 
-            test("a closed part's header carries everyone in it, and says so on the button that opens it") {
-                val root =
-                    mountMarked(
-                        PlacedReaders(
-                            byChapter = mapOf("c10" to listOf(face("Tom"))),
-                            byPart = mapOf("c8" to listOf(face("Tom"))),
-                        ),
-                    )
-                (root.querySelector(".bd-ch-all") as HTMLButtonElement).click()
-                awaitFrame()
-
-                val toggle = root.querySelector("button[data-part='Part II']") as HTMLButtonElement
-                toggle.getAttribute("aria-expanded") shouldBe "false"
-                toggle.querySelector(".bd-chr").shouldNotBeNull()
-                describedBy(root, toggle) shouldBe "Tom is in this part."
-            }
-
-            test("a header carries the readers of the chapter folded into it, on its play button") {
+            test("a reader on a part's opening chapter sits on that row, never on the divider above it") {
                 val root = mountMarked(PlacedReaders(byChapter = mapOf("c1" to listOf(face("Priya")))))
 
-                val play = root.querySelector("button[aria-label='Play Part I']") as HTMLButtonElement
-                describedBy(root, play) shouldBe "Priya is on this chapter."
-                play.parentElement!!.querySelector(".bd-chr").shouldNotBeNull()
+                val row = root.querySelector("button[aria-label='Play from chapter 2: Part I']") as HTMLButtonElement
+                row.querySelector(".bd-chr").shouldNotBeNull()
+                describedBy(root, row) shouldBe "Priya is on this chapter."
+                root.querySelector(".bd-part .bd-chr").shouldBeNull()
+                root.querySelector(".bd-part")!!.hasAttribute("aria-describedby") shouldBe false
+            }
+
+            test("a reader in a part the collapsed list leaves out is carried by Show all") {
+                val root = mountMarked(PlacedReaders(byChapter = mapOf("c10" to listOf(face("Tom")))))
+
+                val all = root.querySelector(".bd-ch-all") as HTMLButtonElement
+                all.querySelector(".bd-chr").shouldNotBeNull()
+                describedBy(root, all) shouldBe "Tom is on a chapter further on."
             }
         }
 
@@ -320,7 +310,6 @@ class ChapterReadersTest :
             ) = chapterReadersSentence(ChapterReaders(place, readers.toList()))
 
             sentence(ReadersPlace.ThisChapter, face("Tom")) shouldBe "Tom is on this chapter."
-            sentence(ReadersPlace.ThisPart, face("Tom"), face("Sam")) shouldBe "Tom and Sam are in this part."
             sentence(ReadersPlace.FurtherOn, face("Tom"), face("Sam"), face("Lee")) shouldBe
                 "Tom, Sam and 1 other are on chapters further on."
             sentence(ReadersPlace.Earlier, face("Tom")) shouldBe "Tom is on an earlier chapter."
