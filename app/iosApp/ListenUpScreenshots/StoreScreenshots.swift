@@ -165,7 +165,10 @@ final class StoreScreenshots: XCTestCase {
         for _ in 0..<6 where !manageStorage.isHittable { app.swipeUp() }
         guard manageStorage.isHittable else { return false }
         manageStorage.tap()
-        settle(4)
+        // The downloaded book listed is the proof the screen rendered (and the app is still alive).
+        let listed = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "The Art of War")).firstMatch
+        guard listed.waitForExistence(timeout: 15) else { return false }
+        settle(3)
         guard app.state == .runningForeground else { return false }
         snap("06-downloads")
         return true
@@ -207,17 +210,26 @@ final class StoreScreenshots: XCTestCase {
     /// Runs one screen's capture. A miss leaves its accessibility tree behind and returns to Home.
     @MainActor
     private func screen(_ name: String, _ capture: () -> Bool) -> String? {
+        relaunchIfGone()
         if capture() { return nil }
         // A screen that crashes the app leaves nothing to dump; relaunch (still signed in) and carry on.
         guard app.state == .runningForeground else {
-            app.launch()
-            _ = tab("Home").waitForExistence(timeout: 60)
+            relaunchIfGone()
             return "\(name) (the app crashed)"
         }
         dumpHierarchy(name)
         backToRoot()
         tab("Home").tap()
         return name
+    }
+
+    /// Relaunches the app, still signed in, if an earlier screen crashed it.
+    @MainActor
+    private func relaunchIfGone() {
+        guard app.state != .runningForeground else { return }
+        app.launch()
+        _ = tab("Home").waitForExistence(timeout: 60)
+        settle(3)
     }
 
     /// Pops any pushed screens off the current tab.
