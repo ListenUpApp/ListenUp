@@ -81,9 +81,11 @@ class ScrollRowState internal constructor() {
         val items = row.children.asList().map { it.getBoundingClientRect() }
         val delta =
             if (forward) {
-                items.firstOrNull { it.right > end + EDGE_SLACK_PX }?.let { it.left - start } ?: row.clientWidth.toDouble()
+                items.firstOrNull { it.right > end + EDGE_SLACK_PX }?.let { it.left - start }
+                    ?: row.clientWidth.toDouble()
             } else {
-                items.firstOrNull { it.left >= start - EDGE_SLACK_PX }?.let { it.right - end } ?: -row.clientWidth.toDouble()
+                items.firstOrNull { it.left >= start - EDGE_SLACK_PX }?.let { it.right - end }
+                    ?: -row.clientWidth.toDouble()
             }
         row.scrollTo(
             ScrollToOptions(
