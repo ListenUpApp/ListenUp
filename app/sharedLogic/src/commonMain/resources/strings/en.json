@@ -1226,7 +1226,6 @@
     "shuffle": "Shuffle",
     "shuffle_a11y": "Shuffle: draw ten different books",
     "pick_series_line": "Book %1$s of %2$s",
-    "pick_standalone": "Standalone",
     "leaderboard_period_week": "Week",
     "leaderboard_period_month": "Month",
     "leaderboard_period_year": "Year",

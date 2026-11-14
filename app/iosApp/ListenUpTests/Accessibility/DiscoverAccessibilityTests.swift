@@ -42,6 +42,34 @@ struct DiscoverAccessibilityTests {
         #expect(hosted.stop(labelled: "Shuffle: draw ten different books") != nil, "\(hosted.tree)")
     }
 
+    /// A book outside a series is read as its title, author and length: no "Standalone" between them.
+    @Test func aPickOutsideASeriesIsReadWithoutASeriesLine() async throws {
+        let pick = DiscoverBook(
+            id: "p1", title: "Klara and the Sun", author: "Kazuo Ishiguro", coverPath: nil, coverHash: nil,
+            durationMs: 36_960_000
+        )
+        let hosted = await host(PickCard(book: pick, width: 150, selection: nil))
+        defer { hosted.close() }
+        let label = "Klara and the Sun, Kazuo Ishiguro, \(DiscoverCopy.length(ms: 36_960_000))"
+        #expect(hosted.stop(labelled: label) != nil, "\(hosted.tree)")
+        #expect(hosted.stops(labelContaining: "Standalone").isEmpty, "\(hosted.tree)")
+    }
+
+    /// At iPad width the ten picks are still one row: the first is on screen and the tenth is past the
+    /// edge, waiting to be scrolled to, rather than wrapped onto a second line.
+    @Test func picksStayOneRowAtRegularWidth() async throws {
+        let picks = (1...10).map {
+            DiscoverBook(id: "p\($0)", title: "Pick \($0)", author: nil, coverPath: nil, coverHash: nil)
+        }
+        let section = SomethingNewSection(
+            phase: .ready(picks), cardWidth: 150, horizontalInset: 32, isRegular: true, selection: nil, onShuffle: {}
+        )
+        let hosted = await HostedView(NavigationStack { section }, size: CGSize(width: 1_024, height: 700))
+        defer { hosted.close() }
+        #expect(!hosted.stops(labelContaining: "Pick 1,").isEmpty, "\(hosted.tree)")
+        #expect(hosted.stops(labelContaining: "Pick 10,").isEmpty, "\(hosted.tree)")
+    }
+
     @Test func aRowIsReadRankFirst() async throws {
         let row = LeaderboardRow(
             id: "u1", rank: 1, displayName: "Maya Chen", initials: "MC", value: "14h 20m", isCurrentUser: false

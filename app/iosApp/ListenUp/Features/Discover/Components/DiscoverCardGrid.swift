@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// How Discover lays out a section's cards: a horizontal rail at compact width, and at regular width
+/// How Discover lays out a section's cards: a horizontal rail (`DiscoverRail`) at compact width, and at regular width
 /// a grid of the board's column count that shows **every** item, wrapping as it needs to (iOS rule 12).
 ///
 /// Showing everything rather than one row of as many as fit hides nothing and needs no width
@@ -33,13 +33,32 @@ struct DiscoverCardGrid<Item: Identifiable, Card: View>: View {
             }
             .padding(.horizontal, horizontalInset)
         } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: spacing) {
-                    ForEach(items) { item in card(item, cardWidth) }
-                }
-                .padding(.horizontal, horizontalInset)
+            DiscoverRail(items: items, horizontalInset: horizontalInset, spacing: spacing) { item in
+                card(item, cardWidth)
             }
         }
+    }
+}
+
+/// Discover's horizontal rail: one row of cards that scrolls sideways and comes to rest on a card's
+/// leading edge (HIG, Scroll views), never part-way through one. The inset is a content margin rather
+/// than padding, so a resting card lines up with the heading above it, and the next card peeks at the
+/// trailing edge to say there is more. Lazy, so a long rail builds only the cards near the screen.
+struct DiscoverRail<Item: Identifiable, Card: View>: View {
+    let items: [Item]
+    let horizontalInset: CGFloat
+    var spacing: CGFloat = Spacing.m
+    @ViewBuilder let card: (Item) -> Card
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(alignment: .top, spacing: spacing) {
+                ForEach(items) { item in card(item) }
+            }
+            .scrollTargetLayout()
+        }
+        .contentMargins(.horizontal, horizontalInset, for: .scrollContent)
+        .scrollTargetBehavior(.viewAligned)
     }
 }
 

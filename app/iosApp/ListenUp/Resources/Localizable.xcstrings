@@ -13773,17 +13773,6 @@
         }
       }
     },
-    "discover.pick_standalone": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standalone"
-          }
-        }
-      }
-    },
     "discover.recently_added": {
       "extractionState": "manual",
       "localizations": {

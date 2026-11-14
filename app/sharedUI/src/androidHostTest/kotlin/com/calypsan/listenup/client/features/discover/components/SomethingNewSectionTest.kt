@@ -1,6 +1,10 @@
 package com.calypsan.listenup.client.features.discover.components
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTouchHeightIsEqualTo
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
@@ -8,8 +12,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.features.discover.WithAvatarDependencies
 import com.calypsan.listenup.client.features.discover.pick
@@ -42,6 +48,7 @@ class SomethingNewSectionTest {
     private fun show(
         books: List<DiscoverUiBook>,
         onShuffle: () -> Unit = {},
+        wide: Boolean = false,
     ) {
         composeRule.setContent {
             WithAvatarDependencies {
@@ -54,6 +61,7 @@ class SomethingNewSectionTest {
                     isInSelectionMode = false,
                     selectedBookIds = emptySet(),
                     onBookLongPress = null,
+                    wide = wide,
                 )
             }
         }
@@ -75,8 +83,25 @@ class SomethingNewSectionTest {
             ),
         )
         composeRule.onNodeWithText("Book 1 of Mistborn", useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithText("Standalone", useUnmergedTree = true).assertExists()
         composeRule.onAllNodesWithText("24h 39m", useUnmergedTree = true).onFirst().assertExists()
+    }
+
+    @Test
+    fun aBookOutsideASeriesShowsOnlyItsLength() {
+        show(listOf(pick("p2", "Klara and the Sun", null, null, durationMs = 36_960_000)))
+        composeRule.onNodeWithText("10h 16m", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Standalone", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aWideWindowKeepsEveryPickInOneRowThatScrolls() {
+        val books = (1..10).map { pick("p$it", "Pick $it", "Series $it", "1") }
+        show(books, wide = true)
+        composeRule
+            .onNodeWithTag(SOMETHING_NEW_ROW_TAG)
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+            .performScrollToIndex(books.lastIndex)
+        composeRule.onNodeWithText("Pick 10", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

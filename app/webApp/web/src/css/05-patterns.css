@@ -874,3 +874,18 @@ div.panel-pop {
   .shell-morphing.mp-fade .np-layer .np-morph { opacity:var(--mp-q); }
   .shell-morphing.mp-fade .sidebar, .shell-morphing.mp-fade .tport { opacity:calc(1 - var(--mp-q)); }
 }
+
+/* ScrollRow: one row that never wraps. It scrolls sideways and rests on an item's leading edge; the item past
+   the edge peeks. The padding is room for a card's focus ring and selection ring, which the row's own
+   overflow would otherwise clip; the negative margin keeps the cards on the page's edge. */
+.luw .scroll-row {
+  display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity;
+  scrollbar-width: none; padding: 6px; margin: -6px; scroll-padding-inline: 6px;
+}
+.luw .scroll-row::-webkit-scrollbar { display: none; }
+.luw .scroll-row > * { flex: none; scroll-snap-align: start; }
+/* Its arrows are for a pointer that cannot swipe; a touchscreen swipes, so they step aside there. */
+.luw .scroll-row-arrows { display: none; }
+@media (hover: hover) and (pointer: fine) { .luw .scroll-row-arrows { display: inline-flex; gap: 0.25rem; } }
+/* As tall and as outlined as the small buttons that sit beside them in a section's header. */
+.luw .scroll-row-arrows .scroll-row-arrow { width: 32px; height: 32px; border-color: var(--outline); color: var(--ink); }
