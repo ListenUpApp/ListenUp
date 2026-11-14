@@ -55,8 +55,8 @@ struct DiscoverAccessibilityTests {
         #expect(hosted.stops(labelContaining: "Standalone").isEmpty, "\(hosted.tree)")
     }
 
-    /// At iPad width the ten picks are still one row: the first is on screen and the tenth is past the
-    /// edge, waiting to be scrolled to, rather than wrapped onto a second line.
+    /// At iPad width the ten picks are still one row: every pick sits at the same height, and the row
+    /// runs past the trailing edge (the window is 1,024 points; ten cards need about 1,700).
     @Test func picksStayOneRowAtRegularWidth() async throws {
         let picks = (1...10).map {
             DiscoverBook(id: "p\($0)", title: "Pick \($0)", author: nil, coverPath: nil, coverHash: nil)
@@ -66,8 +66,10 @@ struct DiscoverAccessibilityTests {
         )
         let hosted = await HostedView(NavigationStack { section }, size: CGSize(width: 1_024, height: 700))
         defer { hosted.close() }
-        #expect(!hosted.stops(labelContaining: "Pick 1,").isEmpty, "\(hosted.tree)")
-        #expect(hosted.stops(labelContaining: "Pick 10,").isEmpty, "\(hosted.tree)")
+        let cards = hosted.stops.filter { $0.label.hasPrefix("Pick ") }
+        #expect(cards.count == 10, "\(hosted.tree)")
+        #expect(Set(cards.map { $0.frame.minY }).count == 1, "\(hosted.tree)")
+        #expect(cards.contains { $0.frame.maxX > 1_024 }, "\(hosted.tree)")
     }
 
     @Test func aRowIsReadRankFirst() async throws {
