@@ -101,7 +101,7 @@ class SomethingNewSectionTest {
             .onNodeWithTag(SOMETHING_NEW_ROW_TAG)
             .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
             .performScrollToIndex(books.lastIndex)
-        composeRule.onNodeWithText("Pick 10", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onAllNodesWithText("Pick 10", useUnmergedTree = true).onFirst().assertIsDisplayed()
     }
 
     @Test
