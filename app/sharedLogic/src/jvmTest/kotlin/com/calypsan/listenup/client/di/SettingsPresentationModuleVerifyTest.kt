@@ -54,7 +54,7 @@ import org.koin.test.verify.verify
  *  - [DownloadService] — owned by `downloadModule`.
  *  - [DownloadFileManager] — owned by the platform download module; the adapter this module binds
  *    wraps it to satisfy `StorageSpaceProvider`.
- *  - [PlaybackStateProvider] — the concrete `PlaybackManager`, owned by `playbackModule`.
+ *  - [PlaybackStateProvider] — owned by each platform's playback module (iOS reads it off its engine).
  *  - [InboxRepository] — owned by `collectionModule` (marks a downloaded book held).
  */
 @OptIn(KoinExperimentalAPI::class)

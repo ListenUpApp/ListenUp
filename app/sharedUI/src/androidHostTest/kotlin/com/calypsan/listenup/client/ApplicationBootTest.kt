@@ -127,9 +127,8 @@ class ApplicationBootTest {
         GlobalContext.getOrNull() shouldNotBe null
 
         // Every dependency MainActivity declares must resolve against this real graph. On
-        // 2026-09-25 `by inject<PlaybackStateProvider>()` shipped for Continue On: nothing binds
-        // that interface (PlaybackManager implements it; iOS binds no PlaybackManager at all), so
-        // the app crashed the first time Android asked for handoff data — every time it left the
+        // 2026-09-25 `by inject<PlaybackStateProvider>()` shipped for Continue On while nothing bound
+        // that interface (PlaybackManager implemented it, unbound as such), so the app crashed the first time Android asked for handoff data — every time it left the
         // foreground. Forcing each lazy delegate here covers the next such field too, without a
         // list to keep in step with the activity.
         val activity = Robolectric.buildActivity(MainActivity::class.java).get()

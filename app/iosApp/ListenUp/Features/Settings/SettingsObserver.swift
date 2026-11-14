@@ -105,10 +105,9 @@ final class SettingsObserver {
     func setHapticFeedbackEnabled(_ enabled: Bool) { viewModel.setHapticFeedbackEnabled(enabled: enabled) }
     /// Stops native playback, then runs the shared logout (server revoke + local teardown).
     ///
-    /// The shared `LogoutUseCase` clears playback through `PlaybackStateProvider`, which only
-    /// Android's `PlaybackManager` implements — iOS drives AVFoundation natively, so the shared
-    /// flow can't stop the engine and audio would keep playing after sign-out. See
-    /// [SignOutSequence] for why the order matters.
+    /// The shared `LogoutUseCase` clears playback through `PlaybackStateProvider` too, but on iOS
+    /// that only queues a Stop for the engine; awaiting the native teardown first is what keeps a
+    /// stream from outliving the session. See [SignOutSequence] for why the order matters.
     func signOut() async {
         await SignOutSequence.run(
             stopPlayback: stopPlayback,
