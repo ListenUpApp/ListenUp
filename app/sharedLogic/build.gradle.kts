@@ -96,6 +96,9 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.auth)
+            // The RPC transport's WebSocket plugin. Declared here so it follows the catalog's Ktor;
+            // left to kotlinx-rpc it resolves to that library's older Ktor baseline on every client.
+            implementation(libs.ktor.client.websockets)
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlincrypto.sha2)
@@ -132,9 +135,6 @@ kotlin {
 
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
-            // Raises Ktor's OkHttp to the release that distrusts the compromised eMudhra
-            // intermediates; see the `okhttp` pin in libs.versions.toml.
-            implementation(libs.okhttp)
             implementation(libs.androidx.work.runtime.ktx)
             // sqlite-bundled links the SQLite C amalgamation and publishes no js variant, so it
             // cannot live in commonMain. Each native platform declares it and passes the driver
@@ -158,8 +158,6 @@ kotlin {
 
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
-            // Same OkHttp floor as androidMain above.
-            implementation(libs.okhttp)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.jmdns) // mDNS server discovery
             // Note: SLF4J backend provided by consuming app (desktopApp uses logback)

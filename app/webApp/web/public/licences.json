@@ -82,7 +82,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-core",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "core",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -142,7 +142,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlin:kotlin-js-plain-objects",
-      "artifactVersion": "2.3.10",
+      "artifactVersion": "2.2.20",
       "name": "Kotlin Js Plain Objects",
       "description": "Annotations library for the JS Plain Objects compiler plugin",
       "website": "https://kotlinlang.org/",
@@ -182,29 +182,29 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlin-wrappers:kotlin-js",
-      "artifactVersion": "2026.3.7",
+      "artifactVersion": "2025.9.8",
       "name": "kotlin-js",
       "description": "Kotlin wrappers for standard JS objects",
-      "website": "https://github.com/JetBrains/kotlin-wrappers/",
+      "website": "https://github.com/JetBrains/kotlin-wrappers",
       "licenses": [
         "Apache-2.0"
       ]
     },
     {
       "uniqueId": "org.jetbrains.kotlin-wrappers:kotlin-js-core",
-      "artifactVersion": "2026.3.7",
+      "artifactVersion": "2025.9.8",
       "name": "kotlin-js-core",
       "description": "Helper for `kotlin-js`",
-      "website": "https://github.com/JetBrains/kotlin-wrappers/",
+      "website": "https://github.com/JetBrains/kotlin-wrappers",
       "licenses": [
         "Apache-2.0"
       ]
     },
     {
       "uniqueId": "io.github.oshai:kotlin-logging",
-      "artifactVersion": "8.0.4",
+      "artifactVersion": "8.0.7",
       "name": "kotlin-logging",
-      "description": "kotlin-logging 8.0.4 - Lightweight logging framework for Kotlin",
+      "description": "kotlin-logging 8.0.7 - Lightweight logging framework for Kotlin",
       "website": "https://github.com/oshai/kotlin-logging",
       "licenses": [
         "Apache-2.0"
@@ -302,7 +302,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-io-bytestring",
-      "artifactVersion": "0.9.1",
+      "artifactVersion": "0.9.3",
       "name": "kotlinx-io-bytestring",
       "description": "IO support for Kotlin",
       "website": "https://github.com/Kotlin/kotlinx-io",
@@ -312,7 +312,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-io-core",
-      "artifactVersion": "0.9.1",
+      "artifactVersion": "0.9.3",
       "name": "kotlinx-io-core",
       "description": "IO support for Kotlin",
       "website": "https://github.com/Kotlin/kotlinx-io",
@@ -322,7 +322,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-core",
-      "artifactVersion": "1.12.0",
+      "artifactVersion": "1.13.0",
       "name": "kotlinx-serialization-core",
       "description": "Kotlin multiplatform serialization runtime library",
       "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -332,7 +332,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-serialization-json",
-      "artifactVersion": "1.12.0",
+      "artifactVersion": "1.13.0",
       "name": "kotlinx-serialization-json",
       "description": "Kotlin multiplatform serialization runtime library",
       "website": "https://github.com/Kotlin/kotlinx.serialization",
@@ -352,7 +352,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-client",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-client",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -362,7 +362,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-core",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-core",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -372,7 +372,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-client",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-ktor-client",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -382,7 +382,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-core",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-ktor-core",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -392,7 +392,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-logging",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-logging",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -402,7 +402,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-core",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-serialization-core",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -412,7 +412,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-json",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "krpc-serialization-json",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",
@@ -472,7 +472,7 @@
     },
     {
       "uniqueId": "io.ktor:ktor-client-websockets",
-      "artifactVersion": "3.4.0",
+      "artifactVersion": "3.6.1",
       "name": "ktor-client-websockets",
       "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
       "website": "https://github.com/ktorio/ktor",
@@ -663,7 +663,7 @@
     },
     {
       "uniqueId": "io.github.turansky.seskar:seskar-core",
-      "artifactVersion": "4.34.0",
+      "artifactVersion": "4.20.0",
       "name": "Seskar core",
       "description": "Seskar core library",
       "website": "https://github.com/turansky/seskar",
@@ -733,7 +733,7 @@
     },
     {
       "uniqueId": "org.jetbrains.kotlinx:kotlinx-rpc-utils",
-      "artifactVersion": "0.11.0-grpc-190",
+      "artifactVersion": "0.10.4",
       "name": "utils",
       "description": "kotlinx.rpc, a Kotlin library for adding asynchronous RPC services to your applications.",
       "website": "https://github.com/Kotlin/kotlinx-rpc",

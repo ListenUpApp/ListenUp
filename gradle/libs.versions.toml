@@ -2,25 +2,27 @@
 android-compileSdk = "37"
 android-minSdk = "33"
 android-targetSdk = "37"
-agp = "9.5.0"
-# The NDK AGP 9.5.0 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
+agp = "9.5.1"
+# The NDK AGP 9.5 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
 # Only :app:androidApp uses it: to strip the AndroidX .so files and extract the symbol tables Play reads.
 android-ndk = "28.2.13676358"
+# The benchmark library and the baseline-profile Gradle plugin release together.
 androidx-benchmark = "1.5.0"
-androidx-baselineprofile = "1.5.0"
 androidx-profileinstaller = "1.4.1"
 androidx-test-ext-junit = "1.3.0"
-androidx-test-uiautomator = "2.4.0"
+androidx-test-uiautomator = "2.4.1"
 androidx-activity = "1.13.0"
+# JetBrains multiplatform lifecycle (org.jetbrains.androidx.lifecycle).
 androidx-lifecycle = "2.11.0"
 androidx-window = "1.5.1"
-androidx-lifecycle-viewmodel-navigation3 = "2.11.0"
-androidx-navigation3 = "1.2.0"
+# AndroidX lifecycle (androidx.lifecycle): the Navigation 3 ViewModel add-on and lifecycle-process.
+androidx-lifecycle-android = "2.11.0"
+androidx-navigation3 = "1.2.1"
 androidx-graphics-shapes = "1.1.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.1"
 androidx-core-splashscreen = "1.2.0"
-robolectric = "4.17"
+robolectric = "4.18"
 # Compose Multiplatform upgrade UNIT — bump together, never piecemeal:
 #   composeMultiplatform  +  compose-material3 (versioned on its own alpha line, but built
 #   against a SPECIFIC CMP foundation). Skewing them compiles cleanly and then throws
@@ -29,47 +31,38 @@ robolectric = "4.17"
 #   The major lines track: material3 1.11.x ↔ CMP 1.11.x, material3 1.12.x ↔ CMP 1.12.x.
 composeMultiplatform = "1.12.2"
 compose-material3 = "1.12.0-alpha03"
-# Swift Export bridge upgrade UNIT — bump together, never piecemeal:
-#   kotlin  +  the Swift Export patcher (build-logic `SwiftExportSourcePatcher`, validated against
-#   THIS Kotlin)  +  kotlinx-rpc.
-# NOTE on kotlinx-rpc: its VALUE does not move on a Kotlin bump. The library publishes one codegen
-# artifact per Kotlin version, named `<kotlin>-<library>` (here `2.4.20-0.11.0-grpc-190`), and the
-# Gradle plugin selects it from the Kotlin version. So a Kotlin bump silently needs a matching
-# artifact to EXIST on the dev channel — check before bumping, because a miss surfaces as an
-# unresolved dependency, not as a version conflict.
-kotlin = "2.4.20"
+# Kotlin upgrade UNIT — bump together, never piecemeal:
+#   kotlin  +  ksp  +  the Swift Export patcher (build-logic `SwiftExportSourcePatcher`, validated
+#   against THIS Kotlin)  +  mokkery and kctfork (compiler plugins)  +  kotlinx-rpc.
+# kotlinx-rpc's VALUE does not move on a Kotlin bump: it publishes one compiler-plugin artifact per
+# Kotlin version, named `<kotlin>-<library>` (here `2.4.21-0.10.4`), and its Gradle plugin picks
+# the one matching `kotlin`. Check that artifact exists on Maven Central before bumping Kotlin: a
+# miss surfaces as an unresolved dependency, not as a version conflict.
+kotlin = "2.4.21"
+# Held at the KSP that kctfork is built against: a newer one fails the rpc-guard-ksp tests with a
+# NoSuchMethodError inside KSP (kctfork 0.14.0 embeds KSP 2.3.12). Bump the two together.
 ksp = "2.3.12"
-mokkery = "3.5.1"
+mokkery = "3.6.0" # compiler plugin: part of the Kotlin upgrade UNIT
 ktor = "3.6.1"
-# Ahead of Ktor 3.6.0's own OkHttp 5.5.0: 5.5.1 blocks the eight compromised eMudhra intermediate
-# certificates on JVMs and AOSP devices without the Play Services trust update. Drop the pin when
-# a Ktor release depends on okhttp >= 5.5.1.
-okhttp = "5.5.1"
-# Test-only (server jvmTest), ahead of ktor-server-auth-jwt 3.6.0's java-jwt 4.6.0: 4.6.2 brings
+# Test-only (server jvmTest), ahead of ktor-server-auth-jwt 3.6.1's java-jwt 4.6.0: 4.6.2 brings
 # jackson 2.22.3, which closes the jackson-core/jackson-databind advisories through 2.22.2.
 auth0-java-jwt = "4.6.2"
-# Test-only (:app:baselineprofile), ahead of androidx.benchmark 1.5.0's wire-runtime 6.4.0
-# (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5). The only benchmark release on a fixed Wire is
-# 1.6.0-alpha01, which is not stable; 6.4.7 is the version that release uses.
-wire = "6.4.7"
-# DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Decision
-# 2026-10-10: stay. Stable 0.10.3+ carries the KRPC-560 fix too (2.4.20-0.10.4 plugin is on Maven
-# Central), but that is a downgrade of the transport that only the native CI lanes can vet. Revisit
-# when 0.11.x stable reaches Maven Central, then delete the `kxrpc-grpc` entries in settings.gradle.kts.
-# Part of the Swift Export upgrade UNIT above.
-kotlinx-rpc = "0.11.0-grpc-190"
-kotest = "6.2.6"
-junit-vintage = "6.1.3" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
+# Test-only (:app:baselineprofile): androidx.benchmark 1.5.0 pulls wire-runtime 6.4.0
+# (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5), and no stable benchmark release moves past it.
+wire = "7.2.1"
+# Part of the Kotlin upgrade UNIT above.
+kotlinx-rpc = "0.10.4"
+kotest = "6.2.7"
+junit-vintage = "6.1.3" # matches Kotest's JUnit BOM
 kotlinx-coroutines = "1.11.0"
-kotlinx-serialization = "1.12.0"
+kotlinx-serialization = "1.13.0"
 kotlinx-datetime = "0.8.0"
-kotlinx-io = "0.9.1"
+kotlinx-io = "0.9.3"
 materialkolor = "6.0.0"
 koin = "4.2.2"
 turbine = "1.2.1"
-kotlin-logging = "8.0.4"
+kotlin-logging = "8.0.7"
 slf4j-android = "2.0.20-0"
-slf4j = "2.0.20"
 # Room 3 — group `androidx.room3`, artifacts `room3-*`, plugin id `androidx.room3`.
 # Room 3 is a deliberate break from 2.x (coroutines-only DAOs, SQLiteDriver-only, KSP-only,
 # Kotlin-only codegen), which is why the coordinates changed rather than the version bumping.
@@ -78,18 +71,17 @@ room = "3.0.3"
 # js/wasmJs targets plus sqlite-web's WebWorkerSQLiteDriver.
 room-sqlite = "2.7.1"
 androidx-work = "2.12.0"
-androidx-lifecycle-process = "2.11.0"
 coil = "3.6.3"
 media3 = "1.11.1"
 concurrent-futures = "1.3.0"
 markdown-renderer = "0.46.0"
 aboutlibraries = "15.3.0"
-google-services = "4.5.0"
-firebase-messaging = "26.0.1"
+google-services = "4.6.0"
+firebase-messaging = "26.0.2"
 
-# Desktop
-logback = "1.6.6"
-jmdns = "3.6.4"
+# Server and desktop JVM
+logback = "1.6.7"
+jmdns = "3.6.5"
 javacpp = "1.5.14"
 ffmpeg-javacpp = "8.1.2-1.5.14"
 jnativehook = "2.2.2"
@@ -100,7 +92,7 @@ material3-adaptive-multiplatform = "1.3.0"
 
 # Quality Tool
 detekt = "2.0.0-alpha.6"
-spotless = "8.10.4"
+spotless = "8.11.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.11"
 atomicfu = "0.33.0"
@@ -109,9 +101,8 @@ atomicfu = "0.33.0"
 sqlite-jdbc = "3.54.1.0"
 password4j = "1.8.4"
 konsist = "0.18.1"
-ksp-symbol-processing-api = "2.3.12" # matches project ksp version — bump in lockstep with `ksp`
 sqldelight = "2.4.1"
-kctfork = "0.14.0" # dev.zacsweers.kctfork — maintained fork of kotlin-compile-testing with KSP support
+kctfork = "0.14.0" # embeds a Kotlin compiler and a KSP: part of the Kotlin upgrade UNIT
 cryptography-kotlin = "0.6.0"
 kotlincrypto-hash = "0.8.0"
 
@@ -127,13 +118,11 @@ androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", versi
 androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
-# Baseline Profile
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "androidx-benchmark" }
 wire-runtime = { module = "com.squareup.wire:wire-runtime", version.ref = "wire" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "androidx-profileinstaller" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }
-# JetBrains Compose Multiplatform
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
 compose-html-core = { module = "org.jetbrains.compose.html:html-core", version.ref = "composeMultiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
@@ -143,28 +132,22 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-components-ui-tooling-preview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "composeMultiplatform" }
-# Material Icons
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "androidx-material-icons" }
-# Navigation 3 (AndroidX - Android only)
 androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-ui-android", version.ref = "androidx-navigation3" }
-# Navigation 3 ViewModel decorator add-on (lifecycle add-on artifact aligned with androidx-lifecycle version stream)
-androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle-viewmodel-navigation3" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle-android" }
 # Navigation 3 (JetBrains Multiplatform) - only navigation3-ui exists on Maven Central
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3-multiplatform" }
 # Graphics Shapes (polygon morphing — backing for MaterialShapes in material3)
 androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "androidx-graphics-shapes" }
-# Material 3 Adaptive (JetBrains Multiplatform)
 material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3-adaptive-multiplatform" }
 material3-adaptive-navigation = { module = "org.jetbrains.compose.material3.adaptive:adaptive-navigation", version.ref = "material3-adaptive-multiplatform" }
 # Window (foldable posture awareness via WindowInfoTracker)
 androidx-window = { module = "androidx.window:window", version.ref = "androidx-window" }
-# Ktor
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-curl = { module = "io.ktor:ktor-client-curl", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
@@ -174,7 +157,6 @@ ktor-client-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 # Ktor IO — multiplatform io.ktor.utils.io.* (ByteReadChannel, etc.)
 ktor-io = { module = "io.ktor:ktor-io", version.ref = "ktor" }
-# Ktor server (core)
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
@@ -186,60 +168,48 @@ ktor-server-partial-content = { module = "io.ktor:ktor-server-partial-content", 
 ktor-server-auto-head-response = { module = "io.ktor:ktor-server-auto-head-response", version.ref = "ktor" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
-# Ktor server (auth)
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt", version.ref = "ktor" }
 auth0-java-jwt = { module = "com.auth0:java-jwt", version.ref = "auth0-java-jwt" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id", version.ref = "ktor" }
 ktor-server-forwarded-header = { module = "io.ktor:ktor-server-forwarded-header", version.ref = "ktor" }
-# Server persistence
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
-# Password hashing
 password4j = { module = "com.password4j:password4j", version.ref = "password4j" }
-# kotlinx.rpc
 kotlinx-rpc-core = { module = "org.jetbrains.kotlinx:kotlinx-rpc-core", version.ref = "kotlinx-rpc" }
 kotlinx-rpc-krpc-server = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-server", version.ref = "kotlinx-rpc" }
 kotlinx-rpc-krpc-ktor-server = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-server", version.ref = "kotlinx-rpc" }
 kotlinx-rpc-krpc-client = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-client", version.ref = "kotlinx-rpc" }
 kotlinx-rpc-krpc-ktor-client = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-client", version.ref = "kotlinx-rpc" }
 kotlinx-rpc-krpc-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-json", version.ref = "kotlinx-rpc" }
-# Kotlinx
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-# Coroutines + SLF4J MDC propagation
 kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
 kotlinx-io-bytestring = { module = "org.jetbrains.kotlinx:kotlinx-io-bytestring", version.ref = "kotlinx-io" }
 materialkolor-utilities = { module = "com.materialkolor:material-color-utilities", version.ref = "materialkolor" }
-# Koin
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
 koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
-# Koin server
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
-# Kotest
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
 kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
-# JUnit Platform vintage engine — lets the JUnit Platform discover and run pre-existing JUnit4 tests
+# Lets the JUnit Platform discover and run the remaining JUnit4 tests.
 junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit-vintage" }
-# Logging
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version.ref = "kotlin-logging" }
 slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4j-android" }
 logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
 jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }
-# FFmpeg Audio (Desktop)
 javacv = { module = "org.bytedeco:javacv", version.ref = "javacpp" }
 javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
 ffmpeg = { module = "org.bytedeco:ffmpeg", version.ref = "ffmpeg-javacpp" }
-# Testing
 mokkery-runtime = { group = "dev.mokkery", name = "mokkery-runtime", version.ref = "mokkery" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
@@ -248,7 +218,6 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-ui-test" }
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 detekt-gradlePlugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
-# Room (Database)
 androidx-room-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room" }
 androidx-room-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room3", name = "room3-testing", version.ref = "room" }
@@ -260,17 +229,13 @@ androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", 
 # sqlite-web is the browser counterpart to sqlite-bundled — js-only, and the consumer supplies
 # wasm SQLite in a Web Worker rather than receiving a compiled binary.
 androidx-sqlite-web = { group = "androidx.sqlite", name = "sqlite-web", version.ref = "room-sqlite" }
-# WorkManager
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "androidx-work" }
 # Lifecycle Process (ProcessLifecycleOwner — foreground/background app-lifecycle observation)
-androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "androidx-lifecycle-process" }
-# Firebase Cloud Messaging (push notifications)
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "androidx-lifecycle-android" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
-# Coil (Image Loading)
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
-# Media3 (Audio Playback)
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
@@ -278,14 +243,10 @@ media3-datasource-okhttp = { module = "androidx.media3:media3-datasource-okhttp"
 media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
 # Async/Future support for Media3 callbacks
 concurrent-futures = { module = "androidx.concurrent:concurrent-futures-ktx", version.ref = "concurrent-futures" }
-# Markdown Rendering
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdown-renderer" }
-# AboutLibraries (open-source license display)
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
-# Konsist — architectural assertions
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
-ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp-symbol-processing-api" }
-# SQLDelight — server-side SQL layer (cutover from Exposed)
+ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 sqldelight-driver-jvm = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
@@ -298,8 +259,7 @@ cryptography-provider-openssl3-prebuilt = { module = "dev.whyoleg.cryptography:c
 kotlincrypto-sha2 = { module = "org.kotlincrypto.hash:sha2", version.ref = "kotlincrypto-hash" }
 
 [bundles]
-# Kotest JVM runner + assertions — the cluster every Kotest test source set needs
-# (composeApp androidHostTest + desktopTest). kotest-property is added separately where used.
+# Kotest JVM runner + assertions. kotest-property is added separately where used.
 kotest = ["kotest-runner-junit5", "kotest-assertions-core"]
 
 [plugins]
@@ -307,7 +267,7 @@ androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidTest = { id = "com.android.test", version.ref = "agp" }
-androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidx-baselineprofile" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidx-benchmark" }
 androidx-room = { id = "androidx.room3", version.ref = "room" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
@@ -315,19 +275,13 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-# Kotest 6 renamed the multiplatform plugin to `io.kotest` and replaced its compiler plugin with
-# KSP. It generates the Kotlin/Native test entry point, which is the only thing the native lane
-# was missing — `kotest-framework-engine` is already on that classpath via commonTest.
+# Generates the Kotlin/Native test entry point (through KSP).
 kotest = { id = "io.kotest", version.ref = "kotest" }
 mokkery = { id = "dev.mokkery", version.ref = "mokkery" }
-# Quality Tools
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
-# Server
 kotlinxRpc = { id = "org.jetbrains.kotlinx.rpc.plugin", version.ref = "kotlinx-rpc" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
-# AboutLibraries
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
-# Firebase (google-services.json → BuildConfig resource injection)
 googleServices = { id = "com.google.gms.google-services", version.ref = "google-services" }
