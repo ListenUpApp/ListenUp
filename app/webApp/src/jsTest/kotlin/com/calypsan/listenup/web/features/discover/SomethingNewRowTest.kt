@@ -83,7 +83,8 @@ class SomethingNewRowTest :
                 presses++
                 presses shouldBeLessThanOrEqual 10
             }
-            (row.scrollLeft + row.clientWidth) shouldBe (row.scrollWidth.toDouble() plusOrMinus 1.0)
+            val reach = row.scrollLeft + row.clientWidth
+            reach shouldBe (row.scrollWidth.toDouble() plusOrMinus 1.0)
             back.click()
             awaitAttribute(forward, "aria-disabled", null)
         }
