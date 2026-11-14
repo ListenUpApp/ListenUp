@@ -58,7 +58,9 @@ class SomethingNewRowTest :
         }
 
         test("back is unavailable at the start; forward pages the row until the end, where it stops") {
-            val frame = frames.mount(width = 1440, height = 1600) { discoverPage(books = picks(10)) }
+            // A narrow window with a mouse, so the first page lands well short of the row's end (where the
+            // browser would clamp it) and the peeking card can be seen to come to the front.
+            val frame = frames.mount(width = 600, height = 1600) { discoverPage(books = picks(10)) }
             awaitFrame()
             val back = frame.find("[aria-label='Previous books']")
             val forward = frame.find("[aria-label='Next books']")
@@ -72,7 +74,7 @@ class SomethingNewRowTest :
             row.scrollLeft shouldBeGreaterThan 0.0
             // The card that peeked now leads the row: a page, not a nudge.
             val leading = frame.findAll(".disc-picks .disc-card").first { frame.rect(it).right > frame.rect(row).left + 1 }
-            frame.rect(leading).left shouldBe (frame.rect(row).left + 6.0 plusOrMinus 2.0)
+            frame.rect(leading).left shouldBe (frame.rect(row).left plusOrMinus 2.0)
 
             var presses = 1
             while (forward.getAttribute("aria-disabled") != "true") {
