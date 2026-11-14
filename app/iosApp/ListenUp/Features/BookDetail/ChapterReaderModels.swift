@@ -174,35 +174,28 @@ private struct ClauseWording {
 /// `ChapterReadership`, projecting each answer to a native `ChapterReaderStack` as the list asks for it.
 struct ChapterReadersLookup {
     private let onChapterStack: (String) -> ChapterReaderStack?
-    private let inPartStack: (String) -> ChapterReaderStack?
     private let beyondStack: ([String]) -> ChapterReaderStack?
 
     init(onChapter: @escaping (String) -> ChapterReaderStack?,
-         inPart: @escaping (String) -> ChapterReaderStack?,
          beyond: @escaping ([String]) -> ChapterReaderStack?) {
         onChapterStack = onChapter
-        inPartStack = inPart
         beyondStack = beyond
     }
 
     init(_ readership: ChapterReadership) {
         self.init(
             onChapter: { readership.onChapter(chapterId: $0).map(ChapterReaderStack.init) },
-            inPart: { readership.inPart(partId: $0).map(ChapterReaderStack.init) },
             beyond: { readership.beyond(shownChapterIds: $0).map(ChapterReaderStack.init) }
         )
     }
 
     /// Nobody on any chapter.
     static var none: ChapterReadersLookup {
-        ChapterReadersLookup(onChapter: { _ in nil }, inPart: { _ in nil }, beyond: { _ in nil })
+        ChapterReadersLookup(onChapter: { _ in nil }, beyond: { _ in nil })
     }
 
-    /// The readers on this chapter's row; an open part's header asks this for the chapter folded into it.
+    /// The readers on this chapter's row.
     func onChapter(_ chapterId: String) -> ChapterReaderStack? { onChapterStack(chapterId) }
-
-    /// The readers anywhere in a collapsed part, by the part header's chapter id.
-    func inPart(_ partId: String) -> ChapterReaderStack? { inPartStack(partId) }
 
     /// The readers on chapters whose rows are not shown, for the collapsed list's "All N Chapters".
     func beyond(_ shownChapterIds: [String]) -> ChapterReaderStack? { beyondStack(shownChapterIds) }
