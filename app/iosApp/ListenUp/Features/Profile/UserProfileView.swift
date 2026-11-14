@@ -6,7 +6,7 @@ import Shared
 /// Identity (avatar, name, email, tagline) comes from the live `CurrentUserObserver`;
 /// the real listening stats (hours listened, books finished, streaks) come from
 /// `UserProfileViewModel` via `UserProfileObserver`, as does the "Recently listened" cover strip.
-/// An Edit Profile affordance presents the edit sheet; Settings and Downloads remain as action rows.
+/// An Edit Profile affordance presents the edit sheet; Settings and Downloads are action rows.
 struct UserProfileView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.dependencies) private var deps
@@ -160,6 +160,16 @@ struct UserProfileView: View {
     // MARK: - Actions
 
     private var actionsSection: some View {
+        ProfileActions(isAdmin: userObserver.user?.isAdmin == true)
+    }
+}
+
+/// The profile's way onward: Settings, Administration for an admin, and Downloads — the same storage
+/// screen Settings › Manage storage opens.
+struct ProfileActions: View {
+    let isAdmin: Bool
+
+    var body: some View {
         VStack(spacing: 0) {
             NavigationLink(value: SettingsDestination()) {
                 actionRow(icon: "gearshape", title: String(localized: "common.settings"))
@@ -167,8 +177,8 @@ struct UserProfileView: View {
             .buttonStyle(.plain)
 
             // Direct entry for admins — Administration is otherwise buried three layers deep
-            // (Profile → Settings → Administration). Gated on the signed-in user being an admin.
-            if userObserver.user?.isAdmin == true {
+            // (Profile → Settings → Administration).
+            if isAdmin {
                 Divider().padding(.leading, 54)
                 NavigationLink(value: AdminDestination()) {
                     actionRow(
@@ -181,7 +191,10 @@ struct UserProfileView: View {
 
             Divider().padding(.leading, 54)
 
-            actionRow(icon: "arrow.down.circle", title: String(localized: "common.downloads"))
+            NavigationLink(value: StorageDestination()) {
+                actionRow(icon: "arrow.down.circle", title: String(localized: "common.downloads"))
+            }
+            .buttonStyle(.plain)
         }
         .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
