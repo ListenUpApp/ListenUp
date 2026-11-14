@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -271,15 +272,25 @@ class StoreScreenshots {
     ) {
         try {
             block()
-        } catch (failure: Throwable) {
-            val dir = arguments.getString(ARG_OUTPUT_DIR) ?: DEFAULT_OUTPUT_DIR
-            val slug = name.replace(' ', '-')
-            shell("screencap -p $dir/failed-$slug.png")
-            instrumentation.context.getExternalFilesDir(null)?.let { files ->
-                device.dumpWindowHierarchy(File(files, "failed-$slug.xml"))
-            }
-            throw AssertionError("Store screenshots stopped at '$name': ${failure.message}", failure)
+        } catch (missing: IllegalStateException) {
+            throw stoppedAt(name, missing)
+        } catch (recomposed: StaleObjectException) {
+            throw stoppedAt(name, recomposed)
         }
+    }
+
+    /** Saves the screen and its hierarchy, named for the step, and wraps [cause] for the report. */
+    private fun stoppedAt(
+        name: String,
+        cause: RuntimeException,
+    ): AssertionError {
+        val dir = arguments.getString(ARG_OUTPUT_DIR) ?: DEFAULT_OUTPUT_DIR
+        val slug = name.replace(' ', '-')
+        shell("screencap -p $dir/failed-$slug.png")
+        instrumentation.context.getExternalFilesDir(null)?.let { files ->
+            device.dumpWindowHierarchy(File(files, "failed-$slug.xml"))
+        }
+        return AssertionError("Store screenshots stopped at '$name': ${cause.message}", cause)
     }
 
     private fun settle(millis: Long = SETTLE_MS) {
