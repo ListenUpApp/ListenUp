@@ -473,13 +473,12 @@ jobs:
   test-ios:
     name: Test (iOS)
     runs-on: xcode-27
-    # Fail-fast-visible. The iOS test suite is fast (~363 tests in ~35s warm); the time
-    # is the cold Kotlin/Native + Swift-Export framework compile + simulator boot. A cold
-    # build is well under 30m even with empty Konan/Gradle caches (the post-merge Release
-    # build is ~16m cold). 45m leaves comfortable margin for a legitimate cold run while
-    # turning a wedged build (which otherwise burns the ~50m default-ish runner ceiling) into
-    # a clean, visible failure instead of a silent hang.
-    timeout-minutes: 45
+    # Fail-fast-visible. Nearly all the time is the Kotlin/Native + Swift-Export framework
+    # compile and the simulator, not the tests. A run with warm caches takes about 35m; a
+    # run whose caches miss (a Kotlin bump invalidates every native artifact, and a PR cannot
+    # write the Gradle cache) took 47m with every step green. 60m covers that cold run while
+    # still turning a wedged build into a clean, visible failure instead of a silent hang.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
