@@ -533,29 +533,18 @@ dialog.dlg.bd-credits { width:520px; }
 .bd-ch-play { flex:none; color:var(--coral-text); }
 .bd-ch-table .bd-ch-row { gap:var(--sp-8); }
 .bd-ch-table .bd-ch-t { flex:0 1 auto; }
-/* A marked book: a part is a tinted row whose name opens it and whose play is its own control; a book
-   heads the parts inside it. Grouped rows are the phone's rows at every width, because a table has
-   nowhere to put a row that opens. */
-.bd-part-label { margin:0; padding:var(--sp-4) var(--sp-8); font-size:0.8125rem; font-weight:600; color:var(--coral-text); }
-.bd-book { margin:var(--sp-12) 0 var(--sp-4); padding:0 var(--sp-8); font-size:1rem; font-weight:700; color:var(--ink); }
-.bd-in-book { margin-left:var(--sp-12); }
-.bd-part { --chr-ring:var(--surface-2); display:flex; align-items:center; gap:var(--sp-4); margin-top:var(--sp-4); border-radius:var(--r-sm); background:var(--surface-2); }
-/* coral-soft is translucent; a ring in it would let the face beneath show through, so the ring mixes it solid. */
-.bd-part.is-current { background:var(--coral-soft); --chr-ring:color-mix(in srgb, var(--coral) 12%, var(--surface)); }
-.bd-part-open, .bd-part-name { flex:1; min-width:0; min-height:52px; display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-4) var(--sp-8); padding:var(--sp-4) var(--sp-12); }
-.bd-part-open { font:inherit; text-align:left; background:none; border:0; border-radius:var(--r-sm); color:var(--ink); cursor:pointer; }
-@media (hover: hover) { .bd-part-open:hover { background:var(--surface-3); --chr-ring:var(--surface-3); } }
-.bd-part-open:active { background:var(--surface-3); --chr-ring:var(--surface-3); }
-.bd-part-open:focus { outline:none; }
-.bd-part-open:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
-.bd-part-t { font-weight:600; color:var(--ink); }
-.bd-part-sub { font-size:0.875rem; color:var(--ink-2); }
-.bd-part-play { flex:none; width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:none; border:0; border-radius:var(--r-sm); color:var(--coral-text); cursor:pointer; }
-@media (hover: hover) { .bd-part-play:not([disabled]):hover { background:var(--surface-3); } }
-.bd-part-play:not([disabled]):active { background:var(--surface-3); }
-.bd-part-play[disabled] { opacity:0.5; cursor:not-allowed; }
-.bd-part-play:focus { outline:none; }
-.bd-part-play:focus-visible { outline:2px solid var(--coral); outline-offset:-2px; }
+/* A marked book (canvas "Final: part dividers", the stronger divider): every chapter stays a row, and a part
+   is a heading above its rows, never a control and never current. 28px of space, a 2px ink rule across the
+   whole card (out through the body's padding), the title heavy with its count beside it. A book heads its parts
+   a level up, set apart by space alone. The first heading in the card has neither: the card's edge separates it.
+   On a desktop each heading is a table row spanning every column, so the columns line up across parts. */
+.bd-book { margin:var(--sp-32) 0 0; padding:var(--sp-8) var(--sp-8) var(--sp-4); font-size:1.375rem; font-weight:800; letter-spacing:-0.01em; color:var(--ink); }
+.bd-part { display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--sp-4) var(--sp-12); margin:28px calc(-1 * var(--sp-16)) 0; padding:var(--sp-16) var(--sp-24) 10px; border-top:2px solid var(--ink); font-size:inherit; font-weight:400; }
+.bd-book + .bd-part { margin-top:var(--sp-8); }
+.bd-ch-list > :first-child, .bd-ch-table tbody > tr:first-child .bd-ch-div > * { margin-top:0; border-top:0; }
+.bd-part-t { font-size:1.25rem; font-weight:800; letter-spacing:-0.01em; color:var(--ink); }
+.bd-part-sub { font-size:0.84375rem; font-weight:500; color:var(--ink-2); }
+.bd-ch-table td.bd-ch-div { padding:0; border-bottom:0; }
 .bd-ch-all { --chr-ring:var(--surface-2); align-self:stretch; min-height:44px; display:flex; align-items:center; justify-content:center; gap:10px; padding:var(--sp-8) var(--sp-12); background:var(--surface-2); border:0; border-radius:var(--r-pill); font:inherit; font-size:0.875rem; font-weight:600; color:var(--ink); cursor:pointer; }
 .bd-ch-all:focus { outline:none; }
 .bd-ch-all:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
@@ -564,7 +553,6 @@ dialog.dlg.bd-credits { width:520px; }
    decoration: the row's sentence says who, and the row plays as it always did. The row's height is unchanged. */
 .bd-chr { flex:none; display:inline-flex; align-items:center; }
 .bd-ch-table .bd-chr { margin-left:6px; }
-.bd-part .bd-chr { margin-left:auto; }
 .bd-chr-f { position:relative; flex:none; display:inline-flex; border-radius:50%; }
 .bd-chr-f + .bd-chr-f { margin-left:-6px; }
 /* A live face's coral ring is 2px further out, so the face after it tucks in less. */
