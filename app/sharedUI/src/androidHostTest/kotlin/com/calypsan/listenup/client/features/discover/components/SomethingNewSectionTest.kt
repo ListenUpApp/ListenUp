@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.discover.components
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTouchHeightIsEqualTo
@@ -97,10 +98,13 @@ class SomethingNewSectionTest {
     fun aWideWindowKeepsEveryPickInOneRowThatScrolls() {
         val books = (1..10).map { pick("p$it", "Pick $it", "Series $it", "1") }
         show(books, wide = true)
+        // Past the trailing edge until scrolled to: the row is lazy, so the tenth pick is not yet composed.
+        composeRule.onAllNodesWithText("Pick 10", useUnmergedTree = true).assertCountEquals(0)
         composeRule
             .onNodeWithTag(SOMETHING_NEW_ROW_TAG)
             .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
             .performScrollToIndex(books.lastIndex)
+        // The title and the cover's placeholder both carry it; the first is enough to show the card arrived.
         composeRule.onAllNodesWithText("Pick 10", useUnmergedTree = true).onFirst().assertIsDisplayed()
     }
 
