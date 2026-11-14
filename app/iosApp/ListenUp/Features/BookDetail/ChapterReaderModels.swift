@@ -14,7 +14,6 @@ struct ChapterReaderFaceRow: Identifiable, Equatable {
 /// Where a stack of readers sits, which picks the wording of its sentence. Mirrors the shared `ReadersPlace`.
 enum ChapterReadersPlace: Equatable {
     case thisChapter
-    case thisPart
     case furtherOn
     case earlier
     case otherChapters
@@ -22,7 +21,6 @@ enum ChapterReadersPlace: Equatable {
     init(_ place: ReadersPlace) {
         switch place {
         case .ThisChapter: self = .thisChapter
-        case .ThisPart: self = .thisPart
         case .FurtherOn: self = .furtherOn
         case .Earlier: self = .earlier
         case .OtherChapters: self = .otherChapters
@@ -146,13 +144,6 @@ private struct ClauseWording {
                 two: String(localized: "book.detail_chapter_readers_on_chapter_two"),
                 twoAndOneOther: String(localized: "book.detail_chapter_readers_on_chapter_many_one"),
                 twoAndOthers: String(localized: "book.detail_chapter_readers_on_chapter_many")
-            )
-        case .thisPart:
-            ClauseWording(
-                one: String(localized: "book.detail_chapter_readers_in_part_one"),
-                two: String(localized: "book.detail_chapter_readers_in_part_two"),
-                twoAndOneOther: String(localized: "book.detail_chapter_readers_in_part_many_one"),
-                twoAndOthers: String(localized: "book.detail_chapter_readers_in_part_many")
             )
         case .furtherOn:
             ClauseWording(
