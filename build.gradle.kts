@@ -137,6 +137,7 @@ detekt {
         "$rootDir/contract/src/commonTest/kotlin",
         "$rootDir/contract/src/jvmTest/kotlin",
         "$rootDir/app/baselineprofile/src/main/kotlin",
+        "$rootDir/app/storeshots/src/main/kotlin",
         // tools/build-logic is an included build, so its own `detekt` task never runs from here;
         // listing its four source dirs is the only way the convention plugins and the custom
         // detekt rules get the same rules as the code they gate.

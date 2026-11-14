@@ -9,6 +9,7 @@
 included:
   - ListenUp
   - ListenUpTests
+  - ListenUpScreenshots
   - ListenUpWidgets
   - ListenUpActivityKit
   - ListenUpNotificationService
@@ -279,6 +280,8 @@ custom_rules:
   legacy_swift_idiom_xctest:
     name: "XCTest import"
     regex: '^import XCTest\b'
+    # UI automation (XCUIApplication) exists only in XCTest; the store-screenshot UI tests need it.
+    excluded: 'ListenUpScreenshots/'
     excluded_match_kinds:
       - comment
       - comment.mark

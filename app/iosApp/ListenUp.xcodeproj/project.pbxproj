@@ -61,6 +61,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F45B07000000000000000001 /* ListenUpScreenshots.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ListenUpScreenshots.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8E6E37047B9E4CE1B6B36533 /* ListenUpTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ListenUpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E757F5D28662E4BCC0992649 /* ListenUp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ListenUp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F42CD9A92FBF666E008B9D90 /* ListenUpWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenUpWidgetsExtension.entitlements; sourceTree = "<group>"; };
@@ -101,6 +102,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		F45B07000000000000000002 /* ListenUpScreenshots */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ListenUpScreenshots;
+			sourceTree = "<group>";
+		};
 		B486AB56B99FB470D7294198 /* Configuration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Configuration;
@@ -138,6 +144,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		F45B07000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		02553F58E40F4222B88FCF61 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -175,6 +188,7 @@
 				B486AB56B99FB470D7294198 /* Configuration */,
 				C8EF4017F06459C992EEE7AF /* ListenUp */,
 				D6FB2F3845C34DB4A3FCAD45 /* ListenUpTests */,
+				F45B07000000000000000002 /* ListenUpScreenshots */,
 				F4A6DB452F3EC7F200F9C38D /* ListenUpWidgets */,
 				F4C0DE000000000000000001 /* ListenUpNotificationService */,
 				F4A6DB402F3EC7F200F9C38D /* Frameworks */,
@@ -187,6 +201,7 @@
 			children = (
 				E757F5D28662E4BCC0992649 /* ListenUp.app */,
 				8E6E37047B9E4CE1B6B36533 /* ListenUpTests.xctest */,
+				F45B07000000000000000001 /* ListenUpScreenshots.xctest */,
 				F4A6DB3F2F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex */,
 				F4C0DE000000000000000002 /* ListenUpNotificationService.appex */,
 			);
@@ -205,6 +220,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		F45B07000000000000000003 /* ListenUpScreenshots */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F45B0700000000000000000B /* Build configuration list for PBXNativeTarget "ListenUpScreenshots" */;
+			buildPhases = (
+				F45B07000000000000000004 /* Sources */,
+				F45B07000000000000000005 /* Frameworks */,
+				F45B07000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F45B07000000000000000002 /* ListenUpScreenshots */,
+			);
+			name = ListenUpScreenshots;
+			packageProductDependencies = (
+			);
+			productName = ListenUpScreenshots;
+			productReference = F45B07000000000000000001 /* ListenUpScreenshots.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		71B3A3B2BCCD4F9EB2617E6C /* ListenUpTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7DCD8BFD274341658930A83F /* Build configuration list for PBXNativeTarget "ListenUpTests" */;
@@ -320,6 +357,9 @@
 					7BAAD05E534B00C963664416 = {
 						CreatedOnToolsVersion = 16.2;
 					};
+					F45B07000000000000000003 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 					F4A6DB3E2F3EC7F200F9C38D = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -345,6 +385,7 @@
 			targets = (
 				7BAAD05E534B00C963664416 /* ListenUp */,
 				71B3A3B2BCCD4F9EB2617E6C /* ListenUpTests */,
+				F45B07000000000000000003 /* ListenUpScreenshots */,
 				F4A6DB3E2F3EC7F200F9C38D /* ListenUpWidgetsExtension */,
 				F4C0DE000000000000000003 /* ListenUpNotificationService */,
 			);
@@ -352,6 +393,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		F45B07000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1608610647EAC967881A3D58 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -418,6 +466,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		F45B07000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4F231F98269E63AD8DD96559 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -481,6 +536,36 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		F45B07000000000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.ios$(TEAM_ID).screenshots";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F45B0700000000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.calypsan.listenup.client.ios$(TEAM_ID).screenshots";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F4C0DE000000000000000008 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -839,6 +924,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		F45B0700000000000000000B /* Build configuration list for PBXNativeTarget "ListenUpScreenshots" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F45B07000000000000000009 /* Debug */,
+				F45B0700000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F4C0DE000000000000000007 /* Build configuration list for PBXNativeTarget "ListenUpNotificationService" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
