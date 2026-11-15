@@ -11,6 +11,8 @@ import com.calypsan.listenup.client.di.PLAYER_SCOPE
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.di.sharedModules
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.playback.EnginePlaybackStateProvider
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.test.fake.FakePlayerEngine
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -134,8 +136,9 @@ internal class DiWiredClientFixture private constructor(
                 single<ListenUpDatabase> { createInMemoryTestDatabase() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
                 // What every platform playback module supplies to the shared player (playerModule) and
-                // sharedModules alone does not: the engine, and whether this device keeps downloads.
+                // sharedModules alone does not: the engine, what is playing, and whether this device keeps downloads.
                 single<PlayerEngine> { FakePlayerEngine() }
+                single<PlaybackStateProvider> { EnginePlaybackStateProvider(get()) }
                 // playerModule runs the session on Dispatchers.Main, which a headless JVM does not have; the
                 // session is created at start, so without this every graph build fails or depends on which spec
                 // last called setMain. One thread keeps the session's main-thread confinement.

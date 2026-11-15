@@ -8,9 +8,12 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.playback.EnginePlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.PlayerSessionRig
 import com.calypsan.listenup.client.playback.PlayerSessionState
+import com.calypsan.listenup.client.test.fake.FakePlayerEngine
+import com.calypsan.listenup.core.BookId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -30,6 +33,7 @@ private class LogoutFixture {
     val syncRepository: SyncRepository = mock()
     val rpcCacheInvalidator: RpcCacheInvalidator = mock()
     val libraryResetHelper: LibraryResetHelper = mock()
+    val engine = FakePlayerEngine()
 
     fun build(playerSession: PlayerSession? = null): LogoutUseCase =
         LogoutUseCase(
@@ -39,6 +43,7 @@ private class LogoutFixture {
             syncRepository = syncRepository,
             rpcCacheInvalidator = rpcCacheInvalidator,
             libraryResetHelper = libraryResetHelper,
+            playbackStateProvider = EnginePlaybackStateProvider(engine),
             playerSession = playerSession,
         )
 }
@@ -115,6 +120,19 @@ class LogoutUseCaseTest :
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { fixture.authSession.clearAuthTokens() }
                 verifySuspend { fixture.userRepository.clearUsers() }
+            }
+        }
+
+        test("logout stops what is playing, so the signed-out user's book does not play on") {
+            runTest {
+                val fixture = createFixture()
+                fixture.engine.loadedBookId.value = BookId("book-1")
+                val useCase = fixture.build()
+
+                useCase()
+
+                fixture.engine.loadedBookId.value
+                    .shouldBeNull()
             }
         }
 

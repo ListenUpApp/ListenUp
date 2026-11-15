@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.playback.EnginePlaybackStateProvider
+import com.calypsan.listenup.client.test.fake.FakePlayerEngine
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -73,6 +75,7 @@ class LogoutConnectionSweepTest :
                                     cache.call { it } shouldBe MintedAs("user-a")
                                 }
                             },
+                        playbackStateProvider = EnginePlaybackStateProvider(FakePlayerEngine()),
                     )
 
                 useCase()

@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.testing.idlePlayerSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorViewModel
@@ -60,7 +61,7 @@ class ChapterEditorScreenNudgeTest {
                 bookRepository = books,
                 bookEditRepository = edits,
                 errorBus = ErrorBus(),
-                playbackManager = playback,
+                engine = mock<PlayerEngine>(MockMode.autoUnit) { every { timeline } returns MutableStateFlow(null) },
                 playerSession = idlePlayerSession(CoroutineScope(Job())),
             )
 
@@ -101,7 +102,7 @@ class ChapterEditorScreenNudgeTest {
                 bookRepository = books,
                 bookEditRepository = edits,
                 errorBus = ErrorBus(),
-                playbackManager = playback,
+                engine = mock<PlayerEngine>(MockMode.autoUnit) { every { timeline } returns MutableStateFlow(null) },
                 playerSession = idlePlayerSession(CoroutineScope(Job())),
             )
         composeRule.setContent {

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.PlayerSessionRig
 import kotlinx.coroutines.test.TestScope
 import app.cash.turbine.test
@@ -95,9 +95,9 @@ class ChapterEditorDriftTest :
                 bookRepository = books,
                 bookEditRepository = edits,
                 errorBus = ErrorBus(),
-                playbackManager =
-                    mock<PlaybackManager>(MockMode.autoUnit) {
-                        every { currentTimeline } returns MutableStateFlow<PlaybackTimeline?>(null)
+                engine =
+                    mock<PlayerEngine>(MockMode.autoUnit) {
+                        every { timeline } returns MutableStateFlow<PlaybackTimeline?>(null)
                     },
                 playerSession = PlayerSessionRig(TestScope()).session,
             ) to saved

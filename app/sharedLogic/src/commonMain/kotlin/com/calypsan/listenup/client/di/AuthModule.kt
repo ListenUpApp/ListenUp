@@ -29,7 +29,6 @@ import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlayerSession
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.koin.core.module.Module
@@ -162,18 +161,6 @@ internal val clientAuthModule: Module
                 PasswordResetRepositoryImpl(channel = rpcChannel(), secureStorage = get())
             }
 
-            // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here by the
-            // concrete PlaybackManager that implements it — long-form factory so the type
-            // narrowing is explicit.
-            //
-            // `getOrNull`, not `get`: PlaybackManager is bound by the PLATFORM playback module
-            // (PlaybackModule.android.kt / .jvm.kt) and iOS deliberately has none — it drives
-            // AVFoundation natively through PlayerCoordinator. The parameter is declared
-            // nullable for exactly this reason. A hard `get()` here threw
-            // NoDefinitionFoundException on iOS the moment anything resolved LogoutUseCase; it
-            // went unnoticed only because nothing ever did (the use case was DI-bound, fully
-            // tested, and called by nobody). AuthModuleVerifyTest stubs PlaybackManager via
-            // `extraTypes`, so the JVM Koin verification could not see it either.
             factory {
                 LoginUseCase(
                     authRepository = get(),
@@ -233,7 +220,8 @@ internal val clientAuthModule: Module
                     syncRepository = get(),
                     rpcCacheInvalidator = get(),
                     libraryResetHelper = get(),
-                    playbackStateProvider = getOrNull<PlaybackManager>(),
+                    // Bound by every platform's playback module; iOS reads it off its engine.
+                    playbackStateProvider = get(),
                     playerSession = getOrNull<PlayerSession>(),
                 )
             }
