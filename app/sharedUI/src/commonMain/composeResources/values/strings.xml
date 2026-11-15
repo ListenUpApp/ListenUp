@@ -464,10 +464,6 @@ One beautiful library.</string>
     <string name="book_detail_chapter_readers_further_on_many_one">%1$s, %2$s and 1 other are on chapters further on.</string>
     <string name="book_detail_chapter_readers_further_on_one">%1$s is on a chapter further on.</string>
     <string name="book_detail_chapter_readers_further_on_two">%1$s and %2$s are on chapters further on.</string>
-    <string name="book_detail_chapter_readers_in_part_many">%1$s, %2$s and %3$d others are in this part.</string>
-    <string name="book_detail_chapter_readers_in_part_many_one">%1$s, %2$s and 1 other are in this part.</string>
-    <string name="book_detail_chapter_readers_in_part_one">%1$s is in this part.</string>
-    <string name="book_detail_chapter_readers_in_part_two">%1$s and %2$s are in this part.</string>
     <string name="book_detail_chapter_readers_listening_now_many">%1$s, %2$s and %3$d others are listening now.</string>
     <string name="book_detail_chapter_readers_listening_now_many_one">%1$s, %2$s and 1 other are listening now.</string>
     <string name="book_detail_chapter_readers_listening_now_one">%1$s is listening now.</string>

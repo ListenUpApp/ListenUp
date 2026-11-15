@@ -70,7 +70,7 @@ sealed interface BookDetailSection {
  * @property isInPlayer Whether this book is the player's loaded book: its row says "Now playing" only then, and
  *   "You're here" while another book is in the player.
  * @property partTitle The part this chapter sits in, for "Part I · Ch. 7 · 5". Null outside any part, and for a
- *   chapter folded into its header: there the title already is the part's name, and it would read twice.
+ *   chapter named for its part: there the title already is the part's name, and it would read twice.
  */
 data class CurrentChapter(
     val index: Int,

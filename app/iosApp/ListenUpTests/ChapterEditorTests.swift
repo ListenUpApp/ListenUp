@@ -152,6 +152,27 @@ struct ChapterEditorTests {
         #expect(sections.map(\.rows.count) == [1, 1])
     }
 
+    /// ⛔ An omnibus numbers each book from 1, so the shared row's number would land Book Two's first chapter on
+    /// Book One's. Its index is its place in the list the rows were built from, and reaches the right one.
+    @Test func anOmnibusOutlineReachesEachChapterByItsIndex() {
+        let rows = threeRows
+        let chapter = { (index: Int) in
+            Chapter(id: rows[index].id, title: rows[index].title, duration: 1, startTime: 0, partTitle: nil,
+                    bookTitle: nil)
+        }
+        let entries = ChapterOutlineEntry.entries([
+            ChapterOutlineRowBookHeader(title: "Book One", chapterId: "c1", startMs: 0),
+            ChapterOutlineRowChapterRow(chapter: chapter(0), index: 0, number: 1),
+            ChapterOutlineRowBookHeader(title: "Book Two", chapterId: "c2", startMs: 0),
+            ChapterOutlineRowChapterRow(chapter: chapter(1), index: 1, number: 1),
+            ChapterOutlineRowChapterRow(chapter: chapter(2), index: 2, number: 2)
+        ], rows: rows)
+        #expect(entries == [
+            marker("c1", .book, "Book One"), .chapter(rows[0]),
+            marker("c2", .book, "Book Two"), .chapter(rows[1]), .chapter(rows[2])
+        ])
+    }
+
     @Test func aChapterOpeningATierIsNoPlaceToMoveThatTierTo() {
         var opener = row(1, "Part One")
         opener.partTitle = "Part One"

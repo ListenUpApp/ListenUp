@@ -52,7 +52,6 @@ AdminUserInfo
 AdminViewModel
 AdoptServerUseCase
 AlsoFinished
-AnnouncementChapters
 AppError
 AppError_SealedType
 AppNotification

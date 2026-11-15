@@ -71,8 +71,10 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
             null
         }
     val grouped = chapters.groupedChapters(located?.index)
+    val partTitle = located?.let { chapter -> grouped?.partTitleOf(chapters[chapter.index].id) }
+    // "Part I · Ch. 2 · Part I" says it twice: a chapter named for its part leaves the part out.
     val current =
-        located?.copy(partTitle = grouped?.run { rows.partTitleOf(chapters[located.index].id) })
+        located?.copy(partTitle = partTitle?.takeUnless { it.trim().equals(located.title.trim(), ignoreCase = true) })
 
     val chapterRows =
         chapters.mapIndexed { index, domainChapter ->

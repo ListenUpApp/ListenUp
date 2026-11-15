@@ -199,38 +199,20 @@ class ChapterReadershipTest :
             readership.beyond(chapters.map { it.id }).shouldBeNull()
         }
 
-        test("a collapsed part's header carries everyone in its chapters, the folded opener included") {
+        test("a reader on the chapter that opens a part is on that chapter's row, like anyone else") {
             val marked =
                 listOf(
                     Chapter(id = "p1", title = "Part One", duration = 1_000L, startTime = 0L, partTitle = "Part One"),
                     Chapter(id = "c2", title = "Two", duration = 1_000L, startTime = 1_000L),
-                    Chapter(id = "p2", title = "Part Two", duration = 1_000L, startTime = 2_000L, partTitle = "Part Two"),
-                    Chapter(id = "c4", title = "Four", duration = 1_000L, startTime = 3_000L),
                 )
-            val readers =
-                listOf(
-                    reader("opener", positionMs = 500L),
-                    reader("inside", positionMs = 1_500L),
-                    reader("later", positionMs = 3_500L),
-                )
+            val readers = listOf(reader("opener", positionMs = 500L), reader("inside", positionMs = 1_500L))
             val readership = chapterReadership(readers, marked, emptySet())
 
-            readership.inPart("p1").shouldNotBeNull().let { part ->
-                part.readers.map { it.userId } shouldBe listOf("opener", "inside")
-                part.place shouldBe ReadersPlace.ThisPart
+            readership.onChapter("p1").shouldNotBeNull().let { row ->
+                row.readers.map { it.userId } shouldBe listOf("opener")
+                row.place shouldBe ReadersPlace.ThisChapter
             }
-            readership.inPart("p2").ids() shouldBe listOf("later")
-            readership.onChapter("p1").ids() shouldBe listOf("opener")
-        }
-
-        test("a part with nobody in it carries nothing") {
-            val marked =
-                listOf(
-                    Chapter(id = "p1", title = "Part One", duration = 1_000L, startTime = 0L, partTitle = "Part One"),
-                    Chapter(id = "c2", title = "Two", duration = 1_000L, startTime = 1_000L),
-                )
-
-            chapterReadership(emptyList(), marked, emptySet()).inPart("p1").shouldBeNull()
+            readership.onChapter("c2").ids() shouldBe listOf("inside")
         }
 
         test("a book with no chapters places nobody") {

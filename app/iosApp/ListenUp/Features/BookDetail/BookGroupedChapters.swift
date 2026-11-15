@@ -1,35 +1,33 @@
 import Foundation
 import Shared
 
-/// A part's header, as a native value. Mirrors the shared `ChapterOutlineRow.PartHeader`.
+/// A part's divider, as a native value. Mirrors the shared `ChapterOutlineRow.PartHeader`. It is a heading, never
+/// current and never a control: only a chapter row is either.
 struct BookPartHeader: Equatable {
     let title: String
-    /// The chapter carrying the marker: this part's identity, and where its play starts.
+    /// The chapter carrying the marker: this part's identity.
     let chapterId: String
     let chapterCount: Int
     let durationMs: Int64
-    let startMs: Int64
-    let containsCurrent: Bool
-    /// The current chapter is the one folded into this header, so this row shows as current.
-    let isCurrentChapter: Bool
 
-    /// As the reader left it, per `overrides`, or with no override following the current chapter.
-    /// The shared `ChapterOutlineRow.PartHeader.isOpen`, on the native value the view holds.
-    func isOpen(overrides: [String: Bool]) -> Bool { overrides[chapterId] ?? containsCurrent }
-
-    /// `overrides` with this part flipped, so it stays that way wherever playback goes next.
-    func toggled(_ overrides: [String: Bool]) -> [String: Bool] {
-        overrides.merging([chapterId: !isOpen(overrides: overrides)]) { _, flipped in flipped }
-    }
-
-    /// "13 chapters · 45 hr, 30 min", or just the length of a part that is only its announcement.
+    /// "13 chapters · 5 hr, 16 min", the quiet line under the title.
     var summary: String {
         let length = DurationFormatting.abbreviated(ms: durationMs)
-        guard chapterCount > 0 else { return length }
-        let count = chapterCount == 1
+        return String(format: String(localized: "book.detail_part_summary"), count, length)
+    }
+
+    /// "Part IV: Reaper, 13 chapters, 5 hours, 16 minutes": what VoiceOver reads for the heading, the length spelled
+    /// out because "hr" and "min" are abbreviations for the eye, not words for the ear.
+    var spokenName: String {
+        let length = Duration.milliseconds(max(0, durationMs))
+            .formatted(.units(allowed: [.hours, .minutes], width: .wide))
+        return [title, count, length].joined(separator: ", ")
+    }
+
+    private var count: String {
+        chapterCount == 1
             ? String(localized: "book.detail_chapter_count_one")
             : String(format: String(localized: "book.detail_chapter_count"), chapterCount)
-        return String(format: String(localized: "book.detail_part_summary"), count, length)
     }
 }
 
@@ -37,56 +35,68 @@ struct BookPartHeader: Equatable {
 enum BookOutlineRow: Equatable, Identifiable {
     case book(title: String, chapterId: String)
     case part(BookPartHeader)
-    /// `number` is the chapter's place in the whole book; `partId` the part it sits in, if any.
-    case chapter(number: Int, partId: String?)
+    /// `index` is the chapter's place in the whole chapter list, which indexes it; `number` is the one a reader sees,
+    /// which starts again at each book of an omnibus and so never indexes anything.
+    case chapter(index: Int, number: Int)
 
     var id: String {
         switch self {
         case .book(_, let chapterId): "book-\(chapterId)"
         case .part(let part): "part-\(part.chapterId)"
-        case .chapter(let number, _): "chapter-\(number)"
+        case .chapter(let index, _): "chapter-\(index)"
         }
     }
 }
 
-/// A marked book's chapters. The grouping is the shared outline's: this only carries it and answers
-/// which of its rows a closed part hides, which each row already says for itself.
+/// A chapter in a section: where it sits in the whole list, and the number it shows.
+struct BookOutlineChapter: Equatable {
+    let index: Int
+    let number: Int
+}
+
+/// One card of the chapter list: the heading of the book that opens here, if one does, the part's divider if it has
+/// one, and its chapters. A run of chapters before a book's first part is a card with no divider.
+struct BookOutlineSection: Equatable, Identifiable {
+    /// The first row the section was built from, so it keeps one identity as the window moves.
+    let id: String
+    var book: String?
+    var part: BookPartHeader?
+    var chapters: [BookOutlineChapter] = []
+}
+
+/// A marked book's chapters. The grouping is the shared outline's: this carries it, and splits it into the sections
+/// the list draws, one inset card per part.
 struct BookGroupedChapters: Equatable {
     let rows: [BookOutlineRow]
-    let previewLabel: String?
     let previewRows: [BookOutlineRow]
 
-    init(rows: [BookOutlineRow], previewLabel: String?, previewRows: [BookOutlineRow]) {
+    init(rows: [BookOutlineRow], previewRows: [BookOutlineRow]) {
         self.rows = rows
-        self.previewLabel = previewLabel
         self.previewRows = previewRows
     }
 
     init(_ grouped: GroupedChapters) {
-        self.init(
-            rows: grouped.rows.map(Self.row),
-            previewLabel: grouped.previewLabel,
-            previewRows: grouped.previewRows.map(Self.row)
-        )
+        self.init(rows: grouped.rows.map(Self.row), previewRows: grouped.previewRows.map(Self.row))
     }
 
-    /// Every header, and the chapters of parts that are open.
-    func visibleRows(overrides: [String: Bool]) -> [BookOutlineRow] {
-        let closed = Set(rows.compactMap { row -> String? in
-            guard case .part(let part) = row, !part.isOpen(overrides: overrides) else { return nil }
-            return part.chapterId
-        })
-        return rows.filter { row in
-            guard case .chapter(_, let partId?) = row else { return true }
-            return !closed.contains(partId)
+    /// `rows` as cards: a new one at every book and part, a book's heading riding on the card of the part that opens
+    /// it. Every chapter lands in exactly one card, in order.
+    static func sections(_ rows: [BookOutlineRow]) -> [BookOutlineSection] {
+        rows.reduce(into: []) { sections, row in
+            switch row {
+            case .book(let title, _):
+                sections.append(BookOutlineSection(id: row.id, book: title))
+            case .part(let part):
+                if let last = sections.last, last.part == nil, last.chapters.isEmpty {
+                    sections[sections.count - 1].part = part
+                } else {
+                    sections.append(BookOutlineSection(id: row.id, part: part))
+                }
+            case .chapter(let index, let number):
+                if sections.isEmpty { sections.append(BookOutlineSection(id: row.id)) }
+                sections[sections.count - 1].chapters.append(BookOutlineChapter(index: index, number: number))
+            }
         }
-    }
-
-    /// Whether a hairline follows `row` in `shown`: under a chapter, as the flat list has it, and
-    /// never after the last row, where the card's edge or the "All" button's own line already is.
-    static func hasDivider(after row: BookOutlineRow, in shown: [BookOutlineRow]) -> Bool {
-        guard case .chapter = row else { return false }
-        return row != shown.last
     }
 
     private static func row(_ row: ChapterOutlineRow) -> BookOutlineRow {
@@ -98,13 +108,10 @@ struct BookGroupedChapters: Equatable {
                 title: type.value.title,
                 chapterId: type.value.chapterId,
                 chapterCount: Int(type.value.chapterCount),
-                durationMs: type.value.durationMs,
-                startMs: type.value.startMs,
-                containsCurrent: type.value.containsCurrent,
-                isCurrentChapter: type.value.isCurrentChapter
+                durationMs: type.value.durationMs
             ))
         case .chapterRow(let type):
-            .chapter(number: Int(type.value.number), partId: type.value.partId)
+            .chapter(index: Int(type.value.index), number: Int(type.value.number))
         }
     }
 }

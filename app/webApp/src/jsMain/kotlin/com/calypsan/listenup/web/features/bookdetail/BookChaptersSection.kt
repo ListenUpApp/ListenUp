@@ -32,6 +32,9 @@ import org.jetbrains.compose.web.dom.Tr
  * phone, both collapsed to [preview] (the 5-row window around the current chapter, or the first five) with "Show all N
  * chapters" expanding in place and "Show fewer chapters" collapsing it. Every row's title is a button named "Play from chapter N: title"; the current row
  * carries `aria-current`. Rows are disabled whenever the book can't play. The header links to the chapter map.
+ *
+ * A marked book ([grouped]) draws the same rows, every chapter it has, with its book headings and part dividers
+ * between them: the desktop's one table keeps its columns lined up from part to part.
  */
 @Composable
 internal fun BookChaptersSection(
@@ -67,23 +70,36 @@ internal fun BookChaptersSection(
                 }
             }) { Text("Chapter map") }
         }
+        val lines =
+            grouped?.let { (if (expanded) it.rows else it.previewRows).toChapterLines(chapters) }
+                ?: shown.map { ChapterLine.Row(it, numberById[it.id] ?: 0) }
         Div(attrs = { classes("bd-ch-body") }) {
-            if (grouped != null) {
-                BookChapterOutline(bookId, grouped, chapters, expanded, canPlay, onPlayFromChapter, readers)
-            } else if (wide) {
-                ChapterTable(shown, numberById, canPlay, onPlayFromChapter, readers)
+            if (wide) {
+                ChapterTable(lines, canPlay, onPlayFromChapter, readers)
             } else {
                 Div(attrs = { classes("bd-ch-list") }) {
-                    shown.forEach { chapter ->
-                        key(chapter.id) {
-                            ChapterButton(
-                                chapter,
-                                numberById[chapter.id] ?: 0,
-                                canPlay,
-                                onPlayFromChapter,
-                                withMeta = true,
-                                readers = readers.onChapter(chapter.id),
-                            )
+                    lines.forEach { line ->
+                        key(line.key) {
+                            when (line) {
+                                is ChapterLine.Row -> {
+                                    ChapterButton(
+                                        line.chapter,
+                                        line.number,
+                                        canPlay,
+                                        onPlayFromChapter,
+                                        withMeta = true,
+                                        readers = readers.onChapter(line.chapter.id),
+                                    )
+                                }
+
+                                is ChapterLine.Book -> {
+                                    BookHeading(line)
+                                }
+
+                                is ChapterLine.Part -> {
+                                    PartDivider(line)
+                                }
+                            }
                         }
                     }
                 }
@@ -100,11 +116,13 @@ internal fun BookChaptersSection(
     }
 }
 
-/** The desktop chapter table: number, the chapter's play button, its start time and its length. */
+/**
+ * The desktop chapter table: number, the chapter's play button, its start time and its length. A heading spans
+ * every column, so one table holds every part and the columns line up across them.
+ */
 @Composable
 private fun ChapterTable(
-    shown: List<ChapterUiModel>,
-    numberById: Map<String, Int>,
+    lines: List<ChapterLine>,
     canPlay: Boolean,
     onPlayFromChapter: (Long) -> Unit,
     readers: ChapterReadersLookup,
@@ -112,29 +130,12 @@ private fun ChapterTable(
     Table(attrs = { classes("bd-ch-table") }) {
         Thead { Tr { CHAPTER_TABLE_HEADINGS.forEach { heading -> Th { Text(heading) } } } }
         Tbody {
-            shown.forEach { chapter ->
-                key(chapter.id) {
-                    val number = numberById[chapter.id] ?: 0
-                    Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
-                        Td(attrs = { classes("bd-ch-n") }) { Text(number.toString()) }
-                        Td {
-                            ChapterButton(
-                                chapter,
-                                number,
-                                canPlay,
-                                onPlayFromChapter,
-                                withMeta = false,
-                                readers = readers.onChapter(chapter.id),
-                            )
-                        }
-                        Td(attrs = { classes("bd-ch-d", "mono") }) {
-                            Text(
-                                DurationFormatter.playbackClock(
-                                    (chapter.startMs / MILLIS_PER_SECOND).toInt().seconds,
-                                ),
-                            )
-                        }
-                        Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
+            lines.forEach { line ->
+                key(line.key) {
+                    when (line) {
+                        is ChapterLine.Row -> ChapterTableRow(line, canPlay, onPlayFromChapter, readers)
+                        is ChapterLine.Book -> HeadingTableRow { BookHeading(line) }
+                        is ChapterLine.Part -> HeadingTableRow { PartDivider(line) }
                     }
                 }
             }
@@ -142,9 +143,47 @@ private fun ChapterTable(
     }
 }
 
+@Composable
+private fun ChapterTableRow(
+    line: ChapterLine.Row,
+    canPlay: Boolean,
+    onPlayFromChapter: (Long) -> Unit,
+    readers: ChapterReadersLookup,
+) {
+    val chapter = line.chapter
+    Tr(attrs = { if (chapter.isCurrent) classes("is-current") }) {
+        Td(attrs = { classes("bd-ch-n") }) { Text(line.number.toString()) }
+        Td {
+            ChapterButton(
+                chapter,
+                line.number,
+                canPlay,
+                onPlayFromChapter,
+                withMeta = false,
+                readers = readers.onChapter(chapter.id),
+            )
+        }
+        Td(attrs = { classes("bd-ch-d", "mono") }) {
+            Text(DurationFormatter.playbackClock((chapter.startMs / MILLIS_PER_SECOND).toInt().seconds))
+        }
+        Td(attrs = { classes("bd-ch-d", "mono") }) { Text(chapter.duration) }
+    }
+}
+
+/** A book heading or part divider as a table row: one cell across every column. */
+@Composable
+private fun HeadingTableRow(heading: @Composable () -> Unit) {
+    Tr(attrs = { classes("bd-part-tr") }) {
+        Td(attrs = {
+            classes("bd-ch-div")
+            attr("colspan", CHAPTER_TABLE_HEADINGS.size.toString())
+        }) { heading() }
+    }
+}
+
 /**
  * "Show all N chapters" / "Show fewer chapters", expanding in place; aria-expanded says which. Collapsed, it carries
- * [outside]: everyone on a chapter the window leaves out (a part header in the window stands for its folded chapter).
+ * [outside]: everyone on a chapter the window leaves out.
  */
 @Composable
 private fun ShowAllChaptersButton(
@@ -205,7 +244,7 @@ internal fun ChapterButton(
     readers?.let { ChapterReadersSentence(it, sentenceId) }
 }
 
-/** The id of the sentence that describes the row (or part header) standing for [chapterId]. */
+/** The id of the sentence that describes [chapterId]'s row. */
 internal fun chapterReadersId(chapterId: String): String = "bd-chr-$chapterId"
 
 /** The sentence describing "Show all N chapters": who is on a chapter the collapsed list leaves out. */
