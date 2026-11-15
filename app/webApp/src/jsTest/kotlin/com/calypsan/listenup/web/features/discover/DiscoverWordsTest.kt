@@ -13,10 +13,10 @@ class DiscoverWordsTest :
             DiscoverWords.listeningCount(live = 0, recent = 0) shouldBe null
         }
 
-        test("a series line is numbered, bare, or standalone") {
+        test("a series line is numbered, bare, or absent for a book outside a series") {
             DiscoverWords.seriesLine("Mistborn", "1") shouldBe "Book 1 of Mistborn"
             DiscoverWords.seriesLine("Mistborn", null) shouldBe "Mistborn"
-            DiscoverWords.seriesLine(null, null) shouldBe "Standalone"
+            DiscoverWords.seriesLine(null, null) shouldBe null
         }
 
         test("a listener card names the book, then the person and when") {

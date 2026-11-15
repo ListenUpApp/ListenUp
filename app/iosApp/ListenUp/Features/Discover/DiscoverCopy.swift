@@ -13,9 +13,10 @@ enum DiscoverCopy {
         }
     }
 
-    /// "Book 1 of Mistborn", the bare series name when unnumbered, or "Standalone".
-    static func seriesLine(series: String?, sequence: String?) -> String {
-        guard let series, !series.isEmpty else { return String(localized: "discover.pick_standalone") }
+    /// "Book 1 of Mistborn", or the bare series name when unnumbered; nil for a book outside a series,
+    /// which shows no series line at all.
+    static func seriesLine(series: String?, sequence: String?) -> String? {
+        guard let series, !series.isEmpty else { return nil }
         guard let sequence, !sequence.isEmpty else { return series }
         return String(localized: .discoverPickSeriesLine(sequence, series))
     }

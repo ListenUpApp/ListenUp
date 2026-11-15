@@ -21,6 +21,10 @@ import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.RestrictedMarker
+import com.calypsan.listenup.web.design.ScrollRow
+import com.calypsan.listenup.web.design.ScrollRowArrows
+import com.calypsan.listenup.web.design.ScrollRowState
+import com.calypsan.listenup.web.design.rememberScrollRowState
 import com.calypsan.listenup.web.design.ShelfMosaic
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.WebIcon
@@ -179,6 +183,10 @@ internal fun ListenerCard(
  * "Something new": books the reader has never started, first in their series, so the shelf keeps
  * offering a way in. Each pick says which book of its series it is and how long it runs; Shuffle
  * draws ten different books.
+ *
+ * The picks are one row at every width that scrolls sideways, the next cover peeking at the edge; a
+ * pointer that cannot swipe gets back and forward arrows beside Shuffle. Ten picks in a wrapping grid
+ * broke unevenly on a wide window, and a phone hid all but four.
  */
 @Composable
 internal fun SomethingNewSection(
@@ -194,9 +202,11 @@ internal fun SomethingNewSection(
     // Select starts a selection once there is something to select; while selecting the header says so,
     // and the selection bar's Cancel ends it.
     val canSelect = selection != null && state is DiscoverBooksUiState.Ready && !state.isEmpty
+    val row = rememberScrollRowState()
     val actions: @Composable () -> Unit = {
         if (canSelect) SelectControl(selection)
         if (canShuffle) ShuffleButton(onShuffle)
+        ScrollRowArrows(row, backLabel = DiscoverWords.PICKS_BACK, forwardLabel = DiscoverWords.PICKS_FORWARD)
     }
     Section(
         DiscoverWords.SOMETHING_NEW,
@@ -204,7 +214,7 @@ internal fun SomethingNewSection(
         styleClass = "disc-a-new",
         actions = actions.takeIf { canShuffle || canSelect },
     ) {
-        SomethingNewBody(state, onOpenBook, selection, onRetry, onBrowseLibrary)
+        SomethingNewBody(state, row, onOpenBook, selection, onRetry, onBrowseLibrary)
     }
 }
 
@@ -241,6 +251,7 @@ private fun ShuffleButton(onShuffle: () -> Unit) {
 @Composable
 private fun SomethingNewBody(
     state: DiscoverBooksUiState,
+    row: ScrollRowState,
     onOpenBook: (String) -> Unit,
     selection: BookSelection?,
     onRetry: () -> Unit,
@@ -268,7 +279,7 @@ private fun SomethingNewBody(
             if (state.isEmpty) {
                 QuietLine(DiscoverWords.NO_NEW_BOOKS_YET)
             } else {
-                Div(attrs = { classes("disc-picks") }) {
+                ScrollRow(row, classes = listOf("disc-picks")) {
                     state.books.forEach { book ->
                         key(book.id) { PickCard(book, onOpenBook, selection) }
                     }
@@ -278,7 +289,7 @@ private fun SomethingNewBody(
     }
 }
 
-/** A pick: one link to the book, its cover, title, author, then "Book 1 of Mistborn · 24h 39m". */
+/** A pick: one link to the book, its cover, title, author, then "Book 1 of Mistborn · 24h 39m", or the length alone outside a series. */
 @Composable
 internal fun PickCard(
     book: DiscoverUiBook,
@@ -304,8 +315,10 @@ internal fun PickCard(
         book.authorName?.let { Span(attrs = { classes("disc-card-sub") }) { Text(it) } }
         Span(attrs = { classes("disc-pick-meta") }) {
             Text(
-                "${DiscoverWords.seriesLine(book.seriesName, book.sequenceLabel)} · " +
+                listOfNotNull(
+                    DiscoverWords.seriesLine(book.seriesName, book.sequenceLabel),
                     DurationFormatter.hoursMinutes(book.durationMs.milliseconds),
+                ).joinToString(" · "),
             )
         }
     }

@@ -199,7 +199,7 @@ data class CurrentlyListeningUiSession(
  * @property authorName Its primary author, when known.
  * @property coverPath The local cover file, or null when not downloaded here.
  * @property coverHash The cover's content version.
- * @property seriesName The series it starts; null when standalone (the card reads "Standalone").
+ * @property seriesName The series it starts; null when standalone (the card then shows no series line, only the length).
  * @property sequenceLabel Its place in [seriesName] ("1"); null when standalone or unnumbered.
  * @property durationMs Its total length.
  */
