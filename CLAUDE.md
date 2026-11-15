@@ -337,7 +337,8 @@ app/                           # Everything that ships to a user
 │   ├── src/jsMain/             # Pages, design system, browser playback
 │   ├── web/                    # Vite + Playwright toolchain, CSS, test runner
 │   └── worker/                 # SQLite (OPFS) web worker
-└── baselineprofile/            # Baseline profile generator for :app:androidApp
+├── baselineprofile/            # Baseline profile generator for :app:androidApp
+└── storeshots/                 # Play screenshot capture (UiAutomator); run by tools/scripts/store-screenshots-android.sh, never by CI
 contract/                      # Client↔server contract: @Rpc service interfaces,
                                 #   @Serializable DTOs, the error hierarchy
 server/                        # Ktor server (KMP: JVM + Linux native, x64 and arm64)
@@ -351,7 +352,7 @@ tools/                         # Build machinery — never ships
 ```
 
 Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
-`:app:androidApp`, `:app:desktopApp`, `:app:webApp`, `:app:baselineprofile`, `:contract`,
+`:app:androidApp`, `:app:desktopApp`, `:app:webApp`, `:app:baselineprofile`, `:app:storeshots`, `:contract`,
 `:server`, `:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
 
 Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`

@@ -38,6 +38,13 @@ struct LoginView: View {
         _viewModel = State(initialValue: LoginViewModelWrapper(
             viewModel: Dependencies.shared.makeLoginViewModel()
         ))
+        #if DEBUG
+        // The store-screenshot UI test (ListenUpScreenshots) hands the rig account over in the launch
+        // environment: XCUITest echoes every typed character into its log, and the password must not land there.
+        let environment = ProcessInfo.processInfo.environment
+        _email = State(initialValue: environment["LISTENUP_SCREENSHOTS_EMAIL"] ?? "")
+        _password = State(initialValue: environment["LISTENUP_SCREENSHOTS_PASSWORD"] ?? "")
+        #endif
     }
 
     // MARK: - Body

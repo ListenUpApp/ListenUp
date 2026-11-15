@@ -35,6 +35,7 @@ includeBuild("tools/build-logic")
 
 include(":app:androidApp")
 include(":app:baselineprofile")
+include(":app:storeshots")
 include(":app:sharedUI")
 include(":contract")
 include(":app:desktopApp")
