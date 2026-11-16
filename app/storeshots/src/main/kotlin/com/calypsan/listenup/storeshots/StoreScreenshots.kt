@@ -447,10 +447,10 @@ class StoreScreenshots {
         const val BACK_SETTLE_MS = 2_000L
 
         /**
-         * The Readers heading's distance below the list's top edge: the 27dp from a section card's top to
-         * its heading, plus the 16dp gap between cards, so the card before ends at the edge, plus 2dp to spare.
+         * The Readers heading's distance below the list's top edge. Measured on the rig's three sizes: the card
+         * before Readers ends 2-9dp above the edge, so nothing of it shows, and the Readers card starts below it.
          */
-        const val READERS_HEADING_INSET_DP = 45
+        const val READERS_HEADING_INSET_DP = 33
         const val READERS_TOLERANCE_PX = 4
         const val READERS_DRAG_ATTEMPTS = 5
         const val DRAG_HIGH_FRACTION = 0.2f
