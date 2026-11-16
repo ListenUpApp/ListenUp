@@ -13,6 +13,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import kotlin.math.abs
 import java.util.regex.Pattern
 
 /**
@@ -136,11 +137,6 @@ class StoreScreenshots {
         await(By.descStartsWith(DOWNLOAD_PREFIX), "the book's page", LONG_TIMEOUT_MS)
     }
 
-    private fun scrollToReaders() {
-        scrollTo(By.text(READERS))
-        settle()
-    }
-
     private fun captureNowPlaying(shots: Shots) {
         navigate(HOME)
         openBook(SHERLOCK)
@@ -181,27 +177,59 @@ class StoreScreenshots {
         shots.capture("07-connect")
     }
 
+    /** Downloads three short books, so Storage reads as a real offline library, then opens it. */
     private fun captureDownloads(shots: Shots) {
+        DOWNLOAD_TITLES.forEach(::download)
+        navigate(HOME)
+        openSettings()
+        scrollTo(By.text(MANAGE_STORAGE)).click()
+        await(By.text(DOWNLOADED_COUNT), "all ${DOWNLOAD_TITLES.size} downloads in Storage", LONG_TIMEOUT_MS)
+        settle(SLOW_SETTLE_MS)
+        shots.capture("06-downloads")
+    }
+
+    /** Finds [title] through Search and downloads it, returning once the book page says it is on the device. */
+    private fun download(title: String) {
         navigate(HOME)
         await(By.desc(SEARCH), "Search").click()
         val query = await(By.clazz(EDIT_TEXT), "the search field")
-        query.text = DOWNLOAD_TITLE
+        query.text = title
         await(By.textContains(RESULTS_FOR), "the search results", LONG_TIMEOUT_MS)
         // With the keyboard up, the first tap only closes it.
         if (shell("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
         // The hit's title is the last node with that text; the first is the query in the search field.
-        device.findObjects(By.text(DOWNLOAD_TITLE)).last().click()
-        await(By.descStartsWith(DOWNLOAD_PREFIX), "the download button", LONG_TIMEOUT_MS).click()
-        check(
-            device.wait(Until.gone(By.descStartsWith(DOWNLOAD_PREFIX)), DOWNLOAD_TIMEOUT_MS),
-        ) { "The download never started" }
-        // While it runs, the button reads its progress ("49%").
-        check(device.wait(Until.gone(By.descEndsWith("%")), DOWNLOAD_TIMEOUT_MS)) { "The download never finished" }
-        navigate(HOME)
-        openSettings()
-        scrollTo(By.text(MANAGE_STORAGE)).click()
-        settle(SLOW_SETTLE_MS)
-        shots.capture("06-downloads")
+        device.findObjects(By.text(title)).last().click()
+        await(By.descStartsWith(DOWNLOAD_PREFIX), "the download button for $title", LONG_TIMEOUT_MS).click()
+        // A finished download's button offers to delete it.
+        await(By.desc(DELETE_DOWNLOAD), "$title downloaded", DOWNLOAD_TIMEOUT_MS)
+    }
+
+    /**
+     * Brings the Readers section into view with its heading at [READERS_HEADING_FRACTION] of the screen.
+     * A percentage scroll stopped wherever it landed, once with the hero's avatars sliced under the top bar;
+     * slow drags of a measured distance place it the same way at every size.
+     */
+    private fun scrollToReaders() {
+        scrollTo(By.text(READERS))
+        val target = (device.displayHeight * READERS_HEADING_FRACTION).toInt()
+        val x = device.displayWidth / 2
+        repeat(READERS_DRAG_ATTEMPTS) {
+            val top = device.findObject(By.text(READERS))?.visibleBounds?.top ?: return@repeat
+            val offset = top - target
+            if (abs(offset) <= READERS_TOLERANCE_PX) return@repeat
+            // Dragging up moves the content up. Both ends stay clear of the top bar and the gesture bar;
+            // a distance longer than that leaves the rest to the next drag.
+            val height = device.displayHeight
+            val start = (height * if (offset > 0) DRAG_LOW_FRACTION else DRAG_HIGH_FRACTION).toInt()
+            val end =
+                (start - offset).coerceIn(
+                    (height * DRAG_HIGH_FRACTION).toInt(),
+                    (height * DRAG_LOW_FRACTION).toInt(),
+                )
+            device.swipe(x, start, x, end, DRAG_STEPS)
+            device.waitForIdle()
+        }
+        settle()
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -371,8 +399,10 @@ class StoreScreenshots {
 
         const val SHERLOCK = "The Adventures of Sherlock Holmes"
 
-        /** Short enough to download in seconds: the rig's 72-minute recording. */
-        const val DOWNLOAD_TITLE = "The Art of War"
+        /** Three short books with covers, quick to download from the rig: one file, then many. */
+        val DOWNLOAD_TITLES = listOf("The Art of War", "Aesop's Fables Volume 1", "Peter Pan")
+        const val DOWNLOADED_COUNT = "3 books downloaded"
+        const val DELETE_DOWNLOAD = "Delete download"
 
         const val TIMEOUT_MS = 5_000L
         const val LONG_TIMEOUT_MS = 30_000L
@@ -385,5 +415,15 @@ class StoreScreenshots {
         const val BACK_PRESSES = 4
         const val PAUSE_ATTEMPTS = 5
         const val BACK_SETTLE_MS = 2_000L
+
+        /** Where the Readers heading rests: low enough to show the whole section below it. */
+        const val READERS_HEADING_FRACTION = 0.45f
+        const val READERS_TOLERANCE_PX = 24
+        const val READERS_DRAG_ATTEMPTS = 4
+        const val DRAG_HIGH_FRACTION = 0.2f
+        const val DRAG_LOW_FRACTION = 0.8f
+
+        /** Slow enough (about 5ms a step) that the drag ends without a fling. */
+        const val DRAG_STEPS = 100
     }
 }

@@ -99,8 +99,8 @@ ensure_avd() {
   shots_log "Creating AVD $AVD from ${image//\//;}."
   echo no | "$AVDMANAGER" create avd -n "$AVD" -k "${image//\//;}" -d pixel_7 >/dev/null
   CREATED_AVD="$AVD"
-  # The emulator refuses to boot without free disk for the whole data partition; the app and one
-  # short download need a fraction of the default.
+  # The emulator refuses to boot without free disk for the whole data partition; the app and its
+  # three short downloads need a fraction of the default.
   sed -i '' 's/^disk.dataPartition.size=.*/disk.dataPartition.size=4G/' "$HOME/.android/avd/$AVD.avd/config.ini"
 }
 
