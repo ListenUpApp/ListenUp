@@ -56,6 +56,8 @@ class StorageHeldRowTest {
                                         sizeBytes = 400_000_000L,
                                         fileCount = 12,
                                         isHeld = isHeld,
+                                        // A local path takes the cover's synchronous path; a null one resolves through Koin, absent here.
+                                        coverPath = "/tmp/cover-b1.webp",
                                     ),
                                 ),
                         ),

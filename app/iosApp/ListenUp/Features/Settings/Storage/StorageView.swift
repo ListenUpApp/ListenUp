@@ -198,6 +198,11 @@ private struct DownloadedBookRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // The title beside it names the book, so the cover is decorative to VoiceOver.
+            BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(book.title)
                     .font(.body)
@@ -209,11 +214,7 @@ private struct DownloadedBookRowView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                Text(String(
-                    format: String(localized: "settings.storage_size_files"),
-                    StorageFormat.byteSize(book.sizeBytes),
-                    book.fileCount
-                ))
+                Text(sizeAndFiles)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 // A held book's download stays — never strand bytes — but plays only once released.
@@ -230,6 +231,14 @@ private struct DownloadedBookRowView: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 2)
+    }
+
+    /// "17.2 MB · 1 file", "1.2 GB · 40 files".
+    private var sizeAndFiles: String {
+        let size = StorageFormat.byteSize(book.sizeBytes)
+        return book.fileCount == 1
+            ? String(format: String(localized: "settings.storage_size_files_one"), size)
+            : String(format: String(localized: "settings.storage_size_files"), size, book.fileCount)
     }
 }
 

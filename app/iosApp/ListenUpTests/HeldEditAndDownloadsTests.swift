@@ -12,9 +12,28 @@ struct HeldEditAndDownloadsTests {
             authorNames: "Kaliane Bradley",
             sizeBytes: 400_000_000,
             fileCount: 12,
-            isHeld: true
+            isHeld: true,
+            coverPath: nil,
+            coverHash: nil
         )
         #expect(DownloadedBookRow(summary).isHeld == true)
+    }
+
+    /// The row carries its book's cover, so Downloads can draw it.
+    @Test func aDownloadCarriesItsCover() {
+        let summary = DownloadedBookSummary(
+            bookId: "b1",
+            title: "The Art of War",
+            authorNames: "Sun Tzu",
+            sizeBytes: 18_000_000,
+            fileCount: 1,
+            isHeld: false,
+            coverPath: "/covers/b1.jpg",
+            coverHash: "h1"
+        )
+        let row = DownloadedBookRow(summary)
+        #expect(row.coverPath == "/covers/b1.jpg")
+        #expect(row.coverHash == "h1")
     }
 
     @Test func handBuiltRowsAreNotHeld() {

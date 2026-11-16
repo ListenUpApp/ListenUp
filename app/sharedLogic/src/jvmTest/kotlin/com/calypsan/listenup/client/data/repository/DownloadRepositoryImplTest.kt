@@ -89,6 +89,40 @@ class DownloadRepositoryImplTest :
             }
         }
 
+        test("a summary carries its book's cover, so the Downloads row can draw it") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+
+                    bookRepository.books =
+                        listOf(
+                            fakeBook(id = "b1", title = "The Art of War", authors = listOf("Sun Tzu"))
+                                .copy(coverPath = "/covers/b1.jpg", coverHash = "h1"),
+                        )
+                    downloadDao.insert(
+                        makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1_000L),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        val summary = awaitItem().single()
+                        summary.coverPath shouldBe "/covers/b1.jpg"
+                        summary.coverHash shouldBe "h1"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("multi-file book aggregates size and file count") {
             val db = createInMemoryTestDatabase()
             val downloadDao = db.downloadDao()

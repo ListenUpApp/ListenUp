@@ -40,11 +40,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.HeldLabel
-import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
+import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -70,6 +71,7 @@ import listenup.composeapp.generated.resources.settings_downloaded_books_will_ap
 import listenup.composeapp.generated.resources.settings_no_downloads
 import listenup.composeapp.generated.resources.settings_storage_available
 import listenup.composeapp.generated.resources.settings_storage_size_files
+import listenup.composeapp.generated.resources.settings_storage_size_files_one
 import listenup.composeapp.generated.resources.settings_you_can_redownload_books_anytime
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -476,11 +478,19 @@ private fun DownloadedBookItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Book cover
-            ListenUpAsyncImage(
-                path = null,
-                contentDescription = book.title,
-                modifier = Modifier.size(56.dp),
+            // The title beside it names the book, so the cover is decorative to a screen reader.
+            BookCoverImage(
+                bookId = book.bookId,
+                coverPath = book.coverPath,
+                coverHash = book.coverHash,
+                contentDescription = null,
+                title = book.title,
+                author = book.authorNames,
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .clearAndSetSemantics {},
             )
 
             // Book info
@@ -521,11 +531,15 @@ private fun DownloadedBookItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text =
-                        stringResource(
-                            Res.string.settings_storage_size_files,
-                            byteSizeLabel(book.sizeBytes),
-                            book.fileCount,
-                        ),
+                        if (book.fileCount == 1) {
+                            stringResource(Res.string.settings_storage_size_files_one, byteSizeLabel(book.sizeBytes))
+                        } else {
+                            stringResource(
+                                Res.string.settings_storage_size_files,
+                                byteSizeLabel(book.sizeBytes),
+                                book.fileCount,
+                            )
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

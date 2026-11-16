@@ -63,6 +63,7 @@ class StorageWideLayoutTest {
     }
 
     private companion object {
+        // A local cover path takes BookCoverImage's synchronous path; a null one resolves through Koin, absent here.
         val STATE =
             StorageUiState(
                 isLoading = false,
@@ -70,9 +71,30 @@ class StorageWideLayoutTest {
                 availableStorage = 8L * 1024 * 1024 * 1024,
                 downloadedBooks =
                     listOf(
-                        DownloadedBookSummary("b1", "The Way of Kings", "Brandon Sanderson", 1_000_000_000, 40),
-                        DownloadedBookSummary("b2", "Words of Radiance", "Brandon Sanderson", 1_100_000_000, 48),
-                        DownloadedBookSummary("b3", "Oathbringer", "Brandon Sanderson", 1_200_000_000, 55),
+                        DownloadedBookSummary(
+                            "b1",
+                            "The Way of Kings",
+                            "Brandon Sanderson",
+                            1_000_000_000,
+                            40,
+                            coverPath = "/tmp/cover-b1.webp",
+                        ),
+                        DownloadedBookSummary(
+                            "b2",
+                            "Words of Radiance",
+                            "Brandon Sanderson",
+                            1_100_000_000,
+                            48,
+                            coverPath = "/tmp/cover-b2.webp",
+                        ),
+                        DownloadedBookSummary(
+                            "b3",
+                            "Oathbringer",
+                            "Brandon Sanderson",
+                            1_200_000_000,
+                            55,
+                            coverPath = "/tmp/cover-b3.webp",
+                        ),
                     ),
             )
     }
