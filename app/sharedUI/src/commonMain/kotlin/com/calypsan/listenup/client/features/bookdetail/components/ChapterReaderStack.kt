@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.calypsan.listenup.client.design.components.AvatarCover
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.motion.rememberAmbientLoop
@@ -108,6 +110,12 @@ private const val GLOW_FROM_ALPHA = 0.45f
 
 /** The +N disc's text, as a share of its diameter, so it fits at any font scale. */
 private const val DISC_TEXT_RATIO = 0.4f
+
+/** How far the +N may shrink to fit the part of its disc left showing. */
+private const val DISC_MIN_SCALE = 0.5f
+
+/** The gap the +N keeps from the covering face's edge and from the disc's own curve. */
+private val DISC_MARGIN = 1.dp
 
 /** The clock position that means "held still": motion is off. */
 internal const val STILL_GLOW = -1f
@@ -200,20 +208,45 @@ internal fun ChapterReaderStack(
                 StackFace(
                     face = face,
                     ringColor = ringColor,
+                    covered = coverAt(faces, index),
                     modifier = if (afterLive) stacking.padding(start = FaceOverlap - AfterLiveOverlap) else stacking,
                 )
             }
         }
         if (readers.overflowCount > 0) {
-            OverflowDisc(count = readers.overflowCount, ringColor = ringColor, modifier = Modifier.zIndex(1f))
+            val afterLive = faces.lastOrNull()?.isLive == true
+            OverflowDisc(
+                count = readers.overflowCount,
+                ringColor = ringColor,
+                covered = coverAt(faces, faces.size),
+                modifier =
+                    if (afterLive) {
+                        Modifier.zIndex(1f).padding(start = FaceOverlap - AfterLiveOverlap)
+                    } else {
+                        Modifier.zIndex(1f)
+                    },
+            )
         }
     }
+}
+
+/**
+ * How much of the circle at [index] the circle before it hides: its overlap plus the cut round it, or, behind a face
+ * listening now, the shorter tuck plus that face's live ring. The first circle sits on top, uncovered.
+ */
+internal fun coverAt(
+    faces: List<ChapterReaderFace>,
+    index: Int,
+): AvatarCover {
+    val before = faces.getOrNull(index - 1) ?: return AvatarCover.None
+    return AvatarCover(start = if (before.isLive) AfterLiveOverlap + LiveRingOuter else FaceOverlap + CutWidth)
 }
 
 @Composable
 private fun StackFace(
     face: ChapterReaderFace,
     ringColor: Color,
+    covered: AvatarCover,
     modifier: Modifier,
 ) {
     val clock = LocalLiveGlowClock.current
@@ -227,6 +260,7 @@ private fun StackFace(
         userId = face.userId,
         size = FaceSize,
         fallbackName = face.displayName,
+        covered = covered,
         // Drawn behind the face and past its edge; read in the draw phase, so the breath never recomposes.
         modifier =
             modifier.drawBehind {
@@ -245,6 +279,7 @@ private fun StackFace(
 private fun OverflowDisc(
     count: Int,
     ringColor: Color,
+    covered: AvatarCover,
     modifier: Modifier,
 ) {
     val fontSize = with(LocalDensity.current) { (FaceSize.dp.toPx() * DISC_TEXT_RATIO).toSp() }
@@ -256,12 +291,14 @@ private fun OverflowDisc(
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
+        // In the part the face before it leaves showing, as a tucked face's initials sit.
         Text(
             text = "+$count",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = fontSize,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
+            autoSize = TextAutoSize.StepBased(minFontSize = fontSize * DISC_MIN_SCALE, maxFontSize = fontSize),
+            modifier = Modifier.padding(start = covered.start + DISC_MARGIN, end = covered.end + DISC_MARGIN),
         )
     }
 }

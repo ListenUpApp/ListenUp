@@ -3,11 +3,14 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -92,6 +95,9 @@ enum class AvatarSize(
  * @param size Render size variant. Defaults to [AvatarSize.Medium].
  * @param modifier Applied to the outermost container.
  * @param onClick When non-null, wraps the avatar in a clickable modifier.
+ * @param fallbackName The name the initials come from while the profile is not cached.
+ * @param covered How much of the circle's start and end edges an overlapping neighbour hides, as in a stack of
+ *   faces. The initials sit in the part left showing and shrink only as far as they must to fit it.
  */
 @Composable
 fun UserAvatar(
@@ -100,6 +106,7 @@ fun UserAvatar(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     fallbackName: String? = null,
+    covered: AvatarCover = AvatarCover.None,
 ) {
     val haptics = LocalHaptics.current
     val baseModifier =
@@ -137,6 +144,7 @@ fun UserAvatar(
                 initials = state.initials,
                 color = state.color,
                 size = size,
+                covered = covered,
                 modifier = baseModifier,
             )
         }
@@ -286,6 +294,7 @@ private fun InitialsAvatar(
     initials: String,
     color: Color,
     size: AvatarSize,
+    covered: AvatarCover,
     modifier: Modifier,
 ) {
     // Derive font size from physical pixels so the text stays inside the circle
@@ -296,15 +305,62 @@ private fun InitialsAvatar(
         modifier = modifier.background(color, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = initials,
-            color = Color.White,
-            fontSize = derivedFontSize,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
+        if (covered == AvatarCover.None) {
+            Text(
+                text = initials,
+                color = Color.White,
+                fontSize = derivedFontSize,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            // Centred, the initials would lose a letter under the neighbour: they sit in what is left showing, 1 dp
+            // clear of the neighbour's edge and of the circle's own curve, and shrink until they fit there.
+            Text(
+                text = initials,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                autoSize =
+                    TextAutoSize.StepBased(
+                        minFontSize = derivedFontSize * MIN_COVERED_SCALE,
+                        maxFontSize = derivedFontSize,
+                        stepSize = COVERED_STEP,
+                    ),
+                modifier =
+                    Modifier.padding(
+                        start = covered.start + UNCOVERED_MARGIN,
+                        end = covered.end + UNCOVERED_MARGIN,
+                    ),
+            )
+        }
     }
 }
+
+/**
+ * How much of an avatar's [start] and [end] edges something drawn over it hides, as a neighbour does in a stack of
+ * overlapping faces. [None] for an avatar nothing overlaps.
+ */
+@Immutable
+data class AvatarCover(
+    val start: Dp = 0.dp,
+    val end: Dp = 0.dp,
+) {
+    /** Holds [None]. */
+    companion object {
+        /** Nothing covers the avatar: its initials are centred in the whole circle. */
+        val None = AvatarCover()
+    }
+}
+
+/** The gap the initials keep from a covering neighbour's edge and from the circle's own curve. */
+private val UNCOVERED_MARGIN = 1.dp
+
+/** How far covered initials may shrink to fit the part of the circle left showing. */
+private const val MIN_COVERED_SCALE = 0.5f
+
+private val COVERED_STEP = 0.25.sp
 
 @Composable
 private fun LoadingPlaceholder(modifier: Modifier) {

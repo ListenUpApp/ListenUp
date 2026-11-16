@@ -57,7 +57,7 @@ struct ChapterReadersStackView: View {
                     .font(.system(size: 10, weight: .semibold)) // decorative fixed size
                     // Not `.secondary`: on "All N Chapters" that would take the button's coral.
                     .foregroundStyle(Color(.secondaryLabel))
-                    .modifier(UncoveredPart(covered: covered(at: stack.faces.count)))
+                    .modifier(UncoveredPart(leading: covered(at: stack.faces.count)))
             }
             .background { Circle().fill(ringColor).padding(-Self.cutWidth) }
     }

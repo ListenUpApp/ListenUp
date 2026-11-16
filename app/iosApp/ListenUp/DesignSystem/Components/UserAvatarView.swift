@@ -22,9 +22,10 @@ struct UserAvatarView: View {
     /// A frame to show in place of the stored one: Edit Profile's preview of a staged re-frame. Nil shows the
     /// observed frame.
     private let frameOverride: ImageFrameValue?
-    /// How much of the circle's leading edge something drawn over it hides, as in an overlapping stack. The
-    /// initials move into the part left showing and shrink to fit it; zero centres them in the whole circle.
+    /// How much of the circle's leading and trailing edges something drawn over it hides, as in an overlapping
+    /// stack. The initials move into the part left showing and shrink to fit it; zero centres them in the whole circle.
     private let coveredLeading: CGFloat
+    private let coveredTrailing: CGFloat
 
     /// Render from a known Kotlin `User`. Used by toolbars / profile screens.
     init(user: User?, size: CGFloat = 36, frameOverride: ImageFrameValue? = nil) {
@@ -33,17 +34,20 @@ struct UserAvatarView: View {
         self.size = size
         self.frameOverride = frameOverride
         self.coveredLeading = 0
+        self.coveredTrailing = 0
     }
 
     /// Render from primitives — for list rows that carry only the user's id (per iOS rule 8,
     /// we never put a bridged Kotlin `User` in a `ForEach`). The picture and avatar type are
     /// resolved by observing `userId`'s profile; `fallbackName` seeds the initials.
-    init(userId: String, fallbackName: String, size: CGFloat = 36, coveredLeading: CGFloat = 0) {
+    init(userId: String, fallbackName: String, size: CGFloat = 36, coveredLeading: CGFloat = 0,
+         coveredTrailing: CGFloat = 0) {
         self.userId = userId
         self.fallbackName = fallbackName
         self.size = size
         self.frameOverride = nil
         self.coveredLeading = coveredLeading
+        self.coveredTrailing = coveredTrailing
     }
 
     /// Observes the user's `public_profiles` row for avatar type + version. Rebound whenever
@@ -82,7 +86,7 @@ struct UserAvatarView: View {
                     // Initials are sized to the fixed avatar circle, not to the text setting.
                     .font(.system(size: size * 0.4, weight: .medium)) // decorative fixed size
                     .foregroundStyle(AvatarPalette.initialsInk)
-                    .modifier(UncoveredPart(covered: coveredLeading))
+                    .modifier(UncoveredPart(leading: coveredLeading, trailing: coveredTrailing))
             }
     }
 
@@ -116,18 +120,19 @@ struct UserAvatarView: View {
 }
 
 /// Fits a circle's centred label into the part of it an overlapping neighbour leaves showing: 1 pt clear of the
-/// neighbour's edge and of the circle's own trailing curve, shrinking the label until it fits. Uncovered, it leaves
-/// the label exactly as it was.
+/// neighbour's edge and of the circle's own curve, shrinking the label only until it fits. Uncovered, it leaves the
+/// label exactly as it was.
 struct UncoveredPart: ViewModifier {
-    let covered: CGFloat
+    var leading: CGFloat = 0
+    var trailing: CGFloat = 0
 
     func body(content: Content) -> some View {
-        if covered > 0 {
+        if leading > 0 || trailing > 0 {
             content
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                .padding(.leading, covered + 1)
-                .padding(.trailing, 1)
+                .padding(.leading, leading + 1)
+                .padding(.trailing, trailing + 1)
         } else {
             content
         }

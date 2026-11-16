@@ -3,8 +3,8 @@ import Testing
 import UIKit
 @testable import ListenUp
 
-/// Renders chapter rows carrying reader stacks to PNGs, so the overlapped initials can be looked at, at the default
-/// text size and at the largest accessibility size. Off unless LU_SNAPSHOT_DIR is set (xcodebuild passes
+/// Renders the hero's social line and chapter rows carrying reader stacks to PNGs, so the overlapped initials can be
+/// looked at, at the default text size and at the largest accessibility size. Off unless LU_SNAPSHOT_DIR is set (xcodebuild passes
 /// TEST_RUNNER_LU_SNAPSHOT_DIR through), so it never runs in CI. Test target only: no app launch, no audio.
 @MainActor
 @Suite("Chapter readers review snapshots", .serialized,
@@ -35,8 +35,15 @@ struct ChapterReadersSnapshotExportTests {
                            startMs: Int64($0) * 600_000)
         }
         let readers = ChapterReadersLookup(onChapter: { Self.stacks[$0] }, beyond: { _ in nil })
-        let section = BookChapterRowsSection(chapters: rows, preview: rows, canPlay: true, readers: readers,
-                                             initiallyExpanded: true, onPlayFromChapter: { _ in })
+        let hero = HeroSocialLineView(
+            line: ReadersSocialLine(listening: ["Dan Reyes", "Hal Burke"], finished: ["Walt Moss"],
+                                    avatarUserIds: ["snap-dan", "snap-hal", "snap-walt"], othersCount: 0),
+            ringColor: Color(.systemGroupedBackground), onOpenReaders: {})
+        let section = VStack(spacing: 16) {
+            hero
+            BookChapterRowsSection(chapters: rows, preview: rows, canPlay: true, readers: readers,
+                                   initiallyExpanded: true, onPlayFromChapter: { _ in })
+        }
             .padding()
             .frame(maxHeight: .infinity, alignment: .top)
             .background(Color(.systemGroupedBackground))

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AvatarCover
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -44,6 +45,9 @@ import org.jetbrains.compose.resources.stringResource
 
 /** How many avatars the line draws. */
 private const val SOCIAL_AVATARS = 3
+
+/** How far each avatar on the line tucks under the next; its ring is drawn inside it, so this is all it loses. */
+private val SocialOverlap = 8.dp
 
 /** The four wordings of one clause: one name, two, two and one other, two and N others. */
 internal data class ClauseKeys(
@@ -151,13 +155,15 @@ internal fun HeroSocialLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Overlapping: each avatar tucks 8 dp under the next.
-        Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-            summary.avatars.take(SOCIAL_AVATARS).forEach { ref ->
+        // Overlapping: each avatar tucks under the next, its initials in the part left showing.
+        Row(horizontalArrangement = Arrangement.spacedBy(-SocialOverlap)) {
+            val shown = summary.avatars.take(SOCIAL_AVATARS)
+            shown.forEachIndexed { index, ref ->
                 UserAvatar(
                     userId = ref.userId,
                     size = AvatarSize.Small,
                     fallbackName = ref.displayName,
+                    covered = if (index < shown.lastIndex) AvatarCover(end = SocialOverlap) else AvatarCover.None,
                     modifier = Modifier.border(2.dp, ringColor, CircleShape),
                 )
             }
