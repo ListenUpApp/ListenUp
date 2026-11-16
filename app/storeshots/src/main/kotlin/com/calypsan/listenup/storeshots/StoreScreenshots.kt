@@ -192,15 +192,30 @@ class StoreScreenshots {
     /** Finds [title] through Search and downloads it, returning once the book page says it is on the device. */
     private fun download(title: String) {
         navigate(HOME)
-        await(By.desc(SEARCH), "Search").click()
+        refreshingStale { await(By.desc(SEARCH), "Search").click() }
         search(title)
         // With the keyboard up, the first tap only closes it.
         if (shell("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
         // The hit's title is the last node with that text; the first is the query in the search field.
-        device.findObjects(By.text(title)).last().click()
+        refreshingStale { device.findObjects(By.text(title)).last().click() }
         await(By.descStartsWith(DOWNLOAD_PREFIX), "the download button for $title", LONG_TIMEOUT_MS).click()
         // A finished download's button offers to delete it.
         await(By.desc(DELETE_DOWNLOAD), "$title downloaded", DOWNLOAD_TIMEOUT_MS)
+    }
+
+    /**
+     * Runs [action], which finds a node and acts on it, again if the node recomposed between the two. The
+     * wide header recomposes as Home settles, and a tap on the stale node it left behind failed a 10" run.
+     */
+    private fun refreshingStale(action: () -> Unit) {
+        repeat(STALE_ATTEMPTS - 1) {
+            try {
+                return action()
+            } catch (_: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        action()
     }
 
     /**
@@ -444,6 +459,7 @@ class StoreScreenshots {
         const val BACK_PRESSES = 4
         const val PAUSE_ATTEMPTS = 5
         const val SEARCH_ATTEMPTS = 3
+        const val STALE_ATTEMPTS = 3
         const val BACK_SETTLE_MS = 2_000L
 
         /**
