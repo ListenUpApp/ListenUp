@@ -13,17 +13,14 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * Which readers each place in the chapter list carries: the shared [ChapterReadership]'s three questions.
+ * Which readers each place in the chapter list carries: the shared [ChapterReadership]'s two questions.
  *
  * A seam rather than the shared type itself because [ChapterReadership] can only be built from a book's readers and
  * chapters inside sharedLogic; a spec draws the list from readers it names directly.
  */
 internal interface ChapterReadersLookup {
-    /** The readers on [chapterId]'s row, or on the part header standing in for that folded chapter. */
+    /** The readers on [chapterId]'s row. */
     fun onChapter(chapterId: String): ChapterReaders?
-
-    /** The readers anywhere in the collapsed part whose header is [partId]. */
-    fun inPart(partId: String): ChapterReaders?
 
     /** The readers on chapters outside [shownChapterIds], for the collapsed list's "Show all" button. */
     fun beyond(shownChapterIds: List<String>): ChapterReaders?
@@ -39,8 +36,6 @@ internal interface ChapterReadersLookup {
 internal fun ChapterReadership.asLookup(): ChapterReadersLookup =
     object : ChapterReadersLookup {
         override fun onChapter(chapterId: String) = this@asLookup.onChapter(chapterId)
-
-        override fun inPart(partId: String) = this@asLookup.inPart(partId)
 
         override fun beyond(shownChapterIds: List<String>) = this@asLookup.beyond(shownChapterIds)
     }
@@ -141,7 +136,6 @@ private val ReadersPlace.isPhrase: String
     get() =
         when (this) {
             ReadersPlace.ThisChapter -> "is on this chapter."
-            ReadersPlace.ThisPart -> "is in this part."
             ReadersPlace.FurtherOn -> "is on a chapter further on."
             ReadersPlace.Earlier -> "is on an earlier chapter."
             ReadersPlace.OtherChapters -> "is on another chapter."
@@ -152,7 +146,6 @@ private val ReadersPlace.arePhrase: String
     get() =
         when (this) {
             ReadersPlace.ThisChapter -> "on this chapter."
-            ReadersPlace.ThisPart -> "in this part."
             ReadersPlace.FurtherOn -> "on chapters further on."
             ReadersPlace.Earlier -> "on earlier chapters."
             ReadersPlace.OtherChapters -> "on other chapters."

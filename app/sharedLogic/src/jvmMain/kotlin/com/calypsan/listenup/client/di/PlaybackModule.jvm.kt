@@ -11,11 +11,13 @@ import com.calypsan.listenup.client.playback.NoPlaybackStartGate
 import com.calypsan.listenup.client.playback.OutputRoute
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.PlaybackStartGate
 import com.calypsan.listenup.client.playback.PlayerEngine
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 /**
@@ -57,7 +59,7 @@ val desktopPlaybackModule: Module =
                 playbackBandwidthCoordinator = get(),
                 localPreferences = get(),
             )
-        }
+        } bind PlaybackStateProvider::class
 
         // The shared player's engine (playerModule): today's PlaybackManager + PlaybackController behind one seam.
         single(named(OFFLINE_COPIES)) { true }

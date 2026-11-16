@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
-import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
-import com.calypsan.listenup.client.domain.chapter.toChapterOutline
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.playback.chapterWindowAt
@@ -18,28 +16,24 @@ private const val NAMED_PER_CLAUSE = 2
 private const val PERCENT = 100
 
 /**
- * Where everyone else is in a book, for Book Detail's chapter list: which chapter row, part header and "All N chapters"
- * button carries whose avatar. Never includes you, anyone who has finished (they are in no chapter), or anyone who has
+ * Where everyone else is in a book, for Book Detail's chapter list: which chapter row and "All N chapters" button
+ * carries whose avatar. A part's divider carries none: a reader on a part's first chapter is on that chapter's row. Never includes you, anyone who has finished (they are in no chapter), or anyone who has
  * not started. Carries no copy: each platform builds its sentences from its own string catalog.
  *
  * Chapters are named by [Chapter.id], the id every chapter row ([ChapterUiModel.id],
- * [ChapterOutlineRow.ChapterRow]) and part header ([ChapterOutlineRow.PartHeader.chapterId]) already carries.
+ * [com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow.ChapterRow]) already carries.
  */
 @ConsistentCopyVisibility
 data class ChapterReadership internal constructor(
     private val placed: List<PlacedReader>,
     private val chapterIndexById: Map<String, Int>,
-    private val partIdByChapterId: Map<String, String>,
 ) {
-    /** The readers on [chapterId]'s row; null when nobody is on it. An open part's header uses this for its opener. */
-    fun onChapter(chapterId: String): ChapterReaders? = stackOf(ReadersPlace.ThisChapter) { it.chapterId == chapterId }
-
-    /**
-     * The readers anywhere in the part whose header is [partId] ([ChapterOutlineRow.PartHeader.chapterId]), for the
-     * header of a collapsed part; null when nobody is in it. Opening the part moves each onto their own row.
-     */
-    fun inPart(partId: String): ChapterReaders? =
-        stackOf(ReadersPlace.ThisPart) { reader -> partIdByChapterId[reader.chapterId] == partId }
+    /** The readers on [chapterId]'s row; null when nobody is on it. */
+    fun onChapter(chapterId: String): ChapterReaders? =
+        placed
+            .filter { it.chapterId == chapterId }
+            .takeIf { it.isNotEmpty() }
+            ?.let { here -> ChapterReaders(ReadersPlace.ThisChapter, here.map(PlacedReader::face)) }
 
     /**
      * The readers on chapters whose rows are not among [shownChapterIds], for the collapsed list's "All N chapters"
@@ -61,20 +55,10 @@ data class ChapterReadership internal constructor(
         return ChapterReaders(place, outside.map { it.face })
     }
 
-    private inline fun stackOf(
-        place: ReadersPlace,
-        predicate: (PlacedReader) -> Boolean,
-    ): ChapterReaders? =
-        placed
-            .filter(predicate)
-            .takeIf {
-                it.isNotEmpty()
-            }?.let { ChapterReaders(place, it.map(PlacedReader::face)) }
-
     /** Holds [None]. */
     companion object {
         /** Nobody on any chapter. */
-        val None: ChapterReadership = ChapterReadership(emptyList(), emptyMap(), emptyMap())
+        val None: ChapterReadership = ChapterReadership(emptyList(), emptyMap())
     }
 }
 
@@ -131,9 +115,6 @@ data class ChapterReaderFace(
 enum class ReadersPlace {
     /** A chapter row: "Tom is on this chapter." */
     ThisChapter,
-
-    /** A collapsed part's header: "Tom is in this part." */
-    ThisPart,
 
     /** "All N chapters", with everyone past the rows shown: "Tom is on a chapter further on." */
     FurtherOn,
@@ -224,7 +205,6 @@ internal fun chapterReadership(
     return ChapterReadership(
         placed = placed,
         chapterIndexById = chapters.withIndex().associate { (index, chapter) -> chapter.id to index },
-        partIdByChapterId = chapters.partIdByChapterId(),
     )
 }
 
@@ -237,14 +217,3 @@ private fun Reader.positionIn(bookDurationMs: Long): Long? {
         else -> currentProgressPct.takeIf { it > 0 }?.let { pct -> bookDurationMs * pct / PERCENT }
     }
 }
-
-/** Each chapter's part, by the part header's [ChapterOutlineRow.PartHeader.chapterId]; the folded opener included. */
-private fun List<Chapter>.partIdByChapterId(): Map<String, String> =
-    toChapterOutline().fold(mutableMapOf()) { parts, row ->
-        when (row) {
-            is ChapterOutlineRow.PartHeader -> parts[row.chapterId] = row.chapterId
-            is ChapterOutlineRow.ChapterRow -> row.partId?.let { parts[row.chapter.id] = it }
-            is ChapterOutlineRow.BookHeader -> Unit
-        }
-        parts
-    }

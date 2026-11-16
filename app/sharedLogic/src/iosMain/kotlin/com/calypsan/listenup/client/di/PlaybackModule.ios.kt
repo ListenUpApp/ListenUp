@@ -16,9 +16,11 @@ import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
+import com.calypsan.listenup.client.playback.EnginePlaybackStateProvider
 import com.calypsan.listenup.client.playback.NativePlayerEngine
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +41,7 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  * - PlaybackPreparer — stateless playback-preparation pipeline
  * - ProgressTracker — position persistence + server sync
  * - NativePlayerEngine — the shared player's engine, driven by PlayerSession and executed by Swift
+ * - PlaybackStateProvider — what is playing, read off that engine
  */
 internal val iosPlaybackModule: Module =
     module {
@@ -153,4 +156,6 @@ internal val iosPlaybackModule: Module =
         // book's fresh prepare are touched only there, and Swift reports facts from the main actor.
         single { NativePlayerEngine(prepare = get<PlaybackPreparer>()::prepare, scope = get(named(PLAYER_SCOPE))) }
         single<PlayerEngine> { get<NativePlayerEngine>() }
+        // What is playing, for sign-out and Downloads' delete guard: the book the engine holds (no PlaybackManager here).
+        single<PlaybackStateProvider> { EnginePlaybackStateProvider(get<NativePlayerEngine>()) }
     }

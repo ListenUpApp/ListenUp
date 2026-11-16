@@ -6,7 +6,6 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -187,8 +186,8 @@ class ChapterReadersTest {
     }
 
     @Test
-    fun `a closed part's header carries the readers inside it`() {
-        // Credits, Part I (folded) with 1 to 6, Part II (folded) with 7 to 9; playback in Part I keeps Part II closed.
+    fun `a reader on a part's own chapter sits on that row, and the divider above it carries nobody`() {
+        // Credits, Part I with its own chapter and 1 to 6, Part II with its own chapter and 7 to 9.
         val marked =
             listOf("Credits", "Part I", "1", "2", "3", "4", "5", "6", "Part II", "7", "8", "9").mapIndexed { i, title ->
                 Chapter(
@@ -212,15 +211,16 @@ class ChapterReadersTest {
                 )
             }
         renderWithMayaAt(
-            index = 10,
+            index = 8,
             chapters = marked,
             rows = markedRows,
             preview = markedRows.subList(1, 6),
             grouped = marked.groupedChapters(3),
         )
         composeRule.onNodeWithText("All 12 chapters").performSemanticsAction(SemanticsActions.OnClick)
-        composeRule.onNodeWithContentDescription("Part II, ", substring = true).assert(
-            hasContentDescription("Maya is in this part.", substring = true),
-        )
+        composeRule
+            .onNodeWithContentDescription("Play from chapter 9: Part II. Maya is on this chapter.")
+            .assertExists()
+        composeRule.onNodeWithContentDescription("Part II, 4 chapters, 40 minutes").assertExists()
     }
 }

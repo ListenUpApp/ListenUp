@@ -33,7 +33,7 @@ open class LogoutUseCase(
     private val syncRepository: SyncRepository,
     private val rpcCacheInvalidator: RpcCacheInvalidator,
     private val libraryResetHelper: LibraryResetHelper,
-    private val playbackStateProvider: PlaybackStateProvider? = null,
+    private val playbackStateProvider: PlaybackStateProvider,
     private val playerSession: PlayerSession? = null,
 ) {
     open suspend operator fun invoke(): AppResult<Unit> {
@@ -69,9 +69,9 @@ open class LogoutUseCase(
         // 2. Drop every cached principal-bound RPC proxy / HttpClient so a re-login as a
         // different user in the same process can't reuse the previous session's socket.
         rpcCacheInvalidator.invalidateAll()
-        playbackStateProvider?.clearPlayback()
-        // Close the loaded book on every platform (iOS has no PlaybackStateProvider): it stops the engine,
-        // cancels a sleep timer so none outlives the session, and clears the device-local key.
+        playbackStateProvider.clearPlayback()
+        // Close the loaded book: it stops the engine, cancels a sleep timer so none outlives the session, and
+        // clears the device-local key.
         playerSession?.closeBook()
         // 3. Clear library data, including any still-queued pending operations — a
         // signed-out user's unsent edits are deliberately discarded, not carried into

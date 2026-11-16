@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.presentation.close
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.PlayerSessionRig
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.ChapterInput
@@ -130,8 +130,8 @@ class ChapterEditorViewModelTest :
                 saveResult
             }
 
-            val playback = mock<PlaybackManager>(MockMode.autoUnit)
-            every { playback.currentTimeline } returns loadedTimeline
+            val engine = mock<PlayerEngine>(MockMode.autoUnit)
+            every { engine.timeline } returns loadedTimeline
 
             val vm =
                 ChapterEditorViewModel(
@@ -139,7 +139,7 @@ class ChapterEditorViewModelTest :
                     bookRepository = books,
                     bookEditRepository = edits,
                     errorBus = ErrorBus(),
-                    playbackManager = playback,
+                    engine = engine,
                     playerSession = session,
                 )
             return Triple(vm, mirror, saved)

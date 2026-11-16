@@ -47,10 +47,6 @@ import listenup.composeapp.generated.resources.book_detail_chapter_readers_furth
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_further_on_many_one
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_further_on_one
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_further_on_two
-import listenup.composeapp.generated.resources.book_detail_chapter_readers_in_part_many
-import listenup.composeapp.generated.resources.book_detail_chapter_readers_in_part_many_one
-import listenup.composeapp.generated.resources.book_detail_chapter_readers_in_part_one
-import listenup.composeapp.generated.resources.book_detail_chapter_readers_in_part_two
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_listening_now_many
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_listening_now_many_one
 import listenup.composeapp.generated.resources.book_detail_chapter_readers_listening_now_one
@@ -68,7 +64,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Where everyone else is in the book, as the chapter list draws it.
  *
- * @property readership Which row, part header and "All N chapters" button carries whose avatar.
+ * @property readership Which row and "All N chapters" button carries whose avatar.
  * @property isAnyoneListening Someone else is listening to this book right now: only then does the glow's clock run.
  */
 internal data class ChapterReadersOnPage(
@@ -286,14 +282,6 @@ private val OnChapterKeys =
         many = Res.string.book_detail_chapter_readers_on_chapter_many,
     )
 
-private val InPartKeys =
-    ClauseKeys(
-        one = Res.string.book_detail_chapter_readers_in_part_one,
-        two = Res.string.book_detail_chapter_readers_in_part_two,
-        manyOne = Res.string.book_detail_chapter_readers_in_part_many_one,
-        many = Res.string.book_detail_chapter_readers_in_part_many,
-    )
-
 private val FurtherOnKeys =
     ClauseKeys(
         one = Res.string.book_detail_chapter_readers_further_on_one,
@@ -322,7 +310,6 @@ private val ReadersPlace.keys: ClauseKeys
     get() =
         when (this) {
             ReadersPlace.ThisChapter -> OnChapterKeys
-            ReadersPlace.ThisPart -> InPartKeys
             ReadersPlace.FurtherOn -> FurtherOnKeys
             ReadersPlace.Earlier -> EarlierKeys
             ReadersPlace.OtherChapters -> OtherChaptersKeys

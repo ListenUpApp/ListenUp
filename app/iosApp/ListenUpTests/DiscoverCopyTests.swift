@@ -12,10 +12,11 @@ struct DiscoverCopyTests {
         #expect(DiscoverCopy.listeningCount(live: 0, recent: 0) == nil)
     }
 
-    @Test func seriesLineIsNumberedBareOrStandalone() {
+    @Test func seriesLineIsNumberedBareOrAbsent() {
         #expect(DiscoverCopy.seriesLine(series: "Mistborn", sequence: "1") == "Book 1 of Mistborn")
         #expect(DiscoverCopy.seriesLine(series: "Mistborn", sequence: nil) == "Mistborn")
-        #expect(DiscoverCopy.seriesLine(series: nil, sequence: nil) == "Standalone")
+        #expect(DiscoverCopy.seriesLine(series: nil, sequence: nil) == nil)
+        #expect(DiscoverCopy.seriesLine(series: "", sequence: "1") == nil)
     }
 
     /// The platform formats the length; read what it says rather than pinning one OS's punctuation.

@@ -100,7 +100,7 @@ class DiscoverMainTest :
             shuffles shouldBe 1
         }
 
-        test("a pick reads its series and length on one line") {
+        test("a pick reads its series and length on one line, and a book outside a series its length alone") {
             val host =
                 mounts.mount {
                     discoverPage(
@@ -114,7 +114,7 @@ class DiscoverMainTest :
                     )
                 }
             val lines = host.querySelectorAll(".disc-pick-meta").asList().map { it.textContent }
-            lines shouldBe listOf("Book 1 of Mistborn · 24h 39m", "Standalone · 10h 16m")
+            lines shouldBe listOf("Book 1 of Mistborn · 24h 39m", "10h 16m")
         }
 
         test("a pick is a link to its book") {

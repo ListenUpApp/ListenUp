@@ -12,7 +12,8 @@ internal object DiscoverWords {
     const val SOMETHING_NEW_SUBTITLE = "Books you haven't started, first in their series"
     const val SHUFFLE = "Shuffle"
     const val SHUFFLE_A11Y = "Shuffle: draw ten different books"
-    const val STANDALONE = "Standalone"
+    const val PICKS_BACK = "Previous books"
+    const val PICKS_FORWARD = "Next books"
     const val LEADERBOARD = "Leaderboard"
     const val PERIOD_GROUP = "Leaderboard period"
     const val CATEGORY_GROUP = "Rank by"
@@ -62,13 +63,13 @@ internal object DiscoverWords {
             else -> "$live listening now · $recent more in the last two weeks"
         }
 
-    /** "Book 1 of Mistborn", the bare series when unnumbered, or "Standalone". */
+    /** "Book 1 of Mistborn", or the bare series when unnumbered; null outside a series, which shows no line. */
     fun seriesLine(
         series: String?,
         sequence: String?,
-    ): String =
+    ): String? =
         when {
-            series == null -> STANDALONE
+            series == null -> null
             sequence == null -> series
             else -> "Book $sequence of $series"
         }

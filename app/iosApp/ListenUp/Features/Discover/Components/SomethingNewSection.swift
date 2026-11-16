@@ -1,16 +1,13 @@
 import SwiftUI
 
 /// Something New: books the reader has not started, first in their series (spec X4–X7), with a
-/// Shuffle that draws ten different ones. A rail at compact width; a grid of every pick at
-/// regular width.
+/// Shuffle that draws ten different ones. One rail at every width, never a wrapping grid: ten picks
+/// wrapped unevenly on a wide window, and a row with the next cover peeking says there is more.
 ///
 /// Shuffle is a glass button (HIG, Buttons): an icon-only circle on iPhone, labelled on iPad; both are
 /// named for what they do. Every state keeps the heading: a skeleton while drawing, a line
 /// and Try Again (a fresh draw) on failure, and "You've started every book here." with Browse the Library.
 struct SomethingNewSection: View {
-    /// Cards per row in the regular-width grid: five picks, as the board lays them.
-    static let regularColumnCount = 5
-
     let phase: DiscoverBooksPhase
     let cardWidth: CGFloat
     let horizontalInset: CGFloat
@@ -70,9 +67,9 @@ struct SomethingNewSection: View {
         switch phase {
         case .loading:
             DiscoverCardGridSkeleton(
-                isRegular: isRegular,
+                isRegular: false,
                 cardWidth: cardWidth,
-                regularColumnCount: Self.regularColumnCount,
+                regularColumnCount: 1,
                 horizontalInset: horizontalInset,
                 captionLines: 3,
                 spacing: 18
@@ -93,15 +90,8 @@ struct SomethingNewSection: View {
             if books.isEmpty {
                 message(String(localized: "discover.no_new_books_yet"))
             } else {
-                DiscoverCardGrid(
-                    items: books,
-                    isRegular: isRegular,
-                    cardWidth: cardWidth,
-                    regularColumnCount: Self.regularColumnCount,
-                    horizontalInset: horizontalInset,
-                    spacing: 18
-                ) { book, width in
-                    PickCard(book: book, width: width, selection: selection)
+                DiscoverRail(items: books, horizontalInset: horizontalInset, spacing: 18) { book in
+                    PickCard(book: book, width: cardWidth, selection: selection)
                 }
             }
         case .error:

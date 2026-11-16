@@ -874,3 +874,20 @@ div.panel-pop {
   .shell-morphing.mp-fade .np-layer .np-morph { opacity:var(--mp-q); }
   .shell-morphing.mp-fade .sidebar, .shell-morphing.mp-fade .tport { opacity:calc(1 - var(--mp-q)); }
 }
+
+/* ScrollRow: one row that never wraps. It scrolls sideways and rests on an item's leading edge; the item past
+   the edge peeks. A scroller clips what its items draw outside themselves, so an item's focus ring and
+   selection ring are drawn inside its edge here rather than around it. */
+.luw .scroll-row {
+  display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.luw .scroll-row::-webkit-scrollbar { display: none; }
+.luw .scroll-row > * { flex: none; scroll-snap-align: start; }
+/* The class is doubled to outrank a page's own ring (`a.disc-card:focus-visible`, `.disc-card.is-sel`), which
+   later sheets draw outside the card. */
+.luw .scroll-row.scroll-row > :focus-visible, .luw .scroll-row.scroll-row > .is-sel { outline-offset: -2px; }
+/* Its arrows are for a pointer that cannot swipe; a touchscreen swipes, so they step aside there. */
+.luw .scroll-row-arrows { display: none; }
+@media (hover: hover) and (pointer: fine) { .luw .scroll-row-arrows { display: inline-flex; gap: 0.25rem; } }
+/* As tall and as outlined as the small buttons that sit beside them in a section's header. */
+.luw .scroll-row-arrows .scroll-row-arrow { width: 32px; height: 32px; border-color: var(--outline); color: var(--ink); }

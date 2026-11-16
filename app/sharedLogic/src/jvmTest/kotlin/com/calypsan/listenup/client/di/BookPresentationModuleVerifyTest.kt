@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -77,8 +77,8 @@ import org.koin.test.verify.verify
  *  - [LibraryRepository] — owned by `libraryModule` (matching starts in the library's Audible store).
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [MoodRepository] — owned by `genreTagModule`.
- *  - [PlaybackManager] / [PlayerSession] — owned by the platform playback modules; the chapter
- *    editor's file boundaries read the first, its "Play from here" commands the second.
+ *  - [PlayerEngine] / [PlayerSession] — owned by the platform playback module and `playerModule`; the
+ *    chapter editor's file boundaries read the first, its "Play from here" commands the second.
  *  - [PermissionsRepository] — owned by `socialModule`.
  *  - [UserProfileRepository] — owned by `socialModule` (who matched the book, on Book Detail's last-match row).
  *  - [ActiveSessionRepository] — owned by `socialModule` (who is listening now, for Book Detail's readers).
@@ -94,7 +94,7 @@ class BookPresentationModuleVerifyTest :
                     listOf(
                         PermissionsRepository::class,
                         BookRepository::class,
-                        PlaybackManager::class,
+                        PlayerEngine::class,
                         PlayerSession::class,
                         TagRepository::class,
                         PlaybackPositionRepository::class,

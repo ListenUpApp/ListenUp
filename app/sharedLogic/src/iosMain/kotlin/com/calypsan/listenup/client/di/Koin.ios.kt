@@ -135,14 +135,17 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
     configureLogging()
 
     startKoin {
-        // Include shared modules, iOS playback module, and any app-specific modules
-        modules(sharedModules + iosPlaybackModule + iosPushModule + iosCoverThemeModule + additionalModules)
+        modules(iosModules + additionalModules)
     }
 
     // Attach the rotating file sink: from here every line (plus the startup buffer) is persisted
     // under Documents/logs, which Settings → Share logs hands over.
     LogSinkRegistry.attach(KoinPlatform.getKoin().get())
 }
+
+/** The iOS app's whole graph: the shared modules plus the iOS platform's own. `IosKoinGraphTest` resolves against it. */
+internal val iosModules: List<Module>
+    get() = sharedModules + iosPlaybackModule + iosPushModule + iosCoverThemeModule
 
 /**
  * iOS push bindings — the mirror of the Android platform module's pair: this build IS the iOS

@@ -66,15 +66,14 @@
 }
 @media (max-width: 759px) { .luw .disc .page-sub { display: none; } }
 
-/* Something new: two up on a phone, the board's four (the rest stay in the DOM for a wider window);
-   every pick with room. */
+/* Something new: one row at every width that scrolls sideways (ScrollRow), the next cover peeking.
+   It used to wrap, and ten picks wrapped unevenly (seven and three) on a wide window. */
 .luw a.disc-card { color: inherit; text-decoration: none; }
 .luw a.disc-card:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; border-radius: 12px; }
-.luw .disc-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem 1rem; }
-@media (max-width: 759px) { .luw .disc-picks > :nth-child(n+5) { display: none; } }
-@media (min-width: 760px) {
-  .luw .disc-picks { grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); }
-}
+.luw .disc-picks { display: flex; gap: 1rem; }
+/* The skeleton runs past the edge as the row will, without a scroller of its own. */
+.luw .disc-picks:not(.scroll-row) { overflow: hidden; }
+.luw .disc-picks > .disc-card { flex: 0 0 156px; min-width: 0; }
 .luw .disc-pick-meta { font-size: 0.75rem; color: var(--ink-3); }
 
 /* Leaderboard: one bordered card on paper at every width. */
