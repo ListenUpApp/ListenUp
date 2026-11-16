@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.dom.whenFontsLoaded
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -120,8 +121,7 @@ internal fun UncoveredLabel(
             }
             ref { box ->
                 fitLabel(box, room)
-                val fonts: dynamic = document.asDynamic().fonts
-                if (fonts != null && fonts != undefined) fonts.ready.then { fitLabel(box, room) }
+                document.whenFontsLoaded { fitLabel(box, room) }
                 onDispose {}
             }
         }) { Span { Text(text) } }
