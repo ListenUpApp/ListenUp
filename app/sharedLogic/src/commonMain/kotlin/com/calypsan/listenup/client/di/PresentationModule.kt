@@ -473,7 +473,7 @@ internal val bookPresentationModule =
                 bookRepository = get(),
                 bookEditRepository = get(),
                 errorBus = get(),
-                playbackManager = get(),
+                engine = get(),
                 playerSession = get(),
             )
         }
@@ -788,9 +788,8 @@ internal val settingsPresentationModule =
                 downloadService = get(),
                 storageSpaceProvider = get(),
                 errorBus = get(),
-                // The concrete PlaybackManager implements PlaybackStateProvider (same narrowing as
-                // AuthModule's LogoutUseCase wiring) — used to refuse deleting the playing book (B9).
-                playbackStateProvider = get<com.calypsan.listenup.client.playback.PlaybackManager>(),
+                // Refuses deleting the playing book. Each platform's playback module binds it.
+                playbackStateProvider = get(),
                 inboxRepository = get(),
             )
         }

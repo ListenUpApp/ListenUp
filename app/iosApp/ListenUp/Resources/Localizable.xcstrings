@@ -5094,50 +5094,6 @@
         }
       }
     },
-    "book.detail_chapter_readers_in_part_many": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, %2$@ and %3$d others are in this part."
-          }
-        }
-      }
-    },
-    "book.detail_chapter_readers_in_part_many_one": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@, %2$@ and 1 other are in this part."
-          }
-        }
-      }
-    },
-    "book.detail_chapter_readers_in_part_one": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ is in this part."
-          }
-        }
-      }
-    },
-    "book.detail_chapter_readers_in_part_two": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ and %2$@ are in this part."
-          }
-        }
-      }
-    },
     "book.detail_chapter_readers_listening_now_many": {
       "extractionState": "manual",
       "localizations": {
@@ -13769,17 +13725,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book %1$@ of %2$@"
-          }
-        }
-      }
-    },
-    "discover.pick_standalone": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standalone"
           }
         }
       }

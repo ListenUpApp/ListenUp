@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.PlayerSessionState
 import androidx.lifecycle.ViewModel
@@ -50,8 +50,9 @@ class ChapterEditorViewModel(
     bookRepository: BookRepository,
     private val bookEditRepository: BookEditRepository,
     private val errorBus: ErrorBus,
-    // Read only for the loaded book's file boundaries: the session exposes no timeline.
-    playbackManager: PlaybackManager,
+    // Read only for the loaded book's file boundaries: the session exposes no timeline. The engine, which every
+    // platform binds (iOS binds no PlaybackManager).
+    engine: PlayerEngine,
     private val playerSession: PlayerSession,
 ) : ViewModel() {
     /** The user's unsaved work, or null while the editor is simply following the mirror. */
@@ -104,7 +105,7 @@ class ChapterEditorViewModel(
             flow = bookRepository.observeChapters(bookId),
             flow2 = bookRepository.observeBookDetail(bookId),
             flow3 = session,
-            flow4 = playbackManager.currentTimeline,
+            flow4 = engine.timeline,
             flow5 = partSuggestionDismissed,
         ) { mirrored, book, current, loaded, suggestionDismissed ->
             if (book == null) {

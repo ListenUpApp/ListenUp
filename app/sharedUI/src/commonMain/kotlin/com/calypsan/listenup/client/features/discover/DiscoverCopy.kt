@@ -7,7 +7,6 @@ import listenup.composeapp.generated.resources.discover_listening_count_both
 import listenup.composeapp.generated.resources.discover_listening_count_live
 import listenup.composeapp.generated.resources.discover_listening_count_recent
 import listenup.composeapp.generated.resources.discover_pick_series_line
-import listenup.composeapp.generated.resources.discover_pick_standalone
 import listenup.composeapp.generated.resources.discover_recently_added_when
 import org.jetbrains.compose.resources.stringResource
 
@@ -24,14 +23,14 @@ internal fun listeningCountLine(
         else -> stringResource(Res.string.discover_listening_count_both, live, recent)
     }
 
-/** "Book 1 of Mistborn", the bare series name when unnumbered, or "Standalone". */
+/** "Book 1 of Mistborn", or the bare series name when unnumbered; null for a book outside a series, which shows no line. */
 @Composable
 internal fun pickSeriesLine(
     series: String?,
     sequence: String?,
-): String =
+): String? =
     when {
-        series == null -> stringResource(Res.string.discover_pick_standalone)
+        series == null -> null
         sequence == null -> series
         else -> stringResource(Res.string.discover_pick_series_line, sequence, series)
     }

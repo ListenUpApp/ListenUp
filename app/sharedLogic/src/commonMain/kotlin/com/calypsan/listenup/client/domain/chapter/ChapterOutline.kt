@@ -7,11 +7,12 @@ import com.calypsan.listenup.client.domain.model.Chapter
  *
  * Flat rather than nested because every surface draws a flat list and a nested shape would make
  * each of them walk it. [toChapterOutline] is the only producer, so no platform derives grouping
- * itself.
+ * itself. Every chapter the audiobook has is a [ChapterRow]: the headers only mark where a book or
+ * part begins, and never stand in for a chapter.
  */
 sealed interface ChapterOutlineRow {
     /**
-     * A Book marker.
+     * A Book marker: the heading of one book in an omnibus.
      *
      * @property title the name given to the marker.
      * @property chapterId the chapter carrying the marker, which is the one that opens the book.
@@ -24,18 +25,14 @@ sealed interface ChapterOutlineRow {
     ) : ChapterOutlineRow
 
     /**
-     * A Part marker.
+     * A Part marker, drawn as a divider above the part's chapters. It is never current: only a
+     * chapter row is.
      *
      * @property title the name given to the marker.
-     * @property chapterId the chapter carrying the marker. When that chapter folded, this is how the
-     *   header still reaches it, because no [ChapterRow] will.
-     * @property chapterCount chapters listed under this header: a folded chapter is not counted,
-     *   because the reader cannot see a row for it.
-     * @property durationMs the whole part's length, folded chapter included: that audio still plays.
+     * @property chapterId the chapter carrying the marker: the part's identity, and where it starts.
+     * @property chapterCount every chapter row in the part.
+     * @property durationMs the whole part's length.
      * @property startMs where the part begins.
-     * @property containsCurrent whether the current chapter is in this part, folded or not.
-     * @property isCurrentChapter whether the current chapter is the one folded into this header. It
-     *   has no row of its own to light, so this header shows as current in its place.
      */
     data class PartHeader(
         val title: String,
@@ -43,43 +40,22 @@ sealed interface ChapterOutlineRow {
         val chapterCount: Int,
         val durationMs: Long,
         val startMs: Long,
-        val containsCurrent: Boolean,
-        val isCurrentChapter: Boolean = false,
-    ) : ChapterOutlineRow {
-        /**
-         * Whether this part is open: as the reader left it, per [overrides], or with no override
-         * following the current chapter.
-         */
-        fun isOpen(overrides: Map<String, Boolean>): Boolean = overrides[chapterId] ?: containsCurrent
-
-        /** [overrides] with this part flipped, so it stays that way wherever playback goes next. */
-        fun toggled(overrides: Map<String, Boolean>): Map<String, Boolean> =
-            overrides + (chapterId to !isOpen(overrides))
-    }
+    ) : ChapterOutlineRow
 
     /**
      * A chapter.
      *
      * @property chapter the chapter itself.
-     * @property number its 1-based position in the whole book. A fold never changes it: the rows
-     *   after a folded chapter keep the numbers they have everywhere else.
-     * @property partId the [PartHeader.chapterId] of the part this row sits in; null outside any part.
-     *   It is how a surface knows what a closed part hides without walking the list itself.
+     * @property index its 0-based place in the whole list the outline was built from, so a surface
+     *   holding a parallel list of the same chapters reaches this one's entry.
+     * @property number the number a reader sees: 1-based in audio order, running on across parts and
+     *   starting again at 1 at each Book marker. With no Book markers it is simply [index] plus one.
      */
     data class ChapterRow(
         val chapter: Chapter,
+        val index: Int,
         val number: Int,
-        val partId: String? = null,
     ) : ChapterOutlineRow
-}
-
-/** What an outline does with a chapter that opens a part and only announces its name. */
-enum class AnnouncementChapters {
-    /** The header takes its place: listeners are not told "Part I" twice in a row. */
-    Fold,
-
-    /** It stays a row: the editor shows every chapter, because every chapter can be edited. */
-    Keep,
 }
 
 /**
@@ -88,15 +64,9 @@ enum class AnnouncementChapters {
  * Chapters before the first header of a tier sit above it with no header of their own, and a book
  * with no markers comes back as nothing but [ChapterOutlineRow.ChapterRow]s, so a flat book needs no
  * special case at the call site.
- *
- * @param currentChapterId the chapter to report through [ChapterOutlineRow.PartHeader.containsCurrent].
- * @param announcements whether a chapter named for the part it opens folds into the header.
  */
-fun List<Chapter>.toChapterOutline(
-    currentChapterId: String? = null,
-    announcements: AnnouncementChapters = AnnouncementChapters.Fold,
-): List<ChapterOutlineRow> {
-    val numbers = withIndex().associate { (index, chapter) -> chapter.id to index + 1 }
+fun List<Chapter>.toChapterOutline(): List<ChapterOutlineRow> {
+    var index = 0
     return groupChapters().flatMap { book ->
         buildList {
             book.title?.let { title ->
@@ -107,54 +77,22 @@ fun List<Chapter>.toChapterOutline(
                         .first()
                 add(ChapterOutlineRow.BookHeader(title, opener.id, opener.startTime))
             }
-            book.parts.forEach { part -> addAll(part.outlineRows(numbers, currentChapterId, announcements)) }
+            var number = 0
+            book.parts.forEach { part ->
+                part.title?.let { title ->
+                    val opener = part.chapters.first()
+                    add(
+                        ChapterOutlineRow.PartHeader(
+                            title = title,
+                            chapterId = opener.id,
+                            chapterCount = part.chapters.size,
+                            durationMs = part.chapters.sumOf { it.duration },
+                            startMs = opener.startTime,
+                        ),
+                    )
+                }
+                part.chapters.forEach { chapter -> add(ChapterOutlineRow.ChapterRow(chapter, index++, ++number)) }
+            }
         }
-    }
-}
-
-/** These rows with the chapters of closed parts taken out; see [ChapterOutlineRow.PartHeader.isOpen]. */
-fun List<ChapterOutlineRow>.withOpenParts(overrides: Map<String, Boolean>): List<ChapterOutlineRow> {
-    val closed =
-        filterIsInstance<ChapterOutlineRow.PartHeader>()
-            .filterNot { it.isOpen(overrides) }
-            .mapTo(mutableSetOf()) { it.chapterId }
-    return filterNot { it is ChapterOutlineRow.ChapterRow && it.partId in closed }
-}
-
-private fun PartGroup.outlineRows(
-    numbers: Map<String, Int>,
-    currentChapterId: String?,
-    announcements: AnnouncementChapters,
-): List<ChapterOutlineRow> {
-    val listed = if (announcements == AnnouncementChapters.Fold) withoutAnnouncement() else chapters
-    val opener = chapters.first()
-    val partId = opener.id.takeIf { title != null }
-    val rows = listed.map { ChapterOutlineRow.ChapterRow(it, numbers.getValue(it.id), partId) }
-    val partTitle = title ?: return rows
-    val header =
-        ChapterOutlineRow.PartHeader(
-            title = partTitle,
-            chapterId = opener.id,
-            chapterCount = listed.size,
-            durationMs = chapters.sumOf { it.duration },
-            startMs = opener.startTime,
-            containsCurrent = chapters.any { it.id == currentChapterId },
-            isCurrentChapter = opener.id == currentChapterId && listed.none { it.id == opener.id },
-        )
-    return listOf(header) + rows
-}
-
-/** This part's chapters, less the opening one when it only announces the part's name. */
-private fun PartGroup.withoutAnnouncement(): List<Chapter> {
-    val partTitle = title?.trim() ?: return chapters
-    return if (chapters
-            .first()
-            .title
-            .trim()
-            .equals(partTitle, ignoreCase = true)
-    ) {
-        chapters.drop(1)
-    } else {
-        chapters
     }
 }

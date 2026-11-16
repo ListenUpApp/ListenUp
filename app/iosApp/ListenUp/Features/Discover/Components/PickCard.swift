@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A Something New pick: the cover, the title, the author, which book of its series it is, and how
-/// long it runs (spec X6, X7). Tapping opens the book. `width` nil fills the grid cell it is given.
+/// long it runs (spec X6, X7); a book outside a series shows only its length. Tapping opens the book. `width` nil fills the grid cell it is given.
 ///
 /// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
 /// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
@@ -12,7 +12,7 @@ struct PickCard: View {
 
     @Environment(\.restrictedBooks) private var restrictedBooks
 
-    private var seriesLine: String { DiscoverCopy.seriesLine(series: book.seriesName, sequence: book.sequenceLabel) }
+    private var seriesLine: String? { DiscoverCopy.seriesLine(series: book.seriesName, sequence: book.sequenceLabel) }
     private var length: String { DiscoverCopy.length(ms: book.durationMs) }
 
     var body: some View {
@@ -34,7 +34,9 @@ struct PickCard: View {
                     if let author = book.author, !author.isEmpty {
                         captionLine(author)
                     }
-                    captionLine(seriesLine)
+                    if let seriesLine {
+                        captionLine(seriesLine)
+                    }
                     captionLine(length)
                 }
             }

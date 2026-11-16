@@ -95,7 +95,7 @@ class BookDetailStateTest :
                 ready.currentChapter.shouldNotBeNull().partTitle shouldBe null
             }
 
-            test("a current chapter that only announces its part does not name it twice") {
+            test("a current chapter named for its part does not name it twice") {
                 val chapters =
                     TestData.chapters(count = 4, chapterDuration = 900_000L).mapIndexed { i, c ->
                         if (i == 1) c.copy(title = "Part I", partTitle = "Part I") else c
@@ -106,7 +106,7 @@ class BookDetailStateTest :
                 ready.currentChapter.shouldNotBeNull().partTitle shouldBe null
             }
 
-            test("the folded current chapter lights its header in the Book Detail outline") {
+            test("a chapter named for its part is a row of its own in the Book Detail outline") {
                 val chapters =
                     TestData.chapters(count = 4, chapterDuration = 900_000L).mapIndexed { i, c ->
                         if (i == 1) c.copy(title = "Part I", partTitle = "Part I") else c
@@ -119,9 +119,8 @@ class BookDetailStateTest :
                         .shouldNotBeNull()
 
                 grouped.rows
-                    .filterIsInstance<ChapterOutlineRow.PartHeader>()
-                    .single()
-                    .isCurrentChapter shouldBe true
+                    .filterIsInstance<ChapterOutlineRow.ChapterRow>()
+                    .map { it.chapter.id } shouldBe chapters.map { it.id }
             }
 
             test("a held book keeps its parts, and cannot play them") {

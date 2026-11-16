@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.presentation.chaptereditor
 
 import com.calypsan.listenup.client.presentation.chaptereditor.timeline.TimelineFileBoundary
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.client.domain.chapter.AnnouncementChapters
 import com.calypsan.listenup.client.domain.chapter.ChapterOutlineRow
 import com.calypsan.listenup.client.domain.chapter.toChapterOutline
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -59,9 +58,9 @@ sealed interface ChapterEditorUiState {
         /** True when the book has no chapters at all — the "never stranded" empty state. */
         val isEmpty: Boolean get() = chapters.isEmpty()
 
-        /** [chapters] with their markers, keeping every chapter: the editor folds nothing away. */
+        /** [chapters] with their markers, every chapter a row. */
         val outline: List<ChapterOutlineRow>
-            get() = chapters.toChapterOutline(announcements = AnnouncementChapters.Keep)
+            get() = chapters.toChapterOutline()
 
         /**
          * What a new [tier] marker on [chapterId] should be called, for a screen to offer as editable.

@@ -24,6 +24,11 @@ private fun book(vararg ids: String): List<Chapter> =
         )
     }
 
+private fun List<Chapter>.opensBook(
+    index: Int,
+    title: String,
+): List<Chapter> = mapIndexed { i, chapter -> if (i == index) chapter.copy(bookTitle = title) else chapter }
+
 private fun List<ChapterOutlineRow>.names(): List<String> =
     map { row ->
         when (row) {
@@ -35,8 +40,8 @@ private fun List<ChapterOutlineRow>.names(): List<String> =
 
 /**
  * The collapsed list of a marked book: the five-chapter window every book has, seen through the
- * outline. What these pin is the window staying the same five chapters, the part being named when
- * its header is out of view, and the next part's header showing when it falls inside.
+ * outline. What these pin is the window staying the same five chapters, the divider of the part it
+ * starts inside heading it, and a divider showing wherever the window crosses into another part.
  */
 class GroupedChaptersTest :
     FunSpec({
@@ -45,72 +50,84 @@ class GroupedChaptersTest :
             book("a", "b", "c").groupedChapters(currentIndex = 1) shouldBe null
         }
 
-        test("the window names the part it starts inside") {
+        test("a window starting inside a part is headed by that part's divider") {
             val grouped =
                 book("Part I", "1", "2", "3", "4", "5", "6", "7").groupedChapters(currentIndex = 4).shouldNotBeNull()
 
-            grouped.previewLabel shouldBe "Part I"
-            grouped.previewRows.names() shouldBe listOf("2", "3", "4", "5", "6")
+            grouped.previewRows.names() shouldBe listOf("[Part I]", "2", "3", "4", "5", "6")
         }
 
-        test("the next part's header shows where it falls in the window, in place of its folded chapter") {
+        test("crossing into the next part puts its divider between the two parts' rows") {
             val grouped =
                 book("Part I", "1", "2", "3", "4", "Part II", "5", "6")
                     .groupedChapters(currentIndex = 3)
                     .shouldNotBeNull()
 
-            grouped.previewLabel shouldBe "Part I"
-            grouped.previewRows.names() shouldBe listOf("1", "2", "3", "4", "[Part II]")
+            withClue("the chapter that opens Part II is a row of its own under the divider") {
+                grouped.previewRows.names() shouldBe listOf("[Part I]", "1", "2", "3", "4", "[Part II]", "Part II")
+            }
         }
 
-        test("a window opening on a header needs no label: the header says it") {
+        test("a window opening on a part's first chapter has that divider once") {
             val grouped = book("Part I", "1", "2", "3", "4", "5", "6").groupedChapters(currentIndex = null).shouldNotBeNull()
 
-            grouped.previewLabel shouldBe null
-            grouped.previewRows.names() shouldBe listOf("[Part I]", "1", "2", "3", "4")
+            grouped.previewRows.names() shouldBe listOf("[Part I]", "Part I", "1", "2", "3", "4")
         }
 
-        test("chapters before the first part are named by nothing") {
+        test("chapters before the first part have no divider above them") {
             val grouped = book("intro", "a", "b", "Part I", "1", "2", "3").groupedChapters(currentIndex = 1).shouldNotBeNull()
 
-            grouped.previewLabel shouldBe null
-            grouped.previewRows.names() shouldBe listOf("intro", "a", "b", "[Part I]", "1")
+            grouped.previewRows.names() shouldBe listOf("intro", "a", "b", "[Part I]", "Part I", "1")
         }
 
-        test("a window inside a book with no parts is named by the book") {
+        test("a window inside a book with no parts is headed by the book") {
+            val chapters = book("a", "b", "c", "d", "e", "f", "g", "h").opensBook(0, "Book One")
+
+            chapters
+                .groupedChapters(currentIndex = 5)
+                .shouldNotBeNull()
+                .previewRows
+                .names() shouldBe
+                listOf("{Book One}", "d", "e", "f", "g", "h")
+        }
+
+        test("a window inside a part of a book is headed by the book, then the part") {
+            val chapters = book("a", "Part I", "c", "d", "e", "f", "g", "h").opensBook(0, "Book One")
+
+            chapters
+                .groupedChapters(currentIndex = 5)
+                .shouldNotBeNull()
+                .previewRows
+                .names() shouldBe
+                listOf("{Book One}", "[Part I]", "d", "e", "f", "g", "h")
+        }
+
+        test("a window crossing into the next book shows its heading, and the old part's divider stays behind") {
             val chapters =
-                book("a", "b", "c", "d", "e", "f", "g", "h").mapIndexed { i, chapter ->
-                    if (i == 0) chapter.copy(bookTitle = "Book One") else chapter
-                }
+                book("Part I", "1", "2", "3", "Part II", "4", "5", "6")
+                    .opensBook(0, "Book One")
+                    .opensBook(4, "Book Two")
 
-            chapters.groupedChapters(currentIndex = 5).shouldNotBeNull().previewLabel shouldBe "Book One"
+            chapters
+                .groupedChapters(currentIndex = 4)
+                .shouldNotBeNull()
+                .previewRows
+                .names() shouldBe
+                listOf("{Book One}", "[Part I]", "2", "3", "{Book Two}", "[Part II]", "Part II", "4", "5")
         }
 
-        test("a part inside a book is named by the part, not the book") {
-            val chapters =
-                book("a", "Part I", "c", "d", "e", "f", "g", "h").mapIndexed { i, chapter ->
-                    if (i == 0) chapter.copy(bookTitle = "Book One") else chapter
-                }
-
-            chapters.groupedChapters(currentIndex = 5).shouldNotBeNull().previewLabel shouldBe "Part I"
-        }
-
-        test("the window is the plain list's window: a fold never pulls in a sixth chapter") {
+        test("the window is always the plain list's five chapters: dividers never take a row's place") {
             val chapters = book("Part I", "1", "2", "3", "4", "Part II", "5", "6", "7", "8")
 
             val rows = chapters.groupedChapters(currentIndex = 5).shouldNotBeNull().previewRows
 
-            withClue("five chapters, the fold among them: four rows and the header, not five rows") {
-                rows.names() shouldBe listOf("3", "4", "[Part II]", "5", "6")
-            }
+            rows.filterIsInstance<ChapterRow>().map { it.chapter.id } shouldBe
+                chapterWindow(chapters, currentIndex = 5).map { it.id }
         }
 
-        test("the whole outline folds its announcements, and the current chapter reaches it") {
+        test("the whole outline lists every chapter under its divider") {
             val grouped = book("Part I", "1", "Part II", "2").groupedChapters(currentIndex = 2).shouldNotBeNull()
 
-            grouped.rows.names() shouldBe listOf("[Part I]", "1", "[Part II]", "2")
-            grouped.rows
-                .filterIsInstance<PartHeader>()
-                .map { it.isCurrentChapter } shouldBe listOf(false, true)
+            grouped.rows.names() shouldBe listOf("[Part I]", "Part I", "1", "[Part II]", "Part II", "2")
         }
     })

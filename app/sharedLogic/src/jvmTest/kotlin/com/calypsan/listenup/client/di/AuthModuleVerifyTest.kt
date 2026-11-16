@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
@@ -26,9 +26,8 @@ import org.koin.test.verify.verify
  *  - [ApiClientFactory] — owned by `networkModule` (the bearer-equipped
  *    HttpClient). Auth's RPC factory + SSE stream depend on it.
  *  - [UserRepository] — owned by `repositoryModule` (login persists user).
- *  - [PlaybackManager] — owned by the platform playback module
- *    (LogoutUseCase needs it as a `PlaybackStateProvider` to halt playback
- *    on logout).
+ *  - [PlaybackStateProvider] — owned by the platform playback module
+ *    (LogoutUseCase halts playback through it on logout).
  *  - [LibraryResetHelper] — owned by `libraryModule` (LogoutUseCase clears
  *    library data, including pending operations, on sign-out).
  *  - [DeviceInfoProvider] — owned by the per-platform playback/platform module
@@ -55,7 +54,7 @@ class AuthModuleVerifyTest :
                         InstanceRepository::class,
                         ApiClientFactory::class,
                         UserRepository::class,
-                        PlaybackManager::class,
+                        PlaybackStateProvider::class,
                         DeviceInfoProvider::class,
                         SyncRepository::class,
                         LibraryResetHelper::class,

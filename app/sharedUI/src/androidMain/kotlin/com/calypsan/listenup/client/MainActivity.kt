@@ -8,7 +8,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
-import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.handoff.resolveHandoffTarget
 import com.calypsan.listenup.client.handoff.ViewedBookTracker
@@ -101,9 +100,7 @@ class MainActivity : ComponentActivity() {
     private val shortcutActionManager: ShortcutActionManager by inject()
     private val viewedBookTracker: ViewedBookTracker by inject()
 
-    // The concrete PlaybackManager, narrowed: nothing binds PlaybackStateProvider on its own (iOS
-    // has no PlaybackManager at all), so injecting the interface crashed the first handoff request.
-    private val playbackStateProvider: PlaybackStateProvider by lazy { get<PlaybackManager>() }
+    private val playbackStateProvider: PlaybackStateProvider by inject()
     private val instanceRepository: InstanceRepository by inject()
 
     /**
