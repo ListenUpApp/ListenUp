@@ -65,7 +65,7 @@ class AvatarStackCoverTest {
     private fun initialsGaps(): Pair<Dp, Dp> {
         val circle = composeRule.onNodeWithTag("avatar").getUnclippedBoundsInRoot()
         val text = composeRule.onNodeWithText("WM", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        return (text.left - circle.left) to (circle.right - text.right)
+        return text.left - circle.left to circle.right - text.right
     }
 
     @Test

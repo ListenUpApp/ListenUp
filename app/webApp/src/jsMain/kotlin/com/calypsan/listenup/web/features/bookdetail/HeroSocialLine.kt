@@ -9,6 +9,7 @@ import org.w3c.dom.ScrollIntoViewOptions
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.bookdetail.ReaderRef
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersSummary
+import com.calypsan.listenup.web.design.AvatarCover
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.design.focusAsLanding
 import com.calypsan.listenup.web.features.readers.READERS_PANEL_ID
@@ -42,8 +43,22 @@ internal fun HeroSocialLine(summary: ReadersSummary) {
             classes("bd-social-avatars")
             attr("aria-hidden", "true")
         }) {
-            summary.avatars.take(SOCIAL_AVATARS).forEach {
-                UserAvatar(userId = it.userId, name = it.displayName, size = AVATAR_SIZE)
+            val shown = summary.avatars.take(SOCIAL_AVATARS)
+            shown.forEachIndexed { index, it ->
+                // Each face tucks under the next, whose ring reaches 2px past its edge: the initials sit in what is left.
+                UserAvatar(
+                    userId = it.userId,
+                    name = it.displayName,
+                    size = AVATAR_SIZE,
+                    covered =
+                        if (index <
+                            shown.lastIndex
+                        ) {
+                            AvatarCover(end = SOCIAL_OVERLAP + SOCIAL_RING)
+                        } else {
+                            AvatarCover.None
+                        },
+                )
             }
         }
         Span(attrs = { classes("bd-social-text") }) { SocialSentence(summary) }
@@ -111,3 +126,7 @@ private const val SOCIAL_AVATARS = 3
 private const val NAMED_PER_CLAUSE = 2
 
 private const val AVATAR_SIZE = 28
+
+/** `.bd-social-avatars > * + *`'s overlap and the ring each face wears, as 06-shell.css draws them. */
+private const val SOCIAL_OVERLAP = 8
+private const val SOCIAL_RING = 2
