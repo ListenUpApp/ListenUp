@@ -44,20 +44,14 @@ internal fun HeroSocialLine(summary: ReadersSummary) {
             attr("aria-hidden", "true")
         }) {
             val shown = summary.avatars.take(SOCIAL_AVATARS)
-            shown.forEachIndexed { index, it ->
+            shown.forEachIndexed { index, ref ->
                 // Each face tucks under the next, whose ring reaches 2px past its edge: the initials sit in what is left.
+                val tucked = index < shown.lastIndex
                 UserAvatar(
-                    userId = it.userId,
-                    name = it.displayName,
+                    userId = ref.userId,
+                    name = ref.displayName,
                     size = AVATAR_SIZE,
-                    covered =
-                        if (index <
-                            shown.lastIndex
-                        ) {
-                            AvatarCover(end = SOCIAL_OVERLAP + SOCIAL_RING)
-                        } else {
-                            AvatarCover.None
-                        },
+                    covered = if (tucked) AvatarCover(end = SOCIAL_OVERLAP + SOCIAL_RING) else AvatarCover.None,
                 )
             }
         }
