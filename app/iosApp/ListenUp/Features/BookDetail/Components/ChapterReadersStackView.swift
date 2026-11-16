@@ -2,7 +2,9 @@ import SwiftUI
 
 /// The readers on one place in the chapter list: up to three 24 pt avatars overlapping by 6, or two beside a "+N"
 /// disc, each ringed in the row's colour so the overlap reads as separate faces, as the hero's social line stacks them.
-/// Someone listening right now gets a still coral ring set 2 pt off their avatar, with a breathing glow behind it.
+/// Someone listening right now gets a still coral ring set 2 pt off their avatar, with a breathing glow behind it; the
+/// face after them tucks in only 2 pt, so that ring stays whole. Each tucked circle's initials sit in the part of it
+/// left showing, since centred ones would lose their first letter under the circle on top.
 ///
 /// Decorative and not tappable: the row it sits in says the same thing to VoiceOver as its value.
 struct ChapterReadersStackView: View {
@@ -12,19 +14,37 @@ struct ChapterReadersStackView: View {
 
     static let avatarSize: CGFloat = 24
     private static let overlap: CGFloat = 6
+    /// How far a face after a live one tucks in.
+    private static let afterLiveOverlap: CGFloat = 2
+    /// The ring in the row's colour round every circle.
+    fileprivate static let cutWidth: CGFloat = 2
+    /// The live ring's outer edge past the avatar: the cut, then 2 pt of coral.
+    fileprivate static let liveRingOuter: CGFloat = 4
 
     var body: some View {
         HStack(spacing: -Self.overlap) {
             // The first face sits on top, as the boards stack them.
             ForEach(Array(stack.faces.enumerated()), id: \.element.id) { index, face in
-                ChapterReaderAvatar(face: face, ringColor: ringColor)
+                ChapterReaderAvatar(face: face, ringColor: ringColor, coveredLeading: covered(at: index))
+                    .padding(.leading, isAfterLive(index) ? Self.overlap - Self.afterLiveOverlap : 0)
                     .zIndex(Double(stack.faces.count - index + 1))
             }
             if stack.overflowCount > 0 {
                 overflowDisc
+                    .padding(.leading, isAfterLive(stack.faces.count) ? Self.overlap - Self.afterLiveOverlap : 0)
             }
         }
         .accessibilityHidden(true)
+    }
+
+    private func isAfterLive(_ index: Int) -> Bool {
+        index > 0 && stack.faces.indices.contains(index - 1) && stack.faces[index - 1].isLive
+    }
+
+    /// How much of the circle at `index` the one before it hides: the overlap plus that circle's ring.
+    private func covered(at index: Int) -> CGFloat {
+        guard index > 0 else { return 0 }
+        return isAfterLive(index) ? Self.afterLiveOverlap + Self.liveRingOuter : Self.overlap + Self.cutWidth
     }
 
     private var overflowDisc: some View {
@@ -37,10 +57,9 @@ struct ChapterReadersStackView: View {
                     .font(.system(size: 10, weight: .semibold)) // decorative fixed size
                     // Not `.secondary`: on "All N Chapters" that would take the button's coral.
                     .foregroundStyle(Color(.secondaryLabel))
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
+                    .modifier(UncoveredPart(covered: covered(at: stack.faces.count)))
             }
-            .background { Circle().fill(ringColor).padding(-2) }
+            .background { Circle().fill(ringColor).padding(-Self.cutWidth) }
     }
 }
 
@@ -48,11 +67,13 @@ struct ChapterReadersStackView: View {
 private struct ChapterReaderAvatar: View {
     let face: ChapterReaderFaceRow
     let ringColor: Color
+    let coveredLeading: CGFloat
 
     var body: some View {
-        UserAvatarView(userId: face.id, fallbackName: face.displayName, size: ChapterReadersStackView.avatarSize)
+        UserAvatarView(userId: face.id, fallbackName: face.displayName, size: ChapterReadersStackView.avatarSize,
+                       coveredLeading: coveredLeading)
             // A 2 pt ring in the row's colour: on a live face it is also the gap before the coral ring.
-            .background { Circle().fill(ringColor).padding(-2) }
+            .background { Circle().fill(ringColor).padding(-ChapterReadersStackView.cutWidth) }
             .background {
                 if face.isLive {
                     BreathingGlowView()
@@ -62,7 +83,7 @@ private struct ChapterReaderAvatar: View {
             .overlay {
                 Circle()
                     .strokeBorder(Color.listenUpOrange, lineWidth: 2)
-                    .padding(-4)
+                    .padding(-ChapterReadersStackView.liveRingOuter)
                     .opacity(face.isLive ? 1 : 0)
             }
             .animation(.easeInOut(duration: 0.2), value: face.isLive)

@@ -46,10 +46,13 @@ SUITE=com.calypsan.listenup.storeshots
 DEVICE_DIR=/data/local/tmp/storeshots
 CREATED_AVD=""
 EMULATOR_PID=""
+# The icon_blacklist setting as found, restored on exit; empty until hide_status_icons has run.
+ORIGINAL_ICON_HIDE_LIST=""
 
 cleanup() {
   local status=$?
   shots_live_stop
+  restore_status_icons
   if [ -n "$EMULATOR_PID" ]; then
     "$ADB" -s "$SERIAL" emu kill >/dev/null 2>&1 || true
     for _ in $(seq 1 30); do kill -0 "$EMULATOR_PID" 2>/dev/null || break; sleep 2; done
@@ -65,6 +68,27 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 adb_shell() { "$ADB" -s "$SERIAL" shell "$@"; }
+
+# Hides the status bar's satellite and location icons, which demo mode cannot: with mobile hidden there is
+# no connection in service, so SystemUI shows its satellite glyph, and its demo parser only acts on
+# `satellite show`, never on a hide. SystemUI's own icon hide list drops a slot whatever its state. The
+# list replaces the default rather than adding to it, so the default's rotate and headset stay listed.
+hide_status_icons() {
+  if [ -z "$ORIGINAL_ICON_HIDE_LIST" ]; then
+    ORIGINAL_ICON_HIDE_LIST="$(adb_shell settings get secure icon_blacklist | tr -d '\r')"
+  fi
+  adb_shell settings put secure icon_blacklist rotate,headset,satellite,location
+}
+
+# Puts the icon hide list back as hide_status_icons found it ("null" means it was never set).
+restore_status_icons() {
+  [ -n "$ORIGINAL_ICON_HIDE_LIST" ] || return 0
+  if [ "$ORIGINAL_ICON_HIDE_LIST" = "null" ]; then
+    adb_shell settings delete secure icon_blacklist >/dev/null 2>&1 || true
+  else
+    adb_shell settings put secure icon_blacklist "$ORIGINAL_ICON_HIDE_LIST" >/dev/null 2>&1 || true
+  fi
+}
 
 ensure_avd() {
   if "$EMULATOR" -list-avds | grep -qx "$AVD"; then return; fi
@@ -120,11 +144,11 @@ prepare_device() {
   demo clock -e hhmm 0941
   demo battery -e level 100 -e plugged false
   demo network -e wifi show -e level 4 -e fully true
-  # No SIM icons: with mobile hidden, SystemUI shows a satellite glyph unless that is hidden too.
+  # No SIM icons; the satellite glyph that leaves behind is hidden by hide_status_icons.
   demo network -e mobile hide
-  demo network -e satellite hide
   demo network -e airplane hide
   demo notifications -e visible false
+  hide_status_icons
 }
 
 size_spec() {

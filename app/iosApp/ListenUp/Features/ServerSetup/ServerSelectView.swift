@@ -28,6 +28,17 @@ struct ServerSelectView: View {
         ))
     }
 
+    /// False only for the store-screenshot UI test (ListenUpScreenshots), which captures this screen as a new
+    /// listener first meets it: the Mac running the test also runs the screenshot rig, whose advertised server
+    /// would otherwise fill the list.
+    private static var startsDiscovery: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["LISTENUP_SCREENSHOTS_NO_DISCOVERY"] == nil
+        #else
+        true
+        #endif
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -54,7 +65,7 @@ struct ServerSelectView: View {
         }
         .onAppear {
             viewModel.onManualEntryRequested = { showManualEntry = true }
-            viewModel.startDiscovery()
+            if Self.startsDiscovery { viewModel.startDiscovery() }
         }
         .onChange(of: viewModel.isLocalNetworkDenied) { _, denied in localNetworkDenied = denied }
         // Returning from Settings re-runs the browse or activation the denial blocked.
