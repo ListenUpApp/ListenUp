@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import kotlin.math.abs
+import kotlin.math.sign
 import java.util.regex.Pattern
 
 /**
@@ -192,9 +193,7 @@ class StoreScreenshots {
     private fun download(title: String) {
         navigate(HOME)
         await(By.desc(SEARCH), "Search").click()
-        val query = await(By.clazz(EDIT_TEXT), "the search field")
-        query.text = title
-        await(By.textContains(RESULTS_FOR), "the search results", LONG_TIMEOUT_MS)
+        search(title)
         // With the keyboard up, the first tap only closes it.
         if (shell("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
         // The hit's title is the last node with that text; the first is the query in the search field.
@@ -205,29 +204,57 @@ class StoreScreenshots {
     }
 
     /**
-     * Brings the Readers section into view with its heading at [READERS_HEADING_FRACTION] of the screen.
+     * Types [query] into the search field until its results show. The wide header's field recomposes as it
+     * takes focus, which can leave the node just found stale, so it is found afresh on each attempt.
+     */
+    private fun search(query: String) {
+        repeat(SEARCH_ATTEMPTS) {
+            try {
+                await(By.clazz(EDIT_TEXT), "the search field").text = query
+                if (device.wait(Until.hasObject(By.textContains(RESULTS_FOR)), LONG_TIMEOUT_MS)) return
+            } catch (_: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        await(By.textContains(RESULTS_FOR), "the search results for $query")
+    }
+
+    /**
+     * Brings the Readers card up flush under the list's top edge, so nothing above it is cut in half: the
+     * card before it ends exactly at that edge, and on a two-column tablet the Chapters card shares its top.
      * A percentage scroll stopped wherever it landed, once with the hero's avatars sliced under the top bar;
-     * slow drags of a measured distance place it the same way at every size.
+     * slow drags of a measured distance land the same way at every size.
      */
     private fun scrollToReaders() {
         scrollTo(By.text(READERS))
-        val target = (device.displayHeight * READERS_HEADING_FRACTION).toInt()
+        val list = largestScrollable() ?: return
+        val density = device.displayWidth.toFloat() / device.displaySizeDp.x
+        val target = list.visibleBounds.top + (READERS_HEADING_INSET_DP * density).toInt()
         val x = device.displayWidth / 2
+        val height = device.displayHeight
+        // What a drag spends before the list moves (the touch slop), learned from each drag in turn.
+        var loss = 0
         repeat(READERS_DRAG_ATTEMPTS) {
             val top = device.findObject(By.text(READERS))?.visibleBounds?.top ?: return@repeat
             val offset = top - target
             if (abs(offset) <= READERS_TOLERANCE_PX) return@repeat
             // Dragging up moves the content up. Both ends stay clear of the top bar and the gesture bar;
-            // a distance longer than that leaves the rest to the next drag.
-            val height = device.displayHeight
+            // a longer distance is left to the next drag.
             val start = (height * if (offset > 0) DRAG_LOW_FRACTION else DRAG_HIGH_FRACTION).toInt()
             val end =
-                (start - offset).coerceIn(
+                (start - offset - sign(offset.toFloat()).toInt() * loss).coerceIn(
                     (height * DRAG_HIGH_FRACTION).toInt(),
                     (height * DRAG_LOW_FRACTION).toInt(),
                 )
             device.swipe(x, start, x, end, DRAG_STEPS)
             device.waitForIdle()
+            val moved =
+                device
+                    .findObject(By.text(READERS))
+                    ?.visibleBounds
+                    ?.top
+                    ?.let { top - it } ?: return@repeat
+            loss = (abs(start - end) - abs(moved)).coerceAtLeast(0)
         }
         settle()
     }
@@ -252,17 +279,19 @@ class StoreScreenshots {
     private fun scrollTo(selector: BySelector): UiObject2 {
         repeat(MAX_SCROLLS) {
             device.findObject(selector)?.let { return it }
-            val scrollable =
-                device
-                    .findObjects(By.scrollable(true))
-                    .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
-                    ?: return@repeat
+            val scrollable = largestScrollable() ?: return@repeat
             scrollable.setGestureMargin(device.displayWidth / GESTURE_MARGIN_DIVISOR)
             scrollable.scroll(Direction.DOWN, SCROLL_PERCENT)
             device.waitForIdle()
         }
         return await(selector, selector.toString())
     }
+
+    /** The screen's main scrolling list: the largest scrollable on screen. */
+    private fun largestScrollable(): UiObject2? =
+        device
+            .findObjects(By.scrollable(true))
+            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
 
     private fun clickableAncestor(node: UiObject2): UiObject2? {
         var current: UiObject2? = node
@@ -414,12 +443,16 @@ class StoreScreenshots {
         const val GESTURE_MARGIN_DIVISOR = 5
         const val BACK_PRESSES = 4
         const val PAUSE_ATTEMPTS = 5
+        const val SEARCH_ATTEMPTS = 3
         const val BACK_SETTLE_MS = 2_000L
 
-        /** Where the Readers heading rests: low enough to show the whole section below it. */
-        const val READERS_HEADING_FRACTION = 0.45f
-        const val READERS_TOLERANCE_PX = 24
-        const val READERS_DRAG_ATTEMPTS = 4
+        /**
+         * The Readers heading's distance below the list's top edge: the 27dp from a section card's top to
+         * its heading, plus the 16dp gap between cards, so the card before ends at the edge, plus 2dp to spare.
+         */
+        const val READERS_HEADING_INSET_DP = 45
+        const val READERS_TOLERANCE_PX = 4
+        const val READERS_DRAG_ATTEMPTS = 5
         const val DRAG_HIGH_FRACTION = 0.2f
         const val DRAG_LOW_FRACTION = 0.8f
 
