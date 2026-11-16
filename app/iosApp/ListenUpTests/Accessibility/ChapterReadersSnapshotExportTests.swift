@@ -19,7 +19,7 @@ struct ChapterReadersSnapshotExportTests {
         "c1": stack([maya]),
         "c2": stack([maya, tom, walt]),
         "c3": stack([priya, walt, tom]),
-        "c4": stack([walt, maya], overflow: 3),
+        "c4": stack([walt, maya], overflow: 3)
     ]
 
     private static func stack(_ faces: [ChapterReaderFaceRow], overflow: Int = 0) -> ChapterReaderStack {
