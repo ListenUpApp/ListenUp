@@ -2,7 +2,7 @@
   "libraries": [
     {
       "uniqueId": "npm:@js-joda/core",
-      "artifactVersion": "6.3.0",
+      "artifactVersion": "6.3.2",
       "name": "@js-joda/core",
       "description": "a date and time library for javascript",
       "website": "https://js-joda.github.io/js-joda",
@@ -743,7 +743,7 @@
     },
     {
       "uniqueId": "npm:ws",
-      "artifactVersion": "8.22.0",
+      "artifactVersion": "8.23.0",
       "name": "ws",
       "description": "Simple to use, blazing fast and thoroughly tested websocket client and server for Node.js",
       "website": "https://github.com/websockets/ws",
