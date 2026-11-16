@@ -46,8 +46,14 @@ import org.jetbrains.compose.resources.stringResource
 /** How many avatars the line draws. */
 private const val SOCIAL_AVATARS = 3
 
-/** How far each avatar on the line tucks under the next; its ring is drawn inside it, so this is all it loses. */
+/**
+ * How far each avatar on the line tucks under the next. The ring is drawn inside each avatar, so the overlap is all a
+ * face loses to the next one, and its own ring takes the same width off its start.
+ */
 private val SocialOverlap = 8.dp
+
+/** The ring round each avatar on the line, in the colour of the surface it sits on. */
+private val SocialRing = 2.dp
 
 /** The four wordings of one clause: one name, two, two and one other, two and N others. */
 internal data class ClauseKeys(
@@ -163,8 +169,15 @@ internal fun HeroSocialLine(
                     userId = ref.userId,
                     size = AvatarSize.Small,
                     fallbackName = ref.displayName,
-                    covered = if (index < shown.lastIndex) AvatarCover(end = SocialOverlap) else AvatarCover.None,
-                    modifier = Modifier.border(2.dp, ringColor, CircleShape),
+                    covered =
+                        if (index <
+                            shown.lastIndex
+                        ) {
+                            AvatarCover(start = SocialRing, end = SocialOverlap)
+                        } else {
+                            AvatarCover.None
+                        },
+                    modifier = Modifier.border(SocialRing, ringColor, CircleShape),
                 )
             }
         }

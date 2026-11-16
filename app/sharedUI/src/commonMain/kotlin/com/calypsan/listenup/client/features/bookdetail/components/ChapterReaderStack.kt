@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.zIndex
 import com.calypsan.listenup.client.design.components.AvatarCover
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -296,6 +297,8 @@ private fun OverflowDisc(
             text = "+$count",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold,
+            // The theme's body line height (24sp) would fill the 24dp disc and read as overflow to autoSize.
+            lineHeight = 1.em,
             maxLines = 1,
             autoSize = TextAutoSize.StepBased(minFontSize = fontSize * DISC_MIN_SCALE, maxFontSize = fontSize),
             modifier = Modifier.padding(start = covered.start + DISC_MARGIN, end = covered.end + DISC_MARGIN),

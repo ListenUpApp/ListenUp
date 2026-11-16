@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
@@ -321,6 +322,8 @@ private fun InitialsAvatar(
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                // The theme's body line height (24sp) would fill a 24dp circle and read as overflow to autoSize.
+                lineHeight = 1.em,
                 maxLines = 1,
                 autoSize =
                     TextAutoSize.StepBased(
