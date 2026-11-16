@@ -151,6 +151,20 @@ private external interface VisibilityDocument {
 internal val Document.visibilityState: String
     get() = unsafeCast<VisibilityDocument>().visibilityState
 
+/** `document.fonts` (CSS Font Loading API), for work that has to wait until web fonts have loaded. */
+private external interface FontFaceSet {
+    val ready: Promise<Any?>
+}
+
+private external interface FontLoadingDocument {
+    val fonts: FontFaceSet?
+}
+
+/** Runs [block] once the document's web fonts have loaded; does nothing where the API is missing. */
+internal fun Document.whenFontsLoaded(block: () -> Unit) {
+    unsafeCast<FontLoadingDocument>().fonts?.ready?.then { block() }
+}
+
 private external interface DirectoryPickedFile {
     val webkitRelativePath: String?
 }

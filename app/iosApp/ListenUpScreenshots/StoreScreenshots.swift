@@ -25,6 +25,9 @@ final class StoreScreenshots: XCTestCase {
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["LISTENUP_SCREENSHOTS_EMAIL"] = rig.email
         app.launchEnvironment["LISTENUP_SCREENSHOTS_PASSWORD"] = rig.password
+        // The connect screen is captured before any server is found: the rig runs on this Mac and advertises
+        // itself, which a new listener's phone would never see. Sign-in goes through manual entry regardless.
+        app.launchEnvironment["LISTENUP_SCREENSHOTS_NO_DISCOVERY"] = "1"
     }
 
     @MainActor

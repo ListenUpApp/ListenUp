@@ -7,12 +7,20 @@ struct HeroSocialLineView: View {
     let ringColor: Color
     let onOpenReaders: () -> Void
 
+    private static let overlap: CGFloat = 8
+
     var body: some View {
         Button(action: onOpenReaders) {
             HStack(spacing: 10) {
-                HStack(spacing: -8) {
-                    ForEach(Array(zip(line.avatarUserIds.prefix(3), line.avatarNames.prefix(3))), id: \.0) { id, name in
-                        UserAvatarView(userId: id, fallbackName: name, size: 28)
+                HStack(spacing: -Self.overlap) {
+                    let faces = Array(zip(line.avatarUserIds.prefix(3), line.avatarNames.prefix(3)))
+                    ForEach(Array(faces.enumerated()), id: \.element.0) { index, face in
+                        // Each face tucks under the next, whose ring reaches 1 pt past its edge, and its own ring
+                        // takes 1 pt off its leading edge: the initials sit in the part left showing.
+                        let isTucked = index < faces.count - 1
+                        UserAvatarView(userId: face.0, fallbackName: face.1, size: 28,
+                                       coveredLeading: isTucked ? 1 : 0,
+                                       coveredTrailing: isTucked ? Self.overlap + 1 : 0)
                             .overlay(Circle().stroke(ringColor, lineWidth: 2))
                     }
                 }

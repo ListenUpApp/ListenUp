@@ -7,6 +7,9 @@ import com.calypsan.listenup.client.presentation.bookdetail.ChapterReadership
 import com.calypsan.listenup.client.presentation.bookdetail.ReaderClause
 import com.calypsan.listenup.client.presentation.bookdetail.ReaderClauseForm
 import com.calypsan.listenup.client.presentation.bookdetail.ReadersPlace
+import com.calypsan.listenup.client.presentation.bookdetail.ChapterReaderFace
+import com.calypsan.listenup.web.design.AvatarCover
+import com.calypsan.listenup.web.design.UncoveredLabel
 import com.calypsan.listenup.web.design.UserAvatar
 import kotlinx.browser.window
 import org.jetbrains.compose.web.dom.Span
@@ -60,16 +63,39 @@ internal fun ChapterReadersStack(readers: ChapterReaders) {
                 style { property("z-index", (circles - index).toString()) }
             }) {
                 if (face.isLive) LiveGlow()
-                UserAvatar(userId = face.userId, name = face.displayName, size = FACE_SIZE)
+                UserAvatar(
+                    userId = face.userId,
+                    name = face.displayName,
+                    size = FACE_SIZE,
+                    covered = coverAt(readers.faces, index),
+                )
             }
         }
         if (readers.overflowCount > 0) {
             Span(attrs = {
                 classes("bd-chr-f", "bd-chr-more")
                 style { property("z-index", "1") }
-            }) { Text("+${readers.overflowCount}") }
+            }) {
+                UncoveredLabel(
+                    text = "+${readers.overflowCount}",
+                    size = FACE_SIZE,
+                    covered = coverAt(readers.faces, readers.faces.size),
+                )
+            }
         }
     }
+}
+
+/**
+ * How much of the circle at [index] the circle before it hides, as 06-shell.css lays the stack out: the 6px overlap
+ * and the 2px cut round the face on top, or, behind a face listening now, the 2px tuck and its 4px live ring.
+ */
+internal fun coverAt(
+    faces: List<ChapterReaderFace>,
+    index: Int,
+): AvatarCover {
+    val before = faces.getOrNull(index - 1) ?: return AvatarCover.None
+    return AvatarCover(start = if (before.isLive) AFTER_LIVE_TUCK + LIVE_RING_OUTER else FACE_OVERLAP + CUT_WIDTH)
 }
 
 /** The one sentence a row's button is described by, out of sight: who is listening now, then who else is here. */
@@ -153,6 +179,12 @@ private val ReadersPlace.arePhrase: String
 
 /** The canvas's avatar size on a chapter row: small enough to leave the row's height alone. */
 private const val FACE_SIZE = 24
+
+/** `.bd-chr-f + .bd-chr-f`'s overlap, `.bd-chr-f.is-live + .bd-chr-f`'s tuck, the cut and the live ring's reach. */
+private const val FACE_OVERLAP = 6
+private const val AFTER_LIVE_TUCK = 2
+private const val CUT_WIDTH = 2
+private const val LIVE_RING_OUTER = 4
 
 /** One breath of the live glow, as `bd-chr-breathe` in 06-shell.css runs it. */
 private const val GLOW_CYCLE_MS = 2000.0

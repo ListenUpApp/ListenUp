@@ -143,6 +143,9 @@ dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 /* ---- a person's own page. The avatar circle is shared with anywhere else a user is shown. */
 .uav { flex: none; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); }
 .uav-mono { color: #FFFFFF; font-weight: 800; letter-spacing: -0.02em; }
+/* A label in the part of a circle an overlapping neighbour leaves showing: UncoveredLabel in UserAvatar.kt pads it
+   clear of the neighbour and shrinks it to fit. */
+.uav-covered { box-sizing: border-box; width: 100%; text-align: center; white-space: nowrap; }
 
 .luw .prof { width: 100%; padding: var(--sp-24) 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .luw .prof-skel { height: 14rem; border-radius: var(--r-lg); }
