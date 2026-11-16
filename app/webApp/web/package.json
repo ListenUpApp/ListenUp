@@ -14,15 +14,15 @@
     "test:auth": "pnpm test:harness && node scripts/sync-kotlin.mjs test && node scripts/with-server.mjs node test/run-kotest.mjs"
   },
   "dependencies": {
-    "@js-joda/core": "^6.3.0",
+    "@js-joda/core": "^6.3.2",
     "@sqlite.org/sqlite-wasm": "3.54.1-build1",
     "hls.js": "1.7.4",
-    "ws": "^8.22.0"
+    "ws": "^8.23.0"
   },
   "devDependencies": {
-    "playwright": "^1.64.1",
+    "playwright": "^1.65.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.8"
   },
   "packageManager": "pnpm@12.15.0",
   "engines": {
