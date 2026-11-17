@@ -174,34 +174,43 @@ final class StoreScreenshots: XCTestCase {
 
     // MARK: - Flow
 
-    /// Finds `title` through Search and downloads it, returning once its page offers to delete the download.
+    /// Opens `title` and downloads it, returning once its page offers to delete the download.
     @MainActor
     private func download(_ title: String) -> Bool {
         backToRoot()
-        let search = tab("Search")
-        guard search.waitForExistence(timeout: 10) else { return false }
-        search.tap()
-        let field = app.searchFields.firstMatch
-        guard field.waitForExistence(timeout: 10) else { return false }
-        // On iPad the field appears before it can take focus, and a first tap can land too early.
-        for _ in 0..<5 where !hasKeyboardFocus(field) {
-            field.tap()
-            settle(1)
-        }
-        guard hasKeyboardFocus(field) else { return false }
-        // The field keeps the last book's query.
-        let clear = field.buttons["Clear text"]
-        if clear.exists { clear.tap() }
-        // Typed into the app, not the field: on iPad the focused field is not the one the query returns,
-        // so typing into that element finds nothing focused.
-        app.typeText(title)
-        let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
-        guard hit.waitForExistence(timeout: 15) else { return false }
-        hit.tap()
+        guard open(title) else { return false }
         let download = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Download")).firstMatch
         guard download.waitForExistence(timeout: 15) else { return false }
         download.tap()
         return app.buttons["Delete download"].firstMatch.waitForExistence(timeout: 180)
+    }
+
+    /// Opens a book's page: through Search on iPhone, and from the Library grid on iPad, whose search
+    /// field never reports the keyboard focus XCTest needs to type into it.
+    @MainActor
+    private func open(_ title: String) -> Bool {
+        let book = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            tab("Search").tap()
+            let field = app.searchFields.firstMatch
+            guard field.waitForExistence(timeout: 10) else { return false }
+            field.tap()
+            // The field keeps the last book's query.
+            let clear = field.buttons["Clear text"]
+            if clear.exists { clear.tap() }
+            field.typeText(title)
+            guard book.waitForExistence(timeout: 15) else { return false }
+            book.tap()
+            return true
+        }
+        let library = tab("Library")
+        guard library.waitForExistence(timeout: 10) else { return false }
+        library.tap()
+        settle(2)
+        for _ in 0..<8 where !book.isHittable { app.swipeUp() }
+        guard book.isHittable else { return false }
+        book.tap()
+        return true
     }
 
     @MainActor
@@ -270,23 +279,11 @@ final class StoreScreenshots: XCTestCase {
         }
     }
 
-    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item. iPad's top bar draws Search as a bare
-    /// magnifying glass that is not a button named "Search", so the last resort matches any element by
-    /// identifier or label.
+    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item.
     @MainActor
     private func tab(_ title: String) -> XCUIElement {
         let inTabBar = app.tabBars.buttons[title]
-        if inTabBar.exists { return inTabBar }
-        let button = app.buttons[title].firstMatch
-        if button.exists { return button }
-        return app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == %@ OR label == %@", title, title))
-            .firstMatch
-    }
-
-    @MainActor
-    private func hasKeyboardFocus(_ element: XCUIElement) -> Bool {
-        (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+        return inTabBar.exists ? inTabBar : app.buttons[title].firstMatch
     }
 
     @MainActor
