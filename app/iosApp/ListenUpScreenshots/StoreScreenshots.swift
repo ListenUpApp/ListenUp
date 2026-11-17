@@ -178,7 +178,9 @@ final class StoreScreenshots: XCTestCase {
     @MainActor
     private func download(_ title: String) -> Bool {
         backToRoot()
-        tab("Search").tap()
+        let search = tab("Search")
+        guard search.waitForExistence(timeout: 10) else { return false }
+        search.tap()
         let field = app.searchFields.firstMatch
         guard field.waitForExistence(timeout: 10) else { return false }
         field.tap()
@@ -261,11 +263,18 @@ final class StoreScreenshots: XCTestCase {
         }
     }
 
-    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item.
+    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item. iPad's top bar draws Search as a bare
+    /// magnifying glass that is not a button named "Search", so the last resort matches any element by
+    /// identifier or label.
     @MainActor
     private func tab(_ title: String) -> XCUIElement {
         let inTabBar = app.tabBars.buttons[title]
-        return inTabBar.exists ? inTabBar : app.buttons[title].firstMatch
+        if inTabBar.exists { return inTabBar }
+        let button = app.buttons[title].firstMatch
+        if button.exists { return button }
+        return app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ OR label == %@", title, title))
+            .firstMatch
     }
 
     @MainActor
