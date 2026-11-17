@@ -192,7 +192,9 @@ final class StoreScreenshots: XCTestCase {
         // The field keeps the last book's query.
         let clear = field.buttons["Clear text"]
         if clear.exists { clear.tap() }
-        field.typeText(title)
+        // Typed into the app, not the field: on iPad the focused field is not the one the query returns,
+        // so typing into that element finds nothing focused.
+        app.typeText(title)
         let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         guard hit.waitForExistence(timeout: 15) else { return false }
         hit.tap()
