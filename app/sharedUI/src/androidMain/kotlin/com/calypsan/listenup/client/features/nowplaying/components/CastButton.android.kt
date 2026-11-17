@@ -9,9 +9,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.mediarouter.app.MediaRouteButton
 import com.calypsan.listenup.client.composeapp.R
+import com.calypsan.listenup.client.playback.cast.isCastSupported
 import com.google.android.gms.cast.framework.CastButtonFactory
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -22,14 +21,10 @@ actual fun CastButton(
     modifier: Modifier,
 ) {
     val context = LocalContext.current
-    // Mirror CastSessionController.createOrNull's guard: on a de-Googled device (no Play Services)
-    // CastButtonFactory can reach into CastContext and throw. No Play Services → no cast button,
+    // The same guard as every Cast entry point (isCastSupported): with no Play Services, or one too old,
+    // CastButtonFactory can reach into CastContext and throw. No usable Cast → no cast button,
     // local playback unaffected (never stranded).
-    val available =
-        remember(context) {
-            GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) ==
-                ConnectionResult.SUCCESS
-        }
+    val available = remember(context) { isCastSupported(context) }
     if (!available) return
     // One route button for both looks: drawn as itself at rest, and the dialog opener behind the connected chip.
     val routeButton = remember(context) { castRouteButton(context) }

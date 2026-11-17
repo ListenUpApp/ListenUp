@@ -49,12 +49,32 @@ internal fun listenUpCastParams(): CastParams =
  */
 @OptIn(UnstableApi::class)
 fun initializeCast(context: Context) {
-    val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
-    if (availability != ConnectionResult.SUCCESS) {
-        logger.info { "Google Play Services unavailable ($availability) — Cast not initialized" }
+    if (!isCastSupported(context)) {
+        logger.info {
+            "Google Play Services missing or older than $MIN_CAST_PLAY_SERVICES_VERSION — Cast not initialized"
+        }
         return
     }
     runCatching {
         Cast.getSingletonInstance(context).initialize(listenUpCastParams())
     }.onFailure { logger.warn(it) { "Cast initialization failed — Cast disabled" } }
 }
+
+/**
+ * The oldest Google Play services (its APK version code, 23.0.0) that Cast may load against.
+ *
+ * Cast loads its context on a background thread, and Play services as old as 20.18 (still shipped,
+ * never updated, on some Android 11 devices without the Play Store) insists that thread be the main
+ * one. It throws there, outside any code of ours, and takes the whole process down at launch. Any
+ * device that updates Play services is far past this floor.
+ */
+private const val MIN_CAST_PLAY_SERVICES_VERSION = 230_000_000
+
+/**
+ * Whether Cast can be used here: Google Play services is present and new enough to load it. Every
+ * Cast entry point checks this first; when it is false there is no cast button, and local playback
+ * is untouched. Never stranded.
+ */
+internal fun isCastSupported(context: Context): Boolean =
+    GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context, MIN_CAST_PLAY_SERVICES_VERSION) ==
+        ConnectionResult.SUCCESS

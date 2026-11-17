@@ -175,6 +175,12 @@ This codebase targets the latest stable versions. Kotlin 2.4, Compose Multiplatf
 | Image Loading | Coil 3 |
 | Testing | **Kotest** (canonical), Mokkery, kotlinx-coroutines-test, Turbine |
 
+### Android Support Window
+
+Android is supported back seven years, matching the update lifespan of current phones: every Android release that shipped within the last seven years is supported, and `android-minSdk` in `gradle/libs.versions.toml` is raised to it once a year. Today that is Android 11 (API 30). Dedicated audio players ship old Android and rarely update, and they are exactly who an audiobook app serves.
+
+Anything newer than the floor goes behind a `Build.VERSION.SDK_INT` check, with a fallback a user on the floor can live with. Lint does not reliably flag those calls in the shared modules' `androidMain`, so run the Android store-screenshot capture (`tools/scripts/store-screenshots-android.sh`) on an emulator at the floor's API level before each release.
+
 ### Kotlin
 
 Strict Kotlin everywhere. Types are not a formality — they are the first layer of documentation. Sealed hierarchies make illegal states unrepresentable.

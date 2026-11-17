@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch { shortcutLabels = loadShellShortcutLabels() }
 
-        // Continue On (API 37). Guarded because minSdk is 33: the methods are final on Activity and
+        // Continue On (API 37). Guarded because minSdk is 30: the methods are final on Activity and
         // simply do not exist on older platforms, so this is a version check rather than a
         // capability one. Enabling is all the setup there is — no manifest entry, no permission.
         if (Build.VERSION.SDK_INT >= HANDOFF_MIN_SDK) {

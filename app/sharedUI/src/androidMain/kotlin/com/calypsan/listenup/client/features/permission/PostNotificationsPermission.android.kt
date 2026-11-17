@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.permission
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -17,8 +18,9 @@ import androidx.core.content.ContextCompat
 /**
  * Android actual for [rememberPostNotificationsPermission].
  *
- * [Manifest.permission.POST_NOTIFICATIONS] arrived in API 33 and minSdk is 33, so this is *always*
- * a runtime grant — there is no version below which it is implicitly held. Without it,
+ * [Manifest.permission.POST_NOTIFICATIONS] arrived in API 33. Below it (Android 11 and 12) apps may
+ * post notifications without asking, so the permission is held and nothing is requested. From 33 on
+ * it is always a runtime grant. Without it,
  * `NotificationManagerCompat.notify` is a silent no-op: nothing throws, nothing logs, the
  * notification simply never appears.
  *
@@ -28,6 +30,7 @@ import androidx.core.content.ContextCompat
  */
 @Composable
 actual fun rememberPostNotificationsPermission(): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
     val context = LocalContext.current
     val permission = Manifest.permission.POST_NOTIFICATIONS
 
