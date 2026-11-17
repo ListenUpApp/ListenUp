@@ -7,8 +7,6 @@ import androidx.media3.cast.RemoteCastPlayer
 import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -74,9 +72,8 @@ class CastSessionController private constructor(
             onConnected: () -> Unit,
             onDisconnected: () -> Unit,
         ): CastSessionController? {
-            val available = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
-            if (available != ConnectionResult.SUCCESS) {
-                logger.info { "Google Play Services unavailable ($available) — Cast disabled" }
+            if (!isCastSupported(context)) {
+                logger.info { "Google Play Services missing or too old — Cast disabled" }
                 return null
             }
             // Media3 1.11's entry point. Initialization was started in ListenUp.onCreate (see

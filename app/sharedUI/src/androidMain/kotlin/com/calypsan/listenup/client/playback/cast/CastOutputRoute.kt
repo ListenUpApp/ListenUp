@@ -9,8 +9,6 @@ import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.client.playback.OutputRoute
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -94,8 +92,7 @@ internal class CastOutputRoute(
     }
 
     private fun attach() {
-        val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
-        if (availability != ConnectionResult.SUCCESS) return
+        if (!isCastSupported(context)) return
         runCatching {
             val cast = Cast.getSingletonInstance(context)
             deviceName.value = cast.currentCastSession?.castDevice?.friendlyName
