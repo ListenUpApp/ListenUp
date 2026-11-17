@@ -122,7 +122,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         PendingImageUploadEntity::class,
         PendingHealEntity::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = true,
 )
 @ColumnTypeConverters(

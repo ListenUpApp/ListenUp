@@ -533,12 +533,7 @@ internal interface BookDao {
         """
         SELECT
             b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName
+            $PRIMARY_AUTHOR_NAME_SQL as authorName
         FROM books b
         WHERE b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY b.createdAt DESC
@@ -559,12 +554,7 @@ internal interface BookDao {
         """
         SELECT
             b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName
+            $PRIMARY_AUTHOR_NAME_SQL as authorName
         FROM books b
         LEFT JOIN playback_positions p ON b.id = p.bookId
         WHERE (p.bookId IS NULL OR p.positionMs = 0) AND b.deletedAt IS NULL
@@ -591,12 +581,7 @@ internal interface BookDao {
         """
         SELECT
             b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt, b.totalDuration,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) as authorName,
+            $PRIMARY_AUTHOR_NAME_SQL as authorName,
             bs.sequence as sequence,
             s.name as seriesName
         FROM books b

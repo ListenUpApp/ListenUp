@@ -141,8 +141,9 @@ internal class BookMutationLocalApply(
         contributors: List<BookContributorInput>,
     ) {
         bookContributorDao.deleteContributorsForBook(bookId)
-        for (input in contributors) {
-            val contributorId = input.id ?: continue
+        contributors.forEachIndexed { ordinal, input ->
+            // An id-null input is created server-side and arrives with the echo; its position is kept for it.
+            val contributorId = input.id ?: return@forEachIndexed
             contributorEnsureExists(contributorId, input.name)
             bookContributorDao.insert(
                 BookContributorCrossRef(
@@ -150,6 +151,7 @@ internal class BookMutationLocalApply(
                     contributorId = contributorId,
                     role = input.role,
                     creditedAs = input.creditedAs,
+                    ordinal = ordinal,
                 ),
             )
         }

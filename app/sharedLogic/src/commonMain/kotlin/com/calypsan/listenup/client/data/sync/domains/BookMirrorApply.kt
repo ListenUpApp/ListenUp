@@ -165,7 +165,7 @@ internal class BookMirrorApply(
         contributors: List<BookContributorPayload>,
     ) {
         database.bookContributorDao().deleteContributorsForBook(bookId)
-        for (contributor in contributors) {
+        contributors.forEachIndexed { ordinal, contributor ->
             contributorEnsureExists(contributor)
             database.bookContributorDao().insert(
                 BookContributorCrossRef(
@@ -173,6 +173,7 @@ internal class BookMirrorApply(
                     contributorId = ContributorId(contributor.id),
                     role = contributor.role,
                     creditedAs = contributor.creditedAs,
+                    ordinal = ordinal,
                 ),
             )
         }
