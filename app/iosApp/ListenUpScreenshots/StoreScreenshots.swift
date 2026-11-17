@@ -178,14 +178,23 @@ final class StoreScreenshots: XCTestCase {
     @MainActor
     private func download(_ title: String) -> Bool {
         backToRoot()
-        tab("Search").tap()
+        let search = tab("Search")
+        guard search.waitForExistence(timeout: 10) else { return false }
+        search.tap()
         let field = app.searchFields.firstMatch
         guard field.waitForExistence(timeout: 10) else { return false }
-        field.tap()
+        // On iPad the field appears before it can take focus, and a first tap can land too early.
+        for _ in 0..<5 where !hasKeyboardFocus(field) {
+            field.tap()
+            settle(1)
+        }
+        guard hasKeyboardFocus(field) else { return false }
         // The field keeps the last book's query.
         let clear = field.buttons["Clear text"]
         if clear.exists { clear.tap() }
-        field.typeText(title)
+        // Typed into the app, not the field: on iPad the focused field is not the one the query returns,
+        // so typing into that element finds nothing focused.
+        app.typeText(title)
         let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         guard hit.waitForExistence(timeout: 15) else { return false }
         hit.tap()
@@ -261,11 +270,23 @@ final class StoreScreenshots: XCTestCase {
         }
     }
 
-    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item.
+    /// A tab-bar (iPhone) or sidebar/top-bar (iPad) item. iPad's top bar draws Search as a bare
+    /// magnifying glass that is not a button named "Search", so the last resort matches any element by
+    /// identifier or label.
     @MainActor
     private func tab(_ title: String) -> XCUIElement {
         let inTabBar = app.tabBars.buttons[title]
-        return inTabBar.exists ? inTabBar : app.buttons[title].firstMatch
+        if inTabBar.exists { return inTabBar }
+        let button = app.buttons[title].firstMatch
+        if button.exists { return button }
+        return app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ OR label == %@", title, title))
+            .firstMatch
+    }
+
+    @MainActor
+    private func hasKeyboardFocus(_ element: XCUIElement) -> Bool {
+        (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
     }
 
     @MainActor
