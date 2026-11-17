@@ -183,7 +183,12 @@ final class StoreScreenshots: XCTestCase {
         search.tap()
         let field = app.searchFields.firstMatch
         guard field.waitForExistence(timeout: 10) else { return false }
-        field.tap()
+        // On iPad the field appears before it can take focus, and a first tap can land too early.
+        for _ in 0..<5 where !hasKeyboardFocus(field) {
+            field.tap()
+            settle(1)
+        }
+        guard hasKeyboardFocus(field) else { return false }
         // The field keeps the last book's query.
         let clear = field.buttons["Clear text"]
         if clear.exists { clear.tap() }
@@ -275,6 +280,11 @@ final class StoreScreenshots: XCTestCase {
         return app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ OR label == %@", title, title))
             .firstMatch
+    }
+
+    @MainActor
+    private func hasKeyboardFocus(_ element: XCUIElement) -> Bool {
+        (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
     }
 
     @MainActor
