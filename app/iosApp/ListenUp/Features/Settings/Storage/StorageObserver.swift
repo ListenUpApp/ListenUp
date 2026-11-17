@@ -11,14 +11,28 @@ struct DownloadedBookRow: Identifiable, Equatable {
     let sizeBytes: Int64
     let fileCount: Int
     let isHeld: Bool
+    /// The local cover file, when on disk; nil lets the cover resolve from the server by `id`.
+    let coverPath: String?
+    let coverHash: String?
 
-    init(id: String, title: String, authorNames: String, sizeBytes: Int64, fileCount: Int, isHeld: Bool = false) {
+    init(
+        id: String,
+        title: String,
+        authorNames: String,
+        sizeBytes: Int64,
+        fileCount: Int,
+        isHeld: Bool = false,
+        coverPath: String? = nil,
+        coverHash: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.authorNames = authorNames
         self.sizeBytes = sizeBytes
         self.fileCount = fileCount
         self.isHeld = isHeld
+        self.coverPath = coverPath
+        self.coverHash = coverHash
     }
 
     init(_ summary: DownloadedBookSummary) {
@@ -28,6 +42,8 @@ struct DownloadedBookRow: Identifiable, Equatable {
         self.sizeBytes = summary.sizeBytes
         self.fileCount = Int(summary.fileCount)
         self.isHeld = summary.isHeld
+        self.coverPath = summary.coverPath
+        self.coverHash = summary.coverHash
     }
 }
 

@@ -60,6 +60,13 @@ struct DiscoverLayoutTests {
         #expect(abs(widths[1] / widths[0] - 1.15) < 0.001)
     }
 
+    /// An iPad mini in portrait (744pt, less the insets) would leave the Leaderboard about 300pt: it stacks.
+    @Test func aPairedRowTooNarrowForANameStacks() {
+        let weights = DiscoverPairedColumns.boardWeights
+        #expect(DiscoverPairedColumns.pairs(total: 680, spacing: 22, weights: weights) == false)
+        #expect(DiscoverPairedColumns.pairs(total: 1_000, spacing: 22, weights: weights))
+    }
+
     @Test func aPairedRowNarrowerThanItsGapGivesNoWidth() {
         #expect(DiscoverPairedColumns.columnWidths(total: 10, spacing: 22, weights: [1, 1.15]) == [0, 0])
     }

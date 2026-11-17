@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.discover
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,7 +44,7 @@ internal object DiscoverItemKey {
 
     /**
      * Item order. Every section item is always emitted, even when its section draws nothing, so an
-     * index here is stable; on wide layouts the [Leaderboard | Activity] row takes [LEADERBOARD]'s slot.
+     * index here is stable; on wide layouts the community (side by side or stacked) takes [LEADERBOARD]'s slot.
      */
     val ORDER = listOf(HEADER, LISTENING, PICKS, LEADERBOARD, ACTIVITY, SHELVES, RECENT)
 }
@@ -80,7 +82,7 @@ internal fun DiscoverLayout(
     listState: LazyListState = rememberLazyListState(),
 ) {
     val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    // ≥ 600dp: the community sits side by side. ≥ 840dp: every section uses the width.
+    // ≥ 600dp: the community may sit side by side. ≥ 840dp: every section uses the width.
     val isWide = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val isExpanded = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
@@ -140,17 +142,9 @@ internal fun DiscoverLayout(
         }
 
         if (isWide) {
-            // The [Leaderboard | Activity] row takes the leaderboard's key, so the landing's index holds.
+            // The community takes the leaderboard's key, so the landing's index holds.
             item(key = DiscoverItemKey.LEADERBOARD) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
-                    horizontalArrangement = Arrangement.spacedBy(if (isExpanded) 20.dp else Spacing.lg),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    LeaderboardItem(state, actions, Modifier.weight(1f))
-                    // Board Discover-AndroidTablet: 1fr : 1.25fr.
-                    ActivityItem(state, actions, Modifier.weight(if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f))
-                }
+                CommunityColumns(state, actions, isExpanded)
             }
         } else {
             item(key = DiscoverItemKey.LEADERBOARD) {
@@ -182,6 +176,41 @@ internal fun DiscoverLayout(
                 onBookLongPress = actions.onBookLongPress,
                 wide = isExpanded,
             )
+        }
+    }
+}
+
+/**
+ * The leaderboard and the activity on a wide window: side by side when the narrower column still has
+ * room for a name and a sentence, otherwise stacked as on a phone. Decided by the width the community
+ * actually gets, not the window's, because the navigation rail takes its share first: a 7" tablet is a
+ * medium window whose two columns would truncate every name.
+ */
+@Composable
+private fun CommunityColumns(
+    state: DiscoverState,
+    actions: DiscoverActions,
+    isExpanded: Boolean,
+) {
+    val gap = if (isExpanded) 20.dp else Spacing.lg
+    // Board Discover-AndroidTablet: 1fr : 1.25fr.
+    val activityWeight = if (isExpanded) ACTIVITY_WEIGHT_EXPANDED else 1f
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin)) {
+        val boardWidth = (maxWidth - gap) / (1f + activityWeight)
+        if (boardWidth >= CommunityColumnMinWidth) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+                verticalAlignment = Alignment.Top,
+            ) {
+                LeaderboardItem(state, actions, Modifier.weight(1f))
+                ActivityItem(state, actions, Modifier.weight(activityWeight))
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap)) {
+                LeaderboardItem(state, actions, Modifier)
+                ActivityItem(state, actions, Modifier)
+            }
         }
     }
 }
@@ -226,3 +255,6 @@ private fun ActivityItem(
 
 /** The activity column's share beside the leaderboard's 1 on an expanded window. */
 private const val ACTIVITY_WEIGHT_EXPANDED = 1.25f
+
+/** The narrowest the leaderboard column may be beside the activity: a phone's, with room for a name. */
+private val CommunityColumnMinWidth = 320.dp

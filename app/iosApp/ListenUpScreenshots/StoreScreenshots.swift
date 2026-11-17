@@ -135,22 +135,17 @@ final class StoreScreenshots: XCTestCase {
         return true
     }
 
-    /// Downloads The Art of War (72 minutes, seconds to fetch), then opens the downloads manager.
+    /// Three short books with covers, quick to fetch from the rig: one file, then many.
+    private static let downloadTitles = ["The Art of War", "Aesop's Fables Volume 1", "Peter Pan"]
+
+    /// Downloads three short books, so the manager reads as a real offline library, then opens it.
     @MainActor
     private func captureDownloads() -> Bool {
-        tab("Search").tap()
-        let field = app.searchFields.firstMatch
-        guard field.waitForExistence(timeout: 10) else { return false }
-        field.tap()
-        field.typeText("Art of War")
-        let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "The Art of War")).firstMatch
-        guard hit.waitForExistence(timeout: 15) else { return false }
-        hit.tap()
-        let download = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Download")).firstMatch
-        guard download.waitForExistence(timeout: 15) else { return false }
-        download.tap()
-        guard app.buttons["Delete download"].firstMatch.waitForExistence(timeout: 180) else { return false }
+        for title in Self.downloadTitles {
+            guard download(title) else { return false }
+        }
 
+        backToRoot()
         tab("Home").tap()
         settle(2)
         let account = app.buttons["MO"].firstMatch
@@ -168,9 +163,9 @@ final class StoreScreenshots: XCTestCase {
         for _ in 0..<6 where !manageStorage.isHittable { app.swipeUp() }
         guard manageStorage.isHittable else { return false }
         manageStorage.tap()
-        // The downloaded book listed is the proof the screen rendered (and the app is still alive).
-        let listed = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "The Art of War")).firstMatch
-        guard listed.waitForExistence(timeout: 15) else { return false }
+        // Every download counted is the proof the screen rendered (and the app is still alive).
+        let counted = app.staticTexts["\(Self.downloadTitles.count) books downloaded"].firstMatch
+        guard counted.waitForExistence(timeout: 15) else { return false }
         settle(3)
         guard app.state == .runningForeground else { return false }
         snap("06-downloads")
@@ -178,6 +173,27 @@ final class StoreScreenshots: XCTestCase {
     }
 
     // MARK: - Flow
+
+    /// Finds `title` through Search and downloads it, returning once its page offers to delete the download.
+    @MainActor
+    private func download(_ title: String) -> Bool {
+        backToRoot()
+        tab("Search").tap()
+        let field = app.searchFields.firstMatch
+        guard field.waitForExistence(timeout: 10) else { return false }
+        field.tap()
+        // The field keeps the last book's query.
+        let clear = field.buttons["Clear text"]
+        if clear.exists { clear.tap() }
+        field.typeText(title)
+        let hit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        guard hit.waitForExistence(timeout: 15) else { return false }
+        hit.tap()
+        let download = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Download")).firstMatch
+        guard download.waitForExistence(timeout: 15) else { return false }
+        download.tap()
+        return app.buttons["Delete download"].firstMatch.waitForExistence(timeout: 180)
+    }
 
     @MainActor
     private func signIn(addServer: XCUIElement) {

@@ -28491,6 +28491,17 @@
         }
       }
     },
+    "settings.storage_size_files_one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · 1 file"
+          }
+        }
+      }
+    },
     "settings.test_notification": {
       "extractionState": "manual",
       "localizations": {

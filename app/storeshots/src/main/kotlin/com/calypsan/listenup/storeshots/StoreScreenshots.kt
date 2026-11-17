@@ -13,6 +13,8 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.sign
 import java.util.regex.Pattern
 
 /**
@@ -136,11 +138,6 @@ class StoreScreenshots {
         await(By.descStartsWith(DOWNLOAD_PREFIX), "the book's page", LONG_TIMEOUT_MS)
     }
 
-    private fun scrollToReaders() {
-        scrollTo(By.text(READERS))
-        settle()
-    }
-
     private fun captureNowPlaying(shots: Shots) {
         navigate(HOME)
         openBook(SHERLOCK)
@@ -181,27 +178,100 @@ class StoreScreenshots {
         shots.capture("07-connect")
     }
 
+    /** Downloads three short books, so Storage reads as a real offline library, then opens it. */
     private fun captureDownloads(shots: Shots) {
-        navigate(HOME)
-        await(By.desc(SEARCH), "Search").click()
-        val query = await(By.clazz(EDIT_TEXT), "the search field")
-        query.text = DOWNLOAD_TITLE
-        await(By.textContains(RESULTS_FOR), "the search results", LONG_TIMEOUT_MS)
-        // With the keyboard up, the first tap only closes it.
-        if (shell("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
-        // The hit's title is the last node with that text; the first is the query in the search field.
-        device.findObjects(By.text(DOWNLOAD_TITLE)).last().click()
-        await(By.descStartsWith(DOWNLOAD_PREFIX), "the download button", LONG_TIMEOUT_MS).click()
-        check(
-            device.wait(Until.gone(By.descStartsWith(DOWNLOAD_PREFIX)), DOWNLOAD_TIMEOUT_MS),
-        ) { "The download never started" }
-        // While it runs, the button reads its progress ("49%").
-        check(device.wait(Until.gone(By.descEndsWith("%")), DOWNLOAD_TIMEOUT_MS)) { "The download never finished" }
+        DOWNLOAD_TITLES.forEach(::download)
         navigate(HOME)
         openSettings()
         scrollTo(By.text(MANAGE_STORAGE)).click()
+        await(By.text(DOWNLOADED_COUNT), "all ${DOWNLOAD_TITLES.size} downloads in Storage", LONG_TIMEOUT_MS)
         settle(SLOW_SETTLE_MS)
         shots.capture("06-downloads")
+    }
+
+    /** Finds [title] through Search and downloads it, returning once the book page says it is on the device. */
+    private fun download(title: String) {
+        navigate(HOME)
+        refreshingStale { await(By.desc(SEARCH), "Search").click() }
+        search(title)
+        // With the keyboard up, the first tap only closes it.
+        if (shell("dumpsys input_method").contains("mInputShown=true")) device.pressBack()
+        // The hit's title is the last node with that text; the first is the query in the search field.
+        refreshingStale { device.findObjects(By.text(title)).last().click() }
+        await(By.descStartsWith(DOWNLOAD_PREFIX), "the download button for $title", LONG_TIMEOUT_MS).click()
+        // A finished download's button offers to delete it.
+        await(By.desc(DELETE_DOWNLOAD), "$title downloaded", DOWNLOAD_TIMEOUT_MS)
+    }
+
+    /**
+     * Runs [action], which finds a node and acts on it, again if the node recomposed between the two. The
+     * wide header recomposes as Home settles, and a tap on the stale node it left behind failed a 10" run.
+     */
+    private fun refreshingStale(action: () -> Unit) {
+        repeat(STALE_ATTEMPTS - 1) {
+            try {
+                return action()
+            } catch (_: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        action()
+    }
+
+    /**
+     * Types [query] into the search field until its results show. The wide header's field recomposes as it
+     * takes focus, which can leave the node just found stale, so it is found afresh on each attempt.
+     */
+    private fun search(query: String) {
+        repeat(SEARCH_ATTEMPTS) {
+            try {
+                await(By.clazz(EDIT_TEXT), "the search field").text = query
+                if (device.wait(Until.hasObject(By.textContains(RESULTS_FOR)), LONG_TIMEOUT_MS)) return
+            } catch (_: StaleObjectException) {
+                device.waitForIdle()
+            }
+        }
+        await(By.textContains(RESULTS_FOR), "the search results for $query")
+    }
+
+    /**
+     * Brings the Readers card up flush under the list's top edge, so nothing above it is cut in half: the
+     * card before it ends exactly at that edge, and on a two-column tablet the Chapters card shares its top.
+     * A percentage scroll stopped wherever it landed, once with the hero's avatars sliced under the top bar;
+     * slow drags of a measured distance land the same way at every size.
+     */
+    private fun scrollToReaders() {
+        scrollTo(By.text(READERS))
+        val list = largestScrollable() ?: return
+        val density = device.displayWidth.toFloat() / device.displaySizeDp.x
+        val target = list.visibleBounds.top + (READERS_HEADING_INSET_DP * density).toInt()
+        val x = device.displayWidth / 2
+        val height = device.displayHeight
+        // What a drag spends before the list moves (the touch slop), learned from each drag in turn.
+        var loss = 0
+        repeat(READERS_DRAG_ATTEMPTS) {
+            val top = device.findObject(By.text(READERS))?.visibleBounds?.top ?: return@repeat
+            val offset = top - target
+            if (abs(offset) <= READERS_TOLERANCE_PX) return@repeat
+            // Dragging up moves the content up. Both ends stay clear of the top bar and the gesture bar;
+            // a longer distance is left to the next drag.
+            val start = (height * if (offset > 0) DRAG_LOW_FRACTION else DRAG_HIGH_FRACTION).toInt()
+            val end =
+                (start - offset - sign(offset.toFloat()).toInt() * loss).coerceIn(
+                    (height * DRAG_HIGH_FRACTION).toInt(),
+                    (height * DRAG_LOW_FRACTION).toInt(),
+                )
+            device.swipe(x, start, x, end, DRAG_STEPS)
+            device.waitForIdle()
+            val moved =
+                device
+                    .findObject(By.text(READERS))
+                    ?.visibleBounds
+                    ?.top
+                    ?.let { top - it } ?: return@repeat
+            loss = (abs(start - end) - abs(moved)).coerceAtLeast(0)
+        }
+        settle()
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -224,17 +294,19 @@ class StoreScreenshots {
     private fun scrollTo(selector: BySelector): UiObject2 {
         repeat(MAX_SCROLLS) {
             device.findObject(selector)?.let { return it }
-            val scrollable =
-                device
-                    .findObjects(By.scrollable(true))
-                    .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
-                    ?: return@repeat
+            val scrollable = largestScrollable() ?: return@repeat
             scrollable.setGestureMargin(device.displayWidth / GESTURE_MARGIN_DIVISOR)
             scrollable.scroll(Direction.DOWN, SCROLL_PERCENT)
             device.waitForIdle()
         }
         return await(selector, selector.toString())
     }
+
+    /** The screen's main scrolling list: the largest scrollable on screen. */
+    private fun largestScrollable(): UiObject2? =
+        device
+            .findObjects(By.scrollable(true))
+            .maxByOrNull { it.visibleBounds.width() * it.visibleBounds.height() }
 
     private fun clickableAncestor(node: UiObject2): UiObject2? {
         var current: UiObject2? = node
@@ -371,8 +443,10 @@ class StoreScreenshots {
 
         const val SHERLOCK = "The Adventures of Sherlock Holmes"
 
-        /** Short enough to download in seconds: the rig's 72-minute recording. */
-        const val DOWNLOAD_TITLE = "The Art of War"
+        /** Three short books with covers, quick to download from the rig: one file, then many. */
+        val DOWNLOAD_TITLES = listOf("The Art of War", "Aesop's Fables Volume 1", "Peter Pan")
+        const val DOWNLOADED_COUNT = "3 books downloaded"
+        const val DELETE_DOWNLOAD = "Delete download"
 
         const val TIMEOUT_MS = 5_000L
         const val LONG_TIMEOUT_MS = 30_000L
@@ -384,6 +458,21 @@ class StoreScreenshots {
         const val GESTURE_MARGIN_DIVISOR = 5
         const val BACK_PRESSES = 4
         const val PAUSE_ATTEMPTS = 5
+        const val SEARCH_ATTEMPTS = 3
+        const val STALE_ATTEMPTS = 3
         const val BACK_SETTLE_MS = 2_000L
+
+        /**
+         * The Readers heading's distance below the list's top edge. Measured on the rig's three sizes: the card
+         * before Readers ends 2-9dp above the edge, so nothing of it shows, and the Readers card starts below it.
+         */
+        const val READERS_HEADING_INSET_DP = 33
+        const val READERS_TOLERANCE_PX = 4
+        const val READERS_DRAG_ATTEMPTS = 5
+        const val DRAG_HIGH_FRACTION = 0.2f
+        const val DRAG_LOW_FRACTION = 0.8f
+
+        /** Slow enough (about 5ms a step) that the drag ends without a fling. */
+        const val DRAG_STEPS = 100
     }
 }

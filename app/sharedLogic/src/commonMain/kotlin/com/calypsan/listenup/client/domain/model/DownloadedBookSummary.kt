@@ -19,4 +19,8 @@ data class DownloadedBookSummary(
      * the repository reports what is on disk and leaves this false.
      */
     val isHeld: Boolean = false,
+    /** The book's local cover file, when one is on disk; null lets the cover resolve from the server. */
+    val coverPath: String? = null,
+    /** The cover's content hash, folded into the image cache key so a replaced cover shows. */
+    val coverHash: String? = null,
 )

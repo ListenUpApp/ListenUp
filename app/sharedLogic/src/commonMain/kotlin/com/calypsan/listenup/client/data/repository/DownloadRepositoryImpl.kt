@@ -74,6 +74,8 @@ internal class DownloadRepositoryImpl(
                         authorNames = book.authorNames,
                         sizeBytes = files.sumOf { it.downloadedBytes },
                         fileCount = files.size,
+                        coverPath = book.coverPath,
+                        coverHash = book.coverHash,
                     )
                 }.sortedByDescending { it.sizeBytes }
         }
