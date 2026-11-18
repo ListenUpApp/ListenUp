@@ -31,6 +31,20 @@ data class ImportListeningEventWrite(
 )
 
 /**
+ * One user's newest closed listen on a book they have not finished — the presence section's
+ * recent-fill row before identity is joined and the viewer's ACL is applied.
+ *
+ * @property userId The user this row is about.
+ * @property bookId The book they listened to. **Not yet ACL-filtered.**
+ * @property endedAt Epoch-ms the listen ended: when they were last listening.
+ */
+data class RecentListen(
+    val userId: String,
+    val bookId: String,
+    val endedAt: Long,
+)
+
+/**
  * SQLDelight syncable repository for per-user listening events (Playback P2).
  *
  * One row per closed playback span — an uninterrupted period of audio playback with a single
@@ -129,6 +143,36 @@ class ListeningEventRepository(
         }
         return result
     }
+
+    /**
+     * One [RecentListen] per user other than [excludeUserId] — the book of their newest closed listen
+     * that they have not finished, newest first. The recent half of the "What Others Are Listening To"
+     * section, shown beneath whoever is listening right now. A closed listen is what the Activity
+     * feed's listening row is written from, so the two surfaces share one source of truth.
+     *
+     * Viewer-agnostic by design, so **the caller must ACL-filter the returned [RecentListen.bookId]s**
+     * exactly as it filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl]
+     * is the only caller and does precisely that.
+     *
+     * Only listens ending at or after [endedSince] and lasting at least [minDurationMs] count. Both
+     * lines are the caller's decision: this repository knows about listens, not about what is recent
+     * or long enough to tell someone about.
+     */
+    suspend fun latestUnfinishedListenPerUser(
+        excludeUserId: String,
+        endedSince: Long,
+        minDurationMs: Long,
+    ): List<RecentListen> =
+        suspendTransaction(db) {
+            db.listeningEventsQueries
+                .selectLatestUnfinishedListenPerUserExcluding(
+                    excludeUserId = excludeUserId,
+                    endedSince = endedSince,
+                    minDurationMs = minDurationMs,
+                ) { userId, bookId, endedAt ->
+                    RecentListen(userId = userId, bookId = bookId, endedAt = endedAt)
+                }.executeAsList()
+        }
 
     private fun notFoundFor(id: String): AppResult<ListeningEventSyncPayload> =
         AppResult.Failure(SyncError.NotFound(domain = "listening_event", entityId = id))

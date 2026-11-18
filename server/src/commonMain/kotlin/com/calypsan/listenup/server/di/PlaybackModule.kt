@@ -199,6 +199,7 @@ fun playbackModule(
                 bookAccessPolicy = get(),
                 publicProfiles = get(),
                 playbackPositions = get(),
+                listeningEvents = get(),
                 bookReads = get(),
                 books = get(),
                 sql = get(),

@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -109,6 +110,7 @@ class SocialServiceTest :
                 bookAccessPolicy = BookAccessPolicy(sql, driver),
                 publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                 playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = registry),
+                listeningEvents = ListeningEventRepository(db = sql, bus = bus, registry = registry),
                 bookReads = BookReadsRepository(db = sql),
                 books = books,
                 sql = sql,
@@ -152,6 +154,37 @@ class SocialServiceTest :
                 revision = 0L,
                 created_at = 1L,
                 updated_at = 1L,
+                deleted_at = deletedAt,
+                client_op_id = null,
+            )
+        }
+
+        /**
+         * Appends a closed `listening_events` span directly — what a client posts when a listen
+         * pauses or stops. Lasts [durationMs] (two minutes by default, comfortably a real listen)
+         * and ends at [endedAt].
+         */
+        fun ListenUpDatabase.seedClosedListen(
+            userId: String,
+            bookId: String,
+            endedAt: Long,
+            durationMs: Long = 2 * 60_000L,
+            deletedAt: Long? = null,
+        ) {
+            listeningEventsQueries.insert(
+                id = "$userId-$bookId-$endedAt",
+                user_id = userId,
+                book_id = bookId,
+                start_position_ms = 0L,
+                end_position_ms = durationMs,
+                started_at = endedAt - durationMs,
+                ended_at = endedAt,
+                playback_speed = 1.0,
+                tz = "UTC",
+                device_label = null,
+                revision = 0L,
+                created_at = endedAt,
+                updated_at = endedAt,
                 deleted_at = deletedAt,
                 client_op_id = null,
             )
@@ -655,7 +688,7 @@ class SocialServiceTest :
 
         // ── 5: the recent-listen fill beneath the live sessions ──────────────────────
 
-        test("currentlyListening fills non-live users with their most recently played unfinished book") {
+        test("currentlyListening fills non-live users with the unfinished book of their latest closed listen") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("bob")
@@ -668,11 +701,12 @@ class SocialServiceTest :
                     listOf("book-old", "book-new", "book-done").forEach {
                         makeBookAccessible(sql, driver, bookId = it, viewerId = "viewer")
                     }
-                    // Bob is not listening now. His newest UNFINISHED book is book-new; book-done is
-                    // newer still but finished, so it must not be what the fill shows.
-                    sql.seedInProgressPosition("bob", "book-old", positionMs = 10L, lastPlayedAt = 100L)
-                    sql.seedInProgressPosition("bob", "book-new", positionMs = 10L, lastPlayedAt = 500L)
-                    sql.seedInProgressPosition("bob", "book-done", positionMs = 10L, lastPlayedAt = 900L, finished = true)
+                    // Bob is not listening now. His newest listen on an UNFINISHED book is book-new;
+                    // book-done is newer still but finished, so it must not be what the fill shows.
+                    sql.seedClosedListen("bob", "book-old", endedAt = 100_000L)
+                    sql.seedClosedListen("bob", "book-new", endedAt = 500_000L)
+                    sql.seedClosedListen("bob", "book-done", endedAt = 900_000L)
+                    sql.seedInProgressPosition("bob", "book-done", positionMs = 10L, lastPlayedAt = 900_000L, finished = true)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
 
@@ -680,7 +714,7 @@ class SocialServiceTest :
                     result.first().userId shouldBe "bob"
                     result.first().bookId shouldBe "book-new"
                     result.first().isLive shouldBe false
-                    result.first().lastActiveAtMs shouldBe 500L
+                    result.first().lastActiveAtMs shouldBe 500_000L
                 }
             }
         }
@@ -693,7 +727,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
                     makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
-                    sql.seedInProgressPosition("viewer", "book-a", positionMs = 10L, lastPlayedAt = 500L)
+                    sql.seedClosedListen("viewer", "book-a", endedAt = 500_000L)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
 
@@ -715,8 +749,8 @@ class SocialServiceTest :
                     makeBookAccessible(sql, driver, bookId = "book-live", viewerId = "viewer")
                     makeBookAccessible(sql, driver, bookId = "book-recent", viewerId = "viewer")
                     sql.seedLiveSession("alice", "book-live", startedAt = 10L)
-                    // A more recent position on a different book must NOT produce a second alice row.
-                    sql.seedInProgressPosition("alice", "book-recent", positionMs = 10L, lastPlayedAt = 9_000L)
+                    // A more recent closed listen on a different book must NOT produce a second alice row.
+                    sql.seedClosedListen("alice", "book-recent", endedAt = 9_000_000L)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
 
@@ -743,9 +777,9 @@ class SocialServiceTest :
                 runTest {
                     makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
                     makeBookAccessible(sql, driver, bookId = "public-book", viewerId = "viewer")
-                    // Alice's most recent unfinished book is one the viewer cannot access; Bob's is fine.
-                    sql.seedInProgressPosition("alice", "private-book", positionMs = 10L, lastPlayedAt = 900L)
-                    sql.seedInProgressPosition("bob", "public-book", positionMs = 10L, lastPlayedAt = 500L)
+                    // Alice's latest listen is on a book the viewer cannot access; Bob's is fine.
+                    sql.seedClosedListen("alice", "private-book", endedAt = 900_000L)
+                    sql.seedClosedListen("bob", "public-book", endedAt = 500_000L)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
 
@@ -766,7 +800,7 @@ class SocialServiceTest :
                 sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
                     makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
-                    sql.seedInProgressPosition("alice", "private-book", positionMs = 10L, lastPlayedAt = 900L)
+                    sql.seedClosedListen("alice", "private-book", endedAt = 900_000L)
 
                     // accessibleBookIds returns null for ROOT — unconstrained, so the fill is unfiltered.
                     val result =
@@ -796,10 +830,10 @@ class SocialServiceTest :
                     // Two live listeners; carol started more recently than alice.
                     sql.seedLiveSession("alice", "b-alice", startedAt = 100L)
                     sql.seedLiveSession("carol", "b-carol", startedAt = 200L)
-                    // Two non-live users whose last-played timestamps DWARF the live ones — proof
-                    // the split is by liveness first, not by raw timestamp.
-                    sql.seedInProgressPosition("bob", "b-bob", positionMs = 10L, lastPlayedAt = 90_000L)
-                    sql.seedInProgressPosition("dave", "b-dave", positionMs = 10L, lastPlayedAt = 80_000L)
+                    // Two non-live users whose last listens DWARF the live ones — proof the split is
+                    // by liveness first, not by raw timestamp.
+                    sql.seedClosedListen("bob", "b-bob", endedAt = 90_000_000L)
+                    sql.seedClosedListen("dave", "b-dave", endedAt = 80_000_000L)
 
                     val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
 
@@ -842,7 +876,7 @@ class SocialServiceTest :
                 runTest {
                     makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
                     // No seedPublicProfile("ghost") — there is nobody to display.
-                    sql.seedInProgressPosition("ghost", "book-a", positionMs = 10L, lastPlayedAt = 500L)
+                    sql.seedClosedListen("ghost", "book-a", endedAt = 500_000L)
 
                     makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
                 }
@@ -921,12 +955,7 @@ class SocialServiceTest :
                     makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
-                    sql.seedInProgressPosition(
-                        userId = "alice",
-                        bookId = "book-a",
-                        positionMs = 120_000L,
-                        lastPlayedAt = nowMs - 60L * 24 * 60 * 60 * 1000,
-                    )
+                    sql.seedClosedListen(userId = "alice", bookId = "book-a", endedAt = nowMs - 60L * 24 * 60 * 60 * 1000)
 
                     makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
                         .currentlyListening()
@@ -948,12 +977,7 @@ class SocialServiceTest :
                     makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
 
                     val nowMs = 1_800_000_000_000L
-                    sql.seedInProgressPosition(
-                        userId = "alice",
-                        bookId = "book-a",
-                        positionMs = 120_000L,
-                        lastPlayedAt = nowMs - 2L * 24 * 60 * 60 * 1000,
-                    )
+                    sql.seedClosedListen(userId = "alice", bookId = "book-a", endedAt = nowMs - 2L * 24 * 60 * 60 * 1000)
 
                     val result =
                         makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
@@ -983,14 +1007,9 @@ class SocialServiceTest :
 
                     val nowMs = 1_800_000_000_000L
                     val twentyMinutesAgo = nowMs - 20 * 60_000L
-                    // Presence row past LIVE_WINDOW but not yet swept, plus the position it came from.
+                    // Presence row past LIVE_WINDOW but not yet swept, plus the listen it closed.
                     sql.seedLiveSession(userId = "alice", bookId = "book-a", startedAt = twentyMinutesAgo)
-                    sql.seedInProgressPosition(
-                        userId = "alice",
-                        bookId = "book-a",
-                        positionMs = 120_000L,
-                        lastPlayedAt = twentyMinutesAgo,
-                    )
+                    sql.seedClosedListen(userId = "alice", bookId = "book-a", endedAt = twentyMinutesAgo)
 
                     val session =
                         makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
@@ -1000,6 +1019,105 @@ class SocialServiceTest :
 
                     session.isLive shouldBe false
                     session.bookId shouldBe "book-a"
+                }
+            }
+        }
+        // ── 11: the recent half is the Activity feed's evidence — a closed listen ──────
+
+        test("a position moved with no closed listen does not put a user in the recent fill") {
+            // Opening a book or scrubbing moves a position, but nobody listened: the Activity feed
+            // says nothing, so Discover must not claim they were listening either.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    sql.seedInProgressPosition("alice", "book-a", positionMs = 120_000L, lastPlayedAt = 500_000L)
+
+                    makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a closed listen puts a user in the recent fill, last active when it ended") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    // A later scrub moves the position without a listen; the listen's end is the truth.
+                    sql.seedClosedListen("alice", "book-a", endedAt = 500_000L)
+                    sql.seedInProgressPosition("alice", "book-a", positionMs = 120_000L, lastPlayedAt = 700_000L)
+
+                    val row = makeService(sql, driver, principalFor("viewer")).currentlyListening().value().single()
+
+                    row.userId shouldBe "alice"
+                    row.bookId shouldBe "book-a"
+                    row.isLive shouldBe false
+                    row.lastActiveAtMs shouldBe 500_000L
+                }
+            }
+        }
+
+        test("a finished book stays out of the recent fill, however recent its last listen") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-done")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-done", viewerId = "viewer")
+                    sql.seedClosedListen("alice", "book-done", endedAt = 900_000L)
+                    sql.seedInProgressPosition("alice", "book-done", positionMs = 10L, lastPlayedAt = 900_000L, finished = true)
+
+                    makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a deleted listen does not count") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    sql.seedClosedListen("alice", "book-a", endedAt = 500_000L, deletedAt = 600_000L)
+
+                    makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a listen too short to be news does not count, as the Activity feed does not announce it") {
+            // The feed never announces a sitting under RealListen.THRESHOLD_MS; Discover must not
+            // claim someone was listening on the strength of that same eight-second tap.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-real")
+                sql.seedTestBook("book-tap")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-real", viewerId = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-tap", viewerId = "viewer")
+                    sql.seedClosedListen("alice", "book-real", endedAt = 500_000L)
+                    sql.seedClosedListen("alice", "book-tap", endedAt = 900_000L, durationMs = 8_000L)
+
+                    val row = makeService(sql, driver, principalFor("viewer")).currentlyListening().value().single()
+
+                    row.bookId shouldBe "book-real"
+                    row.lastActiveAtMs shouldBe 500_000L
                 }
             }
         }
