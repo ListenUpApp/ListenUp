@@ -1121,6 +1121,28 @@ class SocialServiceTest :
                 }
             }
         }
+
+        test("short listens that add up to a real one in one sitting count, as the Activity feed shows them") {
+            // ⛔ Discover judged each listen alone while the feed judged the sitting, so a stop-start evening the
+            // feed announced was missing here. One rule now: 40s and 30s five minutes apart are one 70s sitting.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    sql.seedClosedListen("alice", "book-a", endedAt = 500_000L, durationMs = 30_000L)
+                    sql.seedClosedListen("alice", "book-a", endedAt = 840_000L, durationMs = 40_000L)
+
+                    val row = makeService(sql, driver, principalFor("viewer")).currentlyListening().value().single()
+
+                    row.bookId shouldBe "book-a"
+                    row.lastActiveAtMs shouldBe 840_000L
+                }
+            }
+        }
     })
 
 private const val EDMONTON = "America/Edmonton"

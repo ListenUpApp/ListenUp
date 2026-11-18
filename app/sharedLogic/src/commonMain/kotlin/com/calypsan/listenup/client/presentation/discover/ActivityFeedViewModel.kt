@@ -110,8 +110,7 @@ class ActivityFeedViewModel internal constructor(
                     activities
                         .map {
                             it.toUiModel(me)
-                        }.coalesceListeningSessions()
-                        .withoutFleetingSittings(),
+                        }.asSittings(),
                 listeningNow = live.map { it.toListeningNowUiModel() },
             ) as ActivityFeedUiState
         }.onStart { emit(ActivityFeedUiState.Loading) }

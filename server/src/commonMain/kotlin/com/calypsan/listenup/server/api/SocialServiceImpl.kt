@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SocialService
-import com.calypsan.listenup.api.dto.activity.RealListen
+import com.calypsan.listenup.api.dto.activity.groupIntoSittings
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.dto.social.BookReadership
@@ -89,18 +89,21 @@ internal class SocialServiceImpl(
                 .map { perUser -> perUser.maxBy { it.startedAt } }
                 .sortedByDescending { it.startedAt }
 
-        // Recent half — everyone else, on the book of their newest closed listen they did not finish:
-        // a listen too short for the Activity feed to announce does not count here either. A user
-        // already in the live half is skipped so nobody appears twice.
+        // Recent half — everyone else, on the book of their newest real sitting with a book they did not
+        // finish. Sittings and what makes one real are the shared rule the Activity feed reads too, so a
+        // sitting the feed does not announce does not count here either, and fragments the feed adds up
+        // into a real listen count here as well. A user already in the live half is skipped so nobody
+        // appears twice.
         val liveUserIds = live.map { it.userId }.toSet()
         val recent =
             listeningEvents
-                .latestUnfinishedListenPerUser(
+                .unfinishedListensExcluding(
                     excludeUserId = caller.userId,
                     endedSince = nowMs - RECENT_FILL_MAX_AGE.inWholeMilliseconds,
-                    minDurationMs = RealListen.THRESHOLD_MS,
                 ).filter { it.userId !in liveUserIds && visible(it.bookId) }
-                .sortedByDescending { it.endedAt }
+                .groupIntoSittings { it }
+                .filter { it.isRealListen }
+                .distinctBy { it.userId } // newest first, so each person's latest real sitting
 
         // A user with no live public identity is dropped — there is nobody to display.
         val identities = publicProfiles.identities((live.map { it.userId } + recent.map { it.userId }).toSet())
@@ -127,7 +130,7 @@ internal class SocialServiceImpl(
                 row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.startedAt, isLive = true)
             } +
                 recent.mapNotNull {
-                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.endedAt, isLive = false)
+                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.endedAtMs, isLive = false)
                 },
         )
     }
