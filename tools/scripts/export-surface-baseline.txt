@@ -21,6 +21,7 @@ ActivityRepository
 ActivityRowAction
 ActivityRowAction_SealedType
 ActivityUiModel
+ActivityUiModel_SealedType
 AddSubSeriesEvent
 AddSubSeriesEvent_SealedType
 AddSubSeriesUiState
@@ -605,6 +606,7 @@ ListenerRating
 ListenerRatingLimits
 ListeningEventRecorder
 ListeningNowUiModel
+ListeningNowUiModel_SealedType
 LoadedBook
 LoadedBookPlayhead
 LoadedBookRepository
