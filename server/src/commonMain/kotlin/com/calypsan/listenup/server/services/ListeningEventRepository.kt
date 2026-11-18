@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ListenSpan
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
@@ -28,20 +29,6 @@ import kotlinx.coroutines.currentCoroutineContext
 data class ImportListeningEventWrite(
     val userId: String,
     val event: ListeningEventSyncPayload,
-)
-
-/**
- * One user's newest closed listen on a book they have not finished — the presence section's
- * recent-fill row before identity is joined and the viewer's ACL is applied.
- *
- * @property userId The user this row is about.
- * @property bookId The book they listened to. **Not yet ACL-filtered.**
- * @property endedAt Epoch-ms the listen ended: when they were last listening.
- */
-data class RecentListen(
-    val userId: String,
-    val bookId: String,
-    val endedAt: Long,
 )
 
 /**
@@ -145,32 +132,28 @@ class ListeningEventRepository(
     }
 
     /**
-     * One [RecentListen] per user other than [excludeUserId] — the book of their newest closed listen
-     * that they have not finished, newest first. The recent half of the "What Others Are Listening To"
-     * section, shown beneath whoever is listening right now. A closed listen is what the Activity
-     * feed's listening row is written from, so the two surfaces share one source of truth.
+     * Every closed listen by users other than [excludeUserId], on books they have not finished, ending at or
+     * after [endedSince]: the recent half of the "What Others Are Listening To" section, before it is grouped
+     * into sittings. A closed listen is what the Activity feed's listening row is written from, so the two
+     * surfaces share one source of truth.
      *
-     * Viewer-agnostic by design, so **the caller must ACL-filter the returned [RecentListen.bookId]s**
+     * Viewer-agnostic by design, so **the caller must ACL-filter the returned [ListenSpan.bookId]s**
      * exactly as it filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl]
-     * is the only caller and does precisely that.
-     *
-     * Only listens ending at or after [endedSince] and lasting at least [minDurationMs] count. Both
-     * lines are the caller's decision: this repository knows about listens, not about what is recent
-     * or long enough to tell someone about.
+     * is the only caller and does precisely that. How recent is recent is the caller's decision too.
      */
-    suspend fun latestUnfinishedListenPerUser(
+    suspend fun unfinishedListensExcluding(
         excludeUserId: String,
         endedSince: Long,
-        minDurationMs: Long,
-    ): List<RecentListen> =
+    ): List<ListenSpan> =
         suspendTransaction(db) {
             db.listeningEventsQueries
-                .selectLatestUnfinishedListenPerUserExcluding(
-                    excludeUserId = excludeUserId,
-                    endedSince = endedSince,
-                    minDurationMs = minDurationMs,
-                ) { userId, bookId, endedAt ->
-                    RecentListen(userId = userId, bookId = bookId, endedAt = endedAt)
+                .selectUnfinishedListensExcluding(excludeUserId = excludeUserId, endedSince = endedSince) {
+                    userId,
+                    bookId,
+                    startedAt,
+                    endedAt,
+                    ->
+                    ListenSpan(userId = userId, bookId = bookId, startedAtMs = startedAt, endedAtMs = endedAt)
                 }.executeAsList()
         }
 
