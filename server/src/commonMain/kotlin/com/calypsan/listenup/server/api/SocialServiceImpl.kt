@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.dto.activity.RealListen
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.dto.social.BookReadership
@@ -15,6 +16,7 @@ import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadSource
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.homeTimeZone
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -31,7 +33,9 @@ import kotlin.time.Duration.Companion.minutes
  * access.
  *
  * - [currentlyListening] returns one row per other user: whoever is listening **right now**
- *   first, then everyone else on the book they most recently played and did not finish. The
+ *   first, then everyone else on the book of their newest closed listen they did not finish —
+ *   the same evidence the Activity feed's listening rows are written from, so the two surfaces
+ *   never disagree about who was listening (a moved position alone is not a listen). The
  *   fill exists because on a small server the live set is empty most of the time, and a
  *   section that silently hides itself is indistinguishable from a broken one. **Both halves
  *   pass through the same [BookAccessPolicy] access set** — a recent-fill book leaks a private
@@ -56,6 +60,7 @@ internal class SocialServiceImpl(
     private val bookAccessPolicy: BookAccessPolicy,
     private val publicProfiles: PublicProfileRepository,
     private val playbackPositions: PlaybackPositionRepository,
+    private val listeningEvents: ListeningEventRepository,
     private val bookReads: BookReadsRepository,
     private val books: BookRepository,
     private val sql: ListenUpDatabase,
@@ -84,16 +89,18 @@ internal class SocialServiceImpl(
                 .map { perUser -> perUser.maxBy { it.startedAt } }
                 .sortedByDescending { it.startedAt }
 
-        // Recent half — everyone else, on the book they last played and did not finish. A user
+        // Recent half — everyone else, on the book of their newest closed listen they did not finish:
+        // a listen too short for the Activity feed to announce does not count here either. A user
         // already in the live half is skipped so nobody appears twice.
         val liveUserIds = live.map { it.userId }.toSet()
         val recent =
-            playbackPositions
-                .mostRecentUnfinishedPerUser(
+            listeningEvents
+                .latestUnfinishedListenPerUser(
                     excludeUserId = caller.userId,
-                    playedSince = nowMs - RECENT_FILL_MAX_AGE.inWholeMilliseconds,
+                    endedSince = nowMs - RECENT_FILL_MAX_AGE.inWholeMilliseconds,
+                    minDurationMs = RealListen.THRESHOLD_MS,
                 ).filter { it.userId !in liveUserIds && visible(it.bookId) }
-                .sortedByDescending { it.lastPlayedAt }
+                .sortedByDescending { it.endedAt }
 
         // A user with no live public identity is dropped — there is nobody to display.
         val identities = publicProfiles.identities((live.map { it.userId } + recent.map { it.userId }).toSet())
@@ -120,7 +127,7 @@ internal class SocialServiceImpl(
                 row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.startedAt, isLive = true)
             } +
                 recent.mapNotNull {
-                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.lastPlayedAt, isLive = false)
+                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.endedAt, isLive = false)
                 },
         )
     }
@@ -197,6 +204,7 @@ internal class SocialServiceImpl(
             bookAccessPolicy = bookAccessPolicy,
             publicProfiles = publicProfiles,
             playbackPositions = playbackPositions,
+            listeningEvents = listeningEvents,
             bookReads = bookReads,
             books = books,
             sql = sql,
@@ -226,7 +234,7 @@ internal class SocialServiceImpl(
         val LIVE_WINDOW = 5.minutes
 
         /**
-         * How recently someone must have played a book for it to fill the roster.
+         * How recently someone's listen must have ended for it to fill the roster.
          *
          * The fill exists so a small server's section is not empty most of the time. A months-old row
          * does not serve that: it reads as broken rather than quiet, which is the very failure the

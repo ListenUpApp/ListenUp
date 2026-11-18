@@ -2,7 +2,8 @@ import SwiftUI
 
 /// An activity-feed row: the actor's avatar (its own link to their profile), then the shared sentence —
 /// "**who** predicate **highlight** suffix", the highlight in coral — over a relative time, as one link
-/// to the row's subject: its book, its shelf, or for a row about neither, the actor.
+/// to the row's subject: its book, its shelf, or for a row about neither, the actor. Someone listening
+/// right now reads "is listening to", over Discover's coral, semibold "Listening now" in place of the time.
 /// A book row shows the book's cover trailing — or, at accessibility text sizes, under the sentence, so
 /// the sentence keeps the row's width.
 ///
@@ -36,10 +37,27 @@ struct ActivityRow: View {
     /// ages to "Just now" and never let the formatter phrase a future instant — matching Android's
     /// floored `relativeTime`.
     private var timeLabel: String {
-        if item.occurredAt >= now.addingTimeInterval(-60) {
+        guard case .at(let occurredAt) = item.moment else {
+            return String(localized: "discover.listening_now")
+        }
+        if occurredAt >= now.addingTimeInterval(-60) {
             return String(localized: "discover.time_ago_now")
         }
-        return DiscoverCopy.lastActive(item.occurredAt, relativeTo: now)
+        return DiscoverCopy.lastActive(occurredAt, relativeTo: now)
+    }
+
+    /// The time in secondary text; "Listening now" in coral semibold, as Discover's Listening now shows it.
+    @ViewBuilder private var momentText: some View {
+        switch item.moment {
+        case .at:
+            Text(timeLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .listeningNow:
+            Text(timeLabel)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.luTint)
+        }
     }
 
     private var profileLabel: String {
@@ -107,9 +125,7 @@ struct ActivityRow: View {
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(timeLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                momentText
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 

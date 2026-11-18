@@ -102,27 +102,6 @@ WHERE user_id = :userId AND deleted_at IS NULL AND finished = 1
 ORDER BY last_played_at DESC
 LIMIT :limit;
 
--- Presence fill: one row per OTHER user — their most-recently-played started-but-unfinished book.
--- Feeds the recent half of "What Others Are Listening To" beneath the live sessions, so a section
--- with nobody listening right now still shows each person's last book instead of hiding itself.
---
--- Same started-but-not-finished filter as `recentlyListenedForUser` (finished = 0, position_ms > 0,
--- deleted_at IS NULL) so the two surfaces agree on what "in progress" means. `book_id` is a bare
--- column beside `MAX(last_played_at)`: SQLite guarantees bare columns in a single-min/max aggregate
--- come from the row that produced the extreme, so this is the newest position's book, not an
--- arbitrary one. Callers still ACL-filter every returned book_id — this query is viewer-agnostic.
---
--- Also floored on :playedSince: this feeds the "what others are listening to" fill, and a book
--- abandoned months ago does not describe what anyone is up to. Filtering before the aggregate is
--- deliberate — MAX() over only recent rows still yields that user's newest recent play.
-selectMostRecentUnfinishedPerUserExcluding:
-SELECT user_id, book_id, MAX(last_played_at) AS last_played_at
-FROM playback_positions
-WHERE user_id != :excludeUserId AND deleted_at IS NULL AND finished = 0 AND position_ms > 0
-  AND last_played_at >= :playedSince
-GROUP BY user_id
-ORDER BY last_played_at DESC;
-
 -- (user_id, position_ms) for every user reading a book now: the same started-but-not-finished,
 -- not-deleted filter as the queries above, floored on :playedSince so a book abandoned months ago
 -- no longer reads as "reading, 40%" forever.

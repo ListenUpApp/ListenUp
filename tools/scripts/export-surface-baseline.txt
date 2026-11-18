@@ -11,6 +11,8 @@ AccessToken
 ActiveSession
 ActiveSessionRepository
 Activity
+ActivityFeedEntry
+ActivityFeedEntry_SealedType
 ActivityFeedUiState
 ActivityFeedUiState_SealedType
 ActivityFeedViewModel
@@ -19,6 +21,7 @@ ActivityRepository
 ActivityRowAction
 ActivityRowAction_SealedType
 ActivityUiModel
+ActivityUiModel_SealedType
 AddSubSeriesEvent
 AddSubSeriesEvent_SealedType
 AddSubSeriesUiState
@@ -602,6 +605,8 @@ ListenerAverage
 ListenerRating
 ListenerRatingLimits
 ListeningEventRecorder
+ListeningNowUiModel
+ListeningNowUiModel_SealedType
 LoadedBook
 LoadedBookPlayhead
 LoadedBookRepository

@@ -24,6 +24,19 @@ interface ActiveSessionRepository {
     fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSession>>
 
     /**
+     * Observe who other than [currentUserId] is listening right now — the Activity feed's live rows.
+     *
+     * The live half of the same cached roster [observeActiveSessions] reads, kept fresh the same way
+     * while collected, and at most one row per person (the roster holds one per user). It never
+     * fails: a roster that cannot be fetched is the last one cached, and an empty one is nobody, so
+     * the feed beneath it is never put at risk by presence.
+     *
+     * @param currentUserId The viewer, whose own session is never a row.
+     * @return Flow emitting the live sessions, newest-started first
+     */
+    fun observeListeningNow(currentUserId: String): Flow<List<ActiveSession>>
+
+    /**
      * Observe count of active sessions from other users.
      *
      * Used for notification badges or counts.

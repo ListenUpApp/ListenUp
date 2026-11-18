@@ -445,6 +445,81 @@ class ActiveSessionRepositoryImplTest :
                     }
             }
         }
+
+        // ── listening now: the Activity feed's live rows ────────────────────────────────
+
+        test("listening now is another person's live session, one row each, never the viewer's own") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(
+                                listOf(
+                                    session(userId = "kyle", bookId = "bookA", displayName = "Kyle Harnett", lastActiveAtMs = 1_000L),
+                                    session(userId = "priya", bookId = "bookA", lastActiveAtMs = 2_000L),
+                                    // The server never sends the caller, but the feed must hold the line itself.
+                                    session(userId = "me", bookId = "bookA", lastActiveAtMs = 3_000L),
+                                    session(userId = "maya", bookId = "bookA", isLive = false, lastActiveAtMs = 4_000L),
+                                ),
+                            )
+                    }
+                val library = libraryOf(LibraryBook(id = "bookA", title = "Red Rising", coverHash = null, authorName = null))
+
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao())
+                    .observeListeningNow("me")
+                    .test {
+                        val live = awaitNonEmpty()
+                        // Newest-started first; the viewer and the recent-only listener are left out.
+                        live.map { it.userId } shouldBe listOf("priya", "kyle")
+                        live.all { it.isLive } shouldBe true
+                        val kyle = live.last()
+                        kyle.user.displayName shouldBe "Kyle Harnett"
+                        kyle.book.title shouldBe "Red Rising"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("a live row goes as soon as the cached roster no longer says they are listening") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } sequentiallyReturns
+                            listOf(
+                                AppResult.Success(listOf(session(userId = "kyle", bookId = "bookA"))),
+                                // The session closed: the server now reports Kyle in the recent half.
+                                AppResult.Success(listOf(session(userId = "kyle", bookId = "bookA", isLive = false))),
+                            )
+                    }
+                val library = libraryOf(LibraryBook(id = "bookA", title = "A", coverHash = null, authorName = null))
+                val presence = PresenceRefreshSignal()
+
+                repo(RpcChannel.forTest(service), library, FakeCachedActiveSessionDao(), presence = presence)
+                    .observeListeningNow("me")
+                    .test {
+                        awaitNonEmpty().single().userId shouldBe "kyle"
+                        presence.ping()
+                        awaitItem().shouldBeEmpty()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("listening now never fails: a failed fetch over an empty roster is simply nobody") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
+
+                repo(RpcChannel.forTest(service), libraryOf(), FakeCachedActiveSessionDao())
+                    .observeListeningNow("me")
+                    .test {
+                        awaitItem().shouldBeEmpty()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
     })
 
 /** A book in the viewer's local library, as the roster's join reads it. */

@@ -57,3 +57,19 @@ fun activityRowActions(
         }
     }
 }
+
+/**
+ * The actions a live row offers: those of any book row — the book, the person, add to a shelf — so a
+ * live row is acted on exactly like the "listened to" row that replaces it.
+ *
+ * @param canShelve as for [activityRowActions].
+ */
+fun listeningNowRowActions(
+    listener: ListeningNowUiModel,
+    canShelve: Boolean,
+): List<ActivityRowAction> =
+    buildList {
+        add(ActivityRowAction.OpenBook(listener.bookId))
+        add(ActivityRowAction.OpenProfile(listener.userId))
+        if (canShelve) add(ActivityRowAction.AddToShelf(listener.bookId))
+    }

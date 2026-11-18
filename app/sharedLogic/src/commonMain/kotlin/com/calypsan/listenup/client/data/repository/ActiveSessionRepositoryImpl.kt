@@ -107,6 +107,19 @@ internal class ActiveSessionRepositoryImpl(
         ) : FetchOutcome
     }
 
+    /**
+     * The live half of the roster, for the Activity feed. Refreshed on the same triggers as
+     * [observeActiveSessions], but with none of its first-fetch bookkeeping: [refresh] never throws
+     * and keeps the cache on failure, so this flow simply reads the mirror — an empty one is nobody.
+     */
+    override fun observeListeningNow(currentUserId: String): Flow<List<ActiveSession>> =
+        channelFlow {
+            launch { presence.refreshTriggers().collect { refresh() } }
+            cachedSessions().collect { rows ->
+                send(rows.filter { it.isLive && it.userId != currentUserId }.sortedByDescending { it.lastActiveAtMs })
+            }
+        }
+
     override fun observeActiveCount(currentUserId: String): Flow<Int> =
         observeActiveSessions(currentUserId).map { it.size }
 

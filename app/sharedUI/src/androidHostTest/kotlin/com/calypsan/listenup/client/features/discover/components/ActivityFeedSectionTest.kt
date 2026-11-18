@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.features.discover.NOW_MS
 import com.calypsan.listenup.client.features.discover.WithAvatarDependencies
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.ListeningNowUiModel
 import org.junit.After
 import io.kotest.matchers.shouldBe
 import androidx.compose.ui.unit.dp
@@ -79,8 +80,23 @@ class ActivityFeedSectionTest {
         isYou = isYou,
     )
 
+    private fun listener(
+        userId: String = "kyle",
+        name: String = "Kyle Harnett",
+    ) = ListeningNowUiModel(
+        userId = userId,
+        userDisplayName = name,
+        bookId = "red-rising",
+        bookTitle = "Red Rising",
+        bookAuthorName = "Pierce Brown",
+        bookCoverPath = "/tmp/red-rising.webp",
+        bookCoverHash = null,
+        startedAt = NOW_MS,
+    )
+
     private fun show(
         rows: List<ActivityUiModel>,
+        listeningNow: List<ListeningNowUiModel> = emptyList(),
         onBookClick: (String) -> Unit = {},
         onShelfClick: (String) -> Unit = {},
         onUserClick: (String) -> Unit = {},
@@ -90,7 +106,7 @@ class ActivityFeedSectionTest {
         composeRule.setContent {
             WithAvatarDependencies {
                 ActivityFeedSection(
-                    state = ActivityFeedUiState.Ready(rows),
+                    state = ActivityFeedUiState.Ready(rows, listeningNow),
                     onBookClick = onBookClick,
                     onShelfClick = onShelfClick,
                     onUserClick = onUserClick,
@@ -232,5 +248,42 @@ class ActivityFeedSectionTest {
         val inset = with(composeRule.density) { 4.dp.toPx() }
         (sentence.boundsInRoot.left - body.boundsInRoot.left >= inset) shouldBe true
         (sentence.boundsInRoot.top - body.boundsInRoot.top >= inset) shouldBe true
+    }
+
+    @Test
+    fun someoneListeningNowReadsIsListeningToWithListeningNowForTalkBack() {
+        show(emptyList(), listeningNow = listOf(listener()))
+        // TalkBack reads the merged row: the sentence, then "Listening now" where an event says when.
+        composeRule
+            .onNode(
+                hasClickAction() and
+                    hasText("Kyle Harnett is listening to Red Rising by Pierce Brown") and
+                    hasText("Listening now"),
+            ).assertExists()
+        composeRule.onAllNodesWithTag("activity-listening-now", useUnmergedTree = true).assertCountEquals(1)
+        composeRule.onAllNodesWithTag("activity-cover", useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun aLiveRowSitsAboveEveryEventAndOpensTheBookItNames() {
+        var opened: String? = null
+        show(listOf(row("a1", "finished_book")), listeningNow = listOf(listener()), onBookClick = { opened = it })
+        val rows = composeRule.onAllNodesWithTag("activity-row").fetchSemanticsNodes()
+        val live = composeRule.onNode(hasClickAction() and hasText("is listening to", substring = true))
+        (live.fetchSemanticsNode().boundsInRoot.top < rows.last().boundsInRoot.top) shouldBe true
+        live.performClick()
+        assertEquals("red-rising", opened)
+    }
+
+    @Test
+    fun aLiveRowOffersTheSameActionsAsABookRow() {
+        show(emptyList(), listeningNow = listOf(listener()))
+        val labels =
+            composeRule
+                .onNode(hasClickAction() and hasText("is listening to", substring = true))
+                .fetchSemanticsNode()
+                .config[SemanticsActions.CustomActions]
+                .map { it.label }
+        assertEquals(listOf("Open Red Rising", "Kyle Harnett's profile", "Add Red Rising to a shelf"), labels)
     }
 }

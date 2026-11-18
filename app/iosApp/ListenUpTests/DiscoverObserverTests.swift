@@ -263,6 +263,38 @@ struct ActivityFeedObserverTests {
         #expect(row.coverHash == "h1")
     }
 
+    private func listener() -> ListeningNowUiModel {
+        ListeningNowUiModel(
+            userId: "kyle",
+            userDisplayName: "Kyle Harnett",
+            bookId: "red-rising",
+            bookTitle: "Red Rising",
+            bookAuthorName: "Pierce Brown",
+            bookCoverPath: "/c/rr.jpg",
+            bookCoverHash: "rr",
+            startedAt: 1_609_459_200_000
+        )
+    }
+
+    @Test func someoneListeningNowReadsIsListeningToAndLeadsToTheBook() {
+        let row = ActivityRowItem(listening: listener())
+        #expect(row.who == "Kyle Harnett")
+        #expect(!row.isYou)
+        #expect(row.predicate == "is listening to")
+        #expect(row.highlight == "Red Rising")
+        #expect(row.suffix == " by Pierce Brown")
+        #expect(row.moment == .listeningNow)
+        #expect(row.destination == .book("red-rising"))
+        #expect(row.coverPath == "/c/rr.jpg")
+        #expect(row.actions == [.openBook("red-rising"), .viewPerson("kyle"), .addToShelf("red-rising")])
+    }
+
+    @Test func aFeedEntryMapsToItsKindOfRow() {
+        #expect(ActivityRowItem(entry: listener()).moment == .listeningNow)
+        let event = ActivityRowItem(entry: model(type: "finished_book"))
+        #expect(event.moment == .at(Date(timeIntervalSince1970: 1_609_459_200)))
+    }
+
     @Test func bookLessActivityHasNoBook() {
         let item = ActivityRowItem(from: model(type: "user_joined", bookId: nil))
         #expect(item.highlight == nil)

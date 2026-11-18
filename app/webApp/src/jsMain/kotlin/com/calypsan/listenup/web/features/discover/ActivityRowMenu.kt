@@ -2,9 +2,6 @@ package com.calypsan.listenup.web.features.discover
 
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
-import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
-import com.calypsan.listenup.client.presentation.discover.activityParts
-import com.calypsan.listenup.client.presentation.discover.activityRowActions
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.MenuAction
@@ -16,19 +13,20 @@ import com.calypsan.listenup.web.design.buttonClasses
  * The row's visible ⋯ "More actions for {Person}'s activity" button and its menu (fixes a9): a real
  * button, so the keyboard reaches it and Enter opens it. Renders nothing for a row with no actions.
  *
+ * @param row The row, whose [ActivityRowFacts.actions] were decided with `canShelve = onShelveOne != null`.
  * @param onShelveOne Shelve the row's one book; null leaves "Add {book} to a shelf" out.
  */
 @Composable
 internal fun ActivityRowMenu(
-    row: ActivityUiModel,
+    row: ActivityRowFacts,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onShelveOne: ((String) -> Unit)?,
 ) {
-    val subject = activityParts(row).highlight.orEmpty()
+    val subject = row.parts.highlight.orEmpty()
     val items =
-        activityRowActions(row, canShelve = onShelveOne != null).mapNotNull { action ->
+        row.actions.mapNotNull { action ->
             when (action) {
                 is ActivityRowAction.OpenBook -> {
                     MenuAction(DiscoverWords.openLabel(subject), WebIcon.Book, onSelect = { onOpenBook(action.bookId) })

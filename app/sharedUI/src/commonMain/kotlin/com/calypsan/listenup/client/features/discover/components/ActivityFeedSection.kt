@@ -14,7 +14,7 @@ import com.calypsan.listenup.client.design.components.RowsSkeleton
 import com.calypsan.listenup.client.design.components.SectionTitle
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
-import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedEntry
 import com.calypsan.listenup.client.presentation.discover.activityParts
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_activity
@@ -69,7 +69,7 @@ internal fun ActivityFeedSection(
                     )
                 } else {
                     ActivityRows(
-                        activities = s.activities,
+                        entries = s.entries,
                         onBookClick = onBookClick,
                         onShelfClick = onShelfClick,
                         onUserClick = onUserClick,
@@ -84,24 +84,24 @@ internal fun ActivityFeedSection(
 
 @Composable
 private fun ActivityRows(
-    activities: List<ActivityUiModel>,
+    entries: List<ActivityFeedEntry>,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onAddToShelf: ((String) -> Unit)?,
     onSeeAll: (() -> Unit)?,
 ) {
-    activities.take(ACTIVITY_CAP).forEachIndexed { index, activity ->
+    entries.take(ACTIVITY_CAP).forEachIndexed { index, entry ->
         if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         ActivityRow(
-            activity = activity,
+            entry = entry,
             onBookClick = onBookClick,
             onShelfClick = onShelfClick,
             onUserClick = onUserClick,
             onAddToShelf = onAddToShelf,
         )
     }
-    if (onSeeAll != null && activities.size > ACTIVITY_CAP) {
+    if (onSeeAll != null && entries.size > ACTIVITY_CAP) {
         val haptics = LocalHaptics.current
         TextButton(
             onClick = {

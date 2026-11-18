@@ -2,14 +2,17 @@ package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
+import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -53,12 +56,19 @@ class ActivityFeedViewModelTest :
         class TestFixture {
             val activityRepository: ActivityRepository = mock()
             val activitiesFlow = MutableStateFlow<List<Activity>>(emptyList())
+            val activeSessionRepository: ActiveSessionRepository = mock()
+            val listeningNowFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
             val syncRepository = RecordingSyncRepository()
             val auth = FakeAuthSession(userId = "me")
+
+            init {
+                every { activeSessionRepository.observeListeningNow(any()) } returns listeningNowFlow
+            }
 
             fun build(): ActivityFeedViewModel =
                 ActivityFeedViewModel(
                     activityRepository = activityRepository,
+                    activeSessionRepository = activeSessionRepository,
                     syncRepository = syncRepository,
                     authSession = auth,
                 )
@@ -102,6 +112,23 @@ class ActivityFeedViewModelTest :
                 milestoneUnit = null,
                 shelfId = null,
                 shelfName = null,
+            )
+
+        fun liveSession(
+            userId: String,
+            displayName: String,
+            startedAt: Long,
+            bookTitle: String = "Red Rising",
+        ): ActiveSession =
+            ActiveSession(
+                sessionId = "$userId:red-rising",
+                userId = userId,
+                bookId = "red-rising",
+                lastActiveAtMs = startedAt,
+                isLive = true,
+                observedAtMs = startedAt,
+                user = ActiveSession.SessionUser(displayName, "auto", null, "#000000"),
+                book = ActiveSession.SessionBook("red-rising", bookTitle, "/c/rr.jpg", "rr-hash", "Pierce Brown"),
             )
 
         beforeTest {
@@ -350,6 +377,142 @@ class ActivityFeedViewModelTest :
                         .single()
                 row.bookCoverPath shouldBe "/c/b1.jpg"
                 row.bookCoverHash shouldBe "h1"
+            }
+        }
+        // ========== Listening now ==========
+
+        test("someone listening now is one live row, carrying the person and the book") {
+            runTest {
+                val fixture = createFixture()
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 5_000L))
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val live =
+                    viewModel.state.value
+                        .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                        .listeningNow
+                        .single()
+                live shouldBe
+                    ListeningNowUiModel(
+                        userId = "kyle",
+                        userDisplayName = "Kyle Harnett",
+                        bookId = "red-rising",
+                        bookTitle = "Red Rising",
+                        bookAuthorName = "Pierce Brown",
+                        bookCoverPath = "/c/rr.jpg",
+                        bookCoverHash = "rr-hash",
+                        startedAt = 5_000L,
+                    )
+            }
+        }
+
+        test("live rows sort as now: above every event, newest-started first") {
+            runTest {
+                val fixture = createFixture()
+                // An event dated far in the future still sits beneath a live row: live means now.
+                fixture.activitiesFlow.value =
+                    listOf(createActivity(id = "event", type = "finished_book").copy(occurredAtMs = 9_000_000L))
+                fixture.listeningNowFlow.value =
+                    listOf(
+                        liveSession("priya", "Priya", startedAt = 2_000L),
+                        liveSession("kyle", "Kyle Harnett", startedAt = 1_000L),
+                    )
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .entries
+                    .map { it.id } shouldBe listOf("listening-now:priya", "listening-now:kyle", "event")
+            }
+        }
+
+        test("the live row goes when the roster says they stopped, and their listen takes its place") {
+            runTest {
+                val fixture = createFixture()
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 1_000L))
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                fixture.listeningNowFlow.value = emptyList()
+                fixture.activitiesFlow.value =
+                    listOf(
+                        createActivity(id = "kyle-listened", type = "listening_session", userId = "kyle")
+                            .copy(occurredAtMs = 2_000_000L, durationMs = 1_800_000L),
+                    )
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                ready.listeningNow shouldBe emptyList()
+                ready.entries.map { it.id } shouldBe listOf("kyle-listened")
+            }
+        }
+
+        test("a feed holding only someone listening now is not empty") {
+            runTest {
+                val fixture = createFixture()
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 1_000L))
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .isEmpty shouldBe false
+            }
+        }
+
+        test("the roster is asked about the signed-in viewer, so their own session is never a row") {
+            runTest {
+                val fixture = createFixture()
+                val asked = mutableListOf<String>()
+                every { fixture.activeSessionRepository.observeListeningNow(any()) } calls { (viewer: String) ->
+                    asked += viewer
+                    fixture.listeningNowFlow
+                }
+
+                fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                asked shouldBe listOf("me")
+            }
+        }
+
+        test("signed out, nobody is listening now") {
+            runTest {
+                val fixture = createFixture()
+                fixture.auth.authState.value = AuthState.Initializing
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 1_000L))
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .listeningNow shouldBe emptyList()
+            }
+        }
+
+        test("a sitting under a minute is not announced, so it never shows as listened 0 minutes") {
+            runTest {
+                val fixture = createFixture()
+                fixture.activitiesFlow.value =
+                    listOf(
+                        createActivity(id = "tap", type = "listening_session").copy(occurredAtMs = 2_000L, durationMs = 59_000L),
+                        createActivity(id = "real", type = "listening_session", userId = "maya")
+                            .copy(occurredAtMs = 1_000L, durationMs = 60_000L),
+                    )
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .entries
+                    .map { it.id } shouldBe listOf("real")
             }
         }
     })

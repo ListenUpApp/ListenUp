@@ -108,6 +108,9 @@ class DiscoverPresentationModuleVerifyTest :
                             single<ActivityRepository> {
                                 mock { every { observeRecent(any()) } returns flowOf(emptyList()) }
                             }
+                            single<ActiveSessionRepository> {
+                                mock { every { observeListeningNow(any()) } returns flowOf(emptyList()) }
+                            }
                             single<SyncRepository> { mock(MockMode.autoUnit) }
                             single<AuthSession> { FakeAuthSession() }
                         },

@@ -698,36 +698,9 @@ class PlaybackPositionRepository(
         }
 
     /**
-     * One [RecentListen] per user other than [excludeUserId] — the book they most recently played
-     * and have not finished, newest first. The recent half of the "What Others Are Listening To"
-     * section, shown beneath whoever is listening right now.
-     *
-     * Viewer-agnostic by design: it names every user's newest in-progress book regardless of who is
-     * asking, so **the caller must ACL-filter the returned [RecentListen.bookId]s** exactly as it
-     * filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl] is the only
-     * caller and does precisely that.
-     *
-     * Limited to plays at or after [playedSince]. The floor is the caller's decision: this repository
-     * knows about positions, not about what counts as recent enough to show someone.
-     */
-    suspend fun mostRecentUnfinishedPerUser(
-        excludeUserId: String,
-        playedSince: Long,
-    ): List<RecentListen> =
-        suspendTransaction(db) {
-            db.playbackPositionsQueries
-                .selectMostRecentUnfinishedPerUserExcluding(
-                    excludeUserId,
-                    playedSince,
-                ) { userId, bookId, lastPlayedAt ->
-                    RecentListen(userId = userId, bookId = bookId, lastPlayedAt = lastPlayedAt)
-                }.executeAsList()
-        }
-
-    /**
      * An [InProgressPosition] for every user with a live, in-progress (unfinished, positionMs>0)
-     * position on [bookId] played at or after [playedSince]. The floor is the caller's decision, as
-     * with [mostRecentUnfinishedPerUser].
+     * position on [bookId] played at or after [playedSince]. The floor is the caller's decision: this
+     * repository knows about positions, not about what counts as recent enough to show someone.
      */
     suspend fun listInProgressForBook(
         bookId: String,
@@ -841,20 +814,6 @@ internal fun resolveStartedAt(
 data class InProgressPosition(
     val userId: String,
     val positionMs: Long,
-    val lastPlayedAt: Long,
-)
-
-/**
- * One user's most-recently-played unfinished book — the presence section's recent-fill row before
- * identity is joined and the viewer's ACL is applied.
- *
- * @property userId The user this row is about.
- * @property bookId Their newest started-but-unfinished book. **Not yet ACL-filtered.**
- * @property lastPlayedAt Epoch-ms they last played [bookId].
- */
-data class RecentListen(
-    val userId: String,
-    val bookId: String,
     val lastPlayedAt: Long,
 )
 

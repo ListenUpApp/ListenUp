@@ -1,3 +1,4 @@
+import Shared
 import SwiftUI
 import Testing
 @testable import ListenUp
@@ -101,6 +102,18 @@ struct DiscoverAccessibilityTests {
         #expect(hosted.stop(labelled: "Maya Chen's profile") != nil, "\(hosted.tree)")
         let sentence = hosted.stops(labelContaining: "Maya Chen finished Piranesi by Susanna Clarke")
         #expect(!sentence.isEmpty, "\(hosted.tree)")
+    }
+
+    @Test func someoneListeningNowIsReadAsListeningNow() async throws {
+        let item = ActivityRowItem(listening: ListeningNowUiModel(
+            userId: "kyle", userDisplayName: "Kyle Harnett", bookId: "red-rising", bookTitle: "Red Rising",
+            bookAuthorName: "Pierce Brown", bookCoverPath: nil, bookCoverHash: nil, startedAt: 0
+        ))
+        let hosted = await host(ActivityRow(item: item, now: now), height: 120)
+        defer { hosted.close() }
+        let label = "Kyle Harnett is listening to Red Rising by Pierce Brown, Listening now"
+        #expect(hosted.stop(labelled: label) != nil, "\(hosted.tree)")
+        #expect(hosted.stop(labelled: "Kyle Harnett's profile") != nil, "\(hosted.tree)")
     }
 
     @Test func yourActivityAvatarIsYourProfile() async throws {

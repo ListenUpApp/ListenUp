@@ -2,12 +2,14 @@ package com.calypsan.listenup.web.features.discover
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.ListeningNowUiModel
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.isServed
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import com.calypsan.listenup.web.design.WebAppSurface
 import kotlinx.browser.window
 import org.w3c.dom.HTMLElement
@@ -90,5 +92,32 @@ class ActivityFeedPageTest :
             back shouldBe 1
             (host.querySelector(".page-h button") as HTMLElement).click()
             refreshed shouldBe 1
+        }
+
+        test("someone listening now is one row above the events, read out as listening now") {
+            val kyle =
+                ListeningNowUiModel(
+                    userId = "kyle",
+                    userDisplayName = "Kyle Harnett",
+                    bookId = "red-rising",
+                    bookTitle = "Red Rising",
+                    bookAuthorName = "Pierce Brown",
+                    bookCoverPath = null,
+                    bookCoverHash = null,
+                    startedAt = DISCOVER_NOW_MS,
+                )
+            val host = page(ActivityFeedUiState.Ready(listOf(act("a1", "finished_book")), listeningNow = listOf(kyle)))
+
+            val rows = host.querySelectorAll(".disc-feed-row")
+            rows.length shouldBe 2
+            val live = rows.item(0) as HTMLElement
+            live.querySelector(".disc-feed-line")!!.textContent shouldBe "Kyle Harnett is listening to Red Rising by Pierce Brown"
+            live.querySelector(".disc-live")!!.textContent shouldBe "Listening now"
+            live.querySelector(".disc-when") shouldBe null
+            live.querySelector(".disc-feed-link")!!.getAttribute("aria-label") shouldBe
+                "Kyle Harnett is listening to Red Rising by Pierce Brown, Listening now"
+            live.querySelector(".disc-feed-cover") shouldNotBe null
+            live.querySelector("[aria-haspopup=menu]")!!.getAttribute("aria-label") shouldBe
+                "More actions for Kyle Harnett's activity"
         }
     })

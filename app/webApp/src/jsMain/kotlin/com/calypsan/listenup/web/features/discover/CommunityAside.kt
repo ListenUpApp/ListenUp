@@ -25,10 +25,17 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedEntry
+import com.calypsan.listenup.client.presentation.discover.ActivityParts
+import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.ListeningNowUiModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardSelection
 import com.calypsan.listenup.client.presentation.discover.LeaderboardUiState
 import com.calypsan.listenup.client.presentation.discover.activityParts
+import com.calypsan.listenup.client.presentation.discover.activityRowActions
+import com.calypsan.listenup.client.presentation.discover.listeningNowParts
+import com.calypsan.listenup.client.presentation.discover.listeningNowRowActions
 import com.calypsan.listenup.client.presentation.discover.leaderboardEntries
 import com.calypsan.listenup.client.presentation.discover.leaderboardLabel
 import com.calypsan.listenup.client.util.relativeLastActive
@@ -243,7 +250,7 @@ internal fun ActivityFeedSection(
                 if (state.isEmpty) {
                     QuietLine(DiscoverWords.NO_ACTIVITY)
                 } else {
-                    val activities = state.activities
+                    val activities = state.entries
                     ActivityRows(
                         activities.take(ASIDE_ACTIVITY),
                         nowMs,
@@ -271,7 +278,7 @@ internal fun ActivityFeedSection(
  */
 @Composable
 internal fun ActivityRows(
-    activities: List<ActivityUiModel>,
+    activities: List<ActivityFeedEntry>,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
@@ -283,7 +290,7 @@ internal fun ActivityRows(
         activities.forEachIndexed { index, item ->
             key(item.id) {
                 ActivityRow(
-                    item = item,
+                    entry = item,
                     nowMs = nowMs,
                     onOpenBook = onOpenBook,
                     onOpenShelf = onOpenShelf,
@@ -297,15 +304,74 @@ internal fun ActivityRows(
 }
 
 /**
+ * What a feed row draws, whichever kind of entry it is: the one place the two kinds differ is
+ * [occurredAt], which is null for someone listening right now.
+ */
+internal data class ActivityRowFacts(
+    val userId: String,
+    val userDisplayName: String,
+    val isYou: Boolean,
+    val parts: ActivityParts,
+    val bookId: String?,
+    val bookTitle: String?,
+    val bookCoverHash: String?,
+    val shelfId: String?,
+    val actions: List<ActivityRowAction>,
+    val occurredAt: Long?,
+) {
+    companion object {
+        /** [entry] as a row; [canShelve] as for [activityRowActions]. */
+        fun of(
+            entry: ActivityFeedEntry,
+            canShelve: Boolean,
+        ): ActivityRowFacts =
+            when (entry) {
+                is ActivityUiModel -> {
+                    ActivityRowFacts(
+                        userId = entry.userId,
+                        userDisplayName = entry.userDisplayName,
+                        isYou = entry.isYou,
+                        parts = activityParts(entry),
+                        bookId = entry.bookId,
+                        bookTitle = entry.bookTitle,
+                        bookCoverHash = entry.bookCoverHash,
+                        shelfId = entry.shelfId,
+                        actions = activityRowActions(entry, canShelve),
+                        occurredAt = entry.occurredAt,
+                    )
+                }
+
+                is ListeningNowUiModel -> {
+                    ActivityRowFacts(
+                        userId = entry.userId,
+                        userDisplayName = entry.userDisplayName,
+                        isYou = false,
+                        parts = listeningNowParts(entry),
+                        bookId = entry.bookId,
+                        bookTitle = entry.bookTitle,
+                        bookCoverHash = entry.bookCoverHash,
+                        shelfId = null,
+                        actions = listeningNowRowActions(entry, canShelve),
+                        occurredAt = null,
+                    )
+                }
+            }
+    }
+}
+
+/**
  * One activity, as two links and a ⋯: the person's avatar (to them), then the body — the sentence, when, and
  * a book row's cover — as ONE link to what the sentence is about: the book, else the shelf, else the
  * person (spec X27–X33). The body is named by the whole sentence and its time, so a screen reader
  * hears one stop that says what happened, not three fragments and a name it already passed. Then
  * the row's ⋯ menu ([ActivityRowMenu]), for any row about a book or a shelf.
+ *
+ * Someone listening right now ([ListeningNowUiModel]) is the same row, reading "is listening to" with
+ * Discover's coral "Listening now" where an event shows its time.
  */
 @Composable
 internal fun ActivityRow(
-    item: ActivityUiModel,
+    entry: ActivityFeedEntry,
     nowMs: Long,
     onOpenBook: (String) -> Unit,
     onOpenShelf: (String) -> Unit,
@@ -313,7 +379,9 @@ internal fun ActivityRow(
     onShelveOne: ((String) -> Unit)? = null,
     asideOnly: Boolean = false,
 ) {
-    val parts = activityParts(item)
+    val item = ActivityRowFacts.of(entry, canShelve = onShelveOne != null)
+    val parts = item.parts
+    val occurredAt = item.occurredAt
     val bookId = item.bookId
     val shelfId = item.shelfId
     val who = if (item.isYou) DiscoverWords.YOU else item.userDisplayName
@@ -338,7 +406,8 @@ internal fun ActivityRow(
                 "aria-label",
                 DiscoverWords.activityLabel(
                     sentence = activitySentence(who, parts.predicate, parts.highlight, parts.suffix),
-                    whenText = relativeLastActiveInSentence(item.occurredAt, nowMs),
+                    whenText =
+                        occurredAt?.let { relativeLastActiveInSentence(it, nowMs) } ?: DiscoverWords.LISTENING_NOW,
                 ),
             )
         }) {
@@ -352,7 +421,11 @@ internal fun ActivityRow(
                     }
                     if (parts.suffix.isNotEmpty()) Text(parts.suffix)
                 }
-                Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(item.occurredAt, nowMs)) }
+                if (occurredAt == null) {
+                    Span(attrs = { classes("disc-live") }) { Text(DiscoverWords.LISTENING_NOW) }
+                } else {
+                    Span(attrs = { classes("disc-when") }) { Text(relativeLastActive(occurredAt, nowMs)) }
+                }
             }
             // The shared Cover: the same image every web cover loads, and a generated tile rather than a
             // broken image when a book has no artwork (or the request fails).
