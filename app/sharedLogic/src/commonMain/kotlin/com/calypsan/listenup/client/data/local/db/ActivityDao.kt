@@ -30,11 +30,7 @@ internal interface ActivityDao {
                pp.displayName AS displayName, pp.avatarType AS avatarType,
                b.title AS bookTitle, b.coverHash AS bookCoverHash,
                b.coverDownloadedAt AS bookCoverDownloadedAt,
-               (
-                   SELECT c.name FROM book_contributors bc
-                   INNER JOIN contributors c ON bc.contributorId = c.id
-                   WHERE bc.bookId = b.id AND bc.role = 'author' LIMIT 1
-               ) AS bookAuthorName
+               $PRIMARY_AUTHOR_NAME_SQL AS bookAuthorName
         FROM activities a
         LEFT JOIN public_profiles pp ON pp.id = a.userId
         LEFT JOIN books b ON b.id = a.bookId AND b.deletedAt IS NULL

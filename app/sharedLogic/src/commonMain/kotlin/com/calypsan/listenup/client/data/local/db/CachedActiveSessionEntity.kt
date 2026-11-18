@@ -53,12 +53,7 @@ internal interface CachedActiveSessionDao {
     @Query(
         """
         SELECT s.*, b.title AS bookTitle, b.coverHash AS bookCoverHash,
-            (
-                SELECT c.name FROM book_contributors bc
-                INNER JOIN contributors c ON bc.contributorId = c.id
-                WHERE bc.bookId = b.id AND bc.role = 'author'
-                LIMIT 1
-            ) AS bookAuthorName
+            $PRIMARY_AUTHOR_NAME_SQL AS bookAuthorName
         FROM cached_active_sessions s
         INNER JOIN books b ON b.id = s.bookId AND b.deletedAt IS NULL AND b.id NOT IN ($HELD_BOOK_IDS_SQL)
         ORDER BY s.isLive DESC, s.lastActiveAtMs DESC

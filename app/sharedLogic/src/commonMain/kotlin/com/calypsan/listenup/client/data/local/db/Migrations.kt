@@ -686,3 +686,16 @@ internal val MIGRATION_29_30 =
             connection.executeDdl("ALTER TABLE `book_readership` ADD COLUMN `lastPlayedAtMs` INTEGER")
         }
     }
+
+/**
+ * v30 → v31: `book_contributors.ordinal`, each contributor's position in the book's credits. Without it, a surface
+ * naming one author took whichever row SQLite reached first: Discover named Empire of the Vampire's illustrator,
+ * Book Detail its author. Non-destructive by construction: existing rows read 0, and every reader breaks that tie
+ * by rowid, the order they were inserted in, which is the server's credit order. No cursor is rewound.
+ */
+internal val MIGRATION_30_31 =
+    object : Migration(30, 31) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `book_contributors` ADD COLUMN `ordinal` INTEGER NOT NULL DEFAULT 0")
+        }
+    }

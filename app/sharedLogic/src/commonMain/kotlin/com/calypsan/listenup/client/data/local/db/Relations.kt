@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.api.dto.match.LastMatch
+import androidx.room3.ColumnInfo
 import androidx.room3.Embedded
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
@@ -59,6 +60,10 @@ internal data class BookContributorCrossRef(
     val role: String,
     // Original attribution name (e.g., "Richard Bachman" even when linked to Stephen King)
     val creditedAs: String? = null,
+    // Position in the book's credits as the server sends them (0 = first). Rows written before v31 all read 0, and
+    // every reader breaks the tie by rowid, which is the order they were inserted in: the server's order.
+    @ColumnInfo(defaultValue = "0")
+    val ordinal: Int = 0,
 )
 
 /**

@@ -119,7 +119,7 @@ internal fun AudioFileEntity.toAudioFile(): AudioFile =
         channels = channels,
     )
 
-private const val ROLE_AUTHOR = "author"
+internal const val ROLE_AUTHOR = "author"
 private const val ROLE_NARRATOR = "narrator"
 
 /**
@@ -137,7 +137,10 @@ internal fun List<BookContributorCrossRef>.extractByRole(
     role: String,
     contributorsById: Map<ContributorId, ContributorEntity>,
 ): List<BookContributor> =
-    filter { it.role == role }
+    asSequence()
+        .filter { it.role == role }
+        // Credit order; a stable sort keeps storage order for rows that predate the ordinal (all 0).
+        .sortedBy { it.ordinal }
         .mapNotNull { crossRef ->
             contributorsById[crossRef.contributorId]?.let { entity ->
                 BookContributor(
@@ -148,6 +151,7 @@ internal fun List<BookContributorCrossRef>.extractByRole(
                 )
             }
         }.distinctBy { it.id }
+        .toList()
 
 /**
  * Convert BookWithContributors to domain BookListItem for list/shelf/home surfaces.
