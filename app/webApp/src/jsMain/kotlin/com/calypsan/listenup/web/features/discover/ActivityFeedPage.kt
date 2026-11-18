@@ -1,10 +1,9 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.web.features.sync.rememberMinuteClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedUiState
-import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
@@ -74,7 +73,8 @@ internal fun ActivityFeedRoute(
     feeds: FeedSelection,
 ) {
     val session = rememberSession { openActivityFeed() }
-    val nowMs = remember { currentEpochMilliseconds() }
+    // Re-read every half minute, so a row left on screen ages ("just now", then "1 minute ago").
+    val nowMs = rememberMinuteClock()
     BookSelectionScaffold(feeds.openMultiSelect, router, feeds.onToast) { selection ->
         ActivityFeedPage(
             state = session.state.collectAsState().value,

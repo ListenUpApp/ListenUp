@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.domain.repository.Reachability
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -17,7 +18,7 @@ class ConnectionHealthReachabilityTest :
         test("Healthy and Outdated project to Reachable (server usable)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Healthy)
-                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, flowOf(true), backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Reachable) item = awaitItem()
@@ -32,7 +33,7 @@ class ConnectionHealthReachabilityTest :
         test("Unreachable projects to Unreachable (book falls to download-only)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Unreachable(sinceMillis = 0L))
-                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, flowOf(true), backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Unreachable) item = awaitItem()
@@ -44,7 +45,7 @@ class ConnectionHealthReachabilityTest :
         test("SessionExpired projects to Unreachable (server not usably reachable)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.SessionExpired)
-                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, flowOf(true), backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Unreachable) item = awaitItem()
@@ -57,11 +58,52 @@ class ConnectionHealthReachabilityTest :
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Healthy)
                 var reconnectCalls = 0
-                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = { reconnectCalls++ })
+                val reachability = ConnectionHealthReachability(health, flowOf(true), backgroundScope, reconnect = { reconnectCalls++ })
 
                 reachability.retry()
 
                 reconnectCalls shouldBe 1
+            }
+        }
+
+        test("regained fires each time the firehose comes back, not for how it stood on arrival") {
+            runTest {
+                val firehose = MutableStateFlow(true)
+                val reachability =
+                    ConnectionHealthReachability(
+                        MutableStateFlow(ConnectionHealth.Healthy),
+                        firehose,
+                        backgroundScope,
+                        reconnect = {},
+                    )
+                reachability.regained.test {
+                    expectNoEvents()
+                    firehose.value = false
+                    expectNoEvents()
+                    firehose.value = true
+                    awaitItem()
+                    firehose.value = false
+                    firehose.value = true
+                    awaitItem()
+                }
+            }
+        }
+
+        test("regained fires for the first connect when the collector arrived disconnected") {
+            runTest {
+                val firehose = MutableStateFlow(false)
+                val reachability =
+                    ConnectionHealthReachability(
+                        MutableStateFlow(ConnectionHealth.Healthy),
+                        firehose,
+                        backgroundScope,
+                        reconnect = {},
+                    )
+                reachability.regained.test {
+                    expectNoEvents()
+                    firehose.value = true
+                    awaitItem()
+                }
             }
         }
     })

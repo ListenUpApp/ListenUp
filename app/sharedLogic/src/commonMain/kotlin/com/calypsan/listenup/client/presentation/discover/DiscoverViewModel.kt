@@ -27,8 +27,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -82,17 +80,14 @@ class DiscoverViewModel(
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
         loadDiscoverShelves()
         // Shelves are not a Room mirror, and a Listening now whose first fetch failed has ended its flow, so a
-        // reconnect heals neither by itself: when the server becomes reachable again, each failed one fetches once
-        // more, as every Room-backed section recovers.
+        // reconnect heals neither by itself: each time the connection comes back, each failed one fetches once more,
+        // as every Room-backed section recovers. A reconnect, not a reachability flip: a dead socket the stream
+        // replaces within the health debounce never flips reachability, and left both failed until a page refresh.
         viewModelScope.launch {
-            serverReachability.state
-                .map { it is Reachability.Reachable }
-                .distinctUntilChanged()
-                .drop(1) // only a change: the first load above already covers how things stand now
-                .collect { reachable ->
-                    if (reachable && discoverShelvesState.value is DiscoverShelvesUiState.Error) loadDiscoverShelves()
-                    if (reachable) retryListeningNow()
-                }
+            serverReachability.regained.collect {
+                if (discoverShelvesState.value is DiscoverShelvesUiState.Error) loadDiscoverShelves()
+                retryListeningNow()
+            }
         }
     }
 

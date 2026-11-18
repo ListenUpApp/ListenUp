@@ -1,9 +1,8 @@
 package com.calypsan.listenup.web.features.discover
 
+import com.calypsan.listenup.web.features.sync.rememberMinuteClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.web.features.home.HomeRoute
 import com.calypsan.listenup.web.features.library.BookSelectionScaffold
 import com.calypsan.listenup.web.features.library.FeedSelection
@@ -55,7 +54,8 @@ internal fun DiscoverRoute(
     landOnLeaderboard: Boolean = false,
 ) {
     val session = rememberSession { openDiscover() }
-    val nowMs = remember { currentEpochMilliseconds() }
+    // Re-read every half minute, so a row left on screen ages ("just now", then "1 minute ago").
+    val nowMs = rememberMinuteClock()
 
     val viewer = session.viewer.collectAsState().value
 

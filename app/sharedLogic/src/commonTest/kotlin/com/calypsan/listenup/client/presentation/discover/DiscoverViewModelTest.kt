@@ -34,6 +34,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -190,6 +192,7 @@ class DiscoverViewModelTest :
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
             val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
             val reachability = MutableStateFlow<Reachability>(Reachability.Reachable)
+            val regained = MutableSharedFlow<Unit>()
             val errorBus = ErrorBus()
 
             fun build(): DiscoverViewModel =
@@ -201,6 +204,8 @@ class DiscoverViewModelTest :
                     serverReachability =
                         object : ServerReachability {
                             override val state: StateFlow<Reachability> = reachability
+
+                            override val regained: Flow<Unit> = this@TestFixture.regained
 
                             override suspend fun retry() = Unit
                         },
@@ -560,7 +565,7 @@ class DiscoverViewModelTest :
             }
         }
 
-        test("a Listening now that failed comes back on its own once the server is reachable") {
+        test("a Listening now that failed comes back on its own once the connection returns") {
             runTest {
                 val fixture = createFixture()
                 var subscriptions = 0
@@ -574,11 +579,9 @@ class DiscoverViewModelTest :
                     }
                 val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
                 advanceUntilIdle()
-                fixture.reachability.value = Reachability.Unreachable
-                advanceUntilIdle()
                 viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
 
-                fixture.reachability.value = Reachability.Reachable
+                fixture.regained.emit(Unit)
                 advanceUntilIdle()
 
                 viewModel.currentlyListeningState.value
@@ -673,22 +676,22 @@ class DiscoverViewModelTest :
             }
         }
 
-        test("Shelves by others that failed offline come back on their own once the server is reachable") {
+        test("Shelves by others that failed come back on their own once the connection returns") {
             // ⛔ Shelves are an on-demand read, not a Room mirror, so nothing re-fetched them on reconnect:
-            // every other section recovered by itself and Shelves waited for a Try again.
+            // every other section recovered by itself and Shelves waited for a Try again. Reachability stays
+            // Reachable throughout: a reconnect inside the health debounce never flips it, and waiting for a flip
+            // left Shelves failed on web until a page refresh.
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.shelfRepository.discoverShelves() } returns
                     AppResult.Failure(TransportError.NetworkUnavailable())
                 val viewModel = fixture.build()
                 advanceUntilIdle()
-                fixture.reachability.value = Reachability.Unreachable
-                advanceUntilIdle()
                 viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
 
                 everySuspend { fixture.shelfRepository.discoverShelves() } returns
                     AppResult.Success(listOf(createShelf()))
-                fixture.reachability.value = Reachability.Reachable
+                fixture.regained.emit(Unit)
                 advanceUntilIdle()
 
                 viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Ready>()
@@ -700,9 +703,7 @@ class DiscoverViewModelTest :
                 val fixture = createFixture(discoveredShelves = listOf(createShelf()))
                 fixture.build()
                 advanceUntilIdle()
-                fixture.reachability.value = Reachability.Unreachable
-                advanceUntilIdle()
-                fixture.reachability.value = Reachability.Reachable
+                fixture.regained.emit(Unit)
                 advanceUntilIdle()
 
                 verifySuspend(VerifyMode.exactly(1)) { fixture.shelfRepository.discoverShelves() }

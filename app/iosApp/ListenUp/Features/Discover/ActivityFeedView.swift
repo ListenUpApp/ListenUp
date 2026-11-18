@@ -48,7 +48,10 @@ struct ActivityFeedView: View {
                 ) {
                     ForEach(items) { item in
                         VStack(spacing: 0) {
-                            ActivityRow(item: item, selection: selection)
+                            // Re-read every minute, so a row left on screen ages ("Just now", then "1 min. ago").
+                            TimelineView(.everyMinute) { context in
+                                ActivityRow(item: item, now: context.date, selection: selection)
+                            }
                             Divider().padding(.leading, 56)
                         }
                     }

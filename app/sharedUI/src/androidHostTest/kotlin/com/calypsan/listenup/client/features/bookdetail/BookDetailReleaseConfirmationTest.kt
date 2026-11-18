@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail
 
+import kotlinx.coroutines.flow.emptyFlow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
@@ -234,6 +235,8 @@ class BookDetailReleaseConfirmationTest {
                 },
             serverReachability =
                 object : ServerReachability {
+                    override val regained: Flow<Unit> = emptyFlow()
+
                     override val state = MutableStateFlow<Reachability>(Reachability.Unknown)
 
                     override suspend fun retry() = Unit

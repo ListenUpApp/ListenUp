@@ -50,6 +50,7 @@ import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.PendingImageUploadScheduler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
@@ -98,6 +99,7 @@ import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.TagId
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.koin.core.module.Module
@@ -150,6 +152,10 @@ internal val clientSyncModule =
                 // Project the ONE connection-health source so the book-availability oracle can no
                 // longer disagree with the shell banner about offline/healthy at the same instant.
                 connectionHealth = get<ConnectionHealthStore>().state,
+                firehoseConnected =
+                    get<SyncEngineState>().observe().map { snapshot ->
+                        snapshot.connection is ConnectionState.Connected
+                    },
                 scope = get(qualifier = named(APP_SCOPE)),
                 // Route the banner Retry through the unified recover seam (re-resolve URL + re-open a
                 // dead firehose + reconcile), not a bare re-dial of the same endpoint. Lazy

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import kotlinx.coroutines.flow.emptyFlow
 import com.calypsan.listenup.client.test.fake.FakeLoadedBookRepository
 import com.calypsan.listenup.client.test.fake.FakeLoadedBookPlayhead
 import com.calypsan.listenup.api.dto.auth.Permission
@@ -185,6 +186,8 @@ internal class BookDetailFixture {
                 },
             serverReachability =
                 object : ServerReachability {
+                    override val regained: Flow<Unit> = emptyFlow()
+
                     override val state = MutableStateFlow<Reachability>(Reachability.Unknown)
 
                     override suspend fun retry() = Unit
