@@ -71,6 +71,17 @@ fun activityParts(activity: ActivityUiModel): ActivityParts {
 }
 
 /**
+ * The sentence for someone listening right now: "is listening to **Red Rising** by Pierce Brown".
+ * Its author line follows the same rule as every other book row.
+ */
+fun listeningNowParts(listener: ListeningNowUiModel): ActivityParts =
+    ActivityParts(
+        predicate = "is listening to",
+        highlight = listener.bookTitle,
+        suffix = formatActivityAuthor(listener.bookAuthorName)?.let { " by $it" }.orEmpty(),
+    )
+
+/**
  * An author line for a feed row: the first name plus "et al." when a book has several.
  *
  * A feed row is one line. Spelling out five collaborators would let a single row push everything

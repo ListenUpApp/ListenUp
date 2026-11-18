@@ -158,10 +158,10 @@ internal fun ActivityFeedContent(
                             horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                             modifier = Modifier.fillMaxSize().testTag("activity-feed"),
                         ) {
-                            items(state.activities, key = { it.id }) { activity ->
+                            items(state.entries, key = { it.id }) { entry ->
                                 Column(Modifier.fillMaxWidth()) {
                                     ActivityRow(
-                                        activity = activity,
+                                        entry = entry,
                                         onBookClick = onBookClick,
                                         onShelfClick = onShelfClick,
                                         onUserClick = onUserClick,

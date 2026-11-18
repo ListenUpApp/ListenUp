@@ -59,7 +59,7 @@ fun ActivityFeedPage(
                 if (state.isEmpty) {
                     QuietLine(DiscoverWords.NO_ACTIVITY)
                 } else {
-                    ActivityRows(state.activities, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onShelveOne)
+                    ActivityRows(state.entries, nowMs, onOpenBook, onOpenShelf, onOpenProfile, onShelveOne)
                 }
             }
         }

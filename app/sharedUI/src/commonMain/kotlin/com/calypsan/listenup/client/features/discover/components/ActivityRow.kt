@@ -53,22 +53,28 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.relativeTime
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedEntry
 import com.calypsan.listenup.client.presentation.discover.ActivityParts
 import com.calypsan.listenup.client.presentation.discover.ActivityRowAction
 import com.calypsan.listenup.client.presentation.discover.ActivityUiModel
+import com.calypsan.listenup.client.presentation.discover.ListeningNowUiModel
 import com.calypsan.listenup.client.presentation.discover.activityParts
 import com.calypsan.listenup.client.presentation.discover.activityRowActions
+import com.calypsan.listenup.client.presentation.discover.listeningNowParts
+import com.calypsan.listenup.client.presentation.discover.listeningNowRowActions
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_more_actions
 import listenup.composeapp.generated.resources.discover_activity_profile_a11y
 import listenup.composeapp.generated.resources.discover_activity_you
 import listenup.composeapp.generated.resources.discover_activity_your_profile_a11y
+import listenup.composeapp.generated.resources.discover_listening_now
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * One activity row, shared by the Discover section and the See all activity screen: the
  * avatar (its own profile link), then one link holding the sentence, when it happened and, for a
- * book, its cover.
+ * book, its cover. Someone listening right now ([ListeningNowUiModel]) is the same row, reading
+ * "is listening to" with Discover's coral "Listening now" where an event shows its time.
  *
  * Its further actions ([activityRowActions]) open in an M3 menu anchored to the row on a long-press,
  * are TalkBack custom actions, and open from the keyboard's Menu key (or Shift+F10), so none of
@@ -78,17 +84,16 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 internal fun ActivityRow(
-    activity: ActivityUiModel,
+    entry: ActivityFeedEntry,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
     onAddToShelf: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val actions =
-        remember(activity, onAddToShelf != null) {
-            activityRowActions(activity, canShelve = onAddToShelf != null)
-        }
+    val canShelve = onAddToShelf != null
+    val activity = remember(entry, canShelve) { ActivityRowFacts.of(entry, canShelve) }
+    val actions = activity.actions
     val perform: (ActivityRowAction) -> Unit = { action ->
         when (action) {
             is ActivityRowAction.OpenBook -> onBookClick(action.bookId)
@@ -123,7 +128,7 @@ internal fun ActivityRow(
         ActivityAvatarLink(activity = activity, onUserClick = onUserClick)
         Box(Modifier.weight(1f)) {
             var menuOpen by remember { mutableStateOf(false) }
-            val labels = actions.map { it.label(activity) }
+            val labels = actions.map { it.label(activity.parts, activity.isYou, activity.userDisplayName) }
             ActivityRowBody(
                 activity = activity,
                 modifier =
@@ -146,10 +151,66 @@ internal fun ActivityRow(
     }
 }
 
+/**
+ * What a row draws, whichever kind of entry it is: the one place the two kinds differ is [moment].
+ *
+ * @property moment When it happened, or null for someone listening right now.
+ */
+private data class ActivityRowFacts(
+    val userId: String,
+    val userDisplayName: String,
+    val isYou: Boolean,
+    val parts: ActivityParts,
+    val bookId: String?,
+    val shelfId: String?,
+    val bookCoverPath: String?,
+    val bookCoverHash: String?,
+    val actions: List<ActivityRowAction>,
+    val moment: Long?,
+) {
+    companion object {
+        fun of(
+            entry: ActivityFeedEntry,
+            canShelve: Boolean,
+        ): ActivityRowFacts =
+            when (entry) {
+                is ActivityUiModel -> {
+                    ActivityRowFacts(
+                        userId = entry.userId,
+                        userDisplayName = entry.userDisplayName,
+                        isYou = entry.isYou,
+                        parts = activityParts(entry),
+                        bookId = entry.bookId,
+                        shelfId = entry.shelfId,
+                        bookCoverPath = entry.bookCoverPath,
+                        bookCoverHash = entry.bookCoverHash,
+                        actions = activityRowActions(entry, canShelve),
+                        moment = entry.occurredAt,
+                    )
+                }
+
+                is ListeningNowUiModel -> {
+                    ActivityRowFacts(
+                        userId = entry.userId,
+                        userDisplayName = entry.userDisplayName,
+                        isYou = false,
+                        parts = listeningNowParts(entry),
+                        bookId = entry.bookId,
+                        shelfId = null,
+                        bookCoverPath = entry.bookCoverPath,
+                        bookCoverHash = entry.bookCoverHash,
+                        actions = listeningNowRowActions(entry, canShelve),
+                        moment = null,
+                    )
+                }
+            }
+    }
+}
+
 /** The avatar: its own profile link beside the row's body, never inside it. */
 @Composable
 private fun ActivityAvatarLink(
-    activity: ActivityUiModel,
+    activity: ActivityRowFacts,
     onUserClick: (String) -> Unit,
 ) {
     val haptics = LocalHaptics.current
@@ -232,13 +293,13 @@ private fun Modifier.activityRowGestures(
         }
 }
 
-/** The body: the sentence and when, then a book's cover. */
+/** The body: the sentence and when — or "Listening now" — then a book's cover. */
 @Composable
 private fun ActivityRowBody(
-    activity: ActivityUiModel,
+    activity: ActivityRowFacts,
     modifier: Modifier,
 ) {
-    val parts = remember(activity) { activityParts(activity) }
+    val parts = activity.parts
     val actor = if (activity.isYou) stringResource(Res.string.discover_activity_you) else activity.userDisplayName
     val bodyColor = MaterialTheme.colorScheme.onSurface
     val highlightColor = MaterialTheme.colorScheme.primary
@@ -265,11 +326,7 @@ private fun ActivityRowBody(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = relativeTime(activity.occurredAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            ActivityMoment(occurredAt = activity.moment)
         }
         activity.bookId?.let { bookId ->
             BookCoverImage(
@@ -280,6 +337,26 @@ private fun ActivityRowBody(
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).testTag("activity-cover"),
             )
         }
+    }
+}
+
+/** When it happened; for someone listening right now, Discover's coral, bold "Listening now". */
+@Composable
+private fun ActivityMoment(occurredAt: Long?) {
+    if (occurredAt == null) {
+        Text(
+            text = stringResource(Res.string.discover_listening_now),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.testTag("activity-listening-now"),
+        )
+    } else {
+        Text(
+            text = relativeTime(occurredAt),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -2,9 +2,10 @@ import Foundation
 @preconcurrency import Shared
 
 /// Observes `ActivityFeedViewModel` — flattens the sealed `ActivityFeedUiState` into a
-/// SwiftUI-native `ActivityFeedPhase`. Each `ActivityUiModel` becomes an `ActivityRowItem`
-/// carrying the actor ("You" on your own row), the shared sentence's parts, where the row leads,
-/// and the timestamp (rendered with a native relative formatter).
+/// SwiftUI-native `ActivityFeedPhase`. Each entry becomes an `ActivityRowItem` carrying the actor
+/// ("You" on your own row), the shared sentence's parts, where the row leads, and when — a
+/// timestamp (rendered with a native relative formatter), or "Listening now" for someone listening
+/// right now.
 ///
 /// Thin over `FlowBridge`; the row mapping lives in a pure, testable initializer.
 @Observable
@@ -46,7 +47,7 @@ final class ActivityFeedObserver {
             phase = .loading
         case .ready(let readyType):
             let ready = readyType.value
-            phase = .ready(ready.activities.map(ActivityRowItem.init(from:)))
+            phase = .ready(ready.entries.map(ActivityRowItem.init(entry:)))
         case .error:
             phase = .error
         }
@@ -72,10 +73,18 @@ enum ActivityDestination: Hashable {
     case profile(String)
 }
 
-/// One activity row: "**who** predicate **highlight** suffix" + a relative timestamp.
+/// When an activity row's event happened — or that it is happening now.
+enum ActivityMoment: Equatable {
+    /// Something that happened at this instant, shown as a relative time.
+    case at(Date)
+    /// Someone listening right now, shown as Discover's coral "Listening now".
+    case listeningNow
+}
+
+/// One activity row: "**who** predicate **highlight** suffix" + when.
 ///
-/// The sentence is the shared `activityParts` every platform reads, so iOS says exactly
-/// what Android and web say; only "You" on your own row is chosen here, from `isYou`.
+/// The sentence is the shared `activityParts` (or `listeningNowParts`) every platform reads, so iOS
+/// says exactly what Android and web say; only "You" on your own row is chosen here, from `isYou`.
 struct ActivityRowItem: Identifiable, Equatable {
     let id: String
     let userId: String
@@ -96,7 +105,8 @@ struct ActivityRowItem: Identifiable, Equatable {
     let coverPath: String?
     /// The book's cover content version; nil when it has none or the row is book-less.
     let coverHash: String?
-    let occurredAt: Date
+    /// When it happened, or that they are listening now.
+    let moment: ActivityMoment
     /// What the row offers beyond its tap, from the shared `activityRowActions` rule.
     let actions: [ActivityRowActions.Action]
     /// The same, for a screen that cannot shelve one book (no selection, or one is under way).
@@ -107,6 +117,14 @@ struct ActivityRowItem: Identifiable, Equatable {
         if let bookId { return .book(bookId) }
         if let shelfId { return .shelf(shelfId) }
         return .profile(userId)
+    }
+
+    /// The row for one shared feed entry: an event, or someone listening right now.
+    init(entry: any ActivityFeedEntry) {
+        switch entry.sealedType() {
+        case .activityUiModel(let event): self.init(from: event.value)
+        case .listeningNowUiModel(let live): self.init(listening: live.value)
+        }
     }
 
     init(from model: ActivityUiModel) {
@@ -125,10 +143,33 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.shelfId = model.shelfId
         self.coverPath = model.bookCoverPath
         self.coverHash = model.bookCoverHash
-        self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
+        self.moment = .at(Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000))
         let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.discover.self
         self.actions = rules.activityRowActions(row: model, canShelve: true).map(ActivityRowActions.Action.init)
         self.actionsWithoutShelving = rules.activityRowActions(row: model, canShelve: false)
+            .map(ActivityRowActions.Action.init)
+    }
+
+    /// "**Kyle Harnett** is listening to **Red Rising** by Pierce Brown", and "Listening now". Never yours: the
+    /// shared model leaves the viewer's own session out.
+    init(listening model: ListeningNowUiModel) {
+        let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.discover.self
+        let parts = rules.listeningNowParts(listener: model)
+        self.id = model.id
+        self.userId = model.userId
+        self.isYou = false
+        self.actorName = model.userDisplayName
+        self.who = model.userDisplayName
+        self.predicate = parts.predicate
+        self.highlight = parts.highlight
+        self.suffix = parts.suffix
+        self.bookId = model.bookId
+        self.shelfId = nil
+        self.coverPath = model.bookCoverPath
+        self.coverHash = model.bookCoverHash
+        self.moment = .listeningNow
+        self.actions = rules.listeningNowRowActions(listener: model, canShelve: true).map(ActivityRowActions.Action.init)
+        self.actionsWithoutShelving = rules.listeningNowRowActions(listener: model, canShelve: false)
             .map(ActivityRowActions.Action.init)
     }
 
@@ -161,7 +202,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.shelfId = shelfId
         self.coverPath = coverPath
         self.coverHash = coverHash
-        self.occurredAt = occurredAt
+        self.moment = .at(occurredAt)
         self.actions = actions
         self.actionsWithoutShelving = actionsWithoutShelving
     }

@@ -71,6 +71,8 @@ class BookReadersViewModelTest :
             override fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSession>> =
                 failure?.let { error -> flow { throw error } } ?: sessions
 
+            override fun observeListeningNow(currentUserId: String): Flow<List<ActiveSession>> = flowOf(emptyList())
+
             override fun observeActiveCount(currentUserId: String): Flow<Int> = flowOf(sessions.value.size)
         }
 
