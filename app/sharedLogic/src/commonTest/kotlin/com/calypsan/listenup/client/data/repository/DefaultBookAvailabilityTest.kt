@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.Flow
 import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -38,6 +40,8 @@ class DefaultBookAvailabilityTest :
 
             val serverReachability =
                 object : ServerReachability {
+                    override val regained: Flow<Unit> = emptyFlow()
+
                     override val state: StateFlow<Reachability> = MutableStateFlow(reachability)
 
                     override suspend fun retry() = Unit

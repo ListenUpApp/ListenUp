@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.design.util
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import kotlin.time.Clock
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.discover_time_ago_days
@@ -20,7 +21,8 @@ private const val HOURS_PER_DAY = 24L
 
 /**
  * Compact relative timestamp ("Just now", "5m ago", "3h ago", "2d ago") for the epoch-ms instant
- * [occurredAtMs], measured against the system clock at composition time. Instants in the future
+ * [occurredAtMs], measured against a clock re-read every half minute, so a row left on screen ages
+ * ("Just now", then "1m ago") instead of keeping the age it had when it first appeared. Instants in the future
  * clamp to "Just now" rather than reading negative.
  *
  * This is the single relative-time phrasing for the app: the Discover activity feed, the admin
@@ -33,7 +35,8 @@ private const val HOURS_PER_DAY = 24L
  */
 @Composable
 fun relativeTime(occurredAtMs: Long): String {
-    val minutes = minutesSince(occurredAtMs)
+    val nowMs by rememberMinuteClockMs()
+    val minutes = minutesBetween(occurredAtMs, nowMs)
     return when {
         minutes < 1L -> {
             stringResource(Res.string.discover_time_ago_now)
@@ -63,4 +66,9 @@ fun relativeTime(occurredAtMs: Long): String {
 fun isJustNow(occurredAtMs: Long): Boolean = minutesSince(occurredAtMs) < 1L
 
 private fun minutesSince(occurredAtMs: Long): Long =
-    (Clock.System.now().toEpochMilliseconds() - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
+    minutesBetween(occurredAtMs, Clock.System.now().toEpochMilliseconds())
+
+private fun minutesBetween(
+    occurredAtMs: Long,
+    nowMs: Long,
+): Long = (nowMs - occurredAtMs).coerceAtLeast(0L) / MS_PER_MINUTE

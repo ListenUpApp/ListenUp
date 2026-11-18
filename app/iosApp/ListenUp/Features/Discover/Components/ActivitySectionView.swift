@@ -60,7 +60,10 @@ struct ActivityRowList: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                ActivityRow(item: item, selection: selection)
+                // Re-read every minute, so a row left on screen ages ("Just now", then "1 min. ago").
+                TimelineView(.everyMinute) { context in
+                    ActivityRow(item: item, now: context.date, selection: selection)
+                }
                 if index < items.count - 1 {
                     Divider().padding(.leading, 56)
                 }
