@@ -58,6 +58,8 @@ internal class AndroidLocalNetworkAccess internal constructor(
         return addresses.any(::isLocalNetworkHost)
     }
 
+    override fun isAllowed(): Boolean = sdkInt < LocalNetworkPermissionApi.ENFORCED || isGranted()
+
     private fun isAddressLiteral(host: String): Boolean = ':' in host || host.all { it.isDigit() || it == '.' }
 }
 

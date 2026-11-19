@@ -93,6 +93,7 @@ internal val connectionModule: Module =
                             qualifier =
                                 named(APP_SCOPE),
                         ),
+                    localNetworkAccess = get(),
                     engineState = get(),
                     allowsFallback = { candidate, current, fresh ->
                         trust.allows(candidate, current, fresh)

@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.test.fake.FakeLocalNetworkAccess
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -80,6 +81,7 @@ class ConnectionCoordinatorTest :
         fun onlineNetwork(): NetworkMonitor =
             mock<NetworkMonitor> {
                 every { onlineFlow } returns MutableStateFlow(true)
+                every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                 every { isOnline() } returns true
             }
 
@@ -95,6 +97,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = { _, _, _ -> false },
                 )
 
@@ -116,6 +119,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = { _, _, _ -> true },
                 )
 
@@ -162,6 +166,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = { candidate, current, fresh -> trust.allows(candidate, current, fresh) },
                 )
 
@@ -188,6 +193,7 @@ class ConnectionCoordinatorTest :
                     onlineNetwork(),
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = { _, _, _ ->
                         gateCalls++
                         false
@@ -219,6 +225,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -229,6 +236,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -255,6 +263,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -265,6 +274,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -315,6 +325,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -325,6 +336,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -383,6 +395,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -393,6 +406,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -425,6 +439,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -435,6 +450,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -463,6 +479,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -473,6 +490,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -500,6 +518,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -510,6 +529,7 @@ class ConnectionCoordinatorTest :
                     networkMonitor,
                     FakeInvalidator(),
                     scope,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                     allowsFallback = reachableViaInstance(instance),
                 )
 
@@ -543,6 +563,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(
@@ -552,7 +573,8 @@ class ConnectionCoordinatorTest :
                 networkMonitor,
                 invalidator,
                 scope,
-                engineState,
+                engineState = engineState,
+                localNetworkAccess = FakeLocalNetworkAccess(),
                 allowsFallback = reachableViaInstance(instance),
             ).start()
             scope.testScheduler.advanceUntilIdle()
@@ -599,6 +621,7 @@ class ConnectionCoordinatorTest :
             val networkMonitor =
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(
@@ -608,6 +631,7 @@ class ConnectionCoordinatorTest :
                 networkMonitor,
                 invalidator,
                 scope,
+                localNetworkAccess = FakeLocalNetworkAccess(),
                 allowsFallback = reachableViaInstance(instance),
             ).start()
             scope.testScheduler.advanceUntilIdle()
@@ -619,5 +643,99 @@ class ConnectionCoordinatorTest :
             // so the FULL sweep fires here — not the scoped one.
             invalidator.allCount shouldBe 1
             invalidator.requestOnlyCount shouldBe 0
+        }
+
+        /**
+         * The saved LAN address is dead and the server is discoverable at a new one: the case the
+         * background LAN search exists for. Returns the discovery mock, so a test can say whether
+         * the search ran, and the config, so it can say where the app ended up.
+         */
+        suspend fun reevaluateWithMovedServer(
+            unmetered: Boolean,
+            localNetworkAccess: FakeLocalNetworkAccess,
+        ): Pair<ServerDiscoveryService, ServerConfig> {
+            val scope = TestScope(StandardTestDispatcher())
+            val newLocal = "http://192.168.1.20:8080"
+            val discoveryService =
+                mock<ServerDiscoveryService> {
+                    every { discover() } returns
+                        flowOf(
+                            listOf(
+                                DiscoveredServer(
+                                    id = "abc",
+                                    name = "s",
+                                    host = "192.168.1.20",
+                                    port = 8080,
+                                    apiVersion = "v1",
+                                    serverVersion = "1",
+                                ),
+                            ),
+                        )
+                    every { startDiscovery() } returns Unit
+                    every { stopDiscovery() } returns Unit
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    every { activeUrl } returns MutableStateFlow<ServerUrl?>(null)
+                    everySuspend { getActiveUrl() } returns ServerUrl("http://old:8080")
+                    everySuspend { getServerUrl() } returns ServerUrl("http://old:8080")
+                    everySuspend { getRemoteUrl() } returns ServerUrl(remote)
+                    everySuspend { getConnectedServerId() } returns "abc"
+                    everySuspend { updateLocalUrl(any()) } returns Unit
+                    everySuspend { setActiveUrl(any()) } returns Unit
+                }
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { findReachableUrl(any()) } calls { (urls: List<String>) ->
+                        urls.firstOrNull { it == newLocal || it == remote }
+                    }
+                }
+            val networkMonitor =
+                mock<NetworkMonitor> {
+                    every { onlineFlow } returns MutableStateFlow(true)
+                    every { onUnmeteredNetworkFlow } returns MutableStateFlow(unmetered)
+                    every { isOnline() } returns true
+                }
+            val coordinator =
+                ConnectionCoordinator(
+                    serverConfig,
+                    instance,
+                    discoveryService,
+                    networkMonitor,
+                    FakeInvalidator(),
+                    scope,
+                    localNetworkAccess = localNetworkAccess,
+                    allowsFallback = reachableViaInstance(instance),
+                )
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+            return discoveryService to serverConfig
+        }
+
+        test("on cellular the LAN is never searched, and the remote address takes over") {
+            val (discovery, config) =
+                reevaluateWithMovedServer(unmetered = false, localNetworkAccess = FakeLocalNetworkAccess())
+
+            verify(exactly(0)) { discovery.startDiscovery() }
+            verifySuspend { config.setActiveUrl(ServerUrl(remote)) }
+        }
+
+        test("without local network access the LAN is never searched, and the remote address takes over") {
+            val (discovery, config) =
+                reevaluateWithMovedServer(
+                    unmetered = true,
+                    localNetworkAccess = FakeLocalNetworkAccess(allowed = false),
+                )
+
+            verify(exactly(0)) { discovery.startDiscovery() }
+            verifySuspend { config.setActiveUrl(ServerUrl(remote)) }
+        }
+
+        test("on Wi-Fi with local network access the server is still found at its new address") {
+            val (discovery, config) =
+                reevaluateWithMovedServer(unmetered = true, localNetworkAccess = FakeLocalNetworkAccess())
+
+            verify { discovery.startDiscovery() }
+            verifySuspend { config.setActiveUrl(ServerUrl("http://192.168.1.20:8080")) }
         }
     })

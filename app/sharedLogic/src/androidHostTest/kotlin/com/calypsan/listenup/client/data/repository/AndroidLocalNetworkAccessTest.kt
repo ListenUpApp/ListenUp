@@ -18,6 +18,18 @@ class AndroidLocalNetworkAccessTest :
         val android17 = 37
         val noResolver: suspend (String) -> List<String> = { error("resolver must not be consulted for $it") }
 
+        test("the LAN may be searched on Android 16, or on Android 17 once the permission is granted") {
+            AndroidLocalNetworkAccess(sdkInt = android16, isGranted = { false }, resolveHost = noResolver)
+                .isAllowed() shouldBe true
+            AndroidLocalNetworkAccess(sdkInt = android17, isGranted = { true }, resolveHost = noResolver)
+                .isAllowed() shouldBe true
+        }
+
+        test("the LAN may not be searched on Android 17 without the permission") {
+            AndroidLocalNetworkAccess(sdkInt = android17, isGranted = { false }, resolveHost = noResolver)
+                .isAllowed() shouldBe false
+        }
+
         test("Android 16 never gates a connection, even to the LAN") {
             val access = AndroidLocalNetworkAccess(sdkInt = android16, isGranted = { false }, resolveHost = noResolver)
 

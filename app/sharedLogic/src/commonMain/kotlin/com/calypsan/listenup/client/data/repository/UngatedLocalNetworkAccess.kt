@@ -12,4 +12,6 @@ internal object UngatedLocalNetworkAccess : LocalNetworkAccess {
         host: String,
         port: Int,
     ): Boolean = false
+
+    override fun isAllowed(): Boolean = true
 }
