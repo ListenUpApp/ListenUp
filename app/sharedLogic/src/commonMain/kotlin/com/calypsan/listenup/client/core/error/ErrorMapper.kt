@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.core.error
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.UnexpectedClientError
+import com.calypsan.listenup.api.error.UnknownError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
@@ -19,6 +21,7 @@ import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.plugins.websocket.WebSocketException
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
@@ -44,6 +47,9 @@ internal object ErrorMapper {
 
     /** How far down a cause chain to look; bounds the walk, and with it any cycle. */
     private const val MAX_CAUSE_DEPTH = 10
+
+    /** Refusals: the only replies whose body is read for the server's typed error. */
+    private val CLIENT_ERROR_STATUSES = 400..499
 
     fun map(exception: Throwable): AppError {
         val unreadableFile = findUnreadableFile(exception)
@@ -166,6 +172,64 @@ internal object ErrorMapper {
             .take(MAX_CAUSE_DEPTH)
             .filterIsInstance<FileUnreadableException>()
             .firstOrNull()
+
+    /**
+     * The typed error for a non-2xx reply: the server's own typed error when it sent one with a
+     * refusal, otherwise [forHttpStatus]. The one reply mapping, shared by [forResponse] and by the
+     * browser's XMLHttpRequest upload, so the two transports can never disagree.
+     *
+     * Only a 4xx [body] is read. A 401 always means the session ended, whatever the body says, so
+     * the auth observer still drives the app to sign-in; and a 5xx stays a retryable server error,
+     * so retries and the offline queue treat a server failure exactly as before.
+     */
+    fun forHttpResponse(
+        status: Int,
+        body: String?,
+        debugInfo: String?,
+    ): AppError =
+        body
+            ?.takeIf { status in CLIENT_ERROR_STATUSES && status != HttpStatusCode.Unauthorized.value }
+            ?.let(::decodeTypedError)
+            ?: forHttpStatus(status, debugInfo)
+
+    /**
+     * [forHttpResponse] for Ktor's [ResponseException]. Suspends because the reply body has to be
+     * read; Ktor saves a failed reply for exactly this, so reading it does not touch the network.
+     */
+    suspend fun forResponse(exception: ResponseException): AppError {
+        val status = exception.response.status.value
+        val body =
+            if (status in CLIENT_ERROR_STATUSES && status != HttpStatusCode.Unauthorized.value) {
+                try {
+                    exception.response.bodyAsText()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    KotlinLogging
+                        .logger(
+                            LOGGER_NAME,
+                        ).debug(e) { "Could not read the body of a $status reply; mapping it by status" }
+                    null
+                }
+            } else {
+                null
+            }
+        return forHttpResponse(status, body, debugInfo = exception.message)
+    }
+
+    /**
+     * The [AppError] a reply [body] carries, or null when it is not one (HTML, other JSON). The
+     * contract decodes any JSON object it cannot place as [UnknownError], for forward compatibility;
+     * here that means the server did not explain, so the status says more.
+     */
+    private fun decodeTypedError(body: String): AppError? =
+        try {
+            contractJson.decodeFromString(AppError.serializer(), body).takeUnless { it is UnknownError }
+        } catch (e: IllegalArgumentException) {
+            // SerializationException is an IllegalArgumentException: the body is not a typed error.
+            KotlinLogging.logger(LOGGER_NAME).debug(e) { "Reply body is not a typed error; mapping it by status" }
+            null
+        }
 
     /**
      * The typed error for a non-2xx HTTP [status] — the one status mapping, shared by Ktor's

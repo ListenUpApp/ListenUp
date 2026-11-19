@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.core
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import io.ktor.client.plugins.ResponseException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -14,7 +15,7 @@ fun Failure(throwable: Throwable): AppResult.Failure = AppResult.Failure(ErrorMa
 /**
  * Catch throwables in a suspend block and wrap them in [AppResult]. Re-throws
  * [CancellationException] to preserve coroutine cancellation; routes all other
- * throwables through [ErrorMapper] via [Failure].
+ * throwables through [ErrorMapper] via [restFailure].
  *
  * Catches [Throwable], not [Exception], matching the RPC boundary (`catchingRpcResult`): in the
  * browser a native error such as `RangeError` is a [Throwable] but not an [Exception].
@@ -27,9 +28,21 @@ suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): A
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
-        Failure(e)
+        restFailure(e)
     }
 }
+
+/**
+ * The failure for a throwable caught at the REST boundary. A refusal the server explained (Ktor's
+ * [ResponseException] with a typed error in its body) is that error; everything else maps as [Failure].
+ */
+@PublishedApi
+internal suspend fun restFailure(throwable: Throwable): AppResult.Failure =
+    if (throwable is ResponseException) {
+        AppResult.Failure(ErrorMapper.forResponse(throwable))
+    } else {
+        Failure(throwable)
+    }
 
 /**
  * Carries an already-typed [AppError] out of a [pullCatching] block.

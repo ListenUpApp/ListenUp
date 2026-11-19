@@ -1,7 +1,10 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.uploads.UploadSessionSummary
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.result.AppResult
@@ -232,6 +235,19 @@ class XhrUploadTransportTest :
                 .error
                 .shouldBeInstanceOf<TransportError.Server4xx>()
                 .statusCode shouldBe 422
+        }
+
+        test("postFile answers a refusal the server explains with the server's own error") {
+            val refusal = ImportError.UploadFailed(debugInfo = "missing file part")
+            val requests = mutableListOf<FakeRequest>()
+
+            val refused =
+                transport(
+                    requests,
+                    onSend = { it.answer(422, contractJson.encodeToString(AppError.serializer(), refusal)) },
+                ).postFile(path = "/import", partName = "backup", file = picked, filename = picked.name)
+
+            refused.shouldBeInstanceOf<AppResult.Failure>().error shouldBe refusal
         }
 
         test("cancelling the upload aborts the request, so Cancel stops the bytes") {
