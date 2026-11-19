@@ -105,4 +105,11 @@ internal class AppleLocalNetworkAccess : LocalNetworkAccess {
             nw_connection_cancel(connection)
         }.also { denied -> logger.debug { "Local network probe of $host:$port: denied=$denied" } }
     }
+
+    /**
+     * iOS has no API to read the permission, and it asks the user at most once, ever: a browse
+     * after a refusal fails quietly. So nothing here can put a prompt in front of the user
+     * unbidden, and browsing is always allowed to try.
+     */
+    override fun isAllowed(): Boolean = true
 }

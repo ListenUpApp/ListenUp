@@ -25,4 +25,12 @@ interface LocalNetworkAccess {
         host: String,
         port: Int,
     ): Boolean
+
+    /**
+     * True when the app may reach the local network without the system stepping in: access is
+     * granted, or the platform has no gate. Background work that browses the LAN asks this first,
+     * because on Android 17 a browse without the permission puts a system device picker in front
+     * of the user, even while the app is in the background.
+     */
+    fun isAllowed(): Boolean
 }
