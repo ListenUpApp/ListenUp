@@ -414,6 +414,10 @@ internal class CommonImageStorage(
 
     /**
      * Write bytes to a file, creating parent directories if needed.
+     *
+     * The bytes go to a sibling file first and are then renamed over [path], so an image loader
+     * reading [path] meanwhile sees the old image or the new one, never a half-written file. The
+     * sibling's name does not end in the image extension, so cover listings never count it.
      */
     private fun writeBytes(
         path: Path,
@@ -425,8 +429,14 @@ internal class CommonImageStorage(
             SystemFileSystem.createDirectories(parent)
             prepareServerRecoverableDirectories()
         }
-        SystemFileSystem.sink(path).buffered().use { sink ->
-            sink.write(data)
+        val partial = Path("$path$PARTIAL_SUFFIX")
+        try {
+            SystemFileSystem.sink(partial).buffered().use { sink ->
+                sink.write(data)
+            }
+            SystemFileSystem.atomicMove(partial, path)
+        } finally {
+            SystemFileSystem.delete(partial, mustExist = false)
         }
     }
 
@@ -482,5 +492,6 @@ internal class CommonImageStorage(
         private const val SERIES_COVERS_DIR_NAME = "covers/series"
         private const val AVATARS_DIR_NAME = "avatars"
         private const val FILE_EXTENSION = "jpg"
+        private const val PARTIAL_SUFFIX = ".partial"
     }
 }
