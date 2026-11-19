@@ -45,7 +45,7 @@ private const val FILE_TRANSFER_TIMEOUT_MS = 60 * 60 * 1_000
  * headers. A 401 gets
  * the single refresh-and-retry the Ktor bearer plugin gives every other request, so an upload that
  * outlives a short-lived access token does not end the session. Every failure is typed the way the
- * Ktor path types it: a status through [ErrorMapper.forHttpStatus], a dropped connection as an
+ * Ktor path types it: a refusal through [ErrorMapper.forHttpResponse], a dropped connection as an
  * [IOException], a timeout as Ktor's own timeout exception — both folded by [ErrorMapper].
  *
  * A browser reports a picked file it can no longer read (moved, deleted, its disk gone) exactly as
@@ -200,7 +200,7 @@ class XhrUploadTransport(
         if (status in SUCCESS_STATUSES) {
             AppResult.Success(body)
         } else {
-            AppResult.Failure(ErrorMapper.forHttpStatus(status, debugInfo = "POST $url answered $status"))
+            AppResult.Failure(ErrorMapper.forHttpResponse(status, body, debugInfo = "POST $url answered $status"))
         }
 
     private class OutgoingFile(

@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -124,6 +127,22 @@ class HttpClientErrorHandlingTest :
                 val error = result.error
                 error.shouldBeInstanceOf<TransportError.Server4xx>()
                 error.statusCode shouldBe 403
+            }
+        }
+
+        test("a refusal the server explains reaches the caller as the server's own error") {
+            runTest {
+                val refusal = ImportError.UploadFailed(debugInfo = "missing file part")
+                val c =
+                    client {
+                        respondJson("/import", HttpStatusCode.UnprocessableEntity) {
+                            contractJson.encodeToString(AppError.serializer(), refusal)
+                        }
+                    }
+
+                val result = suspendRunCatching<String> { c.get("http://unit.test/import").body() }
+
+                result.shouldBeInstanceOf<AppResult.Failure>().error shouldBe refusal
             }
         }
     })
