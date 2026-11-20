@@ -725,6 +725,14 @@ internal val notificationsPresentationModule =
             com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel(
                 repo = get(),
                 errorBus = get(),
+                // App-lifetime scope: a tap that marks a row read usually also navigates away, and on
+                // web leaving the inbox clears its viewModelScope before the write has landed.
+                appScope =
+                    get(
+                        qualifier =
+                            org.koin.core.qualifier
+                                .named(APP_SCOPE),
+                    ),
             )
         }
         factory {

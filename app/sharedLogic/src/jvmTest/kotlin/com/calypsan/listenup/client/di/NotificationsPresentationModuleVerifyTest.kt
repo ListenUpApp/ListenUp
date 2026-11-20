@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.domain.repository.NotificationRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -13,6 +14,7 @@ import org.koin.test.verify.verify
  *
  *  - [NotificationRepository] — owned by `notificationClientModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
+ *  - [CoroutineScope] — the app-lifetime scope mark-read runs on, owned by the platform core module.
  */
 @OptIn(KoinExperimentalAPI::class)
 class NotificationsPresentationModuleVerifyTest :
@@ -24,6 +26,7 @@ class NotificationsPresentationModuleVerifyTest :
                     listOf(
                         NotificationRepository::class,
                         ErrorBus::class,
+                        CoroutineScope::class,
                     ),
             )
         }

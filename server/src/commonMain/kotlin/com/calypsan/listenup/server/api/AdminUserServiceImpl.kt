@@ -403,6 +403,11 @@ class AdminUserServiceImpl(
                 ),
                 to = NotificationAudience.User(request.userId.value),
             )
+            // The request is answered, for every admin it was sent to — not only the one who decided.
+            notifications?.markHandled(
+                NotificationEvent.RegistrationApproval(userId = request.userId.value),
+                atMs = now,
+            )
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.
             if (request.approved) {

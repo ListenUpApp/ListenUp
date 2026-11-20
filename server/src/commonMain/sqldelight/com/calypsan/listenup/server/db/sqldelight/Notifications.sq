@@ -63,6 +63,12 @@ SELECT * FROM notifications WHERE id IN :ids;
 countLiveForUser:
 SELECT COUNT(*) FROM notifications WHERE user_id = :userId AND deleted_at IS NULL;
 
+-- Every unread live row of one type, whoever it was sent to: what NotificationEmitter.markHandled
+-- searches when the thing a notification asked about has been dealt with.
+selectUnreadLiveByType:
+SELECT id, user_id, payload FROM notifications
+WHERE type = :type AND read_at IS NULL AND deleted_at IS NULL;
+
 selectLiveIdsForUserOldestFirst:
 SELECT id FROM notifications
 WHERE user_id = :userId AND deleted_at IS NULL

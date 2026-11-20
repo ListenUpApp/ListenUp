@@ -13,6 +13,10 @@ import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import androidx.lifecycle.ViewModelStore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -51,7 +55,7 @@ class NotificationsViewModelTest :
         test("an empty inbox maps Loading then Empty") {
             runTest {
                 val repo = FakeNotificationRepository()
-                val viewModel = NotificationsViewModel(repo, ErrorBus())
+                val viewModel = NotificationsViewModel(repo, ErrorBus(), appScope = backgroundScope)
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe NotificationsUiState.Loading
@@ -67,7 +71,7 @@ class NotificationsViewModelTest :
                 val older = notification(id = "n-1", createdAt = 1_000L, readAt = 1_500L)
                 val repo = FakeNotificationRepository()
                 repo.notifications.value = listOf(newest, older)
-                val viewModel = NotificationsViewModel(repo, ErrorBus())
+                val viewModel = NotificationsViewModel(repo, ErrorBus(), appScope = backgroundScope)
 
                 viewModel.uiState.test {
                     awaitItem() shouldBe NotificationsUiState.Loading
@@ -83,12 +87,32 @@ class NotificationsViewModelTest :
         test("markRead delegates to the repository") {
             runTest {
                 val repo = FakeNotificationRepository()
-                val viewModel = NotificationsViewModel(repo, ErrorBus())
+                val viewModel = NotificationsViewModel(repo, ErrorBus(), appScope = backgroundScope)
 
                 viewModel.markRead("n-7")
                 advanceUntilIdle()
 
                 repo.markReadCalls shouldContainExactly listOf("n-7")
+            }
+        }
+
+        test("a read still lands when the inbox closes before the write finishes") {
+            runTest {
+                val repo = FakeNotificationRepository()
+                val writeMayFinish = CompletableDeferred<Unit>()
+                repo.markReadGate = writeMayFinish
+                // A foreground scope on the test's scheduler: advanceUntilIdle does not wait for backgroundScope.
+                val appScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+                val viewModel = NotificationsViewModel(repo, ErrorBus(), appScope = appScope)
+                val store = ViewModelStore().apply { put("notifications", viewModel) }
+
+                viewModel.markRead("n-7")
+                advanceUntilIdle()
+                store.clear()
+                writeMayFinish.complete(Unit)
+                advanceUntilIdle()
+
+                repo.markReadFinished shouldContainExactly listOf("n-7")
             }
         }
 
@@ -99,7 +123,7 @@ class NotificationsViewModelTest :
                 repo.notifications.value = listOf(notification(id = "n-1"))
                 repo.markReadResult = AppResult.Failure(error)
                 val errorBus = ErrorBus()
-                val viewModel = NotificationsViewModel(repo, errorBus)
+                val viewModel = NotificationsViewModel(repo, errorBus, appScope = backgroundScope)
 
                 errorBus.errors.test {
                     viewModel.uiState.test {
@@ -151,8 +175,14 @@ internal class FakeNotificationRepository : NotificationRepository {
 
     override fun observeUnreadCount(): Flow<Int> = unreadCount
 
+    /** When set, [markRead] waits on it before finishing — the write a closing screen races. */
+    var markReadGate: CompletableDeferred<Unit>? = null
+    val markReadFinished = mutableListOf<String>()
+
     override suspend fun markRead(notificationId: String): AppResult<Unit> {
         markReadCalls += notificationId
+        markReadGate?.await()
+        markReadFinished += notificationId
         return markReadResult
     }
 

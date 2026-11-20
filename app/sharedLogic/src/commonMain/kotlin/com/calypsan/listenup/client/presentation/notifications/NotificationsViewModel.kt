@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AppNotification
 import com.calypsan.listenup.client.domain.repository.NotificationRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -29,10 +30,13 @@ sealed interface NotificationsUiState {
 /**
  * Backs the notification inbox screen: projects [NotificationRepository.observeNotifications] into
  * a sealed [NotificationsUiState], and delegates mark-read taps back to the repository.
+ *
+ * @property appScope App-lifetime scope the mark-read writes run on, so they outlive the screen.
  */
 class NotificationsViewModel(
     private val repo: NotificationRepository,
     private val errorBus: ErrorBus,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     /** Current inbox state derived from the Room-backed notifications observation. */
     val uiState: StateFlow<NotificationsUiState> =
@@ -49,9 +53,13 @@ class NotificationsViewModel(
     /**
      * Marks [notificationId] read. Failures surface on the global ErrorBus; the row's visual
      * state always derives from Room, so there is nothing to roll back locally.
+     *
+     * Runs on [appScope], not viewModelScope: the tap that marks a row read usually opens what it
+     * points at in the same gesture, and a client that ends the inbox's scope as it leaves (web
+     * does) would otherwise cancel the write before it lands.
      */
     fun markRead(notificationId: String) {
-        viewModelScope.launch {
+        appScope.launch {
             when (val result = repo.markRead(notificationId)) {
                 is AppResult.Success -> Unit
                 is AppResult.Failure -> errorBus.emit(result.error)
