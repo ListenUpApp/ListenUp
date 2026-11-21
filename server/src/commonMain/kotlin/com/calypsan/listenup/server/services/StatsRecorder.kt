@@ -72,7 +72,8 @@ class StatsRecorder(
     /**
      * `book_reads` (via the coverage rule — append a new read or merge a below-threshold replay) →
      * re-derived `user_stats` (booksFinished counted from `book_reads`) → `public_profiles.refresh()` →
-     * the `FINISHED_BOOK` activity, dated [StatsEvent.BookCompleted.occurredAt]. The re-derive and the
+     * the `FINISHED_BOOK` activity, dated [StatsEvent.BookCompleted.occurredAt] and raised only when the
+     * finish appended a new read — a merged replay is the same read, already announced. The re-derive and the
      * projection refresh are skipped under [StatsCascadeDeferred] — a bulk import writes the source row
      * per row but defers the recompute to one terminal [StatsEvent.BulkRecompute].
      */
@@ -112,12 +113,15 @@ class StatsRecorder(
             publicProfileMaintainer.refresh(event.userId, tz)
             emitMilestoneCrossings(userId = event.userId, base = base, derived = derived, tz = tz)
         }
-        activityRecorder.record(
-            userId = event.userId,
-            type = ActivityType.FINISHED_BOOK,
-            bookId = event.bookId,
-            occurredAt = finishedAtMs,
-        )
+        // Announced once per read, like the Hardcover push: a merged replay is the read already announced.
+        if (appended) {
+            activityRecorder.record(
+                userId = event.userId,
+                type = ActivityType.FINISHED_BOOK,
+                bookId = event.bookId,
+                occurredAt = finishedAtMs,
+            )
+        }
     }
 
     /**

@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.scheduler.SidecarRetryTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.FinishAnnouncementSweep
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -133,6 +134,13 @@ internal fun Application.startBackgroundTasks(
     // Never fatal to startup.
     scope.launchNeverFatal("interrupted-import resume failed") {
         koinGet<com.calypsan.listenup.server.absimport.InterruptedImportResumer>().resumeAll()
+    }
+
+    // Tombstone the finish announcements no read accounts for (a merged replay once announced itself
+    // too). Idempotent: once the surplus is gone it finds nothing. Never fatal to startup.
+    scope.launchNeverFatal("finish-announcement sweep failed") {
+        val swept = koinGet<FinishAnnouncementSweep>().run()
+        if (swept > 0) logger.info { "tombstoned $swept duplicate finish announcement(s)" }
     }
 
     // Find FFmpeg once, at boot, and publish the answer. Never fatal: a server with no encoder is a

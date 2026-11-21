@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
+import com.calypsan.listenup.server.services.FinishAnnouncementSweep
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -109,6 +110,7 @@ fun playbackModule(
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(syncRepo = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
+        single { FinishAnnouncementSweep(sql = get<ListenUpDatabase>(), activities = get(), reads = get()) }
         single {
             StatsRecorder(
                 sql = get<ListenUpDatabase>(),
