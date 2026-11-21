@@ -4,6 +4,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 
 /**
@@ -159,5 +160,24 @@ class JpegDecoderTest :
 
         test("a file that is not a JPEG declines") {
             decodeJpeg(hexBytes("89504e470d0a1a0a"), maxWidth = 4).shouldBeNull()
+        }
+
+        // The decoder walks the whole block grid once per scan, and an SOS with no entropy data still runs to
+        // completion (the bit reader returns zeros past the end), so a file inside the upload cap could carry
+        // hundreds of thousands of empty scans and pin a thread. Real progressive JPEGs use about ten.
+        test("a JPEG with more than 64 scans declines; 64 is still read") {
+            // The baseline fixture's own scan header, repeated with no entropy data after it.
+            val emptyScan = hexBytes("ffda000c03010002110311003f00")
+            val eoi = hexBytes("ffd9")
+
+            fun withScans(total: Int): ByteArray {
+                var bytes = baseline.copyOfRange(0, baseline.size - eoi.size)
+                repeat(total - 1) { bytes += emptyScan }
+                return bytes + eoi
+            }
+
+            parseJpegSegments(withScans(64)).shouldNotBeNull().scans.size shouldBe 64
+            parseJpegSegments(withScans(65)).shouldBeNull()
+            decodeJpeg(withScans(65), maxWidth = 4).shouldBeNull()
         }
     })

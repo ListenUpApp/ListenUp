@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.logging
 
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import io.github.oshai.kotlinlogging.FormattingAppender
 import io.github.oshai.kotlinlogging.Formatter
 import io.github.oshai.kotlinlogging.KLoggingEvent
@@ -91,7 +92,7 @@ internal fun installNativeLogging(
     val console =
         NonBlockingLogSink(
             capacity = LOG_QUEUE_CAPACITY,
-            scope = CoroutineScope(newSingleThreadContext("log-writer")),
+            scope = CoroutineScope(newSingleThreadContext("log-writer") + appCoroutineExceptionHandler),
             droppedNotice = { count ->
                 ConsoleLine(
                     "WARN: [Logging] $count log lines dropped: the log output was not keeping up",
@@ -105,7 +106,7 @@ internal fun installNativeLogging(
         file?.let { log ->
             NonBlockingLogSink(
                 capacity = LOG_QUEUE_CAPACITY,
-                scope = CoroutineScope(newSingleThreadContext("log-file-writer")),
+                scope = CoroutineScope(newSingleThreadContext("log-file-writer") + appCoroutineExceptionHandler),
                 droppedNotice = { count ->
                     "WARN: [Logging] $count log lines dropped: the log file was not keeping up"
                 },

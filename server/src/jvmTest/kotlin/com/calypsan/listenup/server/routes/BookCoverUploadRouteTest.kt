@@ -25,6 +25,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.forms.ChannelProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
@@ -36,6 +37,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteReadChannel
 import java.nio.file.Files
 import org.koin.ktor.ext.inject
 import com.calypsan.listenup.api.AdminUserService
@@ -227,6 +229,53 @@ class BookCoverUploadRouteTest :
                                         append(
                                             "file",
                                             oversizeBytes,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/png")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"big.png\"")
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }
+                    response.status shouldBe HttpStatusCode.PayloadTooLarge
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        // Browsers and Ktor clients streaming a file do not declare a part Content-Length, so the cap must fire
+        // while the body is read — not only when the part announces its own size.
+        test("an oversize file part that declares no Content-Length returns 413 Payload Too Large") {
+            val libraryRoot = Files.createTempDirectory("listenup-cover-upload-413-undeclared-")
+            val homeDir = Files.createTempDirectory("listenup-cover-upload-home-413-undeclared-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(
+                        libraryPath = libraryRoot.toString(),
+                        homeDir = homeDir.toString(),
+                    )
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = mintRootToken()
+                    seedTestLibraryAndFolder()
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(coverUploadFixture(id = "b1", title = "The Way of Kings"))
+
+                    // A real PNG signature, so only the size can be what the server objects to.
+                    val oversizePng = png + ByteArray((COVER_MAX_BYTES_TEST + 1 - png.size).toInt())
+                    val response =
+                        client.put("/api/v1/books/b1/cover") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            ChannelProvider(size = null) { ByteReadChannel(oversizePng) },
                                             Headers.build {
                                                 append(HttpHeaders.ContentType, "image/png")
                                                 append(HttpHeaders.ContentDisposition, "filename=\"big.png\"")

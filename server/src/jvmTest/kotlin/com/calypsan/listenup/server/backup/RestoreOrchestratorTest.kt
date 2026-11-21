@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.server.media.ManagedImageDirs
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ControlFrame
 import io.kotest.core.spec.style.FunSpec
@@ -574,6 +575,73 @@ class RestoreOrchestratorTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<BackupError.RestoreFailed>().rolledBack shouldBe true
+                    SEEDED_IMAGES.forEach { (rel, bytes) ->
+                        readBytes(Path(fixture.homeDir.toString(), rel)).toList() shouldBe bytes.toList()
+                    }
+                }
+            }
+        }
+
+        // A database-only restore never replaces an image, so copying every managed image directory aside costs time,
+        // disk and maintenance-gate downtime for nothing — and a full disk during that copy would abort the restore.
+        test("a database-only restore copies no image directory aside and still rolls the database back") {
+            runTest {
+                backupTestFixture(withImages = true).use { fixture ->
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS db_only_test(v TEXT)",
+                        "INSERT INTO db_only_test(v) VALUES ('row-B')",
+                    )
+                    // Garbage database (checksum-valid, so validate passes) in a manifest without images: the swap
+                    // takes the database in and the migrate then fails, forcing the rollback.
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = false,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    ZipOutputStream(Files.newOutputStream(fixture.paths.archiveFor("db-only").nio())).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    // Unconfined + UNDISPATCHED: the probe reads the rollback directory at the instant Swapping is
+                    // announced — after the copy-aside step, before the rollback directory is cleaned up.
+                    val eventBus = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 64)
+                    val asideAtSwap = mutableListOf<String>()
+                    val probe =
+                        launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+                            eventBus.collect { event ->
+                                if (event is BackupEvent.Swapping) {
+                                    asideAtSwap +=
+                                        ManagedImageDirs.ALL.filter {
+                                            SystemFileSystem.exists(Path(fixture.paths.rollbackDir, it))
+                                        }
+                                }
+                            }
+                        }
+
+                    val result = buildOrchestrator(fixture, eventBus = eventBus).restore(BackupId("db-only"))
+                    probe.cancel()
+
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.RestoreFailed>()
+                        .rolledBack shouldBe true
+                    asideAtSwap.shouldBeEmpty()
+                    fixture.handle.queryScalarString("SELECT v FROM db_only_test") shouldBe "row-B"
                     SEEDED_IMAGES.forEach { (rel, bytes) ->
                         readBytes(Path(fixture.homeDir.toString(), rel)).toList() shouldBe bytes.toList()
                     }

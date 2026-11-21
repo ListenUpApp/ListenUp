@@ -3,7 +3,9 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PermissionPolicy
@@ -13,6 +15,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -22,6 +25,8 @@ import com.calypsan.listenup.server.testing.shouldBeDeniedPermission
 import com.calypsan.listenup.server.testing.shouldPassThePermissionGate
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
@@ -57,6 +62,7 @@ class TagServiceImplPermissionTest :
                 sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
                 val service = makeTagPermService(this).copyWith(memberPrincipal("editor"))
                 runTest {
+                    makeBooksVisibleTo("editor", "book1")
                     val result = service.addTagToBook(BookId("book1"), "Sci-Fi")
 
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -73,6 +79,52 @@ class TagServiceImplPermissionTest :
                     val result = service.addTagToBook(BookId("book1"), "Sci-Fi")
 
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+            }
+        }
+
+        // A member who may edit metadata but cannot see the book must get the same answer as for a
+        // book that does not exist, and the write must not land — otherwise the reply confirms the id
+        // is a live book and the tag shows up on it for everyone who can.
+        test("addTagToBook on a book the editor cannot see answers BookNotFound and writes nothing") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("visible")
+                sql.seedTestBook("hidden")
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                val service = makeTagPermService(this).copyWith(memberPrincipal("editor"))
+                runTest {
+                    makeBooksVisibleTo("editor", "visible")
+
+                    // Control: the visible book takes the tag, so a blanket deny would fail here.
+                    service.addTagToBook(BookId("visible"), "Noir").shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val denied = service.addTagToBook(BookId("hidden"), "Noir")
+
+                    denied.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TagError.BookNotFound>()
+                    bookTagRepository(this@withSqlDatabase).findAllForBook("hidden").shouldBeEmpty()
+                }
+            }
+        }
+
+        test("removeTagFromBook on a book the editor cannot see answers BookNotFound and keeps the tag") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("hidden")
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                val base = makeTagPermService(this)
+                runTest {
+                    val tag =
+                        base
+                            .copyWith(rootPrincipal())
+                            .addTagToBook(BookId("hidden"), "Noir")
+                            .shouldBeInstanceOf<AppResult.Success<Tag>>()
+                            .data
+
+                    val denied = base.copyWith(memberPrincipal("editor")).removeTagFromBook(BookId("hidden"), TagId(tag.id))
+
+                    denied.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TagError.BookNotFound>()
+                    bookTagRepository(this@withSqlDatabase).findAllForBook("hidden").map { it.tagId } shouldBe listOf(tag.id)
                 }
             }
         }
@@ -95,6 +147,9 @@ class TagServiceImplPermissionTest :
             }
         }
     })
+
+private fun bookTagRepository(dbs: SqlTestDatabases): BookTagRepository =
+    BookTagRepository(db = dbs.sql, bus = ChangeBus(), registry = SyncRegistry(), driver = dbs.driver)
 
 private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val bus = ChangeBus()

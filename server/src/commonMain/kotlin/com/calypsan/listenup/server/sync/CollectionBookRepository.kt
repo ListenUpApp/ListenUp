@@ -353,8 +353,9 @@ open class CollectionBookRepository(
      * (the membership no longer surfaces the dead book in any collection's list/count). Each row gets
      * its own revision bump and after-commit [SyncEvent.Deleted]. Returns the number of rows tombstoned.
      */
-    suspend fun softDeleteAllForBook(bookId: String): Int =
-        suspendTransaction(db) {
+    suspend fun softDeleteAllForBook(bookId: String): Int {
+        val suppressed = isFirehoseSuppressed()
+        return suspendTransaction(db) {
             val live = db.collectionBooksQueries.liveIdsForBook(bookId).executeAsList()
             for (syntheticId in live) {
                 val rev = nextRevision()
@@ -366,6 +367,7 @@ open class CollectionBookRepository(
                     client_op_id = null,
                     id = syntheticId,
                 )
+                if (suppressed) continue
                 emitAfterCommit(
                     event =
                         SyncEvent.Deleted(
@@ -379,6 +381,7 @@ open class CollectionBookRepository(
             }
             live.size
         }
+    }
 
     /**
      * Revives the tombstoned junction rows for the books in [bookIds] tombstoned at or after
@@ -395,6 +398,7 @@ open class CollectionBookRepository(
         cascadeFloor: Long,
     ): Int {
         if (bookIds.isEmpty()) return 0
+        val suppressed = isFirehoseSuppressed()
         return suspendTransaction(db) {
             var count = 0
             for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
@@ -402,25 +406,27 @@ open class CollectionBookRepository(
                     val rev = nextRevision()
                     val now = clock.now().toEpochMilliseconds()
                     db.collectionBooksQueries.reviveById(revision = rev, updated_at = now, id = row.id)
-                    emitAfterCommit(
-                        event =
-                            SyncEvent.Updated(
-                                id = row.id,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = null,
-                                payload =
-                                    CollectionBookSyncPayload(
-                                        id = row.id,
-                                        collectionId = row.collection_id,
-                                        bookId = row.book_id,
-                                        createdAt = row.created_at,
-                                        revision = rev,
-                                        deletedAt = null,
-                                    ),
-                            ),
-                        userId = null,
-                    )
+                    if (!suppressed) {
+                        emitAfterCommit(
+                            event =
+                                SyncEvent.Updated(
+                                    id = row.id,
+                                    revision = rev,
+                                    occurredAt = now,
+                                    clientOpId = null,
+                                    payload =
+                                        CollectionBookSyncPayload(
+                                            id = row.id,
+                                            collectionId = row.collection_id,
+                                            bookId = row.book_id,
+                                            createdAt = row.created_at,
+                                            revision = rev,
+                                            deletedAt = null,
+                                        ),
+                                ),
+                            userId = null,
+                        )
+                    }
                     count++
                 }
             }

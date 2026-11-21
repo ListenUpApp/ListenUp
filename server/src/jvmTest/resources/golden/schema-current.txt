@@ -72,6 +72,7 @@ CREATE INDEX idx_libraries_revision ON libraries(revision)
 CREATE INDEX idx_library_folders_library_id ON library_folders(library_id)
 CREATE INDEX idx_library_folders_revision ON library_folders(revision)
 CREATE UNIQUE INDEX idx_library_folders_root_path ON library_folders(root_path) WHERE deleted_at IS NULL
+CREATE INDEX idx_listening_events_ended_at ON listening_events(ended_at)
 CREATE INDEX idx_listening_events_user_book ON listening_events(user_id, book_id)
 CREATE INDEX idx_listening_events_user_ended_at ON listening_events(user_id, ended_at)
 CREATE INDEX idx_listening_events_user_revision ON listening_events(user_id, revision)

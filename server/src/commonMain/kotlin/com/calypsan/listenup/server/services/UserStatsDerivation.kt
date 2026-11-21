@@ -7,7 +7,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -73,40 +72,30 @@ suspend fun deriveUserStats(
     nowMs: Long,
     tz: TimeZone? = null,
 ): UserStatsSyncPayload {
-    // 1. Read all non-deleted listening_events for this user, ordered by endedAt ascending.
-    val events =
-        suspendTransaction(sql) {
-            sql.listeningEventsQueries
-                .selectForUserOrderedByEndedAt(userId)
-                .executeAsList()
-        }
-
-    // 2. Walk events for the all-time total, distinct started books, and the per-day listening set.
     val userTz = tz ?: sql.homeTimeZone(userId)
-    var totalAllTime = 0L
-    val distinctBooks = mutableSetOf<String>()
-    val listeningDays = ArrayList<LocalDate>(events.size)
-    for (event in events) {
-        totalAllTime += (event.ended_at - event.started_at) / 1_000L
-        distinctBooks.add(event.book_id)
-        listeningDays +=
-            Instant
-                .fromEpochMilliseconds(event.ended_at)
-                .toLocalDateTime(userTz)
-                .date
-    }
-
-    // 3. Window sums over the shared calendar windows (local midnight in the home timezone), counting
-    //    each span whole when it ended inside the window — the same rule Home applies.
     val now = Instant.fromEpochMilliseconds(nowMs)
     val weekStart = StatsWindow.Week.startMs(now, userTz)
     val monthStart = StatsWindow.Month.startMs(now, userTz)
-    var last7 = 0L
-    var last30 = 0L
-    for (event in events) {
-        last7 += StatsWindow.secondsCounted(event.started_at, event.ended_at, weekStart)
-        last30 += StatsWindow.secondsCounted(event.started_at, event.ended_at, monthStart)
-    }
+
+    // 1–3. Every listening field still comes from ALL committed events, but as SQL aggregates rather than a
+    //    walk over loaded rows: the all-time total and distinct started books, the two calendar-window sums
+    //    (local midnight in the home timezone, each span counted whole when it ended inside the window — the
+    //    rule Home applies, StatsWindow.secondsCounted), and the ended-at instants for the day set. Day
+    //    bucketing stays in Kotlin, in the home timezone, so DST and fractional offsets stay exact.
+    val listening =
+        suspendTransaction(sql) {
+            val queries = sql.listeningEventsQueries
+            val totals = queries.statsTotalsForUser(userId).executeAsOne()
+            ListeningAggregates(
+                // COALESCE makes it non-null; SQLDelight types a CAST column in a multi-column row as nullable.
+                totalSeconds = totals.total_seconds ?: 0L,
+                booksStarted = totals.books_started.toInt(),
+                secondsSinceWeekStart = queries.statsSecondsEndedSinceForUser(userId, weekStart).executeAsOne(),
+                secondsSinceMonthStart = queries.statsSecondsEndedSinceForUser(userId, monthStart).executeAsOne(),
+                endedAtAscending = queries.selectEndedAtForUserSince(userId, Long.MIN_VALUE).executeAsList(),
+            )
+        }
+    val listeningDays = listening.endedAtAscending.map { localDayOf(it, userTz) }
 
     // 4. Finished-book count from the `book_reads` primitive (re-reads counted). All-time and windowed
     //    finished-books now derive from the same table, so they cannot disagree.
@@ -128,7 +117,8 @@ suspend fun deriveUserStats(
     //    cannot see. That divergence is accepted: Home shows the locally-derived streak, leaderboards
     //    show this one (pinned by UserStatsDerivationStreakDivergenceTest).
     val streakDays =
-        streakDayInstantsMs(sql, userId, events.map { it.ended_at }).map { localDayOf(it, userTz) }
+        listeningDays +
+            streakDayInstantsMs(sql, userId, listeningEndedAtMs = emptyList()).map { localDayOf(it, userTz) }
 
     // 6. Current + longest streak via the shared reducer, resolved as-of-today in the home timezone.
     val today = now.toLocalDateTime(userTz).date
@@ -136,10 +126,10 @@ suspend fun deriveUserStats(
 
     return UserStatsSyncPayload(
         id = userId,
-        totalSecondsAllTime = totalAllTime,
-        totalSecondsLast7Days = last7,
-        totalSecondsLast30Days = last30,
-        booksStarted = distinctBooks.size,
+        totalSecondsAllTime = listening.totalSeconds,
+        totalSecondsLast7Days = listening.secondsSinceWeekStart,
+        totalSecondsLast30Days = listening.secondsSinceMonthStart,
+        booksStarted = listening.booksStarted,
         booksFinished = booksFinished,
         currentStreakDays = streaks.current,
         longestStreakDays = streaks.longest,
@@ -150,3 +140,12 @@ suspend fun deriveUserStats(
         deletedAt = null,
     )
 }
+
+/** What [deriveUserStats] reads from `listening_events`: the aggregates, plus the instants the day set is built from. */
+private data class ListeningAggregates(
+    val totalSeconds: Long,
+    val booksStarted: Int,
+    val secondsSinceWeekStart: Long,
+    val secondsSinceMonthStart: Long,
+    val endedAtAscending: List<Long>,
+)
