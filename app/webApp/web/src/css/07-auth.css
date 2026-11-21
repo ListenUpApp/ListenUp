@@ -398,6 +398,11 @@
 .sd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 
 .sd-by { font-size:var(--fs-body); font-weight:600; color:var(--ink-2); }
+/* Each author is a link, drawn like Book Detail's byline names: the line's ink until hovered. */
+.sd-by a { color:inherit; text-decoration:none; border-radius:var(--r-xs); }
+@media (hover: hover) { .sd-by a:hover { color:var(--coral-text); text-decoration:underline; } }
+.sd-by a:focus { outline:none; }
+.sd-by a:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 .sd-stats { display:flex; gap:10px; flex-wrap:wrap; }
 .sd-stat {
   display:inline-flex; align-items:center; gap:7px; padding:7px var(--sp-12); border-radius:var(--r-md);

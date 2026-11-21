@@ -119,6 +119,8 @@ private val PRESS_EXEMPT =
         ".np-page .np-series a",
         ".np-page .np-by a",
         ".np-page .np-read-by a",
+        // Series Detail's author links: the same inline byline text, underlined on hover.
+        ".sd-by a",
         // Deliberately inert — a static row in the palette is a heading, not a target. Its hover
         // rule exists to CANCEL the row hover above it.
         ".search-row.is-static",
