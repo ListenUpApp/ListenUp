@@ -122,4 +122,21 @@ if [ -z "$ASSET" ] || ! curl -fsS -o /dev/null "http://localhost:${HOST_PORT}${A
 fi
 echo "SMOKE OK: web client served at / (script ${ASSET})"
 
+# The image's own FFmpeg, probed by the server itself. Every other test runs the host's full FFmpeg,
+# so this is the only check that sees the `--disable-everything` build listeners actually get: a
+# probe asking it for a component it lacks once switched transcoding off on every image-based server
+# while CI stayed green. The probe runs in the background at boot, so give it a moment to report.
+TRANSCODER_LINE=""
+for _ in $(seq 1 15); do
+    LOGS="$(docker logs "$NAME" 2>&1 || true)"
+    TRANSCODER_LINE=$(grep -m1 -E 'transcoder (available|unavailable):' <<<"$LOGS" || true)
+    [ -n "$TRANSCODER_LINE" ] && break
+    sleep 1
+done
+if [[ "$TRANSCODER_LINE" != *"transcoder available:"* ]]; then
+    echo "SMOKE FAILED: the image's FFmpeg did not pass the transcoder probe — ${TRANSCODER_LINE:-no probe result logged}" >&2
+    exit 1
+fi
+echo "SMOKE OK: ${TRANSCODER_LINE#*transcoder }"
+
 echo "SMOKE OK: /healthz healthy after migrations — $BODY"

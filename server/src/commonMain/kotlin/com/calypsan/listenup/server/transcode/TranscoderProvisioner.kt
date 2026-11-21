@@ -4,6 +4,9 @@ import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.process.MISSING_BINARY_EXIT_CODE
 import com.calypsan.listenup.server.process.SPAWN_FAILED_EXIT_CODE
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 private val log = loggerFor<TranscoderProvisioner>()
 
@@ -29,12 +32,15 @@ sealed interface TranscoderStatus {
  * can now say why a format may not play, instead of failing silently.
  *
  * @param candidatePaths ordered probe list; the default is the documented resolution order.
+ * @param probeTimeout how long one check may run before its binary is treated as wedged. Both
+ *   checks feed a tenth of a second of silence or nothing at all, so anything near this is a hang.
  * @param runProcess runs a command, feeding each stderr line to the sink and returning the exit
  *   code — i.e. `ProcessRunner::run`.
  */
 class TranscoderProvisioner(
     private val candidatePaths: () -> List<String> = ::defaultCandidates,
     private val decoderCandidatePaths: () -> List<String> = ::defaultDecoderCandidates,
+    private val probeTimeout: Duration = DEFAULT_PROBE_TIMEOUT,
     private val runProcess: suspend (List<String>, (String) -> Unit) -> Int,
 ) {
     /**
@@ -45,10 +51,29 @@ class TranscoderProvisioner(
      * `$LISTENUP_FFMPEG` that cannot encode is a misconfiguration they should hear about at boot,
      * not a stall at the first segment.
      */
-    suspend fun probe(): TranscoderStatus {
+    suspend fun probe(): TranscoderStatus =
+        findEncoder().also { status ->
+            // Logged here, once, because this is the only place the answer is known at boot: an
+            // operator whose transcoding is off should read why in the startup log, not infer it.
+            when (status) {
+                is TranscoderStatus.Available -> {
+                    log.info { "transcoder available: ${status.path} (${status.version})" }
+                }
+
+                is TranscoderStatus.Unavailable -> {
+                    log.warn { "transcoder unavailable: ${status.reason}" }
+                }
+            }
+        }
+
+    private suspend fun findEncoder(): TranscoderStatus {
         for (path in candidatePaths()) {
             val output = StringBuilder()
-            val exit = runProcess(aacProbeCommand(path)) { output.appendLine(it) }
+            val exit =
+                runBounded(aacProbeCommand(path)) { output.appendLine(it) }
+                    ?: return TranscoderStatus.Unavailable(
+                        "ffmpeg at $path did not finish the AAC check within $probeTimeout — transcoding is off",
+                    )
             if (exit == MISSING_BINARY_EXIT_CODE || exit == SPAWN_FAILED_EXIT_CODE) continue
             if (exit != 0) {
                 return TranscoderStatus.Unavailable(
@@ -63,7 +88,6 @@ class TranscoderProvisioner(
                     ?: return TranscoderStatus.Unavailable(
                         "$path ran but did not identify itself as ffmpeg — transcoding is off",
                     )
-            log.info { "transcoder available: $path ($version)" }
             return TranscoderStatus.Available(path, version)
         }
         return TranscoderStatus.Unavailable("no working ffmpeg found — transcoding is off")
@@ -83,7 +107,11 @@ class TranscoderProvisioner(
      */
     suspend fun probeDecoder(): String? {
         for (path in decoderCandidatePaths()) {
-            val exit = runProcess(decoderProbeCommand(path)) { }
+            val exit = runBounded(decoderProbeCommand(path)) { }
+            if (exit == null) {
+                log.warn { "$path did not finish its fdkaacdec check within $probeTimeout — skipping it" }
+                continue
+            }
             if (exit == MISSING_BINARY_EXIT_CODE || exit == SPAWN_FAILED_EXIT_CODE) continue
             if (exit != 0) {
                 log.warn { "$path has no fdkaacdec element (exit $exit) — xHE-AAC cannot be transcoded" }
@@ -95,7 +123,20 @@ class TranscoderProvisioner(
         log.info { "no FDK decoder found — xHE-AAC sources will not be transcoded" }
         return null
     }
+
+    /**
+     * [runProcess] under [probeTimeout], or null when it ran out. The timeout cancels the call, and
+     * [com.calypsan.listenup.server.process.ProcessRunner.run] kills and reaps its child on
+     * cancellation, so a wedged binary is not left behind.
+     */
+    private suspend fun runBounded(
+        command: List<String>,
+        onStderr: (String) -> Unit,
+    ): Int? = withTimeoutOrNull(probeTimeout) { runProcess(command, onStderr) }
 }
+
+/** Generous: a healthy check takes well under a second, even on a cold NAS. */
+private val DEFAULT_PROBE_TIMEOUT = 30.seconds
 
 /** Instantiates `fdkaacdec` and feeds it nothing; exit 0 proves the element exists. */
 internal fun decoderProbeCommand(path: String): List<String> =
@@ -120,9 +161,16 @@ internal fun defaultDecoderCandidates(): List<String> =
  * answer, and the banner it needs for [TranscoderStatus.Available.version] arrives on stderr.
  *
  * Raw PCM from `/dev/zero` rather than a `lavfi` source, so a stripped static build with no
- * avfilter still passes; `null` as the muxer so nothing is written anywhere.
+ * avfilter still passes.
+ *
+ * ⛔ **Only components the image's FFmpeg is built with.** `server/Dockerfile.native` configures it
+ * `--disable-everything` and enables what transcoding needs, so this probe once asked for the
+ * `null` muxer — present in every full build it was ever tested with — and failed on every
+ * image-based server, switching transcoding off for all of them. It now muxes ADTS, the format each
+ * HLS segment is written in, to `pipe:` — stdout, which the process runner discards.
+ * `TranscoderMatchesImageFfmpegTest` holds this command and the Dockerfile together.
  */
-private fun aacProbeCommand(path: String): List<String> =
+internal fun aacProbeCommand(path: String): List<String> =
     listOf(
         path,
         "-nostdin",
@@ -139,8 +187,8 @@ private fun aacProbeCommand(path: String): List<String> =
         "-c:a",
         "aac",
         "-f",
-        "null",
-        "-",
+        "adts",
+        "pipe:",
     )
 
 /** ffmpeg's own banner line, or `null` if whatever ran never printed one. */
