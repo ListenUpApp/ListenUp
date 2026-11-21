@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.AudioFileLocalPath
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
@@ -317,7 +318,10 @@ private class FakeDownloadDao : DownloadDao {
 
     override suspend fun insertAll(downloads: List<DownloadEntity>): Unit = TODO("not used")
 
-    override suspend fun markPausedIfNotTerminal(audioFileId: String): Unit = TODO("not used")
+    override suspend fun markPausedIfNotTerminal(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ): Unit = TODO("not used")
 
     override suspend fun claimForTransfer(
         audioFileId: String,

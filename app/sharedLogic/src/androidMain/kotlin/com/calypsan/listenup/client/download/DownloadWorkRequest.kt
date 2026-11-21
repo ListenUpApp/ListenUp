@@ -1,11 +1,14 @@
 package com.calypsan.listenup.client.download
 
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkRequest
 import androidx.work.workDataOf
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
+import java.util.concurrent.TimeUnit
 
 // The single place a download OneTimeWorkRequest is built.
 //
@@ -17,15 +20,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 /** WorkManager tag covering every file of one book — the unit `cancelAllWorkByTag` cancels. */
 internal fun bookTag(bookIdValue: String): String = "download_$bookIdValue"
 
-/** WorkManager tag for a single file, so one file can be cancelled without its siblings. */
-internal fun fileCancelTag(audioFileId: String): String = "download_file_$audioFileId"
-
-/**
- * Unique-work name for a single file's download.
- *
- * Deliberately a DIFFERENT string from [fileCancelTag]: the unique-work name and the cancel tag
- * address different WorkManager concepts and must not be consolidated.
- */
+/** Unique-work name for a single file's download. */
 internal fun fileWorkName(audioFileId: String): String = "download_$audioFileId"
 
 /**
@@ -52,12 +47,20 @@ internal fun downloadNetworkConstraints(wifiOnly: Boolean): Constraints =
         .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
         .build()
 
-/** Builds the work request that downloads [entity]'s file under the current [wifiOnly] policy. */
+/**
+ * Builds the work request that downloads [entity]'s file under the current [wifiOnly] policy.
+ *
+ * Backoff is linear from WorkManager's minimum rather than its exponential default. WorkManager
+ * advances the attempt count for every run the system stopped as well as every retry, and a lost
+ * connection retries rather than fails; exponential backoff on that inflated count would leave a
+ * download that has been stopped a few times waiting hours after the network came back.
+ */
 internal fun buildDownloadRequest(
     entity: DownloadEntity,
     wifiOnly: Boolean,
 ): OneTimeWorkRequest =
     OneTimeWorkRequestBuilder<DownloadWorker>()
+        .setBackoffCriteria(BackoffPolicy.LINEAR, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
         .setInputData(
             workDataOf(
                 DownloadWorker.KEY_AUDIO_FILE_ID to entity.audioFileId,
@@ -67,7 +70,6 @@ internal fun buildDownloadRequest(
             ),
         ).setConstraints(downloadNetworkConstraints(wifiOnly))
         .addTag(bookTag(entity.bookId))
-        .addTag(fileCancelTag(entity.audioFileId))
         .build()
 
 /**

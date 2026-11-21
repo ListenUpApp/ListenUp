@@ -699,3 +699,15 @@ internal val MIGRATION_30_31 =
             connection.executeDdl("ALTER TABLE `book_contributors` ADD COLUMN `ordinal` INTEGER NOT NULL DEFAULT 0")
         }
     }
+
+/**
+ * v31 → v32: `downloads.pauseReason`, why a paused download is waiting: a lost connection, a run the system stopped,
+ * or an ended session. Non-destructive by construction: one nullable column, so every existing row reads as "reason
+ * not recorded", and state and progress are untouched, so a paused download still resumes from its partial file.
+ */
+internal val MIGRATION_31_32 =
+    object : Migration(31, 32) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `pauseReason` TEXT")
+        }
+    }

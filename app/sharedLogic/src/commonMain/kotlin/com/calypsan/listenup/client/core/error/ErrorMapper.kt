@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.UploadError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.ServerUrlSchemeUnsupportedException
@@ -54,6 +55,11 @@ internal object ErrorMapper {
     fun map(exception: Throwable): AppError {
         val unreadableFile = findUnreadableFile(exception)
         return when {
+            // An error that was already typed before it was thrown stays exactly what it was.
+            exception is TypedAppErrorException -> {
+                exception.error
+            }
+
             // A transient refresh failure during a 401-heal (C5): the refresh outcome was network /
             // timeout / 5xx, NOT a server-confirmed dead token. Surface a RETRYABLE transport error and
             // keep the session — a network blip must never log the user out. Checked FIRST so the

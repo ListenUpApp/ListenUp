@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
-import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.heldRefusal
@@ -143,25 +142,15 @@ class DownloadManager internal constructor(
             )
         }
 
-        val now = System.currentTimeMillis()
+        // A paused or failed file keeps the bytes its .tmp already holds (the insert REPLACEs its row).
         val entities =
-            toDownload.mapIndexed { _, file ->
-                DownloadEntity(
-                    audioFileId = file.id,
-                    bookId = bookId.value,
-                    filename = file.filename,
-                    fileIndex = audioFiles.indexOfFirst { it.id == file.id },
-                    state = DownloadState.QUEUED,
-                    localPath = null,
-                    totalBytes = file.size,
-                    downloadedBytes = 0,
-                    queuedAt = now,
-                    startedAt = null,
-                    completedAt = null,
-                    errorMessage = null,
-                    retryCount = 0,
-                )
-            }
+            queuedDownloadRows(
+                bookId = bookId.value,
+                audioFiles = audioFiles,
+                toDownload = toDownload,
+                existing = existing,
+                queuedAt = System.currentTimeMillis(),
+            )
 
         // Persistence Rule 1: insert is transactional. resumeIncompleteDownloads is the
         // documented recovery path for crash-between-commit-and-enqueue.
@@ -181,8 +170,8 @@ class DownloadManager internal constructor(
         // Queue WorkManager jobs
         entities.forEach { entity ->
             // KEEP (not REPLACE): never displace a worker already running for this file. toDownload
-            // already excludes in-flight rows, so KEEP only ever affects retried FAILED/PAUSED files,
-            // whose prior work has finished and won't block the fresh enqueue.
+            // already excludes in-flight rows, so KEEP only ever affects FAILED/PAUSED files: either
+            // their prior work has finished, or it is already waiting to retry and is left to do so.
             workManager.enqueueUniqueWork(
                 fileWorkName(entity.audioFileId),
                 ExistingWorkPolicy.KEEP,

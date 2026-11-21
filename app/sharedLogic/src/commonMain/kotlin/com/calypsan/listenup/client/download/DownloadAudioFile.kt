@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.core.TypedAppErrorException
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
@@ -17,7 +19,6 @@ import io.ktor.http.contentLength
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
-import kotlinx.io.IOException
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -181,13 +182,13 @@ internal suspend fun downloadAudioFile(
                     if (verificationTarget > 0) {
                         if (writtenSize != verificationTarget) {
                             SystemFileSystem.delete(tempPath)
-                            throw IOException(
+                            throw downloadFailure(
                                 "Size mismatch for $audioFileId: expected $verificationTarget, got $writtenSize",
                             )
                         }
                     } else {
                         SystemFileSystem.delete(tempPath)
-                        throw IOException(
+                        throw downloadFailure(
                             "Download for $audioFileId is unverifiable (no expected size and no " +
                                 "Content-Length); failing rather than finalizing a possibly-truncated file",
                         )
@@ -195,7 +196,7 @@ internal suspend fun downloadAudioFile(
 
                     // Move temp to final destination via FileManager.
                     if (!fileManager.moveFile(tempPath, destPath)) {
-                        throw IOException("Failed to move temp file to destination")
+                        throw downloadFailure("Failed to move temp file to destination")
                     }
 
                     recordCompletion(
@@ -244,7 +245,7 @@ private suspend fun recordCompletion(
                 "Download finished on disk but markCompleted failed for $audioFileId: " +
                     completed.error.message
             }
-            throw IOException(
+            throw downloadFailure(
                 "markCompleted failed after file landed for $audioFileId: ${completed.error.message}",
             )
         }
@@ -258,9 +259,8 @@ private suspend fun recordCompletion(
  * The signed URL is the **relative** path (the download HTTP client has a defaultRequest base — do
  * NOT prepend the server base URL here).
  *
- * Throws [IllegalStateException] on [AppResult.Failure] or when the fileId is absent from the
- * response; [suspendRunCatching] in [downloadAudioFile] catches it and routes to
- * [AppResult.Failure].
+ * On [AppResult.Failure] it throws the failure's own error as a [TypedAppErrorException], so a
+ * prepare that failed on a lost connection still reads as one at [downloadAudioFile]'s boundary.
  */
 private suspend fun resolveDownloadUrl(
     bookId: String,
@@ -273,9 +273,16 @@ private suspend fun resolveDownloadUrl(
         }
 
         is AppResult.Failure -> {
-            error("prepare() failed for book=$bookId audioFile=$audioFileId: ${resolved.error.message}")
+            throw TypedAppErrorException(resolved.error)
         }
     }
+
+/**
+ * A download that ran but cannot be finalised: a short or unverifiable body, a file that would not
+ * move, a row that would not complete. Typed as a failed download rather than thrown as an I/O
+ * error, which the boundary would read as a lost connection and wait on instead of retrying.
+ */
+private fun downloadFailure(detail: String) = TypedAppErrorException(DownloadError.DownloadFailed(debugInfo = detail))
 
 /** The final destination path and the in-progress temp path (which supports resume) for one audio file. */
 private fun DownloadFileManager.downloadPaths(

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -74,11 +75,11 @@ class DownloadDaoTest :
                     )
 
                     // A late worker-cleanup pause must NOT clobber a terminal state.
-                    dao.markPausedIfNotTerminal("file-cancelled")
-                    dao.markPausedIfNotTerminal("file-deleted")
-                    dao.markPausedIfNotTerminal("file-completed")
+                    dao.markPausedIfNotTerminal("file-cancelled", DownloadPauseReason.INTERRUPTED)
+                    dao.markPausedIfNotTerminal("file-deleted", DownloadPauseReason.INTERRUPTED)
+                    dao.markPausedIfNotTerminal("file-completed", DownloadPauseReason.INTERRUPTED)
                     // ...but a genuinely in-flight row still pauses (e.g. auth-failure pause).
-                    dao.markPausedIfNotTerminal("file-active")
+                    dao.markPausedIfNotTerminal("file-active", DownloadPauseReason.INTERRUPTED)
 
                     val byId = dao.observeAll().first().associateBy { it.audioFileId }
                     byId.getValue("file-cancelled").state shouldBe DownloadState.CANCELLED
@@ -271,6 +272,27 @@ class DownloadDaoTest :
                         dao.getByAudioFileId("file-$state")!!.state shouldBe state
                     }
                     dao.claimForTransfer("no-such-file", startedAt = 1L) shouldBe 0
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("markPausedIfNotTerminal records why the row paused, keeping its progress") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(listOf(entity("file-1", state = DownloadState.DOWNLOADING)))
+                    dao.updateProgress("file-1", downloaded = 400L, total = 1000L)
+
+                    dao.markPausedIfNotTerminal("file-1", DownloadPauseReason.NETWORK_LOST)
+
+                    val row = dao.getByAudioFileId("file-1")!!
+                    row.state shouldBe DownloadState.PAUSED
+                    row.pauseReason shouldBe DownloadPauseReason.NETWORK_LOST
+                    row.downloadedBytes shouldBe 400L
+                    row.retryCount shouldBe 0
                 }
             } finally {
                 db.close()

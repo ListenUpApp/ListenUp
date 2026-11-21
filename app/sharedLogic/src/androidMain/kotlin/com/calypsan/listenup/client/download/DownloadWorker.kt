@@ -1,14 +1,11 @@
 package com.calypsan.listenup.client.download
 
 import android.content.Context
+import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.onFailure
-import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -23,8 +20,10 @@ private val logger = KotlinLogging.logger {}
  * - Signed URL resolution via [PlaybackService.prepare]
  * - Resume support (Range headers)
  * - Progress updates
- * - Cancellation handling
- * - Automatic retry (up to 3 times)
+ * - Cancellation handling: a stop pauses the row and is logged with WorkManager's stop reason
+ * - Retry: a lost connection waits for the network without spending a retry; a genuine failure is
+ *   retried against the row's own budget (see [settleDownloadFailure]), never `runAttemptCount`,
+ *   which WorkManager also advances for every run the system stopped
  */
 class DownloadWorker(
     context: Context,
@@ -39,8 +38,6 @@ class DownloadWorker(
         const val KEY_BOOK_ID = "book_id"
         const val KEY_FILENAME = "filename"
         const val KEY_FILE_SIZE = "file_size"
-
-        private const val MAX_RETRIES = 3
     }
 
     // The cancellation IS re-thrown — after the pause is persisted under NonCancellable, which must land first.
@@ -51,7 +48,7 @@ class DownloadWorker(
         val filename = inputData.getString(KEY_FILENAME) ?: return Result.failure()
         val expectedSize = inputData.getLong(KEY_FILE_SIZE, 0L)
 
-        logger.info { "Starting download: $audioFileId ($filename)" }
+        logger.info { "download: start file=$audioFileId book=$bookId attempt=$runAttemptCount" }
 
         // Optimistic start state; a later terminal write (markCompleted/markFailed/markPaused)
         // always overwrites it, so a dropped status write here self-corrects.
@@ -73,11 +70,16 @@ class DownloadWorker(
                 }
 
                 is AppResult.Failure -> {
-                    handleFailure(audioFileId, result.error)
+                    when (settleDownloadFailure(audioFileId, result.error, downloadRepository, errorBus)) {
+                        DownloadFailureVerdict.RETRY_LATER -> Result.retry()
+                        DownloadFailureVerdict.GIVE_UP -> Result.failure()
+                    }
                 }
             }
         } catch (e: CancellationException) {
-            logger.info { "Download cancelled: $audioFileId" }
+            logger.info {
+                "download: stopped file=$audioFileId book=$bookId reason=${lastStopReason()} attempt=$runAttemptCount"
+            }
             // Persist the pause + temp cleanup under NonCancellable (the scope is already being
             // cancelled here), then re-throw so the worker is recorded as cancelled, not failed.
             persistDownloadCancellation(
@@ -91,59 +93,16 @@ class DownloadWorker(
         }
     }
 
-    private suspend fun handleFailure(
-        audioFileId: String,
-        error: AppError,
-    ): Result {
-        // 401 → markPaused (don't burn the 3-attempt retry budget on unrecoverable auth).
-        // installListenUpErrorHandling() routes Ktor ResponseException through ErrorMapper, which
-        // types a 401 as AuthError.SessionExpired at the boundary. The global AuthFailureObserver
-        // reacts to that on the foreground error bus by driving the app to login; here in the
-        // background worker we simply pause so the download resumes after re-auth.
-        if (error is AuthError.SessionExpired) {
-            logger.warn { "Download paused due to auth failure: $audioFileId" }
-            downloadRepository
-                .markPaused(audioFileId)
-                .onFailure { logger.warn { "Failed to persist paused state: $audioFileId" } }
-            return Result.failure()
-        }
-
-        // Storage-related IO errors get classified as TransportError.NetworkUnavailable per
-        // ErrorMapper's IOException branch; the user-actionable distinction lives in [debugInfo],
-        // which carries the original exception message. Detect via keyword-match — imperfect but
-        // matches the prior IOException string-match behavior.
-        val debugInfo = error.debugInfo?.lowercase().orEmpty()
-        val isStorageError =
-            debugInfo.contains("no space") ||
-                debugInfo.contains("enospc") ||
-                debugInfo.contains("disk full") ||
-                debugInfo.contains("storage")
-
-        if (isStorageError) {
-            errorBus.emit(DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
-            logger.error { "Download failed due to insufficient storage: $audioFileId" }
-            downloadRepository
-                .markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
-                .onFailure { logger.warn { "Failed to persist failed state: $audioFileId" } }
-            return Result.failure()
-        }
-
-        errorBus.emit(DownloadError.DownloadFailed(debugInfo = error.debugInfo))
-        logger.error { "Download failed: $audioFileId — ${error.message}" }
-        // markFailed sets state=FAILED + writes errorMessage + increments retryCount in one call,
-        // collapsing the previous redundant updateError + updateState(FAILED) writes (the prior
-        // updateError already set state=FAILED via its underlying query — no behavior change).
-        downloadRepository
-            .markFailed(audioFileId, DownloadError.DownloadFailed(debugInfo = error.debugInfo))
-            .onFailure { logger.warn { "Failed to persist failed state: $audioFileId" } }
-
-        return if (runAttemptCount < MAX_RETRIES) {
-            logger.info { "Will retry download: $audioFileId (attempt ${runAttemptCount + 1})" }
-            Result.retry()
+    /**
+     * Why WorkManager stopped this run, by name. The reason is only readable from Android 12
+     * (API 31); below that a stop is recorded as unavailable rather than guessed at.
+     */
+    private fun lastStopReason(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            downloadStopReasonName(stopReason)
         } else {
-            Result.failure()
+            "UNAVAILABLE_BELOW_API_31"
         }
-    }
 
     private suspend fun downloadFile(
         audioFileId: String,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.AudioFileLocalPath
@@ -137,7 +138,10 @@ private class FailingUpdateStateDownloadDao(
         updatedStates[audioFileId] = state
     }
 
-    override suspend fun markPausedIfNotTerminal(audioFileId: String) = error("not needed by cancelForBook")
+    override suspend fun markPausedIfNotTerminal(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ) = error("not needed by cancelForBook")
 
     override suspend fun claimForTransfer(
         audioFileId: String,

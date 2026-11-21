@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -11,8 +12,9 @@ import kotlinx.io.files.SystemFileSystem
 private val logger = KotlinLogging.logger {}
 
 /**
- * Persists the outcome of a cancelled download: marks it paused, and removes the partial `.tmp`
- * if the row has already been moved to CANCELLED.
+ * Persists the outcome of a cancelled download: marks it paused as [DownloadPauseReason.INTERRUPTED]
+ * (the platform runs it again; no retry is spent), and removes the partial `.tmp` if the row has
+ * already been moved to CANCELLED.
  *
  * Extracted from [DownloadWorker]'s cancellation catch so it can be exercised without WorkManager.
  *
@@ -29,7 +31,7 @@ internal suspend fun persistDownloadCancellation(
     filename: String,
 ) = withContext(NonCancellable) {
     repository
-        .markPaused(audioFileId)
+        .markPaused(audioFileId, DownloadPauseReason.INTERRUPTED)
         .onFailure { logger.warn { "Failed to persist paused state on cancel: $audioFileId" } }
     deleteTempIfCancelled(
         repository = repository,

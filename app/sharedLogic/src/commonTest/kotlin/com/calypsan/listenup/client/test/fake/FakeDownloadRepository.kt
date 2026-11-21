@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -65,14 +66,17 @@ class FakeDownloadRepository(
         completedAt: Long,
     ): AppResult<Boolean> = AppResult.Success(true)
 
-    override suspend fun markPaused(audioFileId: String): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun markPaused(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
-    ): AppResult<Unit> = AppResult.Success(Unit)
+    ): AppResult<Int> = AppResult.Success(1)
 
     override suspend fun enqueueForBook(bookId: BookId): AppResult<DownloadOutcome> =
         AppResult.Success(DownloadOutcome.Started)

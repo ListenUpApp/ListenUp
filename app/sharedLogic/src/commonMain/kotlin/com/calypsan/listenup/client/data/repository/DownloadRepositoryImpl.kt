@@ -10,9 +10,11 @@ import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.data.local.db.MAX_DOWNLOAD_RETRIES
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -127,9 +129,12 @@ internal class DownloadRepositoryImpl(
     // Conditional pause (B7): a late NonCancellable cleanup from a dying worker must NOT clobber a
     // terminal state (CANCELLED/DELETED/COMPLETED) back to PAUSED. The guarded DAO query makes the
     // terminal write win at the DB layer regardless of the cancel-vs-cleanup scheduling.
-    override suspend fun markPaused(audioFileId: String): AppResult<Unit> =
+    override suspend fun markPaused(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ): AppResult<Unit> =
         suspendRunCatching {
-            downloadDao.markPausedIfNotTerminal(audioFileId)
+            downloadDao.markPausedIfNotTerminal(audioFileId, reason)
         }
 
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> =
@@ -140,9 +145,11 @@ internal class DownloadRepositoryImpl(
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
-    ): AppResult<Unit> =
+    ): AppResult<Int> =
         suspendRunCatching {
             downloadDao.updateError(audioFileId, error.message)
+            // A row deleted underneath the write has nothing left to retry: report the budget spent.
+            downloadDao.getByAudioFileId(audioFileId)?.retryCount ?: MAX_DOWNLOAD_RETRIES
         }
 
     // --- Orchestration (Phase B: stub; Phase C/D move platform code onto these) ---
