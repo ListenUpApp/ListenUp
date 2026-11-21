@@ -205,9 +205,9 @@ class DownloadManager internal constructor(
         workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
         downloadDao
             .getForBook(bookId.value)
-            .filter {
-                it.state == DownloadState.QUEUED || it.state == DownloadState.DOWNLOADING ||
-                    it.state == DownloadState.PAUSED
+            .filter { row ->
+                row.state == DownloadState.QUEUED || row.state == DownloadState.DOWNLOADING ||
+                    row.state == DownloadState.PAUSED
             }.forEach { row ->
                 downloadRepository
                     .markPaused(row.audioFileId, DownloadPauseReason.PAUSED_BY_YOU)
