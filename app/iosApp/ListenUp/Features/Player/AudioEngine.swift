@@ -190,7 +190,7 @@ actor AudioEngine: PlaybackEngine {
                 player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero, completionHandler: done)
             }
             guard landed != nil else {
-                player.cancelPendingSeeks()
+                player.currentItem?.cancelPendingSeeks()
                 player.pause()
                 player.isMuted = false
                 Log.error("load: resume seek did not complete; aborting")
