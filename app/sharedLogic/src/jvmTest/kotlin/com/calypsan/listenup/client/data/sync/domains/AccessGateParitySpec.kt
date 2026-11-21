@@ -58,6 +58,8 @@ class AccessGateParitySpec :
                         // A membership names a book: an ungated one tells a member which order holds a
                         // book they cannot see (#962).
                         "reading_order_books",
+                        // A sitting names who listened to which book.
+                        "sittings",
                     )
             }
 
@@ -70,13 +72,15 @@ class AccessGateParitySpec :
                         .map { it.key.name }
                         .toSet()
 
+                // A domain the server serves ahead of its client mirror has no client gate yet — by design, and
+                // only while it holds no rows on the client (see SERVED_BEFORE_MIRRORED).
                 withClue(
                     "server per-row access-filtered domains and client MirroredDomain accessGate domains " +
                         "diverge — a server-gated domain with no client gate strands a stale-visible privacy " +
                         "row on revoke; a client gate with no server gate never fires (see docs/" +
                         "sync-core-centralization-plan.md §6 Guard 1)",
                 ) {
-                    clientAccessGated shouldBe serverPerRowGated
+                    clientAccessGated shouldBe serverPerRowGated - AccessGateParityGuard.SERVED_BEFORE_MIRRORED
                 }
             } finally {
                 db.close()

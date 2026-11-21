@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.dto.activity.ListenSpan
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
@@ -130,32 +129,6 @@ class ListeningEventRepository(
         }
         return result
     }
-
-    /**
-     * Every closed listen by users other than [excludeUserId], on books they have not finished, ending at or
-     * after [endedSince]: the recent half of the "What Others Are Listening To" section, before it is grouped
-     * into sittings. A closed listen is what the Activity feed's listening row is written from, so the two
-     * surfaces share one source of truth.
-     *
-     * Viewer-agnostic by design, so **the caller must ACL-filter the returned [ListenSpan.bookId]s**
-     * exactly as it filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl]
-     * is the only caller and does precisely that. How recent is recent is the caller's decision too.
-     */
-    suspend fun unfinishedListensExcluding(
-        excludeUserId: String,
-        endedSince: Long,
-    ): List<ListenSpan> =
-        suspendTransaction(db) {
-            db.listeningEventsQueries
-                .selectUnfinishedListensExcluding(excludeUserId = excludeUserId, endedSince = endedSince) {
-                    userId,
-                    bookId,
-                    startedAt,
-                    endedAt,
-                    ->
-                    ListenSpan(userId = userId, bookId = bookId, startedAtMs = startedAt, endedAtMs = endedAt)
-                }.executeAsList()
-        }
 
     private fun notFoundFor(id: String): AppResult<ListeningEventSyncPayload> =
         AppResult.Failure(SyncError.NotFound(domain = "listening_event", entityId = id))

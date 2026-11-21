@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SocialService
-import com.calypsan.listenup.api.dto.activity.groupIntoSittings
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.dto.social.BookReadership
@@ -17,8 +16,8 @@ import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadSource
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
-import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.SittingRepository
 import com.calypsan.listenup.server.services.homeTimeZone
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import kotlin.time.Clock
@@ -34,9 +33,9 @@ import kotlin.time.Duration.Companion.minutes
  * access.
  *
  * - [currentlyListening] returns one row per other user: whoever is listening **right now**
- *   first, then everyone else on the book of their newest closed listen they did not finish —
- *   the same evidence the Activity feed's listening rows are written from, so the two surfaces
- *   never disagree about who was listening (a moved position alone is not a listen). The
+ *   first, then everyone else on the book of their newest sitting on a book they did not finish —
+ *   the same `sittings` rows the Activity feed shows, so the two surfaces never disagree about who
+ *   was listening or when (a moved position alone is not a listen). The
  *   fill exists because on a small server the live set is empty most of the time, and a
  *   section that silently hides itself is indistinguishable from a broken one. **Both halves
  *   pass through the same [BookAccessPolicy] access set** — a recent-fill book leaks a private
@@ -61,7 +60,7 @@ internal class SocialServiceImpl(
     private val bookAccessPolicy: BookAccessPolicy,
     private val publicProfiles: PublicProfileRepository,
     private val playbackPositions: PlaybackPositionRepository,
-    private val listeningEvents: ListeningEventRepository,
+    private val sittings: SittingRepository,
     private val bookReads: BookReadsRepository,
     private val books: BookRepository,
     private val sql: ListenUpDatabase,
@@ -92,21 +91,18 @@ internal class SocialServiceImpl(
                 .map { perUser -> perUser.maxBy { it.updatedAt } }
                 .sortedByDescending { it.startedAt }
 
-        // Recent half — everyone else, on the book of their newest real sitting with a book they did not
-        // finish. Sittings and what makes one real are the shared rule the Activity feed reads too, so a
-        // sitting the feed does not announce does not count here either, and fragments the feed adds up
-        // into a real listen count here as well. A user already in the live half is skipped so nobody
-        // appears twice.
+        // Recent half — everyone else, on the book of their newest sitting with a book they did not finish.
+        // It reads the same `sittings` rows the Activity feed shows, so "last listened" here is the end of the
+        // very row Activity draws: the two surfaces cannot disagree about who listened, or when. Only a real
+        // listen has a sitting. A user already in the live half is skipped so nobody appears twice.
         val liveUserIds = live.map { it.userId }.toSet()
         val recent =
-            listeningEvents
-                .unfinishedListensExcluding(
+            sittings
+                .recentUnfinishedExcluding(
                     excludeUserId = caller.userId,
                     endedSince = nowMs - RECENT_FILL_MAX_AGE.inWholeMilliseconds,
                 ).filter { it.userId !in liveUserIds && visible(it.bookId) }
-                .groupIntoSittings { it }
-                .filter { it.isRealListen }
-                .distinctBy { it.userId } // newest first, so each person's latest real sitting
+                .distinctBy { it.userId } // newest first, so each person's latest sitting
 
         // A user with no live public identity is dropped — there is nobody to display.
         val identities = publicProfiles.identities((live.map { it.userId } + recent.map { it.userId }).toSet())
@@ -133,7 +129,7 @@ internal class SocialServiceImpl(
                 row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.startedAt, isLive = true)
             } +
                 recent.mapNotNull {
-                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.endedAtMs, isLive = false)
+                    row(userId = it.userId, bookId = it.bookId, lastActiveAtMs = it.endedAt, isLive = false)
                 },
         )
     }
@@ -212,7 +208,7 @@ internal class SocialServiceImpl(
             bookAccessPolicy = bookAccessPolicy,
             publicProfiles = publicProfiles,
             playbackPositions = playbackPositions,
-            listeningEvents = listeningEvents,
+            sittings = sittings,
             bookReads = bookReads,
             books = books,
             sql = sql,

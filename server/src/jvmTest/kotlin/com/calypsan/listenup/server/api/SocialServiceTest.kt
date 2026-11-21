@@ -19,9 +19,11 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
-import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.SittingReconciler
+import com.calypsan.listenup.server.services.SittingRepository
+import com.calypsan.listenup.server.services.SittingsBackfill
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -40,6 +42,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -75,15 +78,18 @@ class SocialServiceTest :
          * The service over real repositories and the in-memory migrated database, with "now" pinned
          * to [nowMs] so a test can place a fixture inside or outside the staleness windows.
          *
-         * [nowMs] defaults to the epoch, which puts every window's floor below any fixture timestamp
+         * Unpinned, the service's "now" is the epoch, which puts every window's floor below any fixture timestamp
          * — a test that does not pin its own "now" is asserting something other than staleness, and
          * its seeded timestamps keep meaning exactly what they say.
+         *
+         * Builds the sittings Discover reads from whatever listening the test seeded, as the server does when
+         * a listen arrives — so seed first, then make the service.
          */
-        fun makeService(
+        suspend fun makeService(
             sql: ListenUpDatabase,
             driver: SqlDriver,
             principal: PrincipalProvider,
-            nowMs: Long = 0L,
+            nowMs: Long? = null,
         ): SocialServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -105,17 +111,23 @@ class SocialServiceTest :
                     seriesRepository = SeriesRepository(db = sql, bus = bus, registry = bookRegistry),
                     genreRepository = GenreRepository(db = sql, bus = bus, registry = bookRegistry),
                 )
+            val sittings = SittingRepository(db = sql, bus = bus, registry = registry, driver = driver)
+            val pinned = nowMs?.let { FixedClock(Instant.fromEpochMilliseconds(it)) }
+            // A test that pins "now" shares it with the reconciler, which dates no sitting after it; one that
+            // does not is not about time, and its fixtures are in the past by the real clock.
+            val reconciler = SittingReconciler(db = sql, sittings = sittings, bus = bus, clock = pinned ?: Clock.System)
+            SittingsBackfill(db = sql, reconciler = reconciler).run()
             return SocialServiceImpl(
                 activeSessions = ActiveSessionRepository(db = sql, bus = ChangeBus()),
                 bookAccessPolicy = BookAccessPolicy(sql, driver),
                 publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                 playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = registry),
-                listeningEvents = ListeningEventRepository(db = sql, bus = bus, registry = registry),
+                sittings = sittings,
                 bookReads = BookReadsRepository(db = sql),
                 books = books,
                 sql = sql,
                 principal = principal,
-                clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
+                clock = pinned ?: FixedClock(Instant.fromEpochMilliseconds(0L)),
             )
         }
 
@@ -1219,6 +1231,38 @@ class SocialServiceTest :
 
                     row.bookId shouldBe "book-a"
                     row.lastActiveAtMs shouldBe 840_000L
+                }
+            }
+        }
+
+        test("Discover's last-listened time is the end of the sitting Activity shows, not of a span inside it") {
+            // ⛔ "5 hours ago" on Discover beside "8 hours ago" in Activity: two surfaces, two derivations.
+            // Discover now reads the sitting row itself, whose end is clamped to the server's clock.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    val nowMs = 1_800_000_000_000L
+                    sql.seedClosedListen("alice", "book-a", endedAt = nowMs - 50 * 60_000L, durationMs = 10 * 60_000L)
+                    // A device clock running ten minutes fast closes the sitting "in the future".
+                    sql.seedClosedListen("alice", "book-a", endedAt = nowMs + 10 * 60_000L, durationMs = 20 * 60_000L)
+
+                    val row =
+                        makeService(sql, driver, principalFor("viewer"), nowMs = nowMs)
+                            .currentlyListening()
+                            .value()
+                            .single()
+                    val sitting =
+                        SittingRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
+                            .liveFor("alice", "book-a")
+                            .single()
+
+                    row.lastActiveAtMs shouldBe sitting.endedAt
+                    row.lastActiveAtMs shouldBe nowMs
                 }
             }
         }

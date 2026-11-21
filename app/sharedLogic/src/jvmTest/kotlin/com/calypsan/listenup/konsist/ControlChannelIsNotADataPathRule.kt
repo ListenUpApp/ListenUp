@@ -133,6 +133,8 @@ internal object ControlChannelDetector {
         mapOf(
             "ImportApplier.kt" to setOf("LibraryDataChanged"),
             "BookPersister.kt" to setOf("LibraryDataChanged"),
+            // A user's sittings rebuilt at once (an import, the boot backfill) are written firehose-suppressed.
+            "SittingReconciler.kt" to setOf("LibraryDataChanged"),
             "RestoreOrchestrator.kt" to setOf("LibraryDataChanged"),
             "AdminSettingsServiceImpl.kt" to setOf("ServerInfoChanged"),
             "UserPreferencesServiceImpl.kt" to setOf("PreferencesChanged"),

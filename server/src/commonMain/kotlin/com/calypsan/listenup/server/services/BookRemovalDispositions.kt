@@ -79,6 +79,9 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "book_reads" to RemovalDisposition.USER_DATA,
         "listening_events" to RemovalDisposition.USER_DATA,
         "activities" to RemovalDisposition.USER_DATA,
+        // A sitting is listening history, like the activity row it stands for: it survives the book's removal,
+        // is hidden while the book is gone (the access filter only admits live books) and returns with it.
+        "sittings" to RemovalDisposition.USER_DATA,
         "shelf_books" to RemovalDisposition.USER_DATA,
         // A book's place in a reading order (#962) follows shelf_books: it survives the book's removal, is hidden
         // while the book is gone (the access filter only admits live books), and the book returns to its place.

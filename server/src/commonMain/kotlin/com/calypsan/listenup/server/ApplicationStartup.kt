@@ -129,6 +129,13 @@ internal fun Application.startBackgroundTasks(
     val sidecarRetryTask by inject<SidecarRetryTask>()
     sidecarRetryTask.start(scope)
 
+    // Rebuild every user's sittings from their listening history: history from before sittings existed gets
+    // its rows, and anything a crash left half-written heals. Idempotent — a settled history writes nothing.
+    // Never fatal to startup, and never awaited by it.
+    scope.launchNeverFatal("sittings backfill failed") {
+        koinGet<com.calypsan.listenup.server.services.SittingsBackfill>().run()
+    }
+
     // Heal any ABS import whose apply was interrupted by a crash: re-running is idempotent and
     // restores stats + the client nudge. A path-less boot is a no-op (the imports dir is absent).
     // Never fatal to startup.

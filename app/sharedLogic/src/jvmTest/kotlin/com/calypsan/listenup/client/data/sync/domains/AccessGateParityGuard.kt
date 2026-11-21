@@ -21,4 +21,12 @@ internal object AccessGateParityGuard {
      * client-[com.calypsan.listenup.client.data.sync.domains.AccessGate] obligation.
      */
     val ROLE_GATED_EXEMPT: Set<String> = setOf("library_folders", "admin_user_roster")
+
+    /**
+     * Domains the server already serves that this client does not mirror yet. Shipped clients drop a domain
+     * they have no handler for (`SyncEventDispatcher`), so a server domain may land one release ahead of its
+     * client mirror; the completeness and access-gate parity specs subtract this set and nothing else.
+     * `sittings` leaves it when the client mirrors it, with its `AccessGate`. Keep it empty otherwise.
+     */
+    val SERVED_BEFORE_MIRRORED: Set<String> = setOf("sittings")
 }

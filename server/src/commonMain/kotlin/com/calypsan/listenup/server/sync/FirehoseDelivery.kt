@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.EntitySyncPayload
+import com.calypsan.listenup.api.sync.SittingSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.WorldEventSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -53,6 +54,12 @@ internal const val BOOK_RATINGS_DOMAIN = "book_ratings"
 internal const val BOOK_EXTERNAL_RATINGS_DOMAIN = "book_external_ratings"
 
 /**
+ * Sittings — one person's unbroken time with one book. Gated like the junctions above, on the row's
+ * book: an ungated one would tell a member that someone listened to a book they cannot see.
+ */
+internal const val SITTINGS_DOMAIN = "sittings"
+
+/**
  * Story World entities. Access-gated by home: a book-homed entity is visible iff its book is, a
  * series-homed one iff at least one of the series' books is.
  */
@@ -78,6 +85,7 @@ private val BOOK_JUNCTION_DOMAINS =
         BOOK_RATINGS_DOMAIN,
         BOOK_EXTERNAL_RATINGS_DOMAIN,
         READING_ORDER_BOOKS_DOMAIN,
+        SITTINGS_DOMAIN,
     )
 
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
@@ -193,7 +201,7 @@ private suspend fun isActivityEventHidden(
 }
 
 /**
- * Whether a live `book_tags`/`book_moods`/`book_ratings`/`book_external_ratings`/`reading_order_books` junction event
+ * Whether a live `book_tags`/`book_moods`/`book_ratings`/`book_external_ratings`/`reading_order_books`/`sittings` event
  * must be withheld from `(userId, role)`.
  *
  * Mirrors [isActivityEventHidden]: ROOT/ADMIN and Deleted tombstones always pass — a tombstone
@@ -236,6 +244,7 @@ private fun junctionPayloadBookId(payload: Any?): String? =
         is BookRatingSyncPayload -> payload.bookId
         is ExternalRatingSyncPayload -> payload.bookId
         is ReadingOrderBookSyncPayload -> payload.bookId
+        is SittingSyncPayload -> payload.bookId
         else -> null
     }
 
