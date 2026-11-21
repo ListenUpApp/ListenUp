@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
+import com.calypsan.listenup.client.inProgressAt
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.ChildSeriesUi
@@ -88,7 +89,7 @@ internal object Cosmere {
         featuredBookId = null,
         totalDuration = 4.hours,
         books = listOf(finalEmpire, heroOfAges, elantris, warbreaker),
-        bookProgress = mapOf(heroOfAges.id to 0.42f),
+        bookProgress = mapOf(heroOfAges.id to inProgressAt(0.42f)),
         finishedBookIds = setOf(finalEmpire.id, elantris.id),
         resumeTarget = heroOfAges.id,
         childSeries = listOf(mistborn, elantrisSeries),

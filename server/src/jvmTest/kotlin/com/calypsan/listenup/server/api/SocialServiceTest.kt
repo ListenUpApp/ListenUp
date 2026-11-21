@@ -362,6 +362,61 @@ class SocialServiceTest :
             }
         }
 
+        test("bookReadership percent is the one rule's: floored, and a started reader never reads 0%") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestUser("u3")
+                sql.seedTestBook("b1")
+                sql.seedPublicProfile("u1", displayName = "User One")
+                sql.seedPublicProfile("u2", displayName = "User Two")
+                sql.seedPublicProfile("u3", displayName = "User Three")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+
+                    setBookDuration("b1", totalDuration = 36_000_000L) // ten hours
+                    sql.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 14_256_000L) // 39.6%
+                    sql.seedInProgressPosition(userId = "u3", bookId = "b1", positionMs = 144_000L) // 0.4%
+
+                    val readers =
+                        makeService(sql, driver, principalFor("u1"))
+                            .bookReadership(BookId("b1"))
+                            .value()
+                            .readers
+
+                    readers.first { it.userId == "u2" }.currentProgressPct shouldBe 39
+                    readers.first { it.userId == "u3" }.currentProgressPct shouldBe 1
+                }
+            }
+        }
+
+        test("bookReadership does not count a reader stopped inside the end credits as reading") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("b1")
+                sql.seedPublicProfile("u1", displayName = "User One")
+                sql.seedPublicProfile("u2", displayName = "User Two")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
+
+                    setBookDuration("b1", totalDuration = 36_000_000L)
+                    // Thirty seconds from the end: finished by FinishedPolicy, though the flag is not set.
+                    sql.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 36_000_000L - 30_000L)
+
+                    val readers =
+                        makeService(sql, driver, principalFor("u1"))
+                            .bookReadership(BookId("b1"))
+                            .value()
+                            .readers
+
+                    readers.none { it.userId == "u2" } shouldBe true
+                }
+            }
+        }
+
         test("bookReadership returns Failure(SocialError.NotFound) for an inaccessible book") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

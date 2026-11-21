@@ -152,7 +152,7 @@ private fun ReadyCard(
             overlay = {
                 RestrictedMarker(book.bookId)
                 ProgressBar(
-                    value = book.progressPercent / PERCENT.toFloat(),
+                    value = book.progress,
                     look = ProgressLook.Overlay,
                     decorative = true,
                 )

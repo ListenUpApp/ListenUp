@@ -70,7 +70,7 @@ import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.library.BookCardStatus
-import kotlin.math.roundToInt
+import com.calypsan.listenup.domain.BookProgress
 import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -110,7 +110,7 @@ private const val UNAVAILABLE_ALPHA = 0.5f
  * @param onClick Callback when card is clicked
  * @param duration Formatted duration string (e.g. "12h 30m")
  * @param subtitle Additional text line (e.g. series name, "Book 1 of X")
- * @param progress Optional progress (0.0-1.0). Shows progress overlay when not finished.
+ * @param progress Optional [BookProgress.InProgress]: the overlay prints its percent. Shows when not finished.
  * @param timeRemaining Optional formatted time remaining (e.g., "2h 15m left")
  * @param isFinished Authoritative completion status. Shows completion badge when true.
  * @param isLive Draws a [LiveChip] on the art's top-end corner: the reader on it is listening right now.
@@ -144,7 +144,7 @@ fun BookCard(
     modifier: Modifier = Modifier,
     duration: String? = null,
     subtitle: String? = null,
-    progress: Float? = null,
+    progress: BookProgress.InProgress? = null,
     timeRemaining: String? = null,
     isFinished: Boolean = false,
     isLive: Boolean = false,
@@ -291,13 +291,13 @@ fun BookCard(
             // it under the title instead (board `Main`).
             val artProgress =
                 when {
-                    libraryStatus == null -> if (isCompleted) null else progress
+                    libraryStatus == null -> if (isCompleted) null else progress?.fraction
                     libraryStatus is BookCardStatus.InProgress && !progressUnderTitle -> libraryStatus.fraction
                     else -> null
                 }
             val artProgressLabel =
                 (libraryStatus as? BookCardStatus.InProgress)?.let {
-                    stringResource(Res.string.library_card_progress_a11y, (it.fraction * 100).roundToInt())
+                    stringResource(Res.string.library_card_progress_a11y, it.percent)
                 }
 
             BookCardCover(
@@ -308,6 +308,7 @@ fun BookCard(
                 title = cover.title,
                 author = cover.author.orEmpty(),
                 progress = artProgress,
+                progressPercent = if (libraryStatus == null && !isCompleted) progress?.percent else null,
                 progressDescription = artProgressLabel,
                 timeRemaining = if (isCompleted || libraryStatus != null) null else timeRemaining,
                 isHovered = isHovered,
@@ -455,7 +456,7 @@ private fun LibraryStatusLine(
             ) {
                 if (progressUnderTitle) {
                     val progressLabel =
-                        stringResource(Res.string.library_card_progress_a11y, (status.fraction * 100).roundToInt())
+                        stringResource(Res.string.library_card_progress_a11y, status.percent)
                     // Linear, with M3's track gap and stop dot: the wave is reserved for the book playing
                     // now (M3E alignment, rev 7).
                     LinearProgressIndicator(
@@ -544,6 +545,7 @@ private fun BookCardCover(
     title: String,
     author: String,
     progress: Float? = null,
+    progressPercent: Int? = null,
     progressDescription: String? = null,
     timeRemaining: String? = null,
     isHovered: Boolean = false,
@@ -625,9 +627,9 @@ private fun BookCardCover(
                                 .semantics { this.contentDescription = progressDescription },
                     )
                 }
-            } else if (progress != null && progress > 0f) {
+            } else if (progressPercent != null) {
                 ProgressOverlay(
-                    progress = progress,
+                    percent = progressPercent,
                     timeRemaining = timeRemaining,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )

@@ -7,7 +7,7 @@ import Testing
 @Suite("Library status models")
 struct LibraryStatusModelsTests {
     @Test func inProgressBridgesFractionAndTimeLeft() {
-        let state = LibraryCardState.from(BookCardStatusInProgress(fraction: 0.25, timeLeftMs: 145_860_000))
+        let state = LibraryCardState.from(BookCardStatusInProgress(fraction: 0.25, percent: 25, timeLeftMs: 145_860_000))
         #expect(state == .inProgress(fraction: 0.25, timeLeftMs: 145_860_000))
     }
 

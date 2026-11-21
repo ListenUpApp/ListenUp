@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.library
 
+import com.calypsan.listenup.domain.BookProgress
+
 /**
  * What a Library card says about where the reader is with a book.
  *
@@ -12,11 +14,22 @@ sealed interface BookCardStatus {
         val durationMs: Long,
     ) : BookCardStatus
 
-    /** Started and not finished: a progress mark plus "40h 31m left" in the Library action colour. */
+    /**
+     * Started and not finished: a progress mark plus "40h 31m left" in the Library action colour. The numbers are
+     * [BookProgress]'s — the bar draws [fraction], a label prints [percent], never a rounding of [fraction].
+     */
     data class InProgress(
         val fraction: Float,
+        val percent: Int,
         val timeLeftMs: Long,
-    ) : BookCardStatus
+    ) : BookCardStatus {
+        /** The card for [progress], number for number. */
+        constructor(progress: BookProgress.InProgress) : this(
+            fraction = progress.fraction,
+            percent = progress.percent,
+            timeLeftMs = progress.remainingMs,
+        )
+    }
 
     /** Finished: a finished badge plus "Finished · 12h 4m". */
     data class Finished(

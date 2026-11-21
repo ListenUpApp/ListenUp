@@ -34,7 +34,7 @@ struct BookContextMenuTests {
     /// The shared `bookMenuPrimary` rule, called with real Kotlin `BookCardStatus` values and mapped.
     @Test func primaryFollowsTheSharedRule() {
         let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.library.self
-        let started = BookCardStatusInProgress(fraction: 0.1, timeLeftMs: 60_000)
+        let started = BookCardStatusInProgress(fraction: 0.1, percent: 10, timeLeftMs: 60_000)
         #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: started)) == .resume(timeLeftMs: 60_000))
         let finished = BookCardStatusFinished(durationMs: 1)
         #expect(BookMenuPrimaryValue(rules.bookMenuPrimary(status: finished)) == .listenAgain)

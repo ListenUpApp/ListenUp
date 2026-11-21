@@ -160,7 +160,12 @@ internal fun HomeBookCard(
                 cover = book.toCoverModel(),
                 onClick = { if (selection.isActive) selection.onToggle(book.bookId) else onOpenBook(book.bookId) },
                 narrators = if (isWide) book.narratorNames else null,
-                libraryStatus = BookCardStatus.InProgress(fraction = book.progress, timeLeftMs = book.timeRemainingMs),
+                libraryStatus =
+                    BookCardStatus.InProgress(
+                        fraction = book.progress,
+                        percent = book.progressPercent,
+                        timeLeftMs = book.timeRemainingMs,
+                    ),
                 progressUnderTitle = !isWide,
                 isInSelectionMode = selection.isActive,
                 isSelected = book.bookId in selection.selectedIds,

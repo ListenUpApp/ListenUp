@@ -145,7 +145,6 @@ internal fun clBook(
     narratorNames = null,
     coverPath = null,
     coverHash = null,
-    progress = 0.1f,
     currentPositionMs = positionMs,
     totalDurationMs = 10_000L,
     lastPlayedAtMs = RIG_NOW,

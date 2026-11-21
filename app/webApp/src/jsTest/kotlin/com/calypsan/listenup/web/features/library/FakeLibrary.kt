@@ -74,7 +74,13 @@ fun contractLibrary(
         statusCounts = statusCounts,
         bookStatus =
             books.associate {
-                it.id to BookCardStatus.InProgress(fraction = PARTIAL_PROGRESS, timeLeftMs = it.duration / 2)
+                it.id to
+                    BookCardStatus.InProgress(
+                        fraction = PARTIAL_PROGRESS,
+                        percent = PARTIAL_PERCENT,
+                        timeLeftMs =
+                            it.duration / 2,
+                    )
             },
         totalDurationMs = books.sumOf { it.duration },
         bookLetters = bookLetters,
@@ -107,6 +113,7 @@ fun lettersOf(keys: List<String>): List<LetterSection> {
  * would assert against markup that was never emitted.
  */
 private const val PARTIAL_PROGRESS = 0.4f
+private const val PARTIAL_PERCENT = 40
 
 /** A minimal book for contract rendering — only `id` and `title` reach the DOM. */
 fun contractBook(

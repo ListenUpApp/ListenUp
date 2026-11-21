@@ -8,6 +8,8 @@ struct ResumeUnit: View {
     let currentChapter: BookCurrentChapter?
     let timeRemainingMs: Int64?
     let progress: Float?
+    /// The percent to announce: the shared `BookProgress` percent, never a rounding of `progress` here.
+    let percent: Int?
     let finishedSpan: BookFinishedSpan?
     /// The hero's cover colours, when it has them: the bar draws the cover track under the harmonised fill.
     var cover: CoverColors?
@@ -54,8 +56,7 @@ struct ResumeUnit: View {
                     ProgressView(value: fraction).tint(.listenUpOrange)
                 }
             }
-            .accessibilityLabel(String(format: String(localized: "book.detail_progress_a11y"),
-                                       Int((fraction * 100).rounded())))
+            .accessibilityLabel(Self.progressAccessibilityText(percent: percent ?? 0))
         }
         .accessibilityElement(children: .combine)
     }
@@ -87,6 +88,11 @@ struct ResumeUnit: View {
         )
     }
 
+    /// "11 percent listened", from the shared percent.
+    static func progressAccessibilityText(percent: Int) -> String {
+        String(format: String(localized: "book.detail_progress_a11y"), percent)
+    }
+
     /// "40 hr, 31 min left" in the reader's locale.
     static func timeLeftText(remainingMs: Int64) -> String {
         DurationFormatting.timeLeft(ms: remainingMs)
@@ -110,8 +116,9 @@ struct ResumeUnit: View {
         ResumeUnit(stage: .inProgress,
                    currentChapter: BookCurrentChapter(index: 5, number: 6, title: "Bridge Four", startMs: 0,
                                                       elapsedInChapterMs: 0),
-                   timeRemainingMs: Int64((40 * 60 + 31) * 60_000), progress: 0.11, finishedSpan: nil)
-        ResumeUnit(stage: .notStarted, currentChapter: nil, timeRemainingMs: nil, progress: nil, finishedSpan: nil)
+                   timeRemainingMs: Int64((40 * 60 + 31) * 60_000), progress: 0.11, percent: 11, finishedSpan: nil)
+        ResumeUnit(stage: .notStarted, currentChapter: nil, timeRemainingMs: nil, progress: nil, percent: nil,
+                   finishedSpan: nil)
     }
     .padding()
 }

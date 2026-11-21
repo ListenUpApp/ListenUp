@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.contributordetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -135,7 +136,7 @@ sealed interface ContributorBooksUiState {
         val roleDisplayName: String,
         val seriesGroups: List<SeriesGroup>,
         val standaloneBooks: List<BookListItem>,
-        val bookProgress: Map<BookId, Float>,
+        val bookProgress: Map<BookId, BookProgress.InProgress>,
         /** Maps bookId to creditedAs name when different from contributor's name. */
         val bookCreditedAs: Map<String, String>,
     ) : ContributorBooksUiState {

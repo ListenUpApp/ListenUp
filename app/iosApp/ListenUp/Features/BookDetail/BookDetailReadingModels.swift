@@ -107,6 +107,8 @@ struct BookReadingState: Equatable {
     /// The chapters with their parts and books; nil for a flat book, which draws `chapterPreview`.
     var groupedChapters: BookGroupedChapters?
     var timeRemainingMs: Int64?
+    /// The shared percent while in progress (`BookProgress`); nil otherwise.
+    var progressPercent: Int?
     var finishedSpan: BookFinishedSpan?
     var downloadSizeBytes: Int64 = 0
     var showScanWarning = false
@@ -122,6 +124,7 @@ struct BookReadingState: Equatable {
         chapterPreview = ready.chapterPreview.map { BookChapterRow($0) }
         groupedChapters = ready.groupedChapters.map(BookGroupedChapters.init)
         timeRemainingMs = ready.timeRemainingMs
+        progressPercent = ready.progressPercent.map { Int($0) }
         finishedSpan = ready.finishedSpan.map(BookFinishedSpan.init)
         downloadSizeBytes = ready.downloadSizeBytes
         showScanWarning = ready.showScanWarning

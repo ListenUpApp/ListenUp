@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.web.inProgressAt
 import com.calypsan.listenup.api.error.ValidationError
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.TransportError
@@ -357,7 +358,7 @@ private fun libraryShapes4(): Map<String, @Composable () -> Unit> =
                                 seriesBook("b1", "The Way of Kings", 1.0),
                                 seriesBook("b2", "Words of Radiance", 2.0),
                             ),
-                        bookProgress = mapOf(BookId("b2") to 0.4f),
+                        bookProgress = mapOf(BookId("b2") to inProgressAt(0.4f)),
                         finishedBookIds = setOf(BookId("b1")),
                         resumeTarget = BookId("b2"),
                     ),

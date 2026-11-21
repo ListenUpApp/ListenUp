@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.SeriesGroup
@@ -357,7 +358,7 @@ private fun CondensedHeader(
 @Composable
 private fun SeriesCarouselSection(
     seriesGroup: SeriesGroup,
-    bookProgress: Map<BookId, Float>,
+    bookProgress: Map<BookId, BookProgress.InProgress>,
     onBookClick: (String) -> Unit,
 ) {
     Column(
@@ -438,7 +439,7 @@ internal fun standaloneGridColumns(availableWidth: Dp): Int {
 private fun LazyListScope.standaloneBooks(
     books: List<BookListItem>,
     columns: Int,
-    bookProgress: Map<BookId, Float>,
+    bookProgress: Map<BookId, BookProgress.InProgress>,
     onBookClick: (String) -> Unit,
 ) {
     item(key = "standalone-header") {

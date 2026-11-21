@@ -369,7 +369,7 @@ class ContributorBooksViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorBooksUiState.Ready
-                state.bookProgress[BookId("book-1")] shouldBe 0.5f
+                state.bookProgress[BookId("book-1")]?.fraction shouldBe 0.5f
             }
         }
 

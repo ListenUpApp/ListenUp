@@ -34,6 +34,7 @@ extension BookDetailView {
                 currentChapter: observer.reading.currentChapter,
                 timeRemainingMs: observer.reading.timeRemainingMs,
                 progress: observer.progress,
+                percent: observer.reading.progressPercent,
                 finishedSpan: observer.reading.finishedSpan,
                 cover: coverTheme.colors
             )

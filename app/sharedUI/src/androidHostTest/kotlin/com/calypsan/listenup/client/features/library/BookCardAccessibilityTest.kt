@@ -43,7 +43,7 @@ class BookCardAccessibilityTest {
                 BookCard(
                     cover = BookCoverModel("b1", "Babel", "R. F. Kuang", coverPath = "/tmp/cover-b1.webp", coverHash = null),
                     onClick = { opened++ },
-                    libraryStatus = BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 67_200_000L),
+                    libraryStatus = BookCardStatus.InProgress(fraction = 0.11f, percent = 11, timeLeftMs = 67_200_000L),
                     progressUnderTitle = true,
                     accessibilityLabel = label,
                 )

@@ -188,7 +188,7 @@ class LibraryLoadedContentInboxTest {
             scanProgress = null,
             isBuildingInitialLibrary = false,
             statusCounts = BookStatusCounts(all = 1, inProgress = 1, notStarted = 0, finished = 0),
-            bookStatus = mapOf(book.id to BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = book.duration / 2)),
+            bookStatus = mapOf(book.id to BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = book.duration / 2)),
         )
     }
 

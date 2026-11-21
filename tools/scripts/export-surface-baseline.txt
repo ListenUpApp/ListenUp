@@ -156,6 +156,8 @@ BookMultiSelectEvent
 BookMultiSelectEvent_SealedType
 BookMultiSelectViewModel
 BookPlayhead
+BookProgress
+BookProgress_SealedType
 BookRatingRepository
 BookRatingsEvent
 BookRatingsEvent_SealedType

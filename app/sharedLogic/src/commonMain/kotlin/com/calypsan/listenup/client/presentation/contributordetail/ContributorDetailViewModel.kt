@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -323,7 +324,7 @@ sealed interface ContributorDetailUiState {
     data class Ready(
         val contributor: Contributor,
         val roleSections: List<RoleSection>,
-        val bookProgress: Map<BookId, Float>,
+        val bookProgress: Map<BookId, BookProgress.InProgress>,
         /** Maps bookId to creditedAs name when different from contributor's name. */
         val bookCreditedAs: Map<String, String>,
         /** Series this contributor's books belong to (full series, for the grid). */

@@ -43,7 +43,7 @@ class BookCardLibraryStatusTest {
 
     @Test
     fun `a started book says its time left and its narrators`() {
-        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L))
+        show(BookCardStatus.InProgress(fraction = 0.11f, percent = 11, timeLeftMs = 145_860_000L))
 
         composeRule.onNodeWithText("40h 31m left").assertIsDisplayed()
         composeRule.onNodeWithText("Read by Kate Reading, Michael Kramer").assertIsDisplayed()
@@ -52,7 +52,7 @@ class BookCardLibraryStatusTest {
 
     @Test
     fun `on a wide grid the progress sits on the art and still says how far along it is`() {
-        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L), progressUnderTitle = false)
+        show(BookCardStatus.InProgress(fraction = 0.11f, percent = 11, timeLeftMs = 145_860_000L), progressUnderTitle = false)
 
         composeRule.onNodeWithText("40h 31m left").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("11 percent listened", useUnmergedTree = true).assertExists()
@@ -64,14 +64,14 @@ class BookCardLibraryStatusTest {
     // the linear indicator, under the title on phones and on the art on wide windows.
     @Test
     fun `a started card's progress mark is the linear indicator, never the wave, on a phone`() {
-        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L), progressUnderTitle = true)
+        show(BookCardStatus.InProgress(fraction = 0.11f, percent = 11, timeLeftMs = 145_860_000L), progressUnderTitle = true)
 
         composeRule.onNodeWithTag(LIBRARY_CARD_PROGRESS_TAG, useUnmergedTree = true).assertExists()
     }
 
     @Test
     fun `a started card's progress mark is the linear indicator on a wide grid too`() {
-        show(BookCardStatus.InProgress(fraction = 0.11f, timeLeftMs = 145_860_000L), progressUnderTitle = false)
+        show(BookCardStatus.InProgress(fraction = 0.11f, percent = 11, timeLeftMs = 145_860_000L), progressUnderTitle = false)
 
         composeRule.onNodeWithTag(LIBRARY_CARD_PROGRESS_TAG, useUnmergedTree = true).assertExists()
     }

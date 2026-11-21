@@ -17,7 +17,7 @@ final class SeriesDetailObserver {
     private(set) var coverPath: String?
     private(set) var totalDuration: String = ""
     private(set) var books: [BookRow] = []
-    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var bookProgress: [String: ListeningProgress] = [:]
     private(set) var finishedBookIds: Set<String> = []
     private(set) var finishedCount: Int = 0
     private(set) var resumeTarget: String?
@@ -106,7 +106,7 @@ final class SeriesDetailObserver {
         playerObserver.currentBookId == bookId && playerObserver.isPlaybackActive
     }
 
-    func progress(for bookId: String) -> Float? { bookProgress[bookId] }
+    func progress(for bookId: String) -> ListeningProgress? { bookProgress[bookId] }
     func isFinished(_ bookId: String) -> Bool { finishedBookIds.contains(bookId) }
 
     private let viewModel: SeriesDetailViewModel
@@ -172,7 +172,7 @@ final class SeriesDetailObserver {
             // The model holds a number; BookRow shows text. Formatted here, at the display
             // edge, exactly as the Compose side does.
             books = r.books.map { BookRow($0, sequence: SeriesSequenceFormatting.label($0.series.first?.sequence)) }
-            bookProgress = mapBookProgress(r.bookProgress)
+            bookProgress = ListeningProgress.byBookId(r.bookProgress)
             finishedBookIds = Set(r.finishedBookIds.map { String(describing: $0) })
             finishedCount = Int(r.finishedCount)
             ancestors = r.ancestors.map(SeriesCrumbItem.init)
@@ -191,18 +191,6 @@ final class SeriesDetailObserver {
             error = e.message
         }
     }
-
-    /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
-    /// boundary — the `BookId` value-class key bridges as its wrapper type. Keys are
-    /// normalized to the book-id string the UI looks up by.
-    private func mapBookProgress(_ raw: [BookId: Float]) -> [String: Float] {
-        var result: [String: Float] = [:]
-        for (key, value) in raw {
-            result[key.value] = value
-        }
-        return result
-    }
-
 }
 
 /// A native, value-typed series author for SwiftUI. KMP `BookContributor` is Swift Export-bridged and must

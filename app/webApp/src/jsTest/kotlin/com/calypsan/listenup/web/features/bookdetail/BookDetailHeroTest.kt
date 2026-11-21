@@ -26,6 +26,7 @@ class BookDetailHeroTest :
                 readingStage = ReadingStage.InProgress,
                 primaryAction = PrimaryAction.Resume,
                 progress = 0.11f,
+                progressPercent = 11,
                 currentChapter = CurrentChapter(index = 5, number = 6, title = "Bridge Four", startMs = 0, elapsedInChapterMs = 0),
                 timeRemainingMs = (40 * 60 + 31) * 60_000L,
             )
@@ -52,6 +53,13 @@ class BookDetailHeroTest :
             root.querySelector(".bd-unit-ch")!!.textContent shouldBe "Ch. 6 · Bridge Four"
             root.querySelector(".bd-unit-left")!!.textContent shouldBe "11% · 40h 31m left"
             root.querySelector(".bd-unit [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "11"
+        }
+
+        test("the unit prints and announces the shared percent, never its own rounding of the fraction") {
+            // 0.4%: rounding the fraction here would print 0%.
+            val root = rendered(inProgress.copy(progress = 0.004f, progressPercent = 1))
+            root.querySelector(".bd-unit-left")!!.textContent shouldBe "1% · 40h 31m left"
+            root.querySelector(".bd-unit [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "1"
         }
 
         test("in a book with parts the unit leads with the part") {

@@ -372,6 +372,7 @@ private fun CardCover(
                         label = "Listening progress",
                         // The house cover-tile idiom: 4px along the art's bottom edge.
                         look = ProgressLook.Overlay,
+                        percent = status.percent,
                     )
                 }
 

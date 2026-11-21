@@ -1108,8 +1108,8 @@ class LibraryViewModelTest :
 
                 // Then
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
-                loaded.bookStatus[BookId("book-1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
-                loaded.bookStatus[BookId("book-2")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 10_000L)
+                loaded.bookStatus[BookId("book-1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = 5_000L)
+                loaded.bookStatus[BookId("book-2")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = 10_000L)
             }
         }
 
@@ -1450,7 +1450,7 @@ class LibraryViewModelTest :
 
                 // Then — progress IS reflected in new state...
                 val after = viewModel.uiState.value as LibraryUiState.Loaded
-                after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
+                after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = 5_000L)
                 // ...but the sorted lists are the SAME instances: the sort stage did not
                 // re-run (every applicable sort branch allocates a fresh list via .map).
                 after.books shouldBeSameInstanceAs before.books
@@ -1562,7 +1562,7 @@ class LibraryViewModelTest :
                         advanceUntilIdle()
 
                         val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
-                        after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 5_000L)
+                        after.bookStatus[BookId("1")] shouldBe BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = 5_000L)
                         after.contentRevision shouldBe before.contentRevision
                         states.cancel()
                     }
@@ -1754,7 +1754,8 @@ class LibraryViewModelTest :
                         advanceUntilIdle()
 
                         val after = states.expectMostRecentItem().shouldBeInstanceOf<LibraryUiState.Loaded>()
-                        after.bookStatus[BookId("b1")] shouldBe BookCardStatus.InProgress(fraction = 0.6f, timeLeftMs = 4_000L)
+                        after.bookStatus[BookId("b1")] shouldBe
+                            BookCardStatus.InProgress(fraction = 0.6f, percent = 60, timeLeftMs = 4_000L)
                         after.contentRevision shouldBe before.contentRevision
                         after.books shouldBeSameInstanceAs before.books
                         states.cancel()
@@ -1851,7 +1852,7 @@ class LibraryViewModelTest :
                     val loaded = viewModel.uiState.value.shouldBeInstanceOf<LibraryUiState.Loaded>()
                     loaded.bookStatus shouldBe
                         mapOf(
-                            BookId("b1") to BookCardStatus.InProgress(fraction = 0.4f, timeLeftMs = 6_000L),
+                            BookId("b1") to BookCardStatus.InProgress(fraction = 0.4f, percent = 40, timeLeftMs = 6_000L),
                             BookId("b2") to BookCardStatus.Finished(durationMs = 20_000L),
                             BookId("b3") to BookCardStatus.NotStarted(durationMs = 30_000L),
                             BookId("b4") to BookCardStatus.NotStarted(durationMs = 40_000L),

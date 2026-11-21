@@ -35,6 +35,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.series_book_position
 import listenup.composeapp.generated.resources.series_duration_finished
 import listenup.composeapp.generated.resources.series_progress_duration
+import com.calypsan.listenup.domain.BookProgress
 import org.jetbrains.compose.resources.stringResource
 
 /** A book in the phone list: cover, "Book N", title, and progress or duration. */
@@ -43,7 +44,7 @@ internal fun SeriesBookRow(
     book: BookListItem,
     positionLabel: String,
     finished: Boolean,
-    progress: Float?,
+    progress: BookProgress.InProgress?,
     highlighted: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -126,11 +127,11 @@ internal fun SeriesBookRow(
             if (progress != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LinearProgressIndicator(
-                        progress = { progress },
+                        progress = { progress.fraction },
                         modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
                     )
                     Text(
-                        text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
+                        text = stringResource(Res.string.series_progress_duration, progress.percent, book.formatDuration()),
                         style = MaterialTheme.typography.labelMedium,
                         color = subColor,
                         maxLines = 1,
@@ -187,7 +188,7 @@ internal fun SeriesBookCard(
     book: BookListItem,
     positionLabel: String,
     finished: Boolean,
-    progress: Float?,
+    progress: BookProgress.InProgress?,
     highlighted: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -283,7 +284,7 @@ private fun SeriesBookCardCover(
 @Composable
 private fun SeriesBookCardFooter(
     book: BookListItem,
-    progress: Float?,
+    progress: BookProgress.InProgress?,
     finished: Boolean,
     highlighted: Boolean,
 ) {
@@ -295,12 +296,12 @@ private fun SeriesBookCardFooter(
         }
     if (progress != null) {
         LinearProgressIndicator(
-            progress = { progress },
+            progress = { progress.fraction },
             modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
+            text = stringResource(Res.string.series_progress_duration, progress.percent, book.formatDuration()),
             style = MaterialTheme.typography.labelMedium,
             color = subColor,
             maxLines = 1,

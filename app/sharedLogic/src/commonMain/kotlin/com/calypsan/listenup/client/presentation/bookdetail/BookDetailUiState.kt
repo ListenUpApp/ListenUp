@@ -55,7 +55,10 @@ sealed interface BookDetailUiState {
         val addedAt: Long? = null,
         val hasScanWarning: Boolean = false,
         val chapters: List<ChapterUiModel> = emptyList(),
+        /** How far through the book, `0..1`, for the bar while in progress; null otherwise. Printed as [progressPercent]. */
         val progress: Float? = null,
+        /** The percent to print or announce while in progress (`BookProgress.InProgress.percent`); null otherwise. */
+        val progressPercent: Int? = null,
         val timeRemainingFormatted: String? = null,
         val genres: List<Genre> = emptyList(),
         val tags: List<Tag> = emptyList(),

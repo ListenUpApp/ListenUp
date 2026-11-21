@@ -120,7 +120,7 @@ struct ContributorBooksView: View {
     // MARK: - Section
 
     @ViewBuilder
-    private func section(title: String?, books: [BookRow], progress: [String: Float]) -> some View {
+    private func section(title: String?, books: [BookRow], progress: [String: ListeningProgress]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if let title {
                 SectionRow(title: title)

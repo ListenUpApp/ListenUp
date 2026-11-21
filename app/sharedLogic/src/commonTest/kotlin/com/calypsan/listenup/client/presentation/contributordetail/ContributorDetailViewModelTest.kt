@@ -340,7 +340,8 @@ class ContributorDetailViewModelTest :
                 advanceUntilIdle()
 
                 val state = viewModel.state.value as ContributorDetailUiState.Ready
-                state.bookProgress[BookId("book-1")] shouldBe 0.5f
+                state.bookProgress[BookId("book-1")]?.fraction shouldBe 0.5f
+                state.bookProgress[BookId("book-1")]?.percent shouldBe 50
             }
         }
 
@@ -356,6 +357,31 @@ class ContributorDetailViewModelTest :
                 } returns flowOf(listOf(createBookWithContributorRole(book)))
                 everySuspend { fixture.playbackPositionRepository.get(BookId("book-1")) } returns
                     AppResult.Success(createPlaybackPosition("book-1", 9_999L))
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("contributor-1")
+                fixture.contributorFlow.value = contributor
+                fixture.rolesFlow.value = listOf(role)
+                advanceUntilIdle()
+
+                val state = viewModel.state.value as ContributorDetailUiState.Ready
+                state.bookProgress.containsKey(BookId("book-1")) shouldBe false
+            }
+        }
+
+        test("loadContributor leaves out a book flagged finished partway through, by the one rule") {
+            runTest {
+                val fixture = createFixture()
+                val contributor = createContributor()
+                val role = RoleWithBookCount(role = ContributorRole.AUTHOR.apiValue, bookCount = 1)
+                val book = createBook(id = "book-1", duration = 10_000L)
+
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("contributor-1", ContributorRole.AUTHOR.apiValue)
+                } returns flowOf(listOf(createBookWithContributorRole(book)))
+                everySuspend { fixture.playbackPositionRepository.get(BookId("book-1")) } returns
+                    AppResult.Success(createPlaybackPosition("book-1", 5_000L).copy(isFinished = true))
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 

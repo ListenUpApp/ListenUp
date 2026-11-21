@@ -10,7 +10,7 @@ struct CarPlayHomeWrapperTests {
     @Test func itemsMapEveryBookInProgressInOrder() {
         let book = ContinueListeningBook(
             bookId: "a", title: "A", authorNames: "W", narratorNames: nil, coverPath: nil, coverHash: nil,
-            progress: 0.5, currentPositionMs: 1, totalDurationMs: 2, lastPlayedAtMs: 0, isDownloaded: false
+            currentPositionMs: 1, totalDurationMs: 2, lastPlayedAtMs: 0, isDownloaded: false
         )
         let items = CarPlayHomeWrapper.items(from: [
             ContinueListeningItemReady(bookId: "a", book: book),

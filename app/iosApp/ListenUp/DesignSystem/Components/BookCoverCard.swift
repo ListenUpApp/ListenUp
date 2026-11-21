@@ -11,7 +11,8 @@ import SwiftUI
 /// - Optional progress bar at bottom of cover
 struct BookCoverCard: View {
     let book: BookRow
-    let progress: Float?
+    /// A started book's shared progress: the bar draws its fraction and the capsule reads its time left.
+    let progress: ListeningProgress?
     /// Whether the grid is in multi-select mode (shows a selection circle on every cover).
     let isSelecting: Bool
     /// Whether this book is currently selected (filled vs. empty circle).
@@ -27,7 +28,7 @@ struct BookCoverCard: View {
 
     init(
         book: BookRow,
-        progress: Float? = nil,
+        progress: ListeningProgress? = nil,
         isSelecting: Bool = false,
         isSelected: Bool = false,
         libraryState: LibraryCardState? = nil,
@@ -44,7 +45,7 @@ struct BookCoverCard: View {
     /// The progress the cover's bar draws: a Library card's own fraction, else the caller's.
     private var barProgress: Float? {
         if let libraryState { return libraryState.fraction }
-        return progress
+        return progress?.fraction
     }
 
     private var accessibilityText: String {
@@ -124,8 +125,8 @@ struct BookCoverCard: View {
                 }
                 // Time remaining for in-progress books — a small capsule above the progress bar.
                 .overlay(alignment: .bottomLeading) {
-                    if libraryState == nil, let progress, progress > 0, progress < 1, book.duration > 0 {
-                        Text(timeLeftLabel(progress: progress))
+                    if libraryState == nil, let progress {
+                        Text(Self.timeLeftLabel(remainingMs: progress.remainingMs))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, Spacing.xs)
@@ -165,10 +166,9 @@ struct BookCoverCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.s))
     }
 
-    /// "{Xh Ym} left" — remaining time derived from the book's total duration and listen progress.
-    private func timeLeftLabel(progress: Float) -> String {
-        let remaining = Int64(Double(book.duration) * Double(1 - progress))
-        return String(localized: .bookTimeLeft(DurationFormatting.hoursMinutes(ms: remaining)))
+    /// "{Xh Ym} left", from the shared time left: never rebuilt from the bar's fraction.
+    static func timeLeftLabel(remainingMs: Int64) -> String {
+        String(localized: .bookTimeLeft(DurationFormatting.hoursMinutes(ms: remainingMs)))
     }
 
     // MARK: - Book Info
