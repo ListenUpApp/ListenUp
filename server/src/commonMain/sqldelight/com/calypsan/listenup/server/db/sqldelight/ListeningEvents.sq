@@ -93,6 +93,23 @@ SELECT * FROM listening_events
 WHERE user_id = :userId AND deleted_at IS NULL
 ORDER BY ended_at ASC;
 
+-- Stats support: a user's all-time listening in one aggregate — every span truncated to whole seconds
+-- BEFORE summing (as a per-row walk does), and the distinct books started. Recomputed from every event, so
+-- the stats stay self-healing without loading the rows.
+statsTotalsForUser:
+SELECT
+    CAST(COALESCE(SUM((ended_at - started_at) / 1000), 0) AS INTEGER) AS total_seconds,
+    COUNT(DISTINCT book_id) AS books_started
+FROM listening_events
+WHERE user_id = :userId AND deleted_at IS NULL;
+
+-- Stats support: whole seconds of the spans that ENDED at/after :windowStartMs, each counted whole —
+-- StatsWindow.secondsCounted's rule, summed in SQL.
+statsSecondsEndedSinceForUser:
+SELECT CAST(COALESCE(SUM((ended_at - started_at) / 1000), 0) AS INTEGER)
+FROM listening_events
+WHERE user_id = :userId AND deleted_at IS NULL AND ended_at >= :windowStartMs;
+
 -- Stats support: does the user have any OTHER event for this book (excluding :excludingId)?
 -- Backs the "first event for this book" booksStarted increment.
 existsOtherEventForBook:
