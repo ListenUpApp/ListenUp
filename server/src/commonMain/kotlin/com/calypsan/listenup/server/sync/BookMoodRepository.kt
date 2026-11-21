@@ -244,12 +244,14 @@ class BookMoodRepository(
      * Each row gets its own revision bump and [SyncEvent.Deleted] publication so
      * clients receive per-row tombstones. Returns the number of rows tombstoned.
      */
-    suspend fun softDeleteAllForBook(bookId: String): Int =
-        suspendTransaction(db) {
+    suspend fun softDeleteAllForBook(bookId: String): Int {
+        val suppressed = isFirehoseSuppressed()
+        return suspendTransaction(db) {
             val live = db.bookMoodsQueries.selectLiveIdsForBook(bookId).executeAsList()
-            tombstoneEach(live)
+            tombstoneEach(live, suppressed)
             live.size
         }
+    }
 
     /**
      * Bulk soft-deletes all junction rows for [moodId]. Used as a cascade step in
@@ -258,12 +260,14 @@ class BookMoodRepository(
      * Each row gets its own revision bump and [SyncEvent.Deleted] publication so
      * clients receive per-row tombstones. Returns the number of rows tombstoned.
      */
-    suspend fun softDeleteAllForMood(moodId: String): Int =
-        suspendTransaction(db) {
+    suspend fun softDeleteAllForMood(moodId: String): Int {
+        val suppressed = isFirehoseSuppressed()
+        return suspendTransaction(db) {
             val live = db.bookMoodsQueries.selectLiveIdsForMood(moodId).executeAsList()
-            tombstoneEach(live)
+            tombstoneEach(live, suppressed)
             live.size
         }
+    }
 
     /**
      * Revives the tombstoned junction rows for the books in [bookIds] that were tombstoned at or after
@@ -279,6 +283,7 @@ class BookMoodRepository(
         cascadeFloor: Long,
     ): Int {
         if (bookIds.isEmpty()) return 0
+        val suppressed = isFirehoseSuppressed()
         return suspendTransaction(db) {
             var count = 0
             for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
@@ -286,24 +291,26 @@ class BookMoodRepository(
                     val rev = nextRevision()
                     val now = clock.now().toEpochMilliseconds()
                     db.bookMoodsQueries.reviveById(revision = rev, updated_at = now, id = row.id)
-                    emitAfterCommit(
-                        event =
-                            SyncEvent.Updated(
-                                id = row.id,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = null,
-                                payload =
-                                    BookMoodSyncPayload(
-                                        id = row.id,
-                                        bookId = row.book_id,
-                                        moodId = row.mood_id,
-                                        createdAt = row.created_at,
-                                        revision = rev,
-                                        deletedAt = null,
-                                    ),
-                            ),
-                    )
+                    if (!suppressed) {
+                        emitAfterCommit(
+                            event =
+                                SyncEvent.Updated(
+                                    id = row.id,
+                                    revision = rev,
+                                    occurredAt = now,
+                                    clientOpId = null,
+                                    payload =
+                                        BookMoodSyncPayload(
+                                            id = row.id,
+                                            bookId = row.book_id,
+                                            moodId = row.mood_id,
+                                            createdAt = row.created_at,
+                                            revision = rev,
+                                            deletedAt = null,
+                                        ),
+                                ),
+                        )
+                    }
                     count++
                 }
             }
@@ -358,9 +365,13 @@ class BookMoodRepository(
     /**
      * Tombstones each synthetic id in [syntheticIds] with its own revision bump, inside
      * the caller's open transaction, and registers a per-row after-commit
-     * [SyncEvent.Deleted]. The shared body of [softDeleteAllForBook] / [softDeleteAllForMood].
+     * [SyncEvent.Deleted] — none when [suppressed] ([FirehoseSuppressed]). The shared body of
+     * [softDeleteAllForBook] / [softDeleteAllForMood].
      */
-    private fun app.cash.sqldelight.TransactionWithReturn<*>.tombstoneEach(syntheticIds: List<String>) {
+    private fun app.cash.sqldelight.TransactionWithReturn<*>.tombstoneEach(
+        syntheticIds: List<String>,
+        suppressed: Boolean,
+    ) {
         for (syntheticId in syntheticIds) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
@@ -371,6 +382,7 @@ class BookMoodRepository(
                 client_op_id = null,
                 id = syntheticId,
             )
+            if (suppressed) continue
             emitAfterCommit(
                 event =
                     SyncEvent.Deleted(

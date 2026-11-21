@@ -516,6 +516,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     }
 
     /**
+     * Whether the caller runs under [FirehoseSuppressed]. A bulk operation reads this ONCE in its suspend scope,
+     * before its transaction (whose synchronous body cannot read the coroutine context), and skips
+     * [emitAfterCommit] when it is true — the revision still bumps and the row still commits, exactly the gate
+     * [upsert] / [softDelete] apply.
+     */
+    protected suspend fun isFirehoseSuppressed(): Boolean = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+
+    /**
      * Serializes a domain id to its raw string representation for substrate queries
      * and [SyncEvent] entity ids. Defaults to `id.toString()`, correct for `String`
      * ids (e.g., Tags). **MUST be overridden for `@JvmInline value class` ids**: their

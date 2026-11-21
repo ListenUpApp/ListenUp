@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
@@ -29,8 +30,11 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 
 /**
  * Data-integrity regression coverage for finding A3: a transient Removed→re-Added cycle (the
@@ -110,9 +114,78 @@ class BookRepositoryScanRevivalCascadeTest :
                 }
             }
         }
+
+        // A full scan's sweep runs under FirehoseSuppressed so a vanished folder of hundreds of books cannot flood the
+        // 256-slot live tail. The book row honours the marker; its junction cascade must too.
+        test("a removal under FirehoseSuppressed tombstones the junctions but publishes none of them") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                seedCollection(sql)
+                runTest {
+                    val h = harness(sql, driver)
+                    val bookId = h.repo.resolveOrInsert(LIBRARY, FOLDER, analyzedFor("Author/Quiet", inode = 5L)).bookId()
+                    h.attachJunctions(bookId)
+                    val before = h.mark()
+
+                    withContext(FirehoseSuppressed) { h.repo.softDelete(bookId, clientOpId = null) }
+
+                    h.assertJunctionsDead()
+                    h.junctionTombstonesAbove(bookId, before.revision) shouldBe 3
+                    h.junctionEventIdsSince(before, bookId).shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a removal without the marker still publishes a tombstone per junction row") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                seedCollection(sql)
+                runTest {
+                    val h = harness(sql, driver)
+                    val bookId = h.repo.resolveOrInsert(LIBRARY, FOLDER, analyzedFor("Author/Loud", inode = 6L)).bookId()
+                    h.attachJunctions(bookId)
+                    val before = h.mark()
+
+                    h.repo.softDelete(bookId, clientOpId = null)
+
+                    h.junctionEventIdsSince(before, bookId) shouldContainExactlyInAnyOrder h.junctionIds(bookId)
+                }
+            }
+        }
+
+        test("a scan revival under FirehoseSuppressed revives the junctions but publishes none of them") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                seedCollection(sql)
+                runTest {
+                    val h = harness(sql, driver)
+                    val analyzed = analyzedFor("Author/Back Again", inode = 7L)
+                    val bookId = h.repo.resolveOrInsert(LIBRARY, FOLDER, analyzed).bookId()
+                    h.attachJunctions(bookId)
+                    h.repo.softDelete(bookId, clientOpId = null)
+                    val before = h.mark()
+
+                    withContext(FirehoseSuppressed) { h.repo.resolveOrInsert(LIBRARY, FOLDER, analyzed).bookId() }
+
+                    h.assertJunctionsLive(bookId)
+                    h.junctionEventIdsSince(before, bookId).shouldBeEmpty()
+                }
+            }
+        }
     })
 
+private val LIBRARY = LibraryId("test-library")
+
+/** Where the live tail stood before an action: how many events it held, and the highest junction revision committed. */
+private data class TailMark(
+    val eventCount: Int,
+    val revision: Long,
+)
+
 private val FOLDER = FolderId("test-folder")
+
+/** One page comfortably holds every junction row these specs write. */
+private const val PAGE = 100
 
 private fun AppResult<IngestOutcome>.bookId(): BookId =
     when (this) {
@@ -138,6 +211,7 @@ private fun seedCollection(sql: ListenUpDatabase) {
 }
 
 private class RevivalHarness(
+    val bus: ChangeBus,
     val repo: BookRepository,
     val tagRepo: TagRepository,
     val bookTagRepo: BookTagRepository,
@@ -157,6 +231,55 @@ private class RevivalHarness(
         check(bookTagRepo.findAllForBook(id).size == 1)
         check(bookMoodRepo.findAllForBook(id).size == 1)
         check(collectionBookRepo.findBookIdsForCollection("c1") == listOf(id))
+    }
+
+    fun junctionIds(bookId: BookId): List<String> = listOf("${bookId.value}:t1", "${bookId.value}:m1", "c1:${bookId.value}")
+
+    suspend fun mark(): TailMark {
+        val revisions =
+            bookTagRepo.pullSince(userId = null, cursor = 0L, limit = PAGE).items.map { it.revision } +
+                bookMoodRepo.pullSince(userId = null, cursor = 0L, limit = PAGE).items.map { it.revision } +
+                collectionBookRepo.pullSince(userId = null, cursor = 0L, limit = PAGE).items.map { it.revision }
+        return TailMark(eventCount = bus.subscribe().replayCache.size, revision = revisions.maxOrNull() ?: 0L)
+    }
+
+    /** The junction ids of [bookId] among the events the live tail received after [mark]. */
+    fun junctionEventIdsSince(
+        mark: TailMark,
+        bookId: BookId,
+    ): List<String> {
+        val ids = junctionIds(bookId).toSet()
+        return bus
+            .subscribe()
+            .replayCache
+            .drop(mark.eventCount)
+            .map { it.event.id }
+            .filter { it in ids }
+    }
+
+    /** How many of [bookId]'s junction rows REST catch-up sees tombstoned above [revision]. */
+    suspend fun junctionTombstonesAbove(
+        bookId: BookId,
+        revision: Long,
+    ): Int {
+        val ids = junctionIds(bookId).toSet()
+        val tombstoned =
+            bookTagRepo
+                .pullSince(userId = null, cursor = revision, limit = PAGE)
+                .items
+                .filter { it.deletedAt != null }
+                .map { it.id } +
+                bookMoodRepo
+                    .pullSince(userId = null, cursor = revision, limit = PAGE)
+                    .items
+                    .filter { it.deletedAt != null }
+                    .map { it.id } +
+                collectionBookRepo
+                    .pullSince(userId = null, cursor = revision, limit = PAGE)
+                    .items
+                    .filter { it.deletedAt != null }
+                    .map { it.id }
+        return tombstoned.count { it in ids }
     }
 
     suspend fun assertJunctionsDead() {
@@ -197,7 +320,7 @@ private fun harness(
             bookTagRepository = bookTagRepo,
             bookMoodRepository = bookMoodRepo,
         )
-    return RevivalHarness(repo, tagRepo, bookTagRepo, moodRepo, bookMoodRepo, collectionBookRepo)
+    return RevivalHarness(bus, repo, tagRepo, bookTagRepo, moodRepo, bookMoodRepo, collectionBookRepo)
 }
 
 private fun analyzedFor(
