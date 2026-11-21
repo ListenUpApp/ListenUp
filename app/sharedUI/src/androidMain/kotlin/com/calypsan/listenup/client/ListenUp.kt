@@ -561,7 +561,7 @@ class ListenUp :
                 ) {
                     get<CoroutineScope>().launch {
                         suspendRunCatching { get<DownloadManager>().resumeScheduling() }.onFailure { error ->
-                            logger.warn { "download: could not resume scheduling at foreground: ${error.debugInfo}" }
+                            logger.warn { "download: could not resume scheduling at foreground: ${error.code}" }
                         }
                     }
                 }

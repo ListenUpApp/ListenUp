@@ -314,7 +314,7 @@ class BookTransfers internal constructor(
             DownloadPhase.NotDownloaded, DownloadPhase.Queued, DownloadPhase.Downloaded,
             is DownloadPhase.Downloading, is DownloadPhase.PausedByYou, is DownloadPhase.Failed,
             -> {
-                Unit
+                // Running, done, or the person's to decide: nothing waits, so nothing to say.
             }
         }
     }

@@ -70,7 +70,7 @@ class DownloadNotificationTest {
 
     @Test
     fun `books queued behind it are named in the header line`() {
-        active(queuedBehind = 2).extras.getCharSequence(NotificationCompat.EXTRA_SUB_TEXT).toString() shouldBe
+        active(queuedBehind = 2).extras.getCharSequence(NotificationCompat.EXTRA_SUB_TEXT)?.toString() shouldBe
             "2 more queued"
     }
 

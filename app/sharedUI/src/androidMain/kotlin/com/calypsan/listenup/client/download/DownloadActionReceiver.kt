@@ -55,7 +55,7 @@ class DownloadActionReceiver :
         val pending = goAsync()
         val action = intent.action
         val bookId = intent.getStringExtra(EXTRA_BOOK_ID)
-        logger.info { "download: notification action=$action book=${bookId ?: "-"}" }
+        logger.info { "download: notification action=${action ?: "-"} book=${bookId ?: "-"}" }
         scope.launch {
             try {
                 handleDownloadAction(action, bookId, controls)
