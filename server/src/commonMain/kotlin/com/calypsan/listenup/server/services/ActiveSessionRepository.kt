@@ -92,7 +92,14 @@ class ActiveSessionRepository(
             db.activeSessionsQueries
                 .selectCurrentlyListeningExcluding(exclude_user_id = excludeUserId, live_since = liveSince)
                 .executeAsList()
-                .map { ActiveSessionRow(userId = it.user_id, bookId = it.book_id, startedAt = it.started_at) }
+                .map { row ->
+                    ActiveSessionRow(
+                        userId = row.user_id,
+                        bookId = row.book_id,
+                        startedAt = row.started_at,
+                        updatedAt = row.updated_at,
+                    )
+                }
         }
 
     /**
@@ -118,7 +125,14 @@ class ActiveSessionRepository(
             db.activeSessionsQueries
                 .selectReadersForBookExcluding(book_id = bookId, exclude_user_id = excludeUserId)
                 .executeAsList()
-                .map { ActiveSessionRow(userId = it.user_id, bookId = it.book_id, startedAt = it.started_at) }
+                .map { row ->
+                    ActiveSessionRow(
+                        userId = row.user_id,
+                        bookId = row.book_id,
+                        startedAt = row.started_at,
+                        updatedAt = row.updated_at,
+                    )
+                }
         }
 
     /**
@@ -140,9 +154,15 @@ class ActiveSessionRepository(
     }
 }
 
-/** One live presence row: who is listening to which book, and when they started. */
+/**
+ * One live presence row: who is listening to which book, when they started, and when their playback last
+ * refreshed it.
+ *
+ * @property updatedAt the last refresh, which is how recently they were heard playing this book.
+ */
 data class ActiveSessionRow(
     val userId: String,
     val bookId: String,
     val startedAt: Long,
+    val updatedAt: Long,
 )

@@ -77,7 +77,9 @@ internal class SocialServiceImpl(
 
         val nowMs = clock.now().toEpochMilliseconds()
 
-        // Live half — whoever has an open session right now, newest session per user.
+        // Live half — whoever has an open session right now, each on the book their playback refreshed last.
+        // Not the session started last: a book sampled for a few seconds opens a newer session than the one
+        // they then go back to, and that older session is the one still being refreshed.
         val live =
             activeSessions
                 .listCurrentlyListening(
@@ -86,7 +88,7 @@ internal class SocialServiceImpl(
                 ).filter { visible(it.bookId) }
                 .groupBy { it.userId }
                 .values
-                .map { perUser -> perUser.maxBy { it.startedAt } }
+                .map { perUser -> perUser.maxBy { it.updatedAt } }
                 .sortedByDescending { it.startedAt }
 
         // Recent half — everyone else, on the book of their newest real sitting with a book they did not
