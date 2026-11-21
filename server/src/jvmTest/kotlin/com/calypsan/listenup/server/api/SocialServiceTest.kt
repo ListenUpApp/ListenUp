@@ -195,6 +195,7 @@ class SocialServiceTest :
             userId: String,
             bookId: String,
             startedAt: Long,
+            updatedAt: Long = startedAt,
         ) {
             activeSessionsQueries.insert(
                 session_id = "$userId-$bookId-session",
@@ -202,7 +203,7 @@ class SocialServiceTest :
                 book_id = bookId,
                 started_at = startedAt,
                 created_at = startedAt,
-                updated_at = startedAt,
+                updated_at = updatedAt,
             )
         }
 
@@ -863,6 +864,29 @@ class SocialServiceTest :
                     result shouldHaveSize 1
                     result.first().bookId shouldBe "book-late"
                     result.first().lastActiveAtMs shouldBe 200L
+                }
+            }
+        }
+
+        test("a listener who goes back to a book they started earlier is shown on it, not the one they sampled") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-returned-to")
+                sql.seedTestBook("book-sampled")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-returned-to", viewerId = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-sampled", viewerId = "viewer")
+                    // An hour on one book, a few seconds on another, then back to the first: its presence row
+                    // was opened first but is the one still being refreshed.
+                    sql.seedLiveSession("alice", "book-returned-to", startedAt = 100L, updatedAt = 400L)
+                    sql.seedLiveSession("alice", "book-sampled", startedAt = 300L, updatedAt = 310L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    result.single().bookId shouldBe "book-returned-to"
                 }
             }
         }

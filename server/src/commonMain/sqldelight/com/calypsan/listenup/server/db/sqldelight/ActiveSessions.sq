@@ -51,12 +51,12 @@ VALUES (
 -- ActiveSessionCleanupTask last ran: that sweep reclaims rows after 30 minutes, which is a
 -- garbage-collection threshold and far too generous to mean "listening right now".
 selectCurrentlyListeningExcluding:
-SELECT user_id, book_id, started_at FROM active_sessions
+SELECT user_id, book_id, started_at, updated_at FROM active_sessions
 WHERE user_id != :exclude_user_id AND deleted_at IS NULL AND updated_at >= :live_since;
 
 -- Live presence on a book except :exclude_user_id — the "readers of this book" surface.
 selectReadersForBookExcluding:
-SELECT user_id, book_id, started_at FROM active_sessions
+SELECT user_id, book_id, started_at, updated_at FROM active_sessions
 WHERE book_id = :book_id AND user_id != :exclude_user_id AND deleted_at IS NULL;
 
 -- Hard-delete the row(s) for (user_id, book_id) — the completion cascade. NOT filtered on
