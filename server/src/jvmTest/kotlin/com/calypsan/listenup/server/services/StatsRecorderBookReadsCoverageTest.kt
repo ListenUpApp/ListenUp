@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -106,6 +107,8 @@ class StatsRecorderBookReadsCoverageTest :
 
                     bookReads.finishesForUserBook("u1", "b1") shouldHaveSize 1
                     userStatsRepo.getForUser("u1").shouldNotBeNull().booksFinished shouldBe 1
+                    // The merged finish is the same read, so the feed announces it once.
+                    sql.liveFinishedBookActivities() shouldBe 1
                 }
             }
         }
@@ -137,6 +140,7 @@ class StatsRecorderBookReadsCoverageTest :
 
                     bookReads.finishesForUserBook("u1", "b1") shouldHaveSize 2
                     userStatsRepo.getForUser("u1").shouldNotBeNull().booksFinished shouldBe 2
+                    sql.liveFinishedBookActivities() shouldBe 2
                 }
             }
         }
@@ -166,6 +170,9 @@ class StatsRecorderBookReadsCoverageTest :
             }
         }
     })
+
+private fun ListenUpDatabase.liveFinishedBookActivities(): Int =
+    activitiesQueries.pageFirst(limit = 100L).executeAsList().count { it.type == ActivityType.FINISHED_BOOK }
 
 private fun ListenUpDatabase.insertFinishedPosition(
     userId: String,

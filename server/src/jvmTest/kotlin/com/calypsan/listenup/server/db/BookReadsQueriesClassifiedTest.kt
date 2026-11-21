@@ -62,6 +62,8 @@ private val CLASSIFIED: Map<String, ReadsSide> =
         "HardcoverHistory.latestOwnReadSince" to ReadsSide.LISTENUP_ONLY,
         // Keeping a book off Hardcover (#1541): the own reads finished while it was kept off.
         "HardcoverHistory.selectCatchUpHistory" to ReadsSide.LISTENUP_ONLY,
+        // A finish announcement belongs to a read the listener made in ListenUp; a pulled read never announced one.
+        "Activities.overAnnouncedFinishes" to ReadsSide.LISTENUP_ONLY,
     )
 
 /** Production files that may touch `bookReadsQueries` directly, relative to the server's commonMain kotlin root. */

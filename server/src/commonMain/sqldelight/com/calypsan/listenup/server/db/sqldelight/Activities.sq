@@ -75,6 +75,29 @@ SELECT EXISTS(
       AND occurred_at >= :run_started_at
 );
 
+-- The (user, book) pairs announced as finished more often than the user has ListenUp reads of the
+-- book — a finish merged into an earlier read used to announce itself anyway. A pair with no read at
+-- all is left out: nothing says which of its announcements is the true one. FinishAnnouncementSweep
+-- tombstones the surplus.
+overAnnouncedFinishes:
+SELECT a.user_id, a.book_id
+FROM activities a
+WHERE a.type = 'finished_book' AND a.deleted_at IS NULL AND a.book_id IS NOT NULL
+GROUP BY a.user_id, a.book_id
+HAVING COUNT(*) > (
+    SELECT COUNT(*) FROM book_reads r
+    WHERE r.user_id = a.user_id AND r.book_id = a.book_id AND r.source <> 'hardcover'
+) AND EXISTS (
+    SELECT 1 FROM book_reads r
+    WHERE r.user_id = a.user_id AND r.book_id = a.book_id AND r.source <> 'hardcover'
+);
+
+-- A user's live finish announcements of one book, oldest first.
+liveFinishAnnouncements:
+SELECT id, occurred_at FROM activities
+WHERE user_id = :user_id AND book_id = :book_id AND type = 'finished_book' AND deleted_at IS NULL
+ORDER BY occurred_at ASC, id ASC;
+
 -- Total row count — used by ActivitySeederTest to assert the exact number of seeded rows.
 countAll:
 SELECT COUNT(*) FROM activities;
