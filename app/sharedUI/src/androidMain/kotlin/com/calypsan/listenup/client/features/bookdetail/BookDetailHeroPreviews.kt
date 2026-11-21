@@ -28,6 +28,7 @@ private const val PREVIEW_TITLE = "Mistborn"
 private const val PREVIEW_SUBTITLE = "The Final Empire"
 private const val PREVIEW_BOOK_ID = "preview-book"
 private const val PREVIEW_PROGRESS = 0.4f
+private const val PREVIEW_PERCENT = 40
 private const val PREVIEW_DURATION_MS = 24L * 3600 * 1000 + 41L * 60 * 1000
 private const val PREVIEW_YEAR = 2006
 private const val PREVIEW_DOWNLOAD_BYTES = 1_288_490_189L
@@ -127,6 +128,7 @@ private fun WideHeroBandPreviewBody() {
                     ),
                 timeRemainingMs = PREVIEW_DURATION_MS * 6 / 10,
                 progress = PREVIEW_PROGRESS,
+                percent = PREVIEW_PERCENT,
                 finishedSpan = null,
             )
         },

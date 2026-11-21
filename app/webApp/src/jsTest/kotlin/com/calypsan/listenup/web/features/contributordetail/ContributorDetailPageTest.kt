@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.inProgressAt
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.core.BookId
@@ -267,7 +268,7 @@ class ContributorDetailPageTest :
                                         listOf(bookItem("b-in-progress", "Fairy Tale"), bookItem("b-untracked", "Holly")),
                                 ),
                             ),
-                        bookProgress = mapOf(BookId("b-in-progress") to 0.62f),
+                        bookProgress = mapOf(BookId("b-in-progress") to inProgressAt(0.62f)),
                     ),
                 )
 

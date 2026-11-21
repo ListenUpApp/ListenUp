@@ -150,6 +150,28 @@ class BookDetailViewModelReadingTest :
             }
         }
 
+        test("the live playhead reaching the end credits reads Finished, before the saved row or its flag catch up") {
+            runTest {
+                val f = BookDetailFixture().withChapters()
+                f.position.value = positionOf(1_000_000L)
+                f.loadedBookId.value = BookId("book-1")
+                f.playhead.value = BookPlayhead(BookId("book-1"), 1_000_000L)
+                val vm = watch(f.build())
+                vm.loadBook("book-1")
+                advanceUntilIdle()
+                vm.ready().readingStage shouldBe ReadingStage.InProgress
+
+                // Thirty seconds from the end of the 90-minute book: inside its one-minute credits.
+                f.playhead.value = BookPlayhead(BookId("book-1"), 5_400_000L - 30_000L)
+                advanceUntilIdle()
+
+                vm.ready().readingStage shouldBe ReadingStage.Finished
+                vm.ready().primaryAction shouldBe PrimaryAction.ListenAgain
+                vm.ready().progress shouldBe null
+                vm.ready().timeRemainingMs shouldBe null
+            }
+        }
+
         test("the book finishing during the visit flips the action live and leaves the order alone") {
             runTest {
                 val f = BookDetailFixture().withChapters()

@@ -2,45 +2,37 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.domain.BookProgress
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-
-private fun at(
-    ms: Long,
-    finished: Boolean = false,
-) = PlaybackPosition(
-    bookId = "book-1",
-    positionMs = ms,
-    playbackSpeed = 1f,
-    hasCustomSpeed = false,
-    volumeBoostDb = 0f,
-    hasCustomBoost = false,
-    measuredGainDb = null,
-    updatedAtMs = 0L,
-    syncedAtMs = null,
-    lastPlayedAtMs = 0L,
-    isFinished = finished,
-)
 
 class BookDetailDerivationsTest :
     FunSpec({
         context("readingStage") {
+            fun stage(
+                positionMs: Long?,
+                durationMs: Long = 3_600_000L,
+                finished: Boolean = false,
+            ) = readingStage(BookProgress.of(positionMs, durationMs, finished))
+
             test("no saved position is not started") {
-                readingStage(position = null, durationMs = 3_600_000L) shouldBe ReadingStage.NotStarted
+                stage(positionMs = null) shouldBe ReadingStage.NotStarted
             }
             test("a position at zero is not started") {
-                readingStage(at(0L), 3_600_000L) shouldBe ReadingStage.NotStarted
+                stage(0L) shouldBe ReadingStage.NotStarted
             }
             test("a partial position is in progress") {
-                readingStage(at(900_000L), 3_600_000L) shouldBe ReadingStage.InProgress
+                stage(900_000L) shouldBe ReadingStage.InProgress
             }
             test("the finished flag is finished, wherever the position sits") {
-                readingStage(at(0L, finished = true), 3_600_000L) shouldBe ReadingStage.Finished
-                readingStage(at(900_000L, finished = true), 3_600_000L) shouldBe ReadingStage.Finished
+                stage(0L, finished = true) shouldBe ReadingStage.Finished
+                stage(900_000L, finished = true) shouldBe ReadingStage.Finished
+            }
+            test("a position inside the end credits is finished without the flag") {
+                stage(3_600_000L - 30_000L) shouldBe ReadingStage.Finished
             }
             test("a book of unknown length never reads as in progress") {
-                readingStage(at(900_000L), durationMs = 0L) shouldBe ReadingStage.NotStarted
+                stage(900_000L, durationMs = 0L) shouldBe ReadingStage.NotStarted
             }
         }
 

@@ -662,6 +662,7 @@ private fun PhoneListenUnit(
             currentChapter = state.currentChapter,
             timeRemainingMs = state.timeRemainingMs,
             progress = state.progress,
+            percent = state.progressPercent,
             finishedSpan = state.finishedSpan,
         )
         // Why the primary below is disabled, directly above it.

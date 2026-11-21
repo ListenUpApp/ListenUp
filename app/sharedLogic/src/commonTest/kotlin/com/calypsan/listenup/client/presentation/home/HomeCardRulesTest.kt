@@ -14,7 +14,6 @@ class HomeCardRulesTest :
                 narratorNames = null,
                 coverPath = null,
                 coverHash = null,
-                progress = 0.11f,
                 currentPositionMs = 0L,
                 totalDurationMs = 1L,
                 lastPlayedAtMs = 0L,

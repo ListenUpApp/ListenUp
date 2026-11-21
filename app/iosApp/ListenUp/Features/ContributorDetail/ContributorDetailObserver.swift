@@ -15,7 +15,7 @@ final class ContributorDetailObserver {
     /// Terminal: the contributor has no live local row (merged away or genuinely missing).
     private(set) var notFound: Bool = false
     private(set) var roleSections: [RoleSectionRow] = []
-    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var bookProgress: [String: ListeningProgress] = [:]
     private(set) var isDeleting: Bool = false
     /// May edit this contributor and match its metadata (Edit metadata).
     private(set) var canEditMetadata: Bool = false
@@ -123,7 +123,7 @@ final class ContributorDetailObserver {
             deathDate = contributor.deathDate
             website = contributor.website
             roleSections = r.roleSections.map { RoleSectionRow($0) }
-            bookProgress = mapProgress(r.bookProgress)
+            bookProgress = ListeningProgress.byBookId(r.bookProgress)
             isDeleting = r.isDeleting
             canEditMetadata = r.canEditMetadata
             canCurateLibrary = r.canCurateLibrary
@@ -154,16 +154,5 @@ final class ContributorDetailObserver {
         case "narrator": .narrator
         default: .other(role.prefix(1).uppercased() + role.dropFirst().lowercased())
         }
-    }
-
-    /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
-    /// boundary — the `BookId` value-class key bridges as its wrapper type. Keys are
-    /// normalized to the book-id string the UI looks up by.
-    private func mapProgress(_ raw: [BookId: Float]) -> [String: Float] {
-        var result: [String: Float] = [:]
-        for (key, value) in raw {
-            result[key.value] = value
-        }
-        return result
     }
 }

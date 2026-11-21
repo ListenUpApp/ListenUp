@@ -24,7 +24,6 @@ class HomeRepositoryRecentBooksTest :
                 title = "Title $id",
                 authorNames = "Author",
                 coverPath = null,
-                progress = 0.5f,
                 currentPositionMs = 5_000L,
                 totalDurationMs = 10_000L,
                 narratorNames = null,

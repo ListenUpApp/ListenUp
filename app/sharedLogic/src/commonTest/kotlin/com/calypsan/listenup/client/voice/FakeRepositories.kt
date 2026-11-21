@@ -357,7 +357,6 @@ fun testContinueListeningBook(
     bookId: String = "book-1",
     title: String = "Test Book",
     authorNames: String = "Test Author",
-    progress: Float = 0.5f,
     currentPositionMs: Long = 1_800_000, // 30 minutes
     totalDurationMs: Long = 3_600_000, // 1 hour
     lastPlayedAtMs: Long = 1_705_314_600_000L,
@@ -368,7 +367,6 @@ fun testContinueListeningBook(
         authorNames = authorNames,
         narratorNames = null,
         coverPath = null,
-        progress = progress,
         currentPositionMs = currentPositionMs,
         totalDurationMs = totalDurationMs,
         lastPlayedAtMs = lastPlayedAtMs,

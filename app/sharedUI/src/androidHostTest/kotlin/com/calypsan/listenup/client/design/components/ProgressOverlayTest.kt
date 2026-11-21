@@ -44,7 +44,7 @@ class ProgressOverlayTest {
                 MaterialTheme {
                     Box(Modifier.width(240.dp)) {
                         ProgressOverlay(
-                            progress = 0.42f,
+                            percent = 42,
                             timeRemaining = "5m",
                             modifier = Modifier.testTag(PILL),
                         )

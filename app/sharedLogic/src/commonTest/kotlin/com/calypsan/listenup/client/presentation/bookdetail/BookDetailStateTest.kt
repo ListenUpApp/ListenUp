@@ -180,8 +180,32 @@ class BookDetailStateTest :
                 ready.timeRemainingFormatted shouldBe null
             }
 
-            test("a book in progress carries its fraction") {
-                snapshot(position = position(900_000L)).toReady(BookDetailAmbient()).progress shouldBe 0.25f
+            test("a book in progress carries its fraction and the one percent") {
+                val ready = snapshot(position = position(900_000L)).toReady(BookDetailAmbient())
+                ready.progress shouldBe 0.25f
+                ready.progressPercent shouldBe 25
+            }
+
+            test("the percent floors, and a started book never reads 0%") {
+                // 1_000_000 of 3_600_000 is 27.8%.
+                snapshot(position = position(1_000_000L)).toReady(BookDetailAmbient()).progressPercent shouldBe 27
+                // 14_400 of 3_600_000 is 0.4%.
+                snapshot(position = position(14_400L)).toReady(BookDetailAmbient()).progressPercent shouldBe 1
+            }
+
+            test("a book stopped thirty seconds before the end is finished, though its flag is not set yet") {
+                val ready = snapshot(position = position(3_600_000L - 30_000L)).toReady(BookDetailAmbient())
+                ready.readingStage shouldBe ReadingStage.Finished
+                ready.isComplete shouldBe true
+                ready.primaryAction shouldBe PrimaryAction.ListenAgain
+                ready.progress shouldBe null
+                ready.progressPercent shouldBe null
+                ready.timeRemainingMs shouldBe null
+                ready.currentChapter shouldBe null
+            }
+
+            test("a book not started carries no percent") {
+                snapshot(position = null).toReady(BookDetailAmbient()).progressPercent shouldBe null
             }
         }
 

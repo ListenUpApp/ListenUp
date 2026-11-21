@@ -7,7 +7,7 @@ import SwiftUI
 struct SeriesBookRow: View {
     let book: BookRow
     let sequence: String?
-    let progress: Float?
+    let progress: ListeningProgress?
     let isFinished: Bool
     let isPlaying: Bool
     let onPlayTapped: () -> Void
@@ -63,11 +63,11 @@ struct SeriesBookRow: View {
     }
 
     @ViewBuilder private var detail: some View {
-        if let progress, progress > 0, !isFinished {
+        if let progress, !isFinished {
             HStack(spacing: 9) {
-                ProgressBar(progress: progress)
+                ProgressBar(progress: progress.fraction)
                     .frame(width: 150, height: 4)
-                Text("\(Int((progress * 100).rounded()))%")
+                Text("\(progress.percent)%")
                     .font(.caption).monospacedDigit()
                     .foregroundStyle(.secondary)
             }

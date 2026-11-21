@@ -47,7 +47,8 @@ class LibraryStatusFiltersTest :
         }
 
         test("the card's last line says time left, Finished and length, or the length") {
-            cardLastLine(BookCardStatus.InProgress(fraction = 0.1f, timeLeftMs = 145_860_000L), durationMs = 0L) shouldBe "40h 31m left"
+            cardLastLine(BookCardStatus.InProgress(fraction = 0.1f, percent = 10, timeLeftMs = 145_860_000L), durationMs = 0L) shouldBe
+                "40h 31m left"
             cardLastLine(BookCardStatus.Finished(durationMs = 43_440_000L), durationMs = 0L) shouldBe "Finished · 12h 4m"
             cardLastLine(BookCardStatus.NotStarted(durationMs = 43_440_000L), durationMs = 0L) shouldBe "12h 4m"
             cardLastLine(null, durationMs = 43_440_000L) shouldBe "12h 4m"
@@ -57,7 +58,7 @@ class LibraryStatusFiltersTest :
             val book = contractBook("b1", "The Way of Kings")
             val started =
                 mounts.mount {
-                    BookCard(book = book, status = BookCardStatus.InProgress(0.5f, 1_800_000L), onOpen = {})
+                    BookCard(book = book, status = BookCardStatus.InProgress(0.5f, 50, 1_800_000L), onOpen = {})
                 }
             started.querySelector(".lib-cover [role=progressbar]")!!.getAttribute("aria-valuenow") shouldBe "50"
             started.querySelector(".lib-meta")!!.textContent shouldBe "30m left"

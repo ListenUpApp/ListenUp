@@ -39,6 +39,11 @@ struct BookPrimaryActionLabelTests {
         #expect(text.contains("31"))
     }
 
+    @Test func progressIsAnnouncedFromTheSharedPercent() {
+        #expect(ResumeUnit.progressAccessibilityText(percent: 1).contains("1"))
+        #expect(!ResumeUnit.progressAccessibilityText(percent: 1).contains("0"))
+    }
+
     @Test func chapterReadsNumberAndTitle() {
         let chapter = BookCurrentChapter(index: 5, number: 6, title: "Bridge Four", startMs: 0, elapsedInChapterMs: 0)
         #expect(ResumeUnit.chapterText(chapter) == "Ch. 6 · Bridge Four")

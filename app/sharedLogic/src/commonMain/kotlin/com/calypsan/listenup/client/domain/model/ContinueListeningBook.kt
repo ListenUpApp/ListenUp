@@ -1,14 +1,14 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.client.core.DurationFormatter
-import kotlin.math.roundToInt
+import com.calypsan.listenup.domain.BookProgress
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Domain model for a book in the "Continue Listening" section.
  *
- * Combines playback progress data with book metadata for UI display.
- * Provides computed properties for progress display and time remaining.
+ * Combines playback progress data with book metadata for UI display. Its progress, percent and time left are
+ * [BookProgress]'s, read from [currentPositionMs] and [totalDurationMs]: never a second rule.
  *
  * @property narratorNames the narrators joined with ", ", or null when the book names none.
  * @property lastPlayedAtMs when the reader last played it, epoch ms (the position's lastPlayedAt, else its updatedAt).
@@ -21,24 +21,29 @@ data class ContinueListeningBook(
     val narratorNames: String?,
     val coverPath: String?,
     val coverHash: String? = null,
-    // 0.0 - 1.0
-    val progress: Float,
     val currentPositionMs: Long,
     val totalDurationMs: Long,
     val lastPlayedAtMs: Long,
     val isDownloaded: Boolean,
 ) {
     /**
-     * Time remaining in milliseconds.
+     * Where the reader is, by the one rule. Continue Listening holds only unfinished books, so this is
+     * [BookProgress.InProgress] except for a book whose length is not known yet, which has no percent to show.
      */
-    val timeRemainingMs: Long
-        get() = (totalDurationMs - currentPositionMs).coerceAtLeast(0)
+    private val inProgress: BookProgress.InProgress?
+        get() = BookProgress.of(currentPositionMs, totalDurationMs, finishedFlag = false) as? BookProgress.InProgress
 
-    /**
-     * Progress as percentage (0-100).
-     */
+    /** How far through, `0..1`, for the bar; 0 for a book of unknown length. */
+    val progress: Float
+        get() = inProgress?.fraction ?: 0f
+
+    /** The percent to print ([BookProgress.InProgress.percent]); 0 for a book of unknown length. */
     val progressPercent: Int
-        get() = (progress * 100).roundToInt()
+        get() = inProgress?.percent ?: 0
+
+    /** Time remaining in milliseconds ([BookProgress.InProgress.remainingMs]); 0 for a book of unknown length. */
+    val timeRemainingMs: Long
+        get() = inProgress?.remainingMs ?: 0L
 
     /**
      * Human-readable time remaining.

@@ -1,18 +1,15 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
 import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.playback.chapterWindowAt
+import com.calypsan.listenup.domain.BookProgress
 
-/** Where the reader is with a book of [durationMs], from its saved [position]. Pure. */
-internal fun readingStage(
-    position: PlaybackPosition?,
-    durationMs: Long,
-): ReadingStage =
-    when {
-        position?.isFinished == true -> ReadingStage.Finished
-        position != null && durationMs > 0 && position.positionMs > 0 -> ReadingStage.InProgress
-        else -> ReadingStage.NotStarted
+/** Book Detail's stage for [progress]: the one rule, [BookProgress], named for what the page does with it. Pure. */
+internal fun readingStage(progress: BookProgress): ReadingStage =
+    when (progress) {
+        BookProgress.NotStarted -> ReadingStage.NotStarted
+        is BookProgress.InProgress -> ReadingStage.InProgress
+        BookProgress.Finished -> ReadingStage.Finished
     }
 
 /** Which sections the device itself knows to be absent. Readers, Ratings and Hardcover are the platform's call. */

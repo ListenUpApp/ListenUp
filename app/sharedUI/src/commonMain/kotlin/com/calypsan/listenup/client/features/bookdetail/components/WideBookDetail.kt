@@ -205,6 +205,7 @@ private fun WideHero(
                     currentChapter = state.currentChapter,
                     timeRemainingMs = state.timeRemainingMs,
                     progress = state.progress,
+                    percent = state.progressPercent,
                     finishedSpan = state.finishedSpan,
                 )
             }

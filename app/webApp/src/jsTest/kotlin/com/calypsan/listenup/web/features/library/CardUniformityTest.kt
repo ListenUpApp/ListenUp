@@ -73,7 +73,7 @@ class CardUniformityTest :
                 contractLibrary(books).copy(
                     bookStatus =
                         mapOf(
-                            books[0].id to BookCardStatus.InProgress(fraction = 0.5f, timeLeftMs = 1_800_000L),
+                            books[0].id to BookCardStatus.InProgress(fraction = 0.5f, percent = 50, timeLeftMs = 1_800_000L),
                             books[1].id to BookCardStatus.Finished(durationMs = 3_600_000L),
                             books[2].id to BookCardStatus.NotStarted(durationMs = 3_600_000L),
                         ),

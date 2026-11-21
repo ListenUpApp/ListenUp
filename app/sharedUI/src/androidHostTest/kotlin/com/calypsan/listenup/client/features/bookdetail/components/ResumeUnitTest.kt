@@ -37,6 +37,7 @@ class ResumeUnitTest {
                         ),
                     timeRemainingMs = 60_000L,
                     progress = 0.09f,
+                    percent = 9,
                     finishedSpan = null,
                 )
             }
@@ -55,6 +56,7 @@ class ResumeUnitTest {
                         CurrentChapter(index = 5, number = 6, title = "Bridge Four", startMs = 0, elapsedInChapterMs = 720_000),
                     timeRemainingMs = (40 * 60 + 31) * 60_000L,
                     progress = 0.11f,
+                    percent = 11,
                     finishedSpan = null,
                 )
             }
@@ -67,10 +69,35 @@ class ResumeUnitTest {
     }
 
     @Test
+    fun `the bar announces the shared percent, never one of its own from the fraction`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ResumeUnit(
+                    readingStage = ReadingStage.InProgress,
+                    currentChapter = null,
+                    timeRemainingMs = 60_000L,
+                    // 0.4%: a rounding of its own would announce 0.
+                    progress = 0.004f,
+                    percent = 1,
+                    finishedSpan = null,
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("1 percent listened").assertExists()
+    }
+
+    @Test
     fun `not started draws nothing`() {
         composeRule.setContent {
             MaterialTheme {
-                ResumeUnit(ReadingStage.NotStarted, currentChapter = null, timeRemainingMs = null, progress = null, finishedSpan = null)
+                ResumeUnit(
+                    ReadingStage.NotStarted,
+                    currentChapter = null,
+                    timeRemainingMs = null,
+                    progress = null,
+                    percent = null,
+                    finishedSpan = null,
+                )
             }
         }
         composeRule.onNodeWithContentDescription("percent listened", substring = true).assertDoesNotExist()
@@ -86,6 +113,7 @@ class ResumeUnitTest {
                     currentChapter = null,
                     timeRemainingMs = null,
                     progress = null,
+                    percent = null,
                     finishedSpan = FinishedSpan(startedAtMs = 1_770_854_400_000L, finishedAtMs = 1_772_496_000_000L),
                 )
             }
@@ -99,7 +127,14 @@ class ResumeUnitTest {
     fun `finished with no recorded date still says Finished`() {
         composeRule.setContent {
             MaterialTheme {
-                ResumeUnit(ReadingStage.Finished, currentChapter = null, timeRemainingMs = null, progress = null, finishedSpan = null)
+                ResumeUnit(
+                    ReadingStage.Finished,
+                    currentChapter = null,
+                    timeRemainingMs = null,
+                    progress = null,
+                    percent = null,
+                    finishedSpan = null,
+                )
             }
         }
         composeRule.onNodeWithText("Finished").assertExists()

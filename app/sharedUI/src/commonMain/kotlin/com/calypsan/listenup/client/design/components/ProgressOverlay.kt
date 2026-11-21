@@ -28,13 +28,13 @@ import org.jetbrains.compose.resources.stringResource
  * over the lightest cover. Sits at the bottom of a cover, and grows rather than clips when the
  * user's font scale is large.
  *
- * @param progress Progress value from 0.0 to 1.0
+ * @param percent The book's whole percent, as `BookProgress.InProgress.percent` gives it: printed, never re-rounded
  * @param timeRemaining Optional formatted time remaining string (e.g., "2h 15m left")
  * @param modifier Optional modifier
  */
 @Composable
 fun ProgressOverlay(
-    progress: Float,
+    percent: Int,
     timeRemaining: String? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -56,7 +56,7 @@ fun ProgressOverlay(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = stringResource(Res.string.common_percent, (progress.coerceIn(0f, 1f) * 100).toInt()),
+                    text = stringResource(Res.string.common_percent, percent),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.ExtraBold,

@@ -102,6 +102,7 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
 import com.calypsan.listenup.client.util.formatDateLong
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -776,7 +777,7 @@ private fun NarrowColorHero(
 @Composable
 private fun NarrowWorkSection(
     section: RoleSection,
-    bookProgress: Map<BookId, Float>,
+    bookProgress: Map<BookId, BookProgress.InProgress>,
     onBookClick: (String) -> Unit,
     onViewAllClick: () -> Unit,
 ) {

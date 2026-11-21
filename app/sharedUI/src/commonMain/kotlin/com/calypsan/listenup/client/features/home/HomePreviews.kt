@@ -47,7 +47,6 @@ private fun mockBook(
     title = title,
     authorNames = author,
     coverPath = null,
-    progress = progress,
     currentPositionMs = (progress * 36_000_000).toLong(),
     totalDurationMs = 36_000_000L,
     narratorNames = null,

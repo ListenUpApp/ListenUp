@@ -147,7 +147,6 @@ class HomeViewModelTest :
             bookId: String = "book-1",
             title: String = "Test Book",
             authorNames: String = "Test Author",
-            progress: Float = 0.5f,
             currentPositionMs: Long = 1_800_000L,
             totalDurationMs: Long = 3_600_000L,
         ): ContinueListeningBook =
@@ -156,7 +155,6 @@ class HomeViewModelTest :
                 title = title,
                 authorNames = authorNames,
                 coverPath = null,
-                progress = progress,
                 currentPositionMs = currentPositionMs,
                 totalDurationMs = totalDurationMs,
                 narratorNames = null,
@@ -168,7 +166,6 @@ class HomeViewModelTest :
             bookId: String = "book-1",
             title: String = "Test Book",
             authorNames: String = "Test Author",
-            progress: Float = 0.5f,
             currentPositionMs: Long = 1_800_000L,
             totalDurationMs: Long = 3_600_000L,
         ): ContinueListeningItem.Ready =
@@ -179,7 +176,6 @@ class HomeViewModelTest :
                         bookId = bookId,
                         title = title,
                         authorNames = authorNames,
-                        progress = progress,
                         currentPositionMs = currentPositionMs,
                         totalDurationMs = totalDurationMs,
                     ),

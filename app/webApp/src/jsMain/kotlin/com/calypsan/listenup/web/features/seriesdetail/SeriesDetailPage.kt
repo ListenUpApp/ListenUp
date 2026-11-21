@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.ProgressLook
 import com.calypsan.listenup.web.design.ProgressBar
@@ -313,7 +314,7 @@ internal fun CountBadge(count: Int) {
 internal fun SeriesBookRow(
     book: BookListItem,
     seriesId: String,
-    progress: Float?,
+    progress: BookProgress.InProgress?,
     isFinished: Boolean,
     onOpen: () -> Unit,
 ) {
@@ -341,8 +342,13 @@ internal fun SeriesBookRow(
             // `bookProgress` carries in-progress books ONLY — the ViewModel moves anything at or
             // past its finished threshold into `finishedBookIds` instead — so an unstarted book
             // draws no bar rather than a zero-width one that reads as data.
-            progress?.let { fraction ->
-                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
+            progress?.let {
+                ProgressBar(
+                    value = it.fraction,
+                    label = "Listening progress",
+                    look = ProgressLook.Overlay,
+                    percent = it.percent,
+                )
             }
         }
 

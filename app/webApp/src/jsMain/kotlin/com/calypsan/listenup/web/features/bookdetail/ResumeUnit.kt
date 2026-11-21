@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.FinishedSpan
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.web.design.ProgressBar
-import com.calypsan.listenup.web.design.percentOf
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -37,6 +36,7 @@ internal fun ResumeUnit(ready: BookDetailUiState.Ready) {
 
         ReadingStage.InProgress -> {
             val fraction = ready.progress ?: 0f
+            val percent = ready.progressPercent ?: 0
             val left = ready.timeRemainingMs?.let { DurationFormatter.hoursMinutesAlways(it.milliseconds) }
             Div(attrs = { classes("bd-unit") }) {
                 Div(attrs = { classes("bd-unit-row") }) {
@@ -51,10 +51,10 @@ internal fun ResumeUnit(ready: BookDetailUiState.Ready) {
                         }
                     }
                     Span(attrs = { classes("bd-unit-left") }) {
-                        Text(listOfNotNull("${percentOf(fraction)}%", left?.let { "$it left" }).joinToString(" · "))
+                        Text(listOfNotNull("$percent%", left?.let { "$it left" }).joinToString(" · "))
                     }
                 }
-                ProgressBar(value = fraction, label = "Listening progress")
+                ProgressBar(value = fraction, label = "Listening progress", percent = percent)
             }
         }
     }

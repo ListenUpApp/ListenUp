@@ -530,12 +530,13 @@ class BookDetailViewModelTest :
             }
         }
 
-        test("loadBook shows progress when nearly complete but not marked finished") {
+        test("loadBook shows progress when nearly complete, short of the end credits, and not marked finished") {
             runTest {
                 // Given
                 val fixture = createTestFixture()
                 val book = TestData.bookDetail(duration = 3_600_000L) // 1 hour
-                val position = createPlaybackPosition(positionMs = 3_564_000L) // 99% complete
+                // 100 s from the end: past the one-hour book's 36 s of credits, so still in progress.
+                val position = createPlaybackPosition(positionMs = 3_500_000L)
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
                 every { fixture.bookRepository.observeChapters(any()) } returns flowOf(emptyList())
                 every { fixture.playbackPositionRepository.observe(any()) } returns flowOf(position)
@@ -553,7 +554,8 @@ class BookDetailViewModelTest :
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
                     val progress = ready.progress
                     progress.shouldNotBeNull()
-                    (progress in 0.98f..1.0f) shouldBe true
+                    (progress in 0.97f..1.0f) shouldBe true
+                    ready.progressPercent shouldBe 97
                     states.cancel()
                 }
             }

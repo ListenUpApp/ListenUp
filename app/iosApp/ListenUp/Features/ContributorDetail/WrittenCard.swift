@@ -4,7 +4,7 @@ import SwiftUI
 /// progress overlay), title, author, and duration.
 struct WrittenCard: View {
     let book: BookRow
-    let progress: Float?
+    let progress: ListeningProgress?
 
     @Environment(\.restrictedBooks) private var restrictedBooks
 
@@ -20,8 +20,8 @@ struct WrittenCard: View {
                 .restrictedMarker(bookId: book.id)
                 .coverHoverEffect(cornerRadius: Radius.l)
                 .overlay(alignment: .bottom) {
-                    if let progress, progress > 0 {
-                        ProgressBar(progress: progress, style: .overlay)
+                    if let progress {
+                        ProgressBar(progress: progress.fraction, style: .overlay)
                             .frame(height: 4)
                             .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
                     }

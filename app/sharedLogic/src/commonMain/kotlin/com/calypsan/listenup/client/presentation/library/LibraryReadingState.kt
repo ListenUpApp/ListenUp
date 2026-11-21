@@ -3,24 +3,33 @@ package com.calypsan.listenup.client.presentation.library
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 
 /** A book's coarse reading state. Internal: the coarse snapshot exists to gate the content revision. */
 internal enum class ReadingState { NOT_STARTED, IN_PROGRESS, FINISHED }
 
-/** Finished wins; otherwise any progress above zero is in progress. */
-internal fun readingStateOf(position: PlaybackPosition?): ReadingState =
-    when {
-        position == null -> ReadingState.NOT_STARTED
-        position.isFinished -> ReadingState.FINISHED
-        position.positionMs > 0L -> ReadingState.IN_PROGRESS
-        else -> ReadingState.NOT_STARTED
+/** The progress of a book of [durationMs] at [position], by the one rule. */
+private fun progressOf(
+    position: PlaybackPosition?,
+    durationMs: Long,
+): BookProgress = BookProgress.of(position?.positionMs, durationMs, position?.isFinished == true)
+
+/** The coarse state of a book of [durationMs] at [position]: [BookProgress], without the numbers. */
+internal fun readingStateOf(
+    position: PlaybackPosition?,
+    durationMs: Long,
+): ReadingState =
+    when (progressOf(position, durationMs)) {
+        BookProgress.NotStarted -> ReadingState.NOT_STARTED
+        is BookProgress.InProgress -> ReadingState.IN_PROGRESS
+        BookProgress.Finished -> ReadingState.FINISHED
     }
 
 /** One coarse state per book. Data-class equality lets `distinctUntilChanged` drop position ticks. */
 internal fun readingStates(
     books: List<BookListItem>,
     positions: Map<BookId, PlaybackPosition>,
-): Map<BookId, ReadingState> = books.associate { it.id to readingStateOf(positions[it.id]) }
+): Map<BookId, ReadingState> = books.associate { it.id to readingStateOf(positions[it.id], it.duration) }
 
 internal fun countsOf(states: Collection<ReadingState>): BookStatusCounts =
     BookStatusCounts(
@@ -41,27 +50,9 @@ internal fun BookStatusFilter.admits(state: ReadingState): Boolean =
 internal fun cardStatusOf(
     book: BookListItem,
     position: PlaybackPosition?,
-): BookCardStatus {
-    val state = readingStateOf(position)
-    return when {
-        state == ReadingState.NOT_STARTED -> {
-            BookCardStatus.NotStarted(durationMs = book.duration)
-        }
-
-        state == ReadingState.FINISHED -> {
-            BookCardStatus.Finished(durationMs = book.duration)
-        }
-
-        // In progress always has a position; an unknown length can't say how far along it is.
-        position == null || book.duration <= 0L -> {
-            BookCardStatus.InProgress(fraction = 0f, timeLeftMs = 0L)
-        }
-
-        else -> {
-            BookCardStatus.InProgress(
-                fraction = (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f),
-                timeLeftMs = (book.duration - position.positionMs).coerceAtLeast(0L),
-            )
-        }
+): BookCardStatus =
+    when (val progress = progressOf(position, book.duration)) {
+        BookProgress.NotStarted -> BookCardStatus.NotStarted(durationMs = book.duration)
+        is BookProgress.InProgress -> BookCardStatus.InProgress(progress)
+        BookProgress.Finished -> BookCardStatus.Finished(durationMs = book.duration)
     }
-}

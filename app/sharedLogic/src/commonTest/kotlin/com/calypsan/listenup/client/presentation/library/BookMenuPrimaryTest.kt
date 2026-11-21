@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 class BookMenuPrimaryTest :
     FunSpec({
         test("a started book resumes, carrying its time left") {
-            bookMenuPrimary(BookCardStatus.InProgress(fraction = 0.1f, timeLeftMs = 21_720_000L)) shouldBe
+            bookMenuPrimary(BookCardStatus.InProgress(fraction = 0.1f, percent = 10, timeLeftMs = 21_720_000L)) shouldBe
                 BookMenuPrimary.Resume(timeLeftMs = 21_720_000L)
         }
 

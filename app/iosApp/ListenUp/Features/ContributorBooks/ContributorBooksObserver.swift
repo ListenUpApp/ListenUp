@@ -39,7 +39,7 @@ struct ContributorBooksSnapshot: Equatable {
     var roleDisplayName: String = ""
     var seriesGroups: [ContributorSeriesGroupRow] = []
     var standaloneBooks: [BookRow] = []
-    var bookProgress: [String: Float] = [:]
+    var bookProgress: [String: ListeningProgress] = [:]
     var errorMessage: String?
 
     /// Total books across series groups and standalone books.
@@ -65,7 +65,7 @@ struct ContributorBooksSnapshot: Equatable {
                 roleDisplayName: r.roleDisplayName,
                 seriesGroups: r.seriesGroups.map { ContributorSeriesGroupRow($0) },
                 standaloneBooks: r.standaloneBooks.map { BookRow($0) },
-                bookProgress: mapProgress(r.bookProgress)
+                bookProgress: ListeningProgress.byBookId(r.bookProgress)
             )
         case .error(let errType):
             let err = errType.value
@@ -76,16 +76,6 @@ struct ContributorBooksSnapshot: Equatable {
                 errorMessage: err.message
             )
         }
-    }
-
-    /// `Map<BookId, Float>` bridges as `[BookId: Float]`; normalize keys to the book-id string
-    /// the grid looks up by (mirrors `LibraryObserver.mapProgress`).
-    private static func mapProgress(_ raw: [BookId: Float]) -> [String: Float] {
-        var result: [String: Float] = [:]
-        for (key, value) in raw {
-            result[key.value] = value
-        }
-        return result
     }
 }
 
@@ -100,7 +90,7 @@ final class ContributorBooksObserver {
     private(set) var roleDisplayName: String = ""
     private(set) var seriesGroups: [ContributorSeriesGroupRow] = []
     private(set) var standaloneBooks: [BookRow] = []
-    private(set) var bookProgress: [String: Float] = [:]
+    private(set) var bookProgress: [String: ListeningProgress] = [:]
     private(set) var errorMessage: String?
 
     var totalBooks: Int { seriesGroups.reduce(0) { $0 + $1.books.count } + standaloneBooks.count }

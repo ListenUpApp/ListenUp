@@ -11,7 +11,7 @@ sealed interface ReadingStage {
     /** Some progress, not finished. */
     data object InProgress : ReadingStage
 
-    /** The saved position says finished. */
+    /** Finished: the flag, or a position inside the end credits (`FinishedPolicy`, through `BookProgress`). */
     data object Finished : ReadingStage
 }
 

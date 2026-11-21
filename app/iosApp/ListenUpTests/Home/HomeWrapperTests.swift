@@ -20,8 +20,8 @@ struct HomeWrapperTests {
             narratorNames: "Michael Kramer, Kate Reading",
             coverPath: "/covers/wok.jpg",
             coverHash: nil,
-            progress: 0.42,
-            currentPositionMs: 1_000,
+            // 42% through: the progress and percent both come from the position, by the shared rule.
+            currentPositionMs: 4_200,
             totalDurationMs: 10_000,
             lastPlayedAtMs: 1_760_000_000_000,
             isDownloaded: true
@@ -41,7 +41,7 @@ struct HomeWrapperTests {
         #expect(item.narrators == "Michael Kramer, Kate Reading")
         #expect(item.isDownloaded == true)
         #expect(item.lastPlayedAt == Date(timeIntervalSince1970: 1_760_000_000))
-        #expect(item.remainingMs == 9_000)
+        #expect(item.remainingMs == 5_800)
         #expect(item.totalMs == 10_000)
     }
 
@@ -192,7 +192,7 @@ struct HomeWrapperTests {
     private func clBook(_ id: String) -> ContinueListeningBook {
         ContinueListeningBook(
             bookId: id, title: "Book \(id)", authorNames: "A. Writer", narratorNames: nil, coverPath: nil, coverHash: nil,
-            progress: 0.5, currentPositionMs: 1_000, totalDurationMs: 2_000, lastPlayedAtMs: 0, isDownloaded: false
+            currentPositionMs: 1_000, totalDurationMs: 2_000, lastPlayedAtMs: 0, isDownloaded: false
         )
     }
 

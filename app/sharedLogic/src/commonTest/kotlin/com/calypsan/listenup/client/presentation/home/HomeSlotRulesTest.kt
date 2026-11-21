@@ -352,7 +352,6 @@ private fun book(id: String) =
         narratorNames = null,
         coverPath = null,
         coverHash = null,
-        progress = 0.5f,
         currentPositionMs = 1_000L,
         totalDurationMs = 2_000L,
         lastPlayedAtMs = NOW,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -31,7 +32,7 @@ internal fun readySeries(
     seriesAuthors: List<BookContributor> = listOf(BookContributor(id = "c1", name = "Brandon Sanderson")),
     books: List<BookListItem> =
         listOf(seriesBook("b1", "The Way of Kings", 1.0), seriesBook("b2", "Words of Radiance", 2.0)),
-    bookProgress: Map<BookId, Float> = emptyMap(),
+    bookProgress: Map<BookId, BookProgress.InProgress> = emptyMap(),
     finishedBookIds: Set<BookId> = emptySet(),
     resumeTarget: BookId? = books.firstOrNull()?.id,
     totalDuration: Duration = DEFAULT_TOTAL_DURATION,

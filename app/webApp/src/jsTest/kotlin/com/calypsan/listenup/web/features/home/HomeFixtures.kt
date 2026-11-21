@@ -38,7 +38,6 @@ internal fun continuing(
                 authorNames = "A. Writer",
                 coverPath = null,
                 coverHash = null,
-                progress = progress,
                 currentPositionMs = (totalHours * HOUR_MS * progress).toLong(),
                 totalDurationMs = totalHours * HOUR_MS,
                 narratorNames = narrators,

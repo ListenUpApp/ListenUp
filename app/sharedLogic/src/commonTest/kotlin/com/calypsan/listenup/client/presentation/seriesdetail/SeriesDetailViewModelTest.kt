@@ -529,7 +529,8 @@ class SeriesDetailViewModelTest :
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
                 state.finishedBookIds shouldBe setOf(BookId("book-1"))
                 state.finishedCount shouldBe 1
-                state.bookProgress.getValue(BookId("book-2")) shouldBe (0.5f plusOrMinus 0.001f)
+                state.bookProgress.getValue(BookId("book-2")).fraction shouldBe (0.5f plusOrMinus 0.001f)
+                state.bookProgress.getValue(BookId("book-2")).percent shouldBe 50
                 state.bookProgress.containsKey(BookId("book-1")) shouldBe false
                 state.bookProgress.containsKey(BookId("book-3")) shouldBe false
             }

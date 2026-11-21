@@ -44,9 +44,8 @@ class HomeNoticesTest {
                     authorNames = "R. F. Kuang",
                     narratorNames = null,
                     coverPath = "/tmp/cover-babel.webp",
-                    progress = 0.11f,
-                    currentPositionMs = 8_000_000L,
-                    totalDurationMs = 75_200_000L,
+                    currentPositionMs = 8_310_000L, // 11.0% of the book, 18h 40m left
+                    totalDurationMs = 75_510_000L,
                     lastPlayedAtMs = 0L,
                     isDownloaded = downloaded,
                 ),

@@ -2,7 +2,7 @@
 
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.domain.FinishedPolicy
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
@@ -94,9 +94,7 @@ internal class HomeRepositoryImpl(
                         return@mapNotNull null
                     }
 
-                val effectivelyFinished =
-                    FinishedPolicy.isFinished(position.positionMs, book.duration, position.isFinished)
-                if (effectivelyFinished) {
+                if (BookProgress.of(position.positionMs, book.duration, position.isFinished) is BookProgress.Finished) {
                     booksFiltered++
                     logger.debug {
                         "Local fallback: skipping finished book - id=$bookIdStr, " +
@@ -182,10 +180,8 @@ internal class HomeRepositoryImpl(
                         // D: sync in-flight — show Loading placeholder so shelf size stays stable
                         ContinueListeningItem.Loading(pos.bookId.value)
                     } else {
-                        // A: the flag, or a position in the end credits — one rule, FinishedPolicy
-                        val effectivelyFinished =
-                            FinishedPolicy.isFinished(pos.positionMs, book.duration, pos.isFinished)
-                        if (effectivelyFinished) {
+                        // A: the flag, or a position in the end credits — one rule, BookProgress (FinishedPolicy)
+                        if (BookProgress.of(pos.positionMs, book.duration, pos.isFinished) is BookProgress.Finished) {
                             null // exclude
                         } else {
                             ContinueListeningItem.Ready(
@@ -205,25 +201,17 @@ internal class HomeRepositoryImpl(
         position: PlaybackPositionEntity,
         book: BookListItem,
         downloads: Map<String, BookDownloadStatus>,
-    ): ContinueListeningBook {
-        val progress =
-            if (book.duration > 0) {
-                (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
-            } else {
-                0f
-            }
-        return ContinueListeningBook(
+    ): ContinueListeningBook =
+        ContinueListeningBook(
             bookId = position.bookId.value,
             title = book.title,
             authorNames = book.authorNames,
             narratorNames = book.narrators.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name },
             coverPath = book.coverPath,
             coverHash = book.coverHash,
-            progress = progress,
             currentPositionMs = position.positionMs,
             totalDurationMs = book.duration,
             lastPlayedAtMs = position.lastPlayedAt ?: position.updatedAt,
             isDownloaded = downloads[position.bookId.value] is BookDownloadStatus.Completed,
         )
-    }
 }

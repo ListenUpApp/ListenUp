@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.web.inProgressAt
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState
 import com.calypsan.listenup.client.presentation.contributordetail.SeriesGroup
@@ -112,7 +114,7 @@ class ContributorBooksPageTest :
                 booksPage(
                     readyBooks(
                         standaloneBooks = listOf(started, untouched),
-                        bookProgress = mapOf(started.id to 0.5f),
+                        bookProgress = mapOf(started.id to inProgressAt(0.5f)),
                     ),
                 )
 
@@ -202,7 +204,7 @@ private fun readyBooks(
     roleDisplayName: String = "Written By",
     seriesGroups: List<SeriesGroup> = emptyList(),
     standaloneBooks: List<BookListItem> = emptyList(),
-    bookProgress: Map<BookId, Float> = emptyMap(),
+    bookProgress: Map<BookId, BookProgress.InProgress> = emptyMap(),
     bookCreditedAs: Map<String, String> = emptyMap(),
 ): ContributorBooksUiState.Ready =
     ContributorBooksUiState.Ready(

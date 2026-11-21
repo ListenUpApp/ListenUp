@@ -29,6 +29,10 @@ import kotlin.math.roundToInt
  * It is a `role=progressbar` with its value, named by [label]. [caption] is the visible words beside
  * a bar ("49% · 9h 18m left"). [decorative] is for a bar that restates a number printed beside it: it
  * is hidden from assistive technology, which has already read the number.
+ *
+ * [percent] is the whole percent to announce when the caller already has one — a book's listening progress always
+ * does (`BookProgress.InProgress.percent`), so a screen reader hears the number the page prints. Without it the
+ * bar announces its own rounding of [value], which is right for a scan or an upload.
  */
 @Composable
 fun ProgressBar(
@@ -37,6 +41,7 @@ fun ProgressBar(
     look: ProgressLook = ProgressLook.Bar,
     caption: String? = null,
     decorative: Boolean = false,
+    percent: Int? = null,
     attrs: (AttrsScope<HTMLDivElement>.() -> Unit)? = null,
 ) {
     val fraction = value?.coerceIn(0f, 1f)
@@ -50,7 +55,7 @@ fun ProgressBar(
                 attr("role", "progressbar")
                 attr("aria-valuemin", "0")
                 attr("aria-valuemax", PERCENT_MAX.toString())
-                fraction?.let { attr("aria-valuenow", percentOf(it).toString()) }
+                (percent ?: fraction?.let(::percentOf))?.let { attr("aria-valuenow", it.toString()) }
                 label?.let { attr("aria-label", it) }
             }
             attrs?.invoke(this)

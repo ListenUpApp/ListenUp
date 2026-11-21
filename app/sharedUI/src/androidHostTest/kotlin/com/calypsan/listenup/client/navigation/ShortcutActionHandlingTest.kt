@@ -240,7 +240,6 @@ private fun book(id: String) =
         title = "Book $id",
         authorNames = "An Author",
         coverPath = null,
-        progress = 0.5f,
         currentPositionMs = 3_600_000L,
         totalDurationMs = 7_200_000L,
         narratorNames = null,

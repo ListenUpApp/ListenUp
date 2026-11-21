@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.inProgressAt
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
@@ -172,7 +173,7 @@ class SeriesDetailPageTest :
         test("only a book the state has progress for draws a progress bar") {
             val root =
                 seriesDetailPage(
-                    readySeries(bookProgress = mapOf(BookId("b1") to 0.5f)),
+                    readySeries(bookProgress = mapOf(BookId("b1") to inProgressAt(0.5f))),
                 )
 
             root.querySelectorAll(".progress-overlay").length shouldBe 1
@@ -200,7 +201,7 @@ class SeriesDetailPageTest :
         test("an in-progress series offers Continue") {
             val root =
                 seriesDetailPage(
-                    readySeries(bookProgress = mapOf(BookId("b1") to 0.4f), resumeTarget = BookId("b1")),
+                    readySeries(bookProgress = mapOf(BookId("b1") to inProgressAt(0.4f)), resumeTarget = BookId("b1")),
                 )
 
             (root.querySelector(".sd-actions") as HTMLElement).textContent.orEmpty() shouldContain "Continue"
@@ -240,7 +241,7 @@ class SeriesDetailPageTest :
             val played = mutableListOf<String>()
             val root =
                 seriesDetailPage(
-                    readySeries(bookProgress = mapOf(BookId("b2") to 0.3f), resumeTarget = BookId("b2")),
+                    readySeries(bookProgress = mapOf(BookId("b2") to inProgressAt(0.3f)), resumeTarget = BookId("b2")),
                     onPlayBook = { played += it },
                 )
 

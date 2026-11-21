@@ -70,6 +70,7 @@ private const val MOCK_TITLE = "The Way of Kings"
 // subtitle + series-chip treatment exists for.
 private const val MOCK_SUBTITLE = "A Novel"
 private const val MOCK_PROGRESS = 0.62f
+private const val MOCK_PERCENT = 62
 private const val MOCK_DURATION_MS = 45L * 3600 * 1000
 private const val MOCK_YEAR = 2010
 private const val MOCK_ADDED_AT_MS = 1_704_067_200_000L
@@ -392,6 +393,7 @@ private fun ActionsSection() {
             currentChapter = null,
             timeRemainingMs = null,
             progress = null,
+            percent = null,
             finishedSpan =
                 FinishedSpan(
                     startedAtMs = MOCK_ADDED_AT_MS,
@@ -427,6 +429,7 @@ private fun PreviewResumeUnit() {
             ),
         timeRemainingMs = MOCK_DURATION_MS * 8 / 10,
         progress = MOCK_PROGRESS,
+        percent = MOCK_PERCENT,
         finishedSpan = null,
     )
 }

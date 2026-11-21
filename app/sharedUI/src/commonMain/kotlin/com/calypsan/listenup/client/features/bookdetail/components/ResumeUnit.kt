@@ -42,6 +42,7 @@ internal fun ResumeUnit(
     currentChapter: CurrentChapter?,
     timeRemainingMs: Long?,
     progress: Float?,
+    percent: Int?,
     finishedSpan: FinishedSpan?,
     modifier: Modifier = Modifier,
 ) {
@@ -58,6 +59,7 @@ internal fun ResumeUnit(
                 currentChapter = currentChapter,
                 timeRemainingMs = timeRemainingMs,
                 progress = progress ?: 0f,
+                percent = percent ?: 0,
                 modifier = modifier,
             )
         }
@@ -69,9 +71,9 @@ private fun InProgressUnit(
     currentChapter: CurrentChapter?,
     timeRemainingMs: Long?,
     progress: Float,
+    percent: Int,
     modifier: Modifier,
 ) {
-    val percent = (progress * PERCENT).toInt().coerceIn(0, PERCENT)
     val progressLabel = stringResource(Res.string.book_detail_progress_a11y, percent)
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -143,8 +145,6 @@ internal fun formatBookDay(
     epochMs: Long,
     withYear: Boolean = true,
 ): String = formatDate(epochMs, if (withYear) "d MMM yyyy" else "d MMM")
-
-private const val PERCENT = 100
 
 /** "Ch. 6 · Bridge Four", led by the part in a book that has them: "Part I · Ch. 7 · 5". */
 @Composable

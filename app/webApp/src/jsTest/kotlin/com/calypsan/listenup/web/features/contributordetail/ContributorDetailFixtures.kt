@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -32,7 +33,7 @@ import kotlin.time.Duration.Companion.hours
 internal fun readyContributor(
     name: String = "Stephen King",
     roleSections: List<RoleSection> = listOf(roleSection()),
-    bookProgress: Map<BookId, Float> = emptyMap(),
+    bookProgress: Map<BookId, BookProgress.InProgress> = emptyMap(),
     bookCreditedAs: Map<String, String> = emptyMap(),
     series: List<SeriesWithBooks> = emptyList(),
     bookCount: Int = DEFAULT_BOOK_COUNT,

@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
 import com.calypsan.listenup.api.dto.auth.Permission
-import com.calypsan.listenup.domain.FinishedPolicy
+import com.calypsan.listenup.domain.BookProgress
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
@@ -166,23 +166,13 @@ class SeriesDetailViewModel(
         val totalDuration = books.sumOf { it.duration }.milliseconds
 
         val finishedBookIds = mutableSetOf<BookId>()
-        val bookProgress = mutableMapOf<BookId, Float>()
+        val bookProgress = mutableMapOf<BookId, BookProgress.InProgress>()
         books.forEach { book ->
             val position = positions[book.id]
-            val fraction =
-                if (position != null && book.duration > 0) {
-                    (position.positionMs.toFloat() / book.duration).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
-            when {
-                FinishedPolicy.isFinished(position?.positionMs ?: 0L, book.duration, position?.isFinished == true) -> {
-                    finishedBookIds += book.id
-                }
-
-                fraction > 0f -> {
-                    bookProgress[book.id] = fraction
-                }
+            when (val progress = BookProgress.of(position?.positionMs, book.duration, position?.isFinished == true)) {
+                BookProgress.Finished -> finishedBookIds += book.id
+                is BookProgress.InProgress -> bookProgress[book.id] = progress
+                BookProgress.NotStarted -> Unit
             }
         }
 
@@ -344,8 +334,8 @@ sealed interface SeriesDetailUiState {
         val featuredBookId: String?,
         val totalDuration: Duration,
         val books: List<BookListItem>,
-        /** Per-book listening progress (0..1) for in-progress books only. */
-        val bookProgress: Map<BookId, Float>,
+        /** Per-book listening progress ([BookProgress]: bar fraction, printed percent) for in-progress books only. */
+        val bookProgress: Map<BookId, BookProgress.InProgress>,
         /** Books the user has finished. */
         val finishedBookIds: Set<BookId>,
         /** Book to resume/start via the "Continue" action; null when all are finished. */

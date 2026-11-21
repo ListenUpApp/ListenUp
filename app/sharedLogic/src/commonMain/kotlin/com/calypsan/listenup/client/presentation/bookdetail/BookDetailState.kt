@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.SeriesHierarchy
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
+import com.calypsan.listenup.domain.BookProgress
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -56,19 +57,16 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
             }
         }
 
-    val stage = readingStage(position, detail.duration)
+    // The position is the live playhead for the player's book (see BookDetailViewModel.observeBook), the saved row
+    // otherwise; either way the one rule decides the stage, the percent and the time left.
+    val bookProgress = BookProgress.of(position?.positionMs, detail.duration, position?.isFinished == true)
+    val stage = readingStage(bookProgress)
     val isComplete = stage == ReadingStage.Finished
-    val hasMeaningfulProgress = stage == ReadingStage.InProgress
-    val positionMs = position?.positionMs ?: 0L
-
-    val progress =
-        if (hasMeaningfulProgress) (positionMs.toFloat() / detail.duration).coerceIn(0f, 1f) else null
+    val inProgress = bookProgress as? BookProgress.InProgress
 
     val located =
-        if (hasMeaningfulProgress) {
-            currentChapterOf(chapters, positionMs)?.copy(isInPlayer = ambient.loadedBookId == detail.id.value)
-        } else {
-            null
+        inProgress?.let {
+            currentChapterOf(chapters, it.positionMs)?.copy(isInPlayer = ambient.loadedBookId == detail.id.value)
         }
     val grouped = chapters.groupedChapters(located?.index)
     val partTitle = located?.let { chapter -> grouped?.partTitleOf(chapters[chapter.index].id) }
@@ -89,7 +87,7 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
             )
         }
 
-    val timeRemainingMs = if (hasMeaningfulProgress) (detail.duration - positionMs).coerceAtLeast(0L) else null
+    val timeRemainingMs = inProgress?.remainingMs
     val canPlay = availability.canPlay && !isHeld
     val showServerWarning = availability.showServerWarning && !isHeld
 
@@ -106,7 +104,8 @@ internal fun BookSnapshot.toReady(ambient: BookDetailAmbient): BookDetailUiState
         narrators = detail.narratorNames,
         year = detail.publishYear,
         chapters = chapterRows,
-        progress = progress,
+        progress = inProgress?.fraction,
+        progressPercent = inProgress?.percent,
         timeRemainingFormatted = timeRemainingMs?.let { DurationFormatter.timeLeft(it.milliseconds) },
         addedAt = detail.addedAt.epochMillis,
         hasScanWarning = detail.hasScanWarning,

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import com.calypsan.listenup.web.inProgressAt
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.seriesdetail.ChildSeriesUi
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesBookSection
@@ -34,7 +35,7 @@ internal fun groupedCosmere(
         seriesId = "cosmere",
         seriesName = "Cosmere",
         books = era1Books + elantrisBook + warbreakerBook,
-        bookProgress = mapOf(BookId("ha") to 0.4f),
+        bookProgress = mapOf(BookId("ha") to inProgressAt(0.4f)),
         finishedBookIds = setOf(BookId("fe"), BookId("wa"), BookId("el")),
         resumeTarget = BookId("ha"),
     ).copy(
@@ -102,7 +103,7 @@ internal fun childEra1(): SeriesDetailUiState.Ready =
         seriesId = "era1",
         seriesName = "Mistborn Era 1",
         books = era1Books,
-        bookProgress = mapOf(BookId("ha") to 0.4f),
+        bookProgress = mapOf(BookId("ha") to inProgressAt(0.4f)),
         resumeTarget = BookId("ha"),
     ).copy(
         ancestors = listOf(SeriesCrumb("cosmere", "Cosmere"), SeriesCrumb("mistborn", "Mistborn")),

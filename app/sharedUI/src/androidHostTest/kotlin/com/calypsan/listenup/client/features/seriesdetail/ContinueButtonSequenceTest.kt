@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
+import com.calypsan.listenup.client.inProgressAt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -63,7 +64,7 @@ class ContinueButtonSequenceTest {
                             featuredBookId = null,
                             totalDuration = 1.hours,
                             books = listOf(book),
-                            bookProgress = if (inProgress) mapOf(bookId to 0.4f) else emptyMap(),
+                            bookProgress = if (inProgress) mapOf(bookId to inProgressAt(0.4f)) else emptyMap(),
                             finishedBookIds = emptySet(),
                             resumeTarget = bookId,
                             resumeBook =

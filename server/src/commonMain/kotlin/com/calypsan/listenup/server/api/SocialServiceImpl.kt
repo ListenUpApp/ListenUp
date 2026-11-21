@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -144,7 +145,15 @@ internal class SocialServiceImpl(
         }
         val totalDuration = books.findById(bookId)?.totalDuration ?: 0L
         val readingSince = clock.now().toEpochMilliseconds() - READING_WINDOW.inWholeMilliseconds
-        val inProgress = playbackPositions.listInProgressForBook(bookId.value, readingSince).associateBy { it.userId }
+
+        // Reading is the one rule's InProgress: a row inside the end credits is a finish (FinishedPolicy), not a read
+        // at 99%, even before its flag is set.
+        fun progressOf(positionMs: Long) = BookProgress.of(positionMs, totalDuration, finishedFlag = false)
+        val inProgress =
+            playbackPositions
+                .listInProgressForBook(bookId.value, readingSince)
+                .filterNot { progressOf(it.positionMs) is BookProgress.Finished }
+                .associateBy { it.userId }
         // Newest-first per user. Hardcover reads travel apart so every client can badge them.
         val (pulled, listened) =
             bookReads.finishesForBook(bookId.value).partition { it.source == BookReadSource.HARDCOVER }
@@ -166,14 +175,8 @@ internal class SocialServiceImpl(
                         zone = sql.homeTimeZone(uid),
                     )
                 val position = inProgress[uid]
-                val pct =
-                    position?.let { row ->
-                        if (totalDuration > 0) {
-                            (row.positionMs * 100 / totalDuration).toInt().coerceIn(0, 100)
-                        } else {
-                            null
-                        }
-                    }
+                // The one percent ([BookProgress.InProgress.percent]); none for a book of unknown length.
+                val pct = position?.let { (progressOf(it.positionMs) as? BookProgress.InProgress)?.percent }
                 BookReaderEntry(
                     userId = uid,
                     displayName = identity.displayName,

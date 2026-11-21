@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.web.design.RestrictedMarker
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.ProgressLook
@@ -408,7 +409,7 @@ private fun CountBadge(count: Int) {
 @Composable
 internal fun RoleTile(
     book: BookListItem,
-    progress: Float?,
+    progress: BookProgress.InProgress?,
     onOpen: () -> Unit,
 ) {
     Div(attrs = {
@@ -435,8 +436,13 @@ internal fun RoleTile(
             )
             // Absent, not zero-width: a book [progress] doesn't know about (never started, or
             // finished — `calculateProgressMap` excludes both) draws no bar rather than a false one.
-            progress?.let { fraction ->
-                ProgressBar(value = fraction, label = "Listening progress", look = ProgressLook.Overlay)
+            progress?.let {
+                ProgressBar(
+                    value = it.fraction,
+                    label = "Listening progress",
+                    look = ProgressLook.Overlay,
+                    percent = it.percent,
+                )
             }
         }
         Div(attrs = { classes("cd-tile-title") }) { Text(book.title) }
@@ -448,7 +454,7 @@ internal fun RoleTile(
  *
  * ⛔ No done/total progress bar, unlike the artboard. [SeriesWithBooks] carries no per-book
  * completion data — `ContributorDetailUiState.Ready.bookProgress` deliberately excludes finished
- * books (`calculateProgressMap`'s `excludeComplete`), so there is no way to tell "finished" from
+ * books (`calculateProgressMap` keeps only `BookProgress.InProgress`), so there is no way to tell "finished" from
  * "never started" from what this page has. `SeriesDetailViewModel` has its own `FINISHED_THRESHOLD`
  * concept, but it isn't surfaced here — inventing a second one for this card would be a product
  * rule this page made up, not one the codebase already agreed on. The page this card now opens
