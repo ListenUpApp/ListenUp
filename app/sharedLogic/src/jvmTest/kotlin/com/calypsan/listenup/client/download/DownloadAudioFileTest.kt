@@ -439,6 +439,58 @@ class DownloadAudioFileTest :
                 }
             }
         }
+
+        // ---- A write the disk refuses is told apart from a network failure where it happens ----
+        //
+        // The temp path is made a directory, so opening the file for writing fails with an
+        // IOException; what the device reports as free space decides what that failure means.
+        suspend fun downloadWhoseWriteFails(availableBytes: Long): AppResult<Unit> {
+            val tmpRoot = tempDir()
+            try {
+                val bookId = "book-unwritable"
+                val audioFileId = "file-unwritable"
+                val fileManager = fileManagerFor(tmpRoot)
+                val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, "$audioFileId.mp3", isTemp = true)
+                SystemFileSystem.createDirectories(tempPath)
+                val engine =
+                    MockEngine { request ->
+                        val resuming = request.headers[HttpHeaders.Range] != null
+                        respond(
+                            content = ByteArray(1000) { 0x42 },
+                            status = if (resuming) HttpStatusCode.PartialContent else HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                        )
+                    }
+                return downloadAudioFile(
+                    audioFileId = audioFileId,
+                    bookId = bookId,
+                    filename = "$audioFileId.mp3",
+                    expectedSize = 1000L,
+                    httpClient = minimalClient(engine),
+                    repository =
+                        FakeDownloadRepository(
+                            initial = listOf(downloadEntity(audioFileId = audioFileId, bookId = bookId)),
+                        ),
+                    fileManager = fileManager,
+                    prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                    availableBytes = { availableBytes },
+                )
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
+        test("a write that fails with the disk full is insufficient storage") {
+            val failure = downloadWhoseWriteFails(availableBytes = 0L).shouldBeInstanceOf<AppResult.Failure>()
+
+            failure.error.shouldBeInstanceOf<DownloadError.InsufficientStorage>()
+        }
+
+        test("a write that fails with room to spare is a failed download, not a full disk or a lost connection") {
+            val failure = downloadWhoseWriteFails(availableBytes = Long.MAX_VALUE).shouldBeInstanceOf<AppResult.Failure>()
+
+            failure.error.shouldBeInstanceOf<DownloadError.DownloadFailed>()
+        }
     })
 
 // A ready [PlaybackPrepareRepository] that signs a relative download URL for [audioFileId].

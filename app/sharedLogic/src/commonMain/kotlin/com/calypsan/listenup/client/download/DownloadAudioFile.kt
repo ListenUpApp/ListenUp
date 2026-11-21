@@ -19,6 +19,7 @@ import io.ktor.http.contentLength
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -55,6 +56,9 @@ private const val PROGRESS_BYTES_INTERVAL = 256 * 1024L // 256KB — emit progre
  * - Resume support (Range headers)
  * - Progress updates via [setProgress] lambda
  * - Cancellation handling via [isStopped] lambda
+ * - [DownloadError.InsufficientStorage] when a write to the temp file fails while the device has
+ *   less free space ([availableBytes]) than the download still needs — decided where the bytes are
+ *   written, never by reading an error message
  */
 @Suppress("CyclomaticComplexMethod", "CognitiveComplexMethod")
 internal suspend fun downloadAudioFile(
@@ -69,6 +73,7 @@ internal suspend fun downloadAudioFile(
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     yieldToPlayback: suspend () -> Unit = {},
+    availableBytes: () -> Long = fileManager::getAvailableSpace,
 ): AppResult<Unit> =
     suspendRunCatching {
         withContext(IODispatcher) {
@@ -134,10 +139,14 @@ internal suspend fun downloadAudioFile(
 
                     // Stream the body into the temp file. Append mode iff we're genuinely resuming.
                     val channel = response.bodyAsChannel()
-                    val sink = SystemFileSystem.sink(tempPath, append = effectiveStartByte > 0).buffered()
+                    var totalBytesRead = effectiveStartByte
+                    val bytesStillNeeded = { if (totalSize > 0) totalSize - totalBytesRead else BUFFER_SIZE.toLong() }
+                    val sink =
+                        writingToDisk(bytesStillNeeded(), availableBytes) {
+                            SystemFileSystem.sink(tempPath, append = effectiveStartByte > 0).buffered()
+                        }
                     try {
                         val buffer = ByteArray(BUFFER_SIZE)
-                        var totalBytesRead = effectiveStartByte
                         var lastProgressUpdate = 0L
                         var lastProgressBytes = effectiveStartByte
 
@@ -152,7 +161,7 @@ internal suspend fun downloadAudioFile(
 
                             val read = channel.readAvailable(buffer, 0, buffer.size)
                             if (read <= 0) continue
-                            sink.write(buffer, 0, read)
+                            writingToDisk(bytesStillNeeded(), availableBytes) { sink.write(buffer, 0, read) }
                             totalBytesRead += read
 
                             val now = currentEpochMilliseconds()
@@ -169,7 +178,7 @@ internal suspend fun downloadAudioFile(
                             }
                         }
                     } finally {
-                        sink.close()
+                        writingToDisk(bytesStillNeeded(), availableBytes) { sink.close() }
                     }
 
                     // Integrity gate. Prefer the caller's [expectedSize]; fall back to the server's
@@ -207,6 +216,27 @@ internal suspend fun downloadAudioFile(
                     )
                 }
         }
+    }
+
+/**
+ * Runs one write to the temp file. A write the platform refuses while fewer than
+ * [bytesStillNeeded] bytes are free is the disk being full, and becomes
+ * [DownloadError.InsufficientStorage]. Any other write failure is a local fault, typed as a failed
+ * download like [downloadFailure]: left an [IOException], the boundary would read it as a lost
+ * connection and wait on it instead of spending a retry.
+ */
+private inline fun <T> writingToDisk(
+    bytesStillNeeded: Long,
+    availableBytes: () -> Long,
+    write: () -> T,
+): T =
+    try {
+        write()
+    } catch (e: IOException) {
+        if (availableBytes() < bytesStillNeeded.coerceAtLeast(1L)) {
+            throw TypedAppErrorException(DownloadError.InsufficientStorage(debugInfo = e.message), cause = e)
+        }
+        throw TypedAppErrorException(DownloadError.DownloadFailed(debugInfo = e.message), cause = e)
     }
 
 /**

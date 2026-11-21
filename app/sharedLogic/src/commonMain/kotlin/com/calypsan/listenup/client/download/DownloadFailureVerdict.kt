@@ -13,8 +13,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
-private val STORAGE_KEYWORDS = listOf("no space", "enospc", "disk full", "storage")
-
 /** Whether a failed download run should be scheduled again. */
 internal enum class DownloadFailureVerdict {
     /** Run it again later; the platform's network constraint and backoff decide when. */
@@ -37,8 +35,10 @@ internal enum class DownloadFailureVerdict {
  *   again while the row's own count is under [MAX_DOWNLOAD_RETRIES]. The count lives on the row, not
  *   in the platform's attempt counter, because a run the system stopped counts as an attempt there.
  *
- * A full disk is detected by keyword because the platform reports it as an I/O error, which the
- * transport boundary types as a lost connection; it is checked first so that it never pauses.
+ * A full disk is told by its type, [DownloadError.InsufficientStorage], which [downloadAudioFile]
+ * raises where the bytes are written. Never by reading [AppError.debugInfo]: that is the original
+ * exception text, and a lost connection's names the host, which on a self-hosted box can be
+ * `storage.lan`.
  */
 internal suspend fun settleDownloadFailure(
     audioFileId: String,
@@ -53,11 +53,10 @@ internal suspend fun settleDownloadFailure(
             DownloadFailureVerdict.GIVE_UP
         }
 
-        error.isStorageFull() -> {
-            val storageError = DownloadError.InsufficientStorage(debugInfo = error.debugInfo)
-            errorBus.emit(storageError)
-            logger.error { "download: failed file=$audioFileId error=${storageError.code}" }
-            val _ = fail(repository, audioFileId, storageError)
+        error is DownloadError.InsufficientStorage -> {
+            errorBus.emit(error)
+            logger.error { "download: failed file=$audioFileId error=${error.code}" }
+            val _ = fail(repository, audioFileId, error)
             DownloadFailureVerdict.GIVE_UP
         }
 
@@ -79,11 +78,6 @@ internal suspend fun settleDownloadFailure(
             if (failures < MAX_DOWNLOAD_RETRIES) DownloadFailureVerdict.RETRY_LATER else DownloadFailureVerdict.GIVE_UP
         }
     }
-
-private fun AppError.isStorageFull(): Boolean {
-    val detail = debugInfo?.lowercase() ?: return false
-    return STORAGE_KEYWORDS.any { it in detail }
-}
 
 private suspend fun pause(
     repository: DownloadRepository,

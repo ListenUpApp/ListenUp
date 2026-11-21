@@ -527,8 +527,8 @@ class DownloadWorkerLogicTest :
                         )
 
                     // A move that fails is a local fault, typed as a failed download rather than a lost
-                    // connection. The detail stays in [debugInfo], where the worker's storage-keyword
-                    // match looks for ENOSPC-class failures.
+                    // connection. The detail stays in [debugInfo] for the logs; a full disk is typed
+                    // where the bytes are written (see DownloadAudioFileTest), never read out of it.
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<DownloadError.DownloadFailed>()
                     withClue("Expected 'Failed to move' in debugInfo: ${failure.error.debugInfo ?: "none"}") {

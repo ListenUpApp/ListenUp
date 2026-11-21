@@ -53,7 +53,8 @@ internal suspend fun restFailure(throwable: Throwable): AppResult.Failure =
  */
 internal class TypedAppErrorException(
     val error: AppError,
-) : Exception(error.message)
+    cause: Throwable? = null,
+) : Exception(error.message, cause)
 
 /**
  * Like [suspendRunCatching], but preserves an [AppError] thrown as [TypedAppErrorException]
