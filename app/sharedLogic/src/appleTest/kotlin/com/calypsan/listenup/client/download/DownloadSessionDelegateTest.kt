@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalCoroutinesApi::class)
 
 package com.calypsan.listenup.client.download
 
@@ -13,6 +13,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent

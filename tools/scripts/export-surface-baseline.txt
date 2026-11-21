@@ -529,6 +529,7 @@ ImportReviewUserSnapshot
 ImportStatus
 ImportSummary
 InLibraryUi
+InProgressBookSummary
 InboxBadgeViewModel
 InboxBookItem
 InboxRepository
@@ -806,6 +807,7 @@ PlayerSheetState
 PlayerUiState
 PlayerUiState_SealedType
 PlayerViewModel
+PreparePurpose
 PreparedPlayback
 PrimaryAction
 PrimaryAction_SealedType

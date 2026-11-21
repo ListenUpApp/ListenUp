@@ -21,7 +21,8 @@ struct DownloadPresentationTests {
     @Test func untouchedBehindAnotherBookIsQueuedAndAloneIsStarting() {
         let untouched = moving(downloading: 0, done: 0)
         #expect(DownloadUIState.from(untouched, isWaitingForWifi: false, anotherBookDownloading: true) == .queued)
-        #expect(DownloadUIState.from(untouched, isWaitingForWifi: false, anotherBookDownloading: false) == .downloading)
+        #expect(DownloadUIState.from(untouched, isWaitingForWifi: false, anotherBookDownloading: false)
+            == .downloading)
     }
 
     @Test func aWifiWaitWinsOverQueued() {

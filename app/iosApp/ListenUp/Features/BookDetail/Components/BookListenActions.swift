@@ -70,7 +70,8 @@ struct BookListenActions: View {
             Button(String(localized: "book.download_cancel_confirm_discard"), role: .destructive,
                    action: onCancelDownload)
         } message: {
-            Text(String(localized: .bookDownloadCancelConfirmMessage(StorageFormat.byteSize(downloadSnapshot.bytes.done))))
+            let discarded = StorageFormat.byteSize(downloadSnapshot.bytes.done)
+            Text(String(localized: .bookDownloadCancelConfirmMessage(discarded)))
         }
     }
 
@@ -98,7 +99,7 @@ struct BookListenActions: View {
             }
         }
         .frame(minHeight: 44)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Spacing.xs)
         .accessibilityElement(children: .contain)
     }
 

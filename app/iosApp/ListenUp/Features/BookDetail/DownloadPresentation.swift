@@ -22,22 +22,23 @@ enum DownloadStatusSnapshot: Equatable {
         case .notDownloaded:
             self = .notDownloaded
         case .inProgress(let progress):
-            let s = progress.value
-            self = .inProgress(downloadingFiles: Int(s.downloadingFiles), completedFiles: Int(s.completedFiles),
-                               downloadedBytes: s.downloadedBytes, totalBytes: s.totalBytes,
-                               resumingAfterClose: s.resumingAfterClose)
+            let moving = progress.value
+            self = .inProgress(downloadingFiles: Int(moving.downloadingFiles),
+                               completedFiles: Int(moving.completedFiles),
+                               downloadedBytes: moving.downloadedBytes, totalBytes: moving.totalBytes,
+                               resumingAfterClose: moving.resumingAfterClose)
         case .completed(let done):
             self = .completed(totalBytes: done.value.totalBytes)
         case .failed(let failure):
             self = .failed(message: failure.value.errorMessage)
         case .paused(let paused):
-            let s = paused.value
-            let pauser: Pauser = switch s.reason {
+            let stopped = paused.value
+            let pauser: Pauser = switch stopped.reason {
             case .pausedByYou: .you
             case nil: .cancelled
             default: .system
             }
-            self = .paused(by: pauser, downloadedBytes: s.downloadedBytes, totalBytes: s.totalBytes)
+            self = .paused(by: pauser, downloadedBytes: stopped.downloadedBytes, totalBytes: stopped.totalBytes)
         }
     }
 
@@ -181,7 +182,8 @@ enum DownloadBadge: Equatable {
         let (done, total) = snapshot.bytes
         switch state {
         case .notDownloaded, .partial: return nil
-        case .downloading, .resumingAfterClose: return .downloading(progress: total > 0 ? Float(done) / Float(total) : 0)
+        case .downloading, .resumingAfterClose:
+            return .downloading(progress: total > 0 ? Float(done) / Float(total) : 0)
         case .queued: return .queued
         case .waitingForWifi: return .waitingForWifi
         case .waiting: return .resumesAutomatically
