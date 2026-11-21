@@ -71,28 +71,6 @@ internal interface ListeningEventDao {
     fun observeEventsForBook(bookId: String): Flow<List<ListeningEventEntity>>
 
     /**
-     * Get total duration for events since a timestamp.
-     * Uses bounds checking to prevent overflow from corrupted data.
-     */
-    @Query(
-        """
-        SELECT IFNULL(
-            (SELECT SUM(duration) FROM (
-                SELECT (endPositionMs - startPositionMs) as duration
-                FROM listening_events
-                WHERE endedAt >= :startMs
-                  AND endPositionMs > startPositionMs
-                  AND endPositionMs < 10000000000
-                  AND startPositionMs >= 0
-                  AND startPositionMs < 10000000000
-            )),
-            0
-        )
-    """,
-    )
-    suspend fun getTotalDurationSince(startMs: Long): Long
-
-    /**
      * Get an event by ID.
      */
     @Query("SELECT * FROM listening_events WHERE id = :id LIMIT 1")

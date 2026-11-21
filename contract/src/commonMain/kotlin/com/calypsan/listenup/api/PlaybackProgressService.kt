@@ -33,21 +33,4 @@ interface PlaybackProgressService {
      * @param bookIds the set of book identifiers to look up progress for.
      */
     suspend fun getProgressBatch(bookIds: List<BookId>): AppResult<List<PlaybackPositionSyncPayload>>
-
-    /**
-     * Continue-listening semantics — books the user has started but not finished,
-     * ordered by `lastPlayedAt DESC` (with `updatedAt` fallback when null).
-     * Matches the client Continue Listening shelf's filter.
-     *
-     * @param limit max positions to return. Default 20; clamped to [1, 100] server-side.
-     */
-    suspend fun getRecentlyListened(limit: Int = 20): AppResult<List<PlaybackPositionSyncPayload>>
-
-    /**
-     * Books the user finished, ordered by `lastPlayedAt DESC`. Filters
-     * `isFinished = true` AND not tombstoned.
-     *
-     * @param limit max positions to return. Default 50; clamped to [1, 500] server-side.
-     */
-    suspend fun getCompletedBooks(limit: Int = 50): AppResult<List<PlaybackPositionSyncPayload>>
 }

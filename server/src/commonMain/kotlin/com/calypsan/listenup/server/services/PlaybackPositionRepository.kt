@@ -667,37 +667,6 @@ class PlaybackPositionRepository(
     }
 
     /**
-     * Continue-listening semantics — books the user has started but not finished
-     * (`isFinished = false`, `positionMs > 0`), ordered by `lastPlayedAt DESC`.
-     * Matches the client Continue Listening shelf's filter.
-     */
-    suspend fun recentlyListenedForUser(
-        userId: UserId,
-        limit: Int,
-    ): List<PlaybackPositionSyncPayload> =
-        suspendTransaction(db) {
-            db.playbackPositionsQueries
-                .recentlyListenedForUser(userId.value, limit.toLong())
-                .executeAsList()
-                .map { it.toSyncPayload() }
-        }
-
-    /**
-     * Books the user finished (`isFinished = true`, not tombstoned), ordered by
-     * `lastPlayedAt DESC` (most-recently-finished first).
-     */
-    suspend fun completedForUser(
-        userId: UserId,
-        limit: Int,
-    ): List<PlaybackPositionSyncPayload> =
-        suspendTransaction(db) {
-            db.playbackPositionsQueries
-                .completedForUser(userId.value, limit.toLong())
-                .executeAsList()
-                .map { it.toSyncPayload() }
-        }
-
-    /**
      * An [InProgressPosition] for every user with a live, in-progress (unfinished, positionMs>0)
      * position on [bookId] played at or after [playedSince]. The floor is the caller's decision: this
      * repository knows about positions, not about what counts as recent enough to show someone.

@@ -35,14 +35,4 @@ interface ActiveSessionRepository {
      * @return Flow emitting the live sessions, newest-started first
      */
     fun observeListeningNow(currentUserId: String): Flow<List<ActiveSession>>
-
-    /**
-     * Observe count of active sessions from other users.
-     *
-     * Used for notification badges or counts.
-     *
-     * @param currentUserId Current user ID to exclude
-     * @return Flow emitting count of active sessions
-     */
-    fun observeActiveCount(currentUserId: String): Flow<Int>
 }

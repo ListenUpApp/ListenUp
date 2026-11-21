@@ -95,36 +95,6 @@ class PlaybackProgressServiceImplTest :
             }
         }
 
-        test("getRecentlyListened returns Failure(SyncError.NotFound) when principal is absent") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
-                runTest {
-                    val result = service.getRecentlyListened(20)
-                    result
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<SyncError.NotFound>()
-                }
-            }
-        }
-
-        test("getCompletedBooks returns Failure(SyncError.NotFound) when principal is absent") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
-                runTest {
-                    val result = service.getCompletedBooks(50)
-                    result
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<SyncError.NotFound>()
-                }
-            }
-        }
-
-        // ── happy-path delegation ─────────────────────────────────────────────
-
         test("listProgress resolves current user and returns Success with their positions") {
             withSqlDatabase {
                 val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
@@ -232,100 +202,6 @@ class PlaybackProgressServiceImplTest :
                 }
             }
         }
-
-        test("getRecentlyListened clamps limit to 100 max") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, principal("u1"))
-                runTest {
-                    repeat(3) { i ->
-                        repo.recordPosition(
-                            userId = "u1",
-                            bookId = "book-$i",
-                            positionMs = 1_000L,
-                            lastPlayedAt = 1_700_000_000_000L + i,
-                            finished = false,
-                            playbackSpeed = 1.0f,
-                            currentChapterId = null,
-                        )
-                    }
-                    val result = service.getRecentlyListened(9999)
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
-                    success.data.size shouldBe 3
-                }
-            }
-        }
-
-        test("getRecentlyListened clamps limit to 1 min") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, principal("u1"))
-                runTest {
-                    repeat(3) { i ->
-                        repo.recordPosition(
-                            userId = "u1",
-                            bookId = "book-$i",
-                            positionMs = 1_000L,
-                            lastPlayedAt = 1_700_000_000_000L + i,
-                            finished = false,
-                            playbackSpeed = 1.0f,
-                            currentChapterId = null,
-                        )
-                    }
-                    val result = service.getRecentlyListened(-5)
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
-                    success.data.size shouldBe 1
-                }
-            }
-        }
-
-        test("getCompletedBooks clamps limit to 500 max") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, principal("u1"))
-                runTest {
-                    repeat(3) { i ->
-                        repo.recordPosition(
-                            userId = "u1",
-                            bookId = "book-$i",
-                            positionMs = 1_000L,
-                            lastPlayedAt = 1_700_000_000_000L + i,
-                            finished = true,
-                            playbackSpeed = 1.0f,
-                            currentChapterId = null,
-                        )
-                    }
-                    val result = service.getCompletedBooks(9999)
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
-                    success.data.size shouldBe 3
-                }
-            }
-        }
-
-        test("getCompletedBooks clamps limit to 1 min") {
-            withSqlDatabase {
-                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val service = PlaybackProgressServiceImpl(repo, principal("u1"))
-                runTest {
-                    repeat(3) { i ->
-                        repo.recordPosition(
-                            userId = "u1",
-                            bookId = "book-$i",
-                            positionMs = 1_000L,
-                            lastPlayedAt = 1_700_000_000_000L + i,
-                            finished = true,
-                            playbackSpeed = 1.0f,
-                            currentChapterId = null,
-                        )
-                    }
-                    val result = service.getCompletedBooks(0)
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<PlaybackPositionSyncPayload>>>()
-                    success.data.size shouldBe 1
-                }
-            }
-        }
-
-        // ── copyWith ──────────────────────────────────────────────────────────
 
         test("copyWith returns a new instance scoped to the given principal") {
             withSqlDatabase {

@@ -88,22 +88,8 @@ findByBookIds:
 SELECT * FROM playback_positions
 WHERE user_id = :userId AND book_id IN :bookIds AND deleted_at IS NULL;
 
--- Continue-listening: started-but-not-finished, most-recently-played first.
-recentlyListenedForUser:
-SELECT * FROM playback_positions
-WHERE user_id = :userId AND deleted_at IS NULL AND finished = 0 AND position_ms > 0
-ORDER BY last_played_at DESC
-LIMIT :limit;
-
--- Finished books for a user, most-recently-finished first.
-completedForUser:
-SELECT * FROM playback_positions
-WHERE user_id = :userId AND deleted_at IS NULL AND finished = 1
-ORDER BY last_played_at DESC
-LIMIT :limit;
-
--- (user_id, position_ms) for every user reading a book now: the same started-but-not-finished,
--- not-deleted filter as the queries above, floored on :playedSince so a book abandoned months ago
+-- (user_id, position_ms) for every user reading a book now: started but not finished, not deleted,
+-- floored on :playedSince so a book abandoned months ago
 -- no longer reads as "reading, 40%" forever.
 listInProgressForBook:
 SELECT user_id, position_ms, last_played_at FROM playback_positions
