@@ -84,9 +84,9 @@ private data class SyncSnapshot(
     val isFirstCatchUp: Boolean,
 )
 
-/** Per-book card state and finished flags, derived from playback positions and book durations. */
+/** Per-book card state, derived from playback positions and book durations, and the positions it came from. */
 private data class ProgressSnapshot(
-    val finishedMap: Map<BookId, Boolean>,
+    val positions: Map<BookId, PlaybackPosition>,
     val cardStatus: Map<BookId, BookCardStatus>,
 )
 
@@ -573,7 +573,11 @@ class LibraryViewModel(
             sorted.series.associate { sb ->
                 sb.series.id to
                     SeriesProgress(
-                        finishedCount = sb.books.count { progress.finishedMap[it.id] == true },
+                        // The one rule, as each book's card reads it: the flag, or a place in the end credits.
+                        finishedCount =
+                            sb.books.count { book ->
+                                readingStateOf(progress.positions[book.id], book.duration) == ReadingState.FINISHED
+                            },
                         totalCount = sb.books.size,
                     )
             }
@@ -619,10 +623,8 @@ class LibraryViewModel(
         books: List<BookListItem>,
         positions: Map<BookId, PlaybackPosition>,
     ): ProgressSnapshot {
-        // isFinished is authoritative from the server; seriesProgress counts it.
-        val finishedMap = positions.filterValues { it.isFinished }.mapValues { true }
         val cardStatus = books.associate { it.id to cardStatusOf(it, positions[it.id]) }
-        return ProgressSnapshot(finishedMap, cardStatus)
+        return ProgressSnapshot(positions, cardStatus)
     }
 }
 
