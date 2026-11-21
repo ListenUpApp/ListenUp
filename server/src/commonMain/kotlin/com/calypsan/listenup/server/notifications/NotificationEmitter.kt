@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.push.PushNotifier
 import com.calypsan.listenup.server.sync.NotificationRepository
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.SerializationException
 
 /** Who a notification is addressed to. Explicit, never inferred — call sites say it. */
 sealed interface NotificationAudience {
@@ -73,6 +74,48 @@ class NotificationEmitter(
             }
         }
     }
+
+    /**
+     * Marks every unread copy of [event] read at [atMs], for whoever it reached: the thing it asked
+     * about has been dealt with, so nobody is left a notification that still looks like work. A
+     * registration request is the case — one admin deciding it answers it for every admin, on every
+     * device, as the read stamp syncs.
+     *
+     * Each row goes through [NotificationRepository.markRead], so its revision bumps and it reaches
+     * every device; first read still wins. Never throws, for [emit]'s reason.
+     */
+    suspend fun markHandled(
+        event: NotificationEvent,
+        atMs: Long,
+    ) {
+        try {
+            val unread =
+                suspendTransaction(db) {
+                    db.notificationsQueries.selectUnreadLiveByType(event.wireType).executeAsList()
+                }
+            unread
+                .filter { row -> decodeOrNull(row.payload) == event }
+                .forEach { row ->
+                    val marked = repo.markRead(row.id, userId = row.user_id, readAtMs = atMs)
+                    if (marked is AppResult.Failure) {
+                        log.warn {
+                            "notification mark-handled failed: type=${event.wireType} code=${marked.error.code}"
+                        }
+                    }
+                }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn { "notification mark-handled failed: type=${event.wireType} ${e::class.simpleName.orEmpty()}" }
+        }
+    }
+
+    private fun decodeOrNull(payload: String): NotificationEvent? =
+        try {
+            contractJson.decodeFromString(NotificationEvent.serializer(), payload)
+        } catch (_: SerializationException) {
+            null
+        }
 
     private suspend fun emitToUser(
         event: NotificationEvent,

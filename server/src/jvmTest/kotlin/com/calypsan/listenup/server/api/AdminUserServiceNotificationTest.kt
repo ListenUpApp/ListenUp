@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.notifications.NotificationAudience
 import com.calypsan.listenup.server.notifications.NotificationEmitter
 import com.calypsan.listenup.server.notifications.NotificationPrefsRepository
 import com.calypsan.listenup.server.push.NoOpPushNotifier
@@ -137,6 +138,57 @@ class AdminUserServiceNotificationTest :
                         .decodeFromString(NotificationEvent.serializer(), row.payload)
                         .shouldBeInstanceOf<NotificationEvent.RegistrationDecision>()
                         .approved shouldBe true
+                }
+            }
+        }
+
+        /** The unread `registration_approval` rows in [userId]'s inbox, by which applicant they ask about. */
+        fun SqlTestDatabases.approvalRowsFor(userId: String) =
+            sql.notificationsQueries
+                .selectLiveIdsForUserOldestFirst(userId, 10)
+                .executeAsList()
+                .map { sql.notificationsQueries.selectById(it).executeAsOne() }
+                .filter { it.type == "registration_approval" }
+                .associateBy { row ->
+                    contractJson
+                        .decodeFromString(NotificationEvent.serializer(), row.payload)
+                        .shouldBeInstanceOf<NotificationEvent.RegistrationApproval>()
+                        .userId
+                }
+
+        for (approved in listOf(true, false)) {
+            val decision = if (approved) "approving" else "denying"
+            test("$decision a registration marks its approval request read for every admin") {
+                withSqlDatabase {
+                    val db = this
+                    sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                    sql.seedTestUser("admin2", UserRoleColumn.ADMIN)
+                    seedPendingUser("p1")
+                    seedPendingUser("p2")
+                    runTest {
+                        val emitter =
+                            NotificationEmitter(
+                                db = sql,
+                                repo = notificationFixture(),
+                                prefs = NotificationPrefsRepository(sql),
+                                notifier = NoOpPushNotifier(),
+                            )
+                        emitter.emit(NotificationEvent.RegistrationApproval(userId = "p1"), to = NotificationAudience.Admins)
+                        emitter.emit(NotificationEvent.RegistrationApproval(userId = "p2"), to = NotificationAudience.Admins)
+                        val svc =
+                            makeAdminUserService(db, notifications = emitter)
+                                .copyWith(principalFor("root1", UserRole.ROOT))
+
+                        svc
+                            .decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = approved))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                        for (admin in listOf("root1", "admin2")) {
+                            val rows = approvalRowsFor(admin)
+                            rows.getValue("p1").read_at shouldBe fixedClock.now().toEpochMilliseconds()
+                            rows.getValue("p2").read_at shouldBe null
+                        }
+                    }
                 }
             }
         }
