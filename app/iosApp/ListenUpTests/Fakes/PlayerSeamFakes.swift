@@ -179,7 +179,7 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
         positionUpdates.append((bookId, positionMs, speed)); gate.signal()
     }
-    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float) {
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float, durationMs: Int64) {
         seeks.append((bookId, beforeMs, afterMs, speed)); gate.signal()
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
@@ -210,7 +210,7 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     private var isSaveReleased = false
     private var isSaveEntered = false
 
-    func savePositionNow(bookId: String, positionMs: Int64) async {
+    func savePositionNow(bookId: String, positionMs: Int64, durationMs: Int64) async {
         if holdsSaves {
             isSaveEntered = true; gate.signal()
             await gate.wait { [weak self] in self?.isSaveReleased ?? true }

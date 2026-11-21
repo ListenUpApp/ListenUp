@@ -9,10 +9,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.w3c.dom.events.Event
 
-/** Where the listener is, right now: the two values a durable save needs. */
+/** Where the listener is, right now, and how long the book is: what a durable save needs to finish a book left in its credits. */
 internal data class Playhead(
     val bookId: BookId,
     val positionMs: Long,
+    val durationMs: Long,
 )
 
 /**

@@ -226,6 +226,7 @@ class PlaybackErrorHandlerTest {
                     // the FILE-relative player.currentPosition (8_000) to prove the handler
                     // persists the book-relative value passed in, not player.currentPosition.
                     bookPositionMs = 9_012_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -251,6 +252,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = true),
                 currentBookId = null,
                 bookPositionMs = 0L,
+                bookDurationMs = 0L,
                 onShowError = {},
             )
 
@@ -278,6 +280,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = {},
                 )
 
@@ -301,6 +304,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
             }
@@ -313,6 +317,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -342,6 +347,7 @@ class PlaybackErrorHandlerTest {
                         player = player,
                         currentBookId = BookId("book1"),
                         bookPositionMs = 1_000L,
+                        bookDurationMs = 0L,
                         onShowError = { errors += it },
                     )
                 }
@@ -368,6 +374,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
             }
@@ -383,6 +390,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -409,6 +417,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
             }
@@ -419,6 +428,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -444,6 +454,7 @@ class PlaybackErrorHandlerTest {
                     currentBookId = BookId("book2"),
                     // Book-relative, distinct from the file-relative player position (4_500).
                     bookPositionMs = 5_400_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -476,6 +487,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = null,
                     bookPositionMs = 0L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -505,6 +517,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -533,6 +546,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -561,6 +575,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
             }
@@ -572,6 +587,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -603,6 +619,7 @@ class PlaybackErrorHandlerTest {
                     // FILE-relative player coordinates (index 2, 12_000) — that is correct,
                     // it re-seeks within the same media item.
                     bookPositionMs = 3_612_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -634,6 +651,7 @@ class PlaybackErrorHandlerTest {
                 player = player,
                 currentBookId = null,
                 bookPositionMs = 0L,
+                bookDurationMs = 0L,
                 onShowError = {},
             )
 
@@ -656,6 +674,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book4"),
                     bookPositionMs = 3_003_000L,
+                    bookDurationMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -699,6 +718,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = false),
                 currentBookId = BookId("book-b"),
                 bookPositionMs = 0L,
+                bookDurationMs = 0L,
                 onShowError = {},
             )
 
@@ -718,6 +738,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = true),
                 currentBookId = BookId("book-b"),
                 bookPositionMs = 0L,
+                bookDurationMs = 0L,
                 onShowError = {},
             )
 
