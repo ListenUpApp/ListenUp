@@ -78,9 +78,14 @@ internal fun reconcileDownloads(
                 blobs[row.audioFileId].let { it == null || it > nowEpochSeconds + EXPIRY_MARGIN_SECONDS }
         }
     val resumableIds = resumable.mapTo(mutableSetOf()) { it.audioFileId }
-    // Only resume data about to be used survives: an expired URL's, a file's that is still
-    // transferring, and any for a file nobody wants, go.
-    val discard = blobs.keys - resumableIds
+    // Resume data survives when it is about to be used, or when the person paused the file and Resume
+    // will use it. An expired URL's, a file's that is still transferring, and any for a file nobody
+    // wants, go.
+    val heldForYou =
+        rows
+            .filter { it.state == DownloadState.PAUSED && it.pauseReason == DownloadPauseReason.PAUSED_BY_YOU }
+            .mapTo(mutableSetOf()) { it.audioFileId }
+    val discard = blobs.keys - resumableIds - heldForYou
 
     return ReconcilePlan(
         adopt = adopt,
