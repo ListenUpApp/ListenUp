@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.fake.FakeBookAvailability
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
 import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
+import com.calypsan.listenup.client.test.fake.FakeHomeRepository
 import com.calypsan.listenup.client.test.fake.FakeInboxRepository
 import com.calypsan.listenup.client.test.fake.FakeLoadedBookStore
 import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
@@ -58,7 +59,8 @@ internal class PlayerSessionRig(
     val auth = FakeAuthSession()
     val preferences = FakePlaybackPreferences()
     val sleep = SleepTimerManager(scope, nowMillis = { 0L }, elapsedMillis = { testScope.testScheduler.currentTime })
-    val loadedBooks = LoadedBookRepositoryImpl(store, books, positions, activeEngine)
+    val home = FakeHomeRepository()
+    val loadedBooks = LoadedBookRepositoryImpl(store, books, positions, home, activeEngine)
     val session =
         PlayerSession(
             engine = activeEngine,

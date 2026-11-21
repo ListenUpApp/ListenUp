@@ -47,8 +47,7 @@ class HomeRepositoryObserveTest :
 
         fun makeDao(positionFlow: MutableStateFlow<List<PlaybackPositionEntity>>): PlaybackPositionDao {
             val dao: PlaybackPositionDao = mock()
-            every { dao.observeRecentPositions(any()) } returns positionFlow
-            everySuspend { dao.getRecentPositions(any()) } returns emptyList()
+            every { dao.observeContinueListeningCandidates() } returns positionFlow
             everySuspend { dao.get(any()) } returns null
             everySuspend { dao.save(any()) } returns Unit
             everySuspend { dao.saveAll(any()) } returns Unit
@@ -329,7 +328,7 @@ class HomeRepositoryObserveTest :
             }
         }
 
-        test("Ready item progress is 0 for zero-duration book") {
+        test("a started book whose length is not known yet stays on the shelf at 0%") {
             runTest {
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 5_000L)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 0L)))

@@ -154,56 +154,24 @@ internal interface PlaybackPositionDao {
     suspend fun deleteWhereBookNotLive()
 
     /**
-     * Get recently played books for "Continue Listening" section.
-     * Returns positions ordered by most recently played, limited to specified count.
+     * Every position that could be on Continue Listening, most recently played first, re-emitting on any row change:
+     * started (`positionMs > 0`), not flagged finished, not tombstoned (see [getLive]) and not a book held for
+     * review ([HELD_BOOK_IDS_SQL]) — a held book is triage-only, so it is not offered to resume; its row is untouched
+     * and reappears with the book. `COALESCE(lastPlayedAt, updatedAt)` orders legacy rows that have no last play.
      *
-     * Uses COALESCE to handle legacy data where lastPlayedAt may be null,
-     * falling back to updatedAt in those cases.
+     * The only Continue Listening query. It has no limit on purpose: the end-credits half of the finished rule needs the
+     * book's duration, so it runs in [com.calypsan.listenup.client.data.repository.HomeRepositoryImpl] after this, and
+     * a limit taken before it would undercount. One listener's positions are a bounded set.
      *
-     * Excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
-     *
-     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded before the LIMIT: a held book is
-     * triage-only — it cannot be played until released — so it is not offered to resume. Its row is
-     * untouched and reappears with the book.
-     *
-     * @param limit Maximum number of positions to return
-     * @return List of positions ordered by lastPlayedAt descending (with updatedAt fallback)
-     */
-    @Query(
-        "SELECT * FROM playback_positions WHERE deletedAt IS NULL " +
-            "AND bookId NOT IN ($HELD_BOOK_IDS_SQL) " +
-            "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
-    )
-    suspend fun getRecentPositions(limit: Int): List<PlaybackPositionEntity>
-
-    /**
-     * Reactive counterpart to [getRecentPositions] — emits the [limit] most recently
-     * started, unfinished positions whenever any position row changes, pushing the
-     * sort and the limit to SQL so Home's Continue Listening shelf never has to pull
-     * every position to the client just to take the top N.
-     *
-     * Excludes positions with `positionMs = 0` (unstarted) AND `isFinished = true`
-     * (already done) — the client-side duration-based filter handles the in-flight
-     * case where positionMs has been updated but isFinished hasn't yet been
-     * recomputed. SQL-filtering isFinished eliminates the limit-then-filter undercount
-     * that previously caused the shelf to appear shorter than it should be.
-     *
-     * Also excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
-     *
-     * Books held for review ([HELD_BOOK_IDS_SQL]) are excluded before the LIMIT: a held book is
-     * triage-only — it cannot be played until released — so it is not offered to resume. Its row is
-     * untouched and reappears with the book.
-     *
-     * @param limit Maximum number of positions to emit per update
-     * @return Flow emitting ordered positions; re-emits on any row change
+     * @return Flow emitting the candidate positions in Continue Listening order
      */
     @Query(
         "SELECT * FROM playback_positions " +
             "WHERE positionMs > 0 AND isFinished = 0 AND deletedAt IS NULL " +
             "AND bookId NOT IN ($HELD_BOOK_IDS_SQL) " +
-            "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
+            "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC",
     )
-    fun observeRecentPositions(limit: Int): Flow<List<PlaybackPositionEntity>>
+    fun observeContinueListeningCandidates(): Flow<List<PlaybackPositionEntity>>
 
     /**
      * Observe all playback positions, EXCLUDING soft-deleted (tombstoned) rows (C-C04).

@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -12,6 +13,7 @@ import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.LibraryShowcase
 import com.calypsan.listenup.client.domain.model.ShelfCover
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -41,117 +43,40 @@ private const val SHOWCASE_OVERSCAN = 4
  * @property downloadRepository whether each card's book is on this device
  */
 internal class HomeRepositoryImpl(
-    private val bookRepository: com.calypsan.listenup.client.domain.repository.BookRepository,
+    private val bookRepository: BookRepository,
     private val playbackPositionDao: PlaybackPositionDao,
     private val downloadRepository: DownloadRepository,
 ) : HomeRepository {
     private val logger = KotlinLogging.logger {}
 
     /**
-     * Fetch books the user is currently listening to.
-     *
-     * Local-first approach:
-     * - Always use local data as primary source (most up-to-date for this device)
-     * - Local positions are updated immediately during playback
-     * - Server sync happens in background and updates local DB
-     *
-     * This ensures instant updates after playback without waiting for sync.
+     * The books to resume, most recent first: [continueListeningItems] — the shelf's own list — with only the hydrated
+     * books kept, then [limit] taken. Android Auto, session and navigation resume, shortcuts, voice and Siri all read
+     * this, so they offer exactly what Home shows, in the same order.
      *
      * @param limit Maximum number of books to return
      * @return Result containing list of ContinueListeningBook on success
      */
-    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> {
-        logger.debug { "getContinueListening: using local-first approach" }
-        return fetchFromLocal(limit)
-    }
-
-    /**
-     * Fallback: fetch from local database when offline.
-     * Requires client-side join with book details.
-     */
-    private suspend fun fetchFromLocal(limit: Int): AppResult<List<ContinueListeningBook>> {
-        val positions = playbackPositionDao.getRecentPositions(limit)
-        logger.info { "fetchFromLocal: found ${positions.size} playback positions" }
-
-        if (positions.isEmpty()) {
-            return AppResult.Success(emptyList())
+    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+        suspendRunCatching {
+            continueListeningItems()
+                .first()
+                .filterIsInstance<ContinueListeningItem.Ready>()
+                .map { it.book }
+                .take(limit)
         }
 
-        var booksNotFound = 0
-        var booksFiltered = 0
-
-        val bookIds = positions.map { it.bookId.value }
-        val bookMap = bookRepository.getBookListItems(bookIds).associateBy { it.id.value }
-        val downloads = downloadRepository.observeAllStatuses().first()
-
-        val books =
-            positions.mapNotNull { position ->
-                val bookIdStr = position.bookId.value
-                val book =
-                    bookMap[bookIdStr] ?: run {
-                        booksNotFound++
-                        logger.warn { "Local fallback: book not found - id=$bookIdStr" }
-                        return@mapNotNull null
-                    }
-
-                if (BookProgress.of(position.positionMs, book.duration, position.isFinished) is BookProgress.Finished) {
-                    booksFiltered++
-                    logger.debug {
-                        "Local fallback: skipping finished book - id=$bookIdStr, " +
-                            "position=${position.positionMs}, duration=${book.duration}"
-                    }
-                    return@mapNotNull null
-                }
-
-                toContinueListeningBook(position, book, downloads)
-            }
-
-        logger.info {
-            "fetchFromLocal: returning ${books.size} books " +
-                "(positions=${positions.size}, notFound=$booksNotFound, filtered=$booksFiltered)"
-        }
-        return AppResult.Success(books)
-    }
-
     /**
-     * Observe continue listening items from local database.
-     *
-     * Uses [BookRepository.observeBookListItems] for a fully reactive join: when positions
-     * change, the book side re-subscribes; when books change (sync in-flight), the book Flow
-     * re-emits — eliminating the race where stale book data was captured once per position
-     * emission.
-     *
-     * Items are [ContinueListeningItem.Ready] when the book is hydrated, or
-     * [ContinueListeningItem.Loading] when the book has not yet arrived in Room (brief
-     * sync-window — silently dropping those rows made the shelf appear half-empty).
+     * Observe continue listening items from local database: [continueListeningItems], then [limit] taken (a
+     * [ContinueListeningItem.Loading] placeholder counts, so the shelf's size stays stable while a book syncs).
      *
      * @param limit Maximum number of items to return
      * @return Flow emitting list of [ContinueListeningItem] whenever positions or books change
      */
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
-        // Push the sort + limit + isFinished=0 filter to SQL. Room still
-        // re-emits on any row change, so the Home shelf stays reactive without
-        // pulling every position to the client.
-        playbackPositionDao
-            .observeRecentPositions(limit)
-            .flatMapLatest { positions ->
-                if (positions.isEmpty()) {
-                    flowOf(emptyList())
-                } else {
-                    val bookIds = positions.map { it.bookId.value }
-                    combine(
-                        bookRepository.observeBookListItems(bookIds),
-                        downloadRepository.observeAllStatuses(),
-                    ) { books, downloads ->
-                        buildContinueListeningItems(
-                            positions = positions,
-                            books = books,
-                            downloads = downloads,
-                            limit = limit,
-                        )
-                    }
-                }
-            }
+        continueListeningItems().map { items ->
+            items.take(limit).also { logger.info { "observeContinueListening: returning ${it.size} items" } }
+        }
 
     override fun observeLibraryShowcase(coverLimit: Int): Flow<LibraryShowcase> =
         bookRepository.observeRecentlyAddedBooks(limit = coverLimit * SHOWCASE_OVERSCAN).map { newest ->
@@ -164,37 +89,51 @@ internal class HomeRepositoryImpl(
             )
         }
 
-    private fun buildContinueListeningItems(
+    /**
+     * The one Continue Listening list, unlimited, re-emitting whenever a position, a book or a download changes. The
+     * candidates come from [PlaybackPositionDao.observeContinueListeningCandidates] in its order; the book side is a
+     * live join ([BookRepository.observeBookListItems]), so a book that syncs in after its position re-emits rather
+     * than being captured stale.
+     */
+    private fun continueListeningItems(): Flow<List<ContinueListeningItem>> =
+        playbackPositionDao
+            .observeContinueListeningCandidates()
+            .flatMapLatest { positions ->
+                if (positions.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    combine(
+                        bookRepository.observeBookListItems(positions.map { it.bookId.value }),
+                        downloadRepository.observeAllStatuses(),
+                    ) { books, downloads -> continueListeningItemsOf(positions, books, downloads) }
+                }
+            }
+
+    /**
+     * Each candidate position, in order, as a shelf item: [ContinueListeningItem.Loading] while its book has not yet
+     * synced into Room (dropping it made the shelf look half-empty), left out when [BookProgress] says it is finished
+     * (the flag or the end credits), [ContinueListeningItem.Ready] otherwise. Never-started books never get here: the
+     * candidate query only returns positions past the start.
+     */
+    private fun continueListeningItemsOf(
         positions: List<PlaybackPositionEntity>,
         books: List<BookListItem>,
         downloads: Map<String, BookDownloadStatus>,
-        limit: Int,
     ): List<ContinueListeningItem> {
         val bookMap = books.associateBy { it.id.value }
-        val result =
-            positions
-                .asSequence()
-                .mapNotNull { pos ->
-                    val book = bookMap[pos.bookId.value]
-                    if (book == null) {
-                        // D: sync in-flight — show Loading placeholder so shelf size stays stable
-                        ContinueListeningItem.Loading(pos.bookId.value)
-                    } else {
-                        // A: the flag, or a position in the end credits — one rule, BookProgress (FinishedPolicy)
-                        if (BookProgress.of(pos.positionMs, book.duration, pos.isFinished) is BookProgress.Finished) {
-                            null // exclude
-                        } else {
-                            ContinueListeningItem.Ready(
-                                bookId = pos.bookId.value,
-                                book = toContinueListeningBook(pos, book, downloads),
-                            )
-                        }
-                    }
-                }.take(limit)
-                .toList()
-
-        logger.info { "observeContinueListening: returning ${result.size} items" }
-        return result
+        return positions.mapNotNull { position ->
+            val book =
+                bookMap[position.bookId.value] ?: return@mapNotNull ContinueListeningItem.Loading(position.bookId.value)
+            // Only a finished book leaves. A started book whose length is not measured yet stays, at 0%: losing your
+            // place on the shelf is worse than a bar that has nothing to show yet.
+            if (BookProgress.of(position.positionMs, book.duration, position.isFinished) is BookProgress.Finished) {
+                return@mapNotNull null
+            }
+            ContinueListeningItem.Ready(
+                bookId = position.bookId.value,
+                book = toContinueListeningBook(position, book, downloads),
+            )
+        }
     }
 
     private fun toContinueListeningBook(

@@ -100,6 +100,7 @@ class KoinModuleVerifyTest :
                         BookRepository::class,
                         DownloadRepository::class,
                         PlaybackPositionRepository::class,
+                        HomeRepository::class,
                         BookAvailability::class,
                         InboxRepository::class,
                         NetworkMonitor::class,

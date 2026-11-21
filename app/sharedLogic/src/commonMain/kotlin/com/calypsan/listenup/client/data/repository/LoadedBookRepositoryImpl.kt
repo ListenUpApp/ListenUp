@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.resubscribeOnFailure
 import com.calypsan.listenup.client.domain.model.LoadedBook
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookStore
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -39,6 +40,7 @@ internal class LoadedBookRepositoryImpl(
     private val store: LoadedBookStore,
     private val bookRepository: BookRepository,
     private val positionRepository: PlaybackPositionRepository,
+    private val homeRepository: HomeRepository,
     private val engine: PlayerEngine,
 ) : LoadedBookRepository {
     /** Whether the persisted id has been read from [store] yet, and what it was. */
@@ -77,23 +79,24 @@ internal class LoadedBookRepositoryImpl(
     /**
      * The persisted id, seeded once on the first read after the upgrade that introduced it: an install from
      * before the key has none, and its listener expects the book they were on to still be there (the bar, the
-     * system's resume card). The flag is what keeps a later Close book closed — it is set whatever the seed
+     * system's resume card). The seed is the first book on Continue Listening, so a book already finished is
+     * never brought back. The flag is what keeps a later Close book closed — it is set whatever the seed
      * finds, and never cleared. A history that cannot be read leaves the seed for the next launch.
      */
     private suspend fun readOrSeed(): BookId? {
         val stored = store.readLoadedBookId()?.let(::BookId)
         if (store.readLoadedBookMigrated()) return stored
         val loaded =
-            stored ?: when (val lastPlayed = positionRepository.getLastPlayedBook()) {
+            stored ?: when (val resume = homeRepository.getContinueListening(limit = 1)) {
                 is AppResult.Failure -> {
                     logger.warn {
-                        "Could not read the last-played book to seed the loaded book: ${lastPlayed.error.code}"
+                        "Could not read Continue Listening to seed the loaded book: ${resume.error.code}"
                     }
                     return null
                 }
 
                 is AppResult.Success -> {
-                    lastPlayed.data?.bookId
+                    resume.data.firstOrNull()?.let { BookId(it.bookId) }
                 }
             }
         if (stored == null && loaded != null) store.saveLoadedBookId(loaded.value)

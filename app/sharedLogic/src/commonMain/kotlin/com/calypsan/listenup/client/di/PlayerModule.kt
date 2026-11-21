@@ -37,7 +37,13 @@ internal val playerModule =
         }
         single { SleepTimerManager(scope = get(named(PLAYER_SCOPE))) }
         single<LoadedBookRepository> {
-            LoadedBookRepositoryImpl(store = get(), bookRepository = get(), positionRepository = get(), engine = get())
+            LoadedBookRepositoryImpl(
+                store = get(),
+                bookRepository = get(),
+                positionRepository = get(),
+                homeRepository = get(),
+                engine = get(),
+            )
         }
         // The loaded book's live playhead, for Book Detail: the session is it.
         single<LoadedBookPlayhead> { get<PlayerSession>() }

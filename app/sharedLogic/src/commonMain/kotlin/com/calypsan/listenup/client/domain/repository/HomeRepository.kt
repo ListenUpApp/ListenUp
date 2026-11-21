@@ -22,10 +22,12 @@ private val homeRepositoryLogger = KotlinLogging.logger {}
  */
 interface HomeRepository {
     /**
-     * Fetch books the user is currently listening to.
+     * Fetch books the user is currently listening to: the same list, in the same order, as
+     * [observeContinueListening], keeping only books already in Room, with [limit] taken last.
      *
-     * Leaves out books held for review (before [limit]), so the first entry is the most recent
-     * PLAYABLE book; a held book's progress row is kept and returns with its release.
+     * Leaves out books held for review, and any book finished (flagged, or stopped in its end
+     * credits) or not started, all before [limit], so the first entry is the most recent PLAYABLE
+     * book in progress; a held book's progress row is kept and returns with its release.
      *
      * @param limit Maximum number of books to return
      * @return Result containing list of ContinueListeningBook on success
@@ -37,7 +39,7 @@ interface HomeRepository {
      * never `await` the `AppResult`-returning [getContinueListening] (Swift Export bridge trap).
      */
     suspend fun getResumeBookOrNull(): ContinueListeningBook? =
-        getContinueListening(limit = 5)
+        getContinueListening(limit = 1)
             .valueOrNull { homeRepositoryLogger.warn { "getResumeBookOrNull: ${it.debugInfo ?: it.message}" } }
             ?.firstOrNull()
 
@@ -62,7 +64,8 @@ interface HomeRepository {
      * [ContinueListeningItem.Loading] when the position row arrived before the
      * corresponding book has synced into Room (brief sync-window placeholder).
      *
-     * Leaves out books held for review (before [limit]); re-emits when a book is held or released.
+     * Leaves out books held for review, finished or not started (before [limit]), exactly as
+     * [getContinueListening] does; re-emits when a book is held or released.
      *
      * @param limit Maximum number of books to return
      * @return Flow emitting list of [ContinueListeningItem] whenever positions change

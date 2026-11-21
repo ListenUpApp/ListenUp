@@ -4,15 +4,17 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.LoadedBook
-import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
-import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.test.fake.FakeBookRepository
+import com.calypsan.listenup.client.test.fake.FakeHomeRepository
 import com.calypsan.listenup.client.test.fake.FakeLoadedBookStore
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakePlayerEngine
 import com.calypsan.listenup.client.test.fake.positionFor
+import com.calypsan.listenup.client.voice.testContinueListeningBook
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -23,13 +25,14 @@ class LoadedBookRepositoryImplTest :
         class Rig(
             stored: String? = null,
             migrated: Boolean = true,
-            val positions: FakePlaybackPositionRepository = FakePlaybackPositionRepository(),
-            positionReader: PlaybackPositionRepository = positions,
+            val home: FakeHomeRepository = FakeHomeRepository(),
+            continueListening: HomeRepository = home,
         ) {
+            val positions = FakePlaybackPositionRepository()
             val store = FakeLoadedBookStore(stored, migrated)
             val books = FakeBookRepository()
             val engine = FakePlayerEngine()
-            val repository = LoadedBookRepositoryImpl(store, books, positionReader, engine)
+            val repository = LoadedBookRepositoryImpl(store, books, positions, continueListening, engine)
         }
 
         test("a fresh install is Restoring, then NothingLoaded, from local storage alone") {
@@ -128,20 +131,20 @@ class LoadedBookRepositoryImplTest :
 
         // ── The upgrade: an install from before the loaded-book key has none, so it is seeded once ──────────────
 
-        test("the first read after the upgrade seeds the last-played book and records that it did") {
+        test("the first read after the upgrade seeds the first Continue Listening book and records that it did") {
             runTest {
                 val rig = Rig(migrated = false)
-                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.home.continueListeningBooks = listOf(testContinueListeningBook(bookId = "b1"))
                 rig.repository.loadedBookId() shouldBe BookId("b1")
                 rig.store.stored shouldBe "b1"
                 rig.store.migrated shouldBe true
             }
         }
 
-        test("once seeded, a book the listener closed stays closed: the last-played book is not brought back") {
+        test("once seeded, a book the listener closed stays closed: Continue Listening's first book is not brought back") {
             runTest {
                 val rig = Rig(stored = null, migrated = true)
-                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.home.continueListeningBooks = listOf(testContinueListeningBook(bookId = "b1"))
                 rig.repository.loadedBookId() shouldBe null
                 rig.store.stored shouldBe null
             }
@@ -156,10 +159,10 @@ class LoadedBookRepositoryImplTest :
             }
         }
 
-        test("a key already written is kept over the last-played book, and the seed is recorded") {
+        test("a key already written is kept over Continue Listening's first book, and the seed is recorded") {
             runTest {
                 val rig = Rig(stored = "b2", migrated = false)
-                rig.positions.setPosition(positionFor("b1", positionMs = 1_000))
+                rig.home.continueListeningBooks = listOf(testContinueListeningBook(bookId = "b1"))
                 rig.repository.loadedBookId() shouldBe BookId("b2")
                 rig.store.migrated shouldBe true
             }
@@ -167,13 +170,13 @@ class LoadedBookRepositoryImplTest :
 
         test("a history that cannot be read loads nothing now and leaves the seed for the next launch") {
             runTest {
-                val positions = FakePlaybackPositionRepository()
+                val home = FakeHomeRepository()
                 val unreadable =
-                    object : PlaybackPositionRepository by positions {
-                        override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> =
+                    object : HomeRepository by home {
+                        override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
                             AppResult.Failure(PlaybackError.CouldNotStart())
                     }
-                val rig = Rig(migrated = false, positions = positions, positionReader = unreadable)
+                val rig = Rig(migrated = false, home = home, continueListening = unreadable)
                 rig.repository.loadedBookId() shouldBe null
                 rig.store.migrated shouldBe false
             }

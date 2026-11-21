@@ -556,7 +556,6 @@ LastMatch
 LastMatchEvent
 LastMatchEvent_SealedType
 LastMatchUi
-LastPlayedInfo
 LeaderboardCategory
 LeaderboardEntry
 LeaderboardPeriod
