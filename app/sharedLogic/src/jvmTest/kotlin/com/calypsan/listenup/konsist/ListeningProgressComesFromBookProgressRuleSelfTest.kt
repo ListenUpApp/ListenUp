@@ -19,8 +19,31 @@ class ListeningProgressComesFromBookProgressRuleSelfTest :
                 |val pct = (progress.coerceIn(0f, 1f) * 100).toInt()
                 |get() = (totalDurationMs - currentPositionMs).coerceAtLeast(0)
                 |Text("${'$'}{percentOf(fraction)}%")
+                |progress = { reader.progressPct.coerceIn(0, 100) / 100f },
+                |ProgressBar(value = pct / PERCENT, decorative = true)
                 """.trimMargin()
-            handRolledProgressLines(source) shouldBe (1..10).toList()
+            handRolledProgressLines(source) shouldBe (1..12).toList()
+        }
+
+        test("a raw finished-flag read is reported by line; the flag handed to the one rule is not") {
+            val source =
+                """
+                |.filter { it.isFinished }
+                |val bookProgress = BookProgress.of(position?.positionMs, detail.duration, position?.isFinished == true)
+                |if (position.isFinished) position.finishedAtMs else null
+                |// a comment about it.isFinished
+                |val finishedMap = positions.filterValues { it.isFinished }
+                """.trimMargin()
+            rawFinishedFlagLines(source) shouldBe listOf(1, 3, 5)
+        }
+
+        test("the finished-flag check covers presentation code only") {
+            isPresentationCode(
+                "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/library/LibraryViewModel.kt",
+            ) shouldBe true
+            isPresentationCode(
+                "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/playback/PlaybackPreparer.kt",
+            ) shouldBe false
         }
 
         test("reading the one rule's numbers is not reported") {
