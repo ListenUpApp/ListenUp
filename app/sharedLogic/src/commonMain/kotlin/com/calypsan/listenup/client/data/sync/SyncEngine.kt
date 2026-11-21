@@ -1217,6 +1217,8 @@ private object AlwaysOnlineNetworkMonitor : NetworkMonitor {
     override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
     override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+
+    override val onLocalNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 /**

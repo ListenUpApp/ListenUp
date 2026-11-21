@@ -29,4 +29,8 @@ class BrowserNetworkMonitor : NetworkMonitor {
 
     override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         get() = onlineFlow
+
+    // A browser cannot tell what kind of network it is on; it mirrors the unmetered answer.
+    override val onLocalNetworkFlow: StateFlow<Boolean>
+        get() = onUnmeteredNetworkFlow
 }

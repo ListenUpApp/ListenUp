@@ -82,6 +82,7 @@ class ConnectionCoordinatorTest :
             mock<NetworkMonitor> {
                 every { onlineFlow } returns MutableStateFlow(true)
                 every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                every { onLocalNetworkFlow } returns MutableStateFlow(true)
                 every { isOnline() } returns true
             }
 
@@ -226,6 +227,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -264,6 +266,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -326,6 +329,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -396,6 +400,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -440,6 +445,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -480,6 +486,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -519,6 +526,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             val coordinator =
@@ -564,6 +572,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(
@@ -622,6 +631,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns online
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(true)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(true)
                     every { isOnline() } returns online.value
                 }
             ConnectionCoordinator(
@@ -653,6 +663,7 @@ class ConnectionCoordinatorTest :
         suspend fun reevaluateWithMovedServer(
             unmetered: Boolean,
             localNetworkAccess: FakeLocalNetworkAccess,
+            onLocalNetwork: Boolean = unmetered,
         ): Pair<ServerDiscoveryService, ServerConfig> {
             val scope = TestScope(StandardTestDispatcher())
             val newLocal = "http://192.168.1.20:8080"
@@ -694,6 +705,7 @@ class ConnectionCoordinatorTest :
                 mock<NetworkMonitor> {
                     every { onlineFlow } returns MutableStateFlow(true)
                     every { onUnmeteredNetworkFlow } returns MutableStateFlow(unmetered)
+                    every { onLocalNetworkFlow } returns MutableStateFlow(onLocalNetwork)
                     every { isOnline() } returns true
                 }
             val coordinator =
@@ -725,6 +737,32 @@ class ConnectionCoordinatorTest :
                 reevaluateWithMovedServer(
                     unmetered = true,
                     localNetworkAccess = FakeLocalNetworkAccess(allowed = false),
+                )
+
+            verify(exactly(0)) { discovery.startDiscovery() }
+            verifySuspend { config.setActiveUrl(ServerUrl(remote)) }
+        }
+
+        // Home Wi-Fi with its internet down: Android routes over cellular, so the active network is
+        // metered, yet the phone is still on the server's LAN, which is the evening self-hosting is for.
+        test("on a local network whose active route is metered, the server is still found at its new address") {
+            val (discovery, config) =
+                reevaluateWithMovedServer(
+                    unmetered = false,
+                    onLocalNetwork = true,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
+                )
+
+            verify { discovery.startDiscovery() }
+            verifySuspend { config.setActiveUrl(ServerUrl("http://192.168.1.20:8080")) }
+        }
+
+        test("off every local network the LAN is never searched, even on an unmetered route") {
+            val (discovery, config) =
+                reevaluateWithMovedServer(
+                    unmetered = true,
+                    onLocalNetwork = false,
+                    localNetworkAccess = FakeLocalNetworkAccess(),
                 )
 
             verify(exactly(0)) { discovery.startDiscovery() }

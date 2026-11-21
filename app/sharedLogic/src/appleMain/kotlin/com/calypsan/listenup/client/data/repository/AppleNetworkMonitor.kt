@@ -7,6 +7,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import platform.Network.nw_interface_type_wifi
+import platform.Network.nw_interface_type_wired
 import platform.Network.nw_path_get_status
 import platform.Network.nw_path_is_expensive
 import platform.Network.nw_path_monitor_cancel
@@ -16,6 +18,7 @@ import platform.Network.nw_path_monitor_set_update_handler
 import platform.Network.nw_path_monitor_start
 import platform.Network.nw_path_monitor_t
 import platform.Network.nw_path_status_satisfied
+import platform.Network.nw_path_uses_interface_type
 import platform.darwin.dispatch_get_main_queue
 
 private val logger = KotlinLogging.logger {}
@@ -41,6 +44,9 @@ class AppleNetworkMonitor : NetworkMonitor {
     override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
+    override val onLocalNetworkFlow: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+
     init {
         logger.debug { "Initializing iOS network monitor" }
 
@@ -55,6 +61,11 @@ class AppleNetworkMonitor : NetworkMonitor {
                 onlineFlow.value = isOnline
                 // Unmetered = online AND not expensive (WiFi/ethernet, not cellular)
                 onUnmeteredNetworkFlow.value = isOnline && !isExpensive
+                // Local = the path runs over Wi-Fi or wired Ethernet, metered or not. This sees
+                // the default path only; a Wi-Fi iOS has stopped routing over is not visible here.
+                onLocalNetworkFlow.value =
+                    nw_path_uses_interface_type(path, nw_interface_type_wifi) ||
+                    nw_path_uses_interface_type(path, nw_interface_type_wired)
             }
         }
 

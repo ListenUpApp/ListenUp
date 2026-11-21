@@ -512,6 +512,7 @@ private class FakeNetworkMonitor(
     override val onlineFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
 
     override val onUnmeteredNetworkFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
+    override val onLocalNetworkFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
 }
 
 /**

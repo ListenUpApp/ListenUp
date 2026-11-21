@@ -64,6 +64,10 @@ class JvmNetworkMonitor(
     override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
+    // The same assumption: a desktop is on its LAN, so it mirrors the unmetered answer.
+    override val onLocalNetworkFlow: StateFlow<Boolean>
+        get() = onUnmeteredNetworkFlow
+
     init {
         startHealthCheckLoop()
     }

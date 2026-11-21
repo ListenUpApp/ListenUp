@@ -50,6 +50,7 @@ private class FakeNetworkMonitor(
     override val onlineFlow: StateFlow<Boolean> get() = online
 
     override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onLocalNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
 
 private fun CoroutineScope.buildStore(

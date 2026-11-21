@@ -198,10 +198,12 @@ class ConnectionCoordinator internal constructor(
     /**
      * Whether a LAN search can help without bothering anyone. These searches run unasked, on every
      * network change and reconnect attempt, so they need both: a local network to search (on
-     * cellular there is none), and local network access already given, since without it Android
-     * 17 puts a device picker in front of the user and would block the address the search finds.
+     * cellular alone there is none — but a Wi-Fi whose internet is down, or one marked metered, is
+     * still the server's LAN even when the active route is cellular), and local network access
+     * already given, since without it Android 17 puts a device picker in front of the user and
+     * would block the address the search finds.
      */
-    private fun canSearchLan(): Boolean = networkMonitor.onUnmeteredNetworkFlow.value && localNetworkAccess.isAllowed()
+    private fun canSearchLan(): Boolean = networkMonitor.onLocalNetworkFlow.value && localNetworkAccess.isAllowed()
 
     private suspend fun findConnectedLocalUrl(connectedId: String): String? {
         discoveryService.startDiscovery()
