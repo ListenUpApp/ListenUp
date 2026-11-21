@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.core.pullCatching
 import com.calypsan.listenup.client.core.TypedAppErrorException
 import com.calypsan.listenup.api.result.getOrElse
+import com.calypsan.listenup.api.result.map
 
 private val logger = KotlinLogging.logger {}
 
@@ -74,15 +75,26 @@ internal class SyncCatchUpClient(
         pageFrom(handler, startSince = 0L, resetCursor = true)
 
     /**
+     * [catchUpFromZero], noting every live id the pull returned and the revision it reached. A pull
+     * that stopped early or met a row it could not decode reports [FromZeroPull.Incomplete].
+     */
+    override suspend fun <T : Any> catchUpFromZeroReporting(handler: SyncDomainHandler<T>): AppResult<FromZeroPull> {
+        val pulled = PulledRows()
+        return pageFrom(handler = handler, startSince = 0L, resetCursor = true, pulled = pulled).map { pulled.result() }
+    }
+
+    /**
      * Core paging loop shared by [catchUp] and [catchUpFromZero]. Pulls pages of [handler]'s
      * domain starting from [startSince], applies each item via [SyncDomainHandler.onCatchUpItem],
      * and advances the persisted cursor after each page. [resetCursor] forces each advance
      * (from-zero re-baseline) instead of the default monotonic advance (incremental catch-up).
+     * [pulled], when given, notes what every page returned.
      */
     private suspend fun <T : Any> pageFrom(
         handler: SyncDomainHandler<T>,
         startSince: Long,
         resetCursor: Boolean = false,
+        pulled: PulledRows? = null,
     ): AppResult<Unit> =
         pullCatching {
             var since = startSince
@@ -93,6 +105,7 @@ internal class SyncCatchUpClient(
                         .getOrElse { error -> throw TypedAppErrorException(error) }
                         .toDecodedPage(handler.payloadSerializer)
                 val outcome = applyPage(handler, page, since)
+                pulled?.record(handler, page)
                 if (outcome.failures > 0 && !handler.hasDigestBackstop) {
                     // Digest OPT-OUT domain (positions): the reconciler never re-pulls it, so the
                     // cursor is the ONLY redelivery path. Hold it at the last revision applied
@@ -125,6 +138,7 @@ internal class SyncCatchUpClient(
                 }
                 if (!page.hasMore) {
                     recordCompletedPull(handler.domainName, startSince)
+                    pulled?.finish(throughRevision = since)
                     break
                 }
                 // hasMore == true but no cursor to advance to: `since` did not move, so a naive
@@ -141,6 +155,44 @@ internal class SyncCatchUpClient(
                 }
             }
         }
+
+    /**
+     * What a from-zero pull has returned so far: the live ids of every decoded row, whether any row could
+     * not be decoded, and — once the last page arrived — the revision the pull reached.
+     */
+    private class PulledRows {
+        private val liveIds = mutableSetOf<String>()
+        private var sawUndecodable = false
+        private var throughRevision: Long? = null
+
+        fun <T : Any> record(
+            handler: SyncDomainHandler<T>,
+            page: DecodedPage<T>,
+        ) {
+            for (row in page.rows) {
+                when (row) {
+                    is DecodedRow.Undecodable -> {
+                        sawUndecodable = true
+                    }
+
+                    is DecodedRow.Decoded -> {
+                        val isTombstone = (row.value as? Tombstoned)?.deletedAt != null
+                        if (!isTombstone) liveIds += handler.syncId(row.value)
+                    }
+                }
+            }
+        }
+
+        fun finish(throughRevision: Long) {
+            this.throughRevision = throughRevision
+        }
+
+        fun result(): FromZeroPull {
+            val through = throughRevision
+            val accountedForEveryRow = through != null && !sawUndecodable
+            return if (accountedForEveryRow) FromZeroPull.Complete(liveIds, through) else FromZeroPull.Incomplete
+        }
+    }
 
     /** The outcome of applying one catch-up page: how many items failed, and the highest revision applied before the first failure. */
     private data class PageApplyOutcome(

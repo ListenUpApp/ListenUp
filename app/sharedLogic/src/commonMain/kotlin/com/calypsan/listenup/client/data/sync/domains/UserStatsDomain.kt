@@ -32,6 +32,7 @@ internal fun userStatsDomain(database: ListenUpDatabase): MirroredDomain<UserSta
             ),
         digest = fullDigest(database.userStatsDao()::digestRows),
         writes = WriteTier.ServerOwned,
+        evictById = database.userStatsDao()::softDelete,
     )
 
 /** Room mapping for [UserStatsSyncPayload]: unconditional replace, no merge logic. */

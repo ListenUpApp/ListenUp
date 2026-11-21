@@ -122,6 +122,10 @@ class ArchitectureTest :
                 // FirehoseSuppressed to manufacture an above-cursor gap activity, then proves
                 // lifecycleReconcile lands it where forceReconcile cannot. Same exemption class.
                 .filter { "data/sync/ActivityLifecycleReconcileInvariantTest" !in it.path }
+                // Restore convergence E2E: runs the real server restore in-process, then the real client
+                // catch-up and digest reconcile against it, to prove the client ends on exactly the restored
+                // rows. Both real ends are the whole point. Same exemption class — confined to jvmTest.
+                .filter { "data/sync/RestoreConvergenceE2ETest" !in it.path }
                 // Backup RPC E2E: drives the client BackupRepository through the real BackupService
                 // in-process to prove the admin backup routes return domain-typed results (not a
                 // transport 404). Same exemption class as the Profile E2E — confined to jvmTest.

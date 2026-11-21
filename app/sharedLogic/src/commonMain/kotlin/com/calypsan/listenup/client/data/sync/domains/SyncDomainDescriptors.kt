@@ -40,6 +40,14 @@ internal data class MirroredDomain<T : SyncPayload>(
      * other than the wire id (see [OutboxKeying]). Null means the wire id IS the outbox key.
      */
     val outboxKeying: OutboxKeying<T>? = null,
+    /**
+     * Tombstones, by wire id, a live row the server no longer has: what a digest repair runs for a row
+     * its from-zero pull did not return (after a restore, a row created after the backup). Defaults to
+     * the firehose delete hook. A [DeleteSemantics.CatchUpOnly] domain whose wire id is still its local
+     * key declares its own; null leaves such rows in place.
+     */
+    val evictById: (suspend (id: String, deletedAt: Long, revision: Long) -> Unit)? =
+        (deletes as? DeleteSemantics.SoftDelete)?.tombstoneById,
 )
 
 /**

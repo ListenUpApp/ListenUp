@@ -40,6 +40,7 @@ internal fun listeningEventsDomain(
             ),
         digest = fullDigest(database.listeningEventDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.ListeningEvents),
+        evictById = database.listeningEventDao()::softDelete,
     )
 
 /**
