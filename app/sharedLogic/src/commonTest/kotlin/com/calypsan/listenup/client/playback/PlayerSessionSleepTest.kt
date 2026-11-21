@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -214,6 +215,121 @@ class PlayerSessionSleepTest :
                     rig.session.playBook(BookId("b"), 20_000)
                     runCurrent()
                     rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.engine.setPosition(100_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("end of chapter survives Next chapter, and fires at the end of the chapter moved to") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 10_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.session.nextChapter()
+                    runCurrent()
+                    rig.sleep.state.value
+                        .shouldBeInstanceOf<SleepTimerState.Active>()
+                    // Listening on, unprompted, across the end of the chapter the listener is now in.
+                    rig.engine.setPosition(200_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("end of chapter survives a scrub across a boundary") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 10_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.session.seekTo(150_000)
+                    runCurrent()
+                    rig.sleep.state.value
+                        .shouldBeInstanceOf<SleepTimerState.Active>()
+                    // Listening on, unprompted, across the end of the chapter the listener is now in.
+                    rig.engine.setPosition(200_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("end of chapter survives a chapter tap") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 10_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.session.seekToChapter(1)
+                    runCurrent()
+                    rig.sleep.state.value
+                        .shouldBeInstanceOf<SleepTimerState.Active>()
+                    // Listening on, unprompted, across the end of the chapter the listener is now in.
+                    rig.engine.setPosition(200_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("end of chapter survives a skip forward across a boundary") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 95_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.session.skipForward()
+                    runCurrent()
+                    rig.sleep.state.value
+                        .shouldBeInstanceOf<SleepTimerState.Active>()
+                    // Listening on, unprompted, across the end of the chapter the listener is now in.
+                    rig.engine.setPosition(200_500)
+                    runCurrent()
+                    rig.sleep.state.value shouldBe SleepTimerState.FadingOut
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("a move back re-baselines: re-crossing the boundary by listening fires once") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), 150_000)
+                    runCurrent()
+                    rig.session.setSleepTimer(SleepTimerMode.EndOfChapter)
+                    rig.session.seekToChapter(0)
+                    runCurrent()
+                    rig.sleep.state.value
+                        .shouldBeInstanceOf<SleepTimerState.Active>()
+                    // Listening on, unprompted, across the end of the chapter the listener is now in.
                     rig.engine.setPosition(100_500)
                     runCurrent()
                     rig.sleep.state.value shouldBe SleepTimerState.FadingOut

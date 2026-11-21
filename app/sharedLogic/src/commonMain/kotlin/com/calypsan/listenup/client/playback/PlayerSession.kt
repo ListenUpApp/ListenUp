@@ -456,9 +456,18 @@ class PlayerSession(
             startLoad(bookId, PlaybackStart.At(target ?: engine.positionMs.value))
             return
         }
-        target?.let(engine::seekTo)
+        target?.let(::seekEngineTo)
         engine.clearError()
         engine.play()
+    }
+
+    /**
+     * Seek the engine for a move the listener made. The sleep timer hears the chapter it lands in first, so an
+     * end-of-chapter timer counts from there instead of taking the move for a chapter that ended.
+     */
+    private fun seekEngineTo(positionMs: Long) {
+        chapterInfoAt(positionMs, chapters.value, durationMs.value)?.let { sleep.onUserMovedTo(it.index) }
+        engine.seekTo(positionMs)
     }
 
     /** Whether the engine streams [bookId] from signed URLs that have lapsed, or will within the margin. */
@@ -700,7 +709,7 @@ class PlayerSession(
             val target = positionMs.coerceAtLeast(0L)
             when {
                 loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
-                loaded.isEngineBound -> engine.seekTo(target)
+                loaded.isEngineBound -> seekEngineTo(target)
                 else -> pendingStart.value = PlaybackStart.At(target)
             }
         }
