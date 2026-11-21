@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.push
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -37,6 +39,11 @@ class PushActionReceiver : BroadcastReceiver() {
         intent: Intent,
     ) {
         if (intent.action != ACTION_DECIDE_REGISTRATION) return
+        val isDeviceLocked = { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }
+        if (!isRegistrationDecisionAllowed(Build.VERSION.SDK_INT, isDeviceLocked)) {
+            logger.info { "Registration decision broadcast while the device is locked — ignoring" }
+            return
+        }
         val userId = intent.getStringExtra(EXTRA_USER_ID)
         if (userId == null) {
             logger.warn { "Registration decision action with no user id — ignoring" }
@@ -62,3 +69,14 @@ class PushActionReceiver : BroadcastReceiver() {
         }
     }
 }
+
+/**
+ * Whether a registration decision may be applied. From API 31 the OS has already demanded an unlock
+ * before firing the action (`setAuthenticationRequired`), so [isDeviceLocked] is not read. Below it
+ * the renderer shows no buttons at all; this is the second line, for a stale notification posted
+ * before an OS downgrade or a broadcast that reached the receiver some other way.
+ */
+internal fun isRegistrationDecisionAllowed(
+    sdkInt: Int,
+    isDeviceLocked: () -> Boolean,
+): Boolean = sdkInt >= Build.VERSION_CODES.S || !isDeviceLocked()

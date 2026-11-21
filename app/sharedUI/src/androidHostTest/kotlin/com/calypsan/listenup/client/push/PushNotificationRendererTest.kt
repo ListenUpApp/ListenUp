@@ -129,6 +129,39 @@ class PushNotificationRendererTest {
                 "A new request is waiting for your approval."
         }
 
+    // `setAuthenticationRequired` is honoured only from API 31 (androidx `NotificationCompatBuilder`
+    // drops it below), so on Android 11 Approve/Deny would fire from the lock screen. There the
+    // buttons are left off and the tap — which needs an unlock to open the app — is the only path.
+    @Test
+    @Config(sdk = [30])
+    fun `on Android 11 a registration request has no lock-screen decision buttons`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer().render(PushPayload.RegistrationApproval(userId = "pending-1"))
+
+            val posted = onlyPosted()
+            posted.actions
+                .orEmpty()
+                .toList()
+                .shouldBeEmpty()
+            posted.contentIntent shouldNotBe null
+            posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "Someone wants to join"
+        }
+
+    @Test
+    @Config(sdk = [34])
+    fun `from Android 12 the decision buttons demand an unlock`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer().render(PushPayload.RegistrationApproval(userId = "pending-1"))
+
+            val actions = onlyPosted().actions.orEmpty().toList()
+            actions.map { it.title.toString() } shouldBe listOf("Approve", "Deny")
+            actions.all { it.isAuthenticationRequired } shouldBe true
+        }
+
     // A lookup that throws is a failed local read, not a reason to stay silent.
     @Test
     fun `registration request survives a lookup that throws`() =
