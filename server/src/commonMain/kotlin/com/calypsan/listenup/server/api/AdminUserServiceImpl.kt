@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
@@ -123,7 +124,7 @@ class AdminUserServiceImpl(
      * default is a throwaway detached scope for tests/direct construction; the Koin wiring in
      * `authModule` passes the server's real long-lived application scope.
      */
-    private val appScope: CoroutineScope = CoroutineScope(SupervisorJob()),
+    private val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + appCoroutineExceptionHandler),
     /**
      * Nullable so the auth module assembles independently of the admin-roster module (test
      * environments, phased startup). A null value means admin-roster changes here are not
