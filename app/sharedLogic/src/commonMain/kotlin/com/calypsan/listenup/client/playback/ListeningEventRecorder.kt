@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,15 +16,34 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.datetime.TimeZone
 
-private val logger = KotlinLogging.logger {}
+private const val LOGGER_NAME = "com.calypsan.listenup.client.playback.ListeningEventRecorder"
+
+// Looked up per call rather than held: the recorder logs a handful of lines per listen, and a logger captured when
+// this file first loads would miss a factory installed later (the iOS file tap, a spec).
+private val logger: KLogger get() = KotlinLogging.logger(LOGGER_NAME)
+
+/**
+ * How many times one span's finalize may fail in a process before it is set aside. Past this the failure is not
+ * transient, and holding every later play behind that one row would stop recording altogether.
+ */
+internal const val MAX_FINALIZE_ATTEMPTS = 3
 
 /**
  * Drives the per-span recording state machine: open a [TentativeSpanEntity] on play,
  * extend it on each heartbeat, finalize it into a [ListeningEventEntity] (plus a pending
  * op) on pause / book-end / sleep-timer / speed-change / seek / cross-book transition.
  *
- * Only one span can be open at a time — a user listens to one book at a time. The
- * single-row `tentative_span` table enforces this by design.
+ * Only one span can be open at a time — a user listens to one book at a time.
+ *
+ * **A play that was never heard.** A heartbeat ([onPeriodicTick]) is the player saying audio is playing, so a
+ * heartbeat with no span open opens one there. Android can report a resume from the notification, lock screen,
+ * headset or car before it knows which book is playing; that play opened nothing, and without this the whole listen
+ * went unrecorded while its positions kept saving.
+ *
+ * **A span that cannot be finalized.** A finalize that fails leaves its span in place as the recovery breadcrumb, and
+ * the next play retries it rather than open a new span over it. After [MAX_FINALIZE_ATTEMPTS] failures in one
+ * process the span is set aside: logged at ERROR, kept in `tentative_span` for [recoverOrphan] on the next launch,
+ * and no longer in the way of the listening after it.
  *
  * **Orphan recovery.** On app start, if a [TentativeSpanEntity] row is found it means the
  * previous run ended without closing the span (crash / OS-kill / battery die). Call
@@ -99,6 +119,15 @@ class ListeningEventRecorder internal constructor(
      */
     private val spanLock = Mutex()
 
+    /** Failed finalizes per span id in this process, for the spans not yet set aside. Guarded by [spanLock]. */
+    private val finalizeFailures = mutableMapOf<String, Int>()
+
+    /** Ids of the spans set aside after [MAX_FINALIZE_ATTEMPTS] failed finalizes. Guarded by [spanLock]. */
+    private val setAside = mutableSetOf<String>()
+
+    /** The open span: the one row in `tentative_span` that has not been set aside. */
+    private suspend fun currentSpan(): TentativeSpanEntity? = tentativeSpanDao.getAll().firstOrNull { it.id !in setAside }
+
     /**
      * Opens a new tentative span at [positionMs] with [playbackSpeed], stamped with this
      * process's [processId].
@@ -109,10 +138,11 @@ class ListeningEventRecorder internal constructor(
      * left it behind and startup [recoverOrphan] has not run yet — e.g. the user hit play while
      * catch-up was still paging), or from this one, when a pause never reached the recorder (a
      * book switched without one, a player that reports playing again after a stall). The table's
-     * key is the span id, so an upsert of the new span beside it would add a second row, which the
-     * next finalize deletes unrecorded. Only if the finalize could not clear the row (it rolled
+     * key is the span id, so an upsert of the new span beside it would add a second row, leaving
+     * two spans open at once. Only if the finalize could not clear the row (it rolled
      * back) do we bail without opening a new span, so the old span survives as the recovery
-     * breadcrumb.
+     * breadcrumb — until it has failed [MAX_FINALIZE_ATTEMPTS] times, when it is set aside and the
+     * new span opens beside it.
      */
     suspend fun onPlay(
         bookId: String,
@@ -122,18 +152,18 @@ class ListeningEventRecorder internal constructor(
         spanLock.withLock { openSpan(bookId, positionMs, playbackSpeed) }
     }
 
-    /** [onPlay]'s body, for the calls that split a span and already hold [spanLock]. */
+    /** [onPlay]'s body, for the calls that already hold [spanLock]. Returns whether a span was opened. */
     private suspend fun openSpan(
         bookId: String,
         positionMs: Long,
         playbackSpeed: Float,
-    ) {
+    ): Boolean {
         val userId =
             currentUserId() ?: run {
-                logger.debug { "[ListeningEventRecorder] onPlay skipped — no authenticated user" }
-                return
+                logger.info { "[ListeningEventRecorder] onPlay skipped — no authenticated user" }
+                return false
             }
-        val existing = tentativeSpanDao.get()
+        val existing = currentSpan()
         if (existing != null) {
             val origin = if (existing.processId == processId) "this process" else "a prior process"
             logger.info {
@@ -142,15 +172,15 @@ class ListeningEventRecorder internal constructor(
             }
             val cleared =
                 finalizeThenCheckCleared(
+                    tentative = existing,
                     endPositionMs = existing.currentPositionMs,
                     endedAt = existing.lastHeartbeatAt,
-                    bookId = existing.bookId,
                     caller = "onPlay",
                 )
-            if (!cleared) return
+            if (!cleared) return false
         }
         val nowMs = clock.now().toEpochMilliseconds()
-        tentativeSpanDao.upsertSingleton(
+        tentativeSpanDao.upsert(
             TentativeSpanEntity(
                 id = Uuid.random().toString(),
                 userId = userId,
@@ -165,19 +195,34 @@ class ListeningEventRecorder internal constructor(
                 processId = processId,
             ),
         )
+        return true
     }
 
     /**
-     * Advances [TentativeSpanEntity.currentPositionMs] and [TentativeSpanEntity.lastHeartbeatAt]
-     * to the current time. No-op if no span is open, or if the open span is not [bookId]'s: a
-     * position in one book never extends a listen to another.
+     * A heartbeat while audio is playing [bookId] at [positionMs] and [playbackSpeed]: advances
+     * [TentativeSpanEntity.currentPositionMs] and [TentativeSpanEntity.lastHeartbeatAt] to the
+     * current time. Call it only while audio is playing.
+     *
+     * With no span open, the play that should have opened one was missed, so the span opens here,
+     * at this heartbeat's position and time, and the log says so. With another book's span open the
+     * heartbeat is ignored: a position in one book never extends a listen to another.
      */
     suspend fun onPeriodicTick(
         bookId: String,
         positionMs: Long,
+        playbackSpeed: Float,
     ) {
         spanLock.withLock {
-            val existing = tentativeSpanDao.get() ?: return
+            val existing = currentSpan()
+            if (existing == null) {
+                if (openSpan(bookId, positionMs, playbackSpeed)) {
+                    logger.info {
+                        "[ListeningEventRecorder] Opened span late: book=$bookId at position=$positionMs — " +
+                            "audio was playing with no span open, so its play was never heard"
+                    }
+                }
+                return
+            }
             if (existing.bookId != bookId) {
                 logger.warn {
                     "[ListeningEventRecorder] Tick for book=$bookId while book=${existing.bookId}'s span is open — ignored"
@@ -185,7 +230,7 @@ class ListeningEventRecorder internal constructor(
                 return
             }
             val nowMs = clock.now().toEpochMilliseconds()
-            tentativeSpanDao.upsertSingleton(
+            tentativeSpanDao.upsert(
                 existing.copy(
                     currentPositionMs = positionMs,
                     lastHeartbeatAt = nowMs,
@@ -206,7 +251,7 @@ class ListeningEventRecorder internal constructor(
         positionMs: Long,
     ) {
         spanLock.withLock {
-            val existing = tentativeSpanDao.get() ?: return
+            val existing = currentSpan() ?: return
             val endPositionMs =
                 if (existing.bookId == bookId) {
                     positionMs
@@ -217,7 +262,7 @@ class ListeningEventRecorder internal constructor(
                     }
                     existing.currentPositionMs
                 }
-            finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = clock.now().toEpochMilliseconds())
+            finalizeSpan(existing, endPositionMs = endPositionMs, endedAt = clock.now().toEpochMilliseconds())
         }
     }
 
@@ -229,7 +274,7 @@ class ListeningEventRecorder internal constructor(
      * at that speed from its [TentativeSpanEntity.startPositionMs] to [positionMs].
      *
      * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
-     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * (see [finalizeSpan]) — this does NOT open a new span on top of it (that would destroy
      * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
      * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
      * the next launch.
@@ -239,13 +284,13 @@ class ListeningEventRecorder internal constructor(
         newSpeed: Float,
     ) {
         spanLock.withLock {
-            val existing = tentativeSpanDao.get() ?: return
+            val existing = currentSpan() ?: return
             val nowMs = clock.now().toEpochMilliseconds()
             val cleared =
                 finalizeThenCheckCleared(
+                    tentative = existing,
                     endPositionMs = positionMs,
                     endedAt = nowMs,
-                    bookId = existing.bookId,
                     caller = "onSpeedChange",
                 )
             if (!cleared) return
@@ -263,10 +308,10 @@ class ListeningEventRecorder internal constructor(
      *
      * A before-position at or behind the span's own start (a backward seek reported with a stale
      * before-position, or the auto-rewind right after a play) closes a span that heard nothing, which
-     * [finalizeCurrentSpan] drops.
+     * [finalizeSpan] drops.
      *
      * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
-     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * (see [finalizeSpan]) — this does NOT open a new span on top of it (that would destroy
      * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
      * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
      * the next launch.
@@ -276,13 +321,13 @@ class ListeningEventRecorder internal constructor(
         positionAfterSeek: Long,
     ) {
         spanLock.withLock {
-            val existing = tentativeSpanDao.get() ?: return
+            val existing = currentSpan() ?: return
             val nowMs = clock.now().toEpochMilliseconds()
             val cleared =
                 finalizeThenCheckCleared(
+                    tentative = existing,
                     endPositionMs = positionBeforeSeek,
                     endedAt = nowMs,
-                    bookId = existing.bookId,
                     caller = "onSeek",
                 )
             if (!cleared) return
@@ -296,7 +341,7 @@ class ListeningEventRecorder internal constructor(
      * No-op if no span is open.
      *
      * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
-     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * (see [finalizeSpan]) — this does NOT open a new span on top of it (that would destroy
      * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
      * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
      * the next launch.
@@ -306,13 +351,13 @@ class ListeningEventRecorder internal constructor(
         newStartPositionMs: Long,
     ) {
         spanLock.withLock {
-            val existing = tentativeSpanDao.get() ?: return
+            val existing = currentSpan() ?: return
             val nowMs = clock.now().toEpochMilliseconds()
             val cleared =
                 finalizeThenCheckCleared(
+                    tentative = existing,
                     endPositionMs = existing.currentPositionMs,
                     endedAt = nowMs,
-                    bookId = existing.bookId,
                     caller = "onMediaItemTransition",
                 )
             if (!cleared) return
@@ -321,9 +366,9 @@ class ListeningEventRecorder internal constructor(
     }
 
     /**
-     * Detects an orphan [TentativeSpanEntity] on app start and finalizes it using
-     * [TentativeSpanEntity.lastHeartbeatAt] as the end timestamp. Loss is bounded to one
-     * heartbeat interval (30 s in normal operation). No-op if no orphan exists.
+     * Detects every orphan [TentativeSpanEntity] on app start — the span left open, and any set
+     * aside — and finalizes each using [TentativeSpanEntity.lastHeartbeatAt] as the end timestamp.
+     * Loss is bounded to one heartbeat interval (30 s in normal operation). No-op if no orphan exists.
      *
      * **Never finalizes the current process's live span.** A span whose [TentativeSpanEntity.processId]
      * equals this process's [processId] belongs to the running session — finalizing it would truncate
@@ -334,46 +379,48 @@ class ListeningEventRecorder internal constructor(
      */
     suspend fun recoverOrphan() {
         spanLock.withLock {
-            val orphan = tentativeSpanDao.get() ?: return
-            if (orphan.processId == processId) {
+            val (live, orphans) = tentativeSpanDao.getAll().partition { it.processId == processId }
+            live.forEach { span ->
                 logger.debug {
-                    "[ListeningEventRecorder] Skipping recovery — span for book=${orphan.bookId} belongs to " +
+                    "[ListeningEventRecorder] Skipping recovery — span for book=${span.bookId} belongs to " +
                         "the current process (it is live, not an orphan)"
                 }
-                return
             }
-            logger.info {
-                "[ListeningEventRecorder] Recovering orphan span for book=${orphan.bookId}, " +
-                    "startPos=${orphan.startPositionMs}, lastHeartbeat=${orphan.lastHeartbeatAt}"
+            orphans.forEach { orphan ->
+                logger.info {
+                    "[ListeningEventRecorder] Recovering orphan span for book=${orphan.bookId}, " +
+                        "startPos=${orphan.startPositionMs}, lastHeartbeat=${orphan.lastHeartbeatAt}"
+                }
+                finalizeSpan(orphan, endPositionMs = orphan.currentPositionMs, endedAt = orphan.lastHeartbeatAt)
             }
-            finalizeCurrentSpan(endPositionMs = orphan.currentPositionMs, endedAt = orphan.lastHeartbeatAt)
         }
     }
 
     // ── Private finalization ────────────────────────────────────────────────────
 
     /**
-     * Finalizes the current span, then reports whether the tentative row actually cleared.
+     * Finalizes [tentative], then reports whether the open-span slot actually cleared.
      *
-     * [finalizeCurrentSpan] deliberately leaves the row in place when its enqueue fails — that
+     * [finalizeSpan] deliberately leaves the row in place when its enqueue fails — that
      * survivor is the ONLY breadcrumb [recoverOrphan] can re-promote from. Every
      * finalize-then-reopen flow ([onPlay], [onSpeedChange], [onSeek], [onMediaItemTransition])
      * must honor it — opening a new span
      * on top of a survivor would silently destroy the breadcrumb and lose the whole original span,
      * not just the failed write. Returns `false` (and logs a warning tagged with [caller]) when the
-     * row survived, so the call site can bail without opening a new span.
+     * row survived as the open span, so the call site can bail without opening a new span. A span
+     * set aside by this failure no longer holds the slot, so the new span opens beside it.
      */
     private suspend fun finalizeThenCheckCleared(
+        tentative: TentativeSpanEntity,
         endPositionMs: Long,
         endedAt: Long,
-        bookId: String,
         caller: String,
     ): Boolean {
-        finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = endedAt)
-        if (tentativeSpanDao.get() != null) {
+        finalizeSpan(tentative, endPositionMs = endPositionMs, endedAt = endedAt)
+        if (currentSpan() != null) {
             logger.warn {
                 "[ListeningEventRecorder] Finalize did not clear the tentative span during $caller " +
-                    "(book=$bookId) — leaving it intact for recovery, new span not opened"
+                    "(book=${tentative.bookId}) — leaving it intact for recovery, new span not opened"
             }
             return false
         }
@@ -381,8 +428,8 @@ class ListeningEventRecorder internal constructor(
     }
 
     /**
-     * Reads the current [TentativeSpanEntity], drops it if it heard nothing, otherwise atomically
-     * writes a [ListeningEventEntity] + enqueues a pending op + deletes the tentative span.
+     * Drops [tentative] if it heard nothing, otherwise atomically writes a [ListeningEventEntity] +
+     * enqueues a pending op + deletes the tentative span.
      *
      * **Heard-nothing drop.** A span that took no wall-clock time (`endedAt == startedAt`) or covered
      * no audio (`endPositionMs <= startPositionMs`) is not a listen: the tentative is deleted and no
@@ -396,16 +443,18 @@ class ListeningEventRecorder internal constructor(
      * delete that breadcrumb and strand the event at `revision = 0` locally forever. The event
      * write stays insert-if-absent so a re-promoted orphan never clobbers an already-synced or
      * tombstoned row. Serialization runs before the transaction to keep the SQLite write lock short.
+     *
+     * **Bounded retries.** Each failure is counted against the span; see [recordFinalizeFailure].
      */
-    private suspend fun finalizeCurrentSpan(
+    private suspend fun finalizeSpan(
+        tentative: TentativeSpanEntity,
         endPositionMs: Long,
         endedAt: Long,
     ) {
-        val tentative = tentativeSpanDao.get() ?: return
-
         if (endedAt == tentative.startedAt || endPositionMs <= tentative.startPositionMs) {
             logger.debug { "[ListeningEventRecorder] Dropping a span that heard nothing for book=${tentative.bookId}" }
-            tentativeSpanDao.delete()
+            tentativeSpanDao.deleteById(tentative.id)
+            forget(tentative.id)
             return
         }
 
@@ -451,8 +500,9 @@ class ListeningEventRecorder internal constructor(
                     listeningEventDao.upsert(entity)
                 }
                 enqueue(entity.id, payload, tentative.userId)
-                tentativeSpanDao.delete()
+                tentativeSpanDao.deleteById(tentative.id)
             }
+            forget(tentative.id)
             // Signal the drain only AFTER the transaction commits — a pre-commit signal (the
             // enqueue's default) wakes the drain against WAL state that can't yet see the new row,
             // stranding the op until an unrelated later trigger. Never runs on rollback (below).
@@ -462,10 +512,42 @@ class ListeningEventRecorder internal constructor(
         } catch (e: Exception) {
             // The transaction rolled back: no event row, and the tentative span survives.
             // recoverOrphan() on the next launch re-promotes it, so the span is never lost.
-            logger.warn(e) {
-                "[ListeningEventRecorder] Failed to finalize listening event ${entity.id} — " +
-                    "tentative span preserved for recovery on next launch"
-            }
+            recordFinalizeFailure(tentative, endPositionMs, e)
         }
+    }
+
+    /**
+     * Counts a failed finalize of [tentative]. Below [MAX_FINALIZE_ATTEMPTS] the span stays the open
+     * one, so the next play retries it. At the bound it is set aside: it keeps its row for
+     * [recoverOrphan], and everything needed to rebuild it by hand is in the ERROR line.
+     */
+    private fun recordFinalizeFailure(
+        tentative: TentativeSpanEntity,
+        endPositionMs: Long,
+        cause: Exception,
+    ) {
+        val failures = (finalizeFailures[tentative.id] ?: 0) + 1
+        if (failures < MAX_FINALIZE_ATTEMPTS) {
+            finalizeFailures[tentative.id] = failures
+            logger.warn(cause) {
+                "[ListeningEventRecorder] Failed to finalize listening event ${tentative.id} " +
+                    "(attempt $failures of $MAX_FINALIZE_ATTEMPTS) — tentative span preserved for recovery on next launch"
+            }
+            return
+        }
+        finalizeFailures.remove(tentative.id)
+        setAside += tentative.id
+        logger.error(cause) {
+            "[ListeningEventRecorder] Finalize of listening event ${tentative.id} failed $failures times — set aside " +
+                "so recording can go on; it stays in tentative_span for the next launch to recover " +
+                "(book=${tentative.bookId}, position ${tentative.startPositionMs}→$endPositionMs, " +
+                "startedAt=${tentative.startedAt}, lastHeartbeatAt=${tentative.lastHeartbeatAt})"
+        }
+    }
+
+    /** Clears what this process counted against a span that has left the table. */
+    private fun forget(spanId: String) {
+        finalizeFailures.remove(spanId)
+        setAside.remove(spanId)
     }
 }

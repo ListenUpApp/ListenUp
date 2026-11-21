@@ -69,7 +69,7 @@ class ListeningEventRecorderTest :
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
 
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_ID, 5_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 5_000L, playbackSpeed = SPEED)
 
                     val span = db.tentativeSpanDao().get()
                     span.shouldNotBeNull()
@@ -200,7 +200,7 @@ class ListeningEventRecorderTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
                     now = 61_000L
-                    recorder.onPeriodicTick(BOOK_ID, 60_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 60_000L, playbackSpeed = SPEED)
 
                     recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
 
@@ -249,7 +249,7 @@ class ListeningEventRecorderTest :
                 withFixture(nowMillis = 99_000L) { recorder, db, enqueuedOps ->
                     // Seed an orphan span — simulates app crash during playback
                     val orphanId = "orphan-span-id-1"
-                    db.tentativeSpanDao().upsertSingleton(
+                    db.tentativeSpanDao().upsert(
                         TentativeSpanEntity(
                             id = orphanId,
                             userId = USER_ID,
@@ -319,7 +319,7 @@ class ListeningEventRecorderTest :
 
                     // An orphan tentative span survives for the SAME id (delete failed
                     // after the event upsert on the prior run).
-                    db.tentativeSpanDao().upsertSingleton(
+                    db.tentativeSpanDao().upsert(
                         TentativeSpanEntity(
                             id = eventId,
                             userId = USER_ID,
@@ -377,7 +377,7 @@ class ListeningEventRecorderTest :
                 var now = 1_000L
                 withFixture(nowMillisProvider = { now }, processId = "process-current") { recorder, db, enqueuedOps ->
                     // Seed an orphan from a PRIOR process launch — yesterday's OS-killed ~2 h listen.
-                    db.tentativeSpanDao().upsertSingleton(
+                    db.tentativeSpanDao().upsert(
                         TentativeSpanEntity(
                             id = "orphan-prior",
                             userId = USER_ID,
@@ -427,7 +427,7 @@ class ListeningEventRecorderTest :
                     // THIS process opens a live span and extends it.
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_ID, 5_000L)
+                    recorder.onPeriodicTick(BOOK_ID, 5_000L, playbackSpeed = SPEED)
 
                     // A late startup recovery fires while this process is mid-listen (the race the
                     // reorder + process identity guards against).
@@ -452,7 +452,7 @@ class ListeningEventRecorderTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
                     recorder.onPlay(BOOK_ID, positionMs = 600_000L, SPEED) // 0:10:00
                     now = 121_000L
-                    recorder.onPeriodicTick(BOOK_ID, 720_000L) // 0:12:00
+                    recorder.onPeriodicTick(BOOK_ID, 720_000L, playbackSpeed = SPEED) // 0:12:00
                     now = 122_000L
                     recorder.onSeek(positionBeforeSeek = 720_000L, positionAfterSeek = 18_000_000L) // → 5:00:00
                     now = 242_000L

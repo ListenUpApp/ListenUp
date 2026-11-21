@@ -84,12 +84,6 @@ class PlaybackService :
     private var notificationProvider: AudiobookNotificationProvider? = null
     private var castSessionController: CastSessionController? = null
 
-    // True while the session player is the cast player. Main-thread only (set in the
-    // cast handoffs, read by the idle-timer guard). The PlayerListener is attached only
-    // to the local ExoPlayer, so cast play/pause never reaches it — this flag is how the
-    // idle timer learns to stand down while casting (see startIdleTimer).
-    private var casting = false
-
     /**
      * The transport state behind "was that play refused, or merely interrupted?".
      *
@@ -97,13 +91,22 @@ class PlaybackService :
      * one of those bugs actually lived in — behind a service that cannot be instantiated in a test.
      * See [PlaybackRefusalTracker] for what it holds and why it is out on its own.
      *
-     * Its [PlaybackRefusalTracker.isAudioSounding] is also what [handleIsPlayingChanged] hands
+     * Its [PlaybackRefusalTracker.isAudioSounding] is also what [transport] hands
      * [playbackTransitionFor] as `spanOpen`: "audio is sounding" and "a listening span is open" are
      * the same fact, and one writer is what keeps the two readings from disagreeing. The events the
      * transition ignores — either player reporting on a session the other one is driving — never
-     * reach the tracker at all, which is what keeps a hand-off to or from Cast one continuous span.
+     * reach the tracker at all; [transport] is what routes them.
      */
     private val refusalTracker = PlaybackRefusalTracker()
+
+    /** Which player is the transport; moved only by the cast hand-offs. See [ActiveTransport]. */
+    private val transport = ActiveTransport(refusalTracker)
+
+    // True while the session player is the cast player. Main-thread only (moved in the
+    // cast handoffs, read by the idle-timer guard). The PlayerListener is attached only
+    // to the local ExoPlayer, so cast play/pause never reaches it — this flag is how the
+    // idle timer learns to stand down while casting (see startIdleTimer).
+    private val casting: Boolean get() = transport.casting
 
     /**
      * The volume-boost gain stage, installed into the audio sink by [GainRenderersFactory] and
@@ -663,7 +666,9 @@ class PlaybackService :
         // pause too; the position is still persisted on disconnect via the cast-aware
         // getBookRelativePosition(). (Tracked follow-up: drive the position job off
         // session.player so cast time counts toward stats.)
-        casting = true
+        // The local listen ends here, read off the local player while it is still the transport;
+        // the cast player's own play opens the next span.
+        transport.handOff(TransportSource.CAST, ::endListen)
         val cast = controller.castPlayer
         // The cast player drives bookkeeping for as long as it is the transport. Without this
         // listener a cast session begun from a paused state recorded nothing at all: the local
@@ -706,7 +711,10 @@ class PlaybackService :
         local.playWhenReady = wasPlaying
         local.setPlaybackSpeed(speed)
         session.player = wrapper
-        casting = false // normal idle logic resumes now that the local player drives the session
+        // The cast listen ends here, read off the cast player while it is still the transport: its own
+        // stop can no longer arrive (its listener is gone), and the local player's play opens the next
+        // span. Normal idle logic resumes now that the local player drives the session.
+        transport.handOff(TransportSource.LOCAL, ::endListen)
         logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
         saveCurrentPosition() // existing method — persists through the normal recorder
     }
@@ -897,12 +905,15 @@ class PlaybackService :
 
                     if (transportPlayer.isPlaying) {
                         val positionMs = getBookRelativePosition()
-                        progressTracker.onPositionUpdate(
-                            bookId = bookId,
+                        val speed = transportPlayer.playbackParameters.speed
+                        progressTracker.onPositionUpdate(bookId = bookId, positionMs = positionMs, speed = speed)
+                        // Audio is playing and the book is known: the recorder opens the span here if the play
+                        // that should have opened it went by before the book was known.
+                        listeningEventRecorder.onPeriodicTick(
+                            bookId = bookId.value,
                             positionMs = positionMs,
-                            speed = transportPlayer.playbackParameters.speed,
+                            playbackSpeed = speed,
                         )
-                        listeningEventRecorder.onPeriodicTick(bookId = bookId.value, positionMs = positionMs)
                     }
                 }
             }
@@ -955,23 +966,12 @@ class PlaybackService :
         source: TransportSource,
         isPlaying: Boolean,
     ) {
-        logger.debug { "Is playing: $isPlaying (source=$source)" }
-
-        val transition =
-            playbackTransitionFor(
-                source = source,
-                isPlaying = isPlaying,
-                casting = casting,
-                spanOpen = refusalTracker.isAudioSounding,
-            )
-        if (transition == PlaybackTransition.IGNORE) {
-            logger.debug { "Ignoring is-playing=$isPlaying from $source (casting=$casting)" }
-            return
-        }
-
-        // Two facts in one: whether audio is sounding, and — since the book talking again is the
-        // end of any focus interruption — that the next refused start is genuinely a cold one.
-        refusalTracker.onIsPlayingChanged(isPlaying)
+        // Records, through the refusal tracker, two facts in one: whether audio is sounding, and — since
+        // the book talking again is the end of any focus interruption — that the next refused start is
+        // genuinely a cold one.
+        val transition = transport.onIsPlayingChanged(source, isPlaying)
+        logger.info { "Is playing: $isPlaying (source=$source, casting=$casting) → $transition" }
+        if (transition == PlaybackTransition.IGNORE) return
 
         val bookId = currentBookId
         // Speed and position must come from whichever player is actually the transport — reading
@@ -986,6 +986,11 @@ class PlaybackService :
             cancelIdleTimer()
             startPositionUpdates()
 
+            if (bookId == null) {
+                // A resume from outside the app after the process died can play before the book is known.
+                // The first position tick that knows it opens the listening span instead.
+                logger.info { "Playing before the book is known — the listening span opens on the first tick" }
+            }
             if (bookId != null && player != null) {
                 val positionMs = getBookRelativePosition()
                 val speed = player.playbackParameters.speed
@@ -1004,21 +1009,7 @@ class PlaybackService :
                 }
             }
         } else {
-            stopPositionUpdates()
-
-            if (bookId != null && player != null) {
-                val positionMs = getBookRelativePosition()
-                progressTracker.onPlaybackPaused(
-                    bookId = bookId,
-                    positionMs = positionMs,
-                    speed = player.playbackParameters.speed,
-                    durationMs = getBookDurationMs(),
-                )
-                serviceScope.launch {
-                    listeningEventRecorder.onPause(bookId = bookId.value, positionMs = positionMs)
-                }
-                saveRefinedMeasurement(bookId = bookId, positionMs = positionMs)
-            }
+            endListen()
 
             // Context-aware idle timer based on why playback stopped
             val isSleepTimerPause = sleepTimerManager.state.value is SleepTimerState.FadingOut
@@ -1028,6 +1019,27 @@ class PlaybackService :
                 startIdleTimer(IDLE_TIMEOUT_SHORT, "paused")
             }
         }
+    }
+
+    /**
+     * Closes the listen on the transport player: stops the position loops, saves where it stopped and
+     * finalizes the span. A pause does this, and so does a hand-off between the local and cast players.
+     */
+    private fun endListen() {
+        stopPositionUpdates()
+        val bookId = currentBookId ?: return
+        val player = activeTransportPlayer() ?: return
+        val positionMs = getBookRelativePosition()
+        progressTracker.onPlaybackPaused(
+            bookId = bookId,
+            positionMs = positionMs,
+            speed = player.playbackParameters.speed,
+            durationMs = getBookDurationMs(),
+        )
+        serviceScope.launch {
+            listeningEventRecorder.onPause(bookId = bookId.value, positionMs = positionMs)
+        }
+        saveRefinedMeasurement(bookId = bookId, positionMs = positionMs)
     }
 
     /**

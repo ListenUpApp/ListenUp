@@ -212,7 +212,14 @@ internal class PlaybackServiceImpl(
         }
         val userId = p.userId.value
         val now = clock.now().toEpochMilliseconds()
-        request.boundsViolation(now)?.let { return AppResult.Failure(it) }
+        request.boundsViolation(now)?.let { violation ->
+            // The client dead-letters a refusal at once and the server stores nothing, so this is its only trace.
+            logger.warn {
+                "Refused listening event ${request.id} for book ${request.bookId} from user $userId: " +
+                    "${violation.field ?: "a field"} is out of bounds"
+            }
+            return AppResult.Failure(violation)
+        }
         val payload =
             ListeningEventSyncPayload(
                 id = request.id,

@@ -96,7 +96,7 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
 
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_ID, positionMs = 30_000L)
+                    recorder.onPeriodicTick(BOOK_ID, positionMs = 30_000L, playbackSpeed = SPEED)
                     recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
 
                     // The ORIGINAL span survives untouched — still for the OLD book, not a fresh
@@ -143,7 +143,7 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
 
                     crashedRecorder.onPlay(BOOK_ID, START_POSITION, SPEED)
                     now = 20_000L
-                    crashedRecorder.onPeriodicTick(BOOK_ID, 15_000L)
+                    crashedRecorder.onPeriodicTick(BOOK_ID, 15_000L, playbackSpeed = SPEED)
                     now = 31_000L
                     // The seek's finalize fails — the span as of the LAST HEARTBEAT (not the
                     // seek's own position) survives as the breadcrumb, exactly as the tests above

@@ -36,7 +36,9 @@ import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
@@ -46,6 +48,7 @@ import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
+import org.slf4j.event.Level
 
 class PlaybackServiceImplTest :
     FunSpec({
@@ -570,11 +573,24 @@ class PlaybackServiceImplTest :
                     deviceLabel = null,
                 )
             val service = service(sql, "u1")
-            val result = service.recordListeningEvent(mutate(valid))
+            // installTestCapture() mutates the JVM-global SLF4J factory; safe only because :server:jvmTest
+            // runs specs sequentially.
+            val capture = ListenUpLoggerFactory.installTestCapture()
+            val result =
+                try {
+                    service.recordListeningEvent(mutate(valid))
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                }
             val failure = result.shouldBeInstanceOf<AppResult.Failure>()
             failure.error
                 .shouldBeInstanceOf<ValidationError>()
                 .field shouldBe field
+            // The client dead-letters a refusal at once, so this line is the only trace the server keeps of it.
+            capture.events
+                .filter { it.level == Level.WARN }
+                .map { it.message } shouldContain
+                "Refused listening event evt-bad for book book-1 from user u1: $field is out of bounds"
             sql.listeningEventsQueries
                 .selectById("evt-bad")
                 .executeAsOneOrNull()

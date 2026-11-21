@@ -137,7 +137,7 @@ class ListeningEventEndToEndTest :
                     )
 
                 // Seed the tentative span so the recorder finds an open span to finalize.
-                clientDatabase.tentativeSpanDao().upsertSingleton(
+                clientDatabase.tentativeSpanDao().upsert(
                     TentativeSpanEntity(
                         id = spanId,
                         userId = "u1",
