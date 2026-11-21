@@ -24,13 +24,10 @@ func awaitCompletion<Value: Sendable>(
         }
         // The timeout runs on a dispatch queue, not as a sleeping Task: a Task needs a free thread in the
         // cooperative pool to wake, and when that pool is busy the bound would stretch with it — the very wait
-        // this function exists to cap.
-        let timer = DispatchWorkItem { resume(nil) }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout.timeInterval, execute: timer)
-        start { value in
-            timer.cancel()
-            resume(value)
-        }
+        // this function exists to cap. It is never cancelled: `resume` lets only the first caller through, so a
+        // timer that fires after the completion is a no-op.
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout.timeInterval) { resume(nil) }
+        start { value in resume(value) }
     }
 }
 
