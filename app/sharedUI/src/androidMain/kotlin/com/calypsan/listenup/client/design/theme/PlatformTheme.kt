@@ -1,9 +1,5 @@
 package com.calypsan.listenup.client.design.theme
 
-import android.app.UiModeManager
-import android.content.Context
-import android.content.res.Configuration
-import android.os.Build
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -21,8 +17,8 @@ actual fun platformColorScheme(
     val context = LocalContext.current
 
     return when {
-        // Dynamic color arrived in Android 12; Android 11 falls through to the brand scheme.
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !isTelevision(context) -> {
+        // Android 11 and TVs fall through to the brand scheme; Settings hides the switch there too.
+        dynamicColor && context.supportsDynamicColor() -> {
             if (darkTheme) {
                 dynamicDarkColorScheme(context)
             } else {
@@ -39,13 +35,4 @@ actual fun platformColorScheme(
             LightColorScheme
         }
     }
-}
-
-/**
- * Check if the device is a TV. TVs do not properly support dynamic colors
- * even on API 31+ since there is no wallpaper to derive colors from.
- */
-private fun isTelevision(context: Context): Boolean {
-    val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
-    return uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
 }
