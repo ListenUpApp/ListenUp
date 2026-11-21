@@ -111,8 +111,9 @@ internal class HomeRepositoryImpl(
 
     /**
      * Each candidate position, in order, as a shelf item: [ContinueListeningItem.Loading] while its book has not yet
-     * synced into Room (dropping it made the shelf look half-empty), left out unless [BookProgress] says it is in
-     * progress (finished by the flag or the end credits, or not started), [ContinueListeningItem.Ready] otherwise.
+     * synced into Room (dropping it made the shelf look half-empty), left out when [BookProgress] says it is finished
+     * (the flag or the end credits), [ContinueListeningItem.Ready] otherwise. Never-started books never get here: the
+     * candidate query only returns positions past the start.
      */
     private fun continueListeningItemsOf(
         positions: List<PlaybackPositionEntity>,
@@ -123,8 +124,11 @@ internal class HomeRepositoryImpl(
         return positions.mapNotNull { position ->
             val book =
                 bookMap[position.bookId.value] ?: return@mapNotNull ContinueListeningItem.Loading(position.bookId.value)
-            val progress = BookProgress.of(position.positionMs, book.duration, position.isFinished)
-            if (progress !is BookProgress.InProgress) return@mapNotNull null
+            // Only a finished book leaves. A started book whose length is not measured yet stays, at 0%: losing your
+            // place on the shelf is worse than a bar that has nothing to show yet.
+            if (BookProgress.of(position.positionMs, book.duration, position.isFinished) is BookProgress.Finished) {
+                return@mapNotNull null
+            }
             ContinueListeningItem.Ready(
                 bookId = position.bookId.value,
                 book = toContinueListeningBook(position, book, downloads),

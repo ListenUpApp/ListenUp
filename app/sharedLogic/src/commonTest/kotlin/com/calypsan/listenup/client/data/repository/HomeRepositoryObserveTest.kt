@@ -328,7 +328,7 @@ class HomeRepositoryObserveTest :
             }
         }
 
-        test("a book whose length is not known yet is left out: BookProgress reads it as not started") {
+        test("a started book whose length is not known yet stays on the shelf at 0%") {
             runTest {
                 val posFlow = MutableStateFlow(listOf(position("b1", positionMs = 5_000L)))
                 val bookFlow = MutableStateFlow(listOf(book("b1", duration = 0L)))
@@ -338,7 +338,10 @@ class HomeRepositoryObserveTest :
                         playbackPositionDao = makeDao(posFlow),
                     )
 
-                repo.observeContinueListening(10).first().shouldBeEmpty()
+                val result = repo.observeContinueListening(10).first()
+                result shouldHaveSize 1
+                val ready = result.first().shouldBeInstanceOf<ContinueListeningItem.Ready>()
+                ready.book.progress shouldBe 0f
             }
         }
 

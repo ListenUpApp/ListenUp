@@ -238,9 +238,11 @@ class HomeRepositoryTest :
                 // When
                 val result = repository.getContinueListening(10)
 
-                // Then - BookProgress reads an unknown length as not started, on Home and everywhere else
+                // Then - a started book whose length is not measured yet stays, at 0%, as it does on Home
                 val success = result.shouldBeInstanceOf<AppResult.Success<*>>()
-                success.data.shouldBeInstanceOf<List<*>>().isEmpty() shouldBe true
+                val books = success.data.shouldBeInstanceOf<List<*>>()
+                books.size shouldBe 1
+                books[0].shouldBeInstanceOf<com.calypsan.listenup.client.domain.model.ContinueListeningBook>().progress shouldBe 0f
             }
         }
 
