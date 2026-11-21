@@ -330,9 +330,9 @@ class AppleDownloadService internal constructor(
         attach()
         operations.withLock {
             logger.info { "Deleting all downloads (files + records)" }
-            liveTasks().forEach { (task, live) ->
-                delegate.expectCancellation(live.key)
-                task.cancel()
+            liveTasks().forEach { live ->
+                delegate.expectCancellation(live.live.key)
+                live.task.cancel()
             }
             // A completion already in flight must not re-write a row after the wipe.
             delegate.awaitWrites()
