@@ -743,8 +743,8 @@ class DownloadWorkerLogicTest :
 
         // User-cancel path: cancellation leaves a .tmp on disk; sweepOrphanedTempFiles removes it.
         //
-        // The worker's CancellationException catch block lives in [DownloadWorker.doWork], which is
-        // Android-only and not reachable from [downloadAudioFile]. The sweep is the durable cleanup
+        // The run's CancellationException catch block lives in [BookTransferRun], which is
+        // not reachable from [downloadAudioFile]. The sweep is the durable cleanup
         // path (called from resumeIncompleteDownloads on startup). This test asserts that invariant:
         // after a cancelled download, the .tmp is absent from active ids and the sweep removes it.
         test("sweepRemovesOrphanedTmpPartial") {

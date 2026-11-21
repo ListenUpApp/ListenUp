@@ -56,6 +56,8 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.domain.model.DownloadPhase
+import com.calypsan.listenup.client.presentation.download.DownloadPhasesViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_retry
 import org.jetbrains.compose.resources.stringResource
@@ -107,6 +109,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = koinViewModel(),
     multiSelect: BookMultiSelectViewModel = koinViewModel(),
     inboxBadge: InboxBadgeViewModel = koinViewModel(),
+    downloads: DownloadPhasesViewModel = koinViewModel(),
 ) {
     // Trigger intelligent auto-sync when screen becomes visible (only once)
     LaunchedEffect(Unit) {
@@ -118,6 +121,8 @@ fun LibraryScreen(
     // Shell-scoped like the nav badge: the same ViewModelStore resolves the same InboxBadgeViewModel.
     val heldCount by inboxBadge.heldCount.collectAsStateWithLifecycle()
     val previewBookIds by inboxBadge.previewBookIds.collectAsStateWithLifecycle()
+    // Each cover's download badge, from the same rule Book Detail reads.
+    val downloadPhases by downloads.phases.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is LibraryUiState.Loading -> {
@@ -147,6 +152,7 @@ fun LibraryScreen(
                 onEditBook = onEditBook,
                 heldCount = heldCount,
                 previewBookIds = previewBookIds,
+                downloadPhases = downloadPhases,
                 onOpenInbox = onOpenInbox,
                 onEvent = viewModel::onEvent,
                 modifier = modifier,
@@ -218,6 +224,7 @@ internal fun LibraryLoadedContent(
     onShareBook: ((bookId: String, title: String) -> Unit)? = null,
     onEditBook: ((String) -> Unit)? = null,
     previewBookIds: List<String> = emptyList(),
+    downloadPhases: Map<String, DownloadPhase> = emptyMap(),
 ) {
     val haptics = LocalHaptics.current
     val selectionState = rememberBookSelectionScaffoldState()
@@ -282,6 +289,7 @@ internal fun LibraryLoadedContent(
             ignoreTitleArticles = state.ignoreTitleArticles,
             bookLetters = state.bookLetters,
             bookStatus = state.bookStatus,
+            downloadPhases = downloadPhases,
             progressUnderTitle = !isWide,
             isInSelectionMode = isInSelectionMode,
             selectedBookIds = selectedBookIds,

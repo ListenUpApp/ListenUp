@@ -45,6 +45,16 @@ import com.calypsan.listenup.client.automotive.CoverFileLocator
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.client.core.suspendRunCatching
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ProcessLifecycleOwner
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.download.AndroidDownloadNotifications
+import com.calypsan.listenup.client.download.DownloadManager
+import com.calypsan.listenup.client.download.DownloadNotificationControls
+import com.calypsan.listenup.client.download.DownloadNotifications
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioTokenProvider
@@ -377,6 +387,21 @@ val downloadModule =
         // is Android-only plumbing — see the export-surface note on BookDetailPlatformActions.
         single { ViewedBookTracker() }
 
+        // The download notification: its channel, words and actions live here; the book runs only say what to show.
+        single<DownloadNotifications> {
+            AndroidDownloadNotifications(context = androidContext(), scope = get(qualifier = named("appScope")))
+        }
+        // What the download notification's Pause and Cancel do.
+        single<DownloadNotificationControls> {
+            val downloadManager = get<DownloadManager>()
+            object : DownloadNotificationControls {
+                override suspend fun pause(bookId: BookId) =
+                    downloadManager.pauseDownload(bookId, fromNotification = true)
+
+                override suspend fun cancel(bookId: BookId) = downloadManager.cancelDownload(bookId)
+            }
+        }
+
         // Platform actions for BookDetailScreen (download + playback integration)
         single<BookDetailPlatformActions> {
             AndroidBookDetailPlatformActions(
@@ -432,10 +457,7 @@ class ListenUp :
         // a Worker is first constructed, long after startKoin below has run.
         val workerFactory =
             ListenUpWorkerFactory(
-                downloadRepository = lazy { get() },
-                fileManager = lazy { get() },
-                audioFileDownloader = lazy { get() },
-                errorBus = lazy { get() },
+                bookTransfers = lazy { get() },
                 adminRepository = lazy { get() },
             )
 
@@ -519,10 +541,32 @@ class ListenUp :
             ).run()
         }
 
+        resumeDownloadsAtEachForeground()
+
         // Recent-book launcher shortcuts follow what the listener last played.
         get<CoroutineScope>().launch {
             get<PlaybackManager>().currentBookId.collect { get<ListenUpShortcutManager>().updateShortcuts() }
         }
+    }
+
+    /**
+     * A download job can only be scheduled while ListenUp is on screen (Android 14+). One the process could not
+     * schedule when it started in the background (push, sync, playback) is scheduled the next time it is.
+     */
+    private fun resumeDownloadsAtEachForeground() {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_START &&
+                    get<AuthSession>().authState.value is AuthState.Authenticated
+                ) {
+                    get<CoroutineScope>().launch {
+                        suspendRunCatching { get<DownloadManager>().resumeScheduling() }.onFailure { error ->
+                            logger.warn { "download: could not resume scheduling at foreground: ${error.debugInfo}" }
+                        }
+                    }
+                }
+            },
+        )
     }
 
     /**

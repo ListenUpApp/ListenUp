@@ -6,6 +6,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
@@ -37,6 +39,8 @@ data class StorageUiState(
     val downloadedBooks: List<DownloadedBookSummary> = emptyList(),
     /** Books whose download has started and not finished, listed above the finished ones. */
     val inProgressBooks: List<InProgressBookSummary> = emptyList(),
+    /** Wi-Fi-only is on and the device is off Wi-Fi: read each unfinished download through `downloadPhaseOf`. */
+    val isWifiBlocked: Boolean = false,
     val deleteConfirmation: DeleteConfirmation? = null,
     val isDeleting: Boolean = false,
     /**
@@ -71,6 +75,8 @@ class StorageViewModel(
     private val errorBus: ErrorBus,
     private val playbackStateProvider: PlaybackStateProvider,
     inboxRepository: InboxRepository,
+    localPreferences: LocalPreferences,
+    networkMonitor: NetworkMonitor,
     /**
      * Where [StorageSpaceProvider.calculateStorageUsed]'s blocking tree walk runs — injected, not
      * hardcoded, so tests can substitute a dispatcher the test scheduler controls. Pinning
@@ -113,17 +119,24 @@ class StorageViewModel(
             )
         }
 
+    private val wifiBlocked: Flow<Boolean> =
+        combine(localPreferences.wifiOnlyDownloads, networkMonitor.onUnmeteredNetworkFlow) { wifiOnly, unmetered ->
+            wifiOnly && !unmetered
+        }
+
     val state: StateFlow<StorageUiState> =
         // The unfinished books re-emit on every progress write, so they join here, past the walk.
         combine(
-            measuredState,
-            inboxRepository.observeHeldBookIds(),
-            downloadRepository.observeInProgressBooks(),
-        ) { measured, heldIds, unfinished ->
+            flow = measuredState,
+            flow2 = inboxRepository.observeHeldBookIds(),
+            flow3 = downloadRepository.observeInProgressBooks(),
+            flow4 = wifiBlocked,
+        ) { measured, heldIds, unfinished, blocked ->
             measured.copy(
                 downloadedBooks =
                     measured.downloadedBooks.map { if (BookId(it.bookId) in heldIds) it.copy(isHeld = true) else it },
                 inProgressBooks = unfinished,
+                isWifiBlocked = blocked,
             )
         }.stateIn(
             scope = viewModelScope,

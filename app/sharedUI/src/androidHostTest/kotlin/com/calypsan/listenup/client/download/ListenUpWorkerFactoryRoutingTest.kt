@@ -22,12 +22,8 @@ import org.robolectric.RobolectricTestRunner
  * with [PlaybackErrorHandlerTest] and [DeepLinkParserTest]. The `junit-vintage-engine`
  * on the classpath keeps these discoverable alongside Kotest specs.
  *
- * Coverage gap — [DownloadWorker] branch:
- * `createWorker` for DownloadWorker resolves the `AudioFileDownloader` lazy and constructs a
- * [DownloadWorker]. The `AudioFileDownloader` domain seam owns the HTTP transport inside
- * `:app:sharedLogic`, so exercising the download branch would require a fake downloader; this
- * routing test only covers the unknown-class `null` branch and leaves the download branch for
- * a follow-up.
+ * The retired per-file [DownloadWorker] routes without touching a dependency, so work persisted
+ * before the update drains. The book worker itself is covered by `BookTransferWorkerTest`.
  *
  * WorkerParameters extraction:
  * [WorkerParameters] is a framework-internal type with no public constructor. To obtain a valid
@@ -55,6 +51,15 @@ class ListenUpWorkerFactoryRoutingTest {
         result shouldBe null
     }
 
+    // ─────────────── the retired per-file worker drains for one release ────────
+
+    @Test
+    fun `work persisted for the retired per-file worker still finds its class, and drains without a dependency`() {
+        val factory = buildFactoryWithSentinelDeps()
+        val worker = factory.createWorker(context, DownloadWorker::class.java.name, fakeWorkerParams())
+        (worker is DownloadWorker) shouldBe true
+    }
+
     // ─────────────────────── factory builders ────────────────────────────────
 
     /**
@@ -65,10 +70,7 @@ class ListenUpWorkerFactoryRoutingTest {
      */
     private fun buildFactoryWithSentinelDeps(): ListenUpWorkerFactory =
         ListenUpWorkerFactory(
-            downloadRepository = lazy { error("downloadRepository should not be accessed") },
-            fileManager = lazy { error("fileManager should not be accessed") },
-            audioFileDownloader = lazy { error("audioFileDownloader should not be accessed") },
-            errorBus = lazy { error("errorBus should not be accessed") },
+            bookTransfers = lazy { error("bookTransfers should not be accessed") },
             adminRepository = lazy { error("adminRepository should not be accessed") },
         )
 

@@ -46,6 +46,11 @@ class QueuedDownloadRowsTest :
                     errorMessage = "Download failed.",
                     retryCount = 2,
                     pauseReason = DownloadPauseReason.INTERRUPTED,
+                    stopReason = DownloadStopReason.QUOTA,
+                    stopReasonCode = 10,
+                    stoppedAt = 3L,
+                    stopCount = 4,
+                    transport = DownloadTransport.UIDT,
                 )
 
             val row =
@@ -63,6 +68,12 @@ class QueuedDownloadRowsTest :
             row.pauseReason shouldBe null
             row.errorMessage shouldBe null
             row.queuedAt shouldBe 10L
+            // Why and how often the file stopped is its own history, not the attempt's.
+            row.stopReason shouldBe DownloadStopReason.QUOTA
+            row.stopReasonCode shouldBe 10
+            row.stoppedAt shouldBe 3L
+            row.stopCount shouldBe 4
+            row.transport shouldBe DownloadTransport.UIDT
         }
 
         test("a file with no row yet starts from zero at its position in the book") {

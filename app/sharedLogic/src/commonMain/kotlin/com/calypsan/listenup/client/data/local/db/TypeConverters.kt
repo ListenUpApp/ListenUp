@@ -17,6 +17,8 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
+import com.calypsan.listenup.client.download.DownloadStopReason
+import com.calypsan.listenup.client.download.DownloadTransport
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -155,6 +157,21 @@ internal class Converters {
 
     @ColumnTypeConverter
     fun toDownloadPauseReason(value: String): DownloadPauseReason = DownloadPauseReason.valueOf(value)
+
+    @ColumnTypeConverter
+    fun fromDownloadStopReason(reason: DownloadStopReason): String = reason.name
+
+    // A name a newer build wrote and this one does not know reads as UNKNOWN rather than crashing the read.
+    @ColumnTypeConverter
+    fun toDownloadStopReason(value: String): DownloadStopReason =
+        DownloadStopReason.entries.firstOrNull { reason -> reason.name == value } ?: DownloadStopReason.UNKNOWN
+
+    @ColumnTypeConverter
+    fun fromDownloadTransport(transport: DownloadTransport): String = transport.name
+
+    @ColumnTypeConverter
+    fun toDownloadTransport(value: String): DownloadTransport? =
+        DownloadTransport.entries.firstOrNull { transport -> transport.name == value }
 }
 
 /**

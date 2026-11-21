@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.storage
 
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.test.fake.FakeNetworkMonitor
 import app.cash.turbine.test
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
@@ -105,6 +107,8 @@ class StorageViewModelTest :
                     errorBus = ErrorBus(),
                     playbackStateProvider = FakePlaybackStateProvider(playingBookId),
                     inboxRepository = fixture.inbox,
+                    localPreferences = mock<LocalPreferences> { every { wifiOnlyDownloads } returns MutableStateFlow(false) },
+                    networkMonitor = FakeNetworkMonitor(),
                     backgroundDispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             return vm to fixture

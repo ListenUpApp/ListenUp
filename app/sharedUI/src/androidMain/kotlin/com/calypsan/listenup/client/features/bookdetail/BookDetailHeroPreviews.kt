@@ -144,6 +144,7 @@ private fun WideHeroBandPreviewBody() {
                 labelled = true,
                 onPrimaryClick = {},
                 onDownload = {},
+                onPauseDownload = {},
                 onCancelDownload = {},
                 onRemoveDownload = {},
                 onAddToShelf = {},

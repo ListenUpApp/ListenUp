@@ -24,8 +24,8 @@ internal fun isReviewedProductionPath(relativePath: String): Boolean {
  */
 private val reviewedSuppressions: Map<String, Int> =
     mapOf(
-        // persists the pause under NonCancellable, then rethrows
-        "app/sharedLogic/src/androidMain/kotlin/com/calypsan/listenup/client/download/DownloadWorker.kt" to 1,
+        // records the stop and keeps the partial under NonCancellable, then rethrows
+        "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/download/BookTransferRun.kt" to 1,
         // catches Throwable to classify it; a caller's cancellation is re-raised untouched
         "app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/remote/RpcProxyCache.kt" to 4,
         // inside NonCancellable; every throwable must roll back and reopen the pool

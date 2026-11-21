@@ -153,9 +153,10 @@ class KoinModuleVerifyTest :
             )
         }
 
-        // Verify [androidDownloadModule] — wires DownloadFileManager, DownloadManager (bound
-        // to DownloadService), DownloadConstraintObserver (createdAtStart, watches the Wi-Fi-only
-        // preference), and AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
+        // Verify [androidDownloadModule] — wires DownloadFileManager, the book runs (registry, store, run, the
+        // transport's scheduler and BookTransfers), DownloadManager (bound to DownloadService),
+        // DownloadConstraintObserver (createdAtStart, watches the Wi-Fi-only preference), and
+        // AndroidDownloadEnqueuer (bound to DownloadEnqueuer).
         // WorkManager is constructed inline via WorkManager.getInstance(get<Context>()) — it is
         // not a get() target itself, but Context is. CoroutineScope is the app scope, declared in
         // appCoreModule, which this verification does not load.
@@ -166,6 +167,7 @@ class KoinModuleVerifyTest :
                         android.content.Context::class,
                         WorkManager::class,
                         DownloadDao::class,
+                        com.calypsan.listenup.client.data.local.db.DownloadStopEventDao::class,
                         BookDao::class,
                         AudioFileDao::class,
                         LocalPreferences::class,
@@ -173,6 +175,13 @@ class KoinModuleVerifyTest :
                         TransactionRunner::class,
                         ErrorBus::class,
                         CoroutineScope::class,
+                        // The book runs: the downloader and network monitor come from shared modules, and the
+                        // notification seam from the app module.
+                        com.calypsan.listenup.client.download.AudioFileDownloader::class,
+                        com.calypsan.listenup.client.download.DownloadNotifications::class,
+                        NetworkMonitor::class,
+                        Lazy::class,
+                        Function0::class,
                     ),
             )
         }

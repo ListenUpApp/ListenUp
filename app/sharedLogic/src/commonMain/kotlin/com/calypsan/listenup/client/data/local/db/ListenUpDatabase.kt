@@ -121,8 +121,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         WorldEventMentionEntity::class,
         PendingImageUploadEntity::class,
         PendingHealEntity::class,
+        DownloadStopEventEntity::class,
     ],
-    version = 32,
+    version = 33,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -227,6 +228,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun readingOrderFollowDao(): ReadingOrderFollowDao
 
     abstract fun pendingImageUploadDao(): PendingImageUploadDao
+
+    abstract fun downloadStopEventDao(): DownloadStopEventDao
 }
 
 /**

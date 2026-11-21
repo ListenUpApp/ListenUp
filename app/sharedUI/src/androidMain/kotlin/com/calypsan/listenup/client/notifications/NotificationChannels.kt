@@ -12,6 +12,9 @@ import android.content.Context
  *
  * - [PLAYBACK]: audiobook playback controls (IMPORTANCE_LOW, no badge).
  * - [SOCIAL]: push-delivered invites and social activity (IMPORTANCE_HIGH, badge, default sound).
+ * - [DOWNLOADS]: progress of books being saved for offline listening (IMPORTANCE_LOW, silent, no badge). A new id,
+ *   deliberately not the retired `listenup_download`: re-creating a deleted id would restore whatever the person set
+ *   for that dead channel.
  *
  * Call [registerAll] from `Application.onCreate`. It is idempotent — Android ignores
  * `createNotificationChannel` calls for channels that already exist with the same id.
@@ -19,6 +22,7 @@ import android.content.Context
 object NotificationChannels {
     const val PLAYBACK = "listenup_playback"
     const val SOCIAL = "listenup_social"
+    const val DOWNLOADS = "listenup_downloads"
 
     /**
      * User-visible name for the [PLAYBACK] channel.
@@ -31,10 +35,10 @@ object NotificationChannels {
 
     // Earlier builds registered "Sync" and "Downloads" channels that nothing ever posted to; deleting
     // them keeps existing installs from showing dead categories in system notification settings.
-    private val RETIRED_CHANNEL_IDS = listOf("listenup_sync", "listenup_download")
+    internal val RETIRED_CHANNEL_IDS = listOf("listenup_sync", "listenup_download")
 
     /** Returns all channel ids in registration order. */
-    fun allIds(): List<String> = listOf(PLAYBACK, SOCIAL)
+    fun allIds(): List<String> = listOf(PLAYBACK, SOCIAL, DOWNLOADS)
 
     /** Register every channel. Idempotent — safe to call from `Application.onCreate`. */
     fun registerAll(context: Context) {
@@ -50,6 +54,12 @@ object NotificationChannels {
             NotificationChannel(SOCIAL, "Social", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Invites and social activity"
                 setShowBadge(true)
+            },
+        )
+        notificationManager.createNotificationChannel(
+            NotificationChannel(DOWNLOADS, "Downloads", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Progress of books being saved for offline listening"
+                setShowBadge(false)
             },
         )
     }

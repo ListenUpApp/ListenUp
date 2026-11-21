@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.local.db
 
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
+import com.calypsan.listenup.client.download.DownloadStopReason
+import com.calypsan.listenup.client.download.DownloadTransport
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -401,6 +403,132 @@ class DownloadDaoTest :
                         row.localPath shouldBe "/done/file.mp3"
                         row.completedAt shouldBe 99L
                     }
+                }
+            } finally {
+                db.close()
+            }
+        }
+        test("a dying run's pause never turns the person's pause into a wait") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(listOf(entity("file-1", state = DownloadState.DOWNLOADING), entity("file-2")))
+                    dao.pauseBookForUser("book-1") shouldBe 2
+                    dao.markPausedIfNotTerminal("file-1", DownloadPauseReason.INTERRUPTED)
+
+                    dao.getByAudioFileId("file-1")?.pauseReason shouldBe DownloadPauseReason.PAUSED_BY_YOU
+                    dao.nextForRun("book-1", MAX_DOWNLOAD_RETRIES) shouldBe null
+                    dao.claimForRun("file-2", startedAt = 1L, maxRetries = MAX_DOWNLOAD_RETRIES) shouldBe 0
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a run picks queued, system-paused and retryable files in file order, and never an exhausted one") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("exhausted", state = DownloadState.FAILED).copy(fileIndex = 0, retryCount = 3),
+                            entity("waiting", state = DownloadState.PAUSED).copy(fileIndex = 2),
+                            entity("retryable", state = DownloadState.FAILED).copy(fileIndex = 1, retryCount = 1),
+                        ),
+                    )
+                    dao.markPausedIfNotTerminal("waiting", DownloadPauseReason.NETWORK_LOST)
+
+                    dao.nextForRun("book-1", MAX_DOWNLOAD_RETRIES)?.audioFileId shouldBe "retryable"
+                    dao.claimForRun("retryable", startedAt = 1L, maxRetries = MAX_DOWNLOAD_RETRIES) shouldBe 1
+                    dao.nextForRun("book-1", MAX_DOWNLOAD_RETRIES)?.audioFileId shouldBe "waiting"
+                    dao.booksWithRunnableFiles(MAX_DOWNLOAD_RETRIES) shouldBe listOf("book-1")
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("the stop history keeps the newest 200 and counts every stop on the row") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(listOf(entity("file-1")))
+                    repeat(205) { index ->
+                        dao.recordStop("file-1", DownloadStopReason.QUOTA, code = 10, at = index.toLong(), transport = null)
+                        db.downloadStopEventDao().insertStopEvent(
+                            DownloadStopEventEntity(
+                                at = index.toLong(),
+                                bookId = "book-1",
+                                audioFileId = "file-1",
+                                reason = DownloadStopReason.QUOTA,
+                                reasonCode = 10,
+                                bytesAtStop = 0,
+                                totalBytes = 1000,
+                                transport = DownloadTransport.UIDT,
+                                foreground = true,
+                                sdkInt = 35,
+                                standbyBucket = null,
+                                powerSave = null,
+                                deviceIdle = null,
+                                ignoringBatteryOptimizations = null,
+                                notificationsEnabled = null,
+                                wifiOnly = true,
+                                networkMetered = false,
+                            ),
+                        )
+                        db.downloadStopEventDao().pruneStopEvents(MAX_DOWNLOAD_STOP_EVENTS)
+                    }
+
+                    val events = db.downloadStopEventDao().recentStopEvents(limit = 1_000)
+                    events.size shouldBe 200
+                    events.first().at shouldBe 204L
+                    events.last().at shouldBe 5L
+                    dao.getByAudioFileId("file-1")?.stopCount shouldBe 205
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("a failure records its code but never undoes a cancel") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(listOf(entity("live"), entity("cancelled", state = DownloadState.CANCELLED)))
+                    dao.recordFailure("live", "Download failed.", "TRANSPORT_SERVER_5XX")
+                    dao.recordFailure("cancelled", "Download failed.", "TRANSPORT_SERVER_5XX")
+
+                    dao.getByAudioFileId("live")?.lastErrorCode shouldBe "TRANSPORT_SERVER_5XX"
+                    dao.getByAudioFileId("live")?.retryCount shouldBe 1
+                    dao.getByAudioFileId("cancelled")?.state shouldBe DownloadState.CANCELLED
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("discarding a book forgets every file but keeps the explicit-delete tombstones") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("done", state = DownloadState.COMPLETED).copy(localPath = "/x"),
+                            entity("moving", state = DownloadState.DOWNLOADING),
+                            entity("tomb", state = DownloadState.DELETED),
+                        ),
+                    )
+                    dao.discardBook("book-1")
+
+                    dao.getByAudioFileId("done")?.state shouldBe DownloadState.CANCELLED
+                    dao.getByAudioFileId("done")?.localPath shouldBe null
+                    dao.getByAudioFileId("moving")?.state shouldBe DownloadState.CANCELLED
+                    dao.getByAudioFileId("tomb")?.state shouldBe DownloadState.DELETED
                 }
             } finally {
                 db.close()

@@ -200,6 +200,7 @@ class BookDetailTriageTest {
                             onPlayClick = {},
                             onRetryConnection = {},
                             onDownloadClick = {},
+                            onPauseClick = {},
                             onCancelClick = {},
                             onDeleteClick = {},
                             onSeriesClick = {},

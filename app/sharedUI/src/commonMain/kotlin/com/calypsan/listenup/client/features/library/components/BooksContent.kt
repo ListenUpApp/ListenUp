@@ -57,6 +57,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.DownloadPhase
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -178,6 +179,7 @@ internal fun BooksContent(
     ignoreTitleArticles: Boolean,
     bookLetters: List<LetterSection> = emptyList(),
     bookStatus: Map<BookId, BookCardStatus> = emptyMap(),
+    downloadPhases: Map<String, DownloadPhase> = emptyMap(),
     progressUnderTitle: Boolean = false,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
@@ -235,6 +237,7 @@ internal fun BooksContent(
                         books = books,
                         bookLetters = emptyList(),
                         bookStatus = bookStatus,
+                        downloadPhases = downloadPhases,
                         progressUnderTitle = progressUnderTitle,
                         statusFilter = statusFilter,
                         isInSelectionMode = isInSelectionMode,
@@ -304,6 +307,7 @@ internal fun BooksContent(
                         books = books,
                         bookLetters = bookLetters,
                         bookStatus = bookStatus,
+                        downloadPhases = downloadPhases,
                         progressUnderTitle = progressUnderTitle,
                         statusFilter = statusFilter,
                         isInSelectionMode = isInSelectionMode,
@@ -379,6 +383,7 @@ private fun BookGrid(
     books: List<BookListItem>,
     bookLetters: List<LetterSection>,
     bookStatus: Map<BookId, BookCardStatus>,
+    downloadPhases: Map<String, DownloadPhase>,
     progressUnderTitle: Boolean,
     statusFilter: BookStatusFilter,
     isInSelectionMode: Boolean,
@@ -480,6 +485,7 @@ private fun BookGrid(
                             onClick = { onBookClick(bookId) },
                             narrators = gridItem.book.narratorNames.ifBlank { null },
                             libraryStatus = bookStatus[gridItem.book.id],
+                            downloadPhase = downloadPhases[bookId],
                             progressUnderTitle = progressUnderTitle,
                             hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,

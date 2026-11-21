@@ -18,8 +18,11 @@ interface BookDetailPlatformActions {
     /** Start downloading a book */
     suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome>
 
-    /** Cancel an in-progress download */
+    /** Cancel an in-progress download, discarding what it saved */
     suspend fun cancelDownload(bookId: BookId)
+
+    /** Pause an in-progress download, keeping what it saved; resuming is [downloadBook] */
+    suspend fun pauseDownload(bookId: BookId)
 
     /** Delete downloaded files for a book */
     suspend fun deleteDownload(bookId: BookId)

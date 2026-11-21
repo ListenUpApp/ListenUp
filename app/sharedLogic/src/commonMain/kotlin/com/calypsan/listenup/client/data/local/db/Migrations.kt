@@ -711,3 +711,30 @@ internal val MIGRATION_31_32 =
             connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `pauseReason` TEXT")
         }
     }
+
+/**
+ * v32 → v33: why downloads stop. Six columns on `downloads` (the latest stop's reason, raw platform code and time, a
+ * running stop count, the latest failure's error code, and the transport that ran it) and the bounded
+ * `download_stop_events` history. Non-destructive by construction: nullable columns and a zero count, so every
+ * existing row reads as "never stopped", and state and progress are untouched.
+ */
+internal val MIGRATION_32_33 =
+    object : Migration(32, 33) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `stopReason` TEXT")
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `stopReasonCode` INTEGER")
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `stoppedAt` INTEGER")
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `stopCount` INTEGER NOT NULL DEFAULT 0")
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `lastErrorCode` TEXT")
+            connection.executeDdl("ALTER TABLE `downloads` ADD COLUMN `transport` TEXT")
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `download_stop_events` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, " +
+                    "`bookId` TEXT NOT NULL, `audioFileId` TEXT, `reason` TEXT NOT NULL, `reasonCode` INTEGER, " +
+                    "`bytesAtStop` INTEGER NOT NULL, `totalBytes` INTEGER NOT NULL, `transport` TEXT, " +
+                    "`foreground` INTEGER, `sdkInt` INTEGER, `standbyBucket` INTEGER, `powerSave` INTEGER, " +
+                    "`deviceIdle` INTEGER, `ignoringBatteryOptimizations` INTEGER, `notificationsEnabled` INTEGER, " +
+                    "`wifiOnly` INTEGER, `networkMetered` INTEGER)",
+            )
+        }
+    }

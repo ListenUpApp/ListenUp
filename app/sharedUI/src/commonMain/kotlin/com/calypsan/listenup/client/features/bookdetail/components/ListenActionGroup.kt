@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.features.bookdetail.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,17 +23,21 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.DownloadFailureReason
 import com.calypsan.listenup.client.features.bookdetail.DownloadSplitTrailingButton
 import com.calypsan.listenup.client.features.bookdetail.DownloadLabelledButton
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
@@ -43,6 +48,16 @@ import listenup.composeapp.generated.resources.book_detail_play
 import listenup.composeapp.generated.resources.book_detail_preparing
 import listenup.composeapp.generated.resources.book_detail_resume
 import listenup.composeapp.generated.resources.book_detail_unavailable_offline
+import listenup.composeapp.generated.resources.downloads_cancel
+import listenup.composeapp.generated.resources.downloads_reason_no_space
+import listenup.composeapp.generated.resources.downloads_reason_server
+import listenup.composeapp.generated.resources.book_download_status_downloading
+import listenup.composeapp.generated.resources.book_download_status_failed
+import listenup.composeapp.generated.resources.downloads_status_failed_plain
+import listenup.composeapp.generated.resources.book_download_status_paused
+import listenup.composeapp.generated.resources.downloads_status_queued
+import listenup.composeapp.generated.resources.book_download_row_resumes_automatically
+import listenup.composeapp.generated.resources.downloads_status_waiting_for_wifi
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -56,8 +71,9 @@ private val ActionHeight = 56.dp
  * Resume filled and dominant, Download and Add to shelf labelled tonal buttons. On a phone, Resume and Download are
  * one **split pair** as main had before the redesign (Simon, 2026-10-11): M3E split-button halves with small inner
  * corners and a 2 dp seam, the download half its own action (no chevron, no menu), and Add to shelf a separate tonal
- * icon button beside it. No caption sits under either (Simon, 2026-10-11): the download's size is in its accessible
- * name and in Details.
+ * icon button beside it. A resting download has no caption under the row (Simon, 2026-10-11): its size is in its
+ * accessible name and in Details. An active, held or failed one has the status line ([DownloadStatusRow], canvas
+ * decision 1, 2026-11-21).
  */
 @Suppress("LongParameterList")
 @Composable
@@ -72,6 +88,7 @@ internal fun ListenActionGroup(
     labelled: Boolean,
     onPrimaryClick: () -> Unit,
     onDownload: () -> Unit,
+    onPauseDownload: () -> Unit,
     onCancelDownload: () -> Unit,
     onRemoveDownload: () -> Unit,
     onAddToShelf: () -> Unit,
@@ -92,18 +109,79 @@ internal fun ListenActionGroup(
             onDownloadTap = { tap ->
                 when (tap) {
                     DownloadTap.Start -> onDownload()
+                    DownloadTap.Pause -> onPauseDownload()
                     DownloadTap.Cancel -> onCancelDownload()
                     DownloadTap.Remove -> onRemoveDownload()
                 }
             },
             onAddToShelf = onAddToShelf,
         )
-    if (labelled) {
-        TabletActionGroup(actions, modifier)
-    } else {
-        PhoneActionRow(actions, modifier)
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (labelled) {
+            TabletActionGroup(actions, Modifier)
+        } else {
+            PhoneActionRow(actions, Modifier)
+        }
+        actions.download?.statusLine?.let { line -> DownloadStatusRow(line, onCancel = onCancelDownload) }
     }
 }
+
+/**
+ * The line under the action row while a download is active, held or failed (canvas decision 1): where it stands, in
+ * the quiet body colour (the error colour once it failed), with Cancel whenever the button does something else. A
+ * polite live region, so a screen reader hears "Waiting for Wi-Fi" without moving focus.
+ */
+@Composable
+private fun DownloadStatusRow(
+    line: DownloadStatusLine,
+    onCancel: () -> Unit,
+) {
+    val failed = line is DownloadStatusLine.Failed
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = downloadStatusText(line),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        if (line.offersCancel) {
+            TextButton(onClick = onCancel) { Text(stringResource(Res.string.downloads_cancel)) }
+        }
+    }
+}
+
+/** The status line's words, from the approved canvas. */
+@Composable
+internal fun downloadStatusText(line: DownloadStatusLine): String =
+    when (line) {
+        is DownloadStatusLine.Downloading -> stringResource(Res.string.book_download_status_downloading, line.progress)
+        DownloadStatusLine.Queued -> stringResource(Res.string.downloads_status_queued)
+        DownloadStatusLine.WaitingForWifi -> stringResource(Res.string.downloads_status_waiting_for_wifi)
+        DownloadStatusLine.Waiting -> stringResource(Res.string.book_download_row_resumes_automatically)
+        is DownloadStatusLine.Paused -> stringResource(Res.string.book_download_status_paused, line.progress)
+        is DownloadStatusLine.Failed -> downloadFailureText(line.reason)
+    }
+
+/** "Couldn’t download · not enough space on this device", or just "Couldn’t download" when no reason is known. */
+@Composable
+internal fun downloadFailureText(reason: DownloadFailureReason): String =
+    when (reason) {
+        DownloadFailureReason.NOT_ENOUGH_SPACE -> {
+            stringResource(Res.string.book_download_status_failed, stringResource(Res.string.downloads_reason_no_space))
+        }
+
+        DownloadFailureReason.SERVER_STOPPED_ANSWERING -> {
+            stringResource(Res.string.book_download_status_failed, stringResource(Res.string.downloads_reason_server))
+        }
+
+        DownloadFailureReason.UNKNOWN -> {
+            stringResource(Res.string.downloads_status_failed_plain)
+        }
+    }
 
 /** What both layouts draw: the primary's label and state, the download's (null where downloads are unsupported). */
 private data class ListenActions(

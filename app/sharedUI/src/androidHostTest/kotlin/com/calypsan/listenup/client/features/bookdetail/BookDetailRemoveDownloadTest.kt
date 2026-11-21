@@ -160,6 +160,7 @@ class BookDetailRemoveDownloadTest {
                     onPlayClick = {},
                     onRetryConnection = {},
                     onDownloadClick = { taps.reported += "startDownload" },
+                    onPauseClick = { taps.reported += "pauseDownload" },
                     onCancelClick = { taps.reported += "cancelDownload" },
                     onDeleteClick = { taps.reported += REMOVE_DOWNLOAD },
                     onSeriesClick = {},

@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.db.MAX_DOWNLOAD_RETRIES
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.DownloadFailureReason
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
@@ -218,9 +219,10 @@ internal class DownloadRepositoryImpl(
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
+        causeCode: String?,
     ): AppResult<Int> =
         suspendRunCatching {
-            downloadDao.markFailedIfNotTerminal(audioFileId, error.message)
+            downloadDao.recordFailure(audioFileId, error.message, causeCode ?: error.code)
             // A row deleted underneath the write has nothing left to retry: report the budget spent.
             downloadDao.getByAudioFileId(audioFileId)?.retryCount ?: MAX_DOWNLOAD_RETRIES
         }
@@ -307,21 +309,24 @@ internal fun aggregateBookDownloadStatus(
     val completedFiles = relevant.count { it.state == DownloadState.COMPLETED }
     val totalBytes = relevant.sumOf { it.totalBytes }
     val downloadedBytes = relevant.sumOf { it.downloadedBytes }
-    val hasActive = relevant.any { it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED }
+    // A file the system stopped makes a book that has nothing moving wait to resume, even with others queued behind it.
+    val systemPause = relevant.firstNotNullOfOrNull { it.systemPauseReason() }
+    val isMoving = relevant.any { it.state == DownloadState.DOWNLOADING }
+    val hasActive = isMoving || (systemPause == null && relevant.any { it.state == DownloadState.QUEUED })
     return when {
         relevant.all { it.state == DownloadState.COMPLETED } -> {
             BookDownloadStatus.Completed(bookId = bookId, totalBytes = totalBytes)
         }
 
         relevant.any { it.state == DownloadState.FAILED } -> {
+            val failed = relevant.first { it.state == DownloadState.FAILED }
             BookDownloadStatus.Failed(
                 bookId = bookId,
-                errorMessage =
-                    relevant
-                        .firstOrNull { it.state == DownloadState.FAILED }
-                        ?.errorMessage
-                        ?: "Download failed",
+                errorMessage = failed.errorMessage ?: "Download failed",
                 partiallyDownloadedFiles = completedFiles,
+                reason = DownloadFailureReason.fromErrorCode(failed.lastErrorCode),
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes,
             )
         }
 
@@ -343,8 +348,9 @@ internal fun aggregateBookDownloadStatus(
             )
         }
 
-        // Nothing active, not all complete, no failures: a stopped partial (a mix of
-        // PAUSED / CANCELLED / COMPLETED). Surface as Paused so the UI offers resume.
+        // Nothing moving, not all complete, no failures: a stopped partial (a mix of PAUSED / CANCELLED / COMPLETED,
+        // perhaps with files queued behind a system stop). The reason says whether it waits or needs the person: the
+        // person's pause wins, then a wait for sign-in, then any wait the platform resumes by itself.
         else -> {
             BookDownloadStatus.Paused(
                 bookId = bookId,
@@ -360,6 +366,9 @@ internal fun aggregateBookDownloadStatus(
         }
     }
 }
+
+private fun DownloadEntity.systemPauseReason(): DownloadPauseReason? =
+    pauseReason?.takeIf { state == DownloadState.PAUSED && it != DownloadPauseReason.PAUSED_BY_YOU }
 
 /**
  * Why a stopped book is stopped: the person's own pause wins over any wait the system imposed on

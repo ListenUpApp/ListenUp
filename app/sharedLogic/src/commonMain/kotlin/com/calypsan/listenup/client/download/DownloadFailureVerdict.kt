@@ -71,7 +71,8 @@ internal suspend fun settleDownloadFailure(
         else -> {
             val downloadError = DownloadError.DownloadFailed(debugInfo = error.debugInfo)
             errorBus.emit(downloadError)
-            val failures = fail(repository, audioFileId, downloadError)
+            val failures =
+                fail(repository = repository, audioFileId = audioFileId, error = downloadError, causeCode = error.code)
             logger.error {
                 "download: failed file=$audioFileId error=${error.code} failures=$failures/$MAX_DOWNLOAD_RETRIES"
             }
@@ -97,8 +98,9 @@ private suspend fun fail(
     repository: DownloadRepository,
     audioFileId: String,
     error: DownloadError,
+    causeCode: String? = null,
 ): Int =
-    when (val recorded = repository.markFailed(audioFileId, error)) {
+    when (val recorded = repository.markFailed(audioFileId, error, causeCode)) {
         is AppResult.Success -> {
             recorded.data
         }

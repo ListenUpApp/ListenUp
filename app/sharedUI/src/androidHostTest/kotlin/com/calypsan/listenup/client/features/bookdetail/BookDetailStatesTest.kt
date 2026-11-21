@@ -209,6 +209,7 @@ class BookDetailStatesTest {
                     onPlayClick = {},
                     onRetryConnection = { retries++ },
                     onDownloadClick = {},
+                    onPauseClick = {},
                     onCancelClick = {},
                     onDeleteClick = {},
                     onSeriesClick = {},

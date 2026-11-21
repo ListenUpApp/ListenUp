@@ -309,6 +309,15 @@ tasks.named<Test>("jvmTest") {
 // cannot compile for a native target), so they run once rather than on both host surfaces.
 dependencies {
     "androidHostTestImplementation"(libs.kotest.runner.junit5)
+    // The download transports' tests: a WorkManager worker through work-testing, and the Android 14+ job's shape on
+    // Robolectric's framework (JobInfo, NetworkRequest). JUnit 4 under Robolectric, so the vintage engine runs them.
+    "androidHostTestImplementation"(libs.robolectric)
+    "androidHostTestImplementation"(libs.androidx.work.testing)
+    "androidHostTestImplementation"(libs.kotlinx.coroutines.test)
+    // JUnit 4 and ApplicationProvider for the Robolectric runner; a settable future for WorkManager's foreground seam.
+    "androidHostTestImplementation"(libs.androidx.test.ext.junit)
+    "androidHostTestImplementation"(libs.concurrent.futures)
+    "androidHostTestRuntimeOnly"(libs.junit.vintage.engine)
 }
 
 // The Apple lane: `iosSimulatorArm64Test` runs this module's commonTest specs on a simulator, so

@@ -343,11 +343,15 @@ DocumentRepository
 Download
 DownloadError
 DownloadError_SealedType
+DownloadFailureReason
 DownloadFileManager
 DownloadFileManagerStorageAdapter
 DownloadOutcome
 DownloadOutcome_SealedType
 DownloadPauseReason
+DownloadPhase
+DownloadPhase_SealedType
+DownloadPhasesViewModel
 DownloadRepository
 DownloadService
 DownloadStatus

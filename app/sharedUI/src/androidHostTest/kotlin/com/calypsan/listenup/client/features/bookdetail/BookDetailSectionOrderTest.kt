@@ -403,6 +403,7 @@ internal fun noActions() =
         onPlayClick = {},
         onRetryConnection = {},
         onDownloadClick = {},
+        onPauseClick = {},
         onCancelClick = {},
         onDeleteClick = {},
         onSeriesClick = {},

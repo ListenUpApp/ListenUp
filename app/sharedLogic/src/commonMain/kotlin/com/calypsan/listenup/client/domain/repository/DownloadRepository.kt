@@ -110,14 +110,16 @@ interface DownloadRepository {
     suspend fun markCancelled(audioFileId: String): AppResult<Unit>
 
     /**
-     * Record a genuine failure of the file: FAILED with [error]'s message, spending one retry.
-     * Returns how many failures the row has now recorded, which a caller compares with the retry
-     * budget to decide whether to try again. A row already cancelled, deleted or complete is left
-     * as it is: a transfer dying after that choice reports an error that must not undo it.
+     * Record a genuine failure of the file: FAILED with [error]'s message, spending one retry, and the error code that
+     * says why ([causeCode] when the failure had a more specific cause than [error], otherwise [error]'s own code).
+     * Returns how many failures the row has now recorded, which a caller compares with the retry budget to decide
+     * whether to try again. A row already cancelled, deleted or complete is left as it is: a transfer dying after
+     * that choice reports an error that must not undo it.
      */
     suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
+        causeCode: String? = null,
     ): AppResult<Int>
 
     // --- Orchestration ---

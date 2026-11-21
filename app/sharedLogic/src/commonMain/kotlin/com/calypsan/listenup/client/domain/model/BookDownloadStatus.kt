@@ -46,15 +46,20 @@ sealed interface BookDownloadStatus {
      *
      * @property partiallyDownloadedFiles Files that completed successfully before the failure;
      * lets the UI show "X of N files downloaded" alongside the retry CTA.
+     * @property reason Why it gave up, from the failed file's recorded error code.
+     * @property downloadedBytes Bytes already saved, which a cancel would discard.
      */
     data class Failed(
         override val bookId: String,
         val errorMessage: String,
         val partiallyDownloadedFiles: Int,
+        val reason: DownloadFailureReason = DownloadFailureReason.UNKNOWN,
+        val downloadedBytes: Long = 0L,
+        val totalBytes: Long = 0L,
     ) : BookDownloadStatus
 
     /**
-     * User cancelled or system paused the download.
+     * The person paused the download, or the system stopped it and it waits to resume.
      *
      * @property completedFiles Files that finished before the stop. A paused book is a MIX of
      * paused/cancelled/completed files, so this can be non-zero — and when it is, those files are

@@ -200,6 +200,7 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
     override suspend fun markFailed(
         audioFileId: String,
         error: com.calypsan.listenup.api.error.DownloadError,
+        causeCode: String?,
     ) = TODO("not used")
 
     override suspend fun enqueueForBook(bookId: BookId) = TODO("not used")
