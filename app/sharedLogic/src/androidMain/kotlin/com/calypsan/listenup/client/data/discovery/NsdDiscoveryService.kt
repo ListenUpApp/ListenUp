@@ -36,10 +36,14 @@ internal class NsdDiscoveryService(
     private var isDiscovering = false
     private val resolveExecutors = ResolveExecutorOwner()
 
+    /** Pre-API-34 resolves, one at a time: the legacy resolver fails an overlapping one. */
+    private val legacyResolves = LegacyResolveQueue<NsdServiceInfo>(::startLegacyResolve)
+
     /** API-34 resolve callbacks registered and not yet unregistered — dropped when discovery stops. */
     private val pendingResolutions = java.util.Collections.synchronizedSet(mutableSetOf<Any>())
 
     private fun unregisterPendingResolutions() {
+        legacyResolves.clear()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
         val pending =
             synchronized(pendingResolutions) { pendingResolutions.toList().also { pendingResolutions.clear() } }
@@ -161,21 +165,30 @@ internal class NsdDiscoveryService(
             // API 34+: Use the new ServiceInfoCallback API
             resolveServiceModern(serviceInfo)
         } else {
-            // API 33 and below: Use the deprecated ResolveListener API
-            @Suppress("DEPRECATION")
+            // API 33 and below: the deprecated ResolveListener API, one resolve at a time
             resolveServiceLegacy(serviceInfo)
         }
     }
 
+    /** Queues a pre-API-34 resolve; [legacyResolves] starts it once the one in flight is done. */
+    private fun resolveServiceLegacy(serviceInfo: NsdServiceInfo) = legacyResolves.enqueue(serviceInfo)
+
+    /**
+     * Starts one legacy resolve. The listener reports back with the [serviceInfo] the queue holds,
+     * not the instance NsdManager passes to the callback, so the queue recognises its own resolve.
+     */
     @Suppress("DEPRECATION")
-    private fun resolveServiceLegacy(serviceInfo: NsdServiceInfo) {
+    private fun startLegacyResolve(serviceInfo: NsdServiceInfo) {
         val resolveListener =
             object : NsdManager.ResolveListener {
                 override fun onResolveFailed(
-                    serviceInfo: NsdServiceInfo,
+                    failedInfo: NsdServiceInfo,
                     errorCode: Int,
                 ) {
-                    logger.error { "Resolve failed for ${serviceInfo.serviceName}: $errorCode" }
+                    logger.error {
+                        "Resolve failed for ${failedInfo.serviceName}: $errorCode (${nsdErrorCodeToString(errorCode)})"
+                    }
+                    legacyResolves.onFailed(serviceInfo, errorCode)
                 }
 
                 @Suppress("DEPRECATION")
@@ -191,6 +204,7 @@ internal class NsdDiscoveryService(
                     } else {
                         logger.warn { "Failed to parse server: ${resolvedInfo.serviceName}" }
                     }
+                    legacyResolves.onResolved(serviceInfo)
                 }
             }
 
@@ -198,6 +212,7 @@ internal class NsdDiscoveryService(
             nsdManager.resolveService(serviceInfo, resolveListener)
         } catch (e: Exception) {
             logger.error(e) { "Failed to resolve service" }
+            legacyResolves.onFailed(serviceInfo, NsdManager.FAILURE_INTERNAL_ERROR)
         }
     }
 
