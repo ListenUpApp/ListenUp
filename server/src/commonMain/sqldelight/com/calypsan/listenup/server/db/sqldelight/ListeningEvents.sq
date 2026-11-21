@@ -25,6 +25,8 @@ CREATE TABLE listening_events (
 CREATE INDEX idx_listening_events_user_revision ON listening_events(user_id, revision);
 CREATE INDEX idx_listening_events_user_ended_at ON listening_events(user_id, ended_at);
 CREATE INDEX idx_listening_events_user_book     ON listening_events(user_id, book_id);
+-- V101: Discover's recent listens filter `user_id != ?`, which no user_id-led index serves.
+CREATE INDEX idx_listening_events_ended_at      ON listening_events(ended_at);
 
 -- Global substrate queries (kept for source-compatibility with the base contract;
 -- a userScoped repo routes pullSince/digest through the *ForUser variants instead).
