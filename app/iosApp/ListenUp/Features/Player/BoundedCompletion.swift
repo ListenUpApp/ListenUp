@@ -22,13 +22,22 @@ func awaitCompletion<Value: Sendable>(
             }
             waiting?.resume(returning: value)
         }
-        let timer = Task {
-            try? await Task.sleep(for: timeout)
-            resume(nil)
-        }
+        // The timeout runs on a dispatch queue, not as a sleeping Task: a Task needs a free thread in the
+        // cooperative pool to wake, and when that pool is busy the bound would stretch with it — the very wait
+        // this function exists to cap.
+        let timer = DispatchWorkItem { resume(nil) }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout.timeInterval, execute: timer)
         start { value in
             timer.cancel()
             resume(value)
         }
+    }
+}
+
+private extension Duration {
+    /// This duration in seconds, for `DispatchTime` arithmetic.
+    var timeInterval: TimeInterval {
+        let (seconds, attoseconds) = components
+        return TimeInterval(seconds) + TimeInterval(attoseconds) / 1e18
     }
 }

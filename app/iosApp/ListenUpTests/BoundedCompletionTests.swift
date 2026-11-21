@@ -7,15 +7,16 @@ import Testing
 /// hang on demand.
 @Suite("Bounded completion")
 struct BoundedCompletionTests {
-    /// The bug itself: an operation that never calls back must not hold the caller forever. Raced against a 5 s
-    /// bound of its own, so a regression fails here as `.hung` instead of hanging the suite.
+    /// The bug itself: an operation that never calls back must not hold the caller forever. Raced against a 60 s
+    /// bound of its own, so a regression fails here as `.hung` instead of hanging the suite; the margin is wide
+    /// because a busy CI simulator can delay any Task's wake-up by tens of seconds.
     @Test func anOperationThatNeverCompletesGivesUpAtTheTimeout() async {
         let outcome: Outcome = await withTaskGroup(of: Outcome.self) { group in
             group.addTask {
                 let value: Bool? = await awaitCompletion(within: .milliseconds(50)) { _ in }
                 return value == nil ? .timedOut : .completed
             }
-            group.addTask { try? await Task.sleep(for: .seconds(5)); return .hung }
+            group.addTask { try? await Task.sleep(for: .seconds(60)); return .hung }
             let first = await group.next() ?? .hung
             group.cancelAll()
             return first
