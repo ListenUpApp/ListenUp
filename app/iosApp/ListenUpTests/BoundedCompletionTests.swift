@@ -24,9 +24,18 @@ struct BoundedCompletionTests {
         #expect(outcome == .timedOut)
     }
 
-    /// An operation that does complete hands its value back, well inside the bound.
+    /// An operation that does complete hands its value back. It calls back before the wait could time out at all, so
+    /// the result does not depend on how fast a busy CI simulator schedules a background queue.
     @Test func anOperationThatCompletesReturnsItsValue() async {
-        let value: Bool? = await awaitCompletion(within: .seconds(5)) { done in
+        let value: Bool? = await awaitCompletion(within: .seconds(60)) { done in done(true) }
+
+        #expect(value == true)
+    }
+
+    /// A completion from another queue is handed back too. The bound is generous: this pins delivery across queues,
+    /// not speed.
+    @Test func aCompletionFromAnotherQueueReturnsItsValue() async {
+        let value: Bool? = await awaitCompletion(within: .seconds(60)) { done in
             DispatchQueue.global().async { done(true) }
         }
 
