@@ -171,6 +171,25 @@ struct EngineFailureTests {
         #expect(harness.progress.savedNow.contains { $0 == ("book1", 15000) })
     }
 
+    /// A load that gave up (a resume seek that never landed returns `false`) leaves nothing loading: a Play is not
+    /// parked behind it as "play when loaded", and the fresh load the shared player sends for that Play reaches the
+    /// engine, at the same place, and starts.
+    @Test func playAfterAFailedLoadIsServedByAFreshLoad() async {
+        let harness = PlayerHarness()
+        await harness.engine.setLoadShouldFail(true)
+        await harness.run(.load(bookId: "book1", prepared: .fixture(resumePositionMs: 9000), generation: 0))
+        await awaitObservation { harness.coordinator.engineBook == nil }
+        #expect(harness.facts.failures == [.couldNotStart(detail: "engine load failed")])
+
+        await harness.run(.play)
+        #expect(await harness.engine.playCount == 0)
+
+        await harness.engine.setLoadShouldFail(false)
+        await harness.loadAndStart("book1", .fixture(resumePositionMs: 9000), generation: 1)
+        #expect(await harness.engine.lastLoadStartMs == 9000)
+        #expect(await harness.engine.playCount == 1)
+    }
+
     /// A book that never started (its engine load failed) has no place of its own to save.
     @Test func loadFailureRecordsNoPause() async {
         let harness = PlayerHarness()

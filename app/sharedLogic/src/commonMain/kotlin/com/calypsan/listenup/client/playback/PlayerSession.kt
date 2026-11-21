@@ -163,6 +163,7 @@ class PlayerSession(
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
         scope.launch { haltSurfacedFailures() }
+        scope.launch { reportStartsThatNeverSettle(state, onNeverStarted = ::failStartThatNeverSettled) }
         sleep.start(loadedBookId = stageBookId)
     }
 
@@ -736,6 +737,26 @@ class PlayerSession(
                     stage.value = current.copy(halted = false, failure = null)
                 }
             }
+    }
+
+    /**
+     * The engine buffered [bookId]'s start for all of [ENGINE_START_BOUND] without playing or saying why: say it
+     * couldn't be started, rather than spin forever. The failure is the session's own, so [haltSurfacedFailures] stops
+     * the engine on it, and Play or Retry prepares the book again from where the listener sees it.
+     */
+    private fun failStartThatNeverSettled(bookId: BookId) {
+        val current = stage.value as? SessionStage.Engine ?: return
+        if (current.bookId != bookId || current.failure != null) return
+        logger.error {
+            "Book ${bookId.value} did not start: still buffering $ENGINE_START_BOUND after it was handed over"
+        }
+        stage.value =
+            current.copy(
+                failure =
+                    PlaybackError.CouldNotStart(
+                        debugInfo = "still buffering $ENGINE_START_BOUND after the start",
+                    ),
+            )
     }
 
     // ── Sleep ────────────────────────────────────────────────────────────────────────────────────────
