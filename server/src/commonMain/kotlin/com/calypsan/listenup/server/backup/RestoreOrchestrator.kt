@@ -122,15 +122,15 @@ class RestoreOrchestrator(
                         // worker ever queries an old-schema file with today's SQL.
                         eventBus.tryEmit(BackupEvent.Migrating)
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
-                        revisionBeforeRestore?.let { dbHandle.raiseRevisionCounterTo(it) }
+                        dbHandle.restampRevisionsAbove(revisionBeforeRestore ?: 0L)
                         dbHandle.reopenPool()
 
                         eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
 
-                        // The revision counter was carried forward, so new writes reach every client
-                        // normally. The restored rows still differ from what connected clients hold, and
-                        // only a digest reconcile finds that: broadcast the accelerator so every connected
-                        // client re-derives, exactly like ImportApplier's bulk path.
+                        // Every restored row now sorts above anything a client has seen, so catch-up takes
+                        // it. Rows a client holds that the backup never had are found only by a digest
+                        // reconcile: broadcast the accelerator so every connected client re-derives,
+                        // exactly like ImportApplier's bulk path.
                         changeBus.broadcastControl(SyncControl.LibraryDataChanged)
 
                         deleteRecursively(paths.rollbackDir)

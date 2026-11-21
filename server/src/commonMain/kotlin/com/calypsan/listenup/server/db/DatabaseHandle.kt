@@ -42,13 +42,36 @@ class DatabaseHandle(
         }
 
     /**
-     * Raises the revision counter in the db file to at least [floor]. Never lowers it: every client
-     * remembers the highest revision it has seen, and a write numbered below that is invisible to it.
+     * Renumbers every row of a just-restored db file above [floor] and moves the counter past the last
+     * one. Every client remembers the highest revision it has seen and refuses a row older than the one
+     * it holds, so restored rows still carrying their pre-backup revisions would be skipped by catch-up
+     * and invisible to the firehose.
+     *
+     * Every column whose name contains `revision` shifts by one offset, chosen above [floor], the file's
+     * own counter and every value in those columns. One offset keeps rows in their original order and
+     * keeps columns that compare against each other equal (a match receipt's `revision_after` is its
+     * book's `revision` while Undo is offered). The columns come from the schema itself, so a new
+     * syncable table is covered without being listed here. Runs in one transaction on an admin
+     * connection, while the pool is closed.
      */
-    fun raiseRevisionCounterTo(floor: Long) {
+    fun restampRevisionsAbove(floor: Long) {
         openAdminConnection(dbPath, readOnly = false).use { conn ->
-            // floor is a Long read from the database, never caller text, so interpolation is safe.
-            conn.execute("UPDATE sync_meta SET value = MAX(value, $floor) WHERE key = 'revision_counter'")
+            conn.inTransaction {
+                val columns =
+                    conn.query(REVISION_COLUMNS_SQL) { row ->
+                        RevisionColumn(checkNotNull(row.getString("tbl")), checkNotNull(row.getString("col")))
+                    }
+                val counter = conn.longOrNull(REVISION_COUNTER_SQL) ?: 0L
+                val highest = columns.maxOfOrNull { conn.highestIn(it) } ?: 0L
+                val offset = maxOf(floor, counter, highest) + 1
+                // Every interpolated value is a Long or a name read from sqlite_master, never caller text.
+                columns.forEach { column ->
+                    conn.execute(
+                        "UPDATE ${column.quotedTable} SET ${column.quotedColumn} = ${column.quotedColumn} + $offset",
+                    )
+                }
+                conn.execute("UPDATE sync_meta SET value = ${offset + highest} WHERE key = 'revision_counter'")
+            }
         }
     }
 
@@ -67,3 +90,26 @@ class DatabaseHandle(
     /** True once [close] has run. Test-observability for graceful shutdown. */
     fun isPoolClosed(): Boolean = closed
 }
+
+/** A column holding a sync revision, as [DatabaseHandle.restampRevisionsAbove] reads it from the schema. */
+private data class RevisionColumn(
+    val table: String,
+    val column: String,
+) {
+    val quotedTable: String get() = "\"$table\""
+    val quotedColumn: String get() = "\"$column\""
+}
+
+private const val REVISION_COLUMNS_SQL =
+    "SELECT m.name AS tbl, p.name AS col FROM sqlite_master m, pragma_table_info(m.name) p " +
+        "WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%' AND p.name LIKE '%revision%' ORDER BY m.name, p.name"
+
+private const val REVISION_COUNTER_SQL = "SELECT value AS v FROM sync_meta WHERE key = 'revision_counter'"
+
+/** The largest value in [column], or 0 when the table is empty. */
+private fun SqlAdminConnection.highestIn(column: RevisionColumn): Long =
+    longOrNull("SELECT MAX(${column.quotedColumn}) AS v FROM ${column.quotedTable}") ?: 0L
+
+/** The first row's `v` column as a Long, or null when there is no row or the value is NULL. */
+private fun SqlAdminConnection.longOrNull(sql: String): Long? =
+    query(sql) { it.getString("v") }.firstOrNull()?.toLongOrNull()
