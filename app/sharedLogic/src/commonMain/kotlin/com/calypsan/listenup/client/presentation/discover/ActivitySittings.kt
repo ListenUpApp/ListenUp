@@ -18,8 +18,9 @@ import com.calypsan.listenup.api.dto.activity.groupIntoSittings
  * Discover's "what others are listening to" reads on the server, so the two surfaces never disagree about
  * who really listened. A sitting of several short fragments is judged by its total.
  *
- * Each sitting keeps its newest row, in that row's place, carrying the sitting's summed duration; the
- * rest of the sitting's rows go. A listening row with no book is judged alone. Rows that are not listening
+ * Each sitting keeps its newest row, in that row's place, carrying the sitting's listened time (time two
+ * devices played at once counted once, see [com.calypsan.listenup.api.dto.activity.Sitting.listenedMs]);
+ * the rest of the sitting's rows go. A listening row with no book is judged alone. Rows that are not listening
  * pass through untouched.
  *
  * Merging happens at READ time, deliberately. The `activities` table is append-only by design

@@ -46,7 +46,9 @@ data class ListenSpan(
  * @property bookId what they listened to.
  * @property startedAtMs when the first span began.
  * @property endedAtMs when the last span ended.
- * @property listenedMs the spans' lengths added up; idle time between them is not listening.
+ * @property listenedMs the wall-clock time covered by at least one of the spans. Idle time between them is
+ *   not listening, and time two devices played at once is counted once: an hour heard on a phone and a
+ *   tablet together is an hour.
  */
 data class Sitting<T>(
     val parts: List<T>,
@@ -56,7 +58,7 @@ data class Sitting<T>(
     val endedAtMs: Long,
     val listenedMs: Long,
 ) {
-    /** Long enough to tell people about: at least [RealListen.THRESHOLD_MS] of listening. */
+    /** Long enough to tell people about: at least [RealListen.THRESHOLD_MS] of listening, judged on [listenedMs]. */
     val isRealListen: Boolean get() = listenedMs >= RealListen.THRESHOLD_MS
 }
 
@@ -96,6 +98,37 @@ private fun <T> List<Pair<T, ListenSpan>>.toSitting(): Sitting<T> {
         bookId = spans.first().bookId,
         startedAtMs = spans.minOf { it.startedAtMs },
         endedAtMs = spans.maxOf { it.endedAtMs },
-        listenedMs = spans.sumOf { it.listenedMs },
+        listenedMs = spans.unionMs(),
     )
+}
+
+/**
+ * How much wall-clock time [this] covers, each instant counted once however many spans cover it. A span
+ * that ends before it begins covers nothing.
+ */
+private fun List<ListenSpan>.unionMs(): Long =
+    filter { it.endedAtMs > it.startedAtMs }
+        .sortedBy { it.startedAtMs }
+        .fold(Coverage.NONE) { covered, span -> covered + span }
+        .totalMs
+
+/** A running union of spans taken in start order: the time already closed off, and the stretch still open. */
+private data class Coverage(
+    val closedMs: Long,
+    val openStartMs: Long,
+    val openEndMs: Long,
+) {
+    val totalMs: Long get() = closedMs + (openEndMs - openStartMs)
+
+    /** [span] must not start before the open stretch does. */
+    operator fun plus(span: ListenSpan): Coverage =
+        if (span.startedAtMs <= openEndMs && openEndMs > openStartMs) {
+            copy(openEndMs = maxOf(openEndMs, span.endedAtMs))
+        } else {
+            Coverage(closedMs = totalMs, openStartMs = span.startedAtMs, openEndMs = span.endedAtMs)
+        }
+
+    companion object {
+        val NONE = Coverage(closedMs = 0L, openStartMs = 0L, openEndMs = 0L)
+    }
 }

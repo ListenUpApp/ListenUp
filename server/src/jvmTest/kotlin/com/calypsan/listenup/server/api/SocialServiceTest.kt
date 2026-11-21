@@ -1222,6 +1222,24 @@ class SocialServiceTest :
                 }
             }
         }
+
+        test("two devices playing at once count their shared time once, so forty seconds on both is not news") {
+            // Summed, the phone's and the tablet's 40s made an 80s "real listen" of a 45s stretch.
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewerId = "viewer")
+                    sql.seedClosedListen("alice", "book-a", endedAt = 480_000L, durationMs = 40_000L)
+                    sql.seedClosedListen("alice", "book-a", endedAt = 485_000L, durationMs = 40_000L)
+
+                    makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
+                }
+            }
+        }
     })
 
 private const val EDMONTON = "America/Edmonton"

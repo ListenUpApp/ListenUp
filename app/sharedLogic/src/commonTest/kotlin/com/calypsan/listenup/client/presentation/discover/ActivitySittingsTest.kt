@@ -46,6 +46,19 @@ private fun session(
 class ActivitySittingsTest :
     FunSpec({
 
+        test("two devices playing at once are one line, carrying the time they covered, not both lengths") {
+            val feed =
+                listOf(
+                    session("phone", occurredAt = 110 * MINUTE, durationMs = 10 * MINUTE),
+                    session("tablet", occurredAt = 108 * MINUTE, durationMs = 10 * MINUTE),
+                )
+
+            val shown = feed.asSittings()
+
+            shown shouldHaveSize 1
+            shown[0].durationMs shouldBe 12 * MINUTE
+        }
+
         test("two sessions in the same sitting are one line, carrying their summed duration") {
             val feed =
                 listOf(

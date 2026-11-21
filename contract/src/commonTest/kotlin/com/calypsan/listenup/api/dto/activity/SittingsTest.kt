@@ -47,8 +47,33 @@ class SittingsTest :
             listOf(span(0, 10), span(10, 20, bookId = "golden-son")).groupIntoSittings { it } shouldHaveSize 2
         }
 
-        test("overlapping spans from two devices join one sitting") {
-            listOf(span(0, 30), span(20, 40)).groupIntoSittings { it } shouldHaveSize 1
+        test("overlapping spans from two devices join one sitting, and their shared time counts once") {
+            val sittings = listOf(span(0, 30), span(20, 40)).groupIntoSittings { it }
+
+            sittings shouldHaveSize 1
+            sittings.single().listenedMs shouldBe 40 * MINUTE
+        }
+
+        test("two devices playing the same hour at once are one hour of listening") {
+            listOf(span(0, 60), span(0, 60)).groupIntoSittings { it }.single().listenedMs shouldBe 60 * MINUTE
+        }
+
+        test("a span inside another adds nothing to it") {
+            listOf(span(0, 60), span(10, 20)).groupIntoSittings { it }.single().listenedMs shouldBe 60 * MINUTE
+        }
+
+        test("a span that ends before it starts adds nothing") {
+            val inverted = span(30, 20)
+
+            listOf(span(0, 10), inverted).groupIntoSittings { it }.single().listenedMs shouldBe 10 * MINUTE
+        }
+
+        test("whether a sitting is real is judged on its union, not its spans added up") {
+            // Forty seconds heard on two devices at once is forty seconds, not eighty.
+            val phone = span(0, 0).copy(endedAtMs = 40_000L)
+            val tablet = span(0, 0).copy(endedAtMs = 40_000L)
+
+            listOf(phone, tablet).groupIntoSittings { it }.single().isRealListen shouldBe false
         }
 
         test("sittings come newest first, and their parts oldest first") {
