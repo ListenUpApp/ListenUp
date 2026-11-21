@@ -5,6 +5,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.awaitCancellation
+import kotlin.time.Duration.Companion.milliseconds
 
 /** The first two lines real ffmpeg puts on **stderr** when it runs. */
 private val REAL_BANNER =
@@ -97,5 +99,31 @@ class TranscoderProvisionerTest :
             command.joinToString(" ") shouldContain "-c:a aac"
             command.contains("-version") shouldBe false
             command.contains("-encoders") shouldBe false
+        }
+
+        // A wedged binary — a FUSE-mounted $LISTENUP_FFMPEG on a stalled share, say — must not hold
+        // the probe forever: the server would serve originals with no word on why.
+        test("an ffmpeg that never finishes the check is Unavailable, and says so") {
+            val status =
+                TranscoderProvisioner(
+                    candidatePaths = { listOf("/hung/ffmpeg") },
+                    probeTimeout = 50.milliseconds,
+                    runProcess = { _, _ -> awaitCancellation() },
+                ).probe()
+
+            status.shouldBeInstanceOf<TranscoderStatus.Unavailable>().reason shouldContain "did not finish"
+        }
+
+        test("a decoder that never finishes its check is skipped for the next candidate") {
+            val decoder =
+                TranscoderProvisioner(
+                    decoderCandidatePaths = { listOf("/hung/gst-launch-1.0", "/ok/gst-launch-1.0") },
+                    probeTimeout = 50.milliseconds,
+                    runProcess = { command, _ ->
+                        if (command.first() == "/hung/gst-launch-1.0") awaitCancellation() else 0
+                    },
+                ).probeDecoder()
+
+            decoder shouldBe "/ok/gst-launch-1.0"
         }
     })
