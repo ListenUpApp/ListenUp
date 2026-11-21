@@ -52,15 +52,24 @@ class UnsavedWorkGuard internal constructor() {
         pending = proceed
     }
 
-    /** The question. Discard runs the page's discard hook, then the departure that raised it. */
+    /**
+     * The question. Confirming runs the page's discard hook, then the departure that raised it.
+     *
+     * The wording defaults to a draft's; a page whose unsaved work is a running transfer names
+     * what stops instead ("Stop upload?").
+     */
     @Composable
-    fun Dialog() {
+    fun Dialog(
+        title: String = "Discard your changes?",
+        body: String = "The changes you made here will be lost.",
+        confirmLabel: String = "Discard",
+    ) {
         val action = pending ?: return
         ConfirmDialog(
             open = true,
-            title = "Discard your changes?",
-            body = "The changes you made here will be lost.",
-            confirmLabel = "Discard",
+            title = title,
+            body = body,
+            confirmLabel = confirmLabel,
             onConfirm = {
                 pending = null
                 discarded = true
