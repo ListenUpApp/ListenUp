@@ -1,5 +1,4 @@
 import ListenupContract
-import ListenupContract
 import Shared
 
 /// A started, unfinished book's progress, projected once at an observer from the shared `BookProgress.InProgress`.
