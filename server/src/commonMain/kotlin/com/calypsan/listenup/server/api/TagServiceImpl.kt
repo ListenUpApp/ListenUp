@@ -182,10 +182,7 @@ internal class TagServiceImpl(
         // Validate name.
         val slug = TagSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
-        // Verify book exists.
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(TagError.BookNotFound())
-        }
+        requireVisibleBook(bookId)?.let { return AppResult.Failure(it) }
 
         // Find-or-create the tag by slug.
         val tag =
@@ -226,9 +223,7 @@ internal class TagServiceImpl(
         tagId: TagId,
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(TagError.BookNotFound())
-        }
+        requireVisibleBook(bookId)?.let { return AppResult.Failure(it) }
         if (tagRepository.findById(tagId.value) == null) {
             return AppResult.Failure(TagError.NotFound())
         }
@@ -275,6 +270,21 @@ internal class TagServiceImpl(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * The visibility half of a book-tag write, run after the permission gate: the book must be live
+     * and reachable by the caller. A book the caller cannot see answers the same [TagError.BookNotFound]
+     * as one that does not exist — the choice [BookServiceImpl]'s `requireEditableBook` makes — so
+     * the reply never confirms the id is a live book. Null when the write may proceed.
+     */
+    private suspend fun requireVisibleBook(bookId: BookId): TagError? {
+        val p = principal.current()
+        val visible =
+            p != null &&
+                bookExists(bookId.value) &&
+                accessPolicy.canAccess(p.userId.value, p.role, bookId.value)
+        return if (visible) null else TagError.BookNotFound(debugInfo = "bookId=${bookId.value}")
+    }
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }

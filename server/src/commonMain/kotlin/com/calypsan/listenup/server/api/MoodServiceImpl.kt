@@ -173,10 +173,7 @@ internal class MoodServiceImpl(
         // Validate name.
         val slug = MoodSlug.normalize(name).getOrElse { return AppResult.Failure(it) }
 
-        // Verify book exists.
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(MoodError.BookNotFound())
-        }
+        requireVisibleBook(bookId)?.let { return AppResult.Failure(it) }
 
         // Find-or-create the mood by slug.
         val mood =
@@ -217,9 +214,7 @@ internal class MoodServiceImpl(
         moodId: MoodId,
     ): AppResult<Unit> {
         principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(MoodError.BookNotFound())
-        }
+        requireVisibleBook(bookId)?.let { return AppResult.Failure(it) }
         if (moodRepository.findById(moodId.value) == null) {
             return AppResult.Failure(MoodError.NotFound())
         }
@@ -266,6 +261,21 @@ internal class MoodServiceImpl(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * The visibility half of a book-mood write, run after the permission gate: the book must be live
+     * and reachable by the caller. A book the caller cannot see answers the same [MoodError.BookNotFound]
+     * as one that does not exist — the choice [BookServiceImpl]'s `requireEditableBook` makes — so
+     * the reply never confirms the id is a live book. Null when the write may proceed.
+     */
+    private suspend fun requireVisibleBook(bookId: BookId): MoodError? {
+        val p = principal.current()
+        val visible =
+            p != null &&
+                bookExists(bookId.value) &&
+                accessPolicy.canAccess(p.userId.value, p.role, bookId.value)
+        return if (visible) null else MoodError.BookNotFound(debugInfo = "bookId=${bookId.value}")
+    }
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
