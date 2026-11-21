@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -20,7 +19,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
-import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +29,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -39,12 +36,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
-
-/** How far a newer row must be from the paused playhead before Play moves to it; closer is the same place. */
-internal const val NEWER_POSITION_TOLERANCE_MS = 5_000L
-
-/** Signed stream URLs this close to lapsing count as lapsed: they would die a few minutes into the listen. */
-internal const val STREAM_URL_EXPIRY_MARGIN_MS = 5 * 60_000L
 
 /**
  * The one owner of this device's loaded book.
@@ -74,7 +65,7 @@ class PlayerSession(
     val offlineCopiesSupported: Boolean,
     private val scope: CoroutineScope,
     /** Wall-clock read, epoch ms: when a held book's signed stream URLs have lapsed. Tests pass a virtual clock. */
-    private val nowMillis: () -> Long = ::currentEpochMilliseconds,
+    nowMillis: () -> Long = ::currentEpochMilliseconds,
 ) : LoadedBookPlayhead {
     private val stage = MutableStateFlow<SessionStage?>(null)
     private val restoring = MutableStateFlow(true)
@@ -102,6 +93,13 @@ class PlayerSession(
             positionRepository = positionRepository,
             playbackPreferences = playbackPreferences,
             scope = scope,
+        )
+    private val heldBookResume =
+        HeldBookResume(
+            engine = engine,
+            engineBound = readout.engineBound,
+            savedPosition = readout.savedPosition,
+            nowMillis = nowMillis,
         )
     private val stageBookId: Flow<BookId?> get() = readout.stageBookId
     private val engineBound: StateFlow<Boolean> get() = readout.engineBound
@@ -176,7 +174,7 @@ class PlayerSession(
         scope.launch { watchLiveness() }
         scope.launch { haltSurfacedFailures() }
         scope.launch { reportStartsThatNeverSettle(state, onNeverStarted = ::failStartThatNeverSettled) }
-        scope.launch { accountForOwnPositionWrites() }
+        scope.launch { heldBookResume.accountForOwnPositionWrites() }
         sleep.start(loadedBookId = stageBookId)
     }
 
@@ -325,7 +323,7 @@ class PlayerSession(
                     loaded.phase !is PlayerPhase.Failed &&
                     (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
-                resumeHeldBook(bookId, startAtMs)
+                resumeHeldBook(bookId, heldBookResume.plan(bookId, startAtMs, durationMs.value))
                 return@onPlayer
             }
             // A plain Play of the loaded, not-prepared book honours where the listener moved it.
@@ -400,65 +398,26 @@ class PlayerSession(
 
     // ── Resume of a held book ────────────────────────────────────────────────────────────────────────
 
-    /**
-     * The newest position-row stamp this device accounts for on the engine-bound book: the row it bound with,
-     * then its own saves. Null while the engine holds nothing for the stage. Touched only on the player scope.
-     */
-    private var ownPositionStamp: Long? = null
-
-    /**
-     * Keep [ownPositionStamp]. A row that changes while the engine plays, or that lands within
-     * [NEWER_POSITION_TOLERANCE_MS] of the playhead, is this device's own save (the periodic tick, the pause, a
-     * seek). A row that lands far from a paused playhead was written elsewhere and synced in: it is left newer.
-     */
-    private suspend fun accountForOwnPositionWrites() {
-        combine(engineBound, readout.savedPosition) { bound, row -> bound to row }.collect { (bound, row) ->
-            val own = ownPositionStamp
-            ownPositionStamp =
-                when {
-                    !bound -> null
-                    own == null -> row?.effectiveLastPlayedAtMs ?: Long.MIN_VALUE
-                    row != null && isOwnPositionWrite(row) -> maxOf(own, row.effectiveLastPlayedAtMs)
-                    else -> own
-                }
-        }
-    }
-
-    private fun isOwnPositionWrite(row: PlaybackPosition): Boolean =
-        engine.phase.value == EnginePhase.PLAYING ||
-            engine.phase.value == EnginePhase.BUFFERING ||
-            abs(row.positionMs - engine.positionMs.value) <= NEWER_POSITION_TOLERANCE_MS
-
-    /**
-     * Play the book the engine holds, paused, from [startAtMs] when the listener picked a place.
-     *
-     * Without a picked place: another device may have listened on since this one paused. Sync wrote its row into
-     * Room, but a resume never prepares, so the engine never heard. Resuming from the old playhead would make this
-     * device's next save the newest place everywhere and overwrite that progress. So a newer row moves the engine
-     * there first, and a newer row that finished the book is decided by a load, as Play on a finished book always is.
-     * No network on the tap: the row is what sync already delivered.
-     *
-     * Then, a stream whose signed URLs have lapsed (a tab left open overnight) would fail at its next request: it is
-     * prepared again at the place it would have resumed from, which signs fresh URLs. The load begins inside the tap.
-     */
+    /** Play the book the engine holds, paused, as [HeldBookResume.plan] decided. A load begins inside the tap. */
     private fun resumeHeldBook(
         bookId: BookId,
-        startAtMs: Long? = null,
+        plan: ResumePlan,
     ) {
-        val newer = if (startAtMs == null) newerPositionFromElsewhere(bookId) else null
-        if (newer?.isFinished == true) {
-            startLoad(bookId, PlaybackStart.Resume)
-            return
+        when (plan) {
+            ResumePlan.DecideFinished -> {
+                startLoad(bookId, PlaybackStart.Resume)
+            }
+
+            is ResumePlan.Reprepare -> {
+                startLoad(bookId, PlaybackStart.At(plan.positionMs))
+            }
+
+            is ResumePlan.Resume -> {
+                plan.seekToMs?.let(::seekEngineTo)
+                engine.clearError()
+                engine.play()
+            }
         }
-        if (newer != null) ownPositionStamp = newer.effectiveLastPlayedAtMs
-        val target = (startAtMs ?: newer?.positionMs)?.let(::clampToBook)
-        if (streamUrlsHaveLapsed(bookId)) {
-            startLoad(bookId, PlaybackStart.At(target ?: engine.positionMs.value))
-            return
-        }
-        target?.let(::seekEngineTo)
-        engine.clearError()
-        engine.play()
     }
 
     /**
@@ -466,30 +425,9 @@ class PlayerSession(
      * end-of-chapter timer counts from there instead of taking the move for a chapter that ended.
      */
     private fun seekEngineTo(positionMs: Long) {
-        chapterInfoAt(positionMs, chapters.value, durationMs.value)?.let { sleep.onUserMovedTo(it.index) }
+        chapterInfoAt(positionMs, chapters.value, durationMs.value)?.let { landed -> sleep.onUserMovedTo(landed.index) }
         engine.seekTo(positionMs)
     }
-
-    /** Whether the engine streams [bookId] from signed URLs that have lapsed, or will within the margin. */
-    private fun streamUrlsHaveLapsed(bookId: BookId): Boolean {
-        val held = engine.timeline.value?.takeIf { it.bookId == bookId } ?: return false
-        val expiresAt = held.urlsExpireAtMs ?: return false
-        return !held.isFullyDownloaded && nowMillis() >= expiresAt - STREAM_URL_EXPIRY_MARGIN_MS
-    }
-
-    /** The book's Room row when it is newer than this device's own place and elsewhere in the book, else null. */
-    private fun newerPositionFromElsewhere(bookId: BookId): PlaybackPosition? {
-        val row = readout.savedPosition.value?.takeIf { it.bookId == bookId.value } ?: return null
-        val own = ownPositionStamp ?: return null
-        if (row.effectiveLastPlayedAtMs <= own) return null
-        return row.takeIf {
-            it.isFinished || abs(
-                it.positionMs - engine.positionMs.value,
-            ) > NEWER_POSITION_TOLERANCE_MS
-        }
-    }
-
-    private fun clampToBook(positionMs: Long): Long = positionMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L))
 
     /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
     private suspend fun rememberLoaded(bookId: BookId) {
@@ -556,7 +494,7 @@ class PlayerSession(
                         engine.clearError()
                         startLoad(loaded.bookId, retryStart(loaded))
                     } else {
-                        resumeHeldBook(loaded.bookId)
+                        resumeHeldBook(loaded.bookId, heldBookResume.plan(loaded.bookId, null, durationMs.value))
                     }
                 }
 
