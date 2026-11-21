@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import kotlinx.coroutines.flow.Flow
@@ -71,15 +72,27 @@ interface DownloadRepository {
         completedAt: Long,
     ): AppResult<Boolean>
 
-    suspend fun markPaused(audioFileId: String): AppResult<Unit>
+    /**
+     * Pause the file for [reason], keeping its progress and its retry budget. A no-op on a row the
+     * user already cancelled or deleted, or one that completed.
+     */
+    suspend fun markPaused(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ): AppResult<Unit>
 
     /** Mark the file as cancelled by user action. Distinct from [markPaused] (system-pause). */
     suspend fun markCancelled(audioFileId: String): AppResult<Unit>
 
+    /**
+     * Record a genuine failure of the file: FAILED with [error]'s message, spending one retry.
+     * Returns how many failures the row has now recorded, which a caller compares with the retry
+     * budget to decide whether to try again.
+     */
     suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
-    ): AppResult<Unit>
+    ): AppResult<Int>
 
     // --- Orchestration ---
 

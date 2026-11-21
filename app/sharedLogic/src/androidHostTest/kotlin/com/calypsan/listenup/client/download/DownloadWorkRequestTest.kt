@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.download
 
+import androidx.work.BackoffPolicy
 import androidx.work.NetworkType
+import androidx.work.WorkRequest
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import io.kotest.core.spec.style.FunSpec
@@ -74,11 +76,17 @@ class DownloadWorkRequestTest :
                 input.getLong(DownloadWorker.KEY_FILE_SIZE, -1L) shouldBe 99L
             }
 
-            test("tags cover both the book-wide and the per-file cancel unit") {
+            test("backoff is linear from the minimum, so a much-stopped download is not left waiting hours") {
+                val spec = buildDownloadRequest(downloadEntity(audioFileId = "af3", bookId = "b3"), wifiOnly = false).workSpec
+
+                spec.backoffPolicy shouldBe BackoffPolicy.LINEAR
+                spec.backoffDelayDuration shouldBe WorkRequest.MIN_BACKOFF_MILLIS
+            }
+
+            test("tags carry the book-wide cancel unit") {
                 val entity = downloadEntity(audioFileId = "af2", bookId = "b2")
 
-                buildDownloadRequest(entity, wifiOnly = true).tags shouldContainAll
-                    setOf("download_b2", "download_file_af2")
+                buildDownloadRequest(entity, wifiOnly = true).tags shouldContainAll setOf("download_b2")
             }
         }
 
@@ -91,10 +99,6 @@ class DownloadWorkRequestTest :
 
             test("bookTag is the book-wide cancel tag") {
                 bookTag("b1") shouldBe "download_b1"
-            }
-
-            test("fileCancelTag is distinct from the unique-work name") {
-                fileCancelTag("af1") shouldBe "download_file_af1"
             }
         }
 

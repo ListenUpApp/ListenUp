@@ -4,12 +4,14 @@ import androidx.room3.Dao
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Retry budget for a download. A FAILED row that has burned this many attempts is terminal and is
- * excluded from the every-startup re-enqueue (B10b) so exhausted downloads stop churning. Kept in
- * lock-step with the Android `DownloadWorker`'s `MAX_RETRIES`.
+ * Retry budget for a download: how many genuine failures a row may record. A FAILED row that has
+ * spent it is terminal and is excluded from the every-startup re-enqueue (B10b) so exhausted
+ * downloads stop churning. The Android worker retries against the same budget, counted on the row,
+ * so a run the system stopped never spends it.
  */
 internal const val MAX_DOWNLOAD_RETRIES = 3
 
@@ -77,8 +79,8 @@ internal interface DownloadDao {
     )
 
     /**
-     * Mark a file PAUSED only if it is not already in a terminal state
-     * (CANCELLED / DELETED / COMPLETED).
+     * Mark a file PAUSED for [reason] only if it is not already in a terminal state
+     * (CANCELLED / DELETED / COMPLETED). Progress and the retry budget are left as they are.
      *
      * Closes the cancel/delete race (B7): a dying worker's late `NonCancellable` cleanup can call
      * this AFTER the user's CANCELLED (or DELETED) write has landed — the ordering between
@@ -88,10 +90,13 @@ internal interface DownloadDao {
      * guard makes the terminal write win at the DB layer regardless of scheduling.
      */
     @Query(
-        "UPDATE downloads SET state = 'PAUSED' WHERE audioFileId = :audioFileId " +
+        "UPDATE downloads SET state = 'PAUSED', pauseReason = :reason WHERE audioFileId = :audioFileId " +
             "AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
     )
-    suspend fun markPausedIfNotTerminal(audioFileId: String)
+    suspend fun markPausedIfNotTerminal(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    )
 
     /**
      * Claim a row for transfer: QUEUED, FAILED or PAUSED becomes DOWNLOADING. Returns the number of

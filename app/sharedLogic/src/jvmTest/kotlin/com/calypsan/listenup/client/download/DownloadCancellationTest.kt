@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -73,10 +74,13 @@ class DownloadCancellationTest :
                         object : FakeDownloadRepository(
                             initial = listOf(entity("file-1", state = DownloadState.DOWNLOADING)),
                         ) {
-                            override suspend fun markPaused(audioFileId: String): AppResult<Unit> {
+                            override suspend fun markPaused(
+                                audioFileId: String,
+                                reason: DownloadPauseReason,
+                            ): AppResult<Unit> {
                                 // Model the real Room-backed write: it observes cancellation here.
                                 currentCoroutineContext().ensureActive()
-                                return super.markPaused(audioFileId)
+                                return super.markPaused(audioFileId, reason)
                             }
                         }
                     val fileManager = fileManagerFor(tmpRoot)
@@ -96,6 +100,8 @@ class DownloadCancellationTest :
                     job.cancelAndJoin()
 
                     repo.entities.single().state shouldBe DownloadState.PAUSED
+                    // A stop is an interruption the platform resumes, recorded as one.
+                    repo.entities.single().pauseReason shouldBe DownloadPauseReason.INTERRUPTED
                 } finally {
                     tmpRoot.deleteRecursively()
                 }

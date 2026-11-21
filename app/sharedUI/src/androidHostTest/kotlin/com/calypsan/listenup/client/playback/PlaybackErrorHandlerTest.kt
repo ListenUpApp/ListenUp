@@ -906,7 +906,10 @@ private object ThrowingDownloadRepository : DownloadRepository {
         completedAt: Long,
     ) = TODO("not used in handler test")
 
-    override suspend fun markPaused(audioFileId: String) = TODO("not used in handler test")
+    override suspend fun markPaused(
+        audioFileId: String,
+        reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason,
+    ) = TODO("not used in handler test")
 
     override suspend fun markCancelled(audioFileId: String) = TODO("not used in handler test")
 

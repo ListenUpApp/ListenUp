@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 
 /**
  * Tracks download state for individual audio files.
@@ -11,6 +12,9 @@ import androidx.room3.PrimaryKey
  * - Partial downloads (some files complete, others pending)
  * - Resume support (tracks bytes downloaded)
  * - Per-file error tracking
+ *
+ * [retryCount] counts genuine failures only; a run the system stopped never spends it. [pauseReason]
+ * says why a PAUSED row is waiting and means nothing in any other state.
  */
 @Entity(
     tableName = "downloads",
@@ -31,4 +35,5 @@ internal data class DownloadEntity(
     val completedAt: Long?,
     val errorMessage: String?,
     val retryCount: Int = 0,
+    val pauseReason: DownloadPauseReason? = null,
 )

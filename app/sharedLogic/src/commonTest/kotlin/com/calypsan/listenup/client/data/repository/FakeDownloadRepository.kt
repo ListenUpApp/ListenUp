@@ -5,9 +5,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.data.local.db.MAX_DOWNLOAD_RETRIES
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -119,10 +121,17 @@ internal open class FakeDownloadRepository(
         return AppResult.Success(completed)
     }
 
-    override suspend fun markPaused(audioFileId: String): AppResult<Unit> {
+    override suspend fun markPaused(
+        audioFileId: String,
+        reason: DownloadPauseReason,
+    ): AppResult<Unit> {
         // Mirror the production guarded DAO query (B7): pausing never clobbers a terminal state.
         update(audioFileId) { current ->
-            if (current.state in terminalStatesForPause) current else current.copy(state = DownloadState.PAUSED)
+            if (current.state in terminalStatesForPause) {
+                current
+            } else {
+                current.copy(state = DownloadState.PAUSED, pauseReason = reason)
+            }
         }
         return AppResult.Success(Unit)
     }
@@ -135,11 +144,12 @@ internal open class FakeDownloadRepository(
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
-    ): AppResult<Unit> {
+    ): AppResult<Int> {
+        // Mirror the production query: a genuine failure spends one retry.
         update(audioFileId) {
-            it.copy(state = DownloadState.FAILED, errorMessage = error.message)
+            it.copy(state = DownloadState.FAILED, errorMessage = error.message, retryCount = it.retryCount + 1)
         }
-        return AppResult.Success(Unit)
+        return AppResult.Success(state.value[audioFileId]?.retryCount ?: MAX_DOWNLOAD_RETRIES)
     }
 
     // --- Orchestration ---

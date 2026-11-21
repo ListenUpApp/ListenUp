@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.assertions.withClue
@@ -351,7 +352,7 @@ class DownloadWorkerLogicTest :
                         failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
                     }
                     // Replicate worker's auth-failure path: markPaused (not markFailed).
-                    fakeRepo.markPaused("file-1")
+                    fakeRepo.markPaused("file-1", DownloadPauseReason.SIGN_IN_REQUIRED)
 
                     fakeRepo.entities.single().state shouldBe DownloadState.PAUSED
                 } finally {
@@ -482,8 +483,11 @@ class DownloadWorkerLogicTest :
                             prepareRepository = readyRpcFactory(),
                         )
 
+                    // A body that ends short is a failed download, not a lost connection: typed as one, it
+                    // spends the retry budget instead of pausing to wait for a network that is already there.
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    fakeRepo.markFailed("file-1", DownloadError.DownloadFailed(debugInfo = failure.error.debugInfo))
+                    failure.error.shouldBeInstanceOf<DownloadError.DownloadFailed>()
+                    val _ = fakeRepo.markFailed("file-1", DownloadError.DownloadFailed(debugInfo = failure.error.debugInfo))
 
                     fakeRepo.entities.single().state shouldBe DownloadState.FAILED
                 } finally {
@@ -522,13 +526,11 @@ class DownloadWorkerLogicTest :
                             prepareRepository = readyRpcFactory(),
                         )
 
-                    // The internal IOException("Failed to move...") is caught by suspendRunCatching
-                    // and routed through ErrorMapper, which classifies IOException as
-                    // TransportError.NetworkUnavailable. The user-actionable detail (failed-to-move
-                    // message) lives in [debugInfo]; the worker's storage-keyword string-match runs
-                    // against debugInfo to detect ENOSPC-class failures.
+                    // A move that fails is a local fault, typed as a failed download rather than a lost
+                    // connection. The detail stays in [debugInfo], where the worker's storage-keyword
+                    // match looks for ENOSPC-class failures.
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                    failure.error.shouldBeInstanceOf<DownloadError.DownloadFailed>()
                     withClue("Expected 'Failed to move' in debugInfo: ${failure.error.debugInfo ?: "none"}") {
                         (failure.error.debugInfo?.contains("Failed to move") == true) shouldBe true
                     }
@@ -574,7 +576,7 @@ class DownloadWorkerLogicTest :
                         )
                     }
                     // Replicate worker's cancellation catch: markPaused (not markFailed).
-                    fakeRepo.markPaused("file-1")
+                    fakeRepo.markPaused("file-1", DownloadPauseReason.INTERRUPTED)
 
                     fakeRepo.entities.single().state shouldBe DownloadState.PAUSED
                 } finally {
@@ -678,7 +680,9 @@ class DownloadWorkerLogicTest :
                             prepareRepository = failingRpcFactory,
                         )
 
-                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    // The typed prepare error survives, so a lost connection reads as one and pauses.
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
                 } finally {
                     tmpRoot.deleteRecursively()
                 }

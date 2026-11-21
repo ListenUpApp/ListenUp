@@ -180,7 +180,10 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
         completedAt: Long,
     ) = TODO("not used")
 
-    override suspend fun markPaused(audioFileId: String) = TODO("not used")
+    override suspend fun markPaused(
+        audioFileId: String,
+        reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason,
+    ) = TODO("not used")
 
     override suspend fun markCancelled(audioFileId: String) = TODO("not used")
 

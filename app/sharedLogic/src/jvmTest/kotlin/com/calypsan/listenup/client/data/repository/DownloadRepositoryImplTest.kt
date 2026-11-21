@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.domain.model.BookMatchRecord
 import app.cash.turbine.test
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -455,6 +456,43 @@ class DownloadRepositoryImplTest :
                         awaitItem() shouldBe emptyList()
                         cancelAndIgnoreRemainingEvents()
                     }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("markFailed reports how many failures the row has now spent") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    downloadDao.insert(
+                        DownloadEntity(
+                            audioFileId = "af1",
+                            bookId = "b1",
+                            filename = "af1.m4b",
+                            fileIndex = 0,
+                            state = DownloadState.DOWNLOADING,
+                            localPath = null,
+                            totalBytes = 1000L,
+                            downloadedBytes = 0L,
+                            queuedAt = 0L,
+                            startedAt = null,
+                            completedAt = null,
+                            errorMessage = null,
+                            retryCount = 1,
+                        ),
+                    )
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+
+                    sut.markFailed("af1", DownloadError.DownloadFailed()) shouldBe AppResult.Success(2)
+                    downloadDao.getByAudioFileId("af1")?.state shouldBe DownloadState.FAILED
                 }
             } finally {
                 db.close()

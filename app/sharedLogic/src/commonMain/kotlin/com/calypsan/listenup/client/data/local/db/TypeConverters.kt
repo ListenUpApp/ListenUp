@@ -16,6 +16,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.core.appJson
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -126,7 +127,7 @@ internal class ValueClassConverters {
 }
 
 /**
- * Room type converters for sync-state and download-state enums.
+ * Room type converters for the sync-state, download-state and pause-reason enums.
  *
  * Stores enums by their declared `name` instead of their ordinal index — ordinal
  * storage silently corrupts data when an enum constant is inserted, reordered,
@@ -148,6 +149,12 @@ internal class Converters {
 
     @ColumnTypeConverter
     fun toDownloadState(value: String): DownloadState = DownloadState.valueOf(value)
+
+    @ColumnTypeConverter
+    fun fromDownloadPauseReason(reason: DownloadPauseReason): String = reason.name
+
+    @ColumnTypeConverter
+    fun toDownloadPauseReason(value: String): DownloadPauseReason = DownloadPauseReason.valueOf(value)
 }
 
 /**
