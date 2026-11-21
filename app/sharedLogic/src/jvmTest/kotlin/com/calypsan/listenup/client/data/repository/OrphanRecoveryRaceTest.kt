@@ -73,10 +73,10 @@ import kotlinx.coroutines.runBlocking
  * both invoke [ListeningEventRecorder.recoverOrphan] — violating the at-most-once
  * contract. The fix routes the read-and-set through a [kotlinx.coroutines.sync.Mutex].
  *
- * The test uses a [CountingTentativeSpanDao] to count [TentativeSpanDao.get]
+ * The test uses a [CountingTentativeSpanDao] to count [TentativeSpanDao.getAll]
  * invocations, which is the first operation [ListeningEventRecorder.recoverOrphan]
  * performs. With the mutex, only one concurrent caller enters the recovery body,
- * so [TentativeSpanDao.get] is called exactly once even under 8-way concurrency.
+ * so [TentativeSpanDao.getAll] is called exactly once even under 8-way concurrency.
  */
 class OrphanRecoveryRaceTest :
     FunSpec({
@@ -221,8 +221,8 @@ class OrphanRecoveryRaceTest :
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Wraps a real [TentativeSpanDao] and counts [get] invocations. A call to [get] is the
- * first operation inside [ListeningEventRecorder.recoverOrphan], so counting [get] calls
+ * Wraps a real [TentativeSpanDao] and counts [getAll] invocations. A call to [getAll] is the
+ * first operation inside [ListeningEventRecorder.recoverOrphan], so counting [getAll] calls
  * is equivalent to counting [ListeningEventRecorder.recoverOrphan] invocations.
  */
 private class CountingTentativeSpanDao(
@@ -230,14 +230,18 @@ private class CountingTentativeSpanDao(
 ) : TentativeSpanDao {
     val getCalls = AtomicInteger(0)
 
-    override suspend fun get(): TentativeSpanEntity? {
+    override suspend fun get(): TentativeSpanEntity? = delegate.get()
+
+    override suspend fun getAll(): List<TentativeSpanEntity> {
         getCalls.incrementAndGet()
-        return delegate.get()
+        return delegate.getAll()
     }
 
-    override suspend fun upsertSingleton(span: TentativeSpanEntity) = delegate.upsertSingleton(span)
+    override suspend fun upsert(span: TentativeSpanEntity) = delegate.upsert(span)
 
-    override suspend fun delete() = delegate.delete()
+    override suspend fun deleteById(id: String) = delegate.deleteById(id)
+
+    override suspend fun deleteAll() = delegate.deleteAll()
 
     override suspend fun countRows(): Int = delegate.countRows()
 }

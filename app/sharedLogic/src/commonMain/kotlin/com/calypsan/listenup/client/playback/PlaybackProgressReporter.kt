@@ -138,14 +138,20 @@ class PlaybackProgressReporter(
         onPlaybackPaused(bookId = bookId, positionMs = positionMs, speed = speed, durationMs = durationMs)
     }
 
-    /** Periodic heartbeat during playback: save the position and extend the open span. */
+    /**
+     * Periodic heartbeat during playback: save the position and extend the open span. The recorder
+     * hears it only while this book's listen is open: its heartbeat means "audio is playing", and
+     * opens a span the recorder lost track of. A report that lands after the pause (iOS samples the
+     * position as the player stops) is not playing, and must open nothing.
+     */
     fun onPositionUpdate(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
     ) {
         progressTracker.onPositionUpdate(bookId, positionMs, speed)
-        record { it.onPeriodicTick(bookId.value, positionMs) }
+        if (spanPhase.value != SpanPhase.Open(bookId)) return
+        record { it.onPeriodicTick(bookId.value, positionMs, speed) }
     }
 
     /**

@@ -167,7 +167,7 @@ class LibraryResetHelperTest :
         test("clearLibraryData clears the open listening span") {
             val db = createInMemoryTestDatabase()
             try {
-                db.tentativeSpanDao().upsertSingleton(
+                db.tentativeSpanDao().upsert(
                     TentativeSpanEntity(
                         id = "span-1",
                         userId = "previous-user",

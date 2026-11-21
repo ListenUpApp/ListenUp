@@ -174,6 +174,52 @@ class PlaybackProgressReporterTest :
             }
         }
 
+        // The reporter's own phase says audio is playing, so a tick with no span behind it is a listen the recorder
+        // lost track of: it is recorded from that tick on rather than not at all.
+        test("a tick while playing whose span has gone missing opens the span there") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, enqueued, _, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    db.tentativeSpanDao().deleteAll()
+
+                    setNow(31_000L)
+                    reporter.onPositionUpdate(BookId(BOOK_ID), positionMs = 30_000L, speed = SPEED)
+                    advanceUntilIdle()
+                    setNow(61_000L)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    val event = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).single()
+                    event.startPositionMs shouldBe 30_000L
+                    event.endPositionMs shouldBe 60_000L
+                    enqueued.size shouldBe 1
+                }
+            }
+        }
+
+        // iOS samples the position as the player stops, so a report can land just after the pause.
+        test("a position report after the pause opens no span") {
+            runTest {
+                withReporterFixture(this, recorderEnabled = true) { reporter, db, _, _, setNow ->
+                    setNow(1_000L)
+                    reporter.onPlaybackStarted(BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+                    setNow(61_000L)
+                    reporter.onPlaybackPaused(BookId(BOOK_ID), positionMs = 60_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
+                    advanceUntilIdle()
+
+                    setNow(61_200L)
+                    reporter.onPositionUpdate(BookId(BOOK_ID), positionMs = 60_200L, speed = SPEED)
+                    advanceUntilIdle()
+
+                    db.tentativeSpanDao().get().shouldBeNull()
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 1
+                }
+            }
+        }
+
         test("playback signals are forwarded to the ProgressTracker") {
             runTest {
                 withReporterFixture(this, recorderEnabled = true) { reporter, _, _, tracker, _ ->

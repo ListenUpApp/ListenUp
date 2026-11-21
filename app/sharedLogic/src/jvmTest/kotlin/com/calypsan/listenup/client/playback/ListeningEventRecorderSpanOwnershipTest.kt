@@ -24,7 +24,7 @@ class ListeningEventRecorderSpanOwnershipTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueued ->
                     recorder.onPlay(BOOK_A, positionMs = 0L, playbackSpeed = SPEED)
                     now = 1_801_000L
-                    recorder.onPeriodicTick(BOOK_A, 1_800_000L)
+                    recorder.onPeriodicTick(BOOK_A, 1_800_000L, playbackSpeed = SPEED)
 
                     // No pause reached the recorder (a stall, a lost signal): the next play arrives over the open span.
                     now = 2_701_000L
@@ -53,7 +53,7 @@ class ListeningEventRecorderSpanOwnershipTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, enqueued ->
                     recorder.onPlay(BOOK_A, positionMs = 3_000_000L, playbackSpeed = SPEED)
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_A, 3_030_000L)
+                    recorder.onPeriodicTick(BOOK_A, 3_030_000L, playbackSpeed = SPEED)
 
                     now = 45_000L
                     recorder.onPause(BOOK_B, positionMs = 120_000L)
@@ -76,7 +76,7 @@ class ListeningEventRecorderSpanOwnershipTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, _ ->
                     recorder.onPlay(BOOK_A, positionMs = 3_000_000L, playbackSpeed = SPEED)
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_B, 30_000L)
+                    recorder.onPeriodicTick(BOOK_B, 30_000L, playbackSpeed = SPEED)
 
                     val span = db.tentativeSpanDao().get().shouldNotBeNull()
                     span.bookId shouldBe BOOK_A
@@ -92,7 +92,7 @@ class ListeningEventRecorderSpanOwnershipTest :
                 withFixture(nowMillisProvider = { now }) { recorder, db, _ ->
                     recorder.onPlay(BOOK_A, positionMs = 0L, playbackSpeed = SPEED)
                     now = 31_000L
-                    recorder.onPeriodicTick(BOOK_A, 30_000L)
+                    recorder.onPeriodicTick(BOOK_A, 30_000L, playbackSpeed = SPEED)
 
                     now = 40_000L
                     recorder.onPlay(BOOK_B, positionMs = 500_000L, playbackSpeed = SPEED)

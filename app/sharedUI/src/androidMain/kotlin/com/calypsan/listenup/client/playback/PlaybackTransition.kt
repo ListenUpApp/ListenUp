@@ -57,3 +57,55 @@ internal fun playbackTransitionFor(
         else -> PlaybackTransition.STOP
     }
 }
+
+/**
+ * Which player is the transport, and what each is-playing event means for the service's bookkeeping.
+ *
+ * It keeps the two facts [playbackTransitionFor] decides on — whether the session is casting, and
+ * whether audio is sounding (held by [refusalTracker], its one writer) — and moves them together.
+ * Apart, they drifted: a hand-off removes the outgoing player's listener, so that player's stop
+ * never arrives. When the incoming player did not take over sounding, the flag stayed true, every
+ * later play mapped to [PlaybackTransition.IGNORE], and nothing was recorded until the service was
+ * recreated. Main-thread only, like the fields it holds.
+ */
+internal class ActiveTransport(
+    private val refusalTracker: PlaybackRefusalTracker,
+) {
+    /** True while the cast player is the transport. */
+    var casting: Boolean = false
+        private set
+
+    /** Decides what an is-playing event from [source] does, and records it when it is the transport's news. */
+    fun onIsPlayingChanged(
+        source: TransportSource,
+        isPlaying: Boolean,
+    ): PlaybackTransition {
+        val transition =
+            playbackTransitionFor(
+                source = source,
+                isPlaying = isPlaying,
+                casting = casting,
+                spanOpen = refusalTracker.isAudioSounding,
+            )
+        if (transition != PlaybackTransition.IGNORE) refusalTracker.onIsPlayingChanged(isPlaying)
+        return transition
+    }
+
+    /**
+     * Makes [to] the transport. A listen sounding on the outgoing player ends at the hand-off:
+     * [endOutgoingListen] runs while that player is still the transport, so it reads that player's
+     * position, and the incoming player's own play opens the next span.
+     */
+    fun handOff(
+        to: TransportSource,
+        endOutgoingListen: () -> Unit,
+    ) {
+        val toCast = to == TransportSource.CAST
+        if (toCast == casting) return
+        if (refusalTracker.isAudioSounding) {
+            refusalTracker.onIsPlayingChanged(false)
+            endOutgoingListen()
+        }
+        casting = toCast
+    }
+}

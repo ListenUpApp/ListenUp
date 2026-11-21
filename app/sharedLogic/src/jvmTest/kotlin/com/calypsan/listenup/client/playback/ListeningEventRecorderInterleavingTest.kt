@@ -76,7 +76,7 @@ class ListeningEventRecorderInterleavingTest :
                     spans.holdNextRead()
 
                     withContext(Dispatchers.Default) {
-                        val tick = launch { recorder.onPeriodicTick(BOOK_ID, 30_000L) }
+                        val tick = launch { recorder.onPeriodicTick(BOOK_ID, 30_000L, playbackSpeed = SPEED) }
                         spans.held.await()
                         val pause: Job = launch { recorder.onPause(BOOK_ID, positionMs = 60_000L) }
                         withTimeoutOrNull(CHANCE_TO_INTERLEAVE_MS) { pause.join() }
@@ -99,20 +99,20 @@ private class HeldTentativeSpanDao(
     val release = CompletableDeferred<Unit>()
     val written = CompletableDeferred<Unit>()
 
-    /** The next [get] answers only once [release] completes, after saying so through [held]. */
+    /** The next [getAll] answers only once [release] completes, after saying so through [held]. */
     fun holdNextRead() = holding.set(true)
 
-    override suspend fun get(): TentativeSpanEntity? {
-        val span = delegate.get()
+    override suspend fun getAll(): List<TentativeSpanEntity> {
+        val spans = delegate.getAll()
         if (holding.compareAndSet(true, false)) {
             held.complete(Unit)
             release.await()
         }
-        return span
+        return spans
     }
 
-    override suspend fun upsertSingleton(span: TentativeSpanEntity) {
-        delegate.upsertSingleton(span)
+    override suspend fun upsert(span: TentativeSpanEntity) {
+        delegate.upsert(span)
         if (held.isCompleted) written.complete(Unit)
     }
 }
