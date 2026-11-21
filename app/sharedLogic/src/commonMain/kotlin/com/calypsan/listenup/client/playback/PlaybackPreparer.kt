@@ -572,6 +572,7 @@ class PlaybackPreparer internal constructor(
                                 result.data.audioFiles
                                     .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
                                     .toMap(),
+                            expireAtMs = result.data.urlsExpireAt,
                         )
                     }
 
@@ -611,6 +612,7 @@ class PlaybackPreparer internal constructor(
                             hlsUrl = preparedUrls.hls[file.id],
                         )
                     },
+                urlsExpireAtMs = preparedUrls.expireAtMs,
             )
         return AppResult.Success(TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition))
     }
@@ -757,6 +759,8 @@ private data class TimelineBuildResult(
 private data class PreparedUrls(
     val direct: Map<String, String> = emptyMap(),
     val hls: Map<String, String> = emptyMap(),
+    /** When [direct] and [hls] stop working, epoch ms; null when nothing was signed or the server did not say. */
+    val expireAtMs: Long? = null,
 )
 
 /**

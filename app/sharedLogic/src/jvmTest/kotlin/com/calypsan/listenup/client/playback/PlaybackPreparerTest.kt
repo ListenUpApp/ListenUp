@@ -896,6 +896,39 @@ class PlaybackPreparerTest :
             }
         }
 
+        test("streaming — the timeline keeps when the server's signed URLs stop working") {
+            runTest {
+                val fakePlaybackService =
+                    FakePlaybackService(
+                        prepareResult =
+                            AppResult.Success(
+                                ContractPreparedPlayback(
+                                    bookId = bookId.value,
+                                    audioFiles =
+                                        listOf(
+                                            PreparedAudioFile(audioFile1, 0, "/a1?exp=100", "mp3", 1_000L, 1_000L),
+                                            PreparedAudioFile(audioFile2, 1, "/a2?exp=100", "mp3", 2_000L, 2_000L),
+                                        ),
+                                    resumePosition = null,
+                                    urlsExpireAt = 100_000L,
+                                ),
+                            ),
+                    )
+                val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
+                everySuspend { downloadService.getLocalPath(any()) } returns null
+                everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
+                everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+                everySuspend { downloadService.downloadBook(any()) } returns
+                    AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+
+                val preparer = buildPreparer(downloadService, FakePlaybackPrepareRepository(fakePlaybackService))
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
+
+                result.shouldNotBeNull().timeline.urlsExpireAtMs shouldBe 100_000L
+            }
+        }
+
         // ── test 3: prepare fails + not downloaded → null ──────────────────────────────
 
         test("prepare fails and files not downloaded — prepare() returns null") {

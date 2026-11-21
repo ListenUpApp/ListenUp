@@ -16,6 +16,8 @@ data class PlaybackTimeline(
     val bookId: BookId,
     val totalDurationMs: Long,
     val files: List<FileSegment>,
+    /** When the signed streaming URLs in [files] stop working, epoch ms; null when unknown or nothing streams. */
+    val urlsExpireAtMs: Long? = null,
 ) {
     /**
      * Represents a single audio file in the book's timeline.
@@ -124,11 +126,13 @@ data class PlaybackTimeline(
          *
          * @param bookId The book being played
          * @param files Pre-resolved per-file inputs (signed URLs + local paths already set)
+         * @param urlsExpireAtMs when the signed URLs stop working, epoch ms; null when unknown
          * @return Constructed timeline ready for playback
          */
         fun build(
             bookId: BookId,
             files: List<TimelineFileInput>,
+            urlsExpireAtMs: Long? = null,
         ): PlaybackTimeline {
             var cumulativeOffset = 0L
             val segments =
@@ -149,7 +153,12 @@ data class PlaybackTimeline(
                     cumulativeOffset += file.durationMs
                     segment
                 }
-            return PlaybackTimeline(bookId = bookId, totalDurationMs = cumulativeOffset, files = segments)
+            return PlaybackTimeline(
+                bookId = bookId,
+                totalDurationMs = cumulativeOffset,
+                files = segments,
+                urlsExpireAtMs = urlsExpireAtMs,
+            )
         }
     }
 }

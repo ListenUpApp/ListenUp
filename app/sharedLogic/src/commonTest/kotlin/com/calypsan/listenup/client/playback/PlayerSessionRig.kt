@@ -42,6 +42,9 @@ internal class PlayerSessionRig(
     /** Simulates a caller off the player's thread (sign-out's background scope); the test body is on it otherwise. */
     var offPlayerThread = false
 
+    /** The session's wall clock, epoch ms. */
+    var nowMs = 0L
+
     val scope =
         CoroutineScope(
             playerContext ?: (StandardTestDispatcher(testScope.testScheduler) + PlayerThreadCheck { !offPlayerThread }),
@@ -77,6 +80,7 @@ internal class PlayerSessionRig(
             playbackPreferences = preferences,
             offlineCopiesSupported = offlineCopiesSupported,
             scope = scope,
+            nowMillis = { nowMs },
         )
 
     /** Put [id] in the local mirror: a live row, its detail and its chapters. The engine prepares the same. */

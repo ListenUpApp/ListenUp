@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.math.abs
@@ -41,6 +42,9 @@ private val logger = KotlinLogging.logger {}
 
 /** How far a newer row must be from the paused playhead before Play moves to it; closer is the same place. */
 internal const val NEWER_POSITION_TOLERANCE_MS = 5_000L
+
+/** Signed stream URLs this close to lapsing count as lapsed: they would die a few minutes into the listen. */
+internal const val STREAM_URL_EXPIRY_MARGIN_MS = 5 * 60_000L
 
 /**
  * The one owner of this device's loaded book.
@@ -69,6 +73,8 @@ class PlayerSession(
     /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
     val offlineCopiesSupported: Boolean,
     private val scope: CoroutineScope,
+    /** Wall-clock read, epoch ms: when a held book's signed stream URLs have lapsed. Tests pass a virtual clock. */
+    private val nowMillis: () -> Long = ::currentEpochMilliseconds,
 ) : LoadedBookPlayhead {
     private val stage = MutableStateFlow<SessionStage?>(null)
     private val restoring = MutableStateFlow(true)
@@ -299,7 +305,8 @@ class PlayerSession(
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
      * - The book the engine already holds, not finished, not failed and not halted by a failure, is a resume: a
      *   seek when [startAtMs] is given (else to a newer place another device saved, [resumeHeldBook]), then play.
-     *   Never a re-prepare (the web rule, now everyone's).
+     *   A re-prepare only when the held stream's signed URLs have lapsed; otherwise never (the web rule, now
+     *   everyone's).
      * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
      *   where the listener moved it before Play.
      */
@@ -318,13 +325,7 @@ class PlayerSession(
                     loaded.phase !is PlayerPhase.Failed &&
                     (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
-                if (startAtMs != null) {
-                    engine.seekTo(clampToBook(startAtMs))
-                    engine.clearError()
-                    engine.play()
-                } else {
-                    resumeHeldBook(bookId)
-                }
+                resumeHeldBook(bookId, startAtMs)
                 return@onPlayer
             }
             // A plain Play of the loaded, not-prepared book honours where the listener moved it.
@@ -429,24 +430,42 @@ class PlayerSession(
             abs(row.positionMs - engine.positionMs.value) <= NEWER_POSITION_TOLERANCE_MS
 
     /**
-     * Play the book the engine holds, paused. Another device may have listened on since this one paused: sync
-     * wrote its row into Room, but a resume never prepares, so the engine never heard. Resuming from the old
-     * playhead would make this device's next save the newest place everywhere and overwrite that progress. So a
-     * newer row seeks the engine there first, and a newer row that finished the book is decided by a load, as Play
-     * on a finished book always is. No network on the tap: the row is what sync already delivered.
+     * Play the book the engine holds, paused, from [startAtMs] when the listener picked a place.
+     *
+     * Without a picked place: another device may have listened on since this one paused. Sync wrote its row into
+     * Room, but a resume never prepares, so the engine never heard. Resuming from the old playhead would make this
+     * device's next save the newest place everywhere and overwrite that progress. So a newer row moves the engine
+     * there first, and a newer row that finished the book is decided by a load, as Play on a finished book always is.
+     * No network on the tap: the row is what sync already delivered.
+     *
+     * Then, a stream whose signed URLs have lapsed (a tab left open overnight) would fail at its next request: it is
+     * prepared again at the place it would have resumed from, which signs fresh URLs. The load begins inside the tap.
      */
-    private fun resumeHeldBook(bookId: BookId) {
-        val newer = newerPositionFromElsewhere(bookId)
+    private fun resumeHeldBook(
+        bookId: BookId,
+        startAtMs: Long? = null,
+    ) {
+        val newer = if (startAtMs == null) newerPositionFromElsewhere(bookId) else null
         if (newer?.isFinished == true) {
             startLoad(bookId, PlaybackStart.Resume)
             return
         }
-        if (newer != null) {
-            engine.seekTo(clampToBook(newer.positionMs))
-            ownPositionStamp = newer.effectiveLastPlayedAtMs
+        if (newer != null) ownPositionStamp = newer.effectiveLastPlayedAtMs
+        val target = (startAtMs ?: newer?.positionMs)?.let(::clampToBook)
+        if (streamUrlsHaveLapsed(bookId)) {
+            startLoad(bookId, PlaybackStart.At(target ?: engine.positionMs.value))
+            return
         }
+        target?.let(engine::seekTo)
         engine.clearError()
         engine.play()
+    }
+
+    /** Whether the engine streams [bookId] from signed URLs that have lapsed, or will within the margin. */
+    private fun streamUrlsHaveLapsed(bookId: BookId): Boolean {
+        val held = engine.timeline.value?.takeIf { it.bookId == bookId } ?: return false
+        val expiresAt = held.urlsExpireAtMs ?: return false
+        return !held.isFullyDownloaded && nowMillis() >= expiresAt - STREAM_URL_EXPIRY_MARGIN_MS
     }
 
     /** The book's Room row when it is newer than this device's own place and elsewhere in the book, else null. */

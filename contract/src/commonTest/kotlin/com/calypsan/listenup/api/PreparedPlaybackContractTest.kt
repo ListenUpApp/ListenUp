@@ -96,6 +96,23 @@ class PreparedPlaybackContractTest :
             contractJson.decodeFromString(PreparedPlayback.serializer(), encoded) shouldBe original
         }
 
+        test("PreparedPlayback round-trips with urlsExpireAt set") {
+            val original =
+                PreparedPlayback(
+                    bookId = "b1",
+                    audioFiles = emptyList(),
+                    resumePosition = null,
+                    urlsExpireAt = 1_730_043_200_000L,
+                )
+            val encoded = contractJson.encodeToString(PreparedPlayback.serializer(), original)
+            contractJson.decodeFromString(PreparedPlayback.serializer(), encoded) shouldBe original
+        }
+
+        test("PreparedPlayback from a server that predates urlsExpireAt decodes with no expiry") {
+            val json = """{"bookId":"b1","audioFiles":[],"resumePosition":null}"""
+            contractJson.decodeFromString(PreparedPlayback.serializer(), json).urlsExpireAt shouldBe null
+        }
+
         test("PreparedPlayback decodes without coverUrl field (backward compat)") {
             // A payload from an older server that predates coverUrl must still decode cleanly.
             val json =
