@@ -81,17 +81,22 @@ class RestoreOrchestrator(
                 // 3. Extract snapshot to staging (slow; the database is untouched and still serving)
                 extractToStaging(archivePath)?.let { return@withContext AppResult.Failure(it) }
 
-                // 4. Image directories aside. A stale database copy from an earlier attempt must not
-                // survive into this one, or rollback could swap it in.
+                // 4. Image directories aside — only when this restore replaces them; a database-only restore
+                // leaves them in place, so there is nothing to roll back. A stale database copy from an earlier
+                // attempt must not survive into this one, or rollback could swap it in.
                 SystemFileSystem.createDirectories(paths.rollbackDir)
                 val rollbackDb = Path(paths.rollbackDir, ROLLBACK_DB_NAME)
                 val rollbackDbPartial = Path(paths.rollbackDir, "$ROLLBACK_DB_NAME.partial")
                 SystemFileSystem.delete(rollbackDb, mustExist = false)
                 SystemFileSystem.delete(rollbackDbPartial, mustExist = false)
                 val asideDirs =
-                    ManagedImageDirs.ALL.mapNotNull { name ->
-                        copyDirAside(paths.imageDir(name), Path(paths.rollbackDir, name))
-                            ?.let { aside -> aside to paths.imageDir(name) }
+                    if (manifest.includesImages) {
+                        ManagedImageDirs.ALL.mapNotNull { name ->
+                            copyDirAside(paths.imageDir(name), Path(paths.rollbackDir, name))
+                                ?.let { aside -> aside to paths.imageDir(name) }
+                        }
+                    } else {
+                        emptyList()
                     }
 
                 // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
