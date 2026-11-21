@@ -236,6 +236,10 @@ private suspend fun respondGatedDocument(
         call.respond(HttpStatusCode.NotModified)
         return
     }
-    call.response.headers.append(HttpHeaders.ETag, etag)
-    respondSeekable(call, location.path, ContentType.defaultForFilePath(location.path.name))
+    respondSeekable(
+        call = call,
+        path = location.path,
+        contentType = ContentType.defaultForFilePath(location.path.name),
+        etag = etag,
+    )
 }

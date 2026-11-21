@@ -65,7 +65,8 @@ internal fun Route.audioRoutes(
         // would be `application/octet-stream`, which AVPlayer refuses to play. ExoPlayer sniffs the
         // container bytes regardless, which is why Android was unaffected. `respondSeekable` streams
         // from the native SeekableSource and cooperates with `PartialContent`/`AutoHeadResponse`
-        // (and answers 404 when the file is missing).
+        // (and answers 404 when the file is missing). It also sends the `ETag` / `Last-Modified` an
+        // interrupted download needs to resume with `If-Range` rather than restart from zero.
         respondSeekable(call, location.path, audioContentType(location.format))
     }
 }
