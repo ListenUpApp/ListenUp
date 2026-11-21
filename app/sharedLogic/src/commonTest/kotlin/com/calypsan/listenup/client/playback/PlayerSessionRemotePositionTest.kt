@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
 import com.calypsan.listenup.client.test.fake.positionFor
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldNotContain
@@ -117,6 +120,37 @@ class PlayerSessionRemotePositionTest :
                     rig.engine.calls shouldNotContain "seekTo:$HOUR"
                     rig.engine.loads.map { it.second } shouldContainExactly
                         listOf(PlaybackStart.Resume, PlaybackStart.Resume)
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        test("after adopting the newer row, the first save of the listen records the adopted place") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                val tracker =
+                    ProgressTracker(
+                        downloadRepository = FakeDownloadRepository(),
+                        positionRepository = rig.positions,
+                        scope = rig.scope,
+                        errorBus = ErrorBus(),
+                    )
+                try {
+                    pausedAtOneHour(rig)
+                    rig.positions.setPosition(rowAt(3 * HOUR, LATER_STAMP))
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), startAtMs = null)
+                    runCurrent()
+                    // What every engine's play transition reports: the playhead it starts from.
+                    tracker.onPlaybackStarted(
+                        bookId = BookId("b1"),
+                        positionMs = rig.engine.positionMs.value,
+                        speed = 1.0f,
+                        durationMs = BOOK_MS,
+                    )
+                    runCurrent()
+                    (rig.positions.get(BookId("b1")) as AppResult.Success).data?.positionMs shouldBe 3 * HOUR
                 } finally {
                     rig.close()
                 }
