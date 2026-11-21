@@ -128,22 +128,19 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
             }
 
             MARKER_SOS -> {
-                val current = frame ?: return null
+                // Each scan is a full walk of the block grid, so their number is a cost the file chooses.
+                if (scans.size == MAX_SCANS) return null
                 val scan =
-                    parseScanHeader(
+                    readScan(
                         bytes = bytes,
                         start = segmentStart,
                         end = segmentEnd,
-                        frame = current,
+                        frame = frame,
                         dcTables = dcTables,
                         acTables = acTables,
                     ) ?: return null
-                // Entropy data runs from the end of the SOS header to the next marker that is not a
-                // stuffed 0xFF00 or a restart marker.
-                val dataStart = segmentEnd
-                val dataEnd = findEntropyEnd(bytes, dataStart)
-                scans += scan.copy(dataStart = dataStart, dataEnd = dataEnd)
-                offset = dataEnd
+                scans += scan
+                offset = scan.dataEnd
                 continue
             }
 
@@ -283,6 +280,33 @@ internal data class JpegScan(
     val dataEnd: Int = 0,
 )
 
+/**
+ * Reads one SOS segment — its header between [start] and [end] — and locates its entropy data, which runs from the
+ * end of the header to the next marker that is not a stuffed 0xFF00 or a restart marker. Null when no [frame]
+ * header came first or the scan header is malformed.
+ */
+private fun readScan(
+    bytes: ByteArray,
+    start: Int,
+    end: Int,
+    frame: JpegFrame?,
+    dcTables: Array<JpegHuffmanTable?>,
+    acTables: Array<JpegHuffmanTable?>,
+): JpegScan? {
+    if (frame == null) return null
+    val header =
+        parseScanHeader(
+            bytes = bytes,
+            start = start,
+            end = end,
+            frame = frame,
+            dcTables = dcTables,
+            acTables = acTables,
+        )
+            ?: return null
+    return header.copy(dataStart = end, dataEnd = findEntropyEnd(bytes, end))
+}
+
 private fun parseScanHeader(
     bytes: ByteArray,
     start: Int,
@@ -367,6 +391,9 @@ private const val SCAN_TAIL_BYTES = 3
 private const val QUANT_PRECISION_8BIT = 0
 private const val HUFFMAN_CLASS_DC = 0
 private const val MAX_TABLES = 4
+
+/** The most scans a file may carry; real progressive JPEGs use about ten. */
+private const val MAX_SCANS = 64
 private const val SUPPORTED_PRECISION = 8
 private const val GREYSCALE_COMPONENTS = 1
 private const val YCBCR_COMPONENTS = 3
