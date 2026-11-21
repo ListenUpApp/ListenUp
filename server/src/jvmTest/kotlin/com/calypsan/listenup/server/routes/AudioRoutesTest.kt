@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -152,6 +153,59 @@ class AudioRoutesTest :
                     response.status shouldBe HttpStatusCode.PartialContent
                     response.headers[HttpHeaders.ContentRange].shouldContain("bytes 0-99/256")
                     response.bodyAsBytes().size shouldBe 100
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+            }
+        }
+
+        test("an interrupted download resumes: the route names its bytes and honours If-Range") {
+            val libraryRoot = Files.createTempDirectory("listenup-audio-routes-if-range-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), rescanOnStartup = false)
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+
+                    client.get("/healthz")
+                    seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+
+                    val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
+                    val audioBytes = ByteArray(256) { it.toByte() }
+                    Files.write(bookDir.resolve("01.m4b"), audioBytes)
+
+                    val repo by application.inject<BookRepository>()
+                    repo.upsert(audioFixture(bookId = "b1", fileId = "af1", filename = "01.m4b"))
+
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestUser("user1")
+                    val collectionRepo by application.inject<CollectionRepository>()
+                    val collectionBookRepo by application.inject<CollectionBookRepository>()
+                    collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
+
+                    val query = AudioUrlSigner(signingKey = TEST_SIGNING_KEY).signedQuery("user1", "b1", "af1")
+
+                    val first = client.get("/api/v1/audio/b1/af1?$query") { header(HttpHeaders.Range, "bytes=0-99") }
+                    val etag = first.headers[HttpHeaders.ETag].shouldNotBeNull()
+                    first.headers[HttpHeaders.LastModified].shouldNotBeNull()
+
+                    val resumed =
+                        client.get("/api/v1/audio/b1/af1?$query") {
+                            header(HttpHeaders.Range, "bytes=100-")
+                            header(HttpHeaders.IfRange, etag)
+                        }
+                    resumed.status shouldBe HttpStatusCode.PartialContent
+                    resumed.headers[HttpHeaders.ContentRange] shouldBe "bytes 100-255/256"
+                    resumed.bodyAsBytes().toList() shouldBe audioBytes.copyOfRange(100, 256).toList()
+
+                    val stale =
+                        client.get("/api/v1/audio/b1/af1?$query") {
+                            header(HttpHeaders.Range, "bytes=100-")
+                            header(HttpHeaders.IfRange, "\"a-different-file\"")
+                        }
+                    stale.status shouldBe HttpStatusCode.OK
+                    stale.bodyAsBytes().toList() shouldBe audioBytes.toList()
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
