@@ -7613,6 +7613,314 @@
         }
       }
     },
+    "book.download_amount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "book.download_cancel_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Download"
+          }
+        }
+      }
+    },
+    "book.download_cancel_confirm_discard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Download"
+          }
+        }
+      }
+    },
+    "book.download_cancel_confirm_keep": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Downloading"
+          }
+        }
+      }
+    },
+    "book.download_cancel_confirm_message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The %1$@ downloaded so far will be deleted."
+          }
+        }
+      }
+    },
+    "book.download_cancel_confirm_title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel Download?"
+          }
+        }
+      }
+    },
+    "book.download_delete_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Download"
+          }
+        }
+      }
+    },
+    "book.download_pause_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause Download"
+          }
+        }
+      }
+    },
+    "book.download_pause_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "book.download_queued_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queued"
+          }
+        }
+      }
+    },
+    "book.download_resume_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume Download"
+          }
+        }
+      }
+    },
+    "book.download_resume_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "book.download_resumes_automatically_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumes automatically"
+          }
+        }
+      }
+    },
+    "book.download_resuming_after_close_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused when ListenUp was closed, resuming"
+          }
+        }
+      }
+    },
+    "book.download_retry_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry Download"
+          }
+        }
+      }
+    },
+    "book.download_retry_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "book.download_row_queued": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queued"
+          }
+        }
+      }
+    },
+    "book.download_row_resumes_automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting · resumes automatically"
+          }
+        }
+      }
+    },
+    "book.download_row_waiting_for_wifi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Wi-Fi"
+          }
+        }
+      }
+    },
+    "book.download_status_downloading": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading · %1$@"
+          }
+        }
+      }
+    },
+    "book.download_status_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t download · %1$@"
+          }
+        }
+      }
+    },
+    "book.download_status_paused": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused · %1$@ saved"
+          }
+        }
+      }
+    },
+    "book.download_status_queued": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts after the current download"
+          }
+        }
+      }
+    },
+    "book.download_status_resumes_automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumes automatically · %1$@ saved"
+          }
+        }
+      }
+    },
+    "book.download_status_resuming_after_close": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused when ListenUp was closed · resuming"
+          }
+        }
+      }
+    },
+    "book.download_status_wifi_only": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads use Wi-Fi only"
+          }
+        }
+      }
+    },
+    "book.download_waiting_for_wifi_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Wi-Fi"
+          }
+        }
+      }
+    },
+    "book.download_waiting_ios": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting"
+          }
+        }
+      }
+    },
     "book.edit_abridged": {
       "extractionState": "manual",
       "localizations": {
@@ -19115,6 +19423,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "Z–A"
+          }
+        }
+      }
+    },
+    "library.download_badge_downloaded_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "downloaded"
+          }
+        }
+      }
+    },
+    "library.download_badge_downloading_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "downloading, %1$@"
+          }
+        }
+      }
+    },
+    "library.download_badge_failed_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "download failed"
+          }
+        }
+      }
+    },
+    "library.download_badge_paused_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "download paused"
+          }
+        }
+      }
+    },
+    "library.download_badge_queued_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "queued for download"
+          }
+        }
+      }
+    },
+    "library.download_badge_resumes_automatically_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "waiting, resumes automatically"
+          }
+        }
+      }
+    },
+    "library.download_badge_waiting_for_wifi_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "waiting for Wi-Fi"
           }
         }
       }

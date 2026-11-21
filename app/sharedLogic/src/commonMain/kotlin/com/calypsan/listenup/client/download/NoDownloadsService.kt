@@ -34,6 +34,10 @@ internal class NoDownloadsService : DownloadService {
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> =
         AppResult.Failure(DownloadError.NotSupported())
 
+    override suspend fun pauseDownload(bookId: BookId) {
+        // No-op: downloads not supported
+    }
+
     override suspend fun cancelDownload(bookId: BookId) {
         // No-op: downloads not supported
     }

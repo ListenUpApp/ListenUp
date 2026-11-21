@@ -17,8 +17,8 @@ private val downloadServiceLogger = KotlinLogging.logger {}
  * the full download implementation remains platform-specific.
  *
  * Android: Implemented by DownloadManager (WorkManager-based)
- * iOS: AppleDownloadService — an NSURLSession *default* session, not a background one. It does not
- *   survive app termination; the "background" it used to claim here was never built.
+ * iOS: AppleDownloadService — NSURLSession background sessions, so a transfer keeps going while
+ *   ListenUp is suspended or terminated by the system, and resumes where it stopped.
  * Desktop and browser: NoDownloadsService (no-op)
  */
 interface DownloadService {
@@ -86,7 +86,14 @@ interface DownloadService {
         ).valueOrNull { downloadServiceLogger.warn { "downloadBookOrNull: ${it.debugInfo ?: it.message}" } }
 
     /**
-     * Cancel active download for a book.
+     * Pause a book's download, keeping what has arrived so [downloadBook] continues from there. The
+     * book stays paused, across launches, until the person resumes it.
+     */
+    suspend fun pauseDownload(bookId: BookId)
+
+    /**
+     * Cancel active download for a book. Unlike [pauseDownload], what has arrived of an unfinished
+     * file is discarded.
      */
     suspend fun cancelDownload(bookId: BookId)
 

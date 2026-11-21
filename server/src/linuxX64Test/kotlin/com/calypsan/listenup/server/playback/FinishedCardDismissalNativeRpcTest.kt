@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.playback
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.CodecCapability
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -129,6 +130,7 @@ private class RecordingPlayback(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
         forceTranscode: Boolean,
+        purpose: PreparePurpose?,
     ): AppResult<PreparedPlayback> = unused()
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = unused()

@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.download.DownloadService
@@ -34,6 +35,8 @@ data class StorageUiState(
     val totalStorageUsed: Long = 0,
     val availableStorage: Long = 0,
     val downloadedBooks: List<DownloadedBookSummary> = emptyList(),
+    /** Books whose download has started and not finished, listed above the finished ones. */
+    val inProgressBooks: List<InProgressBookSummary> = emptyList(),
     val deleteConfirmation: DeleteConfirmation? = null,
     val isDeleting: Boolean = false,
     /**
@@ -111,10 +114,16 @@ class StorageViewModel(
         }
 
     val state: StateFlow<StorageUiState> =
-        combine(measuredState, inboxRepository.observeHeldBookIds()) { measured, heldIds ->
+        // The unfinished books re-emit on every progress write, so they join here, past the walk.
+        combine(
+            measuredState,
+            inboxRepository.observeHeldBookIds(),
+            downloadRepository.observeInProgressBooks(),
+        ) { measured, heldIds, unfinished ->
             measured.copy(
                 downloadedBooks =
                     measured.downloadedBooks.map { if (BookId(it.bookId) in heldIds) it.copy(isHeld = true) else it },
+                inProgressBooks = unfinished,
             )
         }.stateIn(
             scope = viewModelScope,

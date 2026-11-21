@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedPlayback
@@ -110,6 +111,7 @@ internal object NoOpPlaybackService : PlaybackService {
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
         forceTranscode: Boolean,
+        purpose: PreparePurpose?,
     ): AppResult<PreparedPlayback> =
         AppResult.Success(
             PreparedPlayback(

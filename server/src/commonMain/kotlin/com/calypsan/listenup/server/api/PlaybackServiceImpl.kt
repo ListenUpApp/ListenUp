@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -70,6 +71,7 @@ internal class PlaybackServiceImpl(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
         forceTranscode: Boolean,
+        purpose: PreparePurpose?,
     ): AppResult<PreparedPlayback> {
         val p =
             principal.current()
@@ -85,6 +87,9 @@ internal class PlaybackServiceImpl(
 
         // Whether this server could transcode at all, asked once rather than per file.
         val canTranscode = transcodeSettings.enabled && transcoderAvailability.isAvailable
+        // No purpose is what a client older than the parameter sends: a stream, as it always was.
+        val forDownload = purpose == PreparePurpose.Download
+        val urlLifetime = if (forDownload) AudioUrlSigner.DOWNLOAD_URL_TTL else audioUrlSigner.ttl
 
         val decisions =
             book.audioFiles
@@ -107,6 +112,7 @@ internal class PlaybackServiceImpl(
                         userId = userId,
                         bookId = bookId.value,
                         fileId = file.id,
+                        validFor = urlLifetime,
                     )
                 val encodedBook = bookId.value.encodeURLParameter()
                 val encodedFile = file.id.encodeURLParameter()
@@ -119,12 +125,14 @@ internal class PlaybackServiceImpl(
                     format = file.format,
                     durationMs = file.duration,
                     sizeBytes = file.size,
+                    // A download is always the original file, so it is never offered a stream.
                     hlsUrl =
                         when (decision) {
-                            TranscodeDecision.Transcode -> {
+                            TranscodeDecision.Transcode if !forDownload -> {
                                 "/api/v1/hls/$encodedBook/$encodedFile/master.m3u8?$query"
                             }
 
+                            TranscodeDecision.Transcode,
                             TranscodeDecision.DirectPlay,
                             TranscodeDecision.DirectPlayTranscoderUnavailable,
                             -> {

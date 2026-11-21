@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Book Detail's actions: a full-width coral primary capsule — Play, Resume, Listen Again,
-/// or Unavailable Offline — then Download and Add to Shelf as a pair of bordered capsules.
+/// or Unavailable Offline — then Download and Add to Shelf as a pair of bordered capsules, and, while a download is
+/// active, held or failed, one status line saying what is happening (canvas I-BD-States).
 ///
 /// Bordered, not Liquid Glass: these scroll with the content, and the HIG keeps glass for the controls that float
 /// above it (HIG, Materials) — `DownloadButton` makes the same call. One prominent button per view (HIG, Buttons).
@@ -10,9 +11,12 @@ struct BookListenActions: View {
     let downloadState: DownloadUIState
     let downloadProgress: Float
     let downloadSizeBytes: Int64
+    /// The download's bytes and failure, for the status line and Cancel's confirmation.
+    var downloadSnapshot: DownloadStatusSnapshot = .notDownloaded
     let canDownload: Bool
     let onPrimary: () -> Void
     let onDownload: () -> Void
+    var onPauseDownload: () -> Void = {}
     let onCancelDownload: () -> Void
     let onDeleteDownload: () -> Void
     let onAddToShelf: () -> Void
@@ -20,6 +24,7 @@ struct BookListenActions: View {
     var actionTint: Color?
 
     @State private var confirmingDelete = false
+    @State private var confirmingCancel = false
 
     private var control: DownloadControl { DownloadControl(state: downloadState, progress: downloadProgress) }
 
@@ -45,6 +50,9 @@ struct BookListenActions: View {
                     shelfCapsule
                 }
             }
+            if let line = DownloadStatusLine.of(downloadState, snapshot: downloadSnapshot) {
+                statusLine(line)
+            }
         }
         // An alert (HIG, Alerts): what it frees and that your place is kept; Keep, with the cancel role, is the safe
         // default.
@@ -55,6 +63,43 @@ struct BookListenActions: View {
         } message: {
             Text(RemoveDownloadCopy.message(formattedSize: BookSize.label(downloadSizeBytes)))
         }
+        // Cancel throws away what has arrived, so it asks when that is worth keeping (HIG, Alerts); Keep Downloading,
+        // with the cancel role, is the safe default.
+        .alert(String(localized: "book.download_cancel_confirm_title"), isPresented: $confirmingCancel) {
+            Button(String(localized: "book.download_cancel_confirm_keep"), role: .cancel) {}
+            Button(String(localized: "book.download_cancel_confirm_discard"), role: .destructive,
+                   action: onCancelDownload)
+        } message: {
+            Text(String(localized: .bookDownloadCancelConfirmMessage(StorageFormat.byteSize(downloadSnapshot.bytes.done))))
+        }
+    }
+
+    /// Cancel, asking first when it would throw away more than a little.
+    private func requestCancel() {
+        if DownloadCancelConfirmation.isNeeded(downloadSnapshot) {
+            confirmingCancel = true
+        } else {
+            onCancelDownload()
+        }
+    }
+
+    /// The line under the pair: what is happening in words, and Cancel where the capsule does something else.
+    private func statusLine(_ line: DownloadStatusLine) -> some View {
+        HStack(spacing: 8) {
+            Text(line.text)
+                .font(.footnote)
+                .foregroundStyle(line.isFailure ? Color.red : Color.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if line.offersCancel {
+                Button(String(localized: "common.cancel"), action: requestCancel)
+                    .buttonStyle(.borderless)
+                    // The full 44 pt target (HIG, Accessibility), drawn as plain tinted text.
+                    .frame(minHeight: 44)
+            }
+        }
+        .frame(minHeight: 44)
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Download
@@ -68,8 +113,10 @@ struct BookListenActions: View {
             case .download:
                 Button(action: onDownload) { downloadLabel }
                     .disabled(!canDownload)
+            case .pause:
+                Button(action: onPauseDownload) { downloadLabel }
             case .cancel:
-                Button(action: onCancelDownload) { downloadLabel }
+                Button(action: requestCancel) { downloadLabel }
             case .confirmDelete:
                 Button { confirmingDelete = true } label: { downloadLabel }
             }
@@ -82,10 +129,14 @@ struct BookListenActions: View {
     }
 
     private var downloadLabel: some View {
-        Label(Self.downloadTitle(downloadState), systemImage: Self.downloadSymbol(downloadState))
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(1)
-            .frame(maxWidth: .infinity)
+        Label {
+            Text(Self.downloadTitle(downloadState))
+        } icon: {
+            DownloadCapsuleIcon(state: downloadState, progress: downloadProgress)
+        }
+        .font(.subheadline.weight(.semibold))
+        .lineLimit(1)
+        .frame(maxWidth: .infinity)
     }
 
     /// Spec N2: before it is saved, the download names its size — "Download, 1.29 GB" — never the book's length.
@@ -113,23 +164,54 @@ struct BookListenActions: View {
 
     static func downloadTitle(_ state: DownloadUIState) -> String {
         switch state {
-        case .completed: String(localized: "book.delete_download")
-        case .queued: String(localized: "book.detail_queued")
-        case .waitingForWifi: String(localized: "book.detail_waiting_for_wifi")
-        case .failed, .partial: String(localized: "book.detail_retry_download")
-        case .downloading: String(localized: "book.detail_cancel_download")
+        case .completed: String(localized: "book.download_delete_ios")
+        case .queued: String(localized: "book.download_queued_ios")
+        case .waitingForWifi: String(localized: "book.download_waiting_for_wifi_ios")
+        case .waiting: String(localized: "book.download_waiting_ios")
+        case .failed, .partial: String(localized: "book.download_retry_ios")
+        case .downloading, .resumingAfterClose: String(localized: "book.download_pause_ios")
+        case .paused: String(localized: "book.download_resume_ios")
         case .notDownloaded: String(localized: "book.detail_download_ios")
         }
     }
 
-    static func downloadSymbol(_ state: DownloadUIState) -> String {
+    /// The symbol for states drawn with one; the moving states draw a progress ring instead (`DownloadCapsuleIcon`).
+    static func downloadSymbol(_ state: DownloadUIState) -> String? {
         switch state {
         case .notDownloaded: "arrow.down.circle"
         case .queued: "clock"
         case .waitingForWifi: "wifi.slash"
-        case .downloading: "xmark.circle"
+        case .waiting: "clock.arrow.circlepath"
+        case .downloading, .resumingAfterClose, .paused: nil
         case .completed: "trash"
-        case .partial, .failed: "arrow.clockwise.circle"
+        case .partial, .failed: "arrow.clockwise"
+        }
+    }
+}
+
+/// The download capsule's icon: a symbol, or for a download with bytes in it a progress ring — pause bars while it
+/// moves, a down arrow once you paused it (canvas I-BD-States).
+private struct DownloadCapsuleIcon: View {
+    let state: DownloadUIState
+    let progress: Float
+
+    var body: some View {
+        if let symbol = BookListenActions.downloadSymbol(state) {
+            Image(systemName: symbol)
+                .foregroundStyle(state == .failed ? Color.red : Color.accentColor)
+        } else {
+            ZStack {
+                Circle().stroke(Color.accentColor.opacity(0.3), lineWidth: 2.4)
+                Circle()
+                    .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                    .stroke(state == .paused ? Color.secondary : Color.accentColor,
+                            style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: state == .paused ? "arrow.down" : "pause.fill")
+                    .font(.system(size: 8, weight: .bold)) // decorative fixed size, inside a fixed ring
+            }
+            .frame(width: 18, height: 18)
+            .accessibilityHidden(true)
         }
     }
 }

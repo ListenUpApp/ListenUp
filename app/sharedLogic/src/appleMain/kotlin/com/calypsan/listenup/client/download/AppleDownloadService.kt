@@ -2,55 +2,44 @@
 
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.db.heldRefusal
-import com.calypsan.listenup.client.data.repository.aggregateBookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.playback.AudioFileResponse
-import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.atomicfu.locks.reentrantLock
-import kotlinx.atomicfu.locks.withLock
+import kotlinx.atomicfu.atomic
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.withContext
-import platform.Foundation.NSError
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSHTTPURLResponse
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import platform.Foundation.NSData
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
-import platform.Foundation.NSURLErrorCancelled
-import platform.Foundation.NSURLErrorDomain
-import platform.Foundation.NSURLErrorTimedOut
-import platform.Foundation.NSURLSession
-import platform.Foundation.NSURLSessionDownloadDelegateProtocol
 import platform.Foundation.NSURLSessionDownloadTask
 import platform.Foundation.NSURLSessionTask
-import platform.Foundation.setValue
-import platform.darwin.NSObject
+import platform.Foundation.NSURLSessionTaskPriorityLow
 import kotlin.coroutines.resume
 import kotlin.time.Clock
 
@@ -59,59 +48,48 @@ private val logger = KotlinLogging.logger {}
 /** Storage headroom multiplier — require 10% more free space than the download needs. */
 private const val STORAGE_HEADROOM_FACTOR = 1.1
 
-/** Divisor to convert bytes into whole megabytes for log output. */
-private const val BYTES_PER_MEGABYTE = 1_000_000
+/** A live task in one of the background sessions, and what reconciling knows of it. */
+private class SessionTask(
+    val task: NSURLSessionTask,
+    val live: LiveDownloadTask,
+)
 
 /**
- * How many audio files may download at once.
+ * iOS implementation of [DownloadService], over two NSURLSession **background** sessions
+ * ([BackgroundDownloadSessions]).
  *
- * ListenUp servers are self-hosted — very often a single-board computer on a home LAN — so an
- * unbounded fan-out is a self-inflicted denial of service on the user's own hardware. Three keeps
- * a fat pipe busy while leaving headroom for the streaming player, which shares the same link.
- * The yield (`PlaybackBandwidthCoordinator.shouldYield`) still governs whatever is registered —
- * `registerDownload` holds a task suspended when yielding is already active — but a cap means far
- * fewer sockets exist to contend for the link in the first place.
- */
-private const val MAX_CONCURRENT_FILE_DOWNLOADS = 3
-
-/**
- * iOS implementation of [DownloadService] using NSURLSession **foreground** download tasks.
+ * A transfer belongs to the system, not to this process: it keeps going while ListenUp is suspended,
+ * finishes even if iOS terminates the app (which is relaunched in the background to file it), and a
+ * file the system interrupts resumes from resume data instead of from zero. So nothing here waits on
+ * a transfer. Every file's task is created when the download starts; the sessions run three at a time;
+ * [DownloadSessionDelegate] records how each ended. At launch and on every foreground, [reconcile]
+ * compares the database with the transfers the system still holds ([reconcileDownloads]) and adopts,
+ * stops, moves, resumes or re-requests each file.
  *
- * **Not a background session (known gap).** [downloadSessionConfiguration] returns
- * `defaultSessionConfiguration`, so transfers stop when iOS suspends the app and there is no
- * resume data to pick them up again — a long download restarts from zero on the next foreground
- * ([resumeIncompleteDownloads]). Migrating to `backgroundSessionConfigurationWithIdentifier`
- * requires `application(_:handleEventsForBackgroundURLSession:completionHandler:)` in the iOS app
- * delegate, delegate re-attachment after a relaunch, and persisting the data from
- * `cancelByProducingResumeData`. Tracked as a follow-up; do not half-migrate — the wifi-only
- * guarantee pinned by `DownloadNetworkPolicyTest` rides on this configuration.
+ * **Wi-Fi only** is a property of the session a task runs in; toggling it moves every transfer to the
+ * other session, keeping its bytes ([reconcile] does the move).
  *
- * **Direct-DAO carveout:** this class still writes directly to
- * [com.calypsan.listenup.client.data.local.db.DownloadDao] via the `downloadDao` constructor
- * parameter — a Sync Engine Rule 5 violation, not yet migrated. The Android side already injects
- * [com.calypsan.listenup.client.domain.repository.DownloadRepository]; the iOS migration onto
- * shared Kotlin VMs and shared repositories is still pending.
+ * **Swiping ListenUp away** cancels every background transfer — an iOS rule. The cancellation is
+ * delivered with resume data at the next launch, and the file resumes from where it stopped.
  *
- * This class's interface complies with [DownloadService] as follows:
- * - [downloadBook] returns [com.calypsan.listenup.api.result.AppResult]<[com.calypsan.listenup.client.domain.model.DownloadOutcome]>.
- * - [observeBookStatus] aggregates via the sealed [com.calypsan.listenup.client.domain.model.BookDownloadStatus] hierarchy.
+ * **Playback yield.** While a stream buffers, live tasks are suspended and new ones created suspended;
+ * every task also runs at low priority. Whether `suspend()` pauses a background-session task on a
+ * device is undocumented; the low priority is what still holds when it does not.
  *
- * The internal DAO writes remain untouched.
+ * **Writes.** Transfer outcomes go through [DownloadRepository] (in the delegate). Enqueueing and
+ * deleting insert or remove whole rows, which the domain-typed repository interface does not take, so
+ * those stay on [DownloadDao] — the same split Android's `DownloadManager` makes.
  *
- * **Codec negotiation: intentionally absent on iOS.** Android's `DownloadWorker.resolveDownloadUrl`
- * negotiates with the server's `preparePlayback` endpoint to pick a transcoded variant when the
- * device doesn't support the source codec. iOS's native AVFoundation audio player supports every
- * codec the server can serve (AAC, MP3, FLAC, ALAC, Opus), so negotiation is unnecessary — the
- * download URL points directly at the original file. **If a future server adds a codec iOS does
- * not natively support, this class requires codec negotiation matching the Android worker's
- * pattern.** This is a principled asymmetry, not a silent omission.
+ * **Codec negotiation: intentionally absent on iOS.** AVFoundation plays every codec the server can
+ * serve (AAC, MP3, FLAC, ALAC, Opus), so the download URL points directly at the original file. **If a
+ * future server adds a codec iOS does not natively support, this class requires codec negotiation
+ * matching the Android worker's pattern.** This is a principled asymmetry, not a silent omission.
  */
 class AppleDownloadService internal constructor(
     private val downloadDao: DownloadDao,
     private val bookDao: BookDao,
     private val audioFileDao: AudioFileDao,
     private val serverConfig: ServerConfig,
-    private val tokenProvider: AudioTokenProvider,
     private val fileManager: DownloadFileManager,
     private val prepareRepository: PlaybackPrepareRepository,
     private val downloadRepository: DownloadRepository,
@@ -119,33 +97,64 @@ class AppleDownloadService internal constructor(
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
     private val errorBus: ErrorBus,
     private val localPreferences: LocalPreferences,
+    private val networkMonitor: NetworkMonitor,
+    private val identifiers: DownloadSessionIdentifiers = DownloadSessionIdentifiers.current(),
+    private val resumeData: ResumeDataStore = ResumeDataStore(appleResumeDataDirectory()),
 ) : DownloadService {
     override val supportsDownloads: Boolean = true
 
+    private val delegate =
+        DownloadSessionDelegate(
+            repository = downloadRepository,
+            resumeData = resumeData,
+            identifiers = identifiers,
+            destinationFor = { tag ->
+                fileManager
+                    .getAudioFilePath(
+                        bookId = tag.bookId,
+                        audioFileId = tag.audioFileId,
+                        filename = tag.filename,
+                        isTemp = false,
+                    ).toString()
+            },
+            scope = scope,
+        )
+
+    /** Created on first use, so resolving this service (a Koin graph test does) builds no session. */
+    private val sessions by lazy { BackgroundDownloadSessions(identifiers, delegate) }
+
+    /** One change to the transfers at a time: enqueue, pause, cancel, delete and reconcile. */
+    private val operations = Mutex()
+    private val attached = atomic(false)
+    private val yielding = atomic(false)
+
     /**
-     * Delegate handles download progress and completion.
-     * Must be held as a strong reference (ObjC weak delegate pattern).
+     * Creates both background sessions — which hands this process any transfers the system kept while
+     * it was gone — starts following the preference, the network and playback, and reconciles. Called
+     * from the app delegate at launch, before the system delivers the sessions' events; idempotent.
      */
-    private val sessionDelegate = DownloadSessionDelegate(downloadDao, scope)
-
-    /** Caps in-flight file downloads at [MAX_CONCURRENT_FILE_DOWNLOADS]. */
-    private val downloadSlots = Semaphore(MAX_CONCURRENT_FILE_DOWNLOADS)
-    private val inFlight = InFlightDownloads()
-
-    init {
-        // "Playback preempts downloads": while a stream is buffering, suspend in-flight download
-        // tasks so the stream gets the bandwidth; resume them when playback is flowing again.
-        scope.launch {
-            playbackBandwidthCoordinator.shouldYield.collect { sessionDelegate.setYielding(it) }
-        }
+    internal fun attach() {
+        if (!attached.compareAndSet(expect = false, update = true)) return
+        val created = sessions.all.size
+        logger.info { "download: sessions attached count=$created ids=${identifiers.anyNetwork},${identifiers.unmetered}" }
+        // "Playback preempts downloads": while a stream buffers, hold the transfers back.
+        scope.launch { playbackBandwidthCoordinator.shouldYield.collect { setYielding(it) } }
+        // A toggle of Wi-Fi only moves every transfer to the session it now selects.
+        scope.launch { localPreferences.wifiOnlyDownloads.drop(1).collect { reconcile() } }
+        // A network coming back picks up what a lost one paused.
+        scope.launch { networkMonitor.onlineFlow.drop(1).filter { it }.collect { reconcile() } }
+        scope.launch { reconcile() }
     }
 
-    private val urlSession: NSURLSession =
-        NSURLSession.sessionWithConfiguration(
-            configuration = downloadSessionConfiguration(),
-            delegate = sessionDelegate,
-            delegateQueue = null,
-        )
+    /**
+     * Holds a background wake open until the session [identifier] has delivered its events and the
+     * database records them. The app delegate calls the system's completion handler when this returns.
+     */
+    internal suspend fun drainBackgroundEvents(identifier: String) {
+        attach()
+        logger.info { "download: background events received id=$identifier" }
+        delegate.awaitEventsDelivered(identifier)
+    }
 
     override suspend fun getLocalPath(audioFileId: String): String? {
         val stored = downloadDao.getLocalPath(audioFileId) ?: return null
@@ -182,6 +191,7 @@ class AppleDownloadService internal constructor(
 
     @Suppress("ReturnCount")
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> {
+        attach()
         // A held book is triage-only (spec §8): it can't be downloaded until an admin releases it.
         bookDao.heldRefusal(bookId)?.let { refusal ->
             logger.info { "Refusing to download ${bookId.value}: held for review" }
@@ -191,226 +201,106 @@ class AppleDownloadService internal constructor(
         if (existing.isNotEmpty() && existing.all { it.state == DownloadState.COMPLETED }) {
             return AppResult.Success(DownloadOutcome.AlreadyDownloaded)
         }
-
-        val bookEntity =
-            bookDao.getById(bookId) ?: run {
-                logger.error { "Book not found: ${bookId.value}" }
-                return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "Book not found"))
-            }
-
-        val audioFileEntities = audioFileDao.getForBook(bookId.value)
-        if (audioFileEntities.isEmpty()) {
+        if (bookDao.getById(bookId) == null) {
+            logger.error { "Book not found: ${bookId.value}" }
+            return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "Book not found"))
+        }
+        val audioFiles = audioFileDao.getForBook(bookId.value)
+        if (audioFiles.isEmpty()) {
             return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No audio files available"))
         }
-        val audioFiles: List<AudioFileResponse> = audioFileEntities.map { it.toAudioFileResponse() }
-
-        // Skip files already completed, downloading, or queued
+        // Files already complete or in flight are not started again.
         val activeIds =
             existing
-                .filter { it.state in listOf(DownloadState.COMPLETED, DownloadState.DOWNLOADING, DownloadState.QUEUED) }
-                .map { it.audioFileId }
-                .toSet()
-
+                .filter { it.state in setOf(DownloadState.COMPLETED, DownloadState.DOWNLOADING, DownloadState.QUEUED) }
+                .mapTo(mutableSetOf()) { it.audioFileId }
         val toDownload = audioFiles.filterNot { it.id in activeIds }
-
         if (toDownload.isEmpty()) {
             logger.info { "All files already downloading or completed for ${bookId.value}" }
             return AppResult.Success(DownloadOutcome.AlreadyDownloaded)
         }
-
-        // Check storage
         val requiredBytes = toDownload.sumOf { it.size }
         val availableBytes = fileManager.getAvailableSpace()
         if (availableBytes < (requiredBytes * STORAGE_HEADROOM_FACTOR).toLong()) {
             return AppResult.Success(DownloadOutcome.InsufficientStorage(requiredBytes, availableBytes))
         }
-
-        // Ensure fresh token
-        tokenProvider.prepareForPlayback()
-        val token =
-            tokenProvider.getToken() ?: run {
-                logger.error { "No auth token available" }
-                return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "Not authenticated"))
-            }
-
         val serverUrl =
-            serverConfig.getServerUrl()?.value ?: run {
-                return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No server configured"))
-            }
+            serverConfig.getServerUrl()?.value
+                ?: return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No server configured"))
 
-        // ONE prepare() round-trip for the whole book — the response carries every file's signed
-        // URL. A per-file call would fire N RPCs (and N token refreshes) at a self-hosted server.
-        val signedUrls =
-            when (val resolved = resolveSignedDownloadUrls(bookId.value, prepareRepository)) {
-                is AppResult.Success -> {
-                    resolved.data
+        return operations.withLock {
+            // ONE prepare() round-trip for the whole book — the response carries every file's URL.
+            val signedUrls =
+                when (val resolved = resolveSignedDownloadUrls(bookId.value, prepareRepository)) {
+                    is AppResult.Success -> resolved.data
+                    is AppResult.Failure -> return@withLock AppResult.Failure(resolved.error)
                 }
-
-                is AppResult.Failure -> {
-                    logger.error { "Failed to resolve download URLs for ${bookId.value}: ${resolved.error.message}" }
-                    return AppResult.Failure(resolved.error)
-                }
-            }
-
-        // Create download entries
-        val now = Clock.System.now().toEpochMilliseconds()
-        val entities =
-            toDownload.map { file ->
-                DownloadEntity(
-                    audioFileId = file.id,
+            // A file that already has bytes keeps them, so its progress does not jump back to zero.
+            val rows =
+                queuedDownloadRows(
                     bookId = bookId.value,
-                    filename = file.filename,
-                    fileIndex = audioFiles.indexOfFirst { it.id == file.id },
-                    state = DownloadState.QUEUED,
-                    localPath = null,
-                    totalBytes = file.size,
-                    downloadedBytes = 0,
-                    queuedAt = now,
-                    startedAt = null,
-                    completedAt = null,
-                    errorMessage = null,
-                    retryCount = 0,
+                    audioFiles = audioFiles,
+                    toDownload = toDownload,
+                    existing = existing,
+                    queuedAt = Clock.System.now().toEpochMilliseconds(),
                 )
-            }
-        downloadDao.insertAll(entities)
-
-        // A file the server did not sign cannot be fetched at all, so it fails here rather than
-        // being launched into a request that would 404.
-        val launchable =
-            toDownload.mapNotNull { file ->
-                val signedRelativeUrl = signedUrls[file.id]
-                if (signedRelativeUrl == null) {
-                    logger.error { "prepare() returned no URL for audioFile=${file.id}; skipping" }
-                    downloadDao.updateError(file.id, "Server did not provide a download URL")
-                    null
-                } else {
-                    file to signedRelativeUrl
+            downloadDao.insertAll(rows)
+            val network = networkFor(localPreferences.wifiOnlyDownloads.value)
+            val unstarted =
+                rows.filterNot { row ->
+                    startFromResumeData(row, network) ||
+                        startFromUrl(
+                            row = row,
+                            signedRelativeUrl = signedUrls[row.audioFileId],
+                            serverUrl = serverUrl,
+                            network = network,
+                        )
                 }
-            }
-
-        // Download files in the background, at most MAX_CONCURRENT_FILE_DOWNLOADS at a time.
-        inFlight.launchNew(scope, downloadSlots, bookId.value, launchable, idOf = {
-            it.first.id
-        }) { (file, signedRelativeUrl) ->
-            // Refresh token per file to avoid 401 on long-running batches
-            tokenProvider.prepareForPlayback()
-            val fileToken = tokenProvider.getToken() ?: token
-            downloadFile(
-                bookId = bookId.value,
-                audioFile = file,
-                serverUrl = serverUrl,
-                token = fileToken,
-                signedRelativeUrl = signedRelativeUrl,
-            )
+            // A file the server did not sign cannot be fetched at all; it fails here, against its retry
+            // budget, rather than being re-requested on every foreground forever.
+            unstarted.forEach { downloadDao.updateError(it.audioFileId, "Server did not provide a download URL") }
+            val started = rows.size - unstarted.size
+            logger.info { "download: enqueued book=${bookId.value} files=${rows.size} started=$started session=$network" }
+            AppResult.Success(DownloadOutcome.Started)
         }
-
-        logger.info { "Queued ${launchable.size} files for download: ${bookId.value}" }
-        return AppResult.Success(DownloadOutcome.Started)
     }
 
     /**
-     * Download a single file using an NSURLSession download task.
-     * Suspends until the download completes or fails.
-     *
-     * @param signedRelativeUrl the signed, server-relative audio URL for this file, resolved ONCE
-     *   per book by [resolveSignedDownloadUrls]. It is relative because NSURLSession has no base
-     *   URL, so [serverUrl] is prepended here.
+     * Pauses the book: each transfer is stopped with its resume data kept, and the rows are marked
+     * paused by the person, so no launch resumes them until [downloadBook] does.
      */
-    private suspend fun downloadFile(
-        bookId: String,
-        audioFile: AudioFileResponse,
-        serverUrl: String,
-        token: String,
-        signedRelativeUrl: String,
-    ) = withContext(IODispatcher) {
-        val audioFileId = audioFile.id
-        val filename = audioFile.filename
-
-        // A row that is already downloading, already complete, or that the user cancelled or deleted
-        // is not ours to start.
-        if (downloadDao.claimForTransfer(audioFileId, Clock.System.now().toEpochMilliseconds()) == 0) {
-            logger.info { "Not starting $filename: its row is not waiting for a transfer" }
-            return@withContext
-        }
-
-        val url = serverUrl.trimEnd('/') + signedRelativeUrl
-        val nsUrl =
-            NSURL.URLWithString(url) ?: run {
-                downloadDao.updateError(audioFileId, "Invalid URL")
-                return@withContext
-            }
-
-        val request = NSMutableURLRequest.requestWithURL(nsUrl)
-        request.setValue("Bearer $token", forHTTPHeaderField = "Authorization")
-        // Read live, per request: the session is built once and its configuration is copied at
-        // creation, so this is the only place the preference can still be changing under us.
-        request.applyDownloadNetworkPolicy(localPreferences.wifiOnlyDownloads.value)
-
-        logger.info { "Downloading: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
-
-        // Register this download so delegate can track it
-        val destPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = false)
-
-        // Ensure parent directory exists
-        val destUrl = NSURL.fileURLWithPath(destPath.toString())
-        NSFileManager.defaultManager.createDirectoryAtURL(
-            destUrl.URLByDeletingLastPathComponent!!,
-            withIntermediateDirectories = true,
-            attributes = null,
-            error = null,
-        )
-
-        // Suspend until download completes
-        val result =
-            suspendCancellableCoroutine { continuation ->
-                val task = urlSession.downloadTaskWithRequest(request)
-                // Store metadata for delegate
-                task.taskDescription = "$bookId|$audioFileId|$filename|$destPath"
-
-                // Register continuation so delegate can resume it
-                continuation.invokeOnCancellation { task.cancel() }
-                // registerDownload also STARTS the task (or leaves it suspended if playback is
-                // currently yielding-bound) atomically under the delegate's lock — so a task can't
-                // slip past a concurrent setYielding(true) and run at full bandwidth mid-buffer.
-                sessionDelegate.registerDownload(task, continuation, destPath.toString(), bookId)
-            }
-
-        if (result) {
-            val completed =
-                downloadDao.markCompleted(
-                    audioFileId,
-                    storedDownloadPath(destPath.toString()),
-                    Clock.System.now().toEpochMilliseconds(),
-                )
-            if (completed == 0) {
-                // The user cancelled or deleted this book while the last bytes landed; nothing points at
-                // the file any more.
-                NSFileManager.defaultManager.removeItemAtPath(destPath.toString(), error = null)
-                logger.info { "Discarded $filename: it finished after the download was cancelled or deleted" }
-            } else {
-                logger.info { "Downloaded: $filename (${audioFile.size / BYTES_PER_MEGABYTE}MB)" }
-            }
-        } else {
-            // Error already logged/stored by delegate
-            logger.error { "Download failed: $filename" }
+    override suspend fun pauseDownload(bookId: BookId) {
+        attach()
+        operations.withLock {
+            val stopped =
+                tasksForBook(bookId.value).count { (task, live) ->
+                    delegate.expectCancellation(live.key)
+                    val tag = live.tag ?: return@count false
+                    val data = (task as? NSURLSessionDownloadTask)?.cancelKeepingResumeData()
+                    data != null &&
+                        resumeData.save(tag.audioFileId, data, signedUrlExpiry(task.originalRequest?.URL?.absoluteString))
+                }
+            downloadDao
+                .getForBook(bookId.value)
+                .filter { it.state in setOf(DownloadState.QUEUED, DownloadState.DOWNLOADING, DownloadState.PAUSED) }
+                .forEach { row ->
+                    downloadRepository
+                        .markPaused(row.audioFileId, DownloadPauseReason.PAUSED_BY_YOU)
+                        .onFailure { logger.warn { "download: could not record pause file=${row.audioFileId}" } }
+                }
+            logger.info { "download: paused book=${bookId.value} resumable=$stopped" }
         }
     }
 
     override suspend fun cancelDownload(bookId: BookId) {
-        logger.info { "Cancelling download for book: ${bookId.value}" }
-
-        // Non-terminal rows go to CANCELLED, which getIncomplete() excludes. The transfers are then
-        // cancelled through inFlight, which also reaches files still waiting for a slot; the delegate
-        // does not record a cancellation as a failure, so the row stays CANCELLED.
-        downloadRepository
-            .cancelForBook(bookId)
-            .onFailure { logger.warn { "Failed to persist cancelled state: ${bookId.value}" } }
-
-        inFlight.cancelBook(bookId.value)
-        // Cancel any active NSURLSession download tasks for this book
-        val cancelledCount = sessionDelegate.cancelTasksForBook(bookId.value)
-        if (cancelledCount > 0) {
-            logger.info { "Cancelled $cancelledCount active download task(s) for book: ${bookId.value}" }
+        attach()
+        operations.withLock {
+            // Rows first, so a transfer that finishes as it is cancelled finds them CANCELLED and is discarded.
+            downloadRepository
+                .cancelForBook(bookId)
+                .onFailure { logger.warn { "Failed to persist cancelled state: ${bookId.value}" } }
+            val cancelled = stopTransfers(bookId.value)
+            logger.info { "download: cancelled book=${bookId.value} tasks=$cancelled" }
         }
     }
 
@@ -422,434 +312,224 @@ class AppleDownloadService internal constructor(
      * Mirrors the Android `DownloadManager.deleteDownload` fix.
      */
     override suspend fun deleteDownload(bookId: BookId) {
-        logger.info { "Deleting downloads for book: ${bookId.value}" }
-        // A file that finished after the rows were marked DELETED would overwrite DELETED with COMPLETED.
-        inFlight.cancelBook(bookId.value)
-        if (!fileManager.deleteBookFiles(bookId.value)) {
-            val bookTitle = bookDao.getById(bookId)?.title
-            errorBus.emit(DownloadError.DeleteFailed(bookTitle = bookTitle))
-            logger.error { "Failed to fully delete files for book: ${bookId.value}" }
-            return
+        attach()
+        operations.withLock {
+            logger.info { "Deleting downloads for book: ${bookId.value}" }
+            stopTransfers(bookId.value)
+            if (!fileManager.deleteBookFiles(bookId.value)) {
+                val bookTitle = bookDao.getById(bookId)?.title
+                errorBus.emit(DownloadError.DeleteFailed(bookTitle = bookTitle))
+                logger.error { "Failed to fully delete files for book: ${bookId.value}" }
+                return@withLock
+            }
+            downloadDao.markDeletedForBook(bookId.value)
         }
-        downloadDao.markDeletedForBook(bookId.value)
     }
 
     override suspend fun deleteAllDownloads() {
-        logger.info { "Deleting all downloads (files + records)" }
-        // Stop every transfer first, and wait for it: a file parked behind the concurrency cap must not
-        // start after the wipe, and a completion callback must not re-write a wiped row.
-        inFlight.cancelAllAndJoin()
-        sessionDelegate.cancelAllTasks()
-        fileManager.deleteAllFiles()
-        downloadDao.deleteAll()
+        attach()
+        operations.withLock {
+            logger.info { "Deleting all downloads (files + records)" }
+            liveTasks().forEach { (task, live) ->
+                delegate.expectCancellation(live.key)
+                task.cancel()
+            }
+            // A completion already in flight must not re-write a row after the wipe.
+            delegate.awaitWrites()
+            resumeData.deleteAll()
+            fileManager.deleteAllFiles()
+            downloadDao.deleteAll()
+        }
     }
 
-    @Suppress("ReturnCount")
+    /** Every foreground: reconcile the database with the transfers the system holds. */
     override suspend fun resumeIncompleteDownloads() {
-        val incomplete = downloadDao.getIncomplete()
-        if (incomplete.isEmpty()) return
-
-        logger.info { "Resuming ${incomplete.size} incomplete downloads" }
-
-        tokenProvider.prepareForPlayback()
-        val token =
-            tokenProvider.getToken() ?: run {
-                logger.warn { "No token available for resume" }
-                return
-            }
-        val serverUrl =
-            serverConfig.getServerUrl()?.value ?: run {
-                logger.warn { "No server URL for resume" }
-                return
-            }
-
-        // ONE prepare() round-trip per book, not per row: a foreground with 3 partly-downloaded
-        // books used to fire one RPC (and one token refresh) for every incomplete file.
-        var launchedCount = 0
-        for ((incompleteBookId, bookRows) in incomplete.groupBy { it.bookId }) {
-            // A file this process is already fetching (or has parked) needs no resuming; restarting it
-            // would fetch it twice. Filter before the reset to QUEUED, which would make a live
-            // download look queued.
-            val rows = bookRows.filterNot { inFlight.owns(it.audioFileId) }
-            // Nothing to resume for this book — and no reason to spend an RPC finding that out.
-            if (rows.isEmpty()) continue
-
-            val signedUrls =
-                when (val resolved = resolveSignedDownloadUrls(incompleteBookId, prepareRepository)) {
-                    is AppResult.Success -> {
-                        resolved.data
-                    }
-
-                    is AppResult.Failure -> {
-                        logger.warn { "Skipping resume for $incompleteBookId: ${resolved.error.message}" }
-                        continue
-                    }
-                }
-
-            val launchable =
-                rows.mapNotNull { download ->
-                    // No updateError here (unlike downloadBook): that bumps retryCount, and burning
-                    // the retry budget on every foreground would strand a row the server may well
-                    // sign on the next attempt.
-                    val signedRelativeUrl = signedUrls[download.audioFileId]
-                    if (signedRelativeUrl == null) {
-                        logger.warn { "prepare() returned no URL for audioFile=${download.audioFileId}; skipping" }
-                        null
-                    } else {
-                        if (download.state != DownloadState.QUEUED) {
-                            downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
-                        }
-                        download to signedRelativeUrl
-                    }
-                }
-
-            launchedCount +=
-                inFlight.launchNew(
-                    scope,
-                    downloadSlots,
-                    incompleteBookId,
-                    launchable,
-                    idOf = { it.first.audioFileId },
-                ) { (download, signedRelativeUrl) ->
-                    tokenProvider.prepareForPlayback()
-                    val fileToken = tokenProvider.getToken() ?: token
-                    downloadFile(
-                        bookId = download.bookId,
-                        audioFile =
-                            AudioFileResponse(
-                                id = download.audioFileId,
-                                filename = download.filename,
-                                format = "",
-                                codec = "",
-                                duration = 0,
-                                size = download.totalBytes,
-                            ),
-                        serverUrl = serverUrl,
-                        token = fileToken,
-                        signedRelativeUrl = signedRelativeUrl,
-                    )
-                }
-        }
-
-        logger.info { "Re-enqueued $launchedCount incomplete downloads" }
+        attach()
+        reconcile()
     }
 
-    // Shared reducer (commonMain aggregateBookDownloadStatus) — one state machine across platforms.
-    // Previously an iOS-local copy that didn't filter CANCELLED, so a cancelled partial mis-reported
-    // as Completed. The shared reducer treats a cancelled partial as Paused (never a false Downloaded).
-    override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> =
-        downloadDao.observeForBook(bookId.value).map { entities ->
-            aggregateBookDownloadStatus(bookId.value, entities)
-        }
+    override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> = downloadRepository.observeBookStatus(bookId)
 
-    override fun observeAllStatuses(): Flow<Map<String, BookDownloadStatus>> =
-        downloadDao.observeAll().map { downloads ->
-            downloads
-                .groupBy { it.bookId }
-                .mapValues { (bookId, files) -> aggregateBookDownloadStatus(bookId, files) }
-        }
-}
+    override fun observeAllStatuses(): Flow<Map<String, BookDownloadStatus>> = downloadRepository.observeAllStatuses()
 
-/**
- * NSURLSession delegate for download tasks.
- *
- * Handles progress updates and completion. Each download task has a registered
- * continuation that is resumed when the task finishes.
- */
-internal class DownloadSessionDelegate(
-    private val downloadDao: DownloadDao,
-    private val scope: CoroutineScope,
-) : NSObject(),
-    NSURLSessionDownloadDelegateProtocol {
-    private data class PendingDownload(
-        val continuation: CancellableContinuation<Boolean>,
-        val destPath: String,
-    )
-
-    /** Lock protecting pendingDownloads and lastLoggedPct (accessed from coroutines + delegate queue) */
-    private val lock = reentrantLock()
-
-    private val pendingDownloads = mutableMapOf<ULong, PendingDownload>()
-    private val lastLoggedPct = mutableMapOf<ULong, Int>()
-
-    /** Maps taskIdentifier to bookId for cancellation support */
-    private val taskToBookId = mutableMapOf<ULong, String>()
-
-    /** Maps taskIdentifier to its live download task so cancellation can stop it directly */
-    private val taskById = mutableMapOf<ULong, NSURLSessionDownloadTask>()
-
-    /**
-     * Tasks the OS is holding because no *satisfactory* network is available — with
-     * `waitsForConnectivity` on and the wifi-only preference set, that means "on cellular, waiting
-     * for Wi-Fi". Tracked so the first bytes to arrive can flip the row back out of QUEUED.
-     */
-    private val waitingForConnectivity = mutableSetOf<ULong>()
-
-    /**
-     * The task is parked waiting for a network it is allowed to use. Report it as QUEUED rather
-     * than DOWNLOADING: the shared `isWaitingForWifi` reads `downloadingFiles == 0`, and a row that
-     * claims to be downloading while nothing transfers is the UI lying about what is happening.
-     */
-    override fun URLSession(
-        session: NSURLSession,
-        taskIsWaitingForConnectivity: NSURLSessionTask,
-    ) {
-        val audioFileId = taskIsWaitingForConnectivity.taskDescription?.split("|")?.getOrNull(1) ?: return
-        lock.withLock { waitingForConnectivity += taskIsWaitingForConnectivity.taskIdentifier }
-        logger.info { "Download waiting for an allowed network: $audioFileId" }
-        scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
-    }
-
-    /**
-     * Register and START the task atomically w.r.t. [setYielding]. Under the lock we decide to
-     * `resume()` (start) only if not currently yielding — otherwise the task stays in its initial
-     * suspended state and [setYielding]`(false)` starts it later. Doing the start inside the lock
-     * closes the race where a task registered-and-resumed *after* a concurrent `setYielding(true)`
-     * would run at full bandwidth for the whole buffer window.
-     */
-    fun registerDownload(
-        task: NSURLSessionDownloadTask,
-        continuation: CancellableContinuation<Boolean>,
-        destPath: String,
-        bookId: String? = null,
-    ) {
-        lock.withLock {
-            val taskId = task.taskIdentifier
-            pendingDownloads[taskId] = PendingDownload(continuation, destPath)
-            taskById[taskId] = task
-            if (bookId != null) {
-                taskToBookId[taskId] = bookId
-            }
-            if (!yielding) task.resume()
-        }
-    }
-
-    /**
-     * Cancel all active download tasks for a given book.
-     *
-     * Each [NSURLSessionDownloadTask.cancel] drives the task to `didCompleteWithError`
-     * (NSURLErrorCancelled), which resumes the suspended continuation as failed and clears its
-     * pending state exactly once. Returns the number of tasks actually cancelled.
-     */
-    fun cancelTasksForBook(bookId: String): Int {
-        val tasks =
-            lock.withLock {
-                taskToBookId
-                    .filterValues { it == bookId }
-                    .keys
-                    .mapNotNull { taskById[it] }
-            }
-        tasks.forEach { it.cancel() }
-        return tasks.size
-    }
-
-    /**
-     * Cancel every active download task (used by "Delete All Downloads"). Each [cancel] drives its
-     * task to `didCompleteWithError`, which resumes and clears its pending state exactly once.
-     */
-    fun cancelAllTasks(): Int {
-        val tasks = lock.withLock { taskById.values.toList() }
-        tasks.forEach { it.cancel() }
-        return tasks.size
-    }
-
-    /** True while playback is buffering a stream — new tasks start suspended (see [registerDownload]). */
-    private var yielding = false
-
-    /**
-     * The "playback preempts downloads" yield. Uses `NSURLSessionTask.suspend`/`resume` — which
-     * hold the connection + partial data (no re-download, unlike cancel) — across every in-flight
-     * task. Done under [lock] so it can't interleave with [registerDownload]'s start decision (that
-     * race would let a task escape the yield). Idempotent: suspending an already-suspended (or
-     * not-yet-started) task, or resuming a completed/removed one, is a documented no-op.
-     */
-    fun setYielding(active: Boolean) {
-        lock.withLock {
-            yielding = active
-            taskById.values.forEach { if (active) it.suspend() else it.resume() }
-        }
-    }
-
-    private fun removePending(taskId: ULong): PendingDownload? =
-        lock.withLock {
-            lastLoggedPct.remove(taskId)
-            waitingForConnectivity.remove(taskId)
-            taskToBookId.remove(taskId)
-            taskById.remove(taskId)
-            pendingDownloads.remove(taskId)
-        }
-
-    private fun safeResume(
-        continuation: CancellableContinuation<Boolean>,
-        value: Boolean,
-    ) {
-        if (continuation.isActive) {
-            continuation.resume(value)
-        }
-    }
-
-    /**
-     * Fail a task exactly once: remove its pending state and resume its continuation with `false`.
-     *
-     * This is the unconditional tail of EVERY exit path in both delegate callbacks. The previous
-     * shape dropped the continuation on a nil/short `taskDescription` — the caller's
-     * `suspendCancellableCoroutine` then suspended forever and its DB row stayed DOWNLOADING with
-     * nothing behind it. [removePending] returning null means some other path already finished it,
-     * so a second call is a safe no-op.
-     */
-    private fun failTask(taskId: ULong) {
-        removePending(taskId)?.let { safeResume(it.continuation, false) }
-    }
-
-    override fun URLSession(
-        session: NSURLSession,
-        downloadTask: NSURLSessionDownloadTask,
-        didFinishDownloadingToURL: NSURL,
-    ) {
-        val taskId = downloadTask.taskIdentifier
-        val pending = lock.withLock { pendingDownloads[taskId] } ?: return
-        val parts = downloadTask.taskDescription?.split("|")
-        val audioFileId = parts?.getOrNull(1)
-        if (audioFileId == null) {
-            logger.error { "Finished download task $taskId carries no usable tag; failing it" }
-            failTask(taskId)
-            return
-        }
-        val filename = parts.getOrNull(2) ?: "unknown"
-
-        // Check HTTP status
-        val httpResponse = downloadTask.response as? NSHTTPURLResponse
-        val statusCode = httpResponse?.statusCode ?: 0
-        if (statusCode !in 200L..299L && statusCode != 0L) {
-            logger.error { "Download HTTP $statusCode for $filename" }
-            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "HTTP error: $statusCode") }
-            failTask(taskId)
-            return
-        }
-
-        // Move temp file to destination (iOS deletes temp after this callback)
-        val destUrl = NSURL.fileURLWithPath(pending.destPath)
-        NSFileManager.defaultManager.removeItemAtURL(destUrl, error = null)
-        val moved = NSFileManager.defaultManager.moveItemAtURL(didFinishDownloadingToURL, toURL = destUrl, error = null)
-
-        if (!moved) {
-            logger.error { "Failed to move downloaded file: $filename" }
-            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "Failed to save file") }
-            failTask(taskId)
-            return
-        }
-
-        // Verify file size
-        val fileSize =
-            NSFileManager.defaultManager
-                .attributesOfItemAtPath(pending.destPath, error = null)
-                ?.get(platform.Foundation.NSFileSize) as? Long ?: 0L
-        if (fileSize == 0L) {
-            logger.error { "Downloaded file is empty: $filename" }
-            scope.launch { downloadDao.markFailedIfNotTerminal(audioFileId, "Downloaded file is empty") }
-            failTask(taskId)
-            return
-        }
-
-        logger.info { "Download saved: $filename (${fileSize / BYTES_PER_MEGABYTE}MB)" }
-        removePending(taskId)?.let { safeResume(it.continuation, true) }
-    }
-
-    override fun URLSession(
-        session: NSURLSession,
-        downloadTask: NSURLSessionDownloadTask,
-        didWriteData: Long,
-        totalBytesWritten: Long,
-        totalBytesExpectedToWrite: Long,
-    ) {
-        val parts = downloadTask.taskDescription?.split("|") ?: return
-        val audioFileId = parts.getOrNull(1) ?: return
-        val filename = parts.getOrNull(2) ?: "unknown"
-        val taskId = downloadTask.taskIdentifier
-
-        // Bytes are moving again after a connectivity hold — undo the QUEUED the wait reported.
-        if (lock.withLock { waitingForConnectivity.remove(taskId) }) {
-            scope.launch {
-                downloadDao.updateStateIfTransferring(
-                    audioFileId,
-                    DownloadState.DOWNLOADING,
-                    Clock.System.now().toEpochMilliseconds(),
+    /** Compares the database with the system's transfers and acts on the difference ([reconcileDownloads]). */
+    private suspend fun reconcile() {
+        operations.withLock {
+            val live = liveTasks()
+            val network = networkFor(localPreferences.wifiOnlyDownloads.value)
+            val rows = downloadDao.observeAll().first()
+            val plan =
+                reconcileDownloads(
+                    rows = rows,
+                    tasks = live.map { it.live },
+                    blobs = resumeData.storedFiles(),
+                    network = network,
+                    nowEpochSeconds = Clock.System.now().epochSeconds,
                 )
+            plan.discardBlobs.forEach(resumeData::delete)
+            val byKey = live.associateBy { it.live.key }
+            plan.cancel.forEach { stale ->
+                delegate.expectCancellation(stale.key)
+                byKey[stale.key]?.task?.cancel()
             }
-        }
-
-        // Throttle DB writes — every 1%
-        if (totalBytesExpectedToWrite > 0) {
-            val pct = (totalBytesWritten * 100 / totalBytesExpectedToWrite).toInt()
-            val lastPct = lock.withLock { lastLoggedPct[taskId] ?: -1 }
-            if (pct >= lastPct + 1) {
-                lock.withLock { lastLoggedPct[taskId] = pct }
-                scope.launch {
-                    downloadDao.updateProgress(audioFileId, totalBytesWritten, totalBytesExpectedToWrite)
+            val restart = plan.prepareByBook.mapValues { it.value.toMutableList() }.toMutableMap()
+            val rowsById = rows.associateBy { it.audioFileId }
+            val moved =
+                plan.migrate.count { moving ->
+                    val row = moving.tag?.let { rowsById[it.audioFileId] } ?: return@count false
+                    delegate.expectCancellation(moving.key)
+                    val data = (byKey[moving.key]?.task as? NSURLSessionDownloadTask)?.cancelKeepingResumeData()
+                    // Back to QUEUED until bytes move in the new session: "Waiting for Wi-Fi" reads true.
+                    requeue(row.audioFileId, null)
+                    if (data != null && startTask(row, network, resume = data)) {
+                        true
+                    } else {
+                        restart.getOrPut(row.bookId) { mutableListOf() } += row
+                        false
+                    }
                 }
-                logger.info {
-                    "Download $pct%: $filename (${totalBytesWritten / BYTES_PER_MEGABYTE}/${totalBytesExpectedToWrite / BYTES_PER_MEGABYTE}MB)"
-                }
+            val resumed = plan.resumeFromBlob.count { row -> startFromResumeData(row, network) }
+            val restarted = restart.entries.sumOf { (bookId, rows) -> restartFromServer(bookId, rows, network) }
+            logger.info {
+                "download: reconciled live=${live.size} adopted=${plan.adopt.size} cancelled=${plan.cancel.size} " +
+                    "moved=$moved resumed=$resumed restarted=$restarted session=$network"
             }
         }
     }
 
-    override fun URLSession(
-        session: NSURLSession,
-        task: NSURLSessionTask,
-        didCompleteWithError: NSError?,
+    /** Asks the server for fresh URLs for [rows] of [bookId] and starts each from zero. Returns how many started. */
+    private suspend fun restartFromServer(
+        bookId: String,
+        rows: List<DownloadEntity>,
+        network: DownloadNetwork,
+    ): Int {
+        val serverUrl = serverConfig.getServerUrl()?.value
+        val signedUrls =
+            when (val resolved = resolveSignedDownloadUrls(bookId, prepareRepository)) {
+                is AppResult.Success -> resolved.data
+                is AppResult.Failure -> null
+            }
+        if (serverUrl == null || signedUrls == null) {
+            // Not a failure of the files: offline, signed out or locked. The next reconcile tries again.
+            logger.warn { "download: could not re-request book=$bookId; left for the next reconcile" }
+            return 0
+        }
+        return rows.count { row ->
+            val started =
+                startFromUrl(
+                    row = row,
+                    signedRelativeUrl = signedUrls[row.audioFileId],
+                    serverUrl = serverUrl,
+                    network = network,
+                )
+            if (started) requeue(row.audioFileId, row.pauseReason.keptWhileResuming())
+            started
+        }
+    }
+
+    /** Starts [row]'s file from its resume data, when there is any. Returns whether a transfer started. */
+    private suspend fun startFromResumeData(
+        row: DownloadEntity,
+        network: DownloadNetwork,
+    ): Boolean {
+        val blob = resumeData.load(row.audioFileId) ?: return false
+        // Consumed: a new interruption delivers new resume data.
+        resumeData.delete(row.audioFileId)
+        val started = startTask(row, network, resume = blob.data)
+        if (started && row.state != DownloadState.QUEUED) {
+            requeue(row.audioFileId, row.pauseReason.keptWhileResuming())
+        }
+        return started
+    }
+
+    /** Back in the queue with a live transfer behind it, waiting for [reason] (null for none). */
+    private suspend fun requeue(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
     ) {
-        // A nil error means the download succeeded; `didFinishDownloadingToURL` already resumed it.
-        if (didCompleteWithError == null) return
-        val taskId = task.taskIdentifier
-        val audioFileId = task.taskDescription?.split("|")?.getOrNull(1)
-        // Read before failTask: removePending clears the waiting set.
-        val wasWaitingForNetwork = lock.withLock { taskId in waitingForConnectivity }
-        val cancelled =
-            didCompleteWithError.domain == NSURLErrorDomain && didCompleteWithError.code == NSURLErrorCancelled
-        val waitRanOut =
-            wasWaitingForNetwork &&
-                didCompleteWithError.domain == NSURLErrorDomain &&
-                didCompleteWithError.code == NSURLErrorTimedOut
+        downloadRepository
+            .markQueued(audioFileId, reason)
+            .onFailure { logger.warn { "download: could not record queued file=$audioFileId" } }
+    }
 
-        when {
-            // The user (or a teardown) stopped this transfer. Not a failure: recording one would put a
-            // cancelled row back among the incomplete ones, and the next foreground would restart it.
-            cancelled -> {
-                logger.info { "Download task $taskId cancelled" }
+    /** Starts [row]'s file from [signedRelativeUrl]. Returns whether a transfer started. */
+    private fun startFromUrl(
+        row: DownloadEntity,
+        signedRelativeUrl: String?,
+        serverUrl: String,
+        network: DownloadNetwork,
+    ): Boolean {
+        val url = signedRelativeUrl?.let { NSURL.URLWithString(serverUrl.trimEnd('/') + it) }
+        if (url == null) {
+            logger.error { "download: no usable URL for file=${row.audioFileId}" }
+            return false
+        }
+        // No Authorization header: the audio route authorizes by the signed query alone, and a bearer
+        // token handed to nsurlsessiond would outlive its use.
+        val request = NSMutableURLRequest.requestWithURL(url)
+        request.applyDownloadNetworkPolicy(wifiOnlyDownloads = network == DownloadNetwork.Unmetered)
+        return startTask(row, network, request = request)
+    }
+
+    private fun startTask(
+        row: DownloadEntity,
+        network: DownloadNetwork,
+        request: NSMutableURLRequest? = null,
+        resume: NSData? = null,
+    ): Boolean {
+        val session = sessions.session(network)
+        val task =
+            when {
+                resume != null -> session.downloadTaskWithResumeData(resume)
+                request != null -> session.downloadTaskWithRequest(request)
+                else -> return false
             }
+        task.taskDescription = DownloadTaskTag(row.bookId, row.audioFileId, row.filename).encode()
+        // Below the stream's AVPlayer traffic, even when the yield cannot act.
+        task.priority = NSURLSessionTaskPriorityLow
+        // Created suspended while playback is buffering; the end of the yield starts it.
+        if (!yielding.value) task.resume()
+        return true
+    }
 
-            audioFileId == null -> {
-                logger.error { "Failed download task $taskId carries no usable tag; no row to mark" }
-            }
+    /** Stops every transfer of [bookId] and throws away their resume data. Returns how many stopped. */
+    private suspend fun stopTransfers(bookId: String): Int {
+        val tasks = tasksForBook(bookId)
+        tasks.forEach { (task, live) ->
+            delegate.expectCancellation(live.key)
+            task.cancel()
+        }
+        downloadDao.getForBook(bookId).forEach { resumeData.delete(it.audioFileId) }
+        return tasks.size
+    }
 
-            // Nothing was attempted — the task only ever waited for a network it was allowed to use.
-            // Charging the retry budget for that would strand a wifi-only download after three waits.
-            waitRanOut -> {
-                scope.launch { downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED) }
-            }
+    private suspend fun tasksForBook(bookId: String): List<Pair<NSURLSessionTask, LiveDownloadTask>> =
+        liveTasks().filter { it.live.tag?.bookId == bookId }.map { it.task to it.live }
 
-            else -> {
-                logger.error { "Download error: ${didCompleteWithError.localizedDescription}" }
-                scope.launch {
-                    downloadDao.markFailedIfNotTerminal(
-                        audioFileId,
-                        didCompleteWithError.localizedDescription,
-                    )
+    /** Every task both sessions hold right now. */
+    private suspend fun liveTasks(): List<SessionTask> =
+        sessions.all.flatMap { (network, session) ->
+            suspendCancellableCoroutine { continuation ->
+                session.getAllTasksWithCompletionHandler { tasks ->
+                    continuation.resume(tasks.orEmpty().filterIsInstance<NSURLSessionTask>())
                 }
+            }.map { task ->
+                SessionTask(task, LiveDownloadTask(TaskKey(network, task.taskIdentifier), DownloadTaskTag.parse(task.taskDescription)))
             }
         }
-        // Unconditional tail: the continuation is resumed whatever the branch.
-        failTask(taskId)
+
+    private suspend fun setYielding(active: Boolean) {
+        yielding.value = active
+        if (!attached.value) return
+        liveTasks().forEach { if (active) it.task.suspend() else it.task.resume() }
     }
 }
 
-private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =
-    AudioFileResponse(
-        id = id,
-        filename = filename,
-        format = format,
-        codec = codec,
-        duration = duration,
-        size = size,
-    )
+/** Stops the transfer and hands back its resume data, or null when the system has none. */
+private suspend fun NSURLSessionDownloadTask.cancelKeepingResumeData(): NSData? =
+    suspendCancellableCoroutine { continuation ->
+        cancelByProducingResumeData { data -> continuation.resume(data) }
+    }
+
+/** A swipe-away keeps saying so while the file resumes; any other wait is over once it is queued again. */
+private fun DownloadPauseReason?.keptWhileResuming(): DownloadPauseReason? = takeIf { it == DownloadPauseReason.APP_CLOSED }

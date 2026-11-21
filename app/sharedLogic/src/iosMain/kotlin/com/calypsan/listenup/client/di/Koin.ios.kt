@@ -26,6 +26,7 @@ import org.koin.core.parameter.parametersOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
+import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
@@ -505,6 +506,25 @@ object KoinHelper {
     }
 
     fun getDownloadService(): DownloadService = resolve(DownloadService::class)
+
+    /**
+     * Creates the background download sessions and reconciles them with the database. The app
+     * delegate calls this from `didFinishLaunching`, on every launch — including a relaunch in the
+     * background to deliver a finished transfer, where no scene and no signed-in screen exists.
+     * Creating the sessions is what hands this process the transfers the system kept running.
+     */
+    fun attachBackgroundDownloads() {
+        (resolve(DownloadService::class) as? AppleDownloadService)?.attach()
+    }
+
+    /**
+     * Returns once the background download session [identifier] has delivered the events of this wake
+     * and the database records them. The app delegate calls the system's completion handler after it,
+     * so iOS does not suspend the app between a file landing on disk and its row saying so.
+     */
+    suspend fun drainBackgroundDownloadEvents(identifier: String) {
+        (resolve(DownloadService::class) as? AppleDownloadService)?.drainBackgroundEvents(identifier)
+    }
 
     fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 

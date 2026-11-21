@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,6 +63,8 @@ internal open class FakeDownloadRepository(
         }
 
     override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> = observeAll().map { _ -> emptyList() }
+
+    override fun observeInProgressBooks(): Flow<List<InProgressBookSummary>> = observeAll().map { _ -> emptyList() }
 
     override suspend fun getLocalPath(audioFileId: String): String? =
         state.value[audioFileId]?.takeIf { it.state == DownloadState.COMPLETED }?.localPath
@@ -136,6 +139,38 @@ internal open class FakeDownloadRepository(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun markQueued(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    ): AppResult<Unit> {
+        update(audioFileId) { current ->
+            if (current.state in terminalStatesForPause) {
+                current
+            } else {
+                current.copy(state = DownloadState.QUEUED, pauseReason = reason)
+            }
+        }
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
+    ): AppResult<Unit> {
+        update(audioFileId) { current ->
+            if (current.state == DownloadState.QUEUED || current.state == DownloadState.DOWNLOADING) {
+                current.copy(
+                    state = DownloadState.DOWNLOADING,
+                    startedAt = current.startedAt ?: startedAt,
+                    pauseReason = null,
+                )
+            } else {
+                current
+            }
+        }
+        return AppResult.Success(Unit)
+    }
+
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> {
         update(audioFileId) { it.copy(state = DownloadState.CANCELLED) }
         return AppResult.Success(Unit)
@@ -145,9 +180,17 @@ internal open class FakeDownloadRepository(
         audioFileId: String,
         error: DownloadError,
     ): AppResult<Int> {
-        // Mirror the production query: a genuine failure spends one retry.
-        update(audioFileId) {
-            it.copy(state = DownloadState.FAILED, errorMessage = error.message, retryCount = it.retryCount + 1)
+        // Mirror the production guarded query: a genuine failure spends one retry; a terminal row is left alone.
+        update(audioFileId) { entry ->
+            if (entry.state in terminalStatesForPause) {
+                entry
+            } else {
+                entry.copy(
+                    state = DownloadState.FAILED,
+                    errorMessage = error.message,
+                    retryCount = entry.retryCount + 1,
+                )
+            }
         }
         return AppResult.Success(state.value[audioFileId]?.retryCount ?: MAX_DOWNLOAD_RETRIES)
     }

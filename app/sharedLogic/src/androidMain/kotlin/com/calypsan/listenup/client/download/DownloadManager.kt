@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.heldRefusal
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -193,6 +194,26 @@ class DownloadManager internal constructor(
         fileManager.deleteAllFiles()
         downloadDao.deleteAll()
         logger.info { "Deleted all downloads (files + records)" }
+    }
+
+    /**
+     * Pause a book's download. The work is cancelled first and awaited, so the dying worker's own
+     * cleanup (a system pause, `.tmp` kept) has landed before the person's pause replaces it; the
+     * `.tmp` partials stay for the Range-resume [downloadBook] does on Resume.
+     */
+    override suspend fun pauseDownload(bookId: BookId) {
+        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
+        downloadDao
+            .getForBook(bookId.value)
+            .filter {
+                it.state == DownloadState.QUEUED || it.state == DownloadState.DOWNLOADING ||
+                    it.state == DownloadState.PAUSED
+            }.forEach { row ->
+                downloadRepository
+                    .markPaused(row.audioFileId, DownloadPauseReason.PAUSED_BY_YOU)
+                    .onFailure { logger.warn { "Failed to persist paused state: ${row.audioFileId}" } }
+            }
+        logger.info { "Paused download: ${bookId.value}" }
     }
 
     /**

@@ -62,7 +62,7 @@ struct StorageView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
 
-                if observer.books.isEmpty {
+                if observer.books.isEmpty && observer.inProgress.isEmpty {
                     Section {
                         ContentUnavailableView {
                             Label(String(localized: "settings.no_downloads"), systemImage: "arrow.down.circle")
@@ -72,6 +72,11 @@ struct StorageView: View {
                     }
                 } else {
                     Section(String(localized: "settings.downloaded_books")) {
+                        ForEach(observer.inProgress) { book in
+                            NavigationLink(value: BookDestination(id: book.id)) {
+                                InProgressBookRowView(book: book)
+                            }
+                        }
                         ForEach(observer.books) { book in
                             DownloadedBookRowView(book: book)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -239,6 +244,34 @@ private struct DownloadedBookRowView: View {
         return book.fileCount == 1
             ? String(format: String(localized: "settings.storage_size_files_one"), size)
             : String(format: String(localized: "settings.storage_size_files"), size, book.fileCount)
+    }
+}
+
+/// A book still downloading: its title and, beneath, where the download stands (canvas I-Library). A tap opens the
+/// book, where its download is paused, resumed or cancelled.
+private struct InProgressBookRowView: View {
+    let book: InProgressBookRow
+
+    var body: some View {
+        HStack(spacing: 12) {
+            BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(book.title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(book.subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(book.isFailure ? Color.red : Color.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

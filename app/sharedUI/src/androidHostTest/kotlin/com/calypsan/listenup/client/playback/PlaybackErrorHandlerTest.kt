@@ -881,6 +881,8 @@ private object ThrowingDownloadRepository : DownloadRepository {
 
     override fun observeDownloadedBooks() = TODO("not used in handler test")
 
+    override fun observeInProgressBooks() = TODO("not used in handler test")
+
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used in handler test")
 
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = TODO("not used in handler test")
@@ -907,6 +909,16 @@ private object ThrowingDownloadRepository : DownloadRepository {
     override suspend fun markPaused(
         audioFileId: String,
         reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason,
+    ) = TODO("not used in handler test")
+
+    override suspend fun markQueued(
+        audioFileId: String,
+        reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason?,
+    ) = TODO("not used in handler test")
+
+    override suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
     ) = TODO("not used in handler test")
 
     override suspend fun markCancelled(audioFileId: String) = TODO("not used in handler test")

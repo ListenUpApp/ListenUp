@@ -56,6 +56,14 @@ struct ListenUpApp: App {
                 } catch {
                     Log.error("Background sync failed", error: error)
                 }
+                // A download whose URL expired while it waited gets a fresh one here, without waiting for the
+                // app to be opened.
+                do {
+                    try await Dependencies.shared.downloadService.resumeIncompleteDownloads()
+                } catch is CancellationError {
+                } catch {
+                    Log.error("Background download reconcile failed", error: error)
+                }
             }
         }
     }

@@ -44,7 +44,7 @@ struct BookListenActionsAccessibilityTests {
     }
 
     @Test func aSavedDownloadReadsDeleteWithATrashBin() {
-        #expect(BookListenActions.downloadTitle(.completed) == String(localized: "book.delete_download"))
+        #expect(BookListenActions.downloadTitle(.completed) == String(localized: "book.download_delete_ios"))
         #expect(BookListenActions.downloadSymbol(.completed) == "trash")
     }
 

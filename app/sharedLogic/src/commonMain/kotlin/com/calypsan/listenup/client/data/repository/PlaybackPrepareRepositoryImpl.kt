@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -28,9 +29,15 @@ internal class PlaybackPrepareRepositoryImpl(
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
+        purpose: PreparePurpose,
     ): AppResult<PreparedPlayback> =
-        channel.call(timeout = DEFAULT_RPC_TIMEOUT, idempotent = false) {
-            it.prepare(bookId, codecCapabilities, forceTranscode)
+        channel.call(timeout = DEFAULT_RPC_TIMEOUT, idempotent = false) { service ->
+            service.prepare(
+                bookId = bookId,
+                capabilities = codecCapabilities,
+                forceTranscode = forceTranscode,
+                purpose = purpose,
+            )
         }
 
     /**

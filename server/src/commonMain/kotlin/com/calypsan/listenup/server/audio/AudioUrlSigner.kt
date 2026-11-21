@@ -7,6 +7,7 @@ import dev.whyoleg.cryptography.algorithms.SHA256
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
 /**
@@ -28,7 +29,7 @@ import kotlin.time.Duration.Companion.hours
  */
 class AudioUrlSigner(
     signingKey: ByteArray,
-    private val ttl: Duration = 12.hours,
+    val ttl: Duration = 12.hours,
     private val clock: Clock = Clock.System,
 ) {
     private val key: HMAC.Key =
@@ -41,13 +42,17 @@ class AudioUrlSigner(
      * Returns `u=<userId>&exp=<epochSec>&sig=<hex>` for the audio URL of
      * `(userId, bookId, fileId)`. The `bookId` and `fileId` are path segments
      * owned by the route and are not repeated in the query string.
+     *
+     * @param validFor how long the URL works; the signer's own lifetime unless the caller needs a
+     *   different one, as a download does ([DOWNLOAD_URL_TTL]).
      */
     fun signedQuery(
         userId: String,
         bookId: String,
         fileId: String,
+        validFor: Duration = ttl,
     ): String {
-        val exp = (clock.now() + ttl).epochSeconds
+        val exp = (clock.now() + validFor).epochSeconds
         val sig = hmacHex(payload(userId = userId, bookId = bookId, fileId = fileId, exp = exp))
         return "u=${userId.encodeURLParameter()}&exp=$exp&sig=$sig"
     }
@@ -99,6 +104,15 @@ class AudioUrlSigner(
     }
 
     companion object {
+        /**
+         * How long a download URL works: as long as NSURLSession lets one download run (its
+         * `timeoutIntervalForResource` default). A download can wait for Wi-Fi overnight or resume a
+         * half-fetched file days later, and a resume replays the URL it started with — so a URL
+         * that dies first turns the wait into a restart from zero. A leaked one still grants one
+         * file to one user, and the route checks book access on every request.
+         */
+        val DOWNLOAD_URL_TTL: Duration = 7.days
+
         /**
          * Derives the signing key from a JWT secret so operators manage no new
          * secret. The derivation uses HMAC-SHA256 itself as a KDF:

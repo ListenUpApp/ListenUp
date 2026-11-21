@@ -18,6 +18,10 @@ sealed interface BookDownloadStatus {
 
     /**
      * One or more files in this book are mid-flight (downloading, queued).
+     *
+     * @property resumingAfterClose nothing is transferring yet and the download is picking up again
+     * after ListenUp was closed mid-download — what iOS does after a swipe-away. Cleared the moment
+     * bytes move.
      */
     data class InProgress(
         override val bookId: String,
@@ -26,6 +30,7 @@ sealed interface BookDownloadStatus {
         val completedFiles: Int,
         val totalBytes: Long,
         val downloadedBytes: Long,
+        val resumingAfterClose: Boolean = false,
     ) : BookDownloadStatus {
         val progress: Float = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
     }
@@ -55,6 +60,8 @@ sealed interface BookDownloadStatus {
      * paused/cancelled/completed files, so this can be non-zero — and when it is, those files are
      * on disk and playable offline. Carried explicitly because byte counts cannot answer that:
      * a large [downloadedBytes] may be one unfinished file, which plays nothing.
+     * @property reason why it stopped: [DownloadPauseReason.PAUSED_BY_YOU] waits for the person,
+     * any other reason resumes by itself. Null for a cancelled partial.
      */
     data class Paused(
         override val bookId: String,
@@ -62,5 +69,6 @@ sealed interface BookDownloadStatus {
         val completedFiles: Int,
         val downloadedBytes: Long,
         val totalBytes: Long,
+        val reason: DownloadPauseReason? = null,
     ) : BookDownloadStatus
 }

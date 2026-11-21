@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
@@ -77,6 +78,7 @@ fun testPlaybackPrepareRepository(
         override suspend fun prepare(
             bookId: BookId,
             forceTranscode: Boolean,
+            purpose: PreparePurpose,
         ): AppResult<ContractPreparedPlayback> =
             AppResult.Success(
                 ContractPreparedPlayback(

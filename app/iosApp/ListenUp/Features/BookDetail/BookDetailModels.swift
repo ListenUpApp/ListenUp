@@ -1,9 +1,24 @@
 import Foundation
 import Shared
 
-/// Download state for the UI, mapped from Kotlin's `BookDownloadState`.
+/// Where a book's download stands, as the download control and its status line draw it (canvas I-BD-States).
 enum DownloadUIState {
-    case notDownloaded, queued, downloading, waitingForWifi, completed, partial, failed
+    case notDownloaded
+    /// Waiting its turn behind another book's download.
+    case queued
+    case downloading
+    /// Wi-Fi only is on and the network is metered: parked until Wi-Fi.
+    case waitingForWifi
+    /// Picking up again after ListenUp was swiped away, until bytes move.
+    case resumingAfterClose
+    /// The system paused it; it resumes by itself.
+    case waiting
+    /// You paused it; it waits for you.
+    case paused
+    case completed
+    /// A cancelled partial: some files kept, the rest stopped.
+    case partial
+    case failed
 }
 
 /// A user shelf flattened for the shelf-picker sheet, with this book's membership.

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.CodecCapability
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -32,11 +33,17 @@ interface PlaybackService {
      *   the legacy contract, unchanged.
      * @param forceTranscode ask for a transcoded stream even when the client could decode the
      *   original. The manual escape hatch in the Never-Stranded ledger.
+     * @param purpose what the URLs are for: a [PreparePurpose.Download] gets URLs that outlast a
+     *   long download and no transcoded stream. **Null means [PreparePurpose.Stream]**, and it must
+     *   stay nullable: kotlinx.rpc does not apply this default on the server, so a client that
+     *   predates the parameter sends no value and the server receives null. A non-null type there
+     *   fails every such call (`PreparePurposeWireCompatibilityTest`).
      */
     suspend fun prepare(
         bookId: BookId,
         capabilities: Set<CodecCapability>? = null,
         forceTranscode: Boolean = false,
+        purpose: PreparePurpose? = PreparePurpose.Stream,
     ): AppResult<PreparedPlayback>
 
     /**

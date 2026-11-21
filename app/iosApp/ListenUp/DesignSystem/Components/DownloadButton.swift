@@ -9,6 +9,7 @@ struct DownloadControl: Equatable {
     /// so the tap only opens a confirmation whose own button removes it (HIG, Alerts).
     enum TapAction: Equatable {
         case download
+        case pause
         case cancel
         case confirmDelete
     }
@@ -16,10 +17,13 @@ struct DownloadControl: Equatable {
     let state: DownloadUIState
     let progress: Float
 
+    /// While bytes move the capsule pauses; while the download waits it cancels; when it is stopped it resumes or
+    /// retries (canvas I-BD-States).
     var tapAction: TapAction {
         switch state {
-        case .notDownloaded, .partial, .failed: .download
-        case .queued, .downloading, .waitingForWifi: .cancel
+        case .notDownloaded, .partial, .failed, .paused: .download
+        case .downloading, .resumingAfterClose: .pause
+        case .queued, .waitingForWifi, .waiting: .cancel
         case .completed: .confirmDelete
         }
     }
@@ -27,18 +31,22 @@ struct DownloadControl: Equatable {
     var accessibilityLabel: String {
         switch state {
         case .notDownloaded: String(localized: "book.detail_download")
-        case .queued, .downloading, .waitingForWifi: String(localized: "book.detail_cancel_download")
+        case .downloading, .resumingAfterClose: String(localized: "book.download_pause_a11y")
+        case .queued, .waitingForWifi, .waiting: String(localized: "book.download_cancel_a11y")
+        case .paused: String(localized: "book.download_resume_a11y")
         case .completed: String(localized: "book.delete_download")
-        case .partial, .failed: String(localized: "book.detail_retry_download")
+        case .partial, .failed: String(localized: "book.download_retry_a11y")
         }
     }
 
     var accessibilityValue: String? {
         switch state {
         case .notDownloaded, .completed: nil
-        case .queued: String(localized: "book.detail_queued")
-        case .waitingForWifi: String(localized: "book.detail_waiting_for_wifi")
-        case .downloading: Double(min(max(progress, 0), 1)).formatted(.percent.precision(.fractionLength(0)))
+        case .queued: String(localized: "book.download_row_queued")
+        case .waitingForWifi: String(localized: "book.download_row_waiting_for_wifi")
+        case .waiting: String(localized: "book.download_resumes_automatically_a11y")
+        case .resumingAfterClose: String(localized: "book.download_resuming_after_close_a11y")
+        case .downloading, .paused: Double(min(max(progress, 0), 1)).formatted(.percent.precision(.fractionLength(0)))
         case .failed: String(localized: "book.detail_download_failed_a11y")
         case .partial: String(localized: "book.detail_download_partial_a11y")
         }
@@ -74,7 +82,7 @@ struct DownloadButton: View {
             switch control.tapAction {
             case .download:
                 Button(action: onDownload) { iconView }
-            case .cancel:
+            case .pause, .cancel:
                 Button(action: onCancel) { iconView }
             case .confirmDelete:
                 Button { confirmingDelete = true } label: { iconView }
@@ -112,7 +120,15 @@ struct DownloadButton: View {
                 Image(systemName: "wifi.slash")
                     .foregroundStyle(.secondary)
 
-            case .downloading:
+            case .waiting:
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(.secondary)
+
+            case .paused:
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(Color.listenUpOrange)
+
+            case .downloading, .resumingAfterClose:
                 ZStack {
                     Circle()
                         .stroke(Color.listenUpOrange.opacity(0.3), lineWidth: 3)

@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -33,10 +34,13 @@ interface PlaybackPrepareRepository {
      * @param forceTranscode reserved for a later task's manual escape hatch in the Never-Stranded
      *   ledger — ask the server for a transcoded stream even when this device could decode the
      *   original. No production call site sets it yet.
+     * @param purpose what the URLs are for. The download-URL resolver asks for
+     *   [PreparePurpose.Download], whose URLs outlive a long download; everything else streams.
      */
     suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean = false,
+        purpose: PreparePurpose = PreparePurpose.Stream,
     ): AppResult<PreparedPlayback>
 
     /**

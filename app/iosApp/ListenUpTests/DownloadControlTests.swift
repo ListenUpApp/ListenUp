@@ -17,23 +17,45 @@ struct DownloadControlTests {
 
     @Test func queuedOffersCancelAndSaysItIsQueued() {
         let control = DownloadControl(state: .queued, progress: 0)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_cancel_download"))
-        #expect(control.accessibilityValue == String(localized: "book.detail_queued"))
+        #expect(control.accessibilityLabel == String(localized: "book.download_cancel_a11y"))
+        #expect(control.accessibilityValue == String(localized: "book.download_row_queued"))
         #expect(control.tapAction == .cancel)
     }
 
-    @Test func downloadingOffersCancelAndReadsThePercent() {
+    /// Canvas I-BD-States: while bytes move, the capsule pauses; Cancel moves to the status line.
+    @Test func downloadingOffersPauseAndReadsThePercent() {
         let control = DownloadControl(state: .downloading, progress: 0.65)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_cancel_download"))
+        #expect(control.accessibilityLabel == String(localized: "book.download_pause_a11y"))
         #expect(control.accessibilityValue == 0.65.formatted(.percent.precision(.fractionLength(0))))
-        #expect(control.tapAction == .cancel)
+        #expect(control.tapAction == .pause)
+    }
+
+    @Test func resumingAfterASwipeAwayOffersPauseAndSaysWhy() {
+        let control = DownloadControl(state: .resumingAfterClose, progress: 0.33)
+        #expect(control.accessibilityLabel == String(localized: "book.download_pause_a11y"))
+        #expect(control.accessibilityValue == String(localized: "book.download_resuming_after_close_a11y"))
+        #expect(control.tapAction == .pause)
     }
 
     @Test func waitingForWifiOffersCancelAndSaysWhy() {
         let control = DownloadControl(state: .waitingForWifi, progress: 0.2)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_cancel_download"))
-        #expect(control.accessibilityValue == String(localized: "book.detail_waiting_for_wifi"))
+        #expect(control.accessibilityLabel == String(localized: "book.download_cancel_a11y"))
+        #expect(control.accessibilityValue == String(localized: "book.download_row_waiting_for_wifi"))
         #expect(control.tapAction == .cancel)
+    }
+
+    @Test func aSystemPauseOffersCancelAndSaysItResumesByItself() {
+        let control = DownloadControl(state: .waiting, progress: 0.33)
+        #expect(control.accessibilityLabel == String(localized: "book.download_cancel_a11y"))
+        #expect(control.accessibilityValue == String(localized: "book.download_resumes_automatically_a11y"))
+        #expect(control.tapAction == .cancel)
+    }
+
+    @Test func yourPauseOffersResumeAndReadsThePercent() {
+        let control = DownloadControl(state: .paused, progress: 0.33)
+        #expect(control.accessibilityLabel == String(localized: "book.download_resume_a11y"))
+        #expect(control.accessibilityValue == 0.33.formatted(.percent.precision(.fractionLength(0))))
+        #expect(control.tapAction == .download)
     }
 
     /// The bug this pins: a completed download used to delete on a single tap. Its tap now names what it does,
@@ -47,14 +69,14 @@ struct DownloadControlTests {
 
     @Test func failedOffersRetryAndSaysItFailed() {
         let control = DownloadControl(state: .failed, progress: 0.3)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_retry_download"))
+        #expect(control.accessibilityLabel == String(localized: "book.download_retry_a11y"))
         #expect(control.accessibilityValue == String(localized: "book.detail_download_failed_a11y"))
         #expect(control.tapAction == .download)
     }
 
     @Test func partialOffersRetryAndSaysItIsIncomplete() {
         let control = DownloadControl(state: .partial, progress: 0.3)
-        #expect(control.accessibilityLabel == String(localized: "book.detail_retry_download"))
+        #expect(control.accessibilityLabel == String(localized: "book.download_retry_a11y"))
         #expect(control.accessibilityValue == String(localized: "book.detail_download_partial_a11y"))
         #expect(control.tapAction == .download)
     }

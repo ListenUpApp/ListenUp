@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -35,6 +36,12 @@ interface DownloadRepository {
 
     /** Observe completed-and-known-to-the-book-repository downloads as domain summaries. */
     fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>>
+
+    /**
+     * Observe the books whose download has started and not finished, with where each stands. A book
+     * with no title in the library (removed from it) is left out.
+     */
+    fun observeInProgressBooks(): Flow<List<InProgressBookSummary>>
 
     /** Get local file path for an audio file if downloaded; null otherwise. */
     suspend fun getLocalPath(audioFileId: String): String?
@@ -81,13 +88,32 @@ interface DownloadRepository {
         reason: DownloadPauseReason,
     ): AppResult<Unit>
 
+    /**
+     * Put the file back in the queue, waiting for [reason] (null for an ordinary wait), keeping its
+     * progress and its retry budget. A no-op on a row that is cancelled, deleted or complete.
+     */
+    suspend fun markQueued(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    ): AppResult<Unit>
+
+    /**
+     * Bytes are moving for the file: QUEUED becomes DOWNLOADING and its wait reason is cleared. A
+     * no-op on any row that is not queued or downloading.
+     */
+    suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
+    ): AppResult<Unit>
+
     /** Mark the file as cancelled by user action. Distinct from [markPaused] (system-pause). */
     suspend fun markCancelled(audioFileId: String): AppResult<Unit>
 
     /**
      * Record a genuine failure of the file: FAILED with [error]'s message, spending one retry.
      * Returns how many failures the row has now recorded, which a caller compares with the retry
-     * budget to decide whether to try again.
+     * budget to decide whether to try again. A row already cancelled, deleted or complete is left
+     * as it is: a transfer dying after that choice reports an error that must not undo it.
      */
     suspend fun markFailed(
         audioFileId: String,

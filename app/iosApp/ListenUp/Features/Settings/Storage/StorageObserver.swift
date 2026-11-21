@@ -47,6 +47,29 @@ struct DownloadedBookRow: Identifiable, Equatable {
     }
 }
 
+/// A book still downloading, for the top of the Downloads list: its subtitle says where it stands, in the same words
+/// as Book Detail (canvas I-Library).
+struct InProgressBookRow: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let isFailure: Bool
+    let coverPath: String?
+    let coverHash: String?
+
+    init(_ summary: InProgressBookSummary) {
+        let snapshot = DownloadStatusSnapshot(summary.status)
+        // The row reads the download alone; a wait for Wi-Fi shows as queued here.
+        let state = DownloadUIState.from(snapshot, isWaitingForWifi: false, anotherBookDownloading: true)
+        id = summary.bookId
+        title = summary.title
+        subtitle = DownloadRowSubtitle.of(state, snapshot: snapshot)
+        isFailure = state == .failed
+        coverPath = summary.coverPath
+        coverHash = summary.coverHash
+    }
+}
+
 /// The confirmation the Storage screen is asking the user to approve, flattened from the shared
 /// sealed `DeleteConfirmation` into a native value the SwiftUI alert binds to.
 enum StoragePendingDeletion: Equatable, Identifiable {
@@ -75,6 +98,8 @@ final class StorageObserver {
     private(set) var totalStorageUsed: Int64 = 0
     private(set) var availableStorage: Int64 = 0
     private(set) var books: [DownloadedBookRow] = []
+    /// Books still downloading, listed above the finished ones.
+    private(set) var inProgress: [InProgressBookRow] = []
     private(set) var isDeleting: Bool = false
     private(set) var pendingDeletion: StoragePendingDeletion?
     /// Set to a book's title when a delete was refused because that book is currently playing (B9).
@@ -125,6 +150,7 @@ final class StorageObserver {
         availableStorage = state.availableStorage
         rawBooks = Dictionary(uniqueKeysWithValues: state.downloadedBooks.map { ($0.bookId, $0) })
         books = state.downloadedBooks.map { DownloadedBookRow($0) }
+        inProgress = state.inProgressBooks.map { InProgressBookRow($0) }
         isDeleting = state.isDeleting
         blockedDeletionTitle = state.blockedDeletionTitle
         pendingDeletion = mapConfirmation(state.deleteConfirmation, total: state.totalStorageUsed)

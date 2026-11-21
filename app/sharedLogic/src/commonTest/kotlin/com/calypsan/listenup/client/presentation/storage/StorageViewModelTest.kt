@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.presentation.storage
 import app.cash.turbine.test
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
@@ -43,8 +45,11 @@ class StorageViewModelTest :
             initial: List<DownloadedBookSummary> = emptyList(),
         ) : FakeDownloadRepository() {
             val downloads = MutableStateFlow(initial)
+            val unfinished = MutableStateFlow(emptyList<InProgressBookSummary>())
 
             override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> = downloads
+
+            override fun observeInProgressBooks(): Flow<List<InProgressBookSummary>> = unfinished
         }
 
         beforeTest { Dispatchers.setMain(testDispatcher) }
@@ -135,6 +140,26 @@ class StorageViewModelTest :
                     // Every collection write re-emits the held set; the walk is the expensive part.
                     fixture.inbox.hold("b1")
                     awaitItem().downloadedBooks.first { it.bookId == "b1" }.isHeld shouldBe true
+
+                    fixture.walks shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("books still downloading are listed too, and their progress never walks the downloads tree") {
+            runTest {
+                val (vm, fixture) = buildVm()
+                val dune = InProgressBookSummary("b1", "Dune", "Frank Herbert", status = inProgress(downloaded = 10L))
+
+                vm.state.test {
+                    awaitItem().isLoading shouldBe true
+                    awaitItem().inProgressBooks shouldBe emptyList()
+
+                    fixture.downloadRepository.unfinished.value = listOf(dune)
+                    awaitItem().inProgressBooks shouldBe listOf(dune)
+                    fixture.downloadRepository.unfinished.value = listOf(dune.copy(status = inProgress(downloaded = 20L)))
+                    awaitItem().inProgressBooks.single().status shouldBe inProgress(downloaded = 20L)
 
                     fixture.walks shouldBe 1
                     cancelAndIgnoreRemainingEvents()
@@ -265,3 +290,13 @@ class StorageViewModelTest :
             }
         }
     })
+
+private fun inProgress(downloaded: Long): BookDownloadStatus =
+    BookDownloadStatus.InProgress(
+        bookId = "b1",
+        totalFiles = 1,
+        downloadingFiles = 1,
+        completedFiles = 0,
+        totalBytes = 100L,
+        downloadedBytes = downloaded,
+    )

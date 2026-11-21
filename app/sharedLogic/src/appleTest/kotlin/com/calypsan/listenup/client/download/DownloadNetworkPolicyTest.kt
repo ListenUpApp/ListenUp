@@ -38,10 +38,9 @@ class DownloadNetworkPolicyTest :
         }
 
         test("the policy is re-read per request, so toggling it mid-session takes effect") {
-            // NSURLSessionConfiguration is COPIED when the session is created, and the session is
-            // built once in a property initialiser — so a session-level flag would freeze the
-            // preference at construction and never track the toggle. Applying it per request is
-            // what makes the setting live.
+            // The session's configuration is the authority for a task resumed from resume data,
+            // which replays its original request (BackgroundDownloadSessionsTest); the request carries
+            // the policy too, so a new task never depends on that alone.
             //
             // Deliberately off-then-ON: the reverse order would land on `true`, the platform
             // default, and pass against an implementation that does nothing at all.
@@ -49,18 +48,5 @@ class DownloadNetworkPolicyTest :
             request.applyDownloadNetworkPolicy(wifiOnlyDownloads = false)
             request.applyDownloadNetworkPolicy(wifiOnlyDownloads = true)
             request.allowsExpensiveNetworkAccess shouldBe false
-        }
-
-        test("a blocked download waits for a satisfactory network instead of failing") {
-            // The settings subtitle promises "Pause downloads on cellular networks", and WorkManager
-            // genuinely pauses on Android. Without waitsForConnectivity a denied task errors out
-            // instead, which is a different — and worse — promise.
-            downloadSessionConfiguration().waitsForConnectivity shouldBe true
-        }
-
-        test("a single download may run for as long as the platform allows") {
-            // No resume data exists, so a resource timeout restarts the file from byte zero. The
-            // wait for an allowed network and the playback yield both spend this same budget.
-            downloadSessionConfiguration().timeoutIntervalForResource shouldBe 604_800.0
         }
     })

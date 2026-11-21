@@ -48,12 +48,14 @@ extension BookDetailView {
                 downloadState: observer.downloadState,
                 downloadProgress: observer.downloadProgress,
                 downloadSizeBytes: observer.reading.downloadSizeBytes,
+                downloadSnapshot: observer.downloadSnapshot,
                 canDownload: observer.canDownload,
                 onPrimary: { observer.play() },
                 onDownload: {
                     bookActionCount += 1
                     observer.downloadBook()
                 },
+                onPauseDownload: { observer.pauseDownload() },
                 onCancelDownload: { observer.cancelDownload() },
                 onDeleteDownload: {
                     bookActionCount += 1
