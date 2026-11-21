@@ -12,6 +12,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
+import kotlin.uuid.Uuid
 
 /**
  * Shared implementation of [ImageStorage] using kotlinx-io.
@@ -418,6 +419,10 @@ internal class CommonImageStorage(
      * The bytes go to a sibling file first and are then renamed over [path], so an image loader
      * reading [path] meanwhile sees the old image or the new one, never a half-written file. The
      * sibling's name does not end in the image extension, so cover listings never count it.
+     *
+     * The sibling is unique per write: two saves of one image can run at once (two rows asking
+     * for the same uncached cover), and with a shared name one would truncate the file the other
+     * was about to publish, or unlink it from under the other's rename.
      */
     private fun writeBytes(
         path: Path,
@@ -429,7 +434,7 @@ internal class CommonImageStorage(
             SystemFileSystem.createDirectories(parent)
             prepareServerRecoverableDirectories()
         }
-        val partial = Path("$path$PARTIAL_SUFFIX")
+        val partial = Path("$path$PARTIAL_SUFFIX.${Uuid.random()}")
         try {
             SystemFileSystem.sink(partial).buffered().use { sink ->
                 sink.write(data)

@@ -50,6 +50,14 @@ internal class ImageDownloader(
     private suspend fun avatarMutexFor(userId: String): Mutex =
         avatarDownloadMutexesGuard.withLock { avatarDownloadMutexes.getOrPut(userId) { Mutex() } }
 
+    // Per-book serialization of cover saves, the same shape as the avatar one above and bounded the
+    // same way: by distinct books asked for this session.
+    private val coverDownloadMutexes = mutableMapOf<BookId, Mutex>()
+    private val coverDownloadMutexesGuard = Mutex()
+
+    private suspend fun coverMutexFor(bookId: BookId): Mutex =
+        coverDownloadMutexesGuard.withLock { coverDownloadMutexes.getOrPut(bookId) { Mutex() } }
+
     private suspend fun markAvatarMissing(userId: String) =
         avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.add(userId) }
 
@@ -80,10 +88,17 @@ internal class ImageDownloader(
      * Non-fatal errors (404, network issues) are logged but don't throw.
      * Returns success=true if cover was downloaded and saved successfully.
      *
+     * Serialized per book, like avatars: two rows asking for the same uncached cover would
+     * otherwise download it twice and save it over itself at the same moment. The second caller
+     * waits, then finds the file.
+     *
      * @param bookId Unique identifier for the book
      * @return Result indicating if cover was successfully downloaded and saved
      */
-    override suspend fun downloadCover(bookId: BookId): AppResult<Boolean> {
+    override suspend fun downloadCover(bookId: BookId): AppResult<Boolean> =
+        coverMutexFor(bookId).withLock { downloadCoverOnce(bookId) }
+
+    private suspend fun downloadCoverOnce(bookId: BookId): AppResult<Boolean> {
         // Skip if already exists locally. This is also how a v42→v43 upgrader's pre-existing
         // cover files (written before the marker column existed) get marked ahead of the
         // startup reconciler running.
