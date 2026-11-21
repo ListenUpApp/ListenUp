@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.core.BookId
@@ -214,6 +213,4 @@ private class QueuedPositionRepository(
         } else {
             AppResult.Success(Unit)
         }
-
-    override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> = AppResult.Success(null)
 }

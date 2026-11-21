@@ -868,8 +868,6 @@ private class RecordingPositionRepository : PlaybackPositionRepository {
     override suspend fun discardProgress(bookId: BookId) = TODO("not used")
 
     override suspend fun restartBook(bookId: BookId) = TODO("not used")
-
-    override suspend fun getLastPlayedBook() = TODO("not used")
 }
 
 private object ThrowingDownloadRepository : DownloadRepository {

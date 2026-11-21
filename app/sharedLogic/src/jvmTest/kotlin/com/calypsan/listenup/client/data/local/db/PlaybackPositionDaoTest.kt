@@ -10,7 +10,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Covers the reactive query surface of [PlaybackPositionDao]:
- * - [PlaybackPositionDao.observeRecentPositions] — Continue Listening shelf
+ * - [PlaybackPositionDao.observeContinueListeningCandidates] — Continue Listening, everywhere
  */
 class PlaybackPositionDaoTest :
     FunSpec({
@@ -39,10 +39,10 @@ class PlaybackPositionDaoTest :
             )
 
         // ──────────────────────────────────────────────────────────────────────
-        // observeRecentPositions — migrated from kotlin-test
+        // observeContinueListeningCandidates
         // ──────────────────────────────────────────────────────────────────────
 
-        test("observeRecentPositions returns started positions sorted by recency, limited") {
+        test("observeContinueListeningCandidates returns started positions sorted by recency") {
             runTest {
                 dao.saveAll(
                     listOf(
@@ -56,8 +56,8 @@ class PlaybackPositionDaoTest :
                     ),
                 )
 
-                dao.observeRecentPositions(limit = 3).test {
-                    awaitItem().map { it.bookId.value } shouldContainExactly listOf("e", "a", "b")
+                dao.observeContinueListeningCandidates().test {
+                    awaitItem().map { it.bookId.value } shouldContainExactly listOf("e", "a", "b", "c")
                     cancelAndIgnoreRemainingEvents()
                 }
 
@@ -65,11 +65,11 @@ class PlaybackPositionDaoTest :
             }
         }
 
-        test("observeRecentPositions emits new list when a position updates") {
+        test("observeContinueListeningCandidates emits new list when a position updates") {
             runTest {
                 dao.save(position(id = "a", positionMs = 100L, lastPlayedAt = 1_000L, updatedAt = 1_000L))
 
-                dao.observeRecentPositions(limit = 5).test {
+                dao.observeContinueListeningCandidates().test {
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("a")
 
                     dao.save(position(id = "b", positionMs = 200L, lastPlayedAt = 2_000L, updatedAt = 2_000L))
@@ -86,7 +86,7 @@ class PlaybackPositionDaoTest :
         // Fix B: SQL-side isFinished = 0 filter (Continue Listening reliability)
         // ──────────────────────────────────────────────────────────────────────
 
-        test("observeRecentPositions excludes isFinished=true positions") {
+        test("observeContinueListeningCandidates excludes isFinished=true positions") {
             runTest {
                 dao.saveAll(
                     listOf(
@@ -97,7 +97,7 @@ class PlaybackPositionDaoTest :
                     ),
                 )
 
-                dao.observeRecentPositions(limit = 10).test {
+                dao.observeContinueListeningCandidates().test {
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("p1")
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -106,7 +106,7 @@ class PlaybackPositionDaoTest :
             }
         }
 
-        test("observeRecentPositions still excludes positionMs=0 (unstarted) positions") {
+        test("observeContinueListeningCandidates still excludes positionMs=0 (unstarted) positions") {
             runTest {
                 dao.saveAll(
                     listOf(
@@ -117,7 +117,7 @@ class PlaybackPositionDaoTest :
                     ),
                 )
 
-                dao.observeRecentPositions(limit = 10).test {
+                dao.observeContinueListeningCandidates().test {
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("started")
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -126,7 +126,7 @@ class PlaybackPositionDaoTest :
             }
         }
 
-        test("observeRecentPositions ordering: COALESCE(lastPlayedAt, updatedAt) DESC") {
+        test("observeContinueListeningCandidates ordering: COALESCE(lastPlayedAt, updatedAt) DESC") {
             runTest {
                 dao.saveAll(
                     listOf(
@@ -139,7 +139,7 @@ class PlaybackPositionDaoTest :
                     ),
                 )
 
-                dao.observeRecentPositions(limit = 10).test {
+                dao.observeContinueListeningCandidates().test {
                     awaitItem().map { it.bookId.value } shouldContainExactly listOf("legacy", "mid", "old")
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -148,7 +148,7 @@ class PlaybackPositionDaoTest :
             }
         }
 
-        test("observeRecentPositions respects LIMIT") {
+        test("observeContinueListeningCandidates has no limit: the finished rule runs after it, then the limit") {
             runTest {
                 val positions =
                     (1..15).map { i ->
@@ -156,8 +156,8 @@ class PlaybackPositionDaoTest :
                     }
                 dao.saveAll(positions)
 
-                dao.observeRecentPositions(limit = 5).test {
-                    awaitItem().size shouldBe 5
+                dao.observeContinueListeningCandidates().test {
+                    awaitItem().size shouldBe 15
                     cancelAndIgnoreRemainingEvents()
                 }
 

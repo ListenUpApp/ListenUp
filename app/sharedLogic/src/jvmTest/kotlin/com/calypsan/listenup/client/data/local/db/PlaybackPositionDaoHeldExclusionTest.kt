@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -26,8 +27,8 @@ class PlaybackPositionDaoHeldExclusionTest :
             lastPlayedAt = lastPlayedAt,
         )
 
-        // The held book is the MOST RECENT. With limit 1, a filter applied after the LIMIT would
-        // return nothing at all; the SQL exclusion returns the next playable book.
+        // The held book is the MOST RECENT, so a reader taking the first candidate would offer a book
+        // the playback choke point refuses; the SQL exclusion makes the next playable book first.
         suspend fun seedPositions(db: ListenUpDatabase) {
             HeldBookFixture.seedBook(db, "visible")
             HeldBookFixture.seedBook(db, "held")
@@ -37,23 +38,23 @@ class PlaybackPositionDaoHeldExclusionTest :
             db.playbackPositionDao().save(position("held", lastPlayedAt = 2_000L))
         }
 
-        test("observeRecentPositions — Home's Continue Listening") {
+        test("observeContinueListeningCandidates — Continue Listening, on Home and everywhere else") {
             withHeldBookDb { db ->
                 seedPositions(db)
                 db
                     .playbackPositionDao()
-                    .observeRecentPositions(limit = 1)
+                    .observeContinueListeningCandidates()
                     .map { rows -> rows.map { it.bookId.value } }
                     .test {
                         awaitItem() shouldContainExactly listOf("visible")
                         HeldBookFixture.applyReleaseEcho(db, "held")
-                        awaitItemMatching { it == listOf("held") } shouldContainExactly listOf("held")
+                        awaitItemMatching { it == listOf("held", "visible") } shouldContainExactly listOf("held", "visible")
                         cancelAndIgnoreRemainingEvents()
                     }
             }
         }
 
-        test("observeRecentPositions — a book held mid-subscription leaves Continue Listening") {
+        test("observeContinueListeningCandidates — a book held mid-subscription leaves Continue Listening") {
             withHeldBookDb { db ->
                 HeldBookFixture.seedBook(db, "visible")
                 HeldBookFixture.seedBook(db, "other")
@@ -63,10 +64,10 @@ class PlaybackPositionDaoHeldExclusionTest :
                 db.playbackPositionDao().save(position("visible", lastPlayedAt = 2_000L))
                 db
                     .playbackPositionDao()
-                    .observeRecentPositions(limit = 1)
+                    .observeContinueListeningCandidates()
                     .map { rows -> rows.map { it.bookId.value } }
                     .test {
-                        awaitItem() shouldContainExactly listOf("visible")
+                        awaitItem() shouldContainExactly listOf("visible", "other")
                         HeldBookFixture.hold(db, "visible")
                         awaitItemMatching { it == listOf("other") } shouldContainExactly listOf("other")
                         cancelAndIgnoreRemainingEvents()
@@ -74,16 +75,24 @@ class PlaybackPositionDaoHeldExclusionTest :
             }
         }
 
-        test("getRecentPositions — voice resume, Android Auto, iOS resume, media resumption") {
+        test("observeContinueListeningCandidates, read once — voice resume, Android Auto, iOS resume, media resumption") {
             withHeldBookDb { db ->
                 seedPositions(db)
-                db.playbackPositionDao().getRecentPositions(limit = 1).map { it.bookId.value } shouldContainExactly
+                db
+                    .playbackPositionDao()
+                    .observeContinueListeningCandidates()
+                    .first()
+                    .map { it.bookId.value } shouldContainExactly
                     listOf("visible")
 
                 HeldBookFixture.applyReleaseEcho(db, "held")
 
-                db.playbackPositionDao().getRecentPositions(limit = 1).map { it.bookId.value } shouldContainExactly
-                    listOf("held")
+                db
+                    .playbackPositionDao()
+                    .observeContinueListeningCandidates()
+                    .first()
+                    .map { it.bookId.value } shouldContainExactly
+                    listOf("held", "visible")
             }
         }
 

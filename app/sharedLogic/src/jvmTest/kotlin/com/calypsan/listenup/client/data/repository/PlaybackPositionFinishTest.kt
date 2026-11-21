@@ -224,7 +224,7 @@ class PlaybackPositionFinishTest :
 
         context("C-C04: tombstone-then-replay") {
             test(
-                "a tombstoned position is excluded from get/getRecentPositions/streak, " +
+                "a tombstoned position is excluded from get/Continue Listening/streak, " +
                     "then heals on an active local write",
             ) {
                 val db = createInMemoryTestDatabase()
@@ -241,7 +241,7 @@ class PlaybackPositionFinishTest :
                         // the raw row regardless of tombstone status; see PlaybackPositionDao.get's
                         // KDoc).
                         db.playbackPositionDao().getLive(bookId) shouldBe null
-                        db.playbackPositionDao().getRecentPositions(10) shouldBe emptyList()
+                        db.playbackPositionDao().observeContinueListeningCandidates().first() shouldBe emptyList()
                         db.playbackPositionDao().observeListenedDayTimestamps().first() shouldBe emptyList()
 
                         // An active local write heals it.
@@ -253,7 +253,11 @@ class PlaybackPositionFinishTest :
                         healed.positionMs shouldBe 5_000L
                         healed.deletedAt shouldBe null
 
-                        db.playbackPositionDao().getRecentPositions(10).map { it.bookId } shouldContain bookId
+                        db
+                            .playbackPositionDao()
+                            .observeContinueListeningCandidates()
+                            .first()
+                            .map { it.bookId } shouldContain bookId
                         db
                             .playbackPositionDao()
                             .observeListenedDayTimestamps()

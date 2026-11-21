@@ -50,7 +50,7 @@ app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/core/error/Er
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/auth/AuthFailureObserver.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/covertheme/CoverPixelReader.kt 2
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/local/db/Daos.kt 1
-app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/local/db/PlaybackPositionDao.kt 7
+app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/local/db/PlaybackPositionDao.kt 5
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/remote/ApiClientFactory.kt 4
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/remote/PeerVersionCapture.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/data/remote/RpcAuthRecovery.kt 3

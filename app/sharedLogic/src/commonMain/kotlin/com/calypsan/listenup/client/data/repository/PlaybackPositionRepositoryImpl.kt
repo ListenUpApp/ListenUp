@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.flow.Flow
@@ -82,18 +81,6 @@ internal class PlaybackPositionRepositoryImpl(
         }
 
     override fun observe(bookId: BookId): Flow<PlaybackPosition?> = dao.observe(bookId).map { it?.toDomain() }
-
-    override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> =
-        suspendRunCatching {
-            val positions = dao.getRecentPositions(1)
-            positions.firstOrNull()?.let { position ->
-                LastPlayedInfo(
-                    bookId = position.bookId,
-                    positionMs = position.positionMs,
-                    playbackSpeed = position.playbackSpeed,
-                )
-            }
-        }
 
     // ----- Write paths -----------------------------------------------------------------------
 

@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.test.fake
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.flow.Flow
@@ -40,17 +39,6 @@ class FakePlaybackPositionRepository(
 
     override suspend fun get(bookId: BookId): AppResult<PlaybackPosition?> =
         AppResult.Success(state.value[bookId.value])
-
-    override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> {
-        val most = state.value.values.maxByOrNull { it.effectiveLastPlayedAtMs } ?: return AppResult.Success(null)
-        return AppResult.Success(
-            LastPlayedInfo(
-                bookId = BookId(most.bookId),
-                positionMs = most.positionMs,
-                playbackSpeed = most.playbackSpeed,
-            ),
-        )
-    }
 
     override fun observeAll(): Flow<Map<BookId, PlaybackPosition>> =
         state.asStateFlow().map { stringKeyed ->

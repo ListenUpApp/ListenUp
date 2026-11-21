@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.test.fake
 import app.cash.turbine.test
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -123,34 +122,6 @@ class FakePlaybackPositionRepositoryTest :
                 after.positionMs shouldBe 0L
                 after.isFinished shouldBe false
                 after.finishedAtMs shouldBe null
-            }
-        }
-
-        test("getLastPlayedBookReturnsMostRecentlyPlayed") {
-            runTest {
-                var clock = 1_000L
-                val repo = FakePlaybackPositionRepository(nowMs = { clock })
-                repo.savePlaybackState(BookId("oldest"), PlaybackUpdate.Position(positionMs = 100L, speed = 1.0f))
-                clock = 2_000L
-                repo.savePlaybackState(BookId("newest"), PlaybackUpdate.Speed(positionMs = 5_000L, speed = 1.5f, custom = true))
-
-                val result = repo.getLastPlayedBook()
-
-                val info = result.shouldBeInstanceOf<AppResult.Success<LastPlayedInfo?>>().data
-                info.shouldNotBeNull()
-                info.bookId.value shouldBe "newest"
-                info.positionMs shouldBe 5_000L
-                info.playbackSpeed shouldBe 1.5f
-            }
-        }
-
-        test("getLastPlayedBookReturnsNullWhenEmpty") {
-            runTest {
-                val repo = FakePlaybackPositionRepository()
-
-                val result = repo.getLastPlayedBook()
-
-                result.shouldBeInstanceOf<AppResult.Success<LastPlayedInfo?>>().data shouldBe null
             }
         }
     })
