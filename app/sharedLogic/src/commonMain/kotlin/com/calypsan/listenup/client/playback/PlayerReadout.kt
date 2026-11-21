@@ -45,7 +45,8 @@ internal class PlayerReadout(
         combine(stage, engine.loadedBookId) { s, held -> s is SessionStage.Engine && held == s.bookId }
             .stateIn(scope, SharingStarted.Eagerly, false)
 
-    private val savedPosition: StateFlow<PlaybackPosition?> =
+    /** The stage's book's Room position row: this device's saves and whatever sync applied from other devices. */
+    val savedPosition: StateFlow<PlaybackPosition?> =
         stageBookId
             .flatMapLatest { id ->
                 id?.let { bookId ->

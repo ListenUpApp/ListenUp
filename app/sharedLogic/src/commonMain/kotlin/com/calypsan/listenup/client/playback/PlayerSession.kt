@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -18,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -35,6 +38,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+/** How far a newer row must be from the paused playhead before Play moves to it; closer is the same place. */
+internal const val NEWER_POSITION_TOLERANCE_MS = 5_000L
 
 /**
  * The one owner of this device's loaded book.
@@ -164,6 +170,7 @@ class PlayerSession(
         scope.launch { watchLiveness() }
         scope.launch { haltSurfacedFailures() }
         scope.launch { reportStartsThatNeverSettle(state, onNeverStarted = ::failStartThatNeverSettled) }
+        scope.launch { accountForOwnPositionWrites() }
         sleep.start(loadedBookId = stageBookId)
     }
 
@@ -291,7 +298,8 @@ class PlayerSession(
      *
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
      * - The book the engine already holds, not finished, not failed and not halted by a failure, is a resume: a
-     *   seek when [startAtMs] is given, then play. Never a re-prepare (the web rule, now everyone's).
+     *   seek when [startAtMs] is given (else to a newer place another device saved, [resumeHeldBook]), then play.
+     *   Never a re-prepare (the web rule, now everyone's).
      * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
      *   where the listener moved it before Play.
      */
@@ -310,9 +318,13 @@ class PlayerSession(
                     loaded.phase !is PlayerPhase.Failed &&
                     (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
-                if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
-                engine.clearError()
-                engine.play()
+                if (startAtMs != null) {
+                    engine.seekTo(clampToBook(startAtMs))
+                    engine.clearError()
+                    engine.play()
+                } else {
+                    resumeHeldBook(bookId)
+                }
                 return@onPlayer
             }
             // A plain Play of the loaded, not-prepared book honours where the listener moved it.
@@ -385,6 +397,72 @@ class PlayerSession(
             }
     }
 
+    // ── Resume of a held book ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The newest position-row stamp this device accounts for on the engine-bound book: the row it bound with,
+     * then its own saves. Null while the engine holds nothing for the stage. Touched only on the player scope.
+     */
+    private var ownPositionStamp: Long? = null
+
+    /**
+     * Keep [ownPositionStamp]. A row that changes while the engine plays, or that lands within
+     * [NEWER_POSITION_TOLERANCE_MS] of the playhead, is this device's own save (the periodic tick, the pause, a
+     * seek). A row that lands far from a paused playhead was written elsewhere and synced in: it is left newer.
+     */
+    private suspend fun accountForOwnPositionWrites() {
+        combine(engineBound, readout.savedPosition) { bound, row -> bound to row }.collect { (bound, row) ->
+            val own = ownPositionStamp
+            ownPositionStamp =
+                when {
+                    !bound -> null
+                    own == null -> row?.effectiveLastPlayedAtMs ?: Long.MIN_VALUE
+                    row != null && isOwnPositionWrite(row) -> maxOf(own, row.effectiveLastPlayedAtMs)
+                    else -> own
+                }
+        }
+    }
+
+    private fun isOwnPositionWrite(row: PlaybackPosition): Boolean =
+        engine.phase.value == EnginePhase.PLAYING ||
+            engine.phase.value == EnginePhase.BUFFERING ||
+            abs(row.positionMs - engine.positionMs.value) <= NEWER_POSITION_TOLERANCE_MS
+
+    /**
+     * Play the book the engine holds, paused. Another device may have listened on since this one paused: sync
+     * wrote its row into Room, but a resume never prepares, so the engine never heard. Resuming from the old
+     * playhead would make this device's next save the newest place everywhere and overwrite that progress. So a
+     * newer row seeks the engine there first, and a newer row that finished the book is decided by a load, as Play
+     * on a finished book always is. No network on the tap: the row is what sync already delivered.
+     */
+    private fun resumeHeldBook(bookId: BookId) {
+        val newer = newerPositionFromElsewhere(bookId)
+        if (newer?.isFinished == true) {
+            startLoad(bookId, PlaybackStart.Resume)
+            return
+        }
+        if (newer != null) {
+            engine.seekTo(clampToBook(newer.positionMs))
+            ownPositionStamp = newer.effectiveLastPlayedAtMs
+        }
+        engine.clearError()
+        engine.play()
+    }
+
+    /** The book's Room row when it is newer than this device's own place and elsewhere in the book, else null. */
+    private fun newerPositionFromElsewhere(bookId: BookId): PlaybackPosition? {
+        val row = readout.savedPosition.value?.takeIf { it.bookId == bookId.value } ?: return null
+        val own = ownPositionStamp ?: return null
+        if (row.effectiveLastPlayedAtMs <= own) return null
+        return row.takeIf {
+            it.isFinished || abs(
+                it.positionMs - engine.positionMs.value,
+            ) > NEWER_POSITION_TOLERANCE_MS
+        }
+    }
+
+    private fun clampToBook(positionMs: Long): Long = positionMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L))
+
     /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
     private suspend fun rememberLoaded(bookId: BookId) {
         try {
@@ -446,11 +524,11 @@ class PlayerSession(
                 }
 
                 PlayerPhase.Paused -> {
-                    engine.clearError()
                     if ((stage.value as? SessionStage.Engine)?.halted == true) {
+                        engine.clearError()
                         startLoad(loaded.bookId, retryStart(loaded))
                     } else {
-                        engine.play()
+                        resumeHeldBook(loaded.bookId)
                     }
                 }
 
