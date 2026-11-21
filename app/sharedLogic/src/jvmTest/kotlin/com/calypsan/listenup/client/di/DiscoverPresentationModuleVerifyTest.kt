@@ -23,6 +23,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -113,6 +114,7 @@ class DiscoverPresentationModuleVerifyTest :
                             }
                             single<SyncRepository> { mock(MockMode.autoUnit) }
                             single<AuthSession> { FakeAuthSession() }
+                            single<ServerReachability> { FakeServerReachability() }
                         },
                     )
                 }

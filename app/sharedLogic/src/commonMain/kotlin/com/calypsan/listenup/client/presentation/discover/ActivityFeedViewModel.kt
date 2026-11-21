@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.core.error.ErrorMapper
@@ -50,6 +52,7 @@ private const val MAX_ACTIVITIES = 100
  * @property activityRepository Repository for activity feed reads (the local mirror).
  * @param activeSessionRepository The cached presence roster, for who is listening right now.
  * @param authSession The signed-in reader, so each row knows whether it is theirs ([ActivityUiModel.isYou]).
+ * @param serverReachability Whether the server can be reached: the roster is a cache, stale once it cannot.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityFeedViewModel internal constructor(
@@ -57,16 +60,23 @@ class ActivityFeedViewModel internal constructor(
     activeSessionRepository: ActiveSessionRepository,
     private val syncRepository: SyncRepository,
     authSession: AuthSession,
+    serverReachability: ServerReachability,
 ) : ViewModel() {
     private val currentUserId: Flow<String?> =
         authSession.authState
             .map { auth -> if (auth is AuthState.Authenticated) auth.userId.value else null }
             .distinctUntilChanged()
 
-    /** Who other than the viewer is listening right now; nobody while signed out. */
+    /** Who other than the viewer is listening right now; nobody while signed out, or while the server is down. */
     private val listeningNow: Flow<List<ActiveSession>> =
-        currentUserId.flatMapLatest { me ->
-            if (me == null) flowOf(emptyList()) else activeSessionRepository.observeListeningNow(me)
+        combine(
+            currentUserId.flatMapLatest { me ->
+                if (me == null) flowOf(emptyList()) else activeSessionRepository.observeListeningNow(me)
+            },
+            serverReachability.state,
+        ) { live, reachability ->
+            // Unknown (still connecting) is not stale: only a known-down server dates the roster, as on Discover.
+            if (reachability is Reachability.Unreachable) emptyList() else live
         }
 
     /**
