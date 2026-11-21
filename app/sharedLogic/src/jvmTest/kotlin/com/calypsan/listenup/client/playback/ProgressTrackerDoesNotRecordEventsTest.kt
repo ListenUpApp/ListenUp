@@ -52,7 +52,6 @@ class ProgressTrackerDoesNotRecordEventsTest :
 
                     // No listening event may have been written.
                     dao.getLatestEventTimestamp() shouldBe null
-                    dao.getTotalDurationSince(0L) shouldBe 0L
                 } finally {
                     db.close()
                 }

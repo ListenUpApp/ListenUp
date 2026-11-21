@@ -37,18 +37,6 @@ internal class PlaybackProgressServiceImpl(
         return AppResult.Success(repository.findByBookIds(userId, bookIds))
     }
 
-    override suspend fun getRecentlyListened(limit: Int): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId = resolveUser() ?: return noPrincipal()
-        val clamped = limit.coerceIn(RECENT_MIN, RECENT_MAX)
-        return AppResult.Success(repository.recentlyListenedForUser(userId, clamped))
-    }
-
-    override suspend fun getCompletedBooks(limit: Int): AppResult<List<PlaybackPositionSyncPayload>> {
-        val userId = resolveUser() ?: return noPrincipal()
-        val clamped = limit.coerceIn(COMPLETED_MIN, COMPLETED_MAX)
-        return AppResult.Success(repository.completedForUser(userId, clamped))
-    }
-
     private fun resolveUser(): UserId? = principal.current()?.userId
 
     private fun noPrincipal(): AppResult.Failure =
@@ -64,9 +52,5 @@ internal class PlaybackProgressServiceImpl(
     private companion object {
         const val LIST_PROGRESS_MIN = 1
         const val LIST_PROGRESS_MAX = 500
-        const val RECENT_MIN = 1
-        const val RECENT_MAX = 100
-        const val COMPLETED_MIN = 1
-        const val COMPLETED_MAX = 500
     }
 }

@@ -120,9 +120,6 @@ internal class ActiveSessionRepositoryImpl(
             }
         }
 
-    override fun observeActiveCount(currentUserId: String): Flow<Int> =
-        observeActiveSessions(currentUserId).map { it.size }
-
     private fun cachedSessions(): Flow<List<ActiveSession>> =
         cachedSessionDao.observeWithBooks().map { rows -> rows.map { it.toDomain() } }
 
