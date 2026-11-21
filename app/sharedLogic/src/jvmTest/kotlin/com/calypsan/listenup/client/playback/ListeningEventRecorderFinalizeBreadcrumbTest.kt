@@ -96,6 +96,7 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
                     recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
 
                     now = 31_000L
+                    recorder.onPeriodicTick(BOOK_ID, positionMs = 30_000L)
                     recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
 
                     // The ORIGINAL span survives untouched — still for the OLD book, not a fresh
@@ -104,7 +105,7 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
                     val span = db.tentativeSpanDao().get().shouldNotBeNull()
                     span.bookId shouldBe BOOK_ID
                     span.startPositionMs shouldBe START_POSITION
-                    span.currentPositionMs shouldBe START_POSITION
+                    span.currentPositionMs shouldBe 30_000L
                     span.startedAt shouldBe 1_000L
 
                     db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0

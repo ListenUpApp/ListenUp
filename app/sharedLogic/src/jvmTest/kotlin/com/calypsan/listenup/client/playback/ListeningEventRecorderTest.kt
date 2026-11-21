@@ -477,24 +477,72 @@ class ListeningEventRecorderTest :
             }
         }
 
-        // ── F8: a reverse seek must never produce an inverted span ───────────────────────────────
+        // ── A span that covered no audio is not a listen ─────────────────────────────────────────
 
-        test("onSeek clamps a stale-backward before-position so the pre-seek span is never inverted") {
+        test("a backward seek whose before-position is behind the span's start records nothing for that span") {
             runTest {
                 var now = 1_000L
-                withFixture(nowMillisProvider = { now }) { recorder, db, _ ->
-                    recorder.onPlay(BOOK_ID, positionMs = 720_000L, SPEED) // span starts at 0:12:00
+                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
+                    recorder.onPlay(BOOK_ID, positionMs = 720_000L, SPEED)
                     now = 2_000L
-                    // A backward seek reported with a before-position BEHIND the span's own start.
-                    // Pre-fix this finalized endPositionMs=700_000 < startPositionMs=720_000 — an
-                    // inverted span with undefined server handling.
                     recorder.onSeek(positionBeforeSeek = 700_000L, positionAfterSeek = 60_000L)
+
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
+                    enqueuedOps.size shouldBe 0
+                    db
+                        .tentativeSpanDao()
+                        .get()
+                        .shouldNotBeNull()
+                        .startPositionMs shouldBe 60_000L
+                }
+            }
+        }
+
+        test("the rewind on resume leaves no empty listen behind the one it starts") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
+                    recorder.onPlay(BOOK_ID, positionMs = 28_274_902L, SPEED)
+                    now = 1_015L
+                    recorder.onSeek(positionBeforeSeek = 28_274_902L, positionAfterSeek = 28_269_902L)
+                    now = 61_015L
+                    recorder.onPause(BOOK_ID, positionMs = 28_329_902L)
 
                     val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
                     events.size shouldBe 1
-                    val span = events[0]
-                    (span.endPositionMs >= span.startPositionMs) shouldBe true
-                    span.endPositionMs shouldBe 720_000L // clamped up to the span's start
+                    events[0].startPositionMs shouldBe 28_269_902L
+                    events[0].endPositionMs shouldBe 28_329_902L
+                    enqueuedOps.size shouldBe 1
+                }
+            }
+        }
+
+        test("a pause reported at the position a skip back landed on records nothing for that span") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
+                    recorder.onPlay(BOOK_ID, positionMs = 600_000L, SPEED)
+                    now = 1_300L
+                    recorder.onPause(BOOK_ID, positionMs = 590_000L)
+
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
+                    enqueuedOps.size shouldBe 0
+                    db.tentativeSpanDao().get().shouldBeNull()
+                }
+            }
+        }
+
+        test("minutes spent with the position standing still are not counted as listening") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
+                    recorder.onPlay(BOOK_ID, positionMs = 25_913_543L, SPEED)
+                    now = 176_221L
+                    recorder.onPause(BOOK_ID, positionMs = 25_913_543L)
+
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
+                    enqueuedOps.size shouldBe 0
+                    db.tentativeSpanDao().get().shouldBeNull()
                 }
             }
         }

@@ -34,9 +34,11 @@ private val logger = KotlinLogging.logger {}
  * platform playback layer calls [onPeriodicTick] from its existing periodic
  * position-update loop (the same tick that drives [ProgressTracker]).
  *
- * **Zero-duration / zero-position spans.** A span where `endedAt == startedAt` (play +
- * pause within the same millisecond) is silently dropped. Stats pollution from accidental
- * double-taps is avoided without surfacing noise to the user.
+ * **Spans that heard nothing.** A span that took no time (play + pause within the same
+ * millisecond) or covered no audio (it ends at or before the position it started from) is
+ * dropped, not recorded. Each seek splits the span, so a resume's auto-rewind, a skip back, or
+ * a pause reported at the position a seek landed on closes a span that heard nothing; and a
+ * player that reports playing while the position stands still is not a listen either.
  *
  * **Enqueue indirection.** Rather than taking a [com.calypsan.listenup.client.data.sync.PendingOperationQueue]
  * directly, the recorder accepts a suspend lambda `enqueue` of just the facts it decides —
@@ -259,9 +261,9 @@ class ListeningEventRecorder internal constructor(
      * (e.g. 0:12:00 → 5:02:00 after a seek to 5:00:00), fabricating coverage that corrupts the
      * books-finished / coverage-derived stats. No-op if no span is open.
      *
-     * The pre-seek end is clamped to the span's own start so a backward seek reported with a
-     * stale before-position can never produce an inverted span (`endPositionMs < startPositionMs`),
-     * which the server has no defined handling for.
+     * A before-position at or behind the span's own start (a backward seek reported with a stale
+     * before-position, or the auto-rewind right after a play) closes a span that heard nothing, which
+     * [finalizeCurrentSpan] drops.
      *
      * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
      * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
@@ -276,10 +278,9 @@ class ListeningEventRecorder internal constructor(
         spanLock.withLock {
             val existing = tentativeSpanDao.get() ?: return
             val nowMs = clock.now().toEpochMilliseconds()
-            val endPositionMs = maxOf(positionBeforeSeek, existing.startPositionMs)
             val cleared =
                 finalizeThenCheckCleared(
-                    endPositionMs = endPositionMs,
+                    endPositionMs = positionBeforeSeek,
                     endedAt = nowMs,
                     bookId = existing.bookId,
                     caller = "onSeek",
@@ -380,13 +381,12 @@ class ListeningEventRecorder internal constructor(
     }
 
     /**
-     * Reads the current [TentativeSpanEntity], applies zero-duration / zero-position drop
-     * rules, then atomically writes a [ListeningEventEntity] + enqueues a pending op + deletes
-     * the tentative span.
+     * Reads the current [TentativeSpanEntity], drops it if it heard nothing, otherwise atomically
+     * writes a [ListeningEventEntity] + enqueues a pending op + deletes the tentative span.
      *
-     * **Zero-duration drop.** If `endedAt == tentative.startedAt` the span covers zero wall-clock
-     * time (play+pause within the same millisecond). The tentative is deleted and no event is
-     * written — avoids polluting the events table with accidental double-taps.
+     * **Heard-nothing drop.** A span that took no wall-clock time (`endedAt == startedAt`) or covered
+     * no audio (`endPositionMs <= startPositionMs`) is not a listen: the tentative is deleted and no
+     * event is written (see the class KDoc for where such spans come from).
      *
      * **Atomicity.** The three writes (upsert event, enqueue op, delete tentative) run inside a
      * single [transactionRunner] transaction — they are all same-database Room DAO writes, so
@@ -403,9 +403,8 @@ class ListeningEventRecorder internal constructor(
     ) {
         val tentative = tentativeSpanDao.get() ?: return
 
-        // Drop zero-duration spans (play+pause within the same millisecond).
-        if (endedAt == tentative.startedAt) {
-            logger.debug { "[ListeningEventRecorder] Dropping zero-duration span for book=${tentative.bookId}" }
+        if (endedAt == tentative.startedAt || endPositionMs <= tentative.startPositionMs) {
+            logger.debug { "[ListeningEventRecorder] Dropping a span that heard nothing for book=${tentative.bookId}" }
             tentativeSpanDao.delete()
             return
         }
