@@ -31,37 +31,29 @@ class BookTransferJobService :
     KoinComponent {
     private val transfers: BookTransfers by inject()
 
-    private class Running(
-        val params: JobParameters,
-        val host: JobHost,
-    ) {
-        var job: Job? = null
-    }
-
-    private val running = ConcurrentHashMap<Int, Running>()
+    /** The runs this service holds, by job id: each host keeps its job's parameters and coroutine alive. */
+    private val running = ConcurrentHashMap<Int, JobHost>()
 
     override fun onStartJob(params: JobParameters): Boolean {
         val bookId = params.extras.getString(JOB_EXTRA_BOOK_ID) ?: return false
         val title = params.extras.getString(JOB_EXTRA_TITLE).orEmpty()
         val host = JobHost(params)
         host.postNow(transfers.startingNotification(bookId, title))
-        val entry = Running(params, host)
-        running[params.jobId] = entry
-        entry.job =
+        running[params.jobId] = host
+        host.job =
             transfers.scope.launch {
                 try {
                     val outcome = transfers.runOn(bookId, host)
                     jobFinished(params, outcome == BookTransferOutcome.RETRY_LATER)
                 } catch (e: CancellationException) {
                     // The system stopped the job (onStopJob already answered) or the app cancelled it.
-                    logger.info { "download: job stopped book=$bookId" }
                     throw e
                 } catch (e: Exception) {
                     // Anything unexpected (a database error) waits and tries again rather than holding the job open.
                     logger.error(e) { "download: job failed book=$bookId" }
                     jobFinished(params, true)
                 } finally {
-                    running.remove(params.jobId, entry)
+                    running.remove(params.jobId, host)
                 }
             }
         logger.info { "download: job start book=$bookId job=${params.jobId}" }
@@ -70,9 +62,11 @@ class BookTransferJobService :
 
     override fun onStopJob(params: JobParameters): Boolean {
         val code = params.stopReason
-        val entry = running[params.jobId]
-        entry?.host?.stopCode = code
-        entry?.job?.cancel()
+        running[params.jobId]?.let { host ->
+            host.stopCode = code
+            host.job?.cancel()
+        }
+        logger.info { "download: job stopped job=${params.jobId} code=$code" }
         return wantsRescheduleAfterStop(code)
     }
 
@@ -85,6 +79,10 @@ class BookTransferJobService :
 
         @Volatile
         var stopCode: Int = JobParameters.STOP_REASON_UNDEFINED
+
+        /** The run's coroutine, cancelled when the system stops the job. */
+        @Volatile
+        var job: Job? = null
 
         fun postNow(notification: Notification) {
             setNotification(

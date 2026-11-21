@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -180,9 +179,9 @@ class BookTransfers internal constructor(
      */
     internal suspend fun resumeAll() {
         val stale =
-            store.incompleteRows().filter {
-                it.state == DownloadState.DOWNLOADING &&
-                    !registry.isRunning(it.bookId)
+            store.incompleteRows().filter { row ->
+                row.state == DownloadState.DOWNLOADING &&
+                    !registry.isRunning(row.bookId)
             }
         if (stale.isNotEmpty()) {
             val exit = deviceState.lastExitReason()
@@ -246,16 +245,17 @@ class BookTransfers internal constructor(
     ): BookTransferOutcome {
         val title = titleOf(bookId)
         val adapter = NotifyingHost(bookId, title, host)
+        var outcome: BookTransferOutcome? = null
         try {
-            val outcome = run.run(bookId, adapter)
-            if (outcome == BookTransferOutcome.COMPLETED) notifications.clearHeld() else showHeldIfWaiting(bookId)
+            outcome = run.run(bookId, adapter)
             return outcome
-        } catch (e: CancellationException) {
-            withContext(NonCancellable) { showHeldIfWaiting(bookId) }
-            throw e
         } finally {
             latestActive = null
             host.finished()
+            // A completed book clears the held notification; anything else (a wait, a stop) says why it is waiting.
+            withContext(NonCancellable) {
+                if (outcome == BookTransferOutcome.COMPLETED) notifications.clearHeld() else showHeldIfWaiting(bookId)
+            }
         }
     }
 
@@ -307,8 +307,15 @@ class BookTransfers internal constructor(
     /** After a run stops, say so if the download waits to resume (for Wi-Fi, or for the system). */
     private suspend fun showHeldIfWaiting(bookId: String) {
         when (phaseOf(bookId)) {
-            DownloadPhase.WaitingForWifi, DownloadPhase.WaitingToResume -> showHeld(bookId)
-            else -> Unit
+            DownloadPhase.WaitingForWifi, DownloadPhase.WaitingToResume -> {
+                showHeld(bookId)
+            }
+
+            DownloadPhase.NotDownloaded, DownloadPhase.Queued, DownloadPhase.Downloaded,
+            is DownloadPhase.Downloading, is DownloadPhase.PausedByYou, is DownloadPhase.Failed,
+            -> {
+                Unit
+            }
         }
     }
 
@@ -317,11 +324,16 @@ class BookTransfers internal constructor(
         val kind =
             when (phaseOf(bookId)) {
                 DownloadPhase.WaitingForWifi -> DownloadNotice.HeldKind.WAITING_FOR_WIFI
+
                 DownloadPhase.WaitingToResume -> DownloadNotice.HeldKind.WAITING_TO_RESUME
+
                 is DownloadPhase.PausedByYou -> DownloadNotice.HeldKind.PAUSED_BY_YOU
-                else -> return
+
+                DownloadPhase.NotDownloaded, DownloadPhase.Queued, DownloadPhase.Downloaded,
+                is DownloadPhase.Downloading, is DownloadPhase.Failed,
+                -> return
             }
-        val live = rows.filter { it.state != DownloadState.CANCELLED && it.state != DownloadState.DELETED }
+        val live = rows.filter { row -> row.state.isLive() }
         notifications.showHeld(
             DownloadNotice.Held(
                 bookId = bookId,
@@ -341,10 +353,7 @@ class BookTransfers internal constructor(
 
     private suspend fun requestFor(bookId: String): BookTransferRequest {
         val rows =
-            store.rowsFor(bookId).filter {
-                it.state != DownloadState.CANCELLED &&
-                    it.state != DownloadState.DELETED
-            }
+            store.rowsFor(bookId).filter { row -> row.state.isLive() }
         return BookTransferRequest(
             bookId = bookId,
             title = titleOf(bookId),
@@ -370,10 +379,7 @@ class BookTransfers internal constructor(
         cause: StopCause,
     ) {
         val rows =
-            store.rowsFor(bookId).filter {
-                it.state != DownloadState.CANCELLED &&
-                    it.state != DownloadState.DELETED
-            }
+            store.rowsFor(bookId).filter { row -> row.state.isLive() }
         val stop =
             DownloadStop(
                 at = now(),
@@ -393,3 +399,6 @@ class BookTransfers internal constructor(
         }
     }
 }
+
+/** A file still part of the book: not cancelled, not a deletion tombstone. */
+private fun DownloadState.isLive(): Boolean = this != DownloadState.CANCELLED && this != DownloadState.DELETED

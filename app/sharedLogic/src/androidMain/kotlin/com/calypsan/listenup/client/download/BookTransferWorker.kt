@@ -69,11 +69,11 @@ class BookTransferWorker internal constructor(
         try {
             setForeground(foregroundInfo(notification))
             true
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IllegalStateException) {
             // ForegroundServiceStartNotAllowedException (an IllegalStateException) on Android 12–13.
-            logger.info {
-                "download: no foreground for this run (${e::class.simpleName}); continuing as a plain worker"
-            }
+            logger.info { "download: no foreground for this run (${e.javaClass.name}); continuing as a plain worker" }
             false
         }
 
