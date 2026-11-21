@@ -70,7 +70,14 @@ class DownloadWorker(
                 }
 
                 is AppResult.Failure -> {
-                    when (settleDownloadFailure(audioFileId, result.error, downloadRepository, errorBus)) {
+                    val verdict =
+                        settleDownloadFailure(
+                            audioFileId = audioFileId,
+                            error = result.error,
+                            repository = downloadRepository,
+                            errorBus = errorBus,
+                        )
+                    when (verdict) {
                         DownloadFailureVerdict.RETRY_LATER -> Result.retry()
                         DownloadFailureVerdict.GIVE_UP -> Result.failure()
                     }
