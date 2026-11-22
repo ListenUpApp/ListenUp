@@ -10,7 +10,7 @@
 # Host networking is Linux-host only and shares the host's network stack (the server binds the host's
 # :8080 directly — no port mapping). If you're exposing ListenUp to the internet, running behind a
 # reverse proxy, or on Docker Desktop (macOS/Windows), use the bridge variant in the install docs
-# instead and connect the app by URL. See https://listenupapp.github.io/website/getting-started/installation/
+# instead and connect the app by URL. See https://listenup.audio/getting-started/installation/
 services:
   listenup:
     image: ghcr.io/listenupapp/listenup-server:latest
@@ -26,8 +26,11 @@ services:
       # PORT: 8080
     volumes:
       - listenup-data:/data
-      # Your audiobooks, mounted read-only — ListenUp only ever reads them.
-      - /mnt/media/audiobooks:/audiobooks:ro
+      # Your audiobooks, mounted read-write: uploading books from the app, organizing files when a book
+      # is edited, imports, and writing metadata sidecars next to the audio all write into this folder.
+      # Append ':ro' to run ListenUp strictly read-only — those features are then refused, and the
+      # server logs one "is NOT writable" warning per library folder at start.
+      - /mnt/media/audiobooks:/audiobooks
     restart: unless-stopped
 
 volumes:

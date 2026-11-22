@@ -27,9 +27,6 @@ kotlin {
 
     compilerOptions {
         freeCompilerArgs.addAll(LISTENUP_FREE_COMPILER_ARGS)
-        // :contract classfiles carry pre-release Kotlin metadata; without this the
-        // server compilations reject them.
-        freeCompilerArgs.add("-Xskip-prerelease-check")
     }
 }
 

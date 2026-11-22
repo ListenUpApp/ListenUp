@@ -330,8 +330,18 @@ tasks.withType<Test>().configureEach {
 //
 // Each catches COLLAPSE, not attrition. Deliberately not a ratchet — a floor set just under the current
 // count fails honest deletions and trains people to edit the number without reading it.
-// 255 tests ran green on 2026-07-25.
-failBelowDiscoveredTestCount("testAndroidHostTest", floor = 200)
+// 2,420 ran green on 2026-11-21 on two engines: 1,778 JUnit4 tests (Robolectric and Compose UI, through the
+// vintage engine) and 642 Kotest. The floor sits above the larger engine's count, so losing either engine
+// fails it, and one anchor per engine names which one went.
+failBelowDiscoveredTestCount(
+    "testAndroidHostTest",
+    floor = 2050,
+    anchorSpecs =
+        listOf(
+            "com.calypsan.listenup.client.playback.PlaybackErrorHandlerTest",
+            "com.calypsan.listenup.client.di.PlaybackModuleVerifyTest",
+        ),
+)
 // 62 tests across 7 specs ran green on 2026-09-09. This lane runs in CI's test-jvm job (ci.yml) and in
 // verifyLocal (root build.gradle.kts), so a silent collapse here is a real hole, not a theoretical one.
 failBelowDiscoveredTestCount("desktopTest", floor = 40)

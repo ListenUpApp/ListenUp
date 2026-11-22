@@ -26,6 +26,16 @@ updates:
       web-toolchain:
         patterns: ["*"]
 
+  # The iOS app's Swift packages are declared in the Xcode project, not a Package.swift; Dependabot reads
+  # ListenUp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved and the pbxproj's rules.
+  - package-ecosystem: swift
+    directory: /app/iosApp
+    schedule:
+      interval: monthly
+    groups:
+      swift-packages:
+        patterns: ["*"]
+
   - package-ecosystem: gradle
     directory: /
     schedule:
