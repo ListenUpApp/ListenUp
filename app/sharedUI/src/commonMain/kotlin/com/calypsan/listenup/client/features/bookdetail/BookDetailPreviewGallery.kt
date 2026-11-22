@@ -453,6 +453,7 @@ private fun PreviewActions(
         labelled = labelled,
         onPrimaryClick = {},
         onDownload = {},
+        onPauseDownload = {},
         onCancelDownload = {},
         onRemoveDownload = {},
         onAddToShelf = {},

@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.DownloadPhase
+import com.calypsan.listenup.client.domain.model.downloadPhaseOf
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -51,10 +53,6 @@ internal class DefaultBookAvailability(
                     is BookDownloadStatus.Paused -> downloadStatus.completedFiles > 0
                     is BookDownloadStatus.NotDownloaded -> false
                 }
-            val isQueued =
-                downloadStatus is BookDownloadStatus.InProgress &&
-                    downloadStatus.downloadingFiles == 0 &&
-                    downloadStatus.completedFiles == 0
             BookAvailability.State(
                 downloadStatus = downloadStatus,
                 isPlaybackAvailable = playbackAvailable,
@@ -66,7 +64,10 @@ internal class DefaultBookAvailability(
                 canPlay = hasDownloadedAudio || reachability != Reachability.Unreachable,
                 canDownload = playbackAvailable && reachability != Reachability.Unreachable,
                 showServerWarning = reachability == Reachability.Unreachable && !isFullyDownloaded,
-                isWaitingForWifi = isQueued && wifiOnly && !unmetered,
+                // The one rule every download surface reads: a download that is not moving and would on Wi-Fi.
+                isWaitingForWifi =
+                    downloadPhaseOf(downloadStatus, wifiBlocked = wifiOnly && !unmetered) ==
+                        DownloadPhase.WaitingForWifi,
             )
         }
 }

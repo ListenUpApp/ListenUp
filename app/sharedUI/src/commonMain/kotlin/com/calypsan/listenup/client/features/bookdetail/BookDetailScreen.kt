@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,6 +51,9 @@ import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.cancelNeedsConfirmation
+import com.calypsan.listenup.client.domain.model.discardableBytes
+import com.calypsan.listenup.client.domain.model.knownTotalBytes
 import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
@@ -306,6 +310,7 @@ private fun BookDetailLoadingFrame(
  */
 private enum class BookDetailDialog {
     RemoveDownload,
+    CancelDownload,
     DeleteBookFromDisk,
     MarkComplete,
     MarkNotStarted,
@@ -356,6 +361,8 @@ private fun BookDetailReadyContent(
     val isPreparing = preparingBookId == BookId(bookId)
 
     var dialog by remember { mutableStateOf<BookDetailDialog?>(null) }
+    // Read by the remembered Cancel action, which outlives a single state.
+    val currentDownloadStatus = rememberUpdatedState(state.downloadStatus)
 
     val book = state.book
 
@@ -416,9 +423,18 @@ private fun BookDetailReadyContent(
                         handleDownloadResult(result) { message -> snackbarHostState.showSnackbar(message) }
                     }
                 },
-                onCancelClick = {
+                onPauseClick = {
                     scope.launch {
-                        platformActions.cancelDownload(BookId(bookId))
+                        platformActions.pauseDownload(BookId(bookId))
+                    }
+                },
+                onCancelClick = {
+                    // Asks first only when the cancel would discard a lot (canvas decision 4).
+                    val status = currentDownloadStatus.value
+                    if (cancelNeedsConfirmation(status.discardableBytes(), status.knownTotalBytes())) {
+                        dialog = BookDetailDialog.CancelDownload
+                    } else {
+                        scope.launch { platformActions.cancelDownload(BookId(bookId)) }
                     }
                 },
                 onDeleteClick = { dialog = BookDetailDialog.RemoveDownload },
@@ -449,6 +465,17 @@ private fun BookDetailReadyContent(
     )
 
     when (dialog) {
+        BookDetailDialog.CancelDownload -> {
+            CancelDownloadDialog(
+                savedBytes = state.downloadStatus.discardableBytes(),
+                onConfirm = {
+                    scope.launch { platformActions.cancelDownload(BookId(bookId)) }
+                    dialog = null
+                },
+                onDismiss = { dialog = null },
+            )
+        }
+
         BookDetailDialog.RemoveDownload -> {
             DeleteDownloadDialog(
                 downloadSize = state.downloadStatus.downloadedOrTotalBytes(),
@@ -678,6 +705,7 @@ private fun PhoneListenUnit(
             labelled = false,
             onPrimaryClick = actions.onPlayClick,
             onDownload = actions.onDownloadClick,
+            onPauseDownload = actions.onPauseClick,
             onCancelDownload = actions.onCancelClick,
             onRemoveDownload = actions.onDeleteClick,
             onAddToShelf = actions.onAddToShelfClick,

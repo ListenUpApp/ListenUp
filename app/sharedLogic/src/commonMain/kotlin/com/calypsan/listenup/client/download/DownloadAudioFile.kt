@@ -43,7 +43,7 @@ private const val BUFFER_SIZE = 8 * 1024
 private const val PROGRESS_BYTES_INTERVAL = 256 * 1024L // 256KB — emit progress at least every quarter MB
 
 /**
- * Core download logic for a single audio file, extracted from [DownloadWorker] so it can be
+ * Core download logic for a single audio file, called by [BookTransferRun] and kept apart so it can be
  * driven from commonTest/jvmTest without WorkManager or an Android Context.
  *
  * Returns [AppResult.Success] when the file is fully downloaded. Returns

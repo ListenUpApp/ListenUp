@@ -191,15 +191,40 @@ fun byteSizeLabel(bytes: Long): String {
     }
 }
 
+/**
+ * How much of a download is saved, as every platform says it: "212 of 640 MB", "1.1 of 1.4 GB". Both numbers are in
+ * the unit [totalBytes] reads in, named once, by the same rounding as [byteSizeLabel].
+ */
+fun byteProgressLabel(
+    downloadedBytes: Long,
+    totalBytes: Long,
+): String {
+    val total = totalBytes.coerceAtLeast(0L)
+    val done = downloadedBytes.coerceIn(0L, total)
+    val (unit, name) =
+        when {
+            total < BYTES_PER_KIB -> return "$done of $total B"
+            total < BYTES_PER_MIB -> return "${done / BYTES_PER_KIB} of ${total / BYTES_PER_KIB} KB"
+            total < BYTES_PER_GIB -> BYTES_PER_MIB to "MB"
+            else -> BYTES_PER_GIB to "GB"
+        }
+    return "${tenthsNumber(done, unit)} of ${tenthsNumber(total, unit)} $name"
+}
+
 private fun tenthsLabel(
     bytes: Long,
     unit: Long,
     name: String,
+): String = "${tenthsNumber(bytes, unit)} $name"
+
+private fun tenthsNumber(
+    bytes: Long,
+    unit: Long,
 ): String {
     val tenths = (bytes * TENTHS + unit / 2) / unit
     return if (tenths >= WHOLE_ABOVE_TENTHS || tenths % TENTHS == 0L) {
-        "${(tenths + TENTHS / 2) / TENTHS} $name"
+        "${(tenths + TENTHS / 2) / TENTHS}"
     } else {
-        "${tenths / TENTHS}.${tenths % TENTHS} $name"
+        "${tenths / TENTHS}.${tenths % TENTHS}"
     }
 }

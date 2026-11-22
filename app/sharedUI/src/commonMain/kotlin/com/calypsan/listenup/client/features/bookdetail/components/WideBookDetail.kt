@@ -227,6 +227,7 @@ private fun WideHero(
                     labelled = true,
                     onPrimaryClick = actions.onPlayClick,
                     onDownload = actions.onDownloadClick,
+                    onPauseDownload = actions.onPauseClick,
                     onCancelDownload = actions.onCancelClick,
                     onRemoveDownload = actions.onDeleteClick,
                     onAddToShelf = actions.onAddToShelfClick,

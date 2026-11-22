@@ -11,7 +11,7 @@ import android.content.Intent
 
 /**
  * Android implementation of BookDetailPlatformActions.
- * Delegates to DownloadManager (WorkManager) and the shared [PlayerSession] (Media3 through its engine).
+ * Delegates to DownloadManager (book runs) and the shared [PlayerSession] (Media3 through its engine).
  */
 class AndroidBookDetailPlatformActions(
     private val context: Context,
@@ -23,6 +23,10 @@ class AndroidBookDetailPlatformActions(
 
     override suspend fun cancelDownload(bookId: BookId) {
         downloadManager.cancelDownload(bookId)
+    }
+
+    override suspend fun pauseDownload(bookId: BookId) {
+        downloadManager.pauseDownload(bookId, fromNotification = false)
     }
 
     override suspend fun deleteDownload(bookId: BookId) {

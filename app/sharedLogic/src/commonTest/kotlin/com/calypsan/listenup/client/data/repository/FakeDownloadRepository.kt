@@ -179,8 +179,10 @@ internal open class FakeDownloadRepository(
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
+        causeCode: String?,
     ): AppResult<Int> {
-        // Mirror the production guarded query: a genuine failure spends one retry; a terminal row is left alone.
+        // Mirror the production guarded query: a genuine failure spends one retry and records why; a terminal row is
+        // left alone.
         update(audioFileId) { entry ->
             if (entry.state in terminalStatesForPause) {
                 entry
@@ -188,6 +190,7 @@ internal open class FakeDownloadRepository(
                 entry.copy(
                     state = DownloadState.FAILED,
                     errorMessage = error.message,
+                    lastErrorCode = causeCode ?: error.code,
                     retryCount = entry.retryCount + 1,
                 )
             }

@@ -9,8 +9,8 @@ import io.kotest.matchers.shouldNotBe
  * [Lazy] dependencies.
  *
  * This pins the fix for the WorkManager init-ordering crash: before the fix,
- * constructing the factory at DI-resolution time would eagerly resolve
- * DownloadRepository → DownloadEnqueuer → WorkManager.getInstance(), which threw
+ * constructing the factory at DI-resolution time would eagerly resolve the download graph
+ * (BookTransfers → its scheduler → WorkManager.getInstance()), which threw
  * because WorkManager.initialize() had not yet been called.  After the fix, all
  * dependencies are [Lazy]; none is accessed until [WorkerFactory.createWorker]
  * runs at job-dispatch time.
@@ -23,10 +23,7 @@ class ListenUpWorkerFactoryLazyTest :
         test("constructing ListenUpWorkerFactory does not force any dependency") {
             val factory =
                 ListenUpWorkerFactory(
-                    downloadRepository = lazy { error("downloadRepository forced at construction") },
-                    fileManager = lazy { error("fileManager forced at construction") },
-                    audioFileDownloader = lazy { error("audioFileDownloader forced at construction") },
-                    errorBus = lazy { error("errorBus forced at construction") },
+                    bookTransfers = lazy { error("bookTransfers forced at construction") },
                     adminRepository = lazy { error("adminRepository forced at construction") },
                 )
             // If we reach here, no dep was forced — the factory was safely constructed.

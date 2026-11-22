@@ -22,7 +22,12 @@ class NotificationChannelsTest :
             NotificationChannels.SOCIAL shouldBe "listenup_social"
         }
 
-        test("allIds returns the two live channel ids in order") {
-            NotificationChannels.allIds() shouldBe listOf("listenup_playback", "listenup_social")
+        test("DOWNLOADS channel id is listenup_downloads, never the retired listenup_download") {
+            NotificationChannels.DOWNLOADS shouldBe "listenup_downloads"
+            NotificationChannels.RETIRED_CHANNEL_IDS.contains(NotificationChannels.DOWNLOADS) shouldBe false
+        }
+
+        test("allIds returns the three live channel ids in order") {
+            NotificationChannels.allIds() shouldBe listOf("listenup_playback", "listenup_social", "listenup_downloads")
         }
     })

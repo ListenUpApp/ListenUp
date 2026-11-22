@@ -5,6 +5,8 @@ import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
+import com.calypsan.listenup.client.download.DownloadStopReason
+import com.calypsan.listenup.client.download.DownloadTransport
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,6 +16,11 @@ import kotlinx.coroutines.flow.Flow
  * so a run the system stopped never spends it.
  */
 internal const val MAX_DOWNLOAD_RETRIES = 3
+
+/** The rows a book run may pick up: see [DownloadDao.nextForRun]. Bound to `:maxRetries`. */
+private const val CLAIMABLE_FOR_RUN =
+    "state = 'QUEUED' OR (state = 'PAUSED' AND (pauseReason IS NULL OR pauseReason IN ('NETWORK_LOST', 'INTERRUPTED'))) " +
+        "OR (state = 'FAILED' AND retryCount < :maxRetries)"
 
 @Dao
 internal interface DownloadDao {
@@ -90,10 +97,14 @@ internal interface DownloadDao {
      * An unguarded `state = PAUSED` there would clobber the terminal state, and `getIncomplete()`
      * would silently resurrect a download the user explicitly cancelled or deleted. The `WHERE`
      * guard makes the terminal write win at the DB layer regardless of scheduling.
+     *
+     * A row the person paused keeps [DownloadPauseReason.PAUSED_BY_YOU]: the run they stopped reports its own stop
+     * as it dies, and that must not turn their pause into a wait that resumes by itself.
      */
     @Query(
-        "UPDATE downloads SET state = 'PAUSED', pauseReason = :reason WHERE audioFileId = :audioFileId " +
-            "AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
+        "UPDATE downloads SET state = 'PAUSED', " +
+            "pauseReason = CASE WHEN pauseReason = 'PAUSED_BY_YOU' AND state = 'PAUSED' THEN pauseReason ELSE :reason END " +
+            "WHERE audioFileId = :audioFileId AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
     )
     suspend fun markPausedIfNotTerminal(
         audioFileId: String,
@@ -155,6 +166,91 @@ internal interface DownloadDao {
     suspend fun markFailedIfNotTerminal(
         audioFileId: String,
         error: String,
+    )
+
+    /**
+     * The next file of [bookId] a book run should transfer, by file order: queued, waiting on a pause the platform
+     * resumes by itself, or failed with retries left. Null when the book has nothing left to transfer. A file the
+     * person paused, or one waiting for sign-in, is never picked.
+     */
+    @Query(
+        "SELECT * FROM downloads WHERE bookId = :bookId AND (" + CLAIMABLE_FOR_RUN + ") ORDER BY fileIndex LIMIT 1",
+    )
+    suspend fun nextForRun(
+        bookId: String,
+        maxRetries: Int,
+    ): DownloadEntity?
+
+    /**
+     * Claim [audioFileId] for a book run: DOWNLOADING if it is still one [nextForRun] would pick. Returns 1 when the
+     * run owns the transfer, 0 when the row moved on (paused, cancelled, completed) in the meantime.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'DOWNLOADING', startedAt = :startedAt WHERE audioFileId = :audioFileId AND (" +
+            CLAIMABLE_FOR_RUN + ")",
+    )
+    suspend fun claimForRun(
+        audioFileId: String,
+        startedAt: Long,
+        maxRetries: Int,
+    ): Int
+
+    /** Pause every unfinished file of [bookId] for the person: their pause wins over any wait. */
+    @Query(
+        "UPDATE downloads SET state = 'PAUSED', pauseReason = 'PAUSED_BY_YOU' WHERE bookId = :bookId " +
+            "AND state IN ('QUEUED', 'DOWNLOADING', 'PAUSED')",
+    )
+    suspend fun pauseBookForUser(bookId: String): Int
+
+    /**
+     * Forget every file of [bookId] that is still on the device or on its way: CANCELLED with no local path. The
+     * caller removes the files. Tombstones (DELETED) are left alone, so "explicitly deleted" still reads true.
+     */
+    @Query("UPDATE downloads SET state = 'CANCELLED', localPath = NULL WHERE bookId = :bookId AND state != 'DELETED'")
+    suspend fun discardBook(bookId: String)
+
+    /** How many books other than [bookId] have files waiting or moving: the queue behind the current download. */
+    @Query(
+        "SELECT COUNT(DISTINCT bookId) FROM downloads WHERE bookId != :bookId AND state IN ('QUEUED', 'DOWNLOADING')",
+    )
+    suspend fun countOtherActiveBooks(bookId: String): Int
+
+    /** The ids of books with at least one file a run could still transfer, in the order they were queued. */
+    @Query(
+        "SELECT bookId FROM downloads WHERE " + CLAIMABLE_FOR_RUN + " GROUP BY bookId ORDER BY MIN(queuedAt)",
+    )
+    suspend fun booksWithRunnableFiles(maxRetries: Int): List<String>
+
+    /**
+     * Record that a run stopped [audioFileId] before it finished: the mapped [reason], the platform's raw [code] (null
+     * when it gave none), when, and which [transport] ran it. Counts the stop.
+     */
+    @Query(
+        "UPDATE downloads SET stopReason = :reason, stopReasonCode = :code, stoppedAt = :at, " +
+            "stopCount = stopCount + 1, transport = :transport WHERE audioFileId = :audioFileId",
+    )
+    suspend fun recordStop(
+        audioFileId: String,
+        reason: DownloadStopReason,
+        code: Int?,
+        at: Long,
+        transport: DownloadTransport?,
+    )
+
+    /**
+     * Record a genuine failure with its error [code], unless the row has already reached a terminal state: FAILED,
+     * [message] shown, one retry spent. A transfer the person cancelled or deleted reports an error as it dies; that
+     * error must not undo their choice.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'FAILED', errorMessage = :message, lastErrorCode = :code, " +
+            "retryCount = retryCount + 1 WHERE audioFileId = :audioFileId " +
+            "AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
+    )
+    suspend fun recordFailure(
+        audioFileId: String,
+        message: String,
+        code: String,
     )
 
     /**

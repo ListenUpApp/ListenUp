@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
 import com.calypsan.listenup.client.presentation.settings.HardcoverSettingsViewModel
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
+import com.calypsan.listenup.client.presentation.download.DownloadPhasesViewModel
 import com.calypsan.listenup.client.presentation.sync.ManualSyncRefresh
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import com.calypsan.listenup.client.domain.model.signedInUserId
@@ -800,6 +801,16 @@ internal val settingsPresentationModule =
                 // Refuses deleting the playing book. Each platform's playback module binds it.
                 playbackStateProvider = get(),
                 inboxRepository = get(),
+                localPreferences = get(),
+                networkMonitor = get(),
+            )
+        }
+        // Where every book's download stands, for the Library grid's cover badges.
+        factory {
+            DownloadPhasesViewModel(
+                downloadRepository = get(),
+                localPreferences = get(),
+                networkMonitor = get(),
             )
         }
     }

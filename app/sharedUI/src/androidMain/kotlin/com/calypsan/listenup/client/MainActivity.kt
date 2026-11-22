@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client
 
 import android.content.Intent
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.download.DownloadManager
 import android.os.Bundle
 import android.view.KeyboardShortcutGroup
 import android.view.Menu
@@ -92,6 +94,12 @@ private const val HANDOFF_MIN_SDK = 37
 private const val EXTRA_HANDOFF_LINK = "com.calypsan.listenup.HANDOFF_LINK"
 
 class MainActivity : ComponentActivity() {
+    /** Extras other components hand this activity. */
+    companion object {
+        /** The book whose paused download the notification's Resume carries on. */
+        const val EXTRA_RESUME_DOWNLOAD_BOOK_ID = "com.calypsan.listenup.RESUME_DOWNLOAD_BOOK_ID"
+    }
+
     private val authSession: AuthSession by inject()
     private val syncRepository: SyncRepository by inject()
     private val localPreferences: LocalPreferences by inject()
@@ -265,6 +273,16 @@ class MainActivity : ComponentActivity() {
      * - App shortcut actions (RESUME, PLAY_BOOK, SEARCH, SLEEP_TIMER)
      */
     private fun handleIntent(intent: Intent) {
+        // Resume from the download notification. It opens the app on purpose: from Android 14 a download job can
+        // only be scheduled while ListenUp is visible. The same intent carries the book's link, handled below.
+        intent.getStringExtra(EXTRA_RESUME_DOWNLOAD_BOOK_ID)?.let { bookId ->
+            intent.removeExtra(EXTRA_RESUME_DOWNLOAD_BOOK_ID)
+            lifecycleScope.launch {
+                logger.info { "download: resume from notification book=$bookId" }
+                get<DownloadManager>().downloadBook(BookId(bookId))
+            }
+        }
+
         // A Continue On arrival. Read FIRST: a handoff launch carries our extra and may also carry
         // an action of its own, and the link is the more specific instruction either way. Decoding
         // it through the same codec as an App Link means the receiving half of this feature is the

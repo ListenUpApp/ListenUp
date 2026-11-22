@@ -50,6 +50,16 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
+import com.calypsan.listenup.client.domain.model.DownloadPhase
+import com.calypsan.listenup.client.domain.model.downloadPhaseOf
+import com.calypsan.listenup.client.features.bookdetail.components.downloadFailureText
+import com.calypsan.listenup.client.presentation.bookdetail.byteProgressLabel
+import listenup.composeapp.generated.resources.book_download_row_queued
+import listenup.composeapp.generated.resources.book_download_row_waiting_for_wifi
+import listenup.composeapp.generated.resources.book_download_status_downloading
+import listenup.composeapp.generated.resources.book_download_status_paused
+import listenup.composeapp.generated.resources.book_download_row_resumes_automatically
 import com.calypsan.listenup.client.presentation.storage.DeleteConfirmation
 import com.calypsan.listenup.client.presentation.storage.StorageUiState
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
@@ -232,13 +242,19 @@ private fun StorageMediumLayout(
                 bookCount = state.downloadedBooks.size,
             )
         }
-        if (state.downloadedBooks.isEmpty()) {
+        if (state.downloadedBooks.isEmpty() && state.inProgressBooks.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 EmptyDownloadsMessage()
             }
         } else {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
+            }
+            items(
+                items = state.inProgressBooks,
+                key = { "active-${it.bookId}" },
+            ) { download ->
+                InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
             }
             items(
                 items = state.downloadedBooks,
@@ -274,7 +290,7 @@ private fun StoragePhoneLayout(
             )
         }
 
-        if (state.downloadedBooks.isEmpty()) {
+        if (state.downloadedBooks.isEmpty() && state.inProgressBooks.isEmpty()) {
             item {
                 EmptyDownloadsMessage()
             }
@@ -283,6 +299,12 @@ private fun StoragePhoneLayout(
                 DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
             }
 
+            items(
+                items = state.inProgressBooks,
+                key = { "active-${it.bookId}" },
+            ) { download ->
+                InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
+            }
             items(
                 items = state.downloadedBooks,
                 key = { it.bookId },
@@ -317,7 +339,7 @@ private fun StorageWideLayout(
             modifier = Modifier.width(SummaryPanelWidth).padding(vertical = 16.dp),
         )
 
-        if (state.downloadedBooks.isEmpty()) {
+        if (state.downloadedBooks.isEmpty() && state.inProgressBooks.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 EmptyDownloadsMessage()
             }
@@ -331,6 +353,12 @@ private fun StorageWideLayout(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     DownloadedBooksHeading()
+                }
+                items(
+                    items = state.inProgressBooks,
+                    key = { "active-${it.bookId}" },
+                ) { download ->
+                    InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
                 }
                 items(
                     items = state.downloadedBooks,
@@ -456,6 +484,107 @@ private fun EmptyDownloadsMessage() {
         )
     }
 }
+
+/**
+ * A book whose download has started and not finished, as a Downloads row: cover, title, author, and where it stands
+ * (canvas `A-Library`): "Downloading · 212 of 640 MB", "Queued", "Waiting for Wi-Fi", "Waiting · resumes
+ * automatically", "Paused · 1.1 of 1.4 GB saved", or why it failed, in the error colour.
+ */
+@Composable
+private fun InProgressDownloadItem(
+    download: InProgressBookSummary,
+    wifiBlocked: Boolean,
+) {
+    val phase = downloadPhaseOf(download.status, wifiBlocked)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BookCoverImage(
+                bookId = download.bookId,
+                coverPath = download.coverPath,
+                coverHash = download.coverHash,
+                contentDescription = null,
+                title = download.title,
+                author = download.authorNames,
+                modifier = Modifier.size(56.dp).clip(MaterialTheme.shapes.small).clearAndSetSemantics {},
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = download.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (download.authorNames.isNotEmpty()) {
+                    Text(
+                        text = download.authorNames,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = activeDownloadLine(phase),
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (phase is DownloadPhase.Failed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                )
+            }
+        }
+    }
+}
+
+/** A Downloads row's second line for a download in flight, in the canvas's words. */
+@Composable
+private fun activeDownloadLine(phase: DownloadPhase): String =
+    when (phase) {
+        is DownloadPhase.Downloading -> {
+            stringResource(
+                Res.string.book_download_status_downloading,
+                byteProgressLabel(phase.downloadedBytes, phase.totalBytes),
+            )
+        }
+
+        DownloadPhase.Queued -> {
+            stringResource(Res.string.book_download_row_queued)
+        }
+
+        DownloadPhase.WaitingForWifi -> {
+            stringResource(Res.string.book_download_row_waiting_for_wifi)
+        }
+
+        DownloadPhase.WaitingToResume -> {
+            stringResource(Res.string.book_download_row_resumes_automatically)
+        }
+
+        is DownloadPhase.PausedByYou -> {
+            stringResource(
+                Res.string.book_download_status_paused,
+                byteProgressLabel(phase.downloadedBytes, phase.totalBytes),
+            )
+        }
+
+        is DownloadPhase.Failed -> {
+            downloadFailureText(phase.reason)
+        }
+
+        // An active summary is never one of these; say nothing rather than something wrong.
+        DownloadPhase.NotDownloaded, DownloadPhase.Downloaded -> {
+            ""
+        }
+    }
 
 @Composable
 private fun DownloadedBookItem(

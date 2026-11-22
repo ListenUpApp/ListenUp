@@ -53,6 +53,7 @@ class ListenActionGroupTest {
                     labelled = labelled,
                     onPrimaryClick = onPrimary,
                     onDownload = {},
+                    onPauseDownload = {},
                     onCancelDownload = {},
                     onRemoveDownload = onRemoveDownload,
                     onAddToShelf = onAddToShelf,

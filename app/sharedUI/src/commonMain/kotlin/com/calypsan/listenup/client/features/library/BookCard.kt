@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.components.DownloadBadge
+import com.calypsan.listenup.client.design.components.downloadBadgeDescription
+import com.calypsan.listenup.client.domain.model.DownloadPhase
 import com.calypsan.listenup.client.design.components.HeldLabel
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
@@ -115,6 +118,8 @@ private const val UNAVAILABLE_ALPHA = 0.5f
  * @param isFinished Authoritative completion status. Shows completion badge when true.
  * @param isLive Draws a [LiveChip] on the art's top-end corner: the reader on it is listening right now.
  * @param captions Quiet one-line facts under the author (e.g. "Book 1 of Mistborn", "24h 39m", "Added 2 days ago").
+ * @param downloadPhase Where the book's download stands: a [DownloadBadge] at the cover's bottom-end corner, and the
+ *   state in the cover's accessible name. Null (or not downloaded) draws nothing.
  * @param unavailableReason When non-null, the book cannot play here right now (Home offline, "Needs a connection"):
  *   the art and title dim to half and this line replaces the status line. The card stays tappable.
  * @param hasDocuments Whether this book has at least one PDF document attached.
@@ -162,6 +167,7 @@ fun BookCard(
     accessibilityLabel: String? = null,
     captions: List<String> = emptyList(),
     unavailableReason: String? = null,
+    downloadPhase: DownloadPhase? = null,
 ) {
     val contentAlpha = if (unavailableReason != null) UNAVAILABLE_ALPHA else 1f
     val interactionSource = remember { MutableInteractionSource() }
@@ -304,7 +310,11 @@ fun BookCard(
                 bookId = cover.bookId,
                 coverPath = cover.coverPath,
                 coverHash = cover.coverHash,
-                contentDescription = cover.title,
+                contentDescription =
+                    listOfNotNull(
+                        cover.title,
+                        downloadBadgeDescription(downloadPhase),
+                    ).joinToString(", "),
                 title = cover.title,
                 author = cover.author.orEmpty(),
                 progress = artProgress,
@@ -346,6 +356,10 @@ fun BookCard(
                     bookId = cover.bookId,
                     modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                 )
+            }
+
+            downloadPhase?.let { phase ->
+                DownloadBadge(phase = phase, modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
             }
 
             coverOverlay?.invoke(this)

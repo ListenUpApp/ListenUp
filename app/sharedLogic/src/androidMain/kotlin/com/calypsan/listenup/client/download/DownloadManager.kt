@@ -1,11 +1,8 @@
 package com.calypsan.listenup.client.download
 
-import androidx.work.ExistingWorkPolicy
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.await
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -40,11 +37,9 @@ private val logger = KotlinLogging.logger {}
  *
  * Implements [DownloadService] for use by shared code (PlaybackManager).
  *
- * The download queue is implemented via WorkManager's work queue, which:
- * - Persists queued downloads across app restarts
- * - Automatically retries failed downloads with exponential backoff
- * - Respects network constraints (WiFi-only when enabled)
- * - Allows cancellation via unique work names
+ * A book downloads as one run ([BookTransfers]): a user-initiated data transfer job on Android 14+, a `dataSync`
+ * foreground worker below it. Runs survive the app leaving the screen, take their turn one book at a time, show a
+ * notification with Pause and Cancel, and record every stop with its reason.
  */
 class DownloadManager internal constructor(
     private val downloadDao: DownloadDao,
@@ -52,10 +47,10 @@ class DownloadManager internal constructor(
     private val audioFileDao: AudioFileDao,
     private val workManager: WorkManager,
     private val fileManager: DownloadFileManager,
-    private val localPreferences: com.calypsan.listenup.client.domain.repository.LocalPreferences,
     private val downloadRepository: DownloadRepository,
     private val transactionRunner: TransactionRunner,
     private val errorBus: ErrorBus,
+    private val transfers: BookTransfers,
 ) : DownloadService {
     override val supportsDownloads: Boolean = true
 
@@ -121,6 +116,8 @@ class DownloadManager internal constructor(
 
         if (toDownload.isEmpty()) {
             logger.info { "All files already downloading, queued, or completed for ${bookId.value}" }
+            // A tap is the moment a run can be scheduled; make sure the queued files have one (a no-op when they do).
+            transfers.schedule(bookId.value)
             return AppResult.Success(DownloadOutcome.AlreadyDownloaded)
         }
 
@@ -159,26 +156,9 @@ class DownloadManager internal constructor(
             downloadDao.insertAll(entities)
         }
 
-        // Determine network constraint based on WiFi-only preference
-        // UNMETERED = WiFi/ethernet only, CONNECTED = any network (including cellular)
-        val wifiOnly = localPreferences.wifiOnlyDownloads.value
-
-        logger.info {
-            "Queueing downloads with network constraint: " +
-                if (wifiOnly) "UNMETERED (WiFi only)" else "CONNECTED (any network)"
-        }
-
-        // Queue WorkManager jobs
-        entities.forEach { entity ->
-            // KEEP (not REPLACE): never displace a worker already running for this file. toDownload
-            // already excludes in-flight rows, so KEEP only ever affects FAILED/PAUSED files: either
-            // their prior work has finished, or it is already waiting to retry and is left to do so.
-            workManager.enqueueUniqueWork(
-                fileWorkName(entity.audioFileId),
-                ExistingWorkPolicy.KEEP,
-                buildDownloadRequest(entity, wifiOnly),
-            )
-        }
+        // One run per book. The tap happens with the app on screen, which is when Android 14+ allows a
+        // user-initiated job to be scheduled. A run already registered for this book picks the new rows up.
+        transfers.schedule(bookId.value)
 
         logger.info { "Queued ${toDownload.size} files for download: ${bookId.value}" }
         return AppResult.Success(DownloadOutcome.Started)
@@ -191,43 +171,41 @@ class DownloadManager internal constructor(
      * this returns can only issue UPDATEs, which no-op against the now-empty table — no row resurrects.
      */
     override suspend fun deleteAllDownloads() {
+        // Stop every run first, so none is still writing into the directory being wiped.
+        downloadDao
+            .getIncomplete()
+            .map { it.bookId }
+            .distinct()
+            .forEach { transfers.cancelRun(it) }
         fileManager.deleteAllFiles()
         downloadDao.deleteAll()
         logger.info { "Deleted all downloads (files + records)" }
     }
 
     /**
-     * Pause a book's download. The work is cancelled first and awaited, so the dying worker's own
-     * cleanup (a system pause, `.tmp` kept) has landed before the person's pause replaces it; the
-     * `.tmp` partials stay for the Range-resume [downloadBook] does on Resume.
+     * Cancel a book's download and discard what it saved, so it reads "not downloaded" again. The rows are cancelled
+     * before the run is stopped, so a file that lands in the meantime is discarded rather than completed.
      */
-    override suspend fun pauseDownload(bookId: BookId) {
-        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
-        downloadDao
-            .getForBook(bookId.value)
-            .filter { row ->
-                row.state == DownloadState.QUEUED || row.state == DownloadState.DOWNLOADING ||
-                    row.state == DownloadState.PAUSED
-            }.forEach { row ->
-                downloadRepository
-                    .markPaused(row.audioFileId, DownloadPauseReason.PAUSED_BY_YOU)
-                    .onFailure { logger.warn { "Failed to persist paused state: ${row.audioFileId}" } }
-            }
-        logger.info { "Paused download: ${bookId.value}" }
+    override suspend fun cancelDownload(bookId: BookId) {
+        workManager.cancelAllWorkByTag(legacyBookTag(bookId.value)).await()
+        transfers.cancel(bookId.value)
     }
 
     /**
-     * Cancel active download for a book.
+     * Pause a book's download for the person: its partial files stay, and only they resume it (Resume is
+     * [downloadBook], which carries on from the saved bytes). [fromNotification] keeps a "Download paused" notification
+     * with Resume; a pause from inside the app withdraws the notification.
      */
-    override suspend fun cancelDownload(bookId: BookId) {
-        // Await WorkManager cancellation completion before updating DB state. Closes the race
-        // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
-        // but before the state update fires.
-        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
-        downloadRepository
-            .cancelForBook(bookId)
-            .onFailure { logger.warn { "Failed to persist cancelled state: ${bookId.value}" } }
-        logger.info { "Cancelled download: ${bookId.value}" }
+    override suspend fun pauseDownload(bookId: BookId) {
+        pauseDownload(bookId, fromNotification = false)
+    }
+
+    /** [pauseDownload], saying where it came from: a pause from the notification keeps a notification with Resume. */
+    suspend fun pauseDownload(
+        bookId: BookId,
+        fromNotification: Boolean,
+    ) {
+        transfers.pause(bookId.value, fromNotification)
     }
 
     /**
@@ -245,7 +223,8 @@ class DownloadManager internal constructor(
         // Await WorkManager cancellation completion before deleting files. Closes the race
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the deletion fires.
-        workManager.cancelAllWorkByTag(bookTag(bookId.value)).await()
+        workManager.cancelAllWorkByTag(legacyBookTag(bookId.value)).await()
+        transfers.cancelRun(bookId.value)
 
         // Delete files from disk
         if (!fileManager.deleteBookFiles(bookId.value)) {
@@ -305,16 +284,27 @@ class DownloadManager internal constructor(
     }
 
     /**
-     * Resume any incomplete downloads (e.g. after re-authentication or app restart).
-     * Resets stalled states to QUEUED and re-enqueues via WorkManager with KEEP policy
-     * so already-running work is not restarted.
+     * Resume any incomplete downloads (after sign-in, an app start, or the app returning to the screen). Sweeps orphan
+     * `.tmp` partials, cancels the per-file work of earlier releases, and gives every book with something to transfer
+     * a run unless it already has one ([BookTransfers.resumeAll]). On Android 14+ a run can only be scheduled while the
+     * app is visible; a start in the background records the refusal and the next foreground schedules it.
      */
     override suspend fun resumeIncompleteDownloads() {
         val incomplete = downloadDao.getIncomplete()
 
         // Sweep orphaned .tmp partials from prior runs: any .tmp whose audioFileId is not in the
         // active (non-terminal) set is a leftover from a cancelled or crashed download.
-        val activeIds = incomplete.map { it.audioFileId }.toSet()
+        // A file the person paused is left out of `incomplete` (it waits for them, not for a launch), but its
+        // partial is what Resume continues from, so it is kept too.
+        val userPausedIds =
+            downloadDao
+                .observeAll()
+                .first()
+                .filter { row ->
+                    row.state == DownloadState.PAUSED &&
+                        row.pauseReason == DownloadPauseReason.PAUSED_BY_YOU
+                }.map { row -> row.audioFileId }
+        val activeIds = incomplete.map { it.audioFileId }.toSet() + userPausedIds
         // The sweep is a blocking recursive disk walk, so it runs off the caller's dispatcher.
         val swept = withContext(IODispatcher) { fileManager.sweepOrphanedTempFiles(activeIds) }
         if (swept > 0) {
@@ -323,62 +313,27 @@ class DownloadManager internal constructor(
 
         if (incomplete.isEmpty()) return
 
-        logger.info { "Resuming ${incomplete.size} incomplete downloads" }
+        // The per-file workers of earlier releases: cancelled once, their books scheduled as runs below.
+        incomplete
+            .map { it.bookId }
+            .distinct()
+            .forEach { workManager.cancelAllWorkByTag(legacyBookTag(it)).await() }
 
-        val wifiOnly = localPreferences.wifiOnlyDownloads.value
+        resumeScheduling()
+    }
 
-        // A worker that is running right now owns its row; demoting it would make a live download read "Queued".
-        val runningAudioFileIds =
-            incomplete
-                .filter { it.state == DownloadState.DOWNLOADING }
-                .map { it.audioFileId }
-                .filter { id ->
-                    workManager
-                        .getWorkInfosForUniqueWorkFlow(fileWorkName(id))
-                        .first()
-                        .any { it.state == WorkInfo.State.RUNNING }
-                }.toSet()
-
-        for (download in rowsToRequeue(incomplete, runningAudioFileIds)) {
-            // KEEP policy avoids displacing a worker that's already running for this row.
-            // Reset PAUSED and stale DOWNLOADING rows to QUEUED (B10a): a row left in DOWNLOADING after a
-            // crash (no running worker) would show "downloading" forever if the (re-enqueued) worker is
-            // blocked by the wifi constraint. QUEUED reflects the truth and lets the re-enqueue below
-            // drive it. The subsequent worker owns further transitions.
-            if (download.state == DownloadState.PAUSED || download.state == DownloadState.DOWNLOADING) {
-                downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
-            }
-
-            workManager.enqueueUniqueWork(
-                fileWorkName(download.audioFileId),
-                ExistingWorkPolicy.KEEP,
-                buildDownloadRequest(download, wifiOnly),
-            )
-        }
-
-        logger.info { "Re-enqueued ${incomplete.size} incomplete downloads" }
+    /** Give every book with something to transfer a run unless it has one; cheap enough for every foreground. */
+    suspend fun resumeScheduling() {
+        transfers.resumeAll()
     }
 
     /**
-     * Re-enqueue every non-terminal download under the current Wi-Fi-only policy.
-     *
-     * WorkManager bakes `Constraints` into the work request at enqueue time and offers no way to
-     * amend them in place, so a preference change can only be honoured by replacing the work.
-     * `REPLACE` (not `KEEP`) is required and is safe: `KEEP` would discard the new request and
-     * leave the stale constraint, while cancelling a running worker routes through
-     * `persistDownloadCancellation`, which marks the row PAUSED and KEEPS its `.tmp` partial —
-     * the replacement worker resumes from those bytes via the `Range` header in
-     * `downloadAudioFile`. No progress is lost; the download simply moves onto the right network.
+     * Bring every unfinished download onto the current Wi-Fi-only rule. The platform fixes a job's network rule when
+     * it is scheduled, so a change is honoured by replacing each book's run: a running one stops (recorded as a
+     * preference change), keeps its partial, and the replacement resumes from those bytes under the new rule.
      */
     internal suspend fun reapplyNetworkConstraints(wifiOnly: Boolean) {
-        val rows = downloadDao.getIncomplete()
-        if (rows.isEmpty()) return
-        logger.info {
-            "Re-applying network constraint to ${rows.size} download(s): " +
-                if (wifiOnly) "UNMETERED (WiFi only)" else "CONNECTED (any network)"
-        }
-        constraintRefreshWork(rows, wifiOnly).forEach { (workName, request) ->
-            workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
-        }
+        logger.info { "download: network rule changed wifiOnly=$wifiOnly" }
+        transfers.reapplyNetworkRule()
     }
 }

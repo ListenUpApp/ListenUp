@@ -52,6 +52,7 @@ class ListenActionGroupTabletLabelsTest {
                     labelled = true,
                     onPrimaryClick = {},
                     onDownload = {},
+                    onPauseDownload = {},
                     onCancelDownload = {},
                     onRemoveDownload = {},
                     onAddToShelf = {},

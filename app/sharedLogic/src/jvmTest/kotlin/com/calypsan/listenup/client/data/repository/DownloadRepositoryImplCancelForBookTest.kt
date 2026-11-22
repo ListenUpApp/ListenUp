@@ -203,6 +203,39 @@ private class FailingUpdateStateDownloadDao(
     override suspend fun deleteDeletedRecordsForBook(bookId: String) = error("not needed by cancelForBook")
 
     override suspend fun deleteAll() = error("not needed by cancelForBook")
+
+    override suspend fun nextForRun(
+        bookId: String,
+        maxRetries: Int,
+    ): DownloadEntity? = error("not needed by cancelForBook")
+
+    override suspend fun claimForRun(
+        audioFileId: String,
+        startedAt: Long,
+        maxRetries: Int,
+    ): Int = error("not needed by cancelForBook")
+
+    override suspend fun pauseBookForUser(bookId: String): Int = error("not needed by cancelForBook")
+
+    override suspend fun discardBook(bookId: String) = error("not needed by cancelForBook")
+
+    override suspend fun countOtherActiveBooks(bookId: String): Int = error("not needed by cancelForBook")
+
+    override suspend fun booksWithRunnableFiles(maxRetries: Int): List<String> = error("not needed by cancelForBook")
+
+    override suspend fun recordStop(
+        audioFileId: String,
+        reason: com.calypsan.listenup.client.download.DownloadStopReason,
+        code: Int?,
+        at: Long,
+        transport: com.calypsan.listenup.client.download.DownloadTransport?,
+    ) = error("not needed by cancelForBook")
+
+    override suspend fun recordFailure(
+        audioFileId: String,
+        message: String,
+        code: String,
+    ) = error("not needed by cancelForBook")
 }
 
 private class NoopEnqueuer : DownloadEnqueuer {

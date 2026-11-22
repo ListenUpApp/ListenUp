@@ -25,7 +25,7 @@ import java.io.File
 
 /**
  * Contract tests for [persistDownloadCancellation], the cancellation-cleanup seam extracted from
- * [DownloadWorker.doWork]'s catch block so it can be exercised without WorkManager.
+ * [BookTransferRun]'s stop handling so it can be exercised without WorkManager.
  *
  * Uses hand-rolled fakes, not mokkery.
  */

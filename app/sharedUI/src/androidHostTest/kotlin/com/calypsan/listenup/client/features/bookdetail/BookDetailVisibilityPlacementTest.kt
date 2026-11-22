@@ -267,6 +267,7 @@ class BookDetailVisibilityPlacementTest {
                                     onPlayClick = {},
                                     onRetryConnection = {},
                                     onDownloadClick = {},
+                                    onPauseClick = {},
                                     onCancelClick = {},
                                     onDeleteClick = {},
                                     onSeriesClick = {},

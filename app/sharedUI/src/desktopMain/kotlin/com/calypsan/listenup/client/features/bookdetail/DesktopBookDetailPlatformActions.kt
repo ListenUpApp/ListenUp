@@ -20,6 +20,8 @@ class DesktopBookDetailPlatformActions(
 
     override suspend fun cancelDownload(bookId: BookId) {}
 
+    override suspend fun pauseDownload(bookId: BookId) {}
+
     override suspend fun deleteDownload(bookId: BookId) {}
 
     override fun playBook(bookId: BookId) {

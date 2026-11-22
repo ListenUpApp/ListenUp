@@ -5,10 +5,8 @@ import android.os.Build
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.diagnostics.JobReasonLogger
 import com.calypsan.listenup.client.domain.repository.AdminRepository
-import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.push.RegistrationDecisionWorker
 
 /**
@@ -19,16 +17,14 @@ import com.calypsan.listenup.client.push.RegistrationDecisionWorker
  * job-dispatch time — long after [WorkManager.initialize] has run during app startup.
  *
  * Handles creation of:
- * - [DownloadWorker] — offline audiobook downloads
+ * - [BookTransferWorker] — a book's download on Android 11–13
+ * - [DownloadWorker] — the retired per-file worker, which drains already-persisted work for one release
  * - [RegistrationDecisionWorker] — Approve/Deny taken from a registration notification
  */
 class ListenUpWorkerFactory(
-    private val downloadRepository: Lazy<DownloadRepository>,
-    private val fileManager: Lazy<DownloadFileManager>,
-    // Deferred to worker-creation time so the underlying getClient() is never called before
-    // onboarding completes (i.e. before serverConfig.getActiveUrl() returns non-null).
-    private val audioFileDownloader: Lazy<AudioFileDownloader>,
-    private val errorBus: Lazy<ErrorBus>,
+    // Book runs, deferred to worker-creation time so the download graph (and the authenticated client behind it) is
+    // never resolved before onboarding completes.
+    private val bookTransfers: Lazy<BookTransfers>,
     // Approve/Deny straight from a registration notification (#1068). Lazy like its siblings so
     // constructing the factory never resolves the admin graph.
     private val adminRepository: Lazy<AdminRepository>,
@@ -45,23 +41,23 @@ class ListenUpWorkerFactory(
                 correlationId = workerParameters.id.toString(),
             )
         }
-        if (workerClassName == RegistrationDecisionWorker::class.java.name) {
-            return RegistrationDecisionWorker(appContext, workerParameters, adminRepository.value)
-        }
-        return if (workerClassName == DownloadWorker::class.java.name) {
-            // AudioFileDownloader owns the HTTP transport in :app:sharedLogic; it resolves the (cached)
-            // authenticated client lazily on first download, so no client construction happens here
-            // at worker-creation time.
-            DownloadWorker(
-                context = appContext,
-                params = workerParameters,
-                downloadRepository = downloadRepository.value,
-                fileManager = fileManager.value,
-                audioFileDownloader = audioFileDownloader.value,
-                errorBus = errorBus.value,
-            )
-        } else {
-            null
+        return when (workerClassName) {
+            RegistrationDecisionWorker::class.java.name -> {
+                RegistrationDecisionWorker(appContext, workerParameters, adminRepository.value)
+            }
+
+            BookTransferWorker::class.java.name -> {
+                BookTransferWorker(appContext, workerParameters, bookTransfers.value)
+            }
+
+            // The per-file worker of earlier releases: drains without a dependency, for one release.
+            DownloadWorker::class.java.name -> {
+                DownloadWorker(appContext, workerParameters)
+            }
+
+            else -> {
+                null
+            }
         }
     }
 }

@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
  * Owns the HTTP transport entirely inside `:app:sharedLogic`: the implementation resolves the signed
  * download URL, streams the bytes (with Range-resume), updates the
  * [com.calypsan.listenup.client.domain.repository.DownloadRepository], and moves the completed file
- * into place. Consumers — notably the Android `DownloadWorker` — depend on this interface rather
+ * into place. Consumers — notably [BookTransferRun] — depend on this interface rather
  * than on a raw Ktor `HttpClient`, so no transport type crosses a module boundary (which would drag
  * the untranslatable Ktor client bridge onto the Swift Export surface).
  *

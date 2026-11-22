@@ -16,7 +16,7 @@ private val logger = KotlinLogging.logger {}
  * (the platform runs it again; no retry is spent), and removes the partial `.tmp` if the row has
  * already been moved to CANCELLED.
  *
- * Extracted from [DownloadWorker]'s cancellation catch so it can be exercised without WorkManager.
+ * Called from [BookTransferRun]'s stop handling, and kept apart so it can be exercised without WorkManager.
  *
  * Runs under [NonCancellable] because it is invoked from a coroutine that is *already being
  * cancelled* (the worker's cancellation catch). Without it the first suspending write

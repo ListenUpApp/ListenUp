@@ -89,6 +89,7 @@ class FakeDownloadRepository(
     override suspend fun markFailed(
         audioFileId: String,
         error: DownloadError,
+        causeCode: String?,
     ): AppResult<Int> = AppResult.Success(1)
 
     override suspend fun enqueueForBook(bookId: BookId): AppResult<DownloadOutcome> =

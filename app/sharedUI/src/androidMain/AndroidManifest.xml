@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Downloads: a dataSync foreground worker on Android 11–13, a user-initiated data transfer job from 14. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
+    <!-- A persisted download job survives a reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
@@ -134,6 +139,26 @@
         <receiver
             android:name="com.calypsan.listenup.client.playback.SleepTimerActionReceiver"
             android:exported="false" />
+
+        <!--
+            Pause and Cancel from the download notification. NOT exported: these intents come from our own
+            PendingIntent and nowhere else.
+        -->
+        <receiver
+            android:name="com.calypsan.listenup.client.download.DownloadActionReceiver"
+            android:exported="false" />
+
+        <!-- Android 14+: each book downloads as a user-initiated data transfer job. Only the system binds it. -->
+        <service
+            android:name="com.calypsan.listenup.client.download.BookTransferJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Android 11–13: WorkManager runs a download as a dataSync foreground service. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <service
             android:name="com.calypsan.listenup.client.push.ListenUpMessagingService"

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.domain.repository.PermissionsRepository
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -87,6 +88,8 @@ class SettingsPresentationModuleVerifyTest :
                         DownloadFileManager::class,
                         PlaybackStateProvider::class,
                         InboxRepository::class,
+                        LocalPreferences::class,
+                        NetworkMonitor::class,
                     ),
             )
         }
