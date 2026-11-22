@@ -38,11 +38,13 @@ internal interface DownloadDao {
      * Used to find stalled/interrupted downloads for resume. CANCELLED is excluded so that
      * resumeIncompleteDownloads does not silently restart a user-cancelled download on app start;
      * exhausted-FAILED is excluded (B10b) so a download that already burned its retries stops
-     * silently re-enqueuing on every launch — the user re-triggers it manually.
+     * silently re-enqueuing on every launch — the user re-triggers it manually. A row the person
+     * paused is excluded for the same reason: it waits for them, not for the next launch.
      */
     @Query(
         "SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') " +
-            "AND NOT (state = 'FAILED' AND retryCount >= :maxRetries) ORDER BY bookId, fileIndex",
+            "AND NOT (state = 'FAILED' AND retryCount >= :maxRetries) " +
+            "AND NOT (state = 'PAUSED' AND pauseReason IS 'PAUSED_BY_YOU') ORDER BY bookId, fileIndex",
     )
     suspend fun getIncompleteWithin(maxRetries: Int): List<DownloadEntity>
 
@@ -96,6 +98,34 @@ internal interface DownloadDao {
     suspend fun markPausedIfNotTerminal(
         audioFileId: String,
         reason: DownloadPauseReason,
+    )
+
+    /**
+     * Put a file back in the queue for [reason] (null for none), unless it is already terminal
+     * (CANCELLED / DELETED / COMPLETED). Progress and the retry budget are left as they are: a file
+     * that goes back to the queue has not failed.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'QUEUED', pauseReason = :reason WHERE audioFileId = :audioFileId " +
+            "AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
+    )
+    suspend fun markQueuedIfNotTerminal(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    )
+
+    /**
+     * Bytes are moving: a QUEUED (or already DOWNLOADING) file is DOWNLOADING, and whatever it was
+     * waiting for is over. The first start time is kept. A no-op on any other state, so a late
+     * callback cannot resurrect a row the person cancelled or deleted.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'DOWNLOADING', startedAt = COALESCE(startedAt, :startedAt), " +
+            "pauseReason = NULL WHERE audioFileId = :audioFileId AND state IN ('QUEUED', 'DOWNLOADING')",
+    )
+    suspend fun markTransferringIfLive(
+        audioFileId: String,
+        startedAt: Long,
     )
 
     /**

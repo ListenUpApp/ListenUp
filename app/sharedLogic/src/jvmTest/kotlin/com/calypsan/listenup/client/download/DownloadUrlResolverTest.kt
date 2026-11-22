@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.error.TransportError
@@ -120,5 +121,15 @@ class DownloadUrlResolverTest :
             result.shouldBeInstanceOf<AppResult.Success<Map<String, String>>>()
             result.data.keys shouldBe setOf("f1", "f2", "f3")
             factory.prepareCallCount shouldBe 1
+        }
+        test("asks for download URLs, which outlive a long wait for Wi-Fi") {
+            val factory =
+                FakePlaybackPrepareRepository(
+                    AppResult.Success(PreparedPlayback(bookId = "b", audioFiles = emptyList(), resumePosition = null)),
+                )
+
+            resolveSignedDownloadUrls("b", factory)
+
+            factory.purposes shouldBe listOf(PreparePurpose.Download)
         }
     })

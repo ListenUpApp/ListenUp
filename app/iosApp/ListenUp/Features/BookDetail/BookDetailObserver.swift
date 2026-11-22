@@ -72,6 +72,10 @@ final class BookDetailObserver {
     /// The last status seen, kept so `isWaitingForWifi` arriving second can re-derive the state —
     /// the two come from independent streams and either order is normal.
     private var latestDownloadStatus: BookDownloadStatus?
+    /// The download's bytes and failure, for the status line and Cancel's confirmation.
+    private(set) var downloadSnapshot: DownloadStatusSnapshot = .notDownloaded
+    /// Some other book's bytes are moving, so this one, untouched so far, is waiting its turn.
+    private var anotherBookDownloading = false
     private(set) var downloadProgress: Float = 0
     private(set) var isDownloaded: Bool = false
     private(set) var downloadError: String?
@@ -268,6 +272,19 @@ final class BookDetailObserver {
                 // Failure was folded + logged in Kotlin; surface a generic message (no AppResult here).
                 downloadError = String(localized: "book.detail_download_failed")
                 Log.error("downloadBook failed for \(book.idString)")
+            }
+        }
+    }
+
+    /// Pause the download, keeping what has arrived; Resume continues from there.
+    func pauseDownload() {
+        guard let book else { return }
+        Task {
+            do {
+                try await downloadService.pauseDownload(bookId: book.id)
+            } catch is CancellationError {
+            } catch {
+                Log.error("Pause download failed for \(book.idString)", error: error)
             }
         }
     }
@@ -485,6 +502,19 @@ final class BookDetailObserver {
         bridge.bind(downloadService.observeBookStatus(bookId: BookId(value: bookId))) { [weak self] status in
             self?.applyDownloadStatus(status)
         }
+        bridge.bind(downloadService.observeAllStatuses()) { [weak self] statuses in
+            guard let self else { return }
+            let others = statuses.contains { key, status in
+                guard key != bookId, case .inProgress(let downloading, _, _, _, _) = DownloadStatusSnapshot(status) else {
+                    return false
+                }
+                return downloading > 0
+            }
+            if others != anotherBookDownloading {
+                anotherBookDownloading = others
+                latestDownloadStatus.map { applyDownloadStatus($0) }
+            }
+        }
     }
 
     private func applyNavAction(_ action: BookDetailNavAction) {
@@ -517,31 +547,18 @@ final class BookDetailObserver {
     /// Flatten the sealed `BookDownloadStatus` into the UI-facing download props.
     private func applyDownloadStatus(_ status: BookDownloadStatus) {
         latestDownloadStatus = status
-        switch status.sealedType() {
-        case .notDownloaded:
-            downloadState = .notDownloaded
-            downloadProgress = 0
-            isDownloaded = false
-        case .inProgress(let sType):
-            let s = sType.value
-            // A parked download is still "in progress" to the shared model, but nothing is moving.
-            downloadState = isWaitingForWifi ? .waitingForWifi : .downloading
-            downloadProgress = s.progress
-            isDownloaded = false
-        case .completed:
-            downloadState = .completed
-            downloadProgress = 1
-            isDownloaded = true
-        case .failed:
-            downloadState = .failed
-            isDownloaded = false
-        case .paused(let sType):
-            let s = sType.value
-            downloadState = .partial
-            downloadProgress = s.totalBytes > 0
-                ? Float(s.downloadedBytes) / Float(s.totalBytes)
-                : 0
-            isDownloaded = false
+        let snapshot = DownloadStatusSnapshot(status)
+        downloadSnapshot = snapshot
+        downloadState = DownloadUIState.from(snapshot, isWaitingForWifi: isWaitingForWifi,
+                                             anotherBookDownloading: anotherBookDownloading)
+        isDownloaded = downloadState == .completed
+        let (done, total) = snapshot.bytes
+        switch snapshot {
+        case .completed: downloadProgress = 1
+        case .notDownloaded: downloadProgress = 0
+        // A failure keeps the bar where it was.
+        case .failed: break
+        case .inProgress, .paused: downloadProgress = total > 0 ? Float(done) / Float(total) : 0
         }
     }
 }

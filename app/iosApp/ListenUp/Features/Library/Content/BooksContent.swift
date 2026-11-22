@@ -12,6 +12,8 @@ struct BooksContent: View {
     let books: [BookRow]
     /// What each book's card says about where the reader is with it.
     var bookStatus: [String: LibraryCardState] = [:]
+    /// Each book's download badge; a book with no download is absent.
+    var downloadBadges: [String: DownloadBadge] = [:]
     /// What each book's context menu leads with (the shared rule); a book not listed plays.
     var bookMenuPrimary: [String: BookMenuPrimaryValue] = [:]
     let isLoading: Bool
@@ -189,7 +191,8 @@ struct BooksContent: View {
             isSelecting: selection.isSelecting,
             isSelected: selection.isSelected(book.id),
             libraryState: bookStatus[book.id],
-            showsNarrator: true
+            showsNarrator: true,
+            downloadBadge: downloadBadges[book.id]
         )
         if selection.isSelecting {
             Button { selection.toggle(book.id) } label: { card }

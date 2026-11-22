@@ -202,6 +202,7 @@ struct LibraryView: View {
             BooksContent(
                 books: observer.books,
                 bookStatus: observer.bookStatus,
+                downloadBadges: observer.downloadBadges,
                 bookMenuPrimary: observer.bookMenuPrimary,
                 isLoading: observer.isLoading,
                 isEmpty: observer.isEmpty,

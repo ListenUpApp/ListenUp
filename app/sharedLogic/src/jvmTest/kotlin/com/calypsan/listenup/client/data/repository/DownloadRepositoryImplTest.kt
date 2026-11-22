@@ -202,6 +202,39 @@ class DownloadRepositoryImplTest :
             }
         }
 
+        test("a book still downloading is listed with its status, and a finished one is not") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val sut = DownloadRepositoryImpl(downloadDao, bookRepository, FakeDownloadEnqueuer())
+                    bookRepository.books =
+                        listOf(
+                            fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")),
+                            fakeBook(id = "b2", title = "Circe", authors = listOf("Madeline Miller")),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.QUEUED, bytes = 100L),
+                            makeDownload(id = "f2", bookId = "b2", state = DownloadState.COMPLETED, bytes = 100L),
+                        ),
+                    )
+
+                    sut.observeInProgressBooks().test {
+                        val listed = awaitItem().single()
+                        listed.bookId shouldBe "b1"
+                        listed.title shouldBe "Dune"
+                        listed.authorNames shouldBe "Frank Herbert"
+                        (listed.status is BookDownloadStatus.InProgress) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("summaries are sorted by size descending") {
             val db = createInMemoryTestDatabase()
             val downloadDao = db.downloadDao()

@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -113,6 +114,31 @@ internal class DownloadRepositoryImpl(
         val bytes: Long,
     )
 
+    override fun observeInProgressBooks(): Flow<List<InProgressBookSummary>> =
+        observeAllStatuses()
+            .map { statuses ->
+                statuses.filterValues { status ->
+                    status is BookDownloadStatus.InProgress || status is BookDownloadStatus.Paused ||
+                        status is BookDownloadStatus.Failed
+                }
+            }.distinctUntilChanged()
+            .map { unfinished ->
+                if (unfinished.isEmpty()) return@map emptyList()
+                val books = bookRepository.getBookListItems(unfinished.keys.toList()).associateBy { it.id.value }
+                unfinished.mapNotNull { (bookId, status) ->
+                    books[bookId]?.let { book ->
+                        InProgressBookSummary(
+                            bookId = bookId,
+                            title = book.title,
+                            authorNames = book.authorNames,
+                            coverPath = book.coverPath,
+                            coverHash = book.coverHash,
+                            status = status,
+                        )
+                    }
+                }
+            }
+
     override suspend fun getLocalPath(audioFileId: String): String? = downloadDao.getLocalPath(audioFileId)
 
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
@@ -168,6 +194,22 @@ internal class DownloadRepositoryImpl(
             downloadDao.markPausedIfNotTerminal(audioFileId, reason)
         }
 
+    override suspend fun markQueued(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    ): AppResult<Unit> =
+        suspendRunCatching {
+            downloadDao.markQueuedIfNotTerminal(audioFileId, reason)
+        }
+
+    override suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
+    ): AppResult<Unit> =
+        suspendRunCatching {
+            downloadDao.markTransferringIfLive(audioFileId, startedAt)
+        }
+
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> =
         suspendRunCatching {
             downloadDao.updateState(audioFileId, DownloadState.CANCELLED)
@@ -178,7 +220,7 @@ internal class DownloadRepositoryImpl(
         error: DownloadError,
     ): AppResult<Int> =
         suspendRunCatching {
-            downloadDao.updateError(audioFileId, error.message)
+            downloadDao.markFailedIfNotTerminal(audioFileId, error.message)
             // A row deleted underneath the write has nothing left to retry: report the budget spent.
             downloadDao.getByAudioFileId(audioFileId)?.retryCount ?: MAX_DOWNLOAD_RETRIES
         }
@@ -284,13 +326,20 @@ internal fun aggregateBookDownloadStatus(
         }
 
         hasActive -> {
+            val downloadingFiles = relevant.count { it.state == DownloadState.DOWNLOADING }
             BookDownloadStatus.InProgress(
                 bookId = bookId,
                 totalFiles = totalFiles,
-                downloadingFiles = relevant.count { it.state == DownloadState.DOWNLOADING },
+                downloadingFiles = downloadingFiles,
                 completedFiles = completedFiles,
                 totalBytes = totalBytes,
                 downloadedBytes = downloadedBytes,
+                resumingAfterClose =
+                    downloadingFiles == 0 &&
+                        relevant.any { row ->
+                            row.state == DownloadState.QUEUED &&
+                                row.pauseReason == DownloadPauseReason.APP_CLOSED
+                        },
             )
         }
 
@@ -306,8 +355,24 @@ internal fun aggregateBookDownloadStatus(
                 completedFiles = completedFiles,
                 downloadedBytes = downloadedBytes,
                 totalBytes = totalBytes,
+                reason = pausedReason(relevant),
             )
         }
+    }
+}
+
+/**
+ * Why a stopped book is stopped: the person's own pause wins over any wait the system imposed on
+ * another of its files, because only the person can undo it. Null for a cancelled partial.
+ */
+private fun pausedReason(rows: List<DownloadEntity>): DownloadPauseReason? {
+    val reasons = rows.filter { it.state == DownloadState.PAUSED }.mapNotNull { it.pauseReason }
+    return if (DownloadPauseReason.PAUSED_BY_YOU in
+        reasons
+    ) {
+        DownloadPauseReason.PAUSED_BY_YOU
+    } else {
+        reasons.firstOrNull()
     }
 }
 

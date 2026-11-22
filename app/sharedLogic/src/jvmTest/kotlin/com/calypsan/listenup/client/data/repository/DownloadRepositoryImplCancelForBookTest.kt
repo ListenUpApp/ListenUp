@@ -143,6 +143,16 @@ private class FailingUpdateStateDownloadDao(
         reason: DownloadPauseReason,
     ) = error("not needed by cancelForBook")
 
+    override suspend fun markQueuedIfNotTerminal(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    ) = error("not needed by cancelForBook")
+
+    override suspend fun markTransferringIfLive(
+        audioFileId: String,
+        startedAt: Long,
+    ) = error("not needed by cancelForBook")
+
     override suspend fun claimForTransfer(
         audioFileId: String,
         startedAt: Long,

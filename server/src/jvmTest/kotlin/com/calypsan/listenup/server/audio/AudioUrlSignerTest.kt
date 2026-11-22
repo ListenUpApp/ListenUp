@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.audio
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -84,5 +85,17 @@ class AudioUrlSignerTest :
             val tampered = sig.dropLast(1) + flipped
 
             signer.verify("user1", "book1", "file1", exp.toLong(), tampered) shouldBe false
+        }
+        test("a URL minted for longer than the default expires at that time instead") {
+            val signer = AudioUrlSigner(signingKey = key, ttl = 12.hours, clock = FixedClock(now))
+
+            val query = signer.signedQuery("user1", "book1", "file1", validFor = 7.days)
+            val exp = query.substringAfter("exp=").substringBefore("&").toLong()
+            val sig = query.substringAfter("sig=")
+
+            exp shouldBe (now + 7.days).epochSeconds
+            // Still a real signature: the long-lived URL verifies until its own expiry.
+            AudioUrlSigner(signingKey = key, clock = FixedClock(now + 6.days))
+                .verify("user1", "book1", "file1", exp, sig) shouldBe true
         }
     })

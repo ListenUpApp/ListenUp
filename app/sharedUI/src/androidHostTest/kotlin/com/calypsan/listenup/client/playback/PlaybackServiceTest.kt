@@ -155,6 +155,8 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
 
     override fun observeDownloadedBooks() = TODO("not used")
 
+    override fun observeInProgressBooks() = TODO("not used")
+
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used")
 
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = TODO("not used")
@@ -181,6 +183,16 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
     override suspend fun markPaused(
         audioFileId: String,
         reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason,
+    ) = TODO("not used")
+
+    override suspend fun markQueued(
+        audioFileId: String,
+        reason: com.calypsan.listenup.client.domain.model.DownloadPauseReason?,
+    ) = TODO("not used")
+
+    override suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
     ) = TODO("not used")
 
     override suspend fun markCancelled(audioFileId: String) = TODO("not used")

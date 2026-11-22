@@ -22,6 +22,8 @@ struct BookCoverCard: View {
     let libraryState: LibraryCardState?
     /// Whether the card may add a "Read by …" line. It does so only at 160 pt or wider (spec §2.6).
     let showsNarrator: Bool
+    /// The book's download, as a badge on the art (canvas I-Library); nil for a book with none.
+    let downloadBadge: DownloadBadge?
 
     @Environment(\.restrictedBooks) private var restrictedBooks
     @State private var isWideEnoughForNarrator = false
@@ -32,7 +34,8 @@ struct BookCoverCard: View {
         isSelecting: Bool = false,
         isSelected: Bool = false,
         libraryState: LibraryCardState? = nil,
-        showsNarrator: Bool = false
+        showsNarrator: Bool = false,
+        downloadBadge: DownloadBadge? = nil
     ) {
         self.book = book
         self.progress = progress
@@ -40,6 +43,7 @@ struct BookCoverCard: View {
         self.isSelected = isSelected
         self.libraryState = libraryState
         self.showsNarrator = showsNarrator
+        self.downloadBadge = downloadBadge
     }
 
     /// The progress the cover's bar draws: a Library card's own fraction, else the caller's.
@@ -50,8 +54,9 @@ struct BookCoverCard: View {
 
     private var accessibilityText: String {
         let base = CoverAccessibility.label(title: book.title, author: book.authorNames) ?? book.title
-        guard let libraryState else { return base }
-        return "\(base), \(libraryState.lastLine)"
+        let withDownload = downloadBadge.map { "\(base), \($0.accessibilityPhrase)" } ?? base
+        guard let libraryState else { return withDownload }
+        return "\(withDownload), \(libraryState.lastLine)"
     }
 
     var body: some View {
@@ -83,15 +88,23 @@ struct BookCoverCard: View {
                 // The finished badge sits at the art's bottom-trailing corner (boards Library-iPhone and
                 // -iPad), clear of the documents badge and the restricted lock; a finished book has no
                 // progress bar to share the bottom edge with. It steps aside while selecting.
+                // The download badge sits beside it, inboard (canvas I-Library).
                 .overlay(alignment: .bottomTrailing) {
-                    if libraryState?.isFinished == true && !isSelecting {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 22)) // decorative fixed size
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, Color.listenUpOrange)
-                            .background(Circle().fill(.white).padding(2))
-                            .padding(Spacing.xs)
-                            .accessibilityHidden(true)
+                    if !isSelecting {
+                        HStack(spacing: Spacing.xs) {
+                            if let downloadBadge {
+                                DownloadBadgeView(badge: downloadBadge)
+                            }
+                            if libraryState?.isFinished == true {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 22)) // decorative fixed size
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, Color.listenUpOrange)
+                                    .background(Circle().fill(.white).padding(2))
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .padding(Spacing.xs)
                     }
                 }
                 .overlay(alignment: .topTrailing) {
@@ -266,5 +279,34 @@ private struct BookCoverCardPreview: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// A Library cover's download badge: a 24 pt light circle holding an SF Symbol, or the downloading ring; a failure
+/// is the system red (canvas I-Library). Decorative — the cover's label says it in words.
+struct DownloadBadgeView: View {
+    let badge: DownloadBadge
+
+    var body: some View {
+        ZStack {
+            Circle().fill(badge == .failed ? Color.red : Color.white.opacity(0.94))
+            if case .downloading(let progress) = badge {
+                ZStack {
+                    Circle().stroke(Color.listenUpOrange.opacity(0.25), lineWidth: 2.4)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+                        .stroke(Color.listenUpOrange, style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                .frame(width: 14, height: 14)
+            } else if let symbol = badge.systemImage {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .bold)) // decorative fixed size, inside a fixed 24 pt badge
+                    .foregroundStyle(badge == .failed ? Color.white : Color.black.opacity(0.85))
+            }
+        }
+        .frame(width: 24, height: 24)
+        .shadow(color: .black.opacity(0.22), radius: 1.5, y: 1)
+        .accessibilityHidden(true)
     }
 }

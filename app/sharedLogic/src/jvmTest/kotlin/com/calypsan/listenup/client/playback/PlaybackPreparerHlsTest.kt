@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
@@ -331,6 +332,7 @@ private class FakeHlsPlaybackService(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
         forceTranscode: Boolean,
+        purpose: PreparePurpose?,
     ): AppResult<ContractPreparedPlayback> {
         prepareCallCount++
         return prepareResult
@@ -352,7 +354,8 @@ private class FakeHlsPlaybackPrepareRepository(
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
-    ): AppResult<ContractPreparedPlayback> = service.prepare(bookId, forceTranscode = forceTranscode)
+        purpose: PreparePurpose,
+    ): AppResult<ContractPreparedPlayback> = service.prepare(bookId, forceTranscode = forceTranscode, purpose = purpose)
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = service.getPosition(bookId)
 }

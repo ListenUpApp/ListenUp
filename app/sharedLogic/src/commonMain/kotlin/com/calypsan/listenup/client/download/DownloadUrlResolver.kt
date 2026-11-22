@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.download
 
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -16,13 +17,18 @@ private val logger = KotlinLogging.logger {}
  * waste: a 40-file book used to make 40 RPCs (and 40 token refreshes) against a self-hosted
  * server to learn 40 facts it was told on the first call.
  *
+ * Asks for [PreparePurpose.Download]: those URLs live for days rather than a listening session, so
+ * a download that waits for Wi-Fi overnight, or resumes a half-fetched file the next day from the
+ * URL it started with, is not refused halfway. A server older than the purpose ignores it and
+ * signs its usual lifetime, which is no worse than before.
+ *
  * @return [AppResult.Success] with `fileId -> signed relative URL`, or the `prepare()` failure.
  */
 internal suspend fun resolveSignedDownloadUrls(
     bookId: String,
     prepareRepository: PlaybackPrepareRepository,
 ): AppResult<Map<String, String>> =
-    when (val rpcResult = prepareRepository.prepare(BookId(bookId))) {
+    when (val rpcResult = prepareRepository.prepare(BookId(bookId), purpose = PreparePurpose.Download)) {
         is AppResult.Failure -> {
             logger.warn { "prepare() failed for book=$bookId: ${rpcResult.error.message}" }
             rpcResult

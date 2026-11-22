@@ -46,6 +46,8 @@ final class LibraryObserver {
     /// What each book's card says. Moves on a position tick without a content revision, so it is
     /// mapped outside the revision gate.
     private(set) var bookStatus: [String: LibraryCardState] = [:]
+    /// Each downloading or downloaded book's cover badge (canvas I-Library); a book with no download is absent.
+    private(set) var downloadBadges: [String: DownloadBadge] = [:]
     /// What each book's context menu leads with, from the shared `bookMenuPrimary` rule.
     private(set) var bookMenuPrimary: [String: BookMenuPrimaryValue] = [:]
     /// The whole library's length in ms.
@@ -70,9 +72,24 @@ final class LibraryObserver {
     private let viewModel: LibraryViewModel
     private let bridge = FlowBridge()
 
-    init(viewModel: LibraryViewModel) {
+    init(viewModel: LibraryViewModel, downloadService: DownloadService? = nil) {
         self.viewModel = viewModel
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
+        if let downloadService {
+            bridge.bind(downloadService.observeAllStatuses()) { [weak self] statuses in
+                self?.assignIfChanged(\.downloadBadges, Self.badges(statuses))
+            }
+        }
+    }
+
+    /// One badge per book with a download, from the shared per-book status.
+    private static func badges(_ statuses: [String: BookDownloadStatus]) -> [String: DownloadBadge] {
+        statuses.compactMapValues { status in
+            let snapshot = DownloadStatusSnapshot(status)
+            // Waiting for Wi-Fi needs the network; the badge reads the row alone, so a wait shows as queued.
+            let state = DownloadUIState.from(snapshot, isWaitingForWifi: false, anotherBookDownloading: true)
+            return DownloadBadge.of(state, snapshot: snapshot)
+        }
     }
 
     // MARK: - Lifecycle & actions

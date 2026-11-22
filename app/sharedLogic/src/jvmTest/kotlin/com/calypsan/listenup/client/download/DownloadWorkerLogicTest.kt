@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.dto.PreparedAudioFile
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -812,11 +813,16 @@ internal class FakePlaybackPrepareRepository(
     var prepareCallCount: Int = 0
         private set
 
+    /** The purpose of every [prepare] call, in order. */
+    val purposes = mutableListOf<PreparePurpose>()
+
     override suspend fun prepare(
         bookId: BookId,
         forceTranscode: Boolean,
+        purpose: PreparePurpose,
     ): AppResult<PreparedPlayback> {
         prepareCallCount++
+        purposes += purpose
         return prepareResult
     }
 

@@ -1,8 +1,8 @@
 import UIKit
 @preconcurrency import Shared
 
-/// Routes connecting scenes to their configuration, and receives the APNs device-token
-/// callbacks — the two delegate duties SwiftUI's `App` lifecycle has no native hook for.
+/// Routes connecting scenes to their configuration, receives the APNs device-token callbacks, and hands background
+/// download sessions their wakes — the delegate duties SwiftUI's `App` lifecycle has no native hook for.
 ///
 /// SwiftUI's `App` lifecycle handles the window scene on its own, but it has no hook for the
 /// second scene role CarPlay introduces. `UIApplicationDelegateAdaptor` is the supported way to
@@ -12,6 +12,32 @@ import UIKit
 /// Keep it minimal otherwise. App startup lives in `ListenUpApp.init()`; push authorization and
 /// notification handling live in `PushCoordinator`.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    /// Where background-download wakes go; a test substitutes its own.
+    var backgroundDownloads: BackgroundDownloadHandoff = .shared
+
+    /// Every launch re-attaches the background download sessions, before the system delivers their events —
+    /// including a relaunch in the background to file a finished download, where no scene is ever connected.
+    /// `ListenUpApp.init()` has already started Koin.
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        backgroundDownloads.attach()
+        #if DEBUG
+        DebugExitOnBackground.installIfRequested()
+        #endif
+        return true
+    }
+
+    /// A background download session has events for this app; the system waits for `completionHandler`.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        backgroundDownloads.handleEvents(identifier: identifier, completionHandler: completionHandler)
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.CodecCapability
+import com.calypsan.listenup.api.dto.PreparePurpose
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -48,6 +49,19 @@ class PrepareCapabilityDeclarationTest :
                 recorder.lastForceTranscode shouldBe true
             }
         }
+
+        test("a stream is the purpose unless the caller names another") {
+            runTest {
+                val recorder = RecordingPlaybackService()
+                val repo = PlaybackPrepareRepositoryImpl(RpcChannel.forTest(recorder), setOf(CodecCapability.MP3))
+
+                repo.prepare(BookId("book-1"))
+                recorder.lastPurpose shouldBe PreparePurpose.Stream
+
+                repo.prepare(BookId("book-1"), purpose = PreparePurpose.Download)
+                recorder.lastPurpose shouldBe PreparePurpose.Download
+            }
+        }
     })
 
 /**
@@ -59,14 +73,17 @@ class PrepareCapabilityDeclarationTest :
 private class RecordingPlaybackService : PlaybackService by NoOpPlaybackService {
     var lastCapabilities: Set<CodecCapability>? = null
     var lastForceTranscode: Boolean = false
+    var lastPurpose: PreparePurpose? = null
 
     override suspend fun prepare(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,
         forceTranscode: Boolean,
+        purpose: PreparePurpose?,
     ): AppResult<PreparedPlayback> {
         lastCapabilities = capabilities
         lastForceTranscode = forceTranscode
+        lastPurpose = purpose
         return AppResult.Success(PreparedPlayback(bookId = bookId.value, audioFiles = emptyList(), resumePosition = null))
     }
 }

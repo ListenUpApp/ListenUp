@@ -197,7 +197,7 @@ struct MainTabView: View {
                 playerObserver = deps.playerObserver
             }
             if libraryObserver == nil {
-                libraryObserver = LibraryObserver(viewModel: deps.libraryViewModel)
+                libraryObserver = LibraryObserver(viewModel: deps.libraryViewModel, downloadService: deps.downloadService)
             }
             if inboxBadge == nil {
                 inboxBadge = InboxBadgeObserver(viewModel: deps.createInboxBadgeViewModel())

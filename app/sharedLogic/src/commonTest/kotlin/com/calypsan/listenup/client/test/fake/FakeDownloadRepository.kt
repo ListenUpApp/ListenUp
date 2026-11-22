@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.DownloadPauseReason
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.domain.model.InProgressBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,8 @@ class FakeDownloadRepository(
 
     override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> = MutableStateFlow(emptyList())
 
+    override fun observeInProgressBooks(): Flow<List<InProgressBookSummary>> = MutableStateFlow(emptyList())
+
     override suspend fun getLocalPath(audioFileId: String): String? = null
 
     override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = emptyMap()
@@ -69,6 +72,16 @@ class FakeDownloadRepository(
     override suspend fun markPaused(
         audioFileId: String,
         reason: DownloadPauseReason,
+    ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun markQueued(
+        audioFileId: String,
+        reason: DownloadPauseReason?,
+    ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun markTransferring(
+        audioFileId: String,
+        startedAt: Long,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> = AppResult.Success(Unit)

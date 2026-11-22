@@ -77,7 +77,6 @@ internal val iosPlaybackModule: Module =
                 bookDao = get(),
                 audioFileDao = get(),
                 serverConfig = get(),
-                tokenProvider = get(),
                 fileManager = get(),
                 prepareRepository = get(),
                 downloadRepository = get(),
@@ -85,6 +84,7 @@ internal val iosPlaybackModule: Module =
                 playbackBandwidthCoordinator = get(),
                 errorBus = get(),
                 localPreferences = get(),
+                networkMonitor = get(),
             )
         }
 
