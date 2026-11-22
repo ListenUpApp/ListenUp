@@ -132,9 +132,16 @@ private suspend fun assertEverySegmentAsDeclared(
         plan.segmentDurations.last() shouldBeLessThan 1.0
     }
     for (fromSegment in listOf(0, last - 1)) {
-        withEngine(targetSeconds = SHORT_TAIL_TARGET_SECONDS, decoderPath = decoderPath) { engine, cache ->
+        val spawners = mutableListOf<ProcessTranscodeSpawner>()
+        withEngine(targetSeconds = SHORT_TAIL_TARGET_SECONDS, decoderPath = decoderPath, onSpawn = spawners::add) { engine, cache ->
             engine.ensureRunning(session, fromSegment) shouldBe SessionAdmission.Admitted
-            awaitComplete(cache, last) shouldBe true
+            // A pipeline that never finishes says why in its stderr; without it a timeout explains nothing.
+            withClue({
+                "run from segment $fromSegment never finished; exited=${spawners.map { it.hasExited }}, stderr:\n" +
+                    spawners.flatMap { it.stderrTail }.joinToString("\n")
+            }) {
+                awaitComplete(cache, last, SHORT_TAIL_AWAIT_MILLIS) shouldBe true
+            }
 
             val frames =
                 (fromSegment..last).associateWith { index ->
@@ -204,6 +211,9 @@ private const val SHORT_TAIL_TARGET_SECONDS = 1
 private const val SHORT_TAIL_MS = 3_465L
 private const val XHE_FIXTURE = "/transcode/xhe-aac-3465ms.m4a"
 
+/** Each of the two runs a short-tail case makes must fit, with room to spare, inside the project's per-test timeout. */
+private const val SHORT_TAIL_AWAIT_MILLIS = 40_000L
+
 private const val AWAIT_TIMEOUT_MILLIS = 120_000L
 private const val POLL_MILLIS = 100L
 
@@ -232,6 +242,7 @@ private fun session(
 private suspend fun withEngine(
     targetSeconds: Int = TARGET_SEGMENT_SECONDS,
     decoderPath: String? = null,
+    onSpawn: (ProcessTranscodeSpawner) -> Unit = {},
     block: suspend (TranscodeSessionEngine, SegmentCache) -> Unit,
 ) {
     val home = Files.createTempDirectory("listenup-transcode-cache-")
@@ -243,7 +254,7 @@ private suspend fun withEngine(
             decoderPath = { decoderPath },
             cache = cache,
             settings = TranscodeSettings(targetSegmentSeconds = targetSeconds),
-            newSpawner = { ProcessTranscodeSpawner(scope) },
+            newSpawner = { ProcessTranscodeSpawner(scope).also(onSpawn) },
         )
     try {
         block(engine, cache)
@@ -271,9 +282,10 @@ private suspend fun awaitSegment(
 private suspend fun awaitComplete(
     cache: SegmentCache,
     index: Int,
+    timeoutMillis: Long,
 ): Boolean {
     var waited = 0L
-    while (waited < AWAIT_TIMEOUT_MILLIS) {
+    while (waited < timeoutMillis) {
         if (cache.isComplete(BOOK_ID, FILE_ID, index)) return true
         delay(POLL_MILLIS)
         waited += POLL_MILLIS

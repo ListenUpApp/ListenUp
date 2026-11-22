@@ -417,9 +417,9 @@ class PlaybackErrorHandlerTest {
 
             repeat(RECOVERY_ATTEMPT_BUDGET) { attempt ->
                 // A few hundred milliseconds of buffered audio play out before the next failure.
-                handler.handleNetworkAt(player, positionMs = 91_160_000L + attempt * 200L, errors)
+                handler.handleNetworkAt(player, positionMs = FAILING_SPOT_MS + attempt * 200L, errors)
             }
-            val exhausted = handler.handleNetworkAt(player, positionMs = 91_161_000L, errors)
+            val exhausted = handler.handleNetworkAt(player, positionMs = FAILING_SPOT_MS + 1_000L, errors)
 
             withClue("The same failing spot ends in an error the listener sees") { exhausted shouldBe false }
             errors.single().shouldBeInstanceOf<PlaybackError.ConnectionLost>()
@@ -867,6 +867,9 @@ class PlaybackErrorHandlerTest {
 
 /** A ten-hour book: long enough that [FinishedPolicy]'s end-of-book window is not in play by accident. */
 private const val BOOK_DURATION_MS = 36_000_000L
+
+/** Mid-book in [BOOK_DURATION_MS], so the end-of-book rule stays out of a retry-budget case. */
+private const val FAILING_SPOT_MS = 18_000_000L
 
 /** The reply body the server sends with a failed media request. */
 private fun serverFailure(error: AppError): String =
