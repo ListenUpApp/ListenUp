@@ -25,10 +25,28 @@ object FfmpegTestSupport {
     /** Whether a real encode can be driven here at all. */
     val isAvailable: Boolean get() = ffmpeg != null && ffprobe != null
 
+    /**
+     * Path to a `gst-launch-1.0` whose GStreamer can load Fraunhofer's `fdkaacdec` — the decoder the
+     * server routes xHE-AAC through — or null when this host has no such GStreamer.
+     */
+    val fdkDecoder: String? by lazy {
+        val inspect = findOnPath("gst-inspect-1.0") ?: return@lazy null
+        findOnPath("gst-launch-1.0")?.takeIf { execute(listOf(inspect, "fdkaacdec")) == 0 }
+    }
+
+    /** Whether the xHE-AAC path (FFmpeg demux, FDK decode, FFmpeg encode) can be driven here. */
+    val isFdkAvailable: Boolean get() = isAvailable && fdkDecoder != null
+
     /** Writes [seconds] of 440 Hz tone to [dest] and returns it — cheap, deterministic, real AAC. */
     fun generateSine(
         dest: Path,
         seconds: Int,
+    ): Path = generateSine(dest, seconds.toDouble())
+
+    /** [generateSine] for a length that is not whole seconds — a short final segment needs one. */
+    fun generateSine(
+        dest: Path,
+        seconds: Double,
     ): Path {
         val binary = requireNotNull(ffmpeg) { "generateSine called with no ffmpeg on PATH" }
         val exit =

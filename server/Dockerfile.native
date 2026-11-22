@@ -134,7 +134,7 @@ RUN curl -fsSL -o ff.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION
         --enable-muxer=matroska,adts,segment,stream_segment \
         --enable-parser=aac \
         --enable-protocol=file,pipe \
-        --enable-filter=aresample,anull,aformat \
+        --enable-filter=aresample,anull,aformat,atrim \
         --enable-bsf=aac_adtstoasc \
     && make -j"$(nproc)" ffmpeg \
     && strip ffmpeg \
@@ -170,7 +170,8 @@ RUN gst-launch-1.0 -q fakesrc num-buffers=0 ! fdkaacdec ! fakesink \
     && ffmpeg -hide_banner -muxers   2>/dev/null | grep -qE '^ *E +segment ' \
     && ffmpeg -hide_banner -muxers   2>/dev/null | grep -qE '^ *E +matroska ' \
     && ffmpeg -hide_banner -demuxers 2>/dev/null | grep -qE '^ *D +mov,' \
-    && ffmpeg -hide_banner -protocols 2>/dev/null | grep -qx '  pipe'
+    && ffmpeg -hide_banner -protocols 2>/dev/null | grep -qx '  pipe' \
+    && ffmpeg -hide_banner -filters 2>/dev/null | grep -qE ' atrim +A->A '
 
 # ── Third-party licence obligations ───────────────────────────────────────────────────────────
 # ⛔ NOT OPTIONAL, and not satisfiable by a link. The Fraunhofer FDK licence requires, for binary

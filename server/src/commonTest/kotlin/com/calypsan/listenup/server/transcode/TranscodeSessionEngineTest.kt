@@ -156,12 +156,41 @@ class TranscodeSessionEngineTest :
             val fixture = engineWith(fake)
             fixture.engine.ensureRunning(SESSION, fromSegment = 0)
 
-            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
+            fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.Retry
             fake.killed shouldBe 1
             fixture.engine.ensureRunning(SESSION, fromSegment = 4)
             fake.commands.size shouldBe 2
-            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe true
-            fixture.engine.abandonBadSegment("b1", "f1", 4) shouldBe false
+            fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.Retry
+            fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.GiveUp
+            fixture.cleanUp()
+        }
+
+        // #1742: the last strike used to leave the run alive and say nothing more, so the route
+        // kept the bad file and every later request re-read it and failed in a millisecond.
+        test("giving up on a segment still stops the run that produced it, and is remembered") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            repeat(2) { fixture.engine.abandonBadSegment("b1", "f1", 4) }
+            fixture.engine.ensureRunning(SESSION, fromSegment = 4)
+            fixture.engine.hasGivenUpOn("b1", "f1", 4) shouldBe false
+
+            fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.GiveUp
+
+            fake.killed shouldBe 1
+            fixture.engine.hasGivenUpOn("b1", "f1", 4) shouldBe true
+            fixture.engine.hasGivenUpOn("b1", "f1", 5) shouldBe false
+            fixture.cleanUp()
+        }
+
+        // The log line a failed segment writes is the only explanation an operator gets (#1742).
+        test("the outcome carries what the abandoned encoder last wrote to stderr") {
+            val fake = FakeSpawner().apply { stderr = listOf("[aac @ 0x1] Too many bits", "exit 1") }
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+
+            fixture.engine.abandonBadSegment("b1", "f1", 0).encoderStderr shouldBe fake.stderr
+            // A segment read back from cache has no run left to ask.
+            fixture.engine.abandonBadSegment("b1", "f1", 0).encoderStderr shouldBe emptyList()
             fixture.cleanUp()
         }
 
@@ -171,7 +200,7 @@ class TranscodeSessionEngineTest :
             fixture.engine.abandonBadSegment("b1", "f1", 4)
             fixture.engine.abandonBadSegment("b1", "f1", 4)
 
-            fixture.engine.abandonBadSegment("b1", "f1", 5) shouldBe true
+            fixture.engine.abandonBadSegment("b1", "f1", 5).verdict shouldBe BadSegmentVerdict.Retry
             fixture.cleanUp()
         }
 
@@ -207,11 +236,16 @@ private class FakeSpawner {
     /** One entry per run started, in order; set an entry to true to say that run's process has exited. */
     val exited = mutableListOf<Boolean>()
 
+    /** What every run reports as its stderr tail. */
+    var stderr: List<String> = emptyList()
+
     fun spawner(): TranscodeSpawner {
         val run = exited.size
         exited += false
         return object : TranscodeSpawner {
             override val hasExited: Boolean get() = exited[run]
+
+            override val stderrTail: List<String> get() = stderr
 
             override suspend fun start(commands: List<List<String>>) {
                 pipelines += commands

@@ -59,6 +59,26 @@ class HlsPlaylistTest :
             plan.segmentDurations.size shouldBe 33_075
         }
 
+        // The FDK path caps its output at exactly this many samples, so the encoder can never write
+        // more audio into the last segment than the playlist promised for it.
+        test("a run starting at a segment holds exactly the samples the playlist declares from there") {
+            val plan = HlsPlaylist.plan(durationMs = 25_000, sampleRate = 44_100, targetSeconds = 10)
+
+            plan.samplesFrom(0) shouldBe 25L * 44_100
+            plan.samplesFrom(2) shouldBe 25L * 44_100 - 2L * 431 * 1024
+            plan.samplesFrom(3) shouldBe 0L
+        }
+
+        // The arithmetic behind #1742: a 0.40 s remainder holds 17.2 frames, so the encoder must
+        // write 18 and may write one more for its padded final frame. Nothing else passes.
+        test("the final segment of a sub-second remainder expects only the frames that remainder fills") {
+            val plan = HlsPlaylist.plan(durationMs = 3_465, sampleRate = 44_100, targetSeconds = 1)
+
+            plan.segmentDurations.size shouldBe 4
+            plan.expectedFrames(3) shouldBe 18..19
+            plan.samplesFrom(3) shouldBe 3_465L * 441 / 10 - 3L * 44 * 1024
+        }
+
         test("renders a VOD playlist a player will accept") {
             val plan = HlsPlaylist.plan(durationMs = 25_000, sampleRate = 44_100, targetSeconds = 10)
 

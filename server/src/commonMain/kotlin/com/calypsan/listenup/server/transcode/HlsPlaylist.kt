@@ -37,6 +37,9 @@ object HlsPlaylist {
     /** `#EXTINF` is written to microsecond precision — see [formatSeconds]. */
     private const val MICROS_PER_SECOND = 1_000_000L
 
+    /** `durationMs` is whole milliseconds. */
+    private const val MILLIS_PER_SECOND = 1_000L
+
     /** Digits after the decimal point in an `#EXTINF` duration. */
     private const val FRACTION_DIGITS = 6
 
@@ -55,7 +58,17 @@ object HlsPlaylist {
         val sampleRate: Int,
         /** Frames in every segment but the last. Exactly what a whole segment must contain. */
         val framesPerSegment: Int,
+        /** Samples the declared timeline covers, at [sampleRate]: every segment's audio, in total. */
+        val totalSamples: Long,
     ) {
+        /**
+         * Samples an encoder run starting at segment [index] must produce to fill exactly what this
+         * playlist declares from there to the end — no more, or the surplus lands in the last
+         * segment and fails its frame count. Zero at or past the end.
+         */
+        fun samplesFrom(index: Int): Long =
+            (totalSamples - index.toLong() * framesPerSegment * SAMPLES_PER_FRAME).coerceAtLeast(0L)
+
         /**
          * How many AAC frames segment [index] must actually hold to match what this playlist
          * promised a player. Used to verify encoder output before it is served — see [AdtsFrames].
@@ -95,12 +108,20 @@ object HlsPlaylist {
         val remainder = total - whole * segmentSeconds
         val durations = MutableList(whole) { segmentSeconds }
         if (whole == declaredSegments && remainder > 0.0) durations += remainder
+        // A clamped duration declares only the whole segments it kept, so that is all it covers.
+        val totalSamples =
+            if (whole == declaredSegments) {
+                durationMs.coerceAtLeast(0L) * rate / MILLIS_PER_SECOND
+            } else {
+                whole.toLong() * framesPerSegment * SAMPLES_PER_FRAME
+            }
 
         return Plan(
             segmentSeconds = segmentSeconds,
             segmentDurations = durations,
             sampleRate = rate,
             framesPerSegment = framesPerSegment,
+            totalSamples = totalSamples,
         )
     }
 

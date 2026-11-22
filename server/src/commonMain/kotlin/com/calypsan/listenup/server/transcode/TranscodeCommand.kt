@@ -15,6 +15,11 @@ object TranscodeCommand {
     /** Stereo is the safe assumption when a file has no channel count recorded. */
     const val FALLBACK_CHANNELS = 2
 
+    /** FDK's limiter look-ahead for USAC — see [fdkLookaheadSamples]. */
+    private const val FDK_USAC_LIMITER_LOOKAHEAD_MS = 5L
+
+    private const val MILLIS_PER_SECOND = 1_000L
+
     /** Quiet, non-interactive, warnings only — the same posture on every stage. */
     private val BASE = listOf("-nostdin", "-hide_banner", "-loglevel", "warning")
 
@@ -68,9 +73,44 @@ object TranscodeCommand {
             // ("Muxing MPEG-4 AOT 42 in LATM is not supported"), and fragmented MP4 over a pipe
             // fails in qtdemux because its moof size is unknowable on a non-seekable stream.
             decoderPipeline(decoderPath, session),
-            listOf(ffmpegPath) + BASE + rawPcmInput(session) + encode,
+            listOf(ffmpegPath) + BASE + rawPcmInput(session) + exactRun(session, plan) + encode,
         )
     }
+
+    /**
+     * Cuts FDK's output to exactly the audio the playlist declares for this run.
+     *
+     * ⛔ **FFmpeg trims a decode to the container's timeline; FDK through GStreamer trims nothing.**
+     * Its output starts [fdkLookaheadSamples] late, and it ends with every padded sample of the
+     * source's final frame plus whatever the decoder drains. All of that surplus lands in the last
+     * segment, which then holds more frames than its `#EXTINF` promised and fails verification on
+     * every request — a book whose last segment can never be served (#1742). Counting from the
+     * front of the decoded stream, then, is what makes the frame check pass exactly rather than
+     * by a widened tolerance: whole segments stay whole and the last one holds its remainder.
+     *
+     * The start is not perfectly anchored. A seek lands on the demuxer's pre-roll before the
+     * requested point, and the source's own priming is still in the stream, so a run can begin
+     * early by that much (46 to 140 ms on the test fixtures) and end early by the same amount.
+     * Neither changes a segment's frame count. Anchoring it needs the first packet's exact
+     * timestamp, which this pipeline loses: Matroska carries it to the millisecond, and GStreamer
+     * rebases its output to zero.
+     */
+    private fun exactRun(
+        session: TranscodeSession,
+        plan: HlsPlaylist.Plan,
+    ): List<String> {
+        val start = fdkLookaheadSamples(session.sampleRate)
+        val end = start + plan.samplesFrom(session.startSegment)
+        return listOf("-af", "atrim=start_sample=$start:end_sample=$end")
+    }
+
+    /**
+     * How late FDK's USAC output runs: its peak limiter looks [FDK_USAC_LIMITER_LOOKAHEAD_MS] ahead,
+     * which it reports as `CStreamInfo.outputDelay` and GStreamer's `fdkaacdec` never applies. Set by
+     * `pcmLimiter_SetAttack` for USAC in fdk-aac's `libAACdec/src/aacdecoder.cpp`; USAC adds no SBR,
+     * MPS or concealment delay on top. Measured: exactly 220 samples at 44.1 kHz, with and without SBR.
+     */
+    internal fun fdkLookaheadSamples(sampleRate: Int): Long = sampleRate.toLong() * FDK_USAC_LIMITER_LOOKAHEAD_MS / MILLIS_PER_SECOND
 
     private fun seekAndOpen(
         session: TranscodeSession,

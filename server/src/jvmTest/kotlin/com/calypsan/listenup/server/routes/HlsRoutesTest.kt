@@ -20,8 +20,10 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import com.calypsan.listenup.server.transcode.AdtsFixtures
 import com.calypsan.listenup.server.transcode.SegmentCache
+import com.calypsan.listenup.server.transcode.TranscodeSessionEngine
 import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import com.calypsan.listenup.server.transcode.TranscoderStatus
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -201,6 +203,31 @@ class HlsRoutesTest :
             }
         }
 
+        // #1742. Once the engine gave up on a segment, the bad file used to stay in the cache: every
+        // later request re-read it, failed, and answered 500 in a millisecond, forever. Now each
+        // rejected file is deleted, and the verdict is what answers once the retries are spent.
+        test("a segment that keeps failing verification is deleted every time, then refused without a retry") {
+            withHlsFixture { client, query ->
+                val cache by application.inject<SegmentCache>()
+                cache.prepareDir("b1", "af1")
+                repeat(TranscodeSessionEngine.MAX_BAD_SEGMENT_RETRIES + 1) { attempt ->
+                    writeFinishedSegment(cache, AdtsFixtures.stream(FRAMES_PER_SEGMENT - 40))
+
+                    withClue("attempt ${attempt + 1}") {
+                        client.get("/api/v1/hls/b1/af1/seg/0.aac?$query").status shouldBe
+                            HttpStatusCode.InternalServerError
+                        cache.has("b1", "af1", 0) shouldBe false
+                    }
+                }
+
+                // Nothing on disk and no encoder that could run: only the recorded verdict can make
+                // this a prompt 500 rather than a wait for an encode that never comes.
+                val refused = client.get("/api/v1/hls/b1/af1/seg/0.aac?$query")
+                refused.status shouldBe HttpStatusCode.InternalServerError
+                refused.bodyAsText() shouldContain "TranscodeError.TranscodeFailed"
+            }
+        }
+
         // A server with no encoder must say so, not hand out a playlist whose segments can never
         // be produced. 501 rather than 503: retrying changes nothing until an operator acts.
         test("with no encoder available the playlist is refused as unavailable") {
@@ -277,6 +304,15 @@ private suspend fun withHlsFixture(
         libraryRoot.toFile().deleteRecursively()
         home.toFile().deleteRecursively()
     }
+}
+
+/** Writes [bytes] as segment 0 of `b1`/`af1`, with the run list entry that marks it finished. */
+private fun writeFinishedSegment(
+    cache: SegmentCache,
+    bytes: ByteArray,
+) {
+    Files.write(java.nio.file.Path.of(cache.segmentPath("b1", "af1", 0).toString()), bytes)
+    Files.write(java.nio.file.Path.of(cache.runListPath("b1", "af1", 0).toString()), "seg00000.aac\n".toByteArray())
 }
 
 private fun hlsFixture(codecProfile: String = "lc"): BookSyncPayload =
