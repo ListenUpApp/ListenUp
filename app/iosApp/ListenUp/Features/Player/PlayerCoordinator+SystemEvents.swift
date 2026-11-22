@@ -12,35 +12,61 @@ enum RemoteAction: Sendable {
     case seekBook(Int64)
 }
 
+/// What one audio-session notification asks of the player, read on the thread that posted it.
+enum AudioSessionEvent: Sendable {
+    case interruption(InterruptionPolicy.Action)
+    /// Every route change may move the AirPlay device the status slot names; `lostOutput` says the device the book
+    /// was playing on went away.
+    case routeChanged(lostOutput: Bool)
+
+    init?(_ note: Notification) {
+        switch note.name {
+        case AVAudioSession.interruptionNotification:
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return nil }
+            let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+            self = .interruption(InterruptionPolicy.action(type: type, shouldResume: options.contains(.shouldResume)))
+        case AVAudioSession.routeChangeNotification:
+            let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
+                .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+            self = .routeChanged(lostOutput: reason.map(RouteChangePolicy.shouldPause(reason:)) ?? false)
+        default:
+            return nil
+        }
+    }
+}
+
 // Framework callbacks (audio-session interruptions, route changes, remote commands) enter the player only through
 // `steps`, so they run in order with the shared player's instructions — never as an unordered `Task` per callback.
 extension PlayerCoordinator {
-    func observeInterruptions() {
-        let name = AVAudioSession.interruptionNotification
-        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
-            guard let self else { return }
-            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
-            let shouldResume: Bool = {
-                guard let opts = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt else { return false }
-                return AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume)
-            }()
-            let action = InterruptionPolicy.action(type: type, shouldResume: shouldResume)
-            steps.yield(.interruption(action))
+    /// Interruptions and route changes arrive through one stream, so the player handles them in the order the session
+    /// posted them. A stream per notification name resumes on its own task, and two posts in quick succession (a call
+    /// ending, then the headphones coming out) could reach `steps` in the opposite order.
+    func observeAudioSession() {
+        let center = notificationCenter
+        let (events, sink) = AsyncStream<AudioSessionEvent>.makeStream(bufferingPolicy: .unbounded)
+        // `queue: nil` runs each block on the posting thread as the post happens, so the yields keep the posts' order.
+        let observers = [AVAudioSession.interruptionNotification, AVAudioSession.routeChangeNotification].map { name in
+            center.addObserver(forName: name, object: nil, queue: nil) { note in
+                if let event = AudioSessionEvent(note) { sink.yield(event) }
+            }
         }
+        bridge.onRelease {
+            for observer in observers { center.removeObserver(observer) }
+            sink.finish()
+        }
+        bridge.bind(events) { [weak self] event in self?.receive(event) }
     }
 
-    func observeRouteChanges() {
-        let name = AVAudioSession.routeChangeNotification
-        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
-            guard let self else { return }
-            // The status slot names an AirPlay device; every route change may move it.
+    private func receive(_ event: AudioSessionEvent) {
+        switch event {
+        case .interruption(let action):
+            steps.yield(.interruption(action))
+        case .routeChanged(let lostOutput):
             let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
             facts.route(outputs.first { $0.portType == .airPlay }?.portName)
-            guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                  let reason = AVAudioSession.RouteChangeReason(rawValue: raw),
-                  RouteChangePolicy.shouldPause(reason: reason) else { return }
-            steps.yield(.routeLost)
+            if lostOutput { steps.yield(.routeLost) }
         }
     }
 
