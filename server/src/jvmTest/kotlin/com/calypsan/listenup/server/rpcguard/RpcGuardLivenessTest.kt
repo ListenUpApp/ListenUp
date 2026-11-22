@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.rpcguard
 
 import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
@@ -70,8 +70,8 @@ class RpcGuardLivenessTest :
                 val service = CountingScannerService()
                 val guarded = guard(service) { true }
 
-                guarded.scanFull().shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
-                service.scanFullCalls shouldBe 1
+                guarded.listScanIssues().shouldBeInstanceOf<AppResult.Success<List<ScanIssue>>>()
+                service.ordinaryCalls shouldBe 1
             }
         }
 
@@ -80,14 +80,14 @@ class RpcGuardLivenessTest :
                 val service = CountingScannerService()
                 var alive = true
                 val guarded = guard(service) { alive }
-                guarded.scanFull()
+                guarded.listScanIssues()
 
                 alive = false
-                val failure = guarded.scanFull().shouldBeInstanceOf<AppResult.Failure>()
+                val failure = guarded.listScanIssues().shouldBeInstanceOf<AppResult.Failure>()
 
                 failure.error.shouldBeInstanceOf<AuthError.SessionExpired>()
                 failure.error.correlationId.shouldNotBeNull()
-                service.scanFullCalls shouldBe 1
+                service.ordinaryCalls shouldBe 1
             }
         }
 
@@ -95,7 +95,7 @@ class RpcGuardLivenessTest :
             runTest {
                 val guarded = guard(CountingScannerService())
 
-                guarded.scanFull().shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
+                guarded.listScanIssues().shouldBeInstanceOf<AppResult.Success<List<ScanIssue>>>()
             }
         }
     })
@@ -106,8 +106,6 @@ private const val PRODUCTION_POLL_MILLIS = 30_000L
 
 /** Emits nothing and hangs forever — models a live progress/firehose stream awaiting events. */
 private class HangingScannerService : ScannerService {
-    override suspend fun scanFull(): AppResult<ScanResultSummary> = error("unused")
-
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = flow { awaitCancellation() }
@@ -117,41 +115,25 @@ private class HangingScannerService : ScannerService {
     override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
 }
 
-/** Answers `scanFull` with a success and counts how many ordinary calls got past the guard. */
+/** Answers `listScanIssues` with a success and counts how many ordinary calls got past the guard. */
 private class CountingScannerService : ScannerService {
-    var scanFullCalls = 0
+    var ordinaryCalls = 0
         private set
 
-    override suspend fun scanFull(): AppResult<ScanResultSummary> {
-        scanFullCalls++
-        return AppResult.Success(
-            ScanResultSummary(
-                correlationId = "scan",
-                totalBooks = 0,
-                added = 0,
-                modified = 0,
-                removed = 0,
-                moved = 0,
-                errors = 0,
-                durationMs = 0,
-                filesWalked = 0,
-            ),
-        )
+    override suspend fun listScanIssues(): AppResult<List<ScanIssue>> {
+        ordinaryCalls++
+        return AppResult.Success(emptyList())
     }
 
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = flow { awaitCancellation() }
 
-    override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
-
     override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
 }
 
 /** Runs past several poll windows then completes normally, emitting nothing — the gate must not interfere. */
 private class FiniteScannerService : ScannerService {
-    override suspend fun scanFull(): AppResult<ScanResultSummary> = error("unused")
-
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> =

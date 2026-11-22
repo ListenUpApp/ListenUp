@@ -106,8 +106,8 @@ private fun Route.publicRpc(services: RpcServices) {
 private fun Route.authedRpc(services: RpcServices) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
-        // scanFull() is ROOT/ADMIN-gated inside ScannerServiceImpl, so the registration binds
-        // the caller's principal like every other authed service.
+        // ScannerServiceImpl trims scan results for non-admins, so the registration binds the
+        // caller's principal like every other authed service.
         // Every service gets the connection's cached session-liveness probe (`live`): the generated guard
         // refuses an ordinary call on a revoked session, and a stream re-checks it on a ~30s cadence. The
         // JWT is only verified when the socket opens, so without this a revoked socket keeps its authority.

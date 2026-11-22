@@ -4,7 +4,6 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -12,7 +11,6 @@ import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.event.ScanBookRef
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanScope
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
@@ -36,45 +34,6 @@ import kotlinx.coroutines.test.runTest
 
 class ScannerServiceImplTest :
     FunSpec({
-
-        test("scanFull with an ADMIN principal returns Success with a summary built from the latest result") {
-            runTest {
-                audioLibrary {
-                    book("Author/Title") { tracks(count = 2) }
-                }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    val result = service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
-                    val success = result.shouldBeInstanceOf<AppResult.Success<ScanResultSummary>>()
-                    success.data.totalBooks shouldBe 1
-                    success.data.added shouldBe 1
-                    success.data.errors shouldBe 0
-                }
-            }
-        }
-
-        test("scanFull with a MEMBER principal returns PermissionDenied") {
-            runTest {
-                audioLibrary {
-                    book("Author/Title") { tracks(count = 2) }
-                }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    val result = service.copyWith(principalOf(UserRole.MEMBER)).scanFull()
-                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                }
-            }
-        }
-
-        test("scanFull without a bound principal returns PermissionDenied") {
-            runTest {
-                audioLibrary {
-                    book("Author/Title") { tracks(count = 2) }
-                }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    val result = service.scanFull()
-                    result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                }
-            }
-        }
 
         test("lastScanResult returns LibraryPathNotConfigured before any scan has run") {
             runTest {
@@ -135,8 +94,8 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val (service, orchestrator) = newService(fixture, scope = this)
+                    orchestrator.scanLibrary(TEST_LIBRARY_ID)
 
                     val result = service.copyWith(principalOf(UserRole.ADMIN)).lastScanResult()
                     val success = result.shouldBeInstanceOf<AppResult.Success<ScanResult>>()
@@ -150,8 +109,8 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val (service, orchestrator) = newService(fixture, scope = this)
+                    orchestrator.scanLibrary(TEST_LIBRARY_ID)
                     val adminResult =
                         service
                             .copyWith(principalOf(UserRole.ADMIN))
@@ -175,8 +134,8 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val (service, orchestrator) = newService(fixture, scope = this)
+                    orchestrator.scanLibrary(TEST_LIBRARY_ID)
 
                     val data =
                         service
@@ -195,8 +154,8 @@ class ScannerServiceImplTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    val (service, _) = newService(fixture, scope = this)
-                    service.copyWith(principalOf(UserRole.ADMIN)).scanFull()
+                    val (service, orchestrator) = newService(fixture, scope = this)
+                    orchestrator.scanLibrary(TEST_LIBRARY_ID)
                     val adminResult =
                         service
                             .copyWith(principalOf(UserRole.ADMIN))
