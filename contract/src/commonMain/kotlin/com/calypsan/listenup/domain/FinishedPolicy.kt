@@ -42,6 +42,23 @@ object FinishedPolicy {
         return durationMs - positionMs <= creditsWindowMs
     }
 
+    /**
+     * A stream that fails this close to the end has played what a listener can hear of the book. A
+     * transcoded book's last segment can be a fraction of a second long, and when it cannot be
+     * fetched the player would otherwise strand the listener on an error a second from home.
+     */
+    const val TAIL_FAILURE_WINDOW_MS: Long = 1_000L
+
+    /**
+     * True when a playback failure at [positionMs] should end the book rather than surface as an error:
+     * within [TAIL_FAILURE_WINDOW_MS] of the end, and somewhere an end-of-media signal would also be
+     * accepted ([acceptsEndedSignal]), so a book barely a second long is not finished by failing to start.
+     */
+    fun failureEndsBook(
+        positionMs: Long,
+        durationMs: Long,
+    ): Boolean = durationMs - positionMs <= TAIL_FAILURE_WINDOW_MS && acceptsEndedSignal(positionMs, durationMs)
+
     /** True when an end-of-media signal at [positionMs] is plausible enough to mark the book finished. */
     fun acceptsEndedSignal(
         positionMs: Long,

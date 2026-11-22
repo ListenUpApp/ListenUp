@@ -1070,12 +1070,6 @@ class PlaybackService :
                 }
             logger.debug { "Playback state: $stateName" }
 
-            // Reaching READY means whatever we last recovered from is behind us — refill the
-            // recovery budget so it is spent per incident, not per listening session.
-            if (playbackState == Player.STATE_READY) {
-                errorHandler.onPlaybackHealthy()
-            }
-
             when (playbackState) {
                 Player.STATE_ENDED -> {
                     // Book finished - longer grace period. The near-end guard lives in the tracker:

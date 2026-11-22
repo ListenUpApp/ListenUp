@@ -40,4 +40,18 @@ class FinishedPolicyTest :
             FinishedPolicy.acceptsEndedSignal(positionMs = 50_000L, durationMs = 100_000L) shouldBe false
             FinishedPolicy.acceptsEndedSignal(positionMs = 50_000L, durationMs = 0L) shouldBe false
         }
+    
+        // #1742: a stream whose final, sub-second segment cannot be fetched has played everything a
+        // listener can hear of the book. That is the end of it, not an error card a second from home.
+        test("a stream that fails in the book's last second has reached its end") {
+            FinishedPolicy.failureEndsBook(positionMs = 91_161_054L, durationMs = 91_161_455L) shouldBe true
+            FinishedPolicy.failureEndsBook(positionMs = 99_000L, durationMs = 100_000L) shouldBe true
+        }
+
+        test("a stream that fails with more than a second still to play has not") {
+            FinishedPolicy.failureEndsBook(positionMs = 98_999L, durationMs = 100_000L) shouldBe false
+            FinishedPolicy.failureEndsBook(positionMs = 0L, durationMs = 0L) shouldBe false
+            // A one-second book cannot be finished by failing at its start.
+            FinishedPolicy.failureEndsBook(positionMs = 0L, durationMs = 900L) shouldBe false
+        }
     })

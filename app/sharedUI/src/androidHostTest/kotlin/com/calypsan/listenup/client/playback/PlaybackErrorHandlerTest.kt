@@ -50,7 +50,9 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -59,6 +61,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.serialization.builtins.serializer
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -66,6 +69,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import io.kotest.assertions.withClue
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -131,15 +135,31 @@ class PlaybackErrorHandlerTest {
     }
 
     @Test
-    fun `classify returns Network for HTTP 500`() {
-        val error = makeHttpStatusException(500)
+    fun `classify returns Network for an overloaded or unreachable server (503) with no explanation`() {
+        val error = makeHttpStatusException(503)
         makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
     }
 
     @Test
-    fun `classify returns Network for HTTP 599`() {
-        val error = makeHttpStatusException(599)
+    fun `classify returns Network for a 5xx whose typed body says it is worth retrying`() {
+        val error = makeHttpStatusException(503, body = serverFailure(TranscodeError.TranscoderBusy()))
         makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.Network>()
+    }
+
+    // #1742: every 5xx used to be "Network", so a segment the server could never produce was
+    // retried every eight seconds for as long as the listener let it.
+    @Test
+    fun `classify returns ServerRefused when the server says the audio can never be produced`() {
+        val error = makeHttpStatusException(500, body = serverFailure(TranscodeError.TranscodeFailed(correlationId = "c-1")))
+        val refused = makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.ServerRefused>()
+        refused.error.shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+        refused.error.correlationId shouldBe "c-1"
+    }
+
+    @Test
+    fun `classify returns ServerRefused for a bare HTTP 500`() {
+        val error = makeHttpStatusException(500)
+        makeHandler().classify(error).shouldBeInstanceOf<PlaybackErrorHandler.ClassifiedError.ServerRefused>()
     }
 
     @Test
@@ -226,7 +246,7 @@ class PlaybackErrorHandlerTest {
                     // the FILE-relative player.currentPosition (8_000) to prove the handler
                     // persists the book-relative value passed in, not player.currentPosition.
                     bookPositionMs = 9_012_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -252,7 +272,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = true),
                 currentBookId = null,
                 bookPositionMs = 0L,
-                bookDurationMs = 0L,
+                bookDurationMs = BOOK_DURATION_MS,
                 onShowError = {},
             )
 
@@ -280,7 +300,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = {},
                 )
 
@@ -304,7 +324,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
             }
@@ -317,7 +337,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -347,7 +367,7 @@ class PlaybackErrorHandlerTest {
                         player = player,
                         currentBookId = BookId("book1"),
                         bookPositionMs = 1_000L,
-                        bookDurationMs = 0L,
+                        bookDurationMs = BOOK_DURATION_MS,
                         onShowError = { errors += it },
                     )
                 }
@@ -362,37 +382,21 @@ class PlaybackErrorHandlerTest {
         }
 
     @Test
-    fun `onPlaybackHealthy refills the budget so it is per-incident, not per-session`() =
+    fun `a failure after playback moved on gets a budget of its own, so it is per-incident, not per-session`() =
         runTest {
             val handler = makeHandler()
             val player = FakeExoPlayer(playWhenReady = true)
             val errors = mutableListOf<AppError>()
 
             repeat(RECOVERY_ATTEMPT_BUDGET + 1) { _ ->
-                handler.handle(
-                    error = PlaybackErrorHandler.ClassifiedError.Network("net"),
-                    player = player,
-                    currentBookId = BookId("book1"),
-                    bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
-                    onShowError = { errors += it },
-                )
+                handler.handleNetworkAt(player, positionMs = 1_000L, errors)
             }
             withClue("Precondition: budget is spent") { errors.size shouldBe 1 }
 
-            // The spent budget stopped the player; the listener plays again and it comes back healthy.
+            // The spent budget stopped the player; the listener plays on, well past that spot, and a
+            // later, unrelated stall happens there.
             player.play()
-            handler.onPlaybackHealthy()
-
-            val afterRecovery =
-                handler.handle(
-                    error = PlaybackErrorHandler.ClassifiedError.Network("net"),
-                    player = player,
-                    currentBookId = BookId("book1"),
-                    bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
-                    onShowError = { errors += it },
-                )
+            val afterRecovery = handler.handleNetworkAt(player, positionMs = 61_000L, errors)
 
             withClue("A later, unrelated stall gets a full budget of its own") {
                 afterRecovery shouldBe true
@@ -400,6 +404,76 @@ class PlaybackErrorHandlerTest {
             withClue("prepare() runs again after the refill") {
                 player.prepareCount shouldBe RECOVERY_ATTEMPT_BUDGET + 1
             }
+        }
+
+    // #1742: the budget used to refill on every READY, and a re-prepared player reaches READY at the
+    // failing spot before failing there again, so the five attempts never ran out.
+    @Test
+    fun `failing again where the last recovery was spent draws on the same budget, however often it got ready`() =
+        runTest {
+            val handler = makeHandler()
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
+
+            repeat(RECOVERY_ATTEMPT_BUDGET) { attempt ->
+                // A few hundred milliseconds of buffered audio play out before the next failure.
+                handler.handleNetworkAt(player, positionMs = 91_160_000L + attempt * 200L, errors)
+            }
+            val exhausted = handler.handleNetworkAt(player, positionMs = 91_161_000L, errors)
+
+            withClue("The same failing spot ends in an error the listener sees") { exhausted shouldBe false }
+            errors.single().shouldBeInstanceOf<PlaybackError.ConnectionLost>()
+        }
+
+    @Test
+    fun `handle ServerRefused stops at once, without spending a retry, and says so`() =
+        runTest {
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
+            val refused = PlaybackError.CouldNotStart(correlationId = "c-2")
+
+            val result =
+                makeHandler().handle(
+                    error = PlaybackErrorHandler.ClassifiedError.ServerRefused(refused),
+                    player = player,
+                    currentBookId = BookId("book1"),
+                    bookPositionMs = 3_600_000L,
+                    bookDurationMs = BOOK_DURATION_MS,
+                    onShowError = { errors += it },
+                )
+
+            result shouldBe false
+            errors shouldBe listOf(refused)
+            withClue("No re-prepare against a server that said it cannot") { player.prepareCount shouldBe 0 }
+            player.playWhenReady shouldBe false
+        }
+
+    // #1742: the book's last segment was a fraction of a second. Failing there has played the book.
+    @Test
+    fun `a failure in the book's last second finishes the book instead of showing an error`() =
+        runTest {
+            val tracker = FakeProgressTracker(listenedTo = BookId("book1"))
+            val player = FakeExoPlayer(playWhenReady = true)
+            val errors = mutableListOf<AppError>()
+
+            val result =
+                makeHandler(tracker).handle(
+                    error = PlaybackErrorHandler.ClassifiedError.ServerRefused(PlaybackError.CouldNotStart()),
+                    player = player,
+                    currentBookId = BookId("book1"),
+                    bookPositionMs = BOOK_DURATION_MS - 400L,
+                    bookDurationMs = BOOK_DURATION_MS,
+                    onShowError = { errors += it },
+                )
+
+            result shouldBe false
+            withClue("No error card a second from the end") { errors.isEmpty() shouldBe true }
+            withClue("The book is marked finished, at its end") {
+                tracker.savePlaybackStateCalls.map { it.second } shouldContain
+                    PlaybackUpdate.BookFinished(finalPositionMs = BOOK_DURATION_MS)
+            }
+            player.playWhenReady shouldBe false
+            player.prepareCount shouldBe 0
         }
 
     @Test
@@ -417,7 +491,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
             }
@@ -428,7 +502,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book1"),
                     bookPositionMs = 1_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -454,7 +528,7 @@ class PlaybackErrorHandlerTest {
                     currentBookId = BookId("book2"),
                     // Book-relative, distinct from the file-relative player position (4_500).
                     bookPositionMs = 5_400_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -487,7 +561,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = null,
                     bookPositionMs = 0L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -517,7 +591,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -546,7 +620,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -575,7 +649,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
             }
@@ -587,7 +661,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book5"),
                     bookPositionMs = 7_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -619,7 +693,7 @@ class PlaybackErrorHandlerTest {
                     // FILE-relative player coordinates (index 2, 12_000) — that is correct,
                     // it re-seeks within the same media item.
                     bookPositionMs = 3_612_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -651,7 +725,7 @@ class PlaybackErrorHandlerTest {
                 player = player,
                 currentBookId = null,
                 bookPositionMs = 0L,
-                bookDurationMs = 0L,
+                bookDurationMs = BOOK_DURATION_MS,
                 onShowError = {},
             )
 
@@ -674,7 +748,7 @@ class PlaybackErrorHandlerTest {
                     player = player,
                     currentBookId = BookId("book4"),
                     bookPositionMs = 3_003_000L,
-                    bookDurationMs = 0L,
+                    bookDurationMs = BOOK_DURATION_MS,
                     onShowError = { errors += it },
                 )
 
@@ -718,7 +792,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = false),
                 currentBookId = BookId("book-b"),
                 bookPositionMs = 0L,
-                bookDurationMs = 0L,
+                bookDurationMs = BOOK_DURATION_MS,
                 onShowError = {},
             )
 
@@ -738,7 +812,7 @@ class PlaybackErrorHandlerTest {
                 player = FakeExoPlayer(playWhenReady = true),
                 currentBookId = BookId("book-b"),
                 bookPositionMs = 0L,
-                bookDurationMs = 0L,
+                bookDurationMs = BOOK_DURATION_MS,
                 onShowError = {},
             )
 
@@ -769,7 +843,10 @@ class PlaybackErrorHandlerTest {
      *
      * [DataSpec] requires [android.net.Uri], so this helper only works under Robolectric.
      */
-    private fun makeHttpStatusException(responseCode: Int): PlaybackException {
+    private fun makeHttpStatusException(
+        responseCode: Int,
+        body: String = "",
+    ): PlaybackException {
         val dataSpec = DataSpec(Uri.parse("https://test.example.com/audio/chunk.mp3"))
         val httpException =
             HttpDataSource.InvalidResponseCodeException(
@@ -778,7 +855,7 @@ class PlaybackErrorHandlerTest {
                 null,
                 emptyMap(),
                 dataSpec,
-                ByteArray(0),
+                body.encodeToByteArray(),
             )
         return PlaybackException(
             "HTTP $responseCode",
@@ -787,6 +864,28 @@ class PlaybackErrorHandlerTest {
         )
     }
 }
+
+/** A ten-hour book: long enough that [FinishedPolicy]'s end-of-book window is not in play by accident. */
+private const val BOOK_DURATION_MS = 36_000_000L
+
+/** The reply body the server sends with a failed media request. */
+private fun serverFailure(error: AppError): String =
+    contractJson.encodeToString(AppResult.serializer(Unit.serializer()), AppResult.Failure(error))
+
+/** One Network failure at [positionMs] of book1; returns what [PlaybackErrorHandler.handle] did. */
+private suspend fun PlaybackErrorHandler.handleNetworkAt(
+    player: ExoPlayer,
+    positionMs: Long,
+    errors: MutableList<AppError>,
+): Boolean =
+    handle(
+        error = PlaybackErrorHandler.ClassifiedError.Network("net"),
+        player = player,
+        currentBookId = BookId("book1"),
+        bookPositionMs = positionMs,
+        bookDurationMs = BOOK_DURATION_MS,
+        onShowError = { errors += it },
+    )
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
 
@@ -956,7 +1055,8 @@ private object ThrowingDownloadRepository : DownloadRepository {
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used in handler test")
 
-    override suspend fun deleteDeletedRecordsForBook(bookId: String) = TODO("not used in handler test")
+    // Finishing a book clears its download tombstones; nothing to clear here.
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) = Unit
 
     override suspend fun resumeIncompleteDownloads() = TODO("not used in handler test")
 }
