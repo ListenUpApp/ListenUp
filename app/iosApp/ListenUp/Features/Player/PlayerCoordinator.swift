@@ -191,8 +191,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSkipIntervals()
-        observeInterruptions()
-        observeRouteChanges()
+        observeAudioSession()
         instructions.deliver { steps.yield(.instruction($0)) }
         drainTask = Task { [weak self] in
             for await step in stream {
