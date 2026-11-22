@@ -2,6 +2,10 @@ package com.calypsan.listenup.web.playback
 
 import com.calypsan.listenup.api.result.MediaFailure
 import kotlinx.coroutines.await
+import org.khronos.webgl.ArrayBuffer
+import org.khronos.webgl.Int8Array
+import kotlin.js.Json
+import kotlin.js.json
 import org.w3c.dom.HTMLMediaElement
 import kotlin.js.Promise
 
@@ -41,7 +45,42 @@ internal external interface HlsClass {
 
     /** The configuration every instance starts from (`Hls.DefaultConfig`); read, never written. */
     @JsName("DefaultConfig")
-    val defaultConfig: dynamic
+    val defaultConfig: HlsDefaultConfig
+}
+
+/** The slice of `Hls.DefaultConfig` this player reads. */
+internal external interface HlsDefaultConfig {
+    val fragLoadPolicy: HlsLoadPolicies
+}
+
+/** hls.js's `{ default: LoadPolicy }` wrapper. */
+internal external interface HlsLoadPolicies {
+    val default: HlsLoadPolicy
+}
+
+/** How hls.js loads one kind of request: its time limits, and when it retries. */
+internal external interface HlsLoadPolicy {
+    val maxTimeToFirstByteMs: Int
+    val maxLoadTimeMs: Int
+    val timeoutRetry: HlsRetryConfig?
+    val errorRetry: HlsRetryConfig
+}
+
+/** hls.js's retry settings for one kind of failure. */
+internal external interface HlsRetryConfig {
+    val maxNumRetry: Int
+    val retryDelayMs: Int
+    val maxRetryDelayMs: Int
+}
+
+/** What a hls.js loader reports about a response: its HTTP status, absent when there was none. */
+internal external interface HlsLoaderResponse {
+    val code: Int?
+}
+
+/** The loader's request object for a failed load — an `XMLHttpRequest`, whose `response` is the reply body. */
+internal external interface HlsNetworkDetails {
+    val response: Any?
 }
 
 /** What `import('hls.js')` resolves to. hls.js ships `export { …, Hls as default, … }`. */
@@ -96,44 +135,42 @@ private const val NETWORK_ERROR = "networkError"
  * rather than edited in place: hls.js merges a user config shallowly, so its default objects are
  * shared by every instance, and writing into them would reconfigure each one made afterwards.
  */
-private fun configFor(hlsClass: HlsClass): dynamic {
+private fun configFor(hlsClass: HlsClass): Json {
     val defaults = hlsClass.defaultConfig.fragLoadPolicy.default
-    val errorRetry = js("Object.assign({}, defaults.errorRetry)")
-    errorRetry.shouldRetry = { _: dynamic, _: dynamic, _: dynamic, response: dynamic, retry: Boolean ->
-        retry && retriesSegmentAfter(statusOf(response))
+    val errorRetry = defaults.errorRetry
+    val shouldRetry = { _: HlsRetryConfig, _: Int, _: Boolean, response: HlsLoaderResponse?, retry: Boolean ->
+        retry && retriesSegmentAfter(response?.code)
     }
-    val policy = js("Object.assign({}, defaults)")
-    policy.errorRetry = errorRetry
-    val config = js("({})")
-    config.fragLoadPolicy = js("({})")
-    config.fragLoadPolicy.default = policy
-    return config
-}
-
-/** The HTTP status in an hls.js loader response, or null when there is none. */
-private fun statusOf(response: dynamic): Int? {
-    if (response == null || response == undefined) return null
-    val code = response.code
-    return if (jsTypeOf(code) == "number") code.unsafeCast<Int>() else null
+    return json(
+        "fragLoadPolicy" to
+            json(
+                "default" to
+                    json(
+                        "maxTimeToFirstByteMs" to defaults.maxTimeToFirstByteMs,
+                        "maxLoadTimeMs" to defaults.maxLoadTimeMs,
+                        "timeoutRetry" to defaults.timeoutRetry,
+                        "errorRetry" to
+                            json(
+                                "maxNumRetry" to errorRetry.maxNumRetry,
+                                "retryDelayMs" to errorRetry.retryDelayMs,
+                                "maxRetryDelayMs" to errorRetry.maxRetryDelayMs,
+                                "shouldRetry" to shouldRetry,
+                            ),
+                    ),
+            ),
+    )
 }
 
 /**
  * The text of the body a failed request carried, when hls.js kept it. Media segments are fetched as
  * array buffers, so a server's typed error arrives as bytes to decode; anything else is not read.
  */
-private fun bodyOf(networkDetails: dynamic): String? {
-    if (networkDetails == null || networkDetails == undefined) return null
-    val response = networkDetails.response
-    return when {
-        jsTypeOf(response) == "string" -> response.unsafeCast<String>()
-
-        js(
-            "response instanceof ArrayBuffer",
-        ).unsafeCast<Boolean>() -> js("new TextDecoder().decode(response)").unsafeCast<String>()
-
+private fun bodyOf(details: HlsNetworkDetails?): String? =
+    when (val response = details?.response) {
+        is String -> response
+        is ArrayBuffer -> Int8Array(response).unsafeCast<ByteArray>().decodeToString()
         else -> null
     }
-}
 
 /** The one in-flight or finished import, so every attachment after the first is free. */
 private var hlsLibrary: Promise<HlsLibrary?>? = null
@@ -174,10 +211,10 @@ internal external interface HlsErrorEvent {
     val fatal: Boolean
 
     /** The failed request's `{ code, text }`, for a network error; absent otherwise. */
-    val response: dynamic
+    val response: HlsLoaderResponse?
 
     /** The loader's own request object (an `XMLHttpRequest`), whose `response` holds the reply body. */
-    val networkDetails: dynamic
+    val networkDetails: HlsNetworkDetails?
 }
 
 /**
@@ -268,7 +305,7 @@ internal fun attachHls(
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
             val error = data.unsafeCast<HlsErrorEvent>()
-            val status = statusOf(error.response)
+            val status = error.response?.code
             // hls.js never gives up on a segment of a single-rendition stream: declining its retry
             // only parks the error as "resolved" and it re-requests on its own clock, forever. So a
             // segment the server refused for good is fatal by our own decision, not hls.js's.

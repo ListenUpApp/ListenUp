@@ -180,7 +180,7 @@ app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/shelf/ShelfCard.
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/shelf/ShelfRoute.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/features/sync/SyncIndicator.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/nav/UrlGrammar.kt 5
-app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/playback/HtmlAudioPlayer.kt 2
+app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/playback/HtmlAudioPlayer.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/playback/MediaSessionBinding.kt 2
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/shell/PhoneTopBar.kt 1
 app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/shell/Shell.kt 1
