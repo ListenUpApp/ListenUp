@@ -5,7 +5,7 @@ package com.calypsan.listenup.gradle
  *  - listenup.kmp.library (contract, sharedLogic, sharedUI): FREE args on every
  *    compilation; MAIN_ONLY args on production compilations.
  *  - listenup.jvm (desktopApp, rpc-guard-ksp): FREE args on every compilation.
- *  - listenup.kmp.server (server): FREE args (+ -Xskip-prerelease-check) on every compilation.
+ *  - listenup.kmp.server (server): FREE args on every compilation.
  * Never inline copies of these flags in a module build script.
  *
  * Flags (all experimental -X flags — an unrecognized -X flag is a WARNING, so a
