@@ -22,8 +22,10 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
         reporter.onPositionUpdate(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
-    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float) {
-        reporter.onSeek(bookId: BookId(value: bookId), beforeMs: beforeMs, afterMs: afterMs, speed: speed)
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float, durationMs: Int64) {
+        reporter.onSeek(
+            bookId: BookId(value: bookId), beforeMs: beforeMs, afterMs: afterMs, speed: speed, durationMs: durationMs
+        )
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         reporter.onSpeedChanged(bookId: BookId(value: bookId), positionMs: positionMs, newSpeed: newSpeed)
@@ -43,10 +45,12 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64) {
         _ = reporter.onBookFinished(bookId: BookId(value: bookId), positionMs: positionMs, durationMs: durationMs)
     }
-    func savePositionNow(bookId: String, positionMs: Int64) async {
+    func savePositionNow(bookId: String, positionMs: Int64, durationMs: Int64) async {
         // The Kotlin suspend fun is exposed as `async throws`; it never throws in
         // practice (failures are logged inside the reporter), so the error is dropped.
-        try? await reporter.savePositionNow(bookId: BookId(value: bookId), positionMs: positionMs)
+        try? await reporter.savePositionNow(
+            bookId: BookId(value: bookId), positionMs: positionMs, durationMs: durationMs
+        )
     }
 }
 

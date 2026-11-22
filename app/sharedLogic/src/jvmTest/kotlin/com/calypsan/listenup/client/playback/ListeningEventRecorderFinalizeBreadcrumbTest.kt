@@ -25,9 +25,8 @@ private const val SPEED = 1.0f
 private const val START_POSITION = 1000L
 
 /**
- * POSITION-02 — [ListeningEventRecorder]'s same-process finalize-then-reopen flows
- * ([ListeningEventRecorder.onSpeedChange], [ListeningEventRecorder.onSeek],
- * [ListeningEventRecorder.onMediaItemTransition]) must preserve the [finalizeCurrentSpan]
+ * POSITION-02 — [ListeningEventRecorder]'s same-process finalize-then-reopen flow
+ * ([ListeningEventRecorder.onSeek]) must preserve the [finalizeCurrentSpan]
  * breadcrumb the same way [ListeningEventRecorder.onPlay]'s cross-process branch already does:
  * when the finalize's enqueue fails, the tentative row survives as the ONLY thing
  * [ListeningEventRecorder.recoverOrphan] can re-promote from — opening a new span on top of it
@@ -37,35 +36,6 @@ private const val START_POSITION = 1000L
  */
 class ListeningEventRecorderFinalizeBreadcrumbTest :
     FunSpec({
-
-        test("onSpeedChange preserves the breadcrumb when finalize's enqueue fails — no new span opened") {
-            runTest {
-                var now = 1_000L
-                withFixture(nowMillisProvider = { now }, failEnqueue = true) { recorder, db, _ ->
-                    recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
-
-                    now = 31_000L
-                    recorder.onSpeedChange(positionMs = 30_000L, newSpeed = 1.5f)
-
-                    // The ORIGINAL span survives untouched — not replaced by a fresh one at the
-                    // post-speed-change position/speed. Row count (not just get()'s LIMIT-1 read)
-                    // matters here: TentativeSpanEntity's id is a fresh random UUID per onPlay, so
-                    // an unconditional re-open after a failed finalize doesn't cleanly "replace" the
-                    // surviving row — it @Upsert-inserts a SECOND one (a different, worse failure
-                    // mode than the single silently-lost span this fix targets, and one get()'s
-                    // LIMIT 1 would hide).
-                    db.tentativeSpanDao().countRows() shouldBe 1
-                    val span = db.tentativeSpanDao().get().shouldNotBeNull()
-                    span.startPositionMs shouldBe START_POSITION
-                    span.currentPositionMs shouldBe START_POSITION
-                    span.startedAt shouldBe 1_000L
-                    span.playbackSpeed shouldBe SPEED
-
-                    // No listening event was written — the finalize rolled back.
-                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
-                }
-            }
-        }
 
         test("onSeek preserves the breadcrumb when finalize's enqueue fails — no new span opened") {
             runTest {
@@ -77,7 +47,7 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
                     recorder.onSeek(positionBeforeSeek = 30_000L, positionAfterSeek = 90_000L)
 
                     // The ORIGINAL span survives untouched — not replaced by a fresh one at the
-                    // post-seek position. See the onSpeedChange test above for why countRows matters.
+                    // post-seek position. countRows proves no second row was opened on top of it.
                     db.tentativeSpanDao().countRows() shouldBe 1
                     val span = db.tentativeSpanDao().get().shouldNotBeNull()
                     span.startPositionMs shouldBe START_POSITION
@@ -85,31 +55,6 @@ class ListeningEventRecorderFinalizeBreadcrumbTest :
                     span.startedAt shouldBe 1_000L
 
                     db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
-                }
-            }
-        }
-
-        test("onMediaItemTransition preserves the breadcrumb when finalize's enqueue fails — no new span opened") {
-            runTest {
-                var now = 1_000L
-                withFixture(nowMillisProvider = { now }, failEnqueue = true) { recorder, db, _ ->
-                    recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
-
-                    now = 31_000L
-                    recorder.onPeriodicTick(BOOK_ID, positionMs = 30_000L, playbackSpeed = SPEED)
-                    recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
-
-                    // The ORIGINAL span survives untouched — still for the OLD book, not a fresh
-                    // span for the new one. See the onSpeedChange test above for why countRows matters.
-                    db.tentativeSpanDao().countRows() shouldBe 1
-                    val span = db.tentativeSpanDao().get().shouldNotBeNull()
-                    span.bookId shouldBe BOOK_ID
-                    span.startPositionMs shouldBe START_POSITION
-                    span.currentPositionMs shouldBe 30_000L
-                    span.startedAt shouldBe 1_000L
-
-                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
-                    db.listeningEventDao().getByBookForUser(USER_ID, "book-test-2").size shouldBe 0
                 }
             }
         }

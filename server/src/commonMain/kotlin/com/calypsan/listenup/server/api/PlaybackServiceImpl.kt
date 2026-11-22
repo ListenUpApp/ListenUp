@@ -105,6 +105,8 @@ internal class PlaybackServiceImpl(
                         )
                 }
 
+        // One expiry for every file, so the client is told the one instant its URLs lapse.
+        val urlsExpireAt = audioUrlSigner.expiry(validFor = urlLifetime)
         val audioFiles =
             decisions.map { (file, decision) ->
                 val query =
@@ -112,7 +114,7 @@ internal class PlaybackServiceImpl(
                         userId = userId,
                         bookId = bookId.value,
                         fileId = file.id,
-                        validFor = urlLifetime,
+                        expiresAt = urlsExpireAt,
                     )
                 val encodedBook = bookId.value.encodeURLParameter()
                 val encodedFile = file.id.encodeURLParameter()
@@ -161,6 +163,7 @@ internal class PlaybackServiceImpl(
                 resumePosition = resumePosition,
                 coverUrl = coverUrl,
                 transcodeUnavailable = transcodeUnavailable,
+                urlsExpireAt = urlsExpireAt.toEpochMilliseconds(),
             ),
         )
     }

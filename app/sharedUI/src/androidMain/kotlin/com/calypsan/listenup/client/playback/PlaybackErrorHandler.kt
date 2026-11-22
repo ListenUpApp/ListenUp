@@ -152,6 +152,7 @@ class PlaybackErrorHandler(
         player: ExoPlayer,
         currentBookId: BookId?,
         bookPositionMs: Long,
+        bookDurationMs: Long,
         onShowError: (AppError) -> Unit,
     ): Boolean {
         // ALWAYS save position first - position is sacred.
@@ -162,7 +163,7 @@ class PlaybackErrorHandler(
         // whose stream died before its first byte) has no new place, and saving its untouched start would create
         // a row that syncs as "started".
         currentBookId?.takeIf { progressTracker.sessionState.value.bookIdOrNull == it }?.let { bookId ->
-            progressTracker.savePositionNow(bookId, bookPositionMs)
+            progressTracker.savePositionNow(bookId, bookPositionMs, bookDurationMs)
             logger.debug { "Position saved before error handling: $bookPositionMs" }
         }
 

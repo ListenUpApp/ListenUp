@@ -40,6 +40,11 @@ data class PreparedPlayback(
      * appearing broken.
      */
     val transcodeUnavailable: Boolean = false,
+    /**
+     * When the signed URLs in [audioFiles] stop working, epoch milliseconds; null from servers that predate the field.
+     * A client holding a paused book past it prepares again instead of playing dead URLs.
+     */
+    val urlsExpireAt: Long? = null,
 )
 
 /**

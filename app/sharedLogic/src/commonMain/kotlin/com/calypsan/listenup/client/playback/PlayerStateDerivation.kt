@@ -60,6 +60,7 @@ internal class PlayerStateDerivation(
                     combine(engine.phase, engine.error, engine.loadedBookId) { p, e, b -> Triple(p, e, b) }
                 combine(
                     flow = engineFacts,
+                    // The flag alone is right here: ProgressTracker.isInEndCredits sets it for a book left in its credits.
                     flow2 = positionRepository.observe(id).map { it?.isFinished == true },
                     flow3 = unavailableReason(id),
                     flow4 = sleepTimer.state.map { it is SleepTimerState.FadingOut },

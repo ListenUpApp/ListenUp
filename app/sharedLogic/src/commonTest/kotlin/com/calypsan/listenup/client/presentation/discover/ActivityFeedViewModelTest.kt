@@ -11,7 +11,9 @@ import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.test.SimulatedFailure
+import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.client.test.fake.FakeServerReachability
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -60,6 +62,7 @@ class ActivityFeedViewModelTest :
             val listeningNowFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
             val syncRepository = RecordingSyncRepository()
             val auth = FakeAuthSession(userId = "me")
+            val reachability = FakeServerReachability()
 
             init {
                 every { activeSessionRepository.observeListeningNow(any()) } returns listeningNowFlow
@@ -71,6 +74,7 @@ class ActivityFeedViewModelTest :
                     activeSessionRepository = activeSessionRepository,
                     syncRepository = syncRepository,
                     authSession = auth,
+                    serverReachability = reachability,
                 )
         }
 
@@ -478,6 +482,43 @@ class ActivityFeedViewModelTest :
                 advanceUntilIdle()
 
                 asked shouldBe listOf("me")
+            }
+        }
+
+        test("with the server known to be down, the cached roster is last night's: nobody is listening now") {
+            runTest {
+                val fixture = createFixture()
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 1_000L))
+                fixture.reachability.state.value = Reachability.Unreachable
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .listeningNow shouldBe emptyList()
+            }
+        }
+
+        test("still connecting is not stale, and a reachable server shows the roster: live rows appear") {
+            runTest {
+                val fixture = createFixture()
+                fixture.listeningNowFlow.value = listOf(liveSession("kyle", "Kyle Harnett", startedAt = 1_000L))
+                fixture.reachability.state.value = Reachability.Unknown
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .listeningNow
+                    .map { it.userId } shouldBe listOf("kyle")
+
+                fixture.reachability.state.value = Reachability.Reachable
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                    .listeningNow
+                    .map { it.userId } shouldBe listOf("kyle")
             }
         }
 

@@ -630,6 +630,7 @@ internal val discoverPresentationModule =
                 activeSessionRepository = get(),
                 syncRepository = get(),
                 authSession = get(),
+                serverReachability = get(),
             )
         }
     }

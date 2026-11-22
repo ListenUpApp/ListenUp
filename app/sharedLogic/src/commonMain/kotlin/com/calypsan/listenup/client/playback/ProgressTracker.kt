@@ -150,7 +150,7 @@ open class ProgressTracker(
 
         logPausedTransition(bookId, positionMs, priorState)
 
-        if (FinishedPolicy.isFinished(positionMs, durationMs, flag = false)) {
+        if (isInEndCredits(positionMs, durationMs)) {
             markFinished(bookId, finalPositionMs = durationMs)
             return
         }
@@ -219,6 +219,36 @@ open class ProgressTracker(
             savePosition(bookId = bookId, positionMs = positionMs, speed = speed, isPeriodicTick = true)
         }
     }
+
+    /**
+     * The listener moved the playhead to [positionMs]. A seek while playing is saved like a tick: the listener is
+     * still listening, and the pause or the end of the book will decide. A seek while paused is where the book now
+     * rests, so a place inside the end credits finishes it, as a pause there does.
+     */
+    fun onSeek(
+        bookId: BookId,
+        positionMs: Long,
+        speed: Float,
+        durationMs: Long,
+    ) {
+        val listening = (sessionState.value as? SessionState.Active)?.bookId == bookId
+        if (!listening && isInEndCredits(positionMs, durationMs)) {
+            markFinished(bookId, finalPositionMs = durationMs)
+            return
+        }
+        onPositionUpdate(bookId, positionMs, speed)
+    }
+
+    /**
+     * Whether a resting place of [positionMs] in a book of [durationMs] is inside its end credits. Every path that
+     * persists a place the listener left the book at (a pause, a seek while paused, a save-now) asks this, so a
+     * book left in its credits is finished however it was left: the credits are not the story, and no end-of-book
+     * signal will ever come. Readers that see only the flag (the preparer, the player's phase) rely on it.
+     */
+    private fun isInEndCredits(
+        positionMs: Long,
+        durationMs: Long,
+    ): Boolean = FinishedPolicy.isFinished(positionMs, durationMs, flag = false)
 
     /**
      * Save position via the repository seam.
@@ -441,13 +471,20 @@ open class ProgressTracker(
     }
 
     /**
-     * Save position immediately (blocking for critical saves).
-     * Used before error handling to ensure position is never lost.
+     * Save position immediately (blocking for critical saves): teardown, Close, a hidden tab, before error
+     * handling — so position is never lost. A place inside the end credits of [durationMs] finishes the book
+     * instead, and that write too has landed when this returns. An unknown duration (`<= 0`) only saves.
      */
     suspend fun savePositionNow(
         bookId: BookId,
         positionMs: Long,
+        durationMs: Long,
     ) {
+        if (isInEndCredits(positionMs, durationMs)) {
+            sessionState.update { _ -> SessionState.Idle }
+            finishBook(bookId, finalPositionMs = durationMs)
+            return
+        }
         val speed =
             when (val s = sessionState.value) {
                 is SessionState.Active -> s.speed
@@ -517,42 +554,47 @@ open class ProgressTracker(
         finalPositionMs: Long,
     ) {
         sessionState.update { _ -> SessionState.Idle }
+        scope.launch { finishBook(bookId, finalPositionMs) }
+    }
 
-        scope.launch {
-            logger.info { "Book finished: ${bookId.value}, finalPosition=$finalPositionMs" }
+    /** Record [bookId] finished at [finalPositionMs], suspending until the write has landed. */
+    private suspend fun finishBook(
+        bookId: BookId,
+        finalPositionMs: Long,
+    ) {
+        logger.info { "Book finished: ${bookId.value}, finalPosition=$finalPositionMs" }
 
-            // Clear only DELETED tombstones so a re-listen auto-downloads again (default stream +
-            // download behavior). COMPLETED rows and their local files MUST survive — wiping them
-            // here would orphan the multi-GB files on disk and force every future play to stream,
-            // failing offline. This is the "finishing a book destroys its offline copy" fix.
-            try {
-                downloadRepository.deleteDeletedRecordsForBook(bookId.value)
-                logger.debug { "Cleared DELETED download tombstones for finished book: ${bookId.value}" }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): $e" }
+        // Clear only DELETED tombstones so a re-listen auto-downloads again (default stream +
+        // download behavior). COMPLETED rows and their local files MUST survive — wiping them
+        // here would orphan the multi-GB files on disk and force every future play to stream,
+        // failing offline. This is the "finishing a book destroys its offline copy" fix.
+        try {
+            downloadRepository.deleteDeletedRecordsForBook(bookId.value)
+            logger.debug { "Cleared DELETED download tombstones for finished book: ${bookId.value}" }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): $e" }
+        }
+
+        // Mark book as complete. Routes through BookFinished (not markComplete) so the
+        // stored row lands on the true final position — handleBookFinished sets positionMs,
+        // markComplete never does, leaving the position up to one 30s heartbeat behind the
+        // end.
+        when (
+            val r =
+                positionRepository.savePlaybackState(
+                    bookId = bookId,
+                    update = PlaybackUpdate.BookFinished(finalPositionMs = finalPositionMs),
+                )
+        ) {
+            is AppResult.Success -> {
+                logger.info { "Book marked complete: ${bookId.value}" }
             }
 
-            // Mark book as complete. Routes through BookFinished (not markComplete) so the
-            // stored row lands on the true final position — handleBookFinished sets positionMs,
-            // markComplete never does, leaving the position up to one 30s heartbeat behind the
-            // end.
-            when (
-                val r =
-                    positionRepository.savePlaybackState(
-                        bookId = bookId,
-                        update = PlaybackUpdate.BookFinished(finalPositionMs = finalPositionMs),
-                    )
-            ) {
-                is AppResult.Success -> {
-                    logger.info { "Book marked complete: ${bookId.value}" }
-                }
-
-                is AppResult.Failure -> {
-                    logger.warn {
-                        "Failed to mark book ${bookId.value} complete: ${r.error.message}"
-                    }
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Failed to mark book ${bookId.value} complete: ${r.error.message}"
                 }
             }
         }

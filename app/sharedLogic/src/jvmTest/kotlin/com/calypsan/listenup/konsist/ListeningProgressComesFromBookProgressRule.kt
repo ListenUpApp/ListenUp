@@ -20,8 +20,13 @@ import java.io.File
  * - a duration minus a position (`book.duration - positionMs`): a hand-rolled time left;
  * - a duration scaled by one minus a fraction (`duration * (1 - progress)`): a time left rebuilt from a bar;
  * - a progress or fraction times 100 (`(fraction * 100).roundToInt()`): a percent rounded a second way;
- * - a percent divided by 100 (`progressPercent / 100f`): a fraction rebuilt from a rounded percent;
+ * - a percent divided by 100 (`progressPercent / 100f`, `progressPct / 100f`): a fraction rebuilt from a rounded percent;
  * - the web bar's own rounding, `percentOf(fraction)`, called outside the bar.
+ *
+ * And, in shared ViewModel code (`/presentation/`), a playback position's finished flag read on its own
+ * (`it.isFinished`) rather than handed to `BookProgress.of`: the flag alone misses a book left inside its end credits,
+ * so one row could read finished on its card and unfinished in a count. Exceptions are in
+ * [RAW_FINISHED_FLAG_ALLOWLIST], with their reasons.
  *
  * The player's progress is a different quantity — the position in the current chapter, against the chapter's length
  * — so the player and playback directories are out of scope ([isPlayerCode]). A percent that is not a book's
@@ -47,9 +52,23 @@ class ListeningProgressComesFromBookProgressRule :
                 .shouldBeEmpty()
         }
 
+        test("no presentation file decides finished from the raw flag, missing a book left in its end credits") {
+            val files = clientProductionSources(root).filter { (path, _) -> isPresentationCode(path) }
+            assertScopeNotEmpty(
+                files,
+                expectedMin = 100,
+                why = "every shared ViewModel file: the screens whose finished answer this pins",
+            )
+
+            files
+                .filterNot { (path, _) -> RAW_FINISHED_FLAG_ALLOWLIST.keys.any(path::endsWith) }
+                .flatMap { (path, text) -> rawFinishedFlagLines(text).map { line -> "$path:$line" } }
+                .shouldBeEmpty()
+        }
+
         test("every allowlisted file still exists, so the allowlist cannot outlive what it excuses") {
             val paths = clientProductionSources(root).map { it.first }
-            NOT_LISTENING_PROGRESS_ALLOWLIST.keys
+            (NOT_LISTENING_PROGRESS_ALLOWLIST.keys + RAW_FINISHED_FLAG_ALLOWLIST.keys)
                 .filterNot { suffix ->
                     paths.any { it.endsWith(suffix) }
                 }.shouldBeEmpty()
@@ -76,6 +95,12 @@ internal val NOT_LISTENING_PROGRESS_ALLOWLIST: Map<String, String> =
         "Features/LibrarySetup/LibraryScanView.swift" to "how far a library scan has got",
         "Features/Admin/Import/ImportFlowObserver.swift" to "how far an import has got",
         "Features/DocumentReader/NowPlayingStrip.swift" to "the player's chapter time left, beside a document",
+        "features/bookdetail/components/BookReadersSection.kt" to
+            "another reader's progress arrives from the server as the one rule's whole percent; the bar draws it",
+        "web/features/readers/ReadersPane.kt" to
+            "another reader's progress arrives from the server as the one rule's whole percent; the bar draws it",
+        "presentation/bookdetail/ChapterReadership.kt" to
+            "places a reader with no exact position on the chapter strip from the server's whole percent",
     )
 
 /** The player's chapter progress: a different quantity, with its own rule (`presentation/player/PlayerProgress.kt`). */
@@ -93,8 +118,8 @@ private val HAND_ROLLED_PROGRESS =
         """[dD]uration[^\n]*\*[^\n]*\(\s*1(?:\.0)?f?\s*-\s*[\w.]*(?:progress|fraction)\s*\)""",
         // A fraction times 100: `(it.fraction * 100).roundToInt()`, `(progress * PERCENT).toInt()`.
         """\b(?:progress|fraction)(?:\.coerceIn\([^)]*\))?\s*\*\s*(?:100(?:\.0)?f?|PERCENT\w*)\b""",
-        // A percent over 100: `book.progressPercent / PERCENT.toFloat()`.
-        """[pP]ercent\w*\s*/\s*(?:100(?:\.0)?f?|PERCENT\w*)""",
+        // A percent over 100: `book.progressPercent / PERCENT.toFloat()`, `reader.progressPct.coerceIn(0, 100) / 100f`.
+        """(?:[pP]ercent|[pP]ct)\w*(?:\.coerceIn\([^)]*\))?\s*/\s*(?:100(?:\.0)?f?|PERCENT\w*)""",
         // The web bar's fallback rounding, outside the bar: `"${percentOf(fraction)}%"`.
         """\bpercentOf\(""",
     ).map(::Regex)
@@ -109,6 +134,35 @@ internal fun handRolledProgressLines(text: String): List<Int> {
         .distinct()
         .sorted()
 }
+
+/**
+ * Presentation files that read a playback position's finished flag on its own, keyed by path suffix, valued by the
+ * reason. Everywhere else a screen asks `BookProgress.of`, which also counts a place inside the end credits.
+ */
+internal val RAW_FINISHED_FLAG_ALLOWLIST: Map<String, String> =
+    mapOf(
+        "presentation/home/HomeSlotRules.kt" to
+            "Home's just-finished and next-in-series picks run over positions alone, with no book durations, and the " +
+            "card needs the finish date only the flag's write stamps; every resting-place write sets the flag " +
+            "for a book left in its credits (ProgressTracker.isInEndCredits)",
+    )
+
+/** Code under a shared ViewModel directory, where a screen's finished/not-finished answer is decided. */
+internal fun isPresentationCode(path: String): Boolean = "/presentation/" in path
+
+/** A finished flag read off a value: `it.isFinished`, `position.isFinished`, `row?.isFinished`. */
+private val RAW_FINISHED_FLAG = Regex("""\.isFinished\b""")
+
+/**
+ * 1-based line of every finished-flag read in [text] that is not handed to `BookProgress.of`, ignoring comments.
+ * Distinct, in order.
+ */
+internal fun rawFinishedFlagLines(text: String): List<Int> =
+    blankComments(text)
+        .lines()
+        .withIndex()
+        .filter { (_, line) -> RAW_FINISHED_FLAG.containsMatchIn(line) && "BookProgress.of(" !in line }
+        .map { (index, _) -> index + 1 }
 
 private val CLIENT_KOTLIN_ROOTS = listOf("app/sharedLogic/src/", "app/sharedUI/src/", "app/webApp/src/")
 private const val SWIFT_ROOT = "app/iosApp/ListenUp"

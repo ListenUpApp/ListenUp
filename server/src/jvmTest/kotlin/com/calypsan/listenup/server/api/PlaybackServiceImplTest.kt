@@ -144,6 +144,33 @@ class PlaybackServiceImplTest :
             }
         }
 
+        test("prepare says when its signed URLs stop working: the URLs' own exp, in epoch millis") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
+
+                    val result = deps.service(sql, "u1").prepare(BookId("b1"))
+                    val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+
+                    val exps =
+                        success.data.audioFiles.map { file ->
+                            file.url
+                                .substringAfter("?")
+                                .split("&")
+                                .first { it.startsWith("exp=") }
+                                .substringAfter("=")
+                                .toLong()
+                        }
+                    exps.distinct().size shouldBe 1
+                    success.data.urlsExpireAt shouldBe exps.first() * 1_000L
+                }
+            }
+        }
+
         test("prepare returns a signed cover URL that the cover signer verifies") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

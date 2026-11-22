@@ -31,7 +31,8 @@ internal const val MAX_FINALIZE_ATTEMPTS = 3
 /**
  * Drives the per-span recording state machine: open a [TentativeSpanEntity] on play,
  * extend it on each heartbeat, finalize it into a [ListeningEventEntity] (plus a pending
- * op) on pause / book-end / sleep-timer / speed-change / seek / cross-book transition.
+ * op) on pause / book-end / sleep-timer / seek. A speed change never splits a span (see
+ * [PlaybackProgressReporter]); a span keeps the speed it opened at.
  *
  * Only one span can be open at a time — a user listens to one book at a time.
  *
@@ -267,38 +268,6 @@ class ListeningEventRecorder internal constructor(
     }
 
     /**
-     * Finalizes the current span at [positionMs] using the OLD [playbackSpeed], then opens a
-     * new span at [positionMs] with [newSpeed]. No-op if no span is open.
-     *
-     * The finalized span's wire payload carries the old speed — the span covers audio played
-     * at that speed from its [TentativeSpanEntity.startPositionMs] to [positionMs].
-     *
-     * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
-     * (see [finalizeSpan]) — this does NOT open a new span on top of it (that would destroy
-     * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
-     * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
-     * the next launch.
-     */
-    suspend fun onSpeedChange(
-        positionMs: Long,
-        newSpeed: Float,
-    ) {
-        spanLock.withLock {
-            val existing = currentSpan() ?: return
-            val nowMs = clock.now().toEpochMilliseconds()
-            val cleared =
-                finalizeThenCheckCleared(
-                    tentative = existing,
-                    endPositionMs = positionMs,
-                    endedAt = nowMs,
-                    caller = "onSpeedChange",
-                )
-            if (!cleared) return
-            openSpan(existing.bookId, positionMs, newSpeed)
-        }
-    }
-
-    /**
      * Splits the span on a seek: finalizes the current span at [positionBeforeSeek] (the
      * listener's last known position before the jump), then opens a fresh span at
      * [positionAfterSeek]. This is what keeps a jumped-over range out of the finalized span's
@@ -332,36 +301,6 @@ class ListeningEventRecorder internal constructor(
                 )
             if (!cleared) return
             openSpan(existing.bookId, positionAfterSeek, existing.playbackSpeed)
-        }
-    }
-
-    /**
-     * Finalizes the current span for the old book (using [TentativeSpanEntity.currentPositionMs]
-     * as the end position), then opens a new span for [newBookId] at [newStartPositionMs].
-     * No-op if no span is open.
-     *
-     * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
-     * (see [finalizeSpan]) — this does NOT open a new span on top of it (that would destroy
-     * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
-     * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
-     * the next launch.
-     */
-    suspend fun onMediaItemTransition(
-        newBookId: String,
-        newStartPositionMs: Long,
-    ) {
-        spanLock.withLock {
-            val existing = currentSpan() ?: return
-            val nowMs = clock.now().toEpochMilliseconds()
-            val cleared =
-                finalizeThenCheckCleared(
-                    tentative = existing,
-                    endPositionMs = existing.currentPositionMs,
-                    endedAt = nowMs,
-                    caller = "onMediaItemTransition",
-                )
-            if (!cleared) return
-            openSpan(newBookId, newStartPositionMs, existing.playbackSpeed)
         }
     }
 
@@ -403,7 +342,7 @@ class ListeningEventRecorder internal constructor(
      *
      * [finalizeSpan] deliberately leaves the row in place when its enqueue fails — that
      * survivor is the ONLY breadcrumb [recoverOrphan] can re-promote from. Every
-     * finalize-then-reopen flow ([onPlay], [onSpeedChange], [onSeek], [onMediaItemTransition])
+     * finalize-then-reopen flow ([onPlay], [onSeek])
      * must honor it — opening a new span
      * on top of a survivor would silently destroy the breadcrumb and lose the whole original span,
      * not just the failed write. Returns `false` (and logs a warning tagged with [caller]) when the

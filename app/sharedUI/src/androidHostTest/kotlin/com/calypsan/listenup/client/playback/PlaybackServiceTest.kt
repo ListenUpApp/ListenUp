@@ -56,7 +56,7 @@ class PlaybackServiceTest :
             val repo = RecordingPositionRepository2()
             val tracker = makeTracker(repo)
 
-            tracker.savePositionNow(BookId("book1"), 42_000L)
+            tracker.savePositionNow(BookId("book1"), 42_000L, durationMs = 0L)
 
             // If savePositionNow were fire-and-forget, this assertion would race.
             // It passes deterministically because savePositionNow is a direct suspend call.
@@ -71,7 +71,7 @@ class PlaybackServiceTest :
             // Simulate saveCurrentPositionBlocking: runBlocking(NonCancellable) wrapping
             // savePositionNow — the same pattern used in PlaybackService.
             runBlocking(NonCancellable) {
-                tracker.savePositionNow(BookId("book2"), 99_000L)
+                tracker.savePositionNow(BookId("book2"), 99_000L, durationMs = 0L)
             }
 
             repo.calls.size shouldBe 1
@@ -83,7 +83,7 @@ class PlaybackServiceTest :
             val repo = RecordingPositionRepository2()
             val tracker = makeTracker(repo)
 
-            tracker.savePositionNow(BookId("book3"), 0L)
+            tracker.savePositionNow(BookId("book3"), 0L, durationMs = 0L)
 
             // Still writes — position 0 is valid (never-played first open)
             repo.calls.size shouldBe 1

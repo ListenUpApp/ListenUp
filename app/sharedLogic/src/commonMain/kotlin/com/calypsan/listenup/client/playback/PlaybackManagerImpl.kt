@@ -549,7 +549,13 @@ internal class PlaybackManagerImpl(
         updatePosition(toPositionMs)
         if (!persistTransitionsViaReporter) return
         val bookId = currentBookId.value ?: return
-        reporter.onSeek(bookId = bookId, beforeMs = fromPositionMs, afterMs = toPositionMs, speed = playbackSpeed.value)
+        reporter.onSeek(
+            bookId = bookId,
+            beforeMs = fromPositionMs,
+            afterMs = toPositionMs,
+            speed = playbackSpeed.value,
+            durationMs = totalDurationMs.value,
+        )
     }
 
     /**

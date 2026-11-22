@@ -844,7 +844,7 @@ class PlaybackService :
         val bookId = currentBookId ?: return
         val positionMs = getBookRelativePosition()
         runBlocking(NonCancellable) {
-            progressTracker.savePositionNow(bookId, positionMs)
+            progressTracker.savePositionNow(bookId, positionMs, getBookDurationMs())
         }
     }
 
@@ -1156,6 +1156,7 @@ class PlaybackService :
                         // Book-relative (sum of prior file durations + file offset); never the
                         // raw file-relative player.currentPosition read inside the handler.
                         bookPositionMs = getBookRelativePosition(),
+                        bookDurationMs = getBookDurationMs(),
                         onShowError = { appError -> playbackManager.reportError(appError) },
                     )
 

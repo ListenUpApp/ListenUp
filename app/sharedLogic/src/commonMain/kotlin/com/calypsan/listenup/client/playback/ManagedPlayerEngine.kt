@@ -147,20 +147,28 @@ internal class ManagedPlayerEngine(
         playbackController.stop()
         startGate.release()
         playbackManager.clearPlayback()
-        place?.let { (bookId, positionMs) -> scope.launch { progressTracker.savePositionNow(bookId, positionMs) } }
+        place?.let { scope.launch { progressTracker.savePositionNow(it.bookId, it.positionMs, it.durationMs) } }
     }
 
     /**
-     * The held book and its exact place, or null when nothing is held or the held book is the one still
-     * loading: between [PlaybackManager.activateBook] and the start, the manager names the new book but still
-     * carries the old book's position, which must never be filed under the new one.
+     * The held book, its exact place and its duration (the tracker finishes a book dropped in its end credits),
+     * or null when nothing is held or the held book is the one still loading: between
+     * [PlaybackManager.activateBook] and the start, the manager names the new book but still carries the old
+     * book's position, which must never be filed under the new one.
      */
-    private fun placeBeingDropped(): Pair<BookId, Long>? {
+    private fun placeBeingDropped(): DroppedPlace? {
         val bookId = playbackManager.currentBookId.value ?: return null
         if (bookId == loadingBookId) return null
-        return bookId to playbackManager.currentPositionMs.value
+        return DroppedPlace(bookId, playbackManager.currentPositionMs.value, playbackManager.totalDurationMs.value)
     }
 }
+
+/** Where a book was when the engine let go of it. */
+private data class DroppedPlace(
+    val bookId: BookId,
+    val positionMs: Long,
+    val durationMs: Long,
+)
 
 /**
  * The manager's three flags as one engine phase. Pure.

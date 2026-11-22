@@ -1363,6 +1363,57 @@ class LibraryViewModelTest :
             }
         }
 
+        test("seriesProgress counts a book left inside its end credits as finished, as its own card does") {
+            runTest {
+                val books =
+                    listOf(
+                        createTestBook(id = "b1", seriesId = "s1", seriesName = "Test Series", seriesSequence = 1.0),
+                        createTestBook(id = "b2", seriesId = "s1", seriesName = "Test Series", seriesSequence = 2.0),
+                    )
+                val seriesList =
+                    listOf(
+                        SeriesWithBooks(
+                            series = createTestSeries(id = "s1"),
+                            books = books,
+                            bookSequences = mapOf("b1" to 1.0, "b2" to 2.0),
+                        ),
+                    )
+                // Ten seconds from the end of the one-hour book, and no finished flag (yet).
+                val positions =
+                    mapOf(
+                        BookId("b1") to
+                            PlaybackPosition(
+                                bookId = "b1",
+                                positionMs = 3_600_000L - 10_000L,
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                volumeBoostDb = 0f,
+                                hasCustomBoost = false,
+                                measuredGainDb = null,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                                isFinished = false,
+                            ),
+                    )
+                val fixture = createFixture()
+                every { fixture.seriesRepository.observeRootSeriesWithBooks() } returns flowOf(seriesList)
+                every { fixture.playbackPositionRepository.observeAll() } returns flowOf(positions)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                val progress =
+                    loaded.seriesProgress[
+                        com.calypsan.listenup.core
+                            .SeriesId("s1"),
+                    ]
+                        ?: error("Expected seriesProgress entry for s1")
+                progress.finishedCount shouldBe 1
+            }
+        }
+
         // ========== distinctUntilChanged / conflate smoke tests ==========
 
         // Regression guard: a real SyncState change (Idle → Syncing) propagates end-to-end through

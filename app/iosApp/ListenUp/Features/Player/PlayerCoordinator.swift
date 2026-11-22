@@ -405,7 +405,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         let beforeMs = bookPositionMs
         // Split the listening span (finalize pre-seek at `beforeMs`, reopen at `positionMs`) so the
         // jumped-over range isn't fabricated as listened content. This also persists the new position.
-        progress.onSeek(bookId: loaded.bookId, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed)
+        progress.onSeek(
+            bookId: loaded.bookId, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed,
+            durationMs: bookDurationMs)
         lastReportedPositionMs = positionMs
         facts.position(ms: positionMs, generation: factGeneration)
         // Move the clock before stamping now-playing, which reads it: the lock screen shows the new time at once.
@@ -457,7 +459,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func saveCurrentPosition() async {
         // Key on the book the engine holds: saving during a load would zero an untouched resume point.
         guard let id = engineBook?.bookId else { return }
-        await savePositionUncancellably(bookId: id, positionMs: bookPositionMs)
+        await savePositionUncancellably(bookId: id, positionMs: bookPositionMs, durationMs: bookDurationMs)
     }
 
     /// Unload the engine — sign-out's teardown, awaited so the audio session is deactivated and the
@@ -473,7 +475,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private func stopEngine() async {
         pauseCause = nil
         // Record the place before forgetting the book (a Close mid-play must not lose up to 5 s).
-        let place = isEngineLoading ? nil : engineBook.map { (bookId: $0.bookId, positionMs: bookPositionMs) }
+        let place = isEngineLoading
+            ? nil : engineBook.map { (bookId: $0.bookId, positionMs: bookPositionMs, durationMs: $0.durationMs) }
         if let place, isPlaybackActive { reportPaused(place.bookId) }
         // Supersede any in-flight load: `Task.cancel()` alone does not interrupt its awaits, so bump
         // the epoch and it bails at its next `isSuperseded` check instead of resurrecting playback.
@@ -485,16 +488,19 @@ final class PlayerCoordinator: RemoteCommandHandler {
         enginePhase = .idle
         resetMetadataForSwitch()
         updateNowPlaying()
-        if let place { await savePositionUncancellably(bookId: place.bookId, positionMs: place.positionMs) }
+        if let place {
+            await savePositionUncancellably(
+                bookId: place.bookId, positionMs: place.positionMs, durationMs: place.durationMs)
+        }
         await engine.deactivateSession()
         await engine.unload()
     }
 
     /// A teardown save: the bridged Kotlin suspend cancels its coroutine when the calling task is cancelled,
     /// and teardown is exactly when tasks get cancelled. Android runs the same save under `NonCancellable`.
-    private func savePositionUncancellably(bookId: String, positionMs: Int64) async {
+    private func savePositionUncancellably(bookId: String, positionMs: Int64, durationMs: Int64) async {
         await uncancellable { @MainActor in
-            await self.progress.savePositionNow(bookId: bookId, positionMs: positionMs)
+            await self.progress.savePositionNow(bookId: bookId, positionMs: positionMs, durationMs: durationMs)
         }
     }
 
@@ -588,7 +594,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private func recordPlaceBeforeDropping(_ bookId: String) {
         if isPlaybackActive { reportPaused(bookId) }
         let positionMs = bookPositionMs
-        Task { await progress.savePositionNow(bookId: bookId, positionMs: positionMs) }
+        let durationMs = bookDurationMs
+        Task { await progress.savePositionNow(bookId: bookId, positionMs: positionMs, durationMs: durationMs) }
     }
 
     // The shared tracker decides whether a pause or an end finishes the book: it needs both numbers.

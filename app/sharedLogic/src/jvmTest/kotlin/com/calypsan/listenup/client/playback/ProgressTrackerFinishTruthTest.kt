@@ -129,6 +129,64 @@ class ProgressTrackerFinishTruthTest :
                 positions.stored(BOOK).isFinished shouldBe true
             }
         }
+
+        test("a save-now inside the end credits finishes the book, and the write has landed when it returns") {
+            runTest {
+                // The app killed during the credits, a Close, a tab hidden: no pause will ever come.
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+
+                tracker.savePositionNow(BOOK, positionMs = 99_500L, durationMs = DURATION)
+
+                val stored = positions.stored(BOOK)
+                stored.isFinished shouldBe true
+                stored.positionMs shouldBe DURATION
+            }
+        }
+
+        test("a save-now outside the end credits saves the place and does not finish the book") {
+            runTest {
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+
+                tracker.savePositionNow(BOOK, positionMs = 50_000L, durationMs = DURATION)
+
+                val stored = positions.stored(BOOK)
+                stored.isFinished shouldBe false
+                stored.positionMs shouldBe 50_000L
+            }
+        }
+
+        test("a seek while paused into the end credits finishes the book") {
+            runTest {
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                tracker.onPlaybackStarted(BOOK, positionMs = 10_000L, speed = 1.0f, durationMs = DURATION)
+                tracker.onPlaybackPaused(BOOK, positionMs = 50_000L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                tracker.onSeek(BOOK, positionMs = 99_500L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                positions.stored(BOOK).isFinished shouldBe true
+            }
+        }
+
+        test("a seek while playing into the end credits does not finish the book: the listener is still listening") {
+            runTest {
+                val positions = FakePlaybackPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positions)
+                tracker.onPlaybackStarted(BOOK, positionMs = 10_000L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                tracker.onSeek(BOOK, positionMs = 99_500L, speed = 1.0f, durationMs = DURATION)
+                advanceUntilIdle()
+
+                val stored = positions.stored(BOOK)
+                stored.isFinished shouldBe false
+                stored.positionMs shouldBe 99_500L
+            }
+        }
     })
 
 private suspend fun FakePlaybackPositionRepository.storedOrNull(bookId: BookId) =

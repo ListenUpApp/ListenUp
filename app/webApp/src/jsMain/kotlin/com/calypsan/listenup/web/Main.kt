@@ -205,9 +205,11 @@ private fun startLifecycleHooks(
             // Resolved per event, not at boot: `koin.get<PlaybackManager>()` would build the
             // whole playback graph before anyone had asked to play anything.
             val manager = koin.get<PlaybackManager>()
-            manager.currentBookId.value?.let { Playhead(it, manager.currentPositionMs.value) }
+            manager.currentBookId.value?.let {
+                Playhead(it, manager.currentPositionMs.value, manager.totalDurationMs.value)
+            }
         },
-        flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs) },
+        flush = { koin.get<ProgressTracker>().savePositionNow(it.bookId, it.positionMs, it.durationMs) },
         isHidden = { document.visibilityState == "hidden" },
         scope = scope,
     )

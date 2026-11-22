@@ -166,8 +166,9 @@ class PlaybackProgressReporter(
         beforeMs: Long,
         afterMs: Long,
         speed: Float,
+        durationMs: Long,
     ) {
-        progressTracker.onPositionUpdate(bookId, afterMs, speed)
+        progressTracker.onSeek(bookId = bookId, positionMs = afterMs, speed = speed, durationMs = durationMs)
         record { it.onSeek(positionBeforeSeek = beforeMs, positionAfterSeek = afterMs) }
     }
 
@@ -302,8 +303,9 @@ class PlaybackProgressReporter(
     suspend fun savePositionNow(
         bookId: BookId,
         positionMs: Long,
+        durationMs: Long,
     ) {
-        progressTracker.savePositionNow(bookId, positionMs)
+        progressTracker.savePositionNow(bookId, positionMs, durationMs)
     }
 
     /**

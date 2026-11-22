@@ -144,8 +144,17 @@ class SleepTimerManager(
     }
 
     /**
-     * Called by PlayerSession when chapter changes.
-     * Used for end-of-chapter mode detection.
+     * The listener moved the playhead into chapter [chapterIndex] (Next chapter, a chapter tap, a skip, a scrub).
+     * An end-of-chapter timer means the end of the chapter they are now in, so the move is a new baseline and never
+     * a chapter that ended: called before the engine reports the new chapter to [onChapterChanged].
+     */
+    fun onUserMovedTo(chapterIndex: Int) {
+        lastKnownChapterIndex = chapterIndex
+    }
+
+    /**
+     * Called by PlayerSession when the engine reports a new chapter: playback crossing a boundary on its own fires an
+     * end-of-chapter timer. Moves the listener made are re-baselined first ([onUserMovedTo]).
      */
     @Suppress("CollapsibleIfStatements") // Nested if improves readability here
     fun onChapterChanged(newChapterIndex: Int) {

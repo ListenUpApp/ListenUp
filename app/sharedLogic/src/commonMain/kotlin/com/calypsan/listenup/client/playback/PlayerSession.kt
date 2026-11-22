@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CancellationException
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -63,6 +65,8 @@ class PlayerSession(
     /** True where the device keeps downloads; the browser does not, so it never says "offline, not downloaded". */
     val offlineCopiesSupported: Boolean,
     private val scope: CoroutineScope,
+    /** Wall-clock read, epoch ms: when a held book's signed stream URLs have lapsed. Tests pass a virtual clock. */
+    nowMillis: () -> Long = ::currentEpochMilliseconds,
 ) : LoadedBookPlayhead {
     private val stage = MutableStateFlow<SessionStage?>(null)
     private val restoring = MutableStateFlow(true)
@@ -91,6 +95,7 @@ class PlayerSession(
             playbackPreferences = playbackPreferences,
             scope = scope,
         )
+    private val heldBookResume = HeldBookResume(engine, readout, nowMillis)
     private val stageBookId: Flow<BookId?> get() = readout.stageBookId
     private val engineBound: StateFlow<Boolean> get() = readout.engineBound
 
@@ -163,7 +168,12 @@ class PlayerSession(
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
         scope.launch { haltSurfacedFailures() }
-        scope.launch { reportStartsThatNeverSettle(state, onNeverStarted = ::failStartThatNeverSettled) }
+        scope.launch {
+            reportStartsThatNeverSettle(
+                state,
+            ) { bookId -> stage.update { it.withStartThatNeverSettled(bookId) } }
+        }
+        scope.launch { heldBookResume.accountForOwnPositionWrites() }
         sleep.start(loadedBookId = stageBookId)
     }
 
@@ -291,7 +301,9 @@ class PlayerSession(
      *
      * - A plain repeat tap for the book already preparing is swallowed (a double tap).
      * - The book the engine already holds, not finished, not failed and not halted by a failure, is a resume: a
-     *   seek when [startAtMs] is given, then play. Never a re-prepare (the web rule, now everyone's).
+     *   seek when [startAtMs] is given (else to a newer place another device saved, [resumeHeldBook]), then play.
+     *   A re-prepare only when the held stream's signed URLs have lapsed; otherwise never (the web rule, now
+     *   everyone's).
      * - Anything else starts a load, which supersedes any load in flight. A plain Play of the loaded book starts
      *   where the listener moved it before Play.
      */
@@ -310,9 +322,7 @@ class PlayerSession(
                     loaded.phase !is PlayerPhase.Failed &&
                     (stage.value as? SessionStage.Engine)?.halted != true
             if (resumable) {
-                if (startAtMs != null) engine.seekTo(startAtMs.coerceIn(0L, (durationMs.value - 1).coerceAtLeast(0L)))
-                engine.clearError()
-                engine.play()
+                resumeHeldBook(bookId, heldBookResume.plan(bookId, startAtMs, durationMs.value))
                 return@onPlayer
             }
             // A plain Play of the loaded, not-prepared book honours where the listener moved it.
@@ -385,6 +395,39 @@ class PlayerSession(
             }
     }
 
+    // ── Resume of a held book ────────────────────────────────────────────────────────────────────────
+
+    /** Play the book the engine holds, paused, as [HeldBookResume.plan] decided. A load begins inside the tap. */
+    private fun resumeHeldBook(
+        bookId: BookId,
+        plan: ResumePlan,
+    ) {
+        when (plan) {
+            ResumePlan.DecideFinished -> {
+                startLoad(bookId, PlaybackStart.Resume)
+            }
+
+            is ResumePlan.Reprepare -> {
+                startLoad(bookId, PlaybackStart.At(plan.positionMs))
+            }
+
+            is ResumePlan.Resume -> {
+                plan.seekToMs?.let(::seekEngineTo)
+                engine.clearError()
+                engine.play()
+            }
+        }
+    }
+
+    /**
+     * Seek the engine for a move the listener made. The sleep timer hears the chapter it lands in first, so an
+     * end-of-chapter timer counts from there instead of taking the move for a chapter that ended.
+     */
+    private fun seekEngineTo(positionMs: Long) {
+        chapterInfoAt(positionMs, chapters.value, durationMs.value)?.let { landed -> sleep.onUserMovedTo(landed.index) }
+        engine.seekTo(positionMs)
+    }
+
     /** Remember [bookId] as this device's loaded book. Best-effort: a failed write never stops a book playing. */
     private suspend fun rememberLoaded(bookId: BookId) {
         try {
@@ -446,11 +489,11 @@ class PlayerSession(
                 }
 
                 PlayerPhase.Paused -> {
-                    engine.clearError()
                     if ((stage.value as? SessionStage.Engine)?.halted == true) {
+                        engine.clearError()
                         startLoad(loaded.bookId, retryStart(loaded))
                     } else {
-                        engine.play()
+                        resumeHeldBook(loaded.bookId, heldBookResume.plan(loaded.bookId, null, durationMs.value))
                     }
                 }
 
@@ -603,7 +646,7 @@ class PlayerSession(
             val target = positionMs.coerceAtLeast(0L)
             when {
                 loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
-                loaded.isEngineBound -> engine.seekTo(target)
+                loaded.isEngineBound -> seekEngineTo(target)
                 else -> pendingStart.value = PlaybackStart.At(target)
             }
         }
@@ -737,26 +780,6 @@ class PlayerSession(
                     stage.value = current.copy(halted = false, failure = null)
                 }
             }
-    }
-
-    /**
-     * The engine buffered [bookId]'s start for all of [ENGINE_START_BOUND] without playing or saying why: say it
-     * couldn't be started, rather than spin forever. The failure is the session's own, so [haltSurfacedFailures] stops
-     * the engine on it, and Play or Retry prepares the book again from where the listener sees it.
-     */
-    private fun failStartThatNeverSettled(bookId: BookId) {
-        val current = stage.value as? SessionStage.Engine ?: return
-        if (current.bookId != bookId || current.failure != null) return
-        logger.error {
-            "Book ${bookId.value} did not start: still buffering $ENGINE_START_BOUND after it was handed over"
-        }
-        stage.value =
-            current.copy(
-                failure =
-                    PlaybackError.CouldNotStart(
-                        debugInfo = "still buffering $ENGINE_START_BOUND after the start",
-                    ),
-            )
     }
 
     // ── Sleep ────────────────────────────────────────────────────────────────────────────────────────

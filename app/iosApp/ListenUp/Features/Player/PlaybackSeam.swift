@@ -112,8 +112,9 @@ protocol PlaybackProgressReporting {
     /// A pause in the end credits of `durationMs` finishes the book (the shared tracker decides).
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)
-    /// A seek splits the listening span so the jumped-over range isn't counted as listened.
-    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float)
+    /// A seek splits the listening span so the jumped-over range isn't counted as listened. A seek while paused
+    /// into the end credits of `durationMs` finishes the book (the shared tracker decides).
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float, durationMs: Int64)
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float)
     /// User reset this book's speed to the default: the per-book speed is removed, not overwritten.
     func onSpeedReset(bookId: String, positionMs: Int64, defaultSpeed: Float)
@@ -125,8 +126,9 @@ protocol PlaybackProgressReporting {
     func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float)
     /// The engine reported end-of-media at `positionMs`; the shared tracker ignores it unless it is near `durationMs`.
     func onBookFinished(bookId: String, positionMs: Int64, durationMs: Int64)
-    /// Blocking critical save — used on pause, seek, and app backgrounding.
-    func savePositionNow(bookId: String, positionMs: Int64) async
+    /// Blocking critical save — used on pause, seek, and app backgrounding. A place inside the end credits of
+    /// `durationMs` finishes the book (the shared tracker decides).
+    func savePositionNow(bookId: String, positionMs: Int64, durationMs: Int64) async
 }
 
 /// The user's skip-interval settings, projected as native streams. Each stream emits

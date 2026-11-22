@@ -129,41 +129,6 @@ class ListeningEventRecorderTest :
             }
         }
 
-        // ── Case 4: onSpeedChange while playing ──────────────────────────────────
-
-        test("onSpeedChange finalizes span at OLD speed; new span opens at NEW speed") {
-            runTest {
-                var now = 1_000L
-                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
-                    recorder.onPlay(BOOK_ID, START_POSITION, oldSpeed = 1.0f)
-
-                    now = 31_000L
-                    recorder.onSpeedChange(positionMs = 30_000L, newSpeed = 1.5f)
-
-                    // Old span finalized with old speed
-                    val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
-                    events.size shouldBe 1
-                    events[0].playbackSpeed shouldBe 1.0f
-                    events[0].endPositionMs shouldBe 30_000L
-
-                    // Wire payload carries the OLD speed
-                    enqueuedOps.size shouldBe 1
-                    val req =
-                        contractJson.decodeFromString(
-                            RecordListeningEventRequest.serializer(),
-                            enqueuedOps[0].payload,
-                        )
-                    req.playbackSpeed shouldBe 1.0f
-
-                    // New tentative span open with new speed at the speed-change position
-                    val span = db.tentativeSpanDao().get()
-                    span.shouldNotBeNull()
-                    span.playbackSpeed shouldBe 1.5f
-                    span.startPositionMs shouldBe 30_000L
-                }
-            }
-        }
-
         // ── Case 5: onSeek while playing ─────────────────────────────────────────
 
         test("onSeek finalizes span at pre-seek position; new span starts at post-seek position") {
@@ -188,35 +153,6 @@ class ListeningEventRecorderTest :
                     span.shouldNotBeNull()
                     span.startPositionMs shouldBe 90_000L
                     span.currentPositionMs shouldBe 90_000L
-                }
-            }
-        }
-
-        // ── Case 6: onMediaItemTransition while playing ───────────────────────────
-
-        test("onMediaItemTransition finalizes span for old book; new span opens for new book") {
-            runTest {
-                var now = 1_000L
-                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
-                    recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
-                    now = 61_000L
-                    recorder.onPeriodicTick(BOOK_ID, 60_000L, playbackSpeed = SPEED)
-
-                    recorder.onMediaItemTransition(newBookId = "book-test-2", newStartPositionMs = 0L)
-
-                    // Old span finalized for old book
-                    val oldEvents = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
-                    oldEvents.size shouldBe 1
-                    oldEvents[0].bookId shouldBe BOOK_ID
-
-                    // Pending op enqueued for old book span
-                    enqueuedOps.size shouldBe 1
-
-                    // New tentative span for new book
-                    val span = db.tentativeSpanDao().get()
-                    span.shouldNotBeNull()
-                    span.bookId shouldBe "book-test-2"
-                    span.startPositionMs shouldBe 0L
                 }
             }
         }

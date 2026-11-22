@@ -309,6 +309,7 @@ class PlaybackPreparer internal constructor(
             startPositionMs(start = start, resolved = resolved, chapters = chapters, totalDurationMs = timeline.totalDurationMs)
         // Starting a finished book over is a new listen-through: clear the flag now, or every later
         // open would take the re-read branch again and throw away how far the listener got.
+        // The flag alone is right here: ProgressTracker.isInEndCredits sets it for a book left in its credits.
         if (resolved?.isFinished == true) progressTracker.startRelisten(bookId)
 
         val resumeSpeed =
@@ -484,6 +485,7 @@ class PlaybackPreparer internal constructor(
 
             is PlaybackStart.Moved -> {
                 landingMs(
+                    // The flag alone is right here: ProgressTracker.isInEndCredits sets it for a book left in its credits.
                     fromMs = if (resolved == null || resolved.isFinished) 0L else resolved.positionMs,
                     moves = start.moves,
                     chapters = chapters,
@@ -506,6 +508,7 @@ class PlaybackPreparer internal constructor(
      */
     private fun resumeStartPositionMs(resolved: ResolvedResumePosition?): Long {
         if (resolved == null) return 0L
+        // The flag alone is right here: ProgressTracker.isInEndCredits sets it for a book left in its credits.
         if (resolved.isFinished) {
             logger.info { "Book is finished - starting from beginning for re-read" }
             return 0L
@@ -569,6 +572,7 @@ class PlaybackPreparer internal constructor(
                                 result.data.audioFiles
                                     .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
                                     .toMap(),
+                            expireAtMs = result.data.urlsExpireAt,
                         )
                     }
 
@@ -608,6 +612,7 @@ class PlaybackPreparer internal constructor(
                             hlsUrl = preparedUrls.hls[file.id],
                         )
                     },
+                urlsExpireAtMs = preparedUrls.expireAtMs,
             )
         return AppResult.Success(TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition))
     }
@@ -754,6 +759,8 @@ private data class TimelineBuildResult(
 private data class PreparedUrls(
     val direct: Map<String, String> = emptyMap(),
     val hls: Map<String, String> = emptyMap(),
+    /** When [direct] and [hls] stop working, epoch ms; null when nothing was signed or the server did not say. */
+    val expireAtMs: Long? = null,
 )
 
 /**

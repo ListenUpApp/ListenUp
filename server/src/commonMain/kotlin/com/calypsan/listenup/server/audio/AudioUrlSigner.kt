@@ -9,6 +9,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 /**
  * Mints and verifies short-lived signed audio URLs.
@@ -39,20 +40,26 @@ class AudioUrlSigner(
             .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, signingKey)
 
     /**
-     * Returns `u=<userId>&exp=<epochSec>&sig=<hex>` for the audio URL of
-     * `(userId, bookId, fileId)`. The `bookId` and `fileId` are path segments
-     * owned by the route and are not repeated in the query string.
+     * When a URL signed now stops working: [validFor] from now, to the whole second the `exp` parameter carries. Sign
+     * a book's files with one value of it and tell the client, so it knows when its URLs lapse.
      *
      * @param validFor how long the URL works; the signer's own lifetime unless the caller needs a
      *   different one, as a download does ([DOWNLOAD_URL_TTL]).
+     */
+    fun expiry(validFor: Duration = ttl): Instant = Instant.fromEpochSeconds((clock.now() + validFor).epochSeconds)
+
+    /**
+     * Returns `u=<userId>&exp=<epochSec>&sig=<hex>` for the audio URL of
+     * `(userId, bookId, fileId)`, valid until [expiresAt]. The `bookId` and `fileId` are path segments
+     * owned by the route and are not repeated in the query string.
      */
     fun signedQuery(
         userId: String,
         bookId: String,
         fileId: String,
-        validFor: Duration = ttl,
+        expiresAt: Instant = expiry(),
     ): String {
-        val exp = (clock.now() + validFor).epochSeconds
+        val exp = expiresAt.epochSeconds
         val sig = hmacHex(payload(userId = userId, bookId = bookId, fileId = fileId, exp = exp))
         return "u=${userId.encodeURLParameter()}&exp=$exp&sig=$sig"
     }

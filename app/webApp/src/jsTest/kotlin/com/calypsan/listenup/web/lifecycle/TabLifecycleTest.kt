@@ -26,6 +26,7 @@ private const val POLL_MS = 10L
 
 private const val FIRST_POSITION_MS = 42_000L
 private const val SECOND_POSITION_MS = 7_000L
+private const val BOOK_DURATION_MS = 3_600_000L
 
 private val FIRST_BOOK = BookId("book-1")
 private val SECOND_BOOK = BookId("book-2")
@@ -54,7 +55,7 @@ class TabLifecycleTest :
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             val dispose =
                 flushPositionWhenHidden(
-                    playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS) },
+                    playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS, BOOK_DURATION_MS) },
                     flush = { flushes += it.bookId to it.positionMs },
                     isHidden = { true },
                     scope = scope,
@@ -75,7 +76,7 @@ class TabLifecycleTest :
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             val dispose =
                 flushPositionWhenHidden(
-                    playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS) },
+                    playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS, BOOK_DURATION_MS) },
                     flush = { flushes += it.bookId to it.positionMs },
                     isHidden = { false },
                     scope = scope,
@@ -108,7 +109,7 @@ class TabLifecycleTest :
                 )
             try {
                 window.dispatchEvent(Event("pagehide"))
-                playhead = Playhead(SECOND_BOOK, SECOND_POSITION_MS)
+                playhead = Playhead(SECOND_BOOK, SECOND_POSITION_MS, BOOK_DURATION_MS)
                 window.dispatchEvent(Event("pagehide"))
 
                 awaitFirstCall(flushes)
@@ -124,7 +125,7 @@ class TabLifecycleTest :
             val live = mutableListOf<Pair<BookId, Long>>()
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             flushPositionWhenHidden(
-                playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS) },
+                playhead = { Playhead(FIRST_BOOK, FIRST_POSITION_MS, BOOK_DURATION_MS) },
                 flush = { disposed += it.bookId to it.positionMs },
                 isHidden = { true },
                 scope = scope,
@@ -133,7 +134,7 @@ class TabLifecycleTest :
 
             val dispose =
                 flushPositionWhenHidden(
-                    playhead = { Playhead(SECOND_BOOK, SECOND_POSITION_MS) },
+                    playhead = { Playhead(SECOND_BOOK, SECOND_POSITION_MS, BOOK_DURATION_MS) },
                     flush = { live += it.bookId to it.positionMs },
                     isHidden = { true },
                     scope = scope,

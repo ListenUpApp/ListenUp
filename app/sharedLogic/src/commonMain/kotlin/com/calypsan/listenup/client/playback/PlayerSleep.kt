@@ -59,6 +59,9 @@ internal class PlayerSleep(
                 .filterNotNull()
         }
 
+    /** The listener moved the playhead into chapter [chapterIndex]: not a chapter ending ([SleepTimerManager.onUserMovedTo]). */
+    fun onUserMovedTo(chapterIndex: Int) = sleepTimer.onUserMovedTo(chapterIndex)
+
     /** Start a timer. A duration takes any whole minutes within [SleepTimerChoices]' custom bounds. */
     fun set(mode: SleepTimerMode) {
         val bounded =

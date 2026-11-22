@@ -299,7 +299,13 @@ class PlaybackProgressReporterTest :
                     reporter.onPlaybackStarted(bookId = BookId(BOOK_ID), positionMs = 0L, speed = SPEED, durationMs = LONG_BOOK_MS)
                     advanceUntilIdle()
                     setNow(121_000L)
-                    reporter.onSeek(bookId = BookId(BOOK_ID), beforeMs = 120_000L, afterMs = 3_000_000L, speed = SPEED)
+                    reporter.onSeek(
+                        bookId = BookId(BOOK_ID),
+                        beforeMs = 120_000L,
+                        afterMs = 3_000_000L,
+                        speed = SPEED,
+                        durationMs = LONG_BOOK_MS,
+                    )
                     advanceUntilIdle()
                     setNow(181_000L)
                     reporter.onPlaybackPaused(bookId = BookId(BOOK_ID), positionMs = 3_060_000L, speed = SPEED, durationMs = LONG_BOOK_MS)
