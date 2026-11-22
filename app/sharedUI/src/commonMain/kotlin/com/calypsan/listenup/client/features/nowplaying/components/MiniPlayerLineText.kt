@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.presentation.error.playerTitle
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
@@ -31,6 +32,7 @@ import listenup.composeapp.generated.resources.player_mini_playback_blocked_in_b
 import listenup.composeapp.generated.resources.player_mini_playback_no_longer_available
 import listenup.composeapp.generated.resources.player_mini_playback_offline_not_downloaded
 import listenup.composeapp.generated.resources.player_mini_playback_server_unreachable
+import listenup.composeapp.generated.resources.player_mini_transcode_unavailable
 import listenup.composeapp.generated.resources.player_mini_playing_on
 import listenup.composeapp.generated.resources.player_mini_sleep
 import listenup.composeapp.generated.resources.player_mini_starting
@@ -185,6 +187,7 @@ internal fun AppError.miniPlayerWords(): String =
         is BookError.HeldForReview -> stringResource(Res.string.player_mini_book_held_for_review)
         is PlaybackError.AutoplayBlocked -> stringResource(Res.string.player_mini_playback_autoplay_blocked)
         is PlaybackError.BlockedInBackground -> stringResource(Res.string.player_mini_playback_blocked_in_background)
+        is TranscodeError.TranscoderUnavailable -> stringResource(Res.string.player_mini_transcode_unavailable)
         else -> playerTitle()
     }
 

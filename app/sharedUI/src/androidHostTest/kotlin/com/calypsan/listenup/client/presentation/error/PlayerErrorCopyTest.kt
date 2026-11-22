@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 
@@ -23,6 +24,7 @@ class PlayerErrorCopyTest :
                 BookError.HeldForReview(),
                 PlaybackError.BlockedInBackground(),
                 PlaybackError.AutoplayBlocked(),
+                TranscodeError.TranscoderUnavailable(),
             )
 
         playerErrors.forEach { error ->

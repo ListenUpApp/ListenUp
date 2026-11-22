@@ -24938,6 +24938,17 @@
         }
       }
     },
+    "player.cause_transcode_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device can't play its audio format, and your server can't convert it. Try another device, or ask whoever runs your server to set up audio conversion."
+          }
+        }
+      }
+    },
     "player.chapter_number": {
       "extractionState": "manual",
       "localizations": {
@@ -25495,6 +25506,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Starting…"
+          }
+        }
+      }
+    },
+    "player.mini_transcode_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't play here"
           }
         }
       }
@@ -26782,6 +26804,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can't play this audio."
+          }
+        }
+      }
+    },
+    "player.title_transcode_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't play this book here."
           }
         }
       }

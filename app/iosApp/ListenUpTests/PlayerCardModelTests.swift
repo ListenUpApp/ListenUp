@@ -31,6 +31,26 @@ struct PlayerCardModelTests {
         #expect(card.secondary == .dismiss)
     }
 
+    @Test("a server that can't convert the book: its own title and cause, Close Book first, Retry second")
+    func serverCannotConvert() throws {
+        let error = TranscodeErrorTranscoderUnavailable(correlationId: nil, debugInfo: nil)
+        let state = PlayerUiStateLoaded.fixture(
+            phase: PlayerPhaseFailed(error: error),
+            primary: PrimaryControlClose.shared)
+        let card = try #require(PlayerSnapshot.from(state).card)
+        guard case let .problem(title, cause, _, _, tone) = card.kind else {
+            Issue.record("expected a problem card")
+            return
+        }
+        #expect(title == String(localized: "player.title_transcode_unavailable"))
+        #expect(title != error.message)
+        #expect(cause == String(localized: "player.cause_transcode_unavailable"))
+        #expect(PlayerSnapshot.miniTitle(for: error) == String(localized: "player.mini_transcode_unavailable"))
+        #expect(tone == .error)
+        #expect(card.primary == .closeBook)
+        #expect(card.secondary == .retry)
+    }
+
     @Test("a correlation id becomes the reference line")
     func reference() throws {
         let state = PlayerUiStateLoaded.fixture(
