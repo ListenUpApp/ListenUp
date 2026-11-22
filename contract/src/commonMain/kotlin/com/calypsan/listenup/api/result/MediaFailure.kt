@@ -39,10 +39,23 @@ sealed interface MediaFailure {
         ): MediaFailure {
             val typed = body?.let(::decodeServerError)
             return when {
-                typed != null && typed.isRetryable -> Transient
-                typed != null -> Terminal(couldNotPlay(typed.correlationId, "server ${typed.code}: ${typed.debugInfo.orEmpty()}"))
-                status in RETRYABLE_WITHOUT_EXPLANATION -> Transient
-                else -> Terminal(couldNotPlay(correlationId = null, debugInfo = "HTTP $status with no typed error"))
+                typed != null && typed.isRetryable -> {
+                    Transient
+                }
+
+                typed != null -> {
+                    Terminal(
+                        couldNotPlay(typed.correlationId, "server ${typed.code}: ${typed.debugInfo.orEmpty()}"),
+                    )
+                }
+
+                status in RETRYABLE_WITHOUT_EXPLANATION -> {
+                    Transient
+                }
+
+                else -> {
+                    Terminal(couldNotPlay(correlationId = null, debugInfo = "HTTP $status with no typed error"))
+                }
             }
         }
 
@@ -54,9 +67,12 @@ sealed interface MediaFailure {
         /** The error in a server's `AppResult.Failure` reply, or null when the body is not one. */
         private fun decodeServerError(body: String): AppError? =
             try {
-                (contractJson.decodeFromString(AppResult.serializer(Unit.serializer()), body) as? AppResult.Failure)
-                    ?.error
-                    ?.takeUnless { it is UnknownError }
+                val failure =
+                    contractJson.decodeFromString(
+                        AppResult.serializer(Unit.serializer()),
+                        body,
+                    ) as? AppResult.Failure
+                failure?.error.takeUnless { it is UnknownError }
             } catch (_: IllegalArgumentException) {
                 // SerializationException is an IllegalArgumentException: an HTML page from a proxy,
                 // or any reply that is not a typed failure. The status decides instead.

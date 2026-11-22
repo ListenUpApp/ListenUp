@@ -93,7 +93,7 @@ class HtmlAudioPlayerTest :
             mediaElementFailure(MediaError.MEDIA_ERR_ABORTED, "aborted").shouldBeInstanceOf<PlaybackError.CouldNotStart>()
             mediaElementFailure(null, "why") shouldBe PlaybackError.CouldNotStart(debugInfo = "why")
         }
-    
+
         // #1742: a segment the server said it can never produce is not a dropped connection, and
         // its reference is what joins the card to the server's log line.
         test("a segment the server refused for good fails as that refusal, carrying its reference") {

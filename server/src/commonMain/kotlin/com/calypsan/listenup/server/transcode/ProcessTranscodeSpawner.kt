@@ -46,7 +46,9 @@ class ProcessTranscodeSpawner(
                 val exit = runner.runPipeline(commands) { line -> remember(line) }
                 if (exit != 0) {
                     log.warn {
-                        "transcode pipeline exited $exit: ${commands.map { it.firstOrNull() }}; stderr tail: $stderrTail"
+                        "transcode pipeline exited $exit: ${commands.map {
+                            it.firstOrNull()
+                        }}; stderr tail: $stderrTail"
                     }
                 }
             } finally {

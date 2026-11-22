@@ -39,8 +39,9 @@ internal external interface HlsClass {
     /** Whether this browser has the Media Source Extensions hls.js needs. */
     fun isSupported(): Boolean
 
-    /** The configuration every instance starts from; read, never written. */
-    val DefaultConfig: dynamic
+    /** The configuration every instance starts from (`Hls.DefaultConfig`); read, never written. */
+    @JsName("DefaultConfig")
+    val defaultConfig: dynamic
 }
 
 /** What `import('hls.js')` resolves to. hls.js ships `export { …, Hls as default, … }`. */
@@ -96,7 +97,7 @@ private const val NETWORK_ERROR = "networkError"
  * shared by every instance, and writing into them would reconfigure each one made afterwards.
  */
 private fun configFor(hlsClass: HlsClass): dynamic {
-    val defaults = hlsClass.DefaultConfig.fragLoadPolicy.default
+    val defaults = hlsClass.defaultConfig.fragLoadPolicy.default
     val errorRetry = js("Object.assign({}, defaults.errorRetry)")
     errorRetry.shouldRetry = { _: dynamic, _: dynamic, _: dynamic, response: dynamic, retry: Boolean ->
         retry && retriesSegmentAfter(statusOf(response))
@@ -125,7 +126,11 @@ private fun bodyOf(networkDetails: dynamic): String? {
     val response = networkDetails.response
     return when {
         jsTypeOf(response) == "string" -> response.unsafeCast<String>()
-        js("response instanceof ArrayBuffer").unsafeCast<Boolean>() -> js("new TextDecoder().decode(response)").unsafeCast<String>()
+
+        js(
+            "response instanceof ArrayBuffer",
+        ).unsafeCast<Boolean>() -> js("new TextDecoder().decode(response)").unsafeCast<String>()
+
         else -> null
     }
 }

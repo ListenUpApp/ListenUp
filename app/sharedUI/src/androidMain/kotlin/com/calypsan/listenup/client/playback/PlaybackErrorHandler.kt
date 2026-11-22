@@ -207,7 +207,9 @@ class PlaybackErrorHandler(
             currentBookId != null &&
             FinishedPolicy.failureEndsBook(bookPositionMs, bookDurationMs)
         ) {
-            logger.info { "Playback failed ${bookDurationMs - bookPositionMs}ms from the end ($error); finishing the book" }
+            logger.info {
+                "Playback failed ${bookDurationMs - bookPositionMs}ms from the end ($error); finishing the book"
+            }
             player.pause()
             progressTracker.onBookFinished(currentBookId, positionMs = bookPositionMs, durationMs = bookDurationMs)
             return false
@@ -291,7 +293,9 @@ class PlaybackErrorHandler(
             }
 
             is ClassifiedError.ServerRefused -> {
-                logger.error { "Server refused the audio: ${error.error.debugInfo} (reference ${error.error.correlationId})" }
+                logger.error {
+                    "Server refused the audio: ${error.error.debugInfo} (reference ${error.error.correlationId})"
+                }
                 onShowError(error.error)
                 player.pause()
                 false

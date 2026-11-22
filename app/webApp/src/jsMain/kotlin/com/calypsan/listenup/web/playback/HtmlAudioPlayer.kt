@@ -655,7 +655,9 @@ internal class HtmlAudioPlayer(
         if (released || state.value != PlaybackState.Buffering) return
         fail(
             pendingFailure
-                ?: PlaybackError.ConnectionLost(debugInfo = "No audio arrived for $PLAYBACK_DROP_GRACE while buffering."),
+                ?: PlaybackError.ConnectionLost(
+                    debugInfo = "No audio arrived for $PLAYBACK_DROP_GRACE while buffering.",
+                ),
         )
     }
 

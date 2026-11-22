@@ -40,7 +40,7 @@ class FinishedPolicyTest :
             FinishedPolicy.acceptsEndedSignal(positionMs = 50_000L, durationMs = 100_000L) shouldBe false
             FinishedPolicy.acceptsEndedSignal(positionMs = 50_000L, durationMs = 0L) shouldBe false
         }
-    
+
         // #1742: a stream whose final, sub-second segment cannot be fetched has played everything a
         // listener can hear of the book. That is the end of it, not an error card a second from home.
         test("a stream that fails in the book's last second has reached its end") {

@@ -311,8 +311,16 @@ private fun writeFinishedSegment(
     cache: SegmentCache,
     bytes: ByteArray,
 ) {
-    Files.write(java.nio.file.Path.of(cache.segmentPath("b1", "af1", 0).toString()), bytes)
-    Files.write(java.nio.file.Path.of(cache.runListPath("b1", "af1", 0).toString()), "seg00000.aac\n".toByteArray())
+    Files.write(
+        java.nio.file.Path
+            .of(cache.segmentPath("b1", "af1", 0).toString()),
+        bytes,
+    )
+    Files.write(
+        java.nio.file.Path
+            .of(cache.runListPath("b1", "af1", 0).toString()),
+        "seg00000.aac\n".toByteArray(),
+    )
 }
 
 private fun hlsFixture(codecProfile: String = "lc"): BookSyncPayload =

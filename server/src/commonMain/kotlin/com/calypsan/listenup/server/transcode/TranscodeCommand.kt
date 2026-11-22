@@ -110,7 +110,8 @@ object TranscodeCommand {
      * `pcmLimiter_SetAttack` for USAC in fdk-aac's `libAACdec/src/aacdecoder.cpp`; USAC adds no SBR,
      * MPS or concealment delay on top. Measured: exactly 220 samples at 44.1 kHz, with and without SBR.
      */
-    internal fun fdkLookaheadSamples(sampleRate: Int): Long = sampleRate.toLong() * FDK_USAC_LIMITER_LOOKAHEAD_MS / MILLIS_PER_SECOND
+    internal fun fdkLookaheadSamples(sampleRate: Int): Long =
+        sampleRate.toLong() * FDK_USAC_LIMITER_LOOKAHEAD_MS / MILLIS_PER_SECOND
 
     private fun seekAndOpen(
         session: TranscodeSession,

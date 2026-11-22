@@ -21,7 +21,10 @@ class MediaFailureTest :
 
         test("a server that says the segment can never be produced ends playback, keeping its reference") {
             val failure =
-                MediaFailure.of(status = 500, body = reply(TranscodeError.TranscodeFailed(correlationId = "c-9", debugInfo = "segment 9109")))
+                MediaFailure.of(
+                    status = 500,
+                    body = reply(TranscodeError.TranscodeFailed(correlationId = "c-9", debugInfo = "segment 9109")),
+                )
 
             val terminal = failure.shouldBeInstanceOf<MediaFailure.Terminal>()
             terminal.error.shouldBeInstanceOf<PlaybackError.CouldNotStart>()
