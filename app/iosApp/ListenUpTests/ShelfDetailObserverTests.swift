@@ -104,4 +104,29 @@ struct ShelfDetailObserverTests {
         #expect(observer.books.isEmpty)
         #expect(observer.isOwner == false)
     }
+
+    // MARK: - A refused reorder
+
+    @MainActor @Test func aRefusedReorderPutsTheGridBackAndSaysWhy() {
+        let alerts = ErrorAlertCenter()
+        let observer = ShelfDetailObserver(viewModel: Dependencies.shared.createShelfDetailViewModel(), alerts: alerts)
+        observer.apply(ready(isOwner: true))
+
+        observer.reorder(draggedId: "book-2", onto: "book-1")
+        #expect(observer.books.map(\.id) == ["book-2", "book-1"])
+
+        observer.showMutationFailure("Couldn't save the new order.")
+        #expect(observer.books.map(\.id) == ["book-1", "book-2"])
+        #expect(alerts.current?.message == "Couldn't save the new order.")
+    }
+
+    @MainActor @Test func aRefusedRemovalLeavesTheGridAsTheServerLastSentIt() {
+        let alerts = ErrorAlertCenter()
+        let observer = ShelfDetailObserver(viewModel: Dependencies.shared.createShelfDetailViewModel(), alerts: alerts)
+        observer.apply(ready(isOwner: true))
+
+        observer.showMutationFailure("Couldn't remove the book.")
+        #expect(observer.books.map(\.id) == ["book-1", "book-2"])
+        #expect(alerts.current?.message == "Couldn't remove the book.")
+    }
 }
