@@ -128,29 +128,6 @@ class GenresErrorContractTest :
             GenreError.MoveSelfDescendant().isRetryable shouldBe false
         }
 
-        // ── GenreError.UnmappedStringNotFound ─────────────────────────────────
-
-        test("should round-trip GenreError.UnmappedStringNotFound through AppError serializer") {
-            val original: AppError =
-                GenreError.UnmappedStringNotFound(debugInfo = "raw='Bizarro Fiction'")
-            val json = contractJson.encodeToString(AppError.serializer(), original)
-            contractJson.decodeFromString(AppError.serializer(), json) shouldBe original
-        }
-
-        test("should embed stable discriminator for GenreError.UnmappedStringNotFound") {
-            val json = contractJson.encodeToString(AppError.serializer(), GenreError.UnmappedStringNotFound())
-            json.contains("\"GenreError.UnmappedStringNotFound\"") shouldBe true
-        }
-
-        test("should have constant body-level message for GenreError.UnmappedStringNotFound") {
-            GenreError.UnmappedStringNotFound().message shouldBe
-                GenreError.UnmappedStringNotFound(debugInfo = "c").message
-        }
-
-        test("should mark GenreError.UnmappedStringNotFound as not retryable") {
-            GenreError.UnmappedStringNotFound().isRetryable shouldBe false
-        }
-
         // ── GenreError.SlugConflict ───────────────────────────────────────────
 
         test("should round-trip GenreError.SlugConflict through AppError serializer") {

@@ -130,13 +130,6 @@ UPDATE genres SET parent_id = :parent_id WHERE id = :id;
 
 -- ── browse / list reads ────────────────────────────────────────────────────────
 
--- All live genres ordered by materialized path — the listGenres backbone (book
--- counts are joined in by the service over book_genres).
+-- All live genres ordered by materialized path.
 listLiveOrderedByPath:
 SELECT * FROM genres WHERE deleted_at IS NULL ORDER BY path;
-
--- Live direct children of a parent, ordered by sort_order then path — getGenreChildren.
-liveChildrenOrdered:
-SELECT * FROM genres
-WHERE parent_id = :parent_id AND deleted_at IS NULL
-ORDER BY sort_order, path;

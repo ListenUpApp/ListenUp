@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
  * action (correct the input, move children first, pick a different parent, etc.).
  *
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
- * - [NotFound], [UnmappedStringNotFound] → 404
+ * - [NotFound] → 404
  * - [InvalidInput], [MergeSelfTarget], [MoveSelfDescendant] → 400
  * - [HasDescendants], [SlugConflict] → 409
  * - [MergeReceiptNotFound] → 404
@@ -107,24 +107,6 @@ sealed interface GenreError : AppError {
     ) : GenreError {
         override val message: String = "Can't move a genre under itself."
         override val code: String = "GENRE_MOVE_SELF_DESCENDANT"
-        override val isRetryable: Boolean = false
-
-        override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)
-    }
-
-    /**
-     * Returned by [com.calypsan.listenup.api.GenreService.mapUnmappedToGenre] when
-     * no pending rows match the supplied raw string. The string may have already
-     * been mapped, or it was never queued.
-     */
-    @Serializable
-    @SerialName("GenreError.UnmappedStringNotFound")
-    data class UnmappedStringNotFound(
-        override val correlationId: String? = null,
-        override val debugInfo: String? = null,
-    ) : GenreError {
-        override val message: String = "That raw string isn't in the unmapped queue."
-        override val code: String = "GENRE_UNMAPPED_STRING_NOT_FOUND"
         override val isRetryable: Boolean = false
 
         override fun withCorrelationId(id: String?): AppError = copy(correlationId = id)

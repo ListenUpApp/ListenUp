@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.liveGenre
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -225,8 +226,7 @@ class GenreServiceImplMergeTest :
                     val result = service.mergeGenres(GenreId("g-source"), GenreId("g-target"))
                     require(result is AppResult.Success)
 
-                    val source = service.getGenre(GenreId("g-source"))
-                    (source as AppResult.Success).data shouldBe null
+                    sql.liveGenre(GenreId("g-source")) shouldBe null
 
                     val row = sql.genresQueries.selectById("g-source").executeAsOneOrNull()
                     row.shouldNotBeNull()
