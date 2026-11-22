@@ -14,40 +14,37 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
  *
  * The rule finds every concrete class implementing the `SidecarParser`
  * interface in `:server` production code and asserts that none of their
- * function bodies contain a disk-write call. The forbidden tokens cover the
- * common JVM disk-write surfaces a parser could reach for. Line and block
+ * function bodies contain a disk-write call. The parsers live in commonMain, so
+ * the forbidden tokens are the kotlinx-io write surfaces and the library-write
+ * broker — JVM `java.nio` calls could not compile there. Line and block
  * comments are stripped before matching so a `// Files.write(...)` note can't
  * false-fail.
  *
  * The implementation count is asserted non-empty so the rule cannot pass
- * vacuously: it must observe the four real parsers (`NfoParser`, `OpfParser`,
- * `ReaderTxtParser`, `DescTxtParser`).
+ * vacuously: it must observe the five real parsers (`NfoParser`, `OpfParser`,
+ * `ReaderTxtParser`, `DescTxtParser`, `ListenUpSidecarReader`).
  */
 class SidecarParsersAreReadOnly :
     FunSpec({
 
-        /** JVM disk-write surfaces a sidecar parser must never touch. */
+        /**
+         * The write surfaces a commonMain parser could actually reach: the kotlinx-io calls and the repo's
+         * io helpers over them (the same tokens as [LibraryWritesGoThroughBrokerRule]), plus the broker
+         * itself — that rule allows a broker write, but a parser must not write at all.
+         */
         val forbiddenWriteTokens =
             listOf(
-                "Files.write",
-                "Files.newOutputStream",
-                "Files.newBufferedWriter",
-                "Files.createFile",
-                "Files.createDirectory",
-                "Files.copy",
-                "Files.move",
-                "Files.delete",
-                ".writeText",
-                ".writeBytes",
-                ".appendText",
-                ".appendBytes",
-                ".outputStream(",
-                ".bufferedWriter(",
-                ".printWriter(",
-                "FileOutputStream",
-                "FileWriter",
-                "PrintWriter",
-                "RandomAccessFile",
+                "SystemFileSystem.sink(",
+                "SystemFileSystem.atomicMove(",
+                "SystemFileSystem.delete(",
+                "SystemFileSystem.createDirectories(",
+                ".writeText(",
+                ".writeBytes(",
+                "deleteRecursively(",
+                "deleteEntry(",
+                "createTempFileIn(",
+                "LibraryWriteBroker",
+                "WriteOp.",
             )
 
         test("SidecarParser implementations never write to disk") {
@@ -67,8 +64,8 @@ class SidecarParsersAreReadOnly :
                         cls.parents().any { it.name == "SidecarParser" }
                     }
 
-            // Guard against a vacuous pass: the four real parsers must be present.
-            implementations.size shouldBeGreaterThanOrEqual 4
+            // Guard against a vacuous pass: the five real parsers must be present.
+            implementations.size shouldBeGreaterThanOrEqual 5
 
             val offenders =
                 implementations.flatMap { cls ->
