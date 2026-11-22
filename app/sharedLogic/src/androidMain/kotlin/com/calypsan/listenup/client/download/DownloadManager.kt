@@ -196,7 +196,9 @@ class DownloadManager internal constructor(
      * [downloadBook], which carries on from the saved bytes). [fromNotification] keeps a "Download paused" notification
      * with Resume; a pause from inside the app withdraws the notification.
      */
-    override suspend fun pauseDownload(bookId: BookId) = pauseDownload(bookId, fromNotification = false)
+    override suspend fun pauseDownload(bookId: BookId) {
+        pauseDownload(bookId, fromNotification = false)
+    }
 
     /** [pauseDownload], saying where it came from: a pause from the notification keeps a notification with Resume. */
     suspend fun pauseDownload(
