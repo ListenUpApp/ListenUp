@@ -71,18 +71,6 @@ internal class ProfileServiceImpl(
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val avatarWriteLock: AvatarWriteLock = AvatarWriteLock(),
 ) : ProfileService {
-    override suspend fun getMyProfile(): AppResult<Profile> {
-        val callerId =
-            principal.current()?.run { userId.value }
-                ?: return AppResult.Failure(AuthError.PermissionDenied())
-        return suspendTransaction(sql) {
-            val u =
-                sql.usersQueries.selectById(callerId).executeAsOneOrNull()
-                    ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
-            AppResult.Success(u.toProfile())
-        }
-    }
-
     @OpenToAllMembers(reason = "the caller's own profile")
     override suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
@@ -262,15 +250,6 @@ internal class ProfileServiceImpl(
         }
         return current.avatar_frame
     }
-
-    private fun Users.toProfile(): Profile =
-        Profile(
-            userId = UserId(id),
-            displayName = display_name,
-            tagline = tagline,
-            avatarType = avatar_type,
-            updatedAt = updated_at,
-        )
 }
 
 /**

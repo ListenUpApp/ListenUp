@@ -10,9 +10,7 @@ import com.calypsan.listenup.api.error.EntityError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.EntitySyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
-import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
@@ -91,18 +89,6 @@ internal class EntityServiceImpl(
         if (visibleLive(caller, source) == null) return notFound(source)
         if (visibleLive(caller, target) == null) return notFound(target)
         return entityRepo.mergeEntities(source, target, caller.userId)
-    }
-
-    override suspend fun listEntitiesForSeries(seriesId: SeriesId): AppResult<List<EntitySyncPayload>> {
-        val caller = principal.current() ?: return denied()
-        if (!canSee(caller, seriesId.value, null)) return AppResult.Success(emptyList())
-        return AppResult.Success(entityRepo.listLiveForSeries(seriesId))
-    }
-
-    override suspend fun listEntitiesForBook(bookId: BookId): AppResult<List<EntitySyncPayload>> {
-        val caller = principal.current() ?: return denied()
-        if (!canSee(caller, null, bookId.value)) return AppResult.Success(emptyList())
-        return AppResult.Success(entityRepo.listLiveForBook(bookId))
     }
 
     override suspend fun listHistory(entityId: EntityId): AppResult<List<EntityChange>> {

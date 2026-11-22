@@ -57,13 +57,6 @@ interface ImportService {
     suspend fun listImports(): AppResult<List<ImportSummary>>
 
     /**
-     * Returns the summary for a single staged import job.
-     *
-     * Returns [com.calypsan.listenup.api.error.ImportError.ImportNotFound] if absent.
-     */
-    suspend fun getImport(importId: ImportId): AppResult<ImportSummary>
-
-    /**
      * Deletes the staging directory for an import job, including all staged files.
      *
      * Returns [com.calypsan.listenup.api.error.ImportError.ImportNotFound] if absent.

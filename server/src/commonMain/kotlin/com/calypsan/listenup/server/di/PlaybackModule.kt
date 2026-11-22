@@ -177,7 +177,6 @@ fun playbackModule(
                 coverUrlSigner = get(),
                 playbackPositionRepository = get(),
                 listeningEventRepository = get(),
-                userStatsRepository = get(),
                 accessPolicy = get(),
                 transcodePolicy = get(),
                 transcodeSettings = get(),

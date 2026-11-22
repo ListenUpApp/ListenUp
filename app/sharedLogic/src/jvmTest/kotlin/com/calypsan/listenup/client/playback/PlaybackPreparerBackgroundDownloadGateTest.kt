@@ -15,7 +15,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -265,8 +264,6 @@ private class FakeGateTestPlaybackService(
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = stubFailure
 
     override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> = stubFailure
-
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = stubFailure
 
     override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> = stubFailure
 }

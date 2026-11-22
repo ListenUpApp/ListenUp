@@ -302,7 +302,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 contributorRepo = serverRepos.contributorRepo,
                 bookRepo = serverRepos.bookRepo,
                 sqlDb = serverSqlDb,
-                driver = serverDriver,
             )
         // The mergeSeries e2e test needs `SeriesService`.
         val seriesService: SeriesService =
@@ -310,7 +309,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
                 sqlDb = serverSqlDb,
-                driver = serverDriver,
                 readingOrders = serverRepos.readingOrderRepo,
             )
         // Genres e2e tests need a `GenreService` against the same server scaffolding.

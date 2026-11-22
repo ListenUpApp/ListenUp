@@ -93,7 +93,7 @@ class BackupServiceTest :
             }
         }
 
-        test("listBackups returns the created backup and getBackup retrieves it by id") {
+        test("listBackups returns the created backup") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     val svc = buildService(fixture, rootPrincipalProvider())
@@ -111,13 +111,6 @@ class BackupServiceTest :
                             .data
                     listed shouldHaveSize 1
                     listed.first().id shouldBe created.id
-
-                    val fetched =
-                        svc
-                            .getBackup(created.id)
-                            .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
-                            .data
-                    fetched.id shouldBe created.id
                 }
             }
         }
@@ -259,12 +252,12 @@ class BackupServiceTest :
             }
         }
 
-        test("getBackup rejects a path-traversal id with BackupNotFound") {
+        test("restoreBackup rejects a path-traversal id with BackupNotFound") {
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     val svc = buildService(fixture, rootPrincipalProvider())
                     svc
-                        .getBackup(BackupId("../secret"))
+                        .restoreBackup(BackupId("../secret"))
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<BackupError.BackupNotFound>()

@@ -113,7 +113,7 @@ class ShelfServiceTest :
 
         // ── create / list / update / delete ────────────────────────────────────
 
-        test("createShelf then listMyShelves shows it") {
+        test("createShelf then the owner's stored shelves include it") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -124,9 +124,9 @@ class ShelfServiceTest :
                     created.description shouldBe "later"
                     created.bookCount shouldBe 0
 
-                    val mine = service.listMyShelves().value()
+                    val mine = ownedShelves(sql, "u1")
                     mine shouldHaveSize 1
-                    mine.first().id shouldBe created.id
+                    mine.first().id shouldBe created.id.value
                 }
             }
         }
@@ -189,7 +189,7 @@ class ShelfServiceTest :
             }
         }
 
-        test("deleteShelf removes it from listMyShelves") {
+        test("deleteShelf removes it from the owner's stored shelves") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -198,7 +198,7 @@ class ShelfServiceTest :
                     val created = service.createShelf(name = "Temp").value()
 
                     service.deleteShelf(created.id).value()
-                    service.listMyShelves().value().shouldHaveSize(0)
+                    ownedShelves(sql, "u1").shouldHaveSize(0)
                 }
             }
         }
@@ -225,7 +225,7 @@ class ShelfServiceTest :
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = result.error.shouldBeInstanceOf<ValidationError>()
                     error.field shouldBe "description"
-                    service.listMyShelves().value().shouldHaveSize(0)
+                    ownedShelves(sql, "u1").shouldHaveSize(0)
                 }
             }
         }
@@ -237,7 +237,7 @@ class ShelfServiceTest :
                 runTest {
                     val service = makeService(sql, driver).actAs("u1")
                     service.createShelf(name = "Boundary", description = "x".repeat(2_000)).value()
-                    service.listMyShelves().value().shouldHaveSize(1)
+                    ownedShelves(sql, "u1").shouldHaveSize(1)
                 }
             }
         }
@@ -253,11 +253,7 @@ class ShelfServiceTest :
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = result.error.shouldBeInstanceOf<ValidationError>()
                     error.field shouldBe "description"
-                    service
-                        .listMyShelves()
-                        .value()
-                        .single()
-                        .description shouldBe "ok"
+                    ownedShelves(sql, "u1").single().description shouldBe "ok"
                 }
             }
         }
@@ -496,28 +492,9 @@ class ShelfServiceTest :
             }
         }
 
-        test("listMyShelves returns only the caller's own shelves") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val base = makeService(sql, driver)
-                    base.actAs("u1").createShelf(name = "u1 shelf").value()
-                    base.actAs("u2").createShelf(name = "u2 shelf").value()
-
-                    val u1Shelves = base.actAs("u1").listMyShelves().value()
-                    u1Shelves shouldHaveSize 1
-                    u1Shelves.first().name shouldBe "u1 shelf"
-                }
-            }
-        }
-
-        // PERF-06: listMyShelves batches its per-shelf book count via
-        // ShelfBookRepository.countLiveForShelves instead of one listByShelf-and-.size call per
-        // shelf — this proves the batched count matches the un-batched materialize-and-.size result
-        // per shelf, including a shelf with zero live rows.
-        test("listMyShelves reports correct per-shelf book counts, including an empty shelf") {
+        // A shelf summary's book count comes from ShelfBookRepository.countLiveForShelves — this proves
+        // it matches the shelf's live rows, including a shelf with zero live rows.
+        test("a shelf summary reports its live book count, including an empty shelf") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -564,9 +541,8 @@ class ShelfServiceTest :
                     service.addBookToShelf(twoBookShelf.id, BookId("b1")).value()
                     service.addBookToShelf(twoBookShelf.id, BookId("b2")).value()
 
-                    val mine = service.listMyShelves().value().associateBy { it.id }
-                    mine.getValue(twoBookShelf.id).bookCount shouldBe 2
-                    mine.getValue(emptyShelf.id).bookCount shouldBe 0
+                    service.updateShelf(twoBookShelf.id, "Two Books", "", isPrivate = false).value().bookCount shouldBe 2
+                    service.updateShelf(emptyShelf.id, "Empty", "", isPrivate = false).value().bookCount shouldBe 0
                 }
             }
         }
@@ -726,3 +702,10 @@ private fun seedAuthor(
         )
     }
 }
+
+/** The live shelves [ownerId] owns, as stored. */
+private suspend fun ownedShelves(
+    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    ownerId: String,
+): List<com.calypsan.listenup.api.sync.ShelfSyncPayload> =
+    ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry()).listOwnedBy(ownerId)

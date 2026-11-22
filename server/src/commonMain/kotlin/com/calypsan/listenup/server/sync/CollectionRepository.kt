@@ -38,8 +38,6 @@ import kotlin.time.Clock
  *  - [findInboxForLibrary] — the live inbox collection for a library
  *  - [findSystemCollection] — a per-library system collection by server-only `type`
  *  - [setType] — stamp the server-only `type` column (no revision bump / no publish)
- *  - [listOwnedBy] — all live collections owned by a user
- *  - [listAll] — all live collections (the admin god-view source)
  *  - [systemCollectionIds] — ids of every live system collection (the member-list exclusion set)
  */
 class CollectionRepository(

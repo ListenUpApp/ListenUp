@@ -535,7 +535,6 @@ private fun undoFixture(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
-            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             readingOrders = ReadingOrderRepository(dbs.sql, ChangeBus(), SyncRegistry()),
             principal = principal,
             clock = clock,

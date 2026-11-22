@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
@@ -14,7 +13,7 @@ import kotlinx.rpc.annotations.Rpc
  * RPC contract for series access and user-edit mutations.
  *
  * Two surface categories:
- * - **Observation** — [getSeries], [listBooksBySeries] are safe to call
+ * - **Observation** — [getSeries] is safe to call
  *   repeatedly. Cache-miss reads for OUR series entities — clients observe
  *   Room locally; when a series is referenced but not yet synced, they call
  *   this service for the single-entity fallback.
@@ -40,15 +39,6 @@ interface SeriesService {
      * render immediately while sync catches up in the background.
      */
     suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?>
-
-    /**
-     * Returns all books belonging to [id] in series-position order.
-     *
-     * Clients hydrate book detail from Room for ids already cached and call
-     * `BookService.getBook` for any that are not. A series with no books
-     * returns an empty list — never a failure.
-     */
-    suspend fun listBooksBySeries(id: SeriesId): AppResult<List<BookSyncPayload>>
 
     // ── Mutation (new in Books-C1) ───────────────────────────────────────────
 

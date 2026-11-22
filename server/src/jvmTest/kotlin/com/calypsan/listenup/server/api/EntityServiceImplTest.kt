@@ -28,7 +28,6 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -180,11 +179,6 @@ class EntityServiceImplTest :
                         .shouldBeInstanceOf<AppResult.Failure>()
                         .error
                         .shouldBeInstanceOf<EntityError.NotFound>()
-                    member
-                        .listEntitiesForBook(BookId("hidden"))
-                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data
-                        .shouldBeEmpty()
 
                     val curator = world.asMember("curator")
                     world.asRoot().upsertEntity(upsert("secret2", homeBookId = "hidden"))
@@ -256,16 +250,12 @@ class EntityServiceImplTest :
                     world.asRoot().upsertEntity(upsert("closed", homeSeriesId = world.sealed.value, kind = EntityKind.GROUP))
                     val member = world.asMember("member")
 
+                    member.listHistory(EntityId("house")).shouldBeInstanceOf<AppResult.Success<List<EntityChange>>>()
                     member
-                        .listEntitiesForSeries(world.redRising)
-                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data
-                        .map { it.id } shouldBe listOf("house")
-                    member
-                        .listEntitiesForSeries(world.sealed)
-                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data
-                        .shouldBeEmpty()
+                        .listHistory(EntityId("closed"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<EntityError.NotFound>()
                 }
             }
         }
@@ -386,11 +376,7 @@ class EntityServiceImplTest :
                         .data
                         .after
                         ?.deletedAt shouldBe null
-                    root
-                        .listEntitiesForBook(BookId("open"))
-                        .shouldBeInstanceOf<AppResult.Success<List<EntitySyncPayload>>>()
-                        .data
-                        .map { it.name } shouldBe listOf("d")
+                    entityRepository().listLiveForBook(BookId("open")).map { it.name } shouldBe listOf("d")
                 }
             }
         }

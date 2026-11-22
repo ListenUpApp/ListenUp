@@ -16,7 +16,6 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -494,23 +493,9 @@ class PlaybackServiceImplTest :
             }
         }
 
-        // ─── getStats / recordListeningEvent ──────────────────────────────────────
+        // ─── listening stats / recordListeningEvent ───────────────────────────────
 
-        test("getStats returns AppResult.Success(null) for a user with no listening history") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val deps = buildDeps(sql, driver)
-                runTest {
-                    val service = deps.service(sql, "u1")
-
-                    val result = service.getStats()
-                    val success = result.shouldBeInstanceOf<AppResult.Success<UserStatsSyncPayload?>>()
-                    success.data.shouldBeNull()
-                }
-            }
-        }
-
-        test("getStats returns non-null stats after recordListeningEvent with correct totalSecondsAllTime") {
+        test("recordListeningEvent materializes stats with the correct totalSecondsAllTime") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -537,8 +522,7 @@ class PlaybackServiceImplTest :
                             ),
                         ).shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
 
-                    val statsResult = service.getStats()
-                    val stats = statsResult.shouldBeInstanceOf<AppResult.Success<UserStatsSyncPayload?>>().data.shouldNotBeNull()
+                    val stats = deps.statsRepo.getForUser("u1").shouldNotBeNull()
                     stats.totalSecondsAllTime shouldBe 3600L
                 }
             }
@@ -622,7 +606,7 @@ class PlaybackServiceImplTest :
                 .selectById("evt-bad")
                 .executeAsOneOrNull()
                 .shouldBeNull()
-            service.getStats() shouldBe AppResult.Success(null)
+            statsRepo.getForUser("u1").shouldBeNull()
         }
 
         val rejections: List<Triple<String, String, (RecordListeningEventRequest) -> RecordListeningEventRequest>> =

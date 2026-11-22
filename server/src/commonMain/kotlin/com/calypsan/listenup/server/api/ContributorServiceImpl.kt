@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -80,10 +79,7 @@ private val log = loggerFor<ContributorServiceImpl>()
  * Unmerge's contributor creation is dedup-aware (see above), so re-running it after a partial
  * failure reuses the existing row instead of colliding on `normalized_name`.
  *
- * [getContributor] (contributor metadata) is open to any authenticated user, but
- * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books
- * they can reach (via [BookAccessPolicy]), so a quarantined or private-collection-only book
- * by the contributor never leaks its metadata; ROOT/ADMIN see every book.
+ * [getContributor] (contributor metadata) is open to any authenticated user.
  * Edits ([updateContributor]) are gated on [Permission.EDIT_METADATA]; merge, unmerge and
  * delete ([mergeContributors], [unmergeContributor], [deleteContributor]) on
  * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
@@ -96,7 +92,6 @@ internal class ContributorServiceImpl(
     private val contributorRepo: ContributorRepository,
     private val bookRepo: BookRepository,
     private val sqlDb: ListenUpDatabase,
-    private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
@@ -114,7 +109,6 @@ internal class ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             sqlDb = sqlDb,
-            accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
             principal = principal,
         )
@@ -122,25 +116,6 @@ internal class ContributorServiceImpl(
     @OpenRead(reason = "every member already receives every contributor row through sync")
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
-
-    override suspend fun listBooksByContributor(id: ContributorId): AppResult<List<BookSyncPayload>> {
-        val accessible = accessibleBookIdFilter()
-        return AppResult.Success(
-            bookRepo.findByContributor(id).filter { accessible == null || it.id in accessible },
-        )
-    }
-
-    /**
-     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered —
-     * every book). Resolved from [principal] (bound per-request via [copyWith]) through the same
-     * [BookAccessPolicy] seam [BookServiceImpl] uses, so a contributor listing can never leak a
-     * book the caller can't reach. An absent principal — a wiring bug, since every RPC/REST caller
-     * is scoped — collapses to the empty set (deny all) rather than leaking.
-     */
-    private suspend fun accessibleBookIdFilter(): Set<String>? {
-        val p = principal.current() ?: return emptySet()
-        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
-    }
 
     override suspend fun updateContributor(
         id: ContributorId,
@@ -393,13 +368,11 @@ fun createContributorService(
     contributorRepo: ContributorRepository,
     bookRepo: BookRepository,
     sqlDb: ListenUpDatabase,
-    driver: app.cash.sqldelight.db.SqlDriver,
 ): ContributorService =
     ContributorServiceImpl(
         contributorRepo = contributorRepo,
         bookRepo = bookRepo,
         sqlDb = sqlDb,
-        accessPolicy = BookAccessPolicy(sqlDb, driver),
     )
 
 /**

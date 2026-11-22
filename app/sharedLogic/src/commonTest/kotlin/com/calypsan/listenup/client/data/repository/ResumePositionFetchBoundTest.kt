@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcDispatch
@@ -124,8 +123,6 @@ internal object NoOpPlaybackService : PlaybackService {
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = AppResult.Success(null)
 
     override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> = throw NotImplementedError()
-
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = throw NotImplementedError()
 
     override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> =
         throw NotImplementedError()

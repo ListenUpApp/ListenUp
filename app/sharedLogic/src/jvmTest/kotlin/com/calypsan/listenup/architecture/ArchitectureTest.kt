@@ -95,7 +95,7 @@ class ArchitectureTest :
                 // class as the C3 sync fixture above — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/di/e2e/" !in it.path }
                 // Profile E2E: boots the real ProfileService in-process via testApplication to
-                // exercise the updateMyProfile → getMyProfile RPC round-trip. Same exemption
+                // exercise the updateMyProfile RPC round-trip. Same exemption
                 // class as the sync and DI fixtures above — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/profile/" !in it.path }
                 // Listener-ratings E2E: boots the real BookRatingService + sync stream in-process so one

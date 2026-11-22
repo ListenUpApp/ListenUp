@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 /**
  * Summary DTO for a single shelf, used in list views.
  *
- * Returned by [com.calypsan.listenup.api.ShelfService.listMyShelves] and embedded
+ * Returned by [com.calypsan.listenup.api.ShelfService.createShelf] and embedded
  * inside [DiscoveredShelf]. Carries the shelf identity, display metadata, and a
  * live [bookCount] computed at query time.
  *

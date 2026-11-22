@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import kotlinx.rpc.annotations.Rpc
 
@@ -20,8 +19,8 @@ import kotlinx.rpc.annotations.Rpc
  * the client→server write path — idempotent and `lastPlayedAt`-wins server-side
  * so the pending-operation queue may safely re-fire on retry.
  *
- * [getStats] and [recordListeningEvent] extend the surface in Playback P2 with
- * the listening-event append-only log and its materialized stats projection.
+ * [recordListeningEvent] extends the surface in Playback P2 with the listening-event
+ * append-only log, which feeds the materialized stats clients receive through sync.
  */
 @Rpc
 interface PlaybackService {
@@ -58,12 +57,6 @@ interface PlaybackService {
      * Returns the row the server now holds and whether this write produced it.
      */
     suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult>
-
-    /**
-     * The caller's materialized listening stats, or null if they have no listening
-     * history yet — the never-stranded cache-miss read.
-     */
-    suspend fun getStats(): AppResult<UserStatsSyncPayload?>
 
     /**
      * Record one closed listening span. Idempotent (re-recording the same `id`

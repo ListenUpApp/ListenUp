@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.hardcover.FakeHardcoverLibrary
@@ -14,6 +15,7 @@ import com.calypsan.listenup.server.hardcover.HardcoverMe
 import com.calypsan.listenup.server.hardcover.HardcoverPullStore
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryState
 import com.calypsan.listenup.server.hardcover.HardcoverShelfEntryStore
+import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.hardcover.HardcoverStatus
 import com.calypsan.listenup.server.hardcover.HardcoverTokens
 import com.calypsan.listenup.server.module
@@ -120,13 +122,18 @@ class HardcoverWantToReadEndToEndTest :
                     )
 
                     val shelves = authedService<ShelfService>(token)
-                    val toRead = shelves.listMyShelves().shouldSucceed().single { it.name == "To Read" }
+                    val toRead =
+                        app
+                            .koinGet<ShelfRepository>()
+                            .listOwnedBy(userId)
+                            .single { it.name == "To Read" }
+                            .let { ShelfId(it.id) }
                     val pulls = app.koinGet<HardcoverPullStore>()
                     val hardcoverService = authedService<HardcoverService>(token)
 
                     suspend fun onToRead(): Set<String> =
                         shelves
-                            .getShelf(toRead.id)
+                            .getShelf(toRead)
                             .shouldSucceed()
                             .books
                             .map { it.bookId }
@@ -137,7 +144,7 @@ class HardcoverWantToReadEndToEndTest :
                             .pullDomain("shelf_books", since = 0, limit = 500)
                             .shouldSucceed()
                             .rows(ShelfBookSyncPayload.serializer())
-                            .filter { it.deletedAt == null && it.shelfId == toRead.id.value }
+                            .filter { it.deletedAt == null && it.shelfId == toRead.value }
                             .map { it.bookId }
                             .toSet()
 
@@ -153,7 +160,7 @@ class HardcoverWantToReadEndToEndTest :
                     syncedOnToRead() shouldBe setOf("book-kept", "book-read")
 
                     hardcover.moveTo(READ_HC_BOOK, HardcoverStatus.READ)
-                    shelves.removeBookFromShelf(toRead.id, BookId("book-kept")).shouldSucceed()
+                    shelves.removeBookFromShelf(toRead, BookId("book-kept")).shouldSucceed()
                     fullPullFromNow()
 
                     onToRead() shouldBe emptySet()

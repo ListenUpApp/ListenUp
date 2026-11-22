@@ -3,10 +3,6 @@ package com.calypsan.listenup.api
 import com.calypsan.listenup.api.dto.worldevent.EventsBatch
 import com.calypsan.listenup.api.dto.worldevent.WorldEventChange
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.WorldEventSyncPayload
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.EntityId
-import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.core.WorldEventId
 import kotlinx.rpc.annotations.Rpc
@@ -29,15 +25,6 @@ interface WorldEventService {
      * [com.calypsan.listenup.api.error.ValidationError].
      */
     suspend fun applyBatch(batch: EventsBatch): AppResult<Unit>
-
-    /** The live events homed on [seriesId] that the caller can see, oldest first. */
-    suspend fun listEventsForSeries(seriesId: SeriesId): AppResult<List<WorldEventSyncPayload>>
-
-    /** The live events homed on [bookId], if the caller can see the book, oldest first. */
-    suspend fun listEventsForBook(bookId: BookId): AppResult<List<WorldEventSyncPayload>>
-
-    /** The live events that mention [entityId] — as subject, object or a text token — that the caller can see. */
-    suspend fun listEventsForEntity(entityId: EntityId): AppResult<List<WorldEventSyncPayload>>
 
     /** [eventId]'s history, newest first. Anyone who can see the event may read it. */
     suspend fun listHistory(eventId: WorldEventId): AppResult<List<WorldEventChange>>

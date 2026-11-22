@@ -2097,21 +2097,6 @@ class BookRepository(
         }
 
     /**
-     * Returns the full book aggregates for every book linked to [contributorId].
-     *
-     * Used by [com.calypsan.listenup.server.api.ContributorServiceImpl.listBooksByContributor].
-     */
-    suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
-        bookFinder.findByContributor(contributorId)
-
-    /**
-     * Returns the full book aggregates for every book in [seriesId], in series-position order.
-     *
-     * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
-     */
-    suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> = bookFinder.findBySeries(seriesId)
-
-    /**
      * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the
      * open SQLDelight book transaction, atomically with the book insert (pure-union model).
      *

@@ -41,7 +41,6 @@ private class StampRig(
                     genreRepository = GenreRepository(db.sql, ChangeBus(), SyncRegistry()),
                 ),
             sqlDb = db.sql,
-            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal("editor-1"),
         )
 }

@@ -11,7 +11,5 @@ import kotlinx.rpc.annotations.Rpc
  */
 @Rpc
 interface ProfileService {
-    suspend fun getMyProfile(): AppResult<Profile>
-
     suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile>
 }

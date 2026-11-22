@@ -12,7 +12,6 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
@@ -24,7 +23,6 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.transcode.TranscodeDecision
 import com.calypsan.listenup.server.transcode.TranscodePolicy
 import com.calypsan.listenup.server.transcode.TranscodeSettings
@@ -56,7 +54,6 @@ internal class PlaybackServiceImpl(
     private val coverUrlSigner: CoverUrlSigner,
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val listeningEventRepository: ListeningEventRepository,
-    private val userStatsRepository: UserStatsRepository,
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
     private val sql: ListenUpDatabase,
@@ -204,13 +201,6 @@ internal class PlaybackServiceImpl(
         )
     }
 
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> {
-        val callerId =
-            principal.current()?.run { userId.value }
-                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
-        return AppResult.Success(userStatsRepository.getForUser(callerId))
-    }
-
     @OpenToAllMembers(reason = "the caller's own playback, on a book they can see")
     override suspend fun recordListeningEvent(
         request: RecordListeningEventRequest,
@@ -269,7 +259,6 @@ internal class PlaybackServiceImpl(
             coverUrlSigner = coverUrlSigner,
             playbackPositionRepository = playbackPositionRepository,
             listeningEventRepository = listeningEventRepository,
-            userStatsRepository = userStatsRepository,
             accessPolicy = accessPolicy,
             principal = principal,
             sql = sql,

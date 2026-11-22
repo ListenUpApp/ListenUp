@@ -234,7 +234,6 @@ private fun SqlTestDatabases.mergeRig(): MergeRig {
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             sqlDb = sql,
-            accessPolicy = BookAccessPolicy(sql, driver),
             readingOrders = ReadingOrderRepository(sql, bus, registry),
             principal = rootPrincipal(),
             entityRepo = entities,
