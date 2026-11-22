@@ -108,6 +108,18 @@ struct ContributorDetailView: View {
         } message: {
             Text(String(localized: "contributor.remove_from_library"))
         }
+        // A delete the server refused: the confirmation has closed, so its reason needs its own alert.
+        .alert(
+            String(localized: "common.something_went_wrong"),
+            isPresented: Binding(
+                get: { observer?.deleteRefusal != nil },
+                set: { if !$0 { observer?.dismissDeleteRefusal() } }
+            )
+        ) {
+            Button(String(localized: "common.ok"), role: .cancel) {}
+        } message: {
+            Text(observer?.deleteRefusal ?? "")
+        }
         // Match details: pushed on a compact width, a full-screen split view on a regular one. A merge made
         // from its Edit by Hand re-targets this screen, as one made from Edit does.
         .personMatchDetails($matchTarget, onMergedInto: { survivor in mergedIntoContributorId = survivor })

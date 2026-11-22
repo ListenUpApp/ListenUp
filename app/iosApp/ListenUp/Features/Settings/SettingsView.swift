@@ -302,6 +302,8 @@ struct SettingsView: View {
                 )
             }
 
+            testNotificationRow(observer)
+
             NavigationLink(value: DevicesDestination()) {
                 SettingsLabel(
                     title: String(localized: "settings.devices"),
@@ -345,6 +347,32 @@ struct SettingsView: View {
             }
             .haptic(observer.hapticFeedbackEnabled ? .toggleOn : .toggleOff, trigger: observer.hapticFeedbackEnabled)
         }
+    }
+
+    // MARK: - Send a test notification
+
+    @ViewBuilder
+    private func testNotificationRow(_ observer: SettingsObserver) -> some View {
+        // Beside Notifications deliberately: when a notification never arrives, this is how to tell a broken
+        // relay, a stale token, a disabled server setting and a revoked permission apart.
+        Button {
+            observer.sendTestNotification()
+        } label: {
+            LabeledContent {
+                if observer.testNotification.isSending {
+                    ProgressView()
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.test_notification"),
+                    subtitle: observer.testNotification.detail,
+                    systemImage: "bell.and.waves.left.and.right",
+                    tint: .red
+                )
+            }
+        }
+        .foregroundStyle(.primary)
+        .disabled(observer.testNotification.isSending)
     }
 
     // MARK: - About

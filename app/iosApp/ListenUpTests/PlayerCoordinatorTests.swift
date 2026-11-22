@@ -129,8 +129,8 @@ struct InterruptionPolicyTests {
     @Test func endedWithResumeResumes() {
         #expect(InterruptionPolicy.action(type: .ended, shouldResume: true) == .resume)
     }
-    @Test func endedWithoutResumeDoesNothing() {
-        #expect(InterruptionPolicy.action(type: .ended, shouldResume: false) == InterruptionPolicy.Action.none)
+    @Test func endedWithoutResumeIsDeclined() {
+        #expect(InterruptionPolicy.action(type: .ended, shouldResume: false) == .declined)
     }
 }
 
@@ -226,6 +226,40 @@ struct AudioSessionInterruptionTests {
         await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
         #expect(harness.coordinator.isPlaying == false)
         #expect(await harness.engine.playCount == 1)
+    }
+
+    @Test("A declined resume forgets the interruption: a later resume signal does not start the book")
+    func declinedInterruptionCannotResumeLater() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+
+        postInterruptionBegan()
+        await harness.engine.waitUntilPaused()
+        await awaitObservation { harness.coordinator.enginePhase == .paused }
+        postInterruptionEnded(shouldResume: false)
+        // The second interruption lands on a paused book, so it records nothing of its own.
+        postInterruptionBegan()
+        postInterruptionEnded(shouldResume: true)
+
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
+        #expect(harness.coordinator.isPlaying == false)
+        #expect(await harness.engine.playCount == 1)
+    }
+
+    @Test("After a declined resume, losing the route records nothing")
+    func routeLossAfterADeclinedInterruptionIsANoOp() async {
+        let harness = PlayerHarness(notificationCenter: center)
+        await harness.loadAndStart()
+
+        postInterruptionBegan()
+        await harness.engine.waitUntilPaused()
+        await awaitObservation { harness.coordinator.enginePhase == .paused }
+        postInterruptionEnded(shouldResume: false)
+        postRouteLost()
+
+        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.pauseCause == .routeLost }
+        #expect(harness.coordinator.pauseCause == nil)
+        #expect(harness.coordinator.isPlaying == false)
     }
 
     @Test func interruptionEndedDoesNotResumeUserInitiatedPause() async {

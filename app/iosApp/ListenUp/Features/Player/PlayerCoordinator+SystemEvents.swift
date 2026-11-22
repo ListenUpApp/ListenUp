@@ -48,8 +48,15 @@ extension PlayerCoordinator {
         switch action {
         case .pause: await pauseForSystem(.interruption)
         case .resume: await resumeAfterInterruption()
+        case .declined: forgetInterruption()
         case .none: break
         }
+    }
+
+    /// The interruption ended and the system declined to resume: the book stays paused, and the pause stops being
+    /// the interruption's, so a later, unrelated interruption's end cannot start it. A lost route's pause is left.
+    private func forgetInterruption() {
+        if pauseCause == .interruption { pauseCause = nil }
     }
 
     func applyRouteLoss() async { await pauseForSystem(.routeLost) }

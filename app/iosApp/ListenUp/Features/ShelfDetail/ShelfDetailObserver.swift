@@ -98,10 +98,17 @@ final class ShelfDetailObserver {
     private let viewModel: ShelfDetailViewModel
     private let bridge = FlowBridge()
 
-    init(viewModel: ShelfDetailViewModel) {
+    /// Where a refused reorder or removal is said: the app's one error alert (iosApp rule 10).
+    private let alerts: ErrorAlertCenter
+    /// The books in the order the server last sent, which an optimistic reorder leaves behind and a refusal returns to.
+    private var savedBooks: [ShelfBookRow] = []
+
+    init(viewModel: ShelfDetailViewModel, alerts: ErrorAlertCenter = .shared) {
         self.viewModel = viewModel
+        self.alerts = alerts
         bridge.own(viewModel)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.snackbarMessages) { [weak self] in self?.showMutationFailure($0) }
     }
 
     func loadShelf(_ id: String) { viewModel.loadShelf(shelfId: id) }
@@ -123,9 +130,16 @@ final class ShelfDetailObserver {
         guard reordered != ids else { return }
 
         // Optimistic: the grid follows the finger now, and the shelf reloads from the server on
-        // success. A failure reverts it and reports itself through the ViewModel's own channel.
+        // success. A failure arrives on the ViewModel's message channel: `showMutationFailure`.
         books = reordered.compactMap { id in books.first { $0.id == id } }
         viewModel.reorderBooks(orderedBookIds: reordered)
+    }
+
+    /// A reorder or removal the server refused: the grid goes back to the order it last sent, and the reason is
+    /// shown. The ViewModel emits no new state on a failure, so without this an unsaved order would stay on screen.
+    func showMutationFailure(_ message: String) {
+        books = savedBooks
+        alerts.post(message)
     }
 
     func apply(_ state: ShelfDetailUiState) {
@@ -134,6 +148,7 @@ final class ShelfDetailObserver {
         shelfName = snapshot.shelfName
         shelfDescription = snapshot.shelfDescription
         books = snapshot.books
+        savedBooks = snapshot.books
         isOwner = snapshot.isOwner
     }
 }

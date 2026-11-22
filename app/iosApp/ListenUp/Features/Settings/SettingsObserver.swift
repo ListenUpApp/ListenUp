@@ -1,3 +1,4 @@
+import ListenupContract
 import SwiftUI
 import Shared
 
@@ -47,6 +48,12 @@ final class SettingsObserver {
     /// Whether Settings › Library offers Categories: members with Curate library, and admins.
     private(set) var canCurateLibrary = false
 
+    // MARK: - Send a test notification
+
+    /// The Send a test notification row's outcome. Held until the next tap, so the user can compare "sent" with what
+    /// their notifications actually did.
+    private(set) var testNotification: TestNotificationStatus = .idle
+
     private let viewModel: SettingsViewModel
     private let bridge = FlowBridge()
 
@@ -65,6 +72,7 @@ final class SettingsObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.hardcoverRow) { [weak self] in self?.hardcoverRow = HardcoverRowValue(from: $0) }
         bridge.bind(viewModel.canCurateLibrary) { [weak self] value in self?.canCurateLibrary = value }
+        bridge.bind(viewModel.events) { [weak self] in self?.apply($0) }
     }
 
     // MARK: - State mapping
@@ -86,6 +94,12 @@ final class SettingsObserver {
         appVersion = state.appVersion
     }
 
+    /// A test send's answer. VoiceOver hears it, since the row's subtitle changing is otherwise silent.
+    func apply(_ event: SettingsEvent) {
+        testNotification = TestNotificationStatus(event)
+        VoiceOverAnnouncement.post(testNotification.detail)
+    }
+
     // MARK: - Actions (forward to the shared VM)
 
     func setThemeMode(_ mode: ThemeMode) { viewModel.setThemeMode(mode: mode) }
@@ -103,6 +117,13 @@ final class SettingsObserver {
     func setHideSingleBookSeries(_ hide: Bool) { viewModel.setHideSingleBookSeries(hide: hide) }
     func setWifiOnlyDownloads(_ enabled: Bool) { viewModel.setWifiOnlyDownloads(enabled: enabled) }
     func setHapticFeedbackEnabled(_ enabled: Bool) { viewModel.setHapticFeedbackEnabled(enabled: enabled) }
+
+    /// Asks the server to push a test notification to this device. A second tap while one is in flight does nothing.
+    func sendTestNotification() {
+        guard !testNotification.isSending else { return }
+        testNotification = .sending
+        viewModel.sendTestNotification()
+    }
     /// Stops native playback, then runs the shared logout (server revoke + local teardown).
     ///
     /// The shared `LogoutUseCase` clears playback through `PlaybackStateProvider` too, but on iOS
@@ -113,6 +134,35 @@ final class SettingsObserver {
             stopPlayback: stopPlayback,
             clearSession: { self.viewModel.signOut() }
         )
+    }
+}
+
+/// Where a Send a test notification stands, as a value the row renders and the tests pin.
+///
+/// "Sent" means the server accepted the push, not that it arrived: whether a notification appears is the relay's,
+/// the OS's and the permission's business, and the gap between the two is what the user is checking. A refusal
+/// carries the typed error's message; the shared error alert reports it too.
+enum TestNotificationStatus: Equatable {
+    case idle, sending, sent
+    case failed(message: String)
+
+    init(_ event: SettingsEvent) {
+        switch event.sealedType() {
+        case .testNotificationSent: self = .sent
+        case .testNotificationFailed(let failed): self = .failed(message: failed.value.error.message)
+        }
+    }
+
+    /// A send is in flight: the row holds still until its answer.
+    var isSending: Bool { self == .sending }
+
+    /// The row's subtitle: what the button does, or what the last send came to.
+    var detail: String {
+        switch self {
+        case .idle, .sending: String(localized: "settings.test_notification_subtitle")
+        case .sent: String(localized: "settings.test_notification_sent")
+        case .failed(let message): message
+        }
     }
 }
 
