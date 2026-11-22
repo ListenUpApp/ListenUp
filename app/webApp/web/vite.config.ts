@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import type { ServerResponse } from 'node:http'
 
 // The Kotlin compiler is the only thing KGP still owns: it emits ES modules and stops. Which
 // variant those are — development or production, i.e. with DCE and minification or without —
@@ -71,8 +72,29 @@ const emitIndexHtmlForSpecs = {
   },
 }
 
+// A segment the server has refused for good, for the specs that prove the web player stops on one
+// instead of retrying it (#1742): a 500 carrying the typed TranscodeFailed error, exactly as the
+// HLS route answers. Dev server only: the specs run there, and nothing ships it.
+const kotestRefusedSegment = {
+  name: 'kotest-refused-segment',
+  configureServer(server: {
+    middlewares: { use(path: string, handler: (req: unknown, res: ServerResponse) => void): void }
+  }) {
+    server.middlewares.use('/kotest-refused-segment', (_req, res) => {
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json')
+      res.end(
+        JSON.stringify({
+          type: 'Failure',
+          error: { type: 'TranscodeError.TranscodeFailed', correlationId: 'kotest-ref', debugInfo: 'refused by the spec' },
+        }),
+      )
+    })
+  },
+}
+
 export default defineConfig({
-  plugins: [emitIndexHtmlForSpecs],
+  plugins: [emitIndexHtmlForSpecs, kotestRefusedSegment],
   resolve: {
     alias: {
       // Pins the bare import of @sqlite.org/sqlite-wasm to this project's installed copy,

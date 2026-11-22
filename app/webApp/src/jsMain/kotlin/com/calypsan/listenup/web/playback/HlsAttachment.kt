@@ -77,14 +77,18 @@ internal class HlsLibrary(
  * request got no status at all). A server error retries only when [MediaFailure] says the same
  * request can succeed (502, 503, 504); hls.js's own rules decide everything else.
  *
- * ⛔ hls.js retries a 500 six times over about thirty seconds by default, and the stall watch
- * gives up at ten, so a segment the server could never produce surfaced as a dropped connection —
- * with a Retry button that could only loop (#1742).
+ * ⛔ hls.js retries a 500 without end on a single-rendition stream, and the stall watch gives up at
+ * ten seconds, so a segment the server could never produce surfaced as a dropped connection — with
+ * a Retry button that could only loop (#1742). Consulted twice: as hls.js's retry hook, so the
+ * refused request is not re-fired at once, and by [attachHls], which makes the refusal fatal.
  */
 internal fun retriesSegmentAfter(status: Int?): Boolean =
     status == null || status < HTTP_SERVER_ERROR || MediaFailure.of(status, body = null) == MediaFailure.Transient
 
 private const val HTTP_SERVER_ERROR = 500
+
+/** hls.js's `type` for a failed request. */
+private const val NETWORK_ERROR = "networkError"
 
 /**
  * hls.js's defaults with [retriesSegmentAfter] consulted before every media-segment retry. Copied
@@ -241,7 +245,8 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * awaits that before the first HLS segment, so attaching stays synchronous from then on (a segment
  * advance fires from a media event, where there is nothing to suspend).
  *
- * @param onFatalError invoked when hls.js gives up, with what it said and, for a request, what the server replied.
+ * @param onFatalError invoked when hls.js gives up, or when the server refused a segment for good
+ *   ([retriesSegmentAfter]), with what hls.js said and, for a request, what the server replied.
  * @param onFragmentLoaded invoked each time hls.js lands a media fragment, however slowly: the progress a
  *   [PlaybackStallWatch] needs to tell a slow stream from a dead one.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
@@ -258,8 +263,13 @@ internal fun attachHls(
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
             val error = data.unsafeCast<HlsErrorEvent>()
-            if (error.fatal) {
-                onFatalError(HlsFatalError(error.type, error.details, statusOf(error.response), bodyOf(error.networkDetails)))
+            val status = statusOf(error.response)
+            // hls.js never gives up on a segment of a single-rendition stream: declining its retry
+            // only parks the error as "resolved" and it re-requests on its own clock, forever. So a
+            // segment the server refused for good is fatal by our own decision, not hls.js's.
+            val refused = error.type == NETWORK_ERROR && status != null && !retriesSegmentAfter(status)
+            if (error.fatal || refused) {
+                onFatalError(HlsFatalError(error.type, error.details, status, bodyOf(error.networkDetails)))
             }
         }
         hls.on(HLS_FRAG_LOADED_EVENT) { _, _ -> onFragmentLoaded() }
