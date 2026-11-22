@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.download
 import app.cash.turbine.test
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
@@ -21,6 +22,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -288,6 +290,52 @@ class BookTransferRunTest :
                     waiting.pauseReason shouldBe DownloadPauseReason.NETWORK_LOST
                     waiting.retryCount shouldBe 0
                     waiting.stopReason shouldBe DownloadStopReason.NETWORK_LOST
+                }
+            }
+        }
+
+        test("a full disk, told by its type, fails the file, tells the person, and is not retried") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED))
+                    downloader.scripts["f0"] = {
+                        AppResult.Failure(DownloadError.InsufficientStorage(debugInfo = "ENOSPC (No space left on device)"))
+                    }
+
+                    errorBus.errors.test {
+                        run.run("b1", RecordingHost()) shouldBe BookTransferOutcome.GAVE_UP
+                        awaitItem().shouldBeInstanceOf<DownloadError.InsufficientStorage>()
+                    }
+
+                    val failed = row("f0")
+                    failed.state shouldBe DownloadState.FAILED
+                    failed.lastErrorCode shouldBe DownloadError.InsufficientStorage().code
+                }
+            }
+        }
+
+        // A lost connection's debugInfo names the host, and a self-hosted box is plausibly called storage.lan.
+        test("a lost connection to a server called storage.lan waits for the network and is not taken for a full disk") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED))
+                    downloader.scripts["f0"] = {
+                        AppResult.Failure(
+                            TransportError.NetworkUnavailable(
+                                debugInfo = "Failed to connect to storage.lan/192.168.1.10:8080",
+                            ),
+                        )
+                    }
+
+                    errorBus.errors.test {
+                        run.run("b1", RecordingHost()) shouldBe BookTransferOutcome.RETRY_LATER
+                        expectNoEvents()
+                    }
+
+                    val waiting = row("f0")
+                    waiting.state shouldBe DownloadState.PAUSED
+                    waiting.pauseReason shouldBe DownloadPauseReason.NETWORK_LOST
+                    waiting.retryCount shouldBe 0
                 }
             }
         }
