@@ -17,6 +17,8 @@ final class ContributorDetailObserver {
     private(set) var roleSections: [RoleSectionRow] = []
     private(set) var bookProgress: [String: ListeningProgress] = [:]
     private(set) var isDeleting: Bool = false
+    /// Why the last delete was refused, shown until dismissed; nil when there is nothing to say.
+    private(set) var deleteRefusal: String?
     /// May edit this contributor and match its metadata (Edit metadata).
     private(set) var canEditMetadata: Bool = false
     /// May delete this contributor (Curate library).
@@ -96,9 +98,14 @@ final class ContributorDetailObserver {
         viewModel.confirmDelete()
     }
 
+    /// The refusal was read: the ViewModel clears it, and the next state hides the alert.
+    func dismissDeleteRefusal() {
+        viewModel.dismissDeleteError()
+    }
+
     // MARK: - State mapping
 
-    private func apply(_ state: ContributorDetailUiState) {
+    func apply(_ state: ContributorDetailUiState) {
         switch state.sealedType() {
         case .idle, .loading:
             isLoading = true
@@ -125,6 +132,7 @@ final class ContributorDetailObserver {
             roleSections = r.roleSections.map { RoleSectionRow($0) }
             bookProgress = ListeningProgress.byBookId(r.bookProgress)
             isDeleting = r.isDeleting
+            deleteRefusal = r.deleteError
             canEditMetadata = r.canEditMetadata
             canCurateLibrary = r.canCurateLibrary
             series = r.series.map { SeriesRow($0) }
